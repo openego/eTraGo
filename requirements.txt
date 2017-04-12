@@ -3,10 +3,10 @@
 
 
 # ego powerflow repo on specific commit 
--e git+https://github.com/openego/ego.powerflow.git@commit/feb87e80dcb9791e89ebe4d5dfb2c7e1aa8cad6d#egg=ego.powerflow
+-e git+https://github.com/openego/ego.powerflow.git@feb87e80dcb9791e89ebe4d5dfb2c7e1aa8cad6d#egg=ego.powerflow
 
 # ego-io repo on specific commit 
--e git+https://github.com/openego/ego.io.git@commit/c29f0dafedf834fdd73127e4a5f9f0d0db6847b8#egg=ego.io
+-e git+https://github.com/openego/ego.io.git@c29f0dafedf834fdd73127e4a5f9f0d0db6847b8#egg=ego.io
 
 # eGo PyPSA fork on featurs/clustering branch
 -e git+https://github.com/openego/PyPSA.git@features/snapshot_clustering#egg=PyPSA
