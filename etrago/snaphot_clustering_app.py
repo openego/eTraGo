@@ -16,7 +16,7 @@ from egopowerflow.tools.plot import add_coordinates
 from egoio.db_tables.calc_ego_hv_powerflow import Bus, Line, Generator, Load, \
     Transformer, TempResolution, GeneratorPqSet, LoadPqSet, Source, \
     StorageUnit
-from egopowerflow.tools.cluster import update_data_frames, prepare_network, \
+from cluster.snapshot import update_data_frames, prepare_network, \
     linkage, fcluster, get_medoids
 from pypsa.opf import network_lopf
 import pyomo.environ as po
