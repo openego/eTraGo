@@ -1,0 +1,12 @@
+# use pip install -r requirements.txt to setup your virtualenv 
+# for snapshot clustering
+
+
+# ego powerflow repo on specific commit 
+-e git+https://github.com/openego/ego.powerflow/commit/feb87e80dcb9791e89ebe4d5dfb2c7e1aa8cad6d
+
+# ego-io repo on specific commit 
+-e git+https://github.com/openego/ego.io/commit/c29f0dafedf834fdd73127e4a5f9f0d0db6847b8
+
+# eGo PyPSA fork on featurs/clustering branch
+-e git+https://github.com/openego/PyPSA/tree/features/snapshot_clustering
