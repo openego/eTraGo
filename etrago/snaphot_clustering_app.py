@@ -1,4 +1,4 @@
-""" 
+"""
 """
 
 __copyright__ = "tba"
@@ -22,9 +22,8 @@ from pypsa.opf import network_lopf
 import pyomo.environ as po
 ###############################################################################
 def daily_bounds(network, snapshots):
+    """ This will bound the storage level to 0.5 max_level every 24th hour.
     """
-    """
-
     if network.cluster:
 
         sus = network.storage_units
@@ -50,9 +49,9 @@ def results_to_csv(network, path):
         os.makedirs(path, exist_ok=True)
 
     network.export_to_csv_folder(path, verbose=True)
-    data = pd.read_csv(os.path.join(path,'network.csv'))
+    data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
-    data.to_csv(os.path.join(path,'network.csv'))
+    data.to_csv(os.path.join(path, 'network.csv'))
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(path.strip('0123456789')) if i=='Z.csv']
@@ -95,6 +94,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         df, n_groups = prepare_network(network, how=how, normed=normed)
 
         Z = linkage(df, n_groups)
+
         network.Z = pd.DataFrame(Z)
 
         clusters = fcluster(df, Z, n_groups, n_clusters)
@@ -195,34 +195,24 @@ network.storage_units.marginal_cost = 0
 # Run scenarios .....
 ###############################################################################
 
-clusters = [] #[7] +  [i*7*2 for i in range(1,7)]
+how = 'daily'
+clusters = [4] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = False
-scenario = pd.read_csv('scenario.csv', index_col=0)
-scn_name = 'med'
-resultspath = os.path.join('results', scn_name)
 
+home = os.path.expanduser("~")
+resultspath = os.path.join(home, 'results', scenario)
 
-manipulate_storage_invest(network=network,
-                          costs=scenario.loc[scn_name]['storage_cost'])
-
+# This will calculate the original problem
 run(network=network.copy(), path=resultspath,
     write_results=write_results, n_clusters=None)
 
-how = scenario.loc[scn_name]['clustering']
-
-if how == 'daily':
-    clusters = clusters
-if how ==  'weekly':
-    clusters = [int(c / 7) for c in clusters]
-
+# This will claculate the aggregated problems
 for c in clusters:
     path = os.path.join(resultspath, how)
 
     run(network=network.copy(), path=path,
         write_results=write_results, n_clusters=c,
         how=how, normed=False)
-
-
 
 session.close()
 
