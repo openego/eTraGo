@@ -200,7 +200,7 @@ clusters = [4] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = False
 
 home = os.path.expanduser("~")
-resultspath = os.path.join(home, 'results', scenario)
+resultspath = os.path.join(home, 'snapshot-clustering-results', scenario)
 
 # This will calculate the original problem
 run(network=network.copy(), path=resultspath,
