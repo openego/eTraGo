@@ -13,9 +13,12 @@ from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import get_timerange, import_components, import_pq_sets,\
     add_source_types, create_powerflow_problem
 from egopowerflow.tools.plot import add_coordinates
-from egoio.db_tables.calc_ego_hv_powerflow import Bus, Line, Generator, Load, \
-    Transformer, TempResolution, GeneratorPqSet, LoadPqSet, Source, \
-    StorageUnit
+
+from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine as Line, EgoGridPfHvGenerator as Generator, EgoGridPfHvLoad as Load,\
+    EgoGridPfHvTransformer as Transformer, EgoGridPfHvTempResolution as TempResolution, EgoGridPfHvGeneratorPqSet as GeneratorPqSet,\
+    EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source, EgoGridPfHvStorage as StorageUnit
+    #, EgoGridPfHvStoragePqSet as Storage
+
 from cluster.snapshot import update_data_frames, prepare_network, \
     linkage, fcluster, get_medoids
 from pypsa.opf import network_lopf
@@ -129,9 +132,9 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     return network
 
 ###############################################################################
-session = oedb_session('oedb')
+session = oedb_session('open_ego')
 
-scenario = 'SH_Status_Quo_stor_EHV'
+scenario = 'SH Status Quo'
 
 # define relevant tables of generator table
 pq_set_cols_1 = ['p_set']
@@ -142,7 +145,7 @@ storage_sets = ['inflow'] # or: p_set, q_set, p_min_pu, p_max_pu, soc_set, inflo
 # choose relevant parameters used in pf
 temp_id_set = 1
 start_h = 1
-end_h = 8760
+end_h = 5
 # define investigated time range
 timerange = get_timerange(session, temp_id_set, TempResolution, start_h, end_h)
 
