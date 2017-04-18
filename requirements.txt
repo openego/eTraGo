@@ -3,7 +3,7 @@
 
 
 # ego powerflow repo on specific commit 
--e git+https://github.com/openego/ego.powerflow.git@00cdcfb23eb4f9c073235a691020d9c2b98aef30#egg=ego.powerflow
+-e git+https://github.com/openego/ego.powerflow.git@5dadbf5aed67d3fe280457d505833c3ebbcbc203#egg=ego.powerflow
 
 # ego-io repo on specific commit 
 -e git+https://github.com/openego/ego.io.git@c29f0dafedf834fdd73127e4a5f9f0d0db6847b8#egg=ego.io
