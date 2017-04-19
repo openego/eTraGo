@@ -51,7 +51,7 @@ def results_to_csv(network, path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-    network.export_to_csv_folder(path, verbose=True)
+    network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
     data.to_csv(os.path.join(path, 'network.csv'))
@@ -200,7 +200,7 @@ network.storage_units.marginal_cost = 0
 
 how = 'daily'
 clusters = [4] #[7] +  [i*7*2 for i in range(1,7)]
-write_results = False
+write_results = True
 
 home = os.path.expanduser("~")
 resultspath = os.path.join(home, 'snapshot-clustering-results', scenario)
