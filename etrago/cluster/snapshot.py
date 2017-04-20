@@ -42,18 +42,15 @@ def prepare_network(network, how='daily', normed=True):
 
     """
 
-    # select renewable generators from pyPSA generator dataframe
-    renewables = network.generators[
-                   network.generators['dispatch'] == 'variable'].index.tolist()
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
-        normed_renewables = network.generators_t.p_max_pu[renewables]
+        normed_renewables = network.generators_t.p_max_pu
 
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
         loads = network.loads_t.p_set
-        renewables = network.generators_t.p_set[renewables]
+        renewables = network.generators_t.p_set
         df = pd.concat([renewables, loads], axis=1)
     df.index.name = 'datetime'
 
