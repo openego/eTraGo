@@ -52,7 +52,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     aggregate_one_ports = components.one_port_components.copy()
 
     for one_port in aggregate_one_ports:
-        print(one_port)
         new_df, new_pnl = aggregateoneport(network, busmap, component=one_port, with_time=with_time)
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
