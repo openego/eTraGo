@@ -69,8 +69,8 @@ def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
     crf = (1 / wacc) - (wacc / ((1 + wacc) ** lifetime))
     network.storage_units.capital_cost = costs / crf
 
-def write_lpfile(network=None):
-    network.model.write('file.lp',
+def write_lpfile(network=None, path=None):
+    network.model.write(path,
                         io_options={'symbolic_solver_labels':True})
 
 def fix_storage_capacity(resultspath, n_clusters):
@@ -104,7 +104,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
         medoids = get_medoids(clusters)
 
-        update_data_frames(network, medoids, squeze=True)
+        update_data_frames(network, medoids)
 
         snapshots = network.snapshots
 
@@ -124,7 +124,8 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     network_lopf(network, snapshots, extra_functionality=daily_bounds,
                  solver_name='gurobi')
 
-    #write_lpfile(network)
+    #write_lpfile(network, path=os.path.join(path, "file.lp"))
+
     # write results to csv
     if write_results:
         results_to_csv(network, path)

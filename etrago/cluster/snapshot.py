@@ -235,32 +235,6 @@ def update_data_frames(network, medoids, squeze=False):
     for m in medoids:
         network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
 
-    if squeze:
-        # replace p_sets with new dataframes, therefore create empty data
-        l = network.loads_t.p_set.loc[dates]
-        network.loads_t.p_set = l
-        network.loads_t.p_set.dropna(inplace=True)
-
-        g = network.generators_t.p_max_pu.loc[dates]
-        network.generators_t.p_max_pu = g
-        network.generators_t.p_max_pu.dropna(inplace=True)
-
-        g1 = network.generators_t.p_set.loc[dates]
-        network.generators_t.p_set = g1
-        network.generators_t.p_set.dropna(inplace=True)
-        # p (results)
-#        s = network.storage_units_t.p.loc[dates]
-#        network.storage_units_t.p = s
-#        network.storage_units_t.p.dropna(inplace=True)
-#
-#        l1 = network.loads_t.p.loc[dates]
-#        network.loads_t.p = l1
-#        network.loads_t.p.dropna(inplace=True)
-#
-#        g2 = network.generators_t.p.loc[dates]
-#        network.generators_t.p = g2
-#        network.generators_t.p.dropna(inplace=True)
-
     # set snapshots based on manipulated snapshot weighting index
     network.snapshots = network.snapshot_weightings.index
     network.snapshots = network.snapshots.sort_values()
