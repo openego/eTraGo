@@ -189,18 +189,17 @@ network = import_pq_sets(session=session,
                          start_h=start_h,
                          end_h=end_h)
 
-
+network.storage_units.p_nom_extendable = True
 network.storage_units.p_min_pu_fixed = -1
 network.storage_units.p_nom = 0
 network.storage_units.cyclic_state_of_charge = True
-network.storage_units.marginal_cost = 0
 
 ###############################################################################
 # Run scenarios .....
 ###############################################################################
 
 how = 'daily'
-clusters = [4] #[7] +  [i*7*2 for i in range(1,7)]
+clusters = [5] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = True
 
 home = os.path.expanduser("~")
