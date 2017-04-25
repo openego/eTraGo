@@ -19,8 +19,7 @@ from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine a
     EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source, EgoGridPfHvStorage as StorageUnit
     #, EgoGridPfHvStoragePqSet as Storage
 
-from cluster.snapshot import update_data_frames, prepare_network, \
-    linkage, fcluster, get_medoids
+from cluster.snapshot import group, linkage, fcluster, get_medoids
 from pypsa.opf import network_lopf
 import pyomo.environ as po
 ###############################################################################
@@ -82,6 +81,62 @@ def fix_storage_capacity(resultspath, n_clusters):
 
     return resultspath
 
+def prepare_pypsa_timeseries(network, normed=False):
+    """
+    """
+
+    if normed:
+        normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
+        normed_renewables = network.generators_t.p_max_pu
+
+        df = pd.concat([normed_renewables,
+                        normed_loads], axis=1)
+    else:
+        loads = network.loads_t.p_set
+        renewables = network.generators_t.p_set
+        df = pd.concat([renewables, loads], axis=1)
+
+
+    return df
+
+def update_data_frames(network, medoids):
+    """ Updates the snapshots, snapshots weights and the dataframes based on
+    the original data in the network and the medoids created by clustering
+    these original data.
+
+    Parameters
+    -----------
+    network : pyPSA network object
+    medoids : dictionary
+        dictionary with medoids created by 'cluster'-function (s.above)
+
+
+    Returns
+    -------
+    network
+
+    """
+    # merge all the dates
+    dates = medoids[1]['dates'].append(other=[medoids[m]['dates']
+                                       for m in medoids])
+    # remove duplicates
+    dates = dates.unique()
+    # sort the index
+    dates = dates.sort_values()
+
+    # set snapshots weights
+    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
+    for m in medoids:
+        network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
+
+    # set snapshots based on manipulated snapshot weighting index
+    network.snapshots = network.snapshot_weightings.index
+    network.snapshots = network.snapshots.sort_values()
+
+    return network
+
+
+
 def run(network, path, write_results=False, n_clusters=None, how='daily',
         normed=False):
     """
@@ -94,7 +149,10 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         network.cluster = True
 
         # calculate clusters
-        df, n_groups = prepare_network(network, how=how, normed=normed)
+
+        timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
+
+        df, n_groups = group(timeseries_df, how=how)
 
         Z = linkage(df, n_groups)
 

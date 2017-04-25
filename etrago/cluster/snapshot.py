@@ -18,41 +18,27 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "Simon Hilpert"
 
-
-import pdb
+import logging
 import pandas as pd
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
 
-def prepare_network(network, how='daily', normed=True):
+def group(df, how='daily'):
     """ Hierachical clustering of timeseries returning the linkage matrix
 
     Parameters
     -----------
-    network : pyPSA network object
+    df : pandas DataFrame with timeseries to cluster
 
     how : string
        String indicating how to cluster: 'weekly', 'daily' or 'hourly'
-    normed : boolean
-        If True: normed timeseries will be used for clustering, if False,
-        absolute  timeseries of loads and renewable-production will be
-        used for clustering
-
-
     """
 
-    if normed:
-        normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
-        normed_renewables = network.generators_t.p_max_pu
+    if df.index.name != 'datetime':
+        logging.info('Setting the name of your pd-DataFrame index to: datetime.')
+        df.index.name = 'datetime'
 
-        df = pd.concat([normed_renewables,
-                        normed_loads], axis=1)
-    else:
-        loads = network.loads_t.p_set
-        renewables = network.generators_t.p_set
-        df = pd.concat([renewables, loads], axis=1)
-    df.index.name = 'datetime'
 
     if how == 'daily':
         df['group'] = df.index.dayofyear
@@ -92,7 +78,11 @@ def prepare_network(network, how='daily', normed=True):
 
     return df, n_groups
 
-def linkage(df, n_groups):
+def linkage(df, n_groups, method='ward', metric='euclidean'):
+    """
+    """
+
+    logging.info("Computing distance matrix...")
     # create the distance matrix based on the forbenius norm: |A-B|_F where A is
     # a 24 x N matrix with N the number of timeseries inside the dataframe df
     # TODO: We can save have time as we only need the upper triangle once as the
@@ -109,8 +99,11 @@ def linkage(df, n_groups):
 
     # condensed distance matrix as vector for linkage (upper triangle as a vector)
     y = Y[np.triu_indices(n_groups, 1)]
-    # create linkage matrix with wards algorithm an euclidean norm
-    Z = hac.linkage(y, method='ward', metric='euclidean')
+    # create linkage matrix with wards algorithm and euclidean norm
+
+    logging.info("Computing linkage Z with method: {0}" \
+                 " and metric: {1}...".format(method, metric))
+    Z = hac.linkage(y, method=method, metric=metric)
     # R = hac.inconsistent(Z, d=10)
     return Z
 
@@ -166,7 +159,7 @@ def get_medoids(df):
     cluster_ids = [i for i in df.index.get_level_values('cluster_id').unique()
                    if not np.isnan(i)]
     for c in cluster_ids:
-        print('Computing medoid for cluster: ', c, '...')
+        logging.info('Computing medoid for cluster: {})'.format(c))
         # days in the cluster is the df subset indexed by the cluster id 'c'
         cluster_group[c] = df.loc[c]
         # the size for daily clusters is the length of all hourly vals / 24
@@ -202,42 +195,4 @@ def get_medoids(df):
 
     return medoids
 
-def update_data_frames(network, medoids, squeze=False):
-    """ Updates the snapshots, snapshots weights and the dataframes based on
-    the original data in the network and the medoids created by clustering
-    these original data.
-
-    Parameters
-    -----------
-    network : pyPSA network object
-    medoids : dictionary
-        dictionary with medoids created by 'cluster'-function (s.above)
-    squeze : Boolean
-        Remove data from pyPSA dataframe except the selected medoids (this
-        is not necessary as if the snapshots are set correctly this data
-        will be skipped anyway. But it can be beneficial for processing.)
-
-    Returns
-    -------
-    network
-
-    """
-    # merge all the dates
-    dates = medoids[1]['dates'].append(other=[medoids[m]['dates']
-                                       for m in medoids])
-    # remove duplicates
-    dates = dates.unique()
-    # sort the index
-    dates = dates.sort_values()
-
-    # set snapshots weights
-    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
-    for m in medoids:
-        network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
-
-    # set snapshots based on manipulated snapshot weighting index
-    network.snapshots = network.snapshot_weightings.index
-    network.snapshots = network.snapshots.sort_values()
-
-    return network
 
