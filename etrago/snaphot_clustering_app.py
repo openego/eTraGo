@@ -182,18 +182,20 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     network_lopf(network, snapshots, extra_functionality=daily_bounds,
                  solver_name='gurobi')
 
-    #write_lpfile(network, path=os.path.join(path, "file.lp"))
+
 
     # write results to csv
     if write_results:
         results_to_csv(network, path)
+
+        #write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
 
 ###############################################################################
 session = oedb_session('open_ego')
 
-scenario = 'SH Status Quo'
+scenario = 'SH NEP 2035'
 
 # define relevant tables of generator table
 pq_set_cols_1 = ['p_set']
@@ -247,17 +249,18 @@ network = import_pq_sets(session=session,
                          start_h=start_h,
                          end_h=end_h)
 
+#network.storage_units.capital_cost = network.storage_units.capital_cost / 1000
 network.storage_units.p_nom_extendable = True
 network.storage_units.p_min_pu_fixed = -1
-network.storage_units.p_nom = 0
-network.storage_units.cyclic_state_of_charge = True
+#network.storage_units.soc_cyclic = True
+#network.storage_units.p_nom_min = 0
 
 ###############################################################################
 # Run scenarios .....
 ###############################################################################
 
 how = 'daily'
-clusters = [5] #[7] +  [i*7*2 for i in range(1,7)]
+clusters = [] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = True
 
 home = os.path.expanduser("~")
@@ -267,13 +270,14 @@ resultspath = os.path.join(home, 'snapshot-clustering-results', scenario)
 run(network=network.copy(), path=resultspath,
     write_results=write_results, n_clusters=None)
 
-# This will claculate the aggregated problems
-for c in clusters:
-    path = os.path.join(resultspath, how)
+if clusters:
+    # This will claculate the aggregated problems
+    for c in clusters:
+        path = os.path.join(resultspath, how)
 
-    run(network=network.copy(), path=path,
-        write_results=write_results, n_clusters=c,
-        how=how, normed=False)
+        run(network=network.copy(), path=path,
+            write_results=write_results, n_clusters=c,
+            how=how, normed=False)
 
 session.close()
 
