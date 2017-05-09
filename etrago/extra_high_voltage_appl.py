@@ -23,7 +23,7 @@ from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_vo
 
 session = oedb_session('open_ego')
 
-scenario = 'SH Status Quo'
+scenario = 'Status Quo'
 
 # define relevant tables of generator table
 pq_set_cols_1 = ['p_set']
@@ -93,14 +93,8 @@ network = add_coordinates(network)
 # add source names to generators
 add_source_types(session, network, table=Source)
 
-# add 220-380kV connection from Lübeck to Siems
-network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1)
-network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
-
-
-network.lines.s_nom = network.lines.s_nom*1.5
-network.transformers.s_nom = network.transformers.s_nom*1.5
+#network.lines.s_nom = network.lines.s_nom*1.5
+#network.transformers.s_nom = network.transformers.s_nom*1.5
 
 network.generators.control="PV"
 
