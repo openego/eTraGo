@@ -1,5 +1,5 @@
 from extras.utilities import *
-from pypsa.networkclustering import aggregatebuses, aggregateoneport
+from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators
 from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from itertools import product
 import networkx as nx
@@ -49,7 +49,16 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         network_c.now = network.now
         network_c.set_snapshots(network.snapshots)
 
+    # dealing with generators
+    network.generators['weight'] = 1
+    new_df, new_pnl = aggregategenerators(network, busmap, with_time)
+    io.import_components_from_dataframe(network_c, new_df, 'Generator')
+    for attr, df in iteritems(new_pnl):
+        io.import_series_from_dataframe(network_c, df, 'Generator', attr)
+
+    # dealing with all other components
     aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
         new_df, new_pnl = aggregateoneport(network, busmap, component=one_port, with_time=with_time)
