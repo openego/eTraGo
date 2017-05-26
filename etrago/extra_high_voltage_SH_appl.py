@@ -95,7 +95,7 @@ add_source_types(session, network, table=Source)
 
 #add connection from Luebeck to Siems
 network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1)
+network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=4000)
 network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
 
 
@@ -106,7 +106,7 @@ network.generators.control="PV"
 
 busmap = busmap_from_psql(network, session, scn_name=scenario)
 
-#network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 # start powerflow calculat#ions
 network.lopf(snapshots, solver_name='gurobi')
