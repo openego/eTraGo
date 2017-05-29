@@ -112,7 +112,7 @@ dict(marginal_cost=1e4,
 # willingness to pay
 # http://journal.frontiersin.org/article/10.3389/fenrg.2015.00055/full
 p_nom=1e6,
-carrier='load',
+carrier='load shedding',
 bus=network.buses.index),
 index=network.buses.index + ' load'),
 "Generator"
