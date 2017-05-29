@@ -21,6 +21,8 @@ from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine a
     EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
+import pandas as pd
+
 session = oedb_session()
 
 scenario = 'SH Status Quo'
@@ -95,12 +97,27 @@ add_source_types(session, network, table=Source)
 
 #add connection from Luebeck to Siems
 network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=4000)
+network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1)
 network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
 
 
 #network.lines.s_nom = network.lines.s_nom*1.5
 #network.transformers.s_nom = network.transformers.s_nom*1.5
+
+network.add("Carrier", "load")
+network.import_components_from_dataframe(
+pd.DataFrame(
+dict(marginal_cost=1e4,
+# intersect between macroeconomic and surveybased
+# willingness to pay
+# http://journal.frontiersin.org/article/10.3389/fenrg.2015.00055/full
+p_nom=1e6,
+carrier='load',
+bus=network.buses.index),
+index=network.buses.index + ' load'),
+"Generator"
+)
+
 
 network.generators.control="PV"
 
