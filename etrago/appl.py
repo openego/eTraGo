@@ -88,7 +88,11 @@ network = import_pq_sets(session=session,
 #                         scenario=scenario, 
 #                         columns=storage_sets,                         
 #                         start_h=start_h,
-#                         end_h=end_h)                    
+#                         end_h=end_h)          
+
+# set virtual storages to be extendable
+network.storage_units.p_nom_extendable = True
+#network.storage_units.soc_cyclic = True        
 
 # add coordinates to network nodes and make ready for map plotting
 network = add_coordinates(network)
