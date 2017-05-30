@@ -86,12 +86,12 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding (network, marginal_cost=1e4, p_nom=1e6): 
+def load_shedding (network, **kwargs):
     """ Implement load shedding in existing network to identify feasibility problems
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    marginal_cost : int 
+    marginal_cost : int
         Marginal costs for load shedding
     p_nom : int
         Installed capacity of load shedding generator
@@ -99,6 +99,12 @@ def load_shedding (network, marginal_cost=1e4, p_nom=1e6):
     -------
 
     """
+
+    marginal_cost_def = network.generators.marginal_cost.max()*2
+    p_nom_def = network.loads_t.p_set.max().max()
+
+    marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
+    p_nom = kwargs.get('p_nom', p_nom_def)
 
     network.add("Carrier", "load")
     network.import_components_from_dataframe(
@@ -111,4 +117,4 @@ def load_shedding (network, marginal_cost=1e4, p_nom=1e6):
     "Generator"
     )
 
-    return 
+    return
