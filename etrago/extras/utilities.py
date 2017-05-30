@@ -84,3 +84,31 @@ def connected_transformer(network, busids):
     mask = (network.transformers.bus0.isin(busids))
 
     return network.transformers[mask]
+
+
+def load_shedding (network, marginal_cost=1e4, p_nom=1e6): 
+    """ Implement load shedding in existing network to identify feasibility problems
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    marginal_cost : int 
+        Marginal costs for load shedding
+    p_nom : int
+        Installed capacity of load shedding generator
+    Returns
+    -------
+
+    """
+
+    network.add("Carrier", "load")
+    network.import_components_from_dataframe(
+    pd.DataFrame(
+    dict(marginal_cost=marginal_cost,
+    p_nom=p_nom,
+    carrier='load shedding',
+    bus=network.buses.index),
+    index=network.buses.index + ' load'),
+    "Generator"
+    )
+
+    return 
