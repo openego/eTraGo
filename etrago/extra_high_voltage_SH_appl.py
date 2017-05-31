@@ -21,7 +21,7 @@ from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine a
     EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from extras.utilities import load_shedding
-
+from pyomo.environ import Objective
 
 session = oedb_session()
 
@@ -108,25 +108,26 @@ network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom
 
 network.generators.control="PV"
 
-busmap = busmap_from_psql(network, session, scn_name=scenario)
+#busmap = busmap_from_psql(network, session, scn_name=scenario)
 
-network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+#network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 #load shedding in order to hunt infeasibilities
 #load_shedding(network)
 
 
 
-#def extra_functionality(network,snapshots):
-         
-#    def line_loading(network,snapshot):
-#    return sum over all passive branch flows *2
-        
-#   #add an additional objective function in order to minimize line loading
-#   network.model.passive_branch_p = Objective(rule=line_loading, sense=minimize)
+def extra_functionality(network,snapshots):
+    network.model.objective.add(sum(network.model.passive_branch_p))         
+#    def line_loading(model):
+#
+#        return sum(model.passive_branch_p)
+#      
+#    #add an additional objective function in order to minimize line loading
+#    network.model.passive_branch_p = Objective(rule=line_loading)
 
 # start powerflow calculations
-network.lopf(snapshots, solver_name='gurobi')
+network.lopf(snapshots, solver_name='gurobi', extra_functionality=extra_functionality)
 
 network.model.write('/home/ulf/file.lp', io_options={'symbolic_solver_labels':True})
 
