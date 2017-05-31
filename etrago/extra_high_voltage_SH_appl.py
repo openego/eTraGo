@@ -118,7 +118,7 @@ network.generators.control="PV"
 
 
 def extra_functionality(network,snapshots):
-    network.model.objective.add(sum(network.model.passive_branch_p))         
+    network.model.objective = network.model.objective.add(expr=sum(network.lines_t.p0.abs().sum()), index= None)         
 #    def line_loading(model):
 #
 #        return sum(model.passive_branch_p)
@@ -127,7 +127,7 @@ def extra_functionality(network,snapshots):
 #    network.model.passive_branch_p = Objective(rule=line_loading)
 
 # start powerflow calculations
-network.lopf(snapshots, solver_name='gurobi', extra_functionality=extra_functionality)
+network.lopf(snapshots, solver_name='gurobi', extra_functionality=None)
 
 network.model.write('/home/ulf/file.lp', io_options={'symbolic_solver_labels':True})
 
