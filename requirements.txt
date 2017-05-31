@@ -9,4 +9,4 @@
 -e git+https://github.com/openego/ego.io.git@/refactor/upgrade-to-pypsa-0.8#egg=ego.io
 
 # eGo PyPSA fork on network-clustering https://github.com/openego/PyPSA/tree/features/network-clustering
--e git+https://github.com/openego/PyPSA.git@features/network-clustering#egg=PyPSA
+-e git+https://github.com/openego/PyPSA.git@dev#egg=PyPSA
