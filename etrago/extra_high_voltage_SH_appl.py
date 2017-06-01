@@ -21,7 +21,7 @@ from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine a
     EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from extras.utilities import load_shedding
-from pyomo.environ import Objective
+from pyomo.environ import Objective, Var
 
 session = oedb_session()
 
@@ -115,19 +115,25 @@ network.generators.control="PV"
 #load shedding in order to hunt infeasibilities
 #load_shedding(network)
 
+#  Variables
+#model.X = Var( model .P)
+
 
 
 def extra_functionality(network,snapshots):
-    network.model.objective = network.model.objective.add(expr=sum(network.lines_t.p0.abs().sum()), index= None)         
-#    def line_loading(model):
+
+   
+    network.model.objective = network.model.objective.add(expr=network.model.passive_branch_p['Line'], index=None)
+#    def line_loading(model,snapshot):
 #
-#        return sum(model.passive_branch_p)
-#      
+#       return model.passive_branch_p['line',snapshot]
+      
 #    #add an additional objective function in order to minimize line loading
-#    network.model.passive_branch_p = Objective(rule=line_loading)
+#    network.model.objective.add(expr=line_loading, index=None)
+#    #network.model.line_loading = Objective(list(snapshots),rule=line_loading)
 
 # start powerflow calculations
-network.lopf(snapshots, solver_name='gurobi', extra_functionality=None)
+network.lopf(snapshots, solver_name='gurobi', extra_functionality=extra_functionality)
 
 network.model.write('/home/ulf/file.lp', io_options={'symbolic_solver_labels':True})
 
