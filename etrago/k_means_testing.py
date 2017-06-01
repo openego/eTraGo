@@ -109,6 +109,12 @@ network.generators.control="PV"
 
 network.buses['v_nom'] = 380.
 
+# TODO adjust the x of the lines which are not 380. problem our lines have no v_nom. this is implicitly defined by the connected buses. Generally it should look something like the following:
+#lines_v_nom_b = network.lines.v_nom != 380
+#network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+#network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+
 trafo_index = network.transformers.index
 
 network.import_components_from_dataframe(
