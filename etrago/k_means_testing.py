@@ -128,7 +128,7 @@ network.transformers.drop(trafo_index, inplace=True)
 for attr in network.transformers_t:
     network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1, len(network.buses)), index=network.buses.index) , n_clusters= 10) 
+busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1, len(network.buses)), index=network.buses.index) , n_clusters= 50) 
 
 
 clustering = get_clustering_from_busmap(network, busmap)
