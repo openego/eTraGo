@@ -14,12 +14,16 @@ __author__ = "tba"
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates
 
 session = oedb_session()
+# additional arguments cfgpath, version, prefix
 scenario = NetworkScenario(session, method='lopf', start_h=1, end_h=2,
                            scn_name='Status Quo')
 network = scenario.build_network()
+
+# add coordinates
+network = add_coordinates(network)
 
 # data preparation
 network.storage_units.p_nom_extendable = True
