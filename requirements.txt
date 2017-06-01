@@ -8,5 +8,5 @@
 # ego-io repo on branch upgrade-to-pypsa-0.8: https://github.com/openego/ego.io/tree/refactor/upgrade-to-pypsa-0.8
 -e git+https://github.com/openego/ego.io.git@refactor/upgrade-to-pypsa-0.8#egg=ego.io
 
-# eGo PyPSA fork on network-clustering https://github.com/openego/PyPSA/tree/features/network-clustering
+# eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
 -e git+https://github.com/openego/PyPSA.git@dev#egg=PyPSA
