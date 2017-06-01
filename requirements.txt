@@ -7,5 +7,5 @@
 # ego-io repo on dev: https://github.com/openego/ego.io/tree/dev
 -e git+https://github.com/openego/ego.io.git@dev#egg=ego.io
 
-# eGo PyPSA fork on network-clustering https://github.com/openego/PyPSA/tree/features/network-clustering
+# eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
 -e git+https://github.com/openego/PyPSA.git@dev#egg=PyPSA
