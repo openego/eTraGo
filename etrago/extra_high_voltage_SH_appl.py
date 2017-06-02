@@ -25,7 +25,7 @@ from pyomo.environ import Objective, Var
 
 session = oedb_session()
 
-scenario = 'SH Status Quo'
+scenario = 'NEP 2035'
 
 # define relevant tables of generator table
 pq_set_cols_1 = ['p_set']
@@ -34,8 +34,8 @@ p_max_pu = ['p_max_pu']
 
 # choose relevant parameters used in pf
 temp_id_set = 1
-start_h = 2300
-end_h = 2301
+start_h = 2320
+end_h = 2321
 
 # define investigated time range
 timerange = get_timerange(session, temp_id_set, TempResolution, start_h, end_h)
@@ -104,7 +104,7 @@ network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom
 #network.lines.s_nom = network.lines.s_nom*1.5
 #network.transformers.s_nom = network.transformers.s_nom*1.5
 
-
+load_shedding(network)
 
 network.generators.control="PV"
 
@@ -115,22 +115,9 @@ network.generators.control="PV"
 #load shedding in order to hunt infeasibilities
 #load_shedding(network)
 
-#  Variables
-#model.X = Var( model .P)
-
-
-
 def extra_functionality(network,snapshots):
 
-   
-    network.model.objective = network.model.objective.add(expr=network.model.passive_branch_p['Line'], index=None)
-#    def line_loading(model,snapshot):
-#
-#       return model.passive_branch_p['line',snapshot]
-      
-#    #add an additional objective function in order to minimize line loading
-#    network.model.objective.add(expr=line_loading, index=None)
-#    #network.model.line_loading = Objective(list(snapshots),rule=line_loading)
+    network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)   
 
 # start powerflow calculations
 network.lopf(snapshots, solver_name='gurobi', extra_functionality=extra_functionality)
