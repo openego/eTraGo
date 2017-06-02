@@ -16,9 +16,9 @@ from egopowerflow.tools.io import NetworkScenario
 import time
 from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates
 
-session = oedb_session()
+session = oedb_session('oedb')
 # additional arguments cfgpath, version, prefix
-scenario = NetworkScenario(session, method='lopf', start_h=1, end_h=2,
+scenario = NetworkScenario(session,version='v0.2.10', prefix='EgoPfHv', method='lopf', start_h=1, end_h=2,
                            scn_name='Status Quo')
 network = scenario.build_network()
 
