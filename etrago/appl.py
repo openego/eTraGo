@@ -14,7 +14,8 @@ __author__ = "tba"
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment 
+from extras.utilities import load_shedding, data_manipulation_sh
 
 args = {'network_clustering':False,
         'db': 'oedb',
@@ -25,7 +26,10 @@ args = {'network_clustering':False,
         'scn_name': 'Status Quo',
         'ormcls_prefix': 'EgoGridPfHv',
         'outfile': '/home/ulf/file.lp',
-        'solver': 'gurobi'}
+        'solver': 'gurobi',
+	'branch_capacity_factor': 1,
+	'storage_extendable':False,
+	'load_shedding':False}
 
 
 session = oedb_session(args['db'])
@@ -44,9 +48,17 @@ network = scenario.build_network()
 # add coordinates
 network = add_coordinates(network)
 
-# sh scenario
+
+if args['storage_extendable']:
+	network.storage_units.p_nom_extendable = True
+
+# for SH scenario run do data preperation:
 if args['scn_name'] == 'SH Status Quo':
-    prep_sh_scenario(network)
+    data_manipulation_sh(network)
+
+#load shedding in order to hunt infeasibilities
+if args['load_shedding']:
+	load_shedding(network)
 
 # network clustering
 if args['network_clustering']:
@@ -69,9 +81,6 @@ plot_line_loading(network)
 
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
-
-# same as before, limited to one specific bus
-plot_stacked_gen(network, bus='24560', resolution='MW')
 
 # close session
 session.close()
