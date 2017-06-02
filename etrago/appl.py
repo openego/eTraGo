@@ -14,21 +14,30 @@ __author__ = "tba"
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment 
+from extras.utilities import load_shedding, data_manipulation_sh
 
 session = oedb_session('oedb')
 # additional arguments cfgpath, version, prefix
-scenario = NetworkScenario(session,version='v0.2.10', prefix='EgoPfHv', method='lopf', start_h=1, end_h=2,
-                           scn_name='Status Quo')
+scenario = NetworkScenario(session,#version='v0.2.10', prefix='EgoPfHv',
+                           method='lopf', start_h=2300, end_h=2301,
+                           scn_name='SH Status Quo')
 network = scenario.build_network()
 
 # add coordinates
 network = add_coordinates(network)
 
 # data preparation
-network.storage_units.p_nom_extendable = True
-network.lines.s_nom = network.lines.s_nom*1.5
-network.transformers.s_nom = network.transformers.s_nom*1.5
+#network.storage_units.p_nom_extendable = True
+#network.lines.s_nom = network.lines.s_nom*1.5
+#network.transformers.s_nom = network.transformers.s_nom*1.5
+
+
+# for SH scenario run do data preperation:
+data_manipulation_sh(network)
+
+#load shedding in order to hunt infeasibilities
+load_shedding(network)
 
 # start powerflow calculations
 x = time.time()
@@ -44,9 +53,6 @@ plot_line_loading(network)
 
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
-
-# same as before, limited to one specific bus
-plot_stacked_gen(network, bus='24560', resolution='MW')
 
 # close session
 session.close()
