@@ -10,7 +10,7 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
-
+import numpy as np
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import get_timerange, import_components, import_pq_sets,\
     add_source_types, create_powerflow_problem
@@ -18,7 +18,7 @@ from egopowerflow.tools.plot import add_coordinates, plot_line_loading,\
      plot_stacked_gen, curtailment, gen_dist
 from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine as Line, EgoGridPfHvGenerator as Generator, EgoGridPfHvLoad as Load,\
     EgoGridPfHvTransformer as Transformer, EgoGridPfHvTempResolution as TempResolution, EgoGridPfHvGeneratorPqSet as GeneratorPqSet,\
-    EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source
+    EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source, EgoGridPfHvStorage as Storage
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from extras.utilities import load_shedding
 
@@ -34,14 +34,14 @@ p_max_pu = ['p_max_pu']
 
 # choose relevant parameters used in pf
 temp_id_set = 1
-start_h = 2300
-end_h = 2301
+start_h = 1
+end_h = 168
 
 # define investigated time range
 timerange = get_timerange(session, temp_id_set, TempResolution, start_h, end_h)
 
 # define relevant tables
-tables = [Bus, Line, Generator, Load, Transformer]
+tables = [Bus, Line, Generator, Load, Transformer, Storage]
 
 # get components from database tables
 components = import_components(tables, session, scenario)
@@ -104,13 +104,20 @@ network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom
 #network.lines.s_nom = network.lines.s_nom*1.5
 #network.transformers.s_nom = network.transformers.s_nom*1.5
 
+# set virtual storages to be extendable
+network.storage_units.p_nom_extendable = True
 
+# set virtual storage costs with regards to snapshot length
+network.storage_units.capital_cost = network.storage_units.capital_cost / 52
 
 network.generators.control="PV"
 
 busmap = busmap_from_psql(network, session, scn_name=scenario)
 
 network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+# add random noise to all generators with marginal_cost of 0. 
+network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
 
 #load shedding in order to hunt infeasibilities
 #load_shedding(network)
