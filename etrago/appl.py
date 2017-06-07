@@ -16,15 +16,16 @@ from egopowerflow.tools.io import NetworkScenario
 import time
 from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment 
 from extras.utilities import load_shedding, data_manipulation_sh
+from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
-args = {'network_clustering':False,
+args = {'network_clustering':True,
         'db': 'oedb',
-        'gridversion': None,
+        'gridversion':'v0.2.10',
         'method': 'lopf',
         'start_h': 1,
         'end_h' : 2,
-        'scn_name': 'Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv',
+        'scn_name': 'SH Status Quo',
+        'ormcls_prefix': 'EgoPfHv',
         'outfile': '/home/ulf/file.lp',
         'solver': 'gurobi',
 	'branch_capacity_factor': 1,
@@ -63,7 +64,7 @@ if args['load_shedding']:
 # network clustering
 if args['network_clustering']:
     network.generators.control="PV"
-    busmap = busmap_from_psql(network, session, scn_name=scenario)
+    busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 
