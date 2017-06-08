@@ -19,16 +19,16 @@ from extras.utilities import load_shedding, data_manipulation_sh
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':True,
-        'db': 'oedb',
-        'gridversion':'v0.2.10',
-        'method': 'lopf',
+        'db': 'oedb', # db session
+        'gridversion':'v0.2.10', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'method': 'lopf', # lopf or pf
         'start_h': 1,
         'end_h' : 2,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoPfHv',
-        'outfile': '/home/ulf/file.lp',
-        'solver': 'gurobi',
-	'branch_capacity_factor': 1,
+        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
+        'outfile': '/home/ulf/file.lp', # state if and where you want to safe pyomo's lp file
+        'solver': 'gurobi', #glpk or gurobi
+	'branch_capacity_factor': 1, #to globally extend or lower branch capacities
 	'storage_extendable':False,
 	'load_shedding':False
         'generator_noise':False}
