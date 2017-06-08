@@ -120,3 +120,13 @@ def load_shedding (network, **kwargs):
     )
 
     return
+
+
+def data_manipulation_sh (network):
+
+    #add connection from Luebeck to Siems
+    network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
+    network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=1600)
+    network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
+    
+    return

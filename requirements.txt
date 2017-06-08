@@ -1,11 +1,11 @@
 # use pip install -r requirements.txt to setup your virtualenv 
-# for network clustering
 
 
-# ego powerflow repo on branch upgrade-to-pypsa-0.8: https://github.com/openego/ego.powerflow/tree/refactor/upgrade-to-pypsa-0.8
--e git+https://github.com/openego/ego.powerflow.git@refactor/upgrade-to-pypsa-0.8#egg=ego.powerflow
 
-# ego-io repo on branch dev: https://github.com/openego/ego.io/tree/dev
+# ego powerflow repo on branch network-from-grid: https://github.com/openego/ego.powerflow/tree/refactor/network-from-grid
+-e git+https://github.com/openego/ego.powerflow.git@refactor/network-from-grid#egg=ego.powerflow
+
+# ego-io repo on dev: https://github.com/openego/ego.io/tree/dev
 -e git+https://github.com/openego/ego.io.git@dev#egg=ego.io
 
 # eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
