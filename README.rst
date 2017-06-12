@@ -8,14 +8,14 @@ A speciality in this context is that transmission grids are described by the 380
 The focus of optimization are flexibility options with a special focus on energy storages. Grid expansion measures are not part of this tool and will be instead part of 'eGo' https://github.com/openego/eGo
 
 
-Setup snapshot-clustering
+Setup dev branch
 =========================
 
 
 Run:
 
     ```
-    git clone -b features/snapshot_clustering https://github.com/openego/eTraGo
+    git clone -b dev https://github.com/openego/eTraGo
     ```
 
 To get the repository with the cluster code. 
