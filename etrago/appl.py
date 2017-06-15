@@ -11,26 +11,28 @@ __license__ = "tba"
 __author__ = "tba"
 
 import numpy as np
+np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment 
-from extras.utilities import load_shedding, data_manipulation_sh
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, storage_distribution
+from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
-args = {'network_clustering':True,
+args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion':'v0.2.10', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 1,
-        'end_h' : 2,
+        'start_h': 2301,
+        'end_h' : 2312,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
-        'outfile': '/home/ulf/file.lp', # state if and where you want to safe pyomo's lp file
-        'solver': 'gurobi', #glpk or gurobi
-	'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-	'storage_extendable':False,
-	'load_shedding':False
+        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
+        'outfile': '/path', # state if and where you want to save pyomo's lp file
+        'results': '/path', # state if and where you want to save results as csv
+        'solver': 'gurobi', #glpk, cplex or gurobi
+        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
+        'storage_extendable':True,
+        'load_shedding':True,
         'generator_noise':False}
 
 
@@ -49,7 +51,7 @@ network = scenario.build_network()
 
 # add coordinates
 network = add_coordinates(network)
-
+  
 if args['generator_noise']:
     # add random noise to all generators with marginal_cost of 0. 
     network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
@@ -60,6 +62,7 @@ if args['storage_extendable']:
     # set virtual storage costs with regards to snapshot length 
     network.storage_units.capital_cost = network.storage_units.capital_cost / (8760//(args['end_h']-args['start_h']+1))
 
+    
 # for SH scenario run do data preperation:
 if args['scn_name'] == 'SH Status Quo':
     data_manipulation_sh(network)
@@ -74,21 +77,27 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-
 # start powerflow calculations
 x = time.time()
 network.lopf(scenario.timeindex, solver_name=args['solver'])
 y = time.time()
-z = (y - x) / 60
+z = (y - x) / 60 # z is time for lopf in minutes
 
+# write results
 network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
                                                      True})
+results_to_csv(network, args['results'])
+
+# plots
 
 # make a line loading plot
 plot_line_loading(network)
 
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
+
+# plot to show extendable storages
+storage_distribution(network)
 
 # close session
 session.close()

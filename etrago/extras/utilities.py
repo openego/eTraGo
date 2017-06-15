@@ -1,4 +1,5 @@
 import pandas as pd
+import os
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -102,7 +103,7 @@ def load_shedding (network, **kwargs):
 
     """
 
-    marginal_cost_def = network.generators.marginal_cost.max()*2
+    marginal_cost_def = 10000#network.generators.marginal_cost.max()*2
     p_nom_def = network.loads_t.p_set.max().max()
 
     marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
@@ -129,4 +130,24 @@ def data_manipulation_sh (network):
     network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
     
+    return
+    
+def results_to_csv(network, path):
+    """
+    """
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+
+    network.export_to_csv_folder(path)
+    data = pd.read_csv(os.path.join(path, 'network.csv'))
+    data['time'] = network.results['Solver'].Time
+    data.to_csv(os.path.join(path, 'network.csv'))
+
+    if hasattr(network, 'Z'):
+        file = [i for i in os.listdir(path.strip('0123456789')) if i=='Z.csv']
+        if file:
+           print('Z already calculated')
+        else:
+           network.Z.to_csv(path.strip('0123456789')+'/Z.csv', index=False)
+
     return
