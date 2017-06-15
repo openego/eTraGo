@@ -15,7 +15,7 @@ np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, storage_distribution
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, gen_dist, storage_distribution
 from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
