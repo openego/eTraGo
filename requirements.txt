@@ -1,0 +1,10 @@
+# use pip install -r requirements.txt to setup your virtualenv 
+
+# ego.powerflow release 0.0.4
+egopowerflow==0.0.4
+
+# ego.io release 0.2.0
+egoio==0.2.0
+
+# eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
+-e git+https://github.com/openego/PyPSA.git@dev#egg=PyPSA
