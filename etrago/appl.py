@@ -89,9 +89,8 @@ y = time.time()
 z = (y - x) / 60 # z is time for lopf in minutes
 
 # write results
-network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-                                                     True})
-results_to_csv(network, args['results'])
+#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':True})
+#results_to_csv(network, args['results'])
 
 # plots
 
@@ -103,6 +102,44 @@ plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 storage_distribution(network)
+
+#--------------------
+
+# pf for Q and line loss determination
+
+# save p flows of lines after lopf
+linesp_lopf = network.lines_t.p0
+
+# same for the transforer
+transfp_lopf = network.transformers_t.p0
+ 
+
+#For the PF, set the P to the optimised P
+network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
+network.generators_t.p_set = network.generators_t.p
+
+#set all buses to PV, since we don't know what Q set points are
+network.generators.control = "PV"
+
+#Need some PQ buses so that Jacobian doesn't break
+f = network.generators[network.generators.bus == "24220"]
+network.generators.loc[f.index,"control"] = "PQ"
+
+#Troubleshooting
+
+contingency_factor = 1.6
+
+network.lines.s_nom = contingency_factor*network.lines.s_nom
+network.transformers.s_nom = network.transformers.s_nom*contingency_factor
+
+#network.generators_t.p_set = network.generators_t.p_set*0.9
+#network.loads_t.p_set = network.loads_t.p_set*0.9
+
+network.pf(network.snapshots)
+
+#calculate p line losses
+
+
 
 # close session
 session.close()
