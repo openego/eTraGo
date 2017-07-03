@@ -23,12 +23,12 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 2301,
-        'end_h' : 2312,
+        'start_h': 2300,
+        'end_h' : 2323,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
-        'outfile': '/path', # state if and where you want to save pyomo's lp file
-        'results': '/path', # state if and where you want to save results as csv
+        'outfile':None, # state if and where you want to save pyomo's lp file
+        'results':None, # state if and where you want to save results as csv
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
@@ -77,11 +77,13 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-# start powerflow calculations
-x = time.time()
-network.lopf(scenario.timeindex, solver_name=args['solver'])
-y = time.time()
-z = (y - x) / 60 # z is time for lopf in minutes
+
+group_size = 4
+
+print("Performing linear OPF for one day, {} snapshots at a time:".format(group_size))
+
+for i in range(int(24/group_size)):        
+    network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=args['solver'])
 
 # write results
 network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
