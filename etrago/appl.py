@@ -24,7 +24,7 @@ args = {'network_clustering':False,
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2301,
-        'end_h' : 2312,
+        'end_h' : 2302,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
         'outfile': '/path', # state if and where you want to save pyomo's lp file
@@ -52,6 +52,11 @@ network = scenario.build_network()
 # add coordinates
 network = add_coordinates(network)
   
+if args['branch_capacity_factor']:
+    network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+    network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+
+
 if args['generator_noise']:
     # add random noise to all generators with marginal_cost of 0. 
     network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
