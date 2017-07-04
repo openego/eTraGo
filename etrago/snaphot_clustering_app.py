@@ -8,16 +8,14 @@ __author__ = "Simon Hilpert"
 import os
 import pandas as pd
 
-
+import numpy as np
+np.random.seed()
 from egopowerflow.tools.tools import oedb_session
-from egopowerflow.tools.io import get_timerange, import_components, import_pq_sets,\
-    add_source_types, create_powerflow_problem
-from egopowerflow.tools.plot import add_coordinates
-
-from egoio.db_tables.model_draft import EgoGridPfHvBus as Bus, EgoGridPfHvLine as Line, EgoGridPfHvGenerator as Generator, EgoGridPfHvLoad as Load,\
-    EgoGridPfHvTransformer as Transformer, EgoGridPfHvTempResolution as TempResolution, EgoGridPfHvGeneratorPqSet as GeneratorPqSet,\
-    EgoGridPfHvLoadPqSet as LoadPqSet, EgoGridPfHvSource as Source, EgoGridPfHvStorage as StorageUnit
-    #, EgoGridPfHvStoragePqSet as Storage
+from egopowerflow.tools.io import NetworkScenario
+import time
+from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, gen_dist, storage_distribution
+from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
+from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 from cluster.snapshot import group, linkage, fcluster, get_medoids
 from pypsa.opf import network_lopf
@@ -193,67 +191,73 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     return network
 
 ###############################################################################
-session = oedb_session('open_ego')
 
-scenario = 'SH NEP 2035'
+args = {'network_clustering':False,
+        'db': 'open_ego', # db session
+        'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'method': 'lopf', # lopf or pf
+        'start_h': 2301,
+        'end_h' : 2302,
+        'scn_name': 'SH Status Quo',
+        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
+        'outfile': '/path', # state if and where you want to save pyomo's lp file
+        'results': '/path', # state if and where you want to save results as csv
+        'solver': 'gurobi', #glpk, cplex or gurobi
+        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
+        'storage_extendable':True,
+        'load_shedding':False,
+        'generator_noise':False}
 
-# define relevant tables of generator table
-pq_set_cols_1 = ['p_set']
-pq_set_cols_2 = ['q_set']
-p_max_pu = ['p_max_pu']
-storage_sets = ['inflow'] # or: p_set, q_set, p_min_pu, p_max_pu, soc_set, inflow
 
-# choose relevant parameters used in pf
-temp_id_set = 1
-start_h = 1
-end_h = 5
-# define investigated time range
-timerange = get_timerange(session, temp_id_set, TempResolution, start_h, end_h)
+session = oedb_session(args['db'])
 
-# define relevant tables
-tables = [Bus, Line, Generator, Load, Transformer, StorageUnit]
+# additional arguments cfgpath, version, prefix
+scenario = NetworkScenario(session,
+                           version=args['gridversion'],
+                           prefix=args['ormcls_prefix'],
+                           method=args['method'],
+                           start_h=args['start_h'],
+                           end_h=args['end_h'],
+                           scn_name=args['scn_name'])
 
-# get components from database tables
-components = import_components(tables, session, scenario)
+network = scenario.build_network()
 
-# create PyPSA powerflow problem
-network, snapshots = create_powerflow_problem(timerange, components)
+# add coordinates
+network = add_coordinates(network)
 
-# import pq-set tables to pypsa network (p_set for generators and loads)
-pq_object = [GeneratorPqSet, LoadPqSet]
-network = import_pq_sets(session=session,
-                         network=network,
-                         pq_tables=pq_object,
-                         timerange=timerange,
-                         scenario=scenario,
-                         columns=pq_set_cols_1,
-                         start_h=start_h,
-                         end_h=end_h)
+if args['branch_capacity_factor']:
+    network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+    network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
-# import pq-set table to pypsa network (q_set for loads)
-network = import_pq_sets(session=session,
-                         network=network,
-                         pq_tables=[LoadPqSet],
-                         timerange=timerange,
-                         scenario=scenario,
-                         columns=pq_set_cols_2,
-                         start_h=start_h,
-                         end_h=end_h)
 
-network = import_pq_sets(session=session,
-                         network=network,
-                         pq_tables=[GeneratorPqSet],
-                         timerange=timerange,
-                         scenario=scenario,
-                         columns=p_max_pu,
-                         start_h=start_h,
-                         end_h=end_h)
+if args['generator_noise']:
+    # add random noise to all generators with marginal_cost of 0. 
+    network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
 
-#network.storage_units.capital_cost = network.storage_units.capital_cost / 1000
-network.storage_units.p_nom_extendable = True
-network.storage_units.p_min_pu_fixed = -1
-#network.storage_units.soc_cyclic = True
-#network.storage_units.p_nom_min = 0
+if args['storage_extendable']:
+    # set virtual storages to be extendable
+    network.storage_units.p_nom_extendable = True
+    # set virtual storage costs with regards to snapshot length 
+    network.storage_units.capital_cost = network.storage_units.capital_cost / (8760//(args['end_h']-args['start_h']+1))
+    #network.storage_units.p_min_pu_fixed = -1
+    #network.storage_units.soc_cyclic = True
+    #network.storage_units.p_nom_min = 0
+
+
+# for SH scenario run do data preperation:
+if args['scn_name'] == 'SH Status Quo':
+    data_manipulation_sh(network)
+
+#load shedding in order to hunt infeasibilities
+if args['load_shedding']:
+        load_shedding(network)
+
+# network clustering
+if args['network_clustering']:
+    network.generators.control="PV"
+    busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+    network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
 
 ###############################################################################
 # Run scenarios .....
