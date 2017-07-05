@@ -10,6 +10,10 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
+# work around set path
+import sys
+sys.path.append('/home/dozeumbuw/Dokumente/ZNES/open_eGo/Coding/eTraGo/eTraGo/etrago')
+
 import numpy as np
 np.random.seed()
 from egopowerflow.tools.tools import oedb_session
@@ -37,7 +41,7 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':False}
 
-def etrago(**args):
+def etrago(args):
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
@@ -94,6 +98,8 @@ def etrago(**args):
 
     return
 
+test = etrago(args)
+
 # write results
 #network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
 #                                                     True})
@@ -112,6 +118,3 @@ def etrago(**args):
 
 # close session
 #session.close()
-
-
-if __name__=='__main__':
