@@ -15,7 +15,9 @@ np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, gen_dist, storage_distribution
+from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
+                                     add_coordinates, curtailment, gen_dist,
+                                     storage_distribution)
 from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
@@ -26,7 +28,7 @@ args = {'network_clustering':False,
         'start_h': 2301,
         'end_h' : 2302,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
+        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'outfile': '/path', # state if and where you want to save pyomo's lp file
         'results': '/path', # state if and where you want to save results as csv
         'solver': 'gurobi', #glpk, cplex or gurobi
@@ -51,23 +53,23 @@ network = scenario.build_network()
 
 # add coordinates
 network = add_coordinates(network)
-  
+
 if args['branch_capacity_factor']:
     network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
     network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
 
 if args['generator_noise']:
-    # add random noise to all generators with marginal_cost of 0. 
+    # add random noise to all generators with marginal_cost of 0.
     network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
 
 if args['storage_extendable']:
     # set virtual storages to be extendable
     network.storage_units.p_nom_extendable = True
-    # set virtual storage costs with regards to snapshot length 
+    # set virtual storage costs with regards to snapshot length
     network.storage_units.capital_cost = network.storage_units.capital_cost / (8760//(args['end_h']-args['start_h']+1))
 
-    
+
 # for SH scenario run do data preperation:
 if args['scn_name'] == 'SH Status Quo':
     data_manipulation_sh(network)
