@@ -82,6 +82,10 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
+def extra_functionality(network,snapshots):
+
+    network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)   
+
 # start powerflow calculations
 x = time.time()
 network.lopf(scenario.timeindex, solver_name=args['solver'])
