@@ -37,74 +37,81 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':False}
 
+def etrago(**args):
+    session = oedb_session(args['db'])
 
-session = oedb_session(args['db'])
+    # additional arguments cfgpath, version, prefix
+    scenario = NetworkScenario(session,
+                               version=args['gridversion'],
+                               prefix=args['ormcls_prefix'],
+                               method=args['method'],
+                               start_h=args['start_h'],
+                               end_h=args['end_h'],
+                               scn_name=args['scn_name'])
 
-# additional arguments cfgpath, version, prefix
-scenario = NetworkScenario(session,
-                           version=args['gridversion'],
-                           prefix=args['ormcls_prefix'],
-                           method=args['method'],
-                           start_h=args['start_h'],
-                           end_h=args['end_h'],
-                           scn_name=args['scn_name'])
+    network = scenario.build_network()
 
-network = scenario.build_network()
+    # add coordinates
+    network = add_coordinates(network)
 
-# add coordinates
-network = add_coordinates(network)
-
-if args['branch_capacity_factor']:
-    network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-    network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
-
-
-if args['generator_noise']:
-    # add random noise to all generators with marginal_cost of 0.
-    network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
-
-if args['storage_extendable']:
-    # set virtual storages to be extendable
-    network.storage_units.p_nom_extendable = True
-    # set virtual storage costs with regards to snapshot length
-    network.storage_units.capital_cost = network.storage_units.capital_cost / (8760//(args['end_h']-args['start_h']+1))
+    if args['branch_capacity_factor']:
+        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
 
-# for SH scenario run do data preperation:
-if args['scn_name'] == 'SH Status Quo':
-    data_manipulation_sh(network)
+    if args['generator_noise']:
+        # add random noise to all generators with marginal_cost of 0.
+        network.generators.marginal_cost[ network.generators.marginal_cost
+         == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
 
-#load shedding in order to hunt infeasibilities
-if args['load_shedding']:
-	load_shedding(network)
+    if args['storage_extendable']:
+        # set virtual storages to be extendable
+        network.storage_units.p_nom_extendable = True
+        # set virtual storage costs with regards to snapshot length
+        network.storage_units.capital_cost = (network.storage_units.capital_cost /
+        (8760//(args['end_h']-args['start_h']+1)))
 
-# network clustering
-if args['network_clustering']:
-    network.generators.control="PV"
-    busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
-    network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-# start powerflow calculations
-x = time.time()
-network.lopf(scenario.timeindex, solver_name=args['solver'])
-y = time.time()
-z = (y - x) / 60 # z is time for lopf in minutes
+    # for SH scenario run do data preperation:
+    if args['scn_name'] == 'SH Status Quo':
+        data_manipulation_sh(network)
+
+    #load shedding in order to hunt infeasibilities
+    if args['load_shedding']:
+    	load_shedding(network)
+
+    # network clustering
+    if args['network_clustering']:
+        network.generators.control="PV"
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+        network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+    # start powerflow calculations
+    x = time.time()
+    network.lopf(scenario.timeindex, solver_name=args['solver'])
+    y = time.time()
+    z = (y - x) / 60 # z is time for lopf in minutes
+
+    return
 
 # write results
-network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-                                                     True})
-results_to_csv(network, args['results'])
+#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
+#                                                     True})
+#results_to_csv(network, args['results'])
 
 # plots
 
 # make a line loading plot
-plot_line_loading(network)
+#plot_line_loading(network)
 
 # plot stacked sum of nominal power for each generator type and timestep
-plot_stacked_gen(network, resolution="MW")
+#plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
-storage_distribution(network)
+#storage_distribution(network)
 
 # close session
-session.close()
+#session.close()
+
+
+if __name__=='__main__':
