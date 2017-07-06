@@ -5,11 +5,12 @@ __author__ = "mariusves"
 
 from setuptools import find_packages, setup
 
-setup(name='etrago',
-      author='openego development group',
+setup(name='eTraGo',
+      author='NEXT ENERGY, ZNES Flensburg',
       author_email='',
-      description='Powerflow analysis based on PyPSA',
+      description='electrical Transmission Grid Optimization of flexibility options for transmission grids based on PyPSA',
       version='0.1',
+	  url='https://github.com/openego/eTraGo',
       license="GNU Affero General Public License Version 3 (AGPL-3.0)",
       packages=find_packages(),
       install_requires=['egoio = 0.2.0',
