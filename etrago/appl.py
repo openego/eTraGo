@@ -20,6 +20,9 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      storage_distribution)
 from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
+import pandas as pd
+
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
@@ -83,6 +86,42 @@ if args['network_clustering']:
     network.generators.control="PV"
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+# k-means clustering (first try)
+
+network.generators.control="PV"
+
+network.buses['v_nom'] = 380.
+
+#problem our lines have no v_nom. this is implicitly defined by the connected buses:
+network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+# adjust the x of the lines which are not 380. 
+lines_v_nom_b = network.lines.v_nom != 380
+network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+
+trafo_index = network.transformers.index
+
+network.import_components_from_dataframe(
+    network.transformers.loc[:,['bus0','bus1','x','s_nom']]
+    .assign(x=0.1*380**2/2000)
+    .set_index('T' + trafo_index),
+    'Line'
+)
+
+network.transformers.drop(trafo_index, inplace=True)
+for attr in network.transformers_t:
+    network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+
+busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1, len(network.buses)), index=network.buses.index) , n_clusters= 50)
+
+
+clustering = get_clustering_from_busmap(network, busmap)
+network = clustering.network
+#network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
 
 # start powerflow calculations
 if args['method'] == 'lopf':
