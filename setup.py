@@ -1,4 +1,4 @@
-__copyright__ = "Reiner Lemoine Institut, ZNES, Next Energy, IKS Uni Magdeburg"
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, Next Energy"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "mariusves"
 
