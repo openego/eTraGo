@@ -85,10 +85,11 @@ if args['network_clustering']:
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 # start powerflow calculations
-x = time.time()
-network.lopf(scenario.timeindex, solver_name=args['solver'])
-y = time.time()
-z = (y - x) / 60 # z is time for lopf in minutes
+if args['method'] == 'lopf':
+    x = time.time()
+    network.lopf(scenario.timeindex, solver_name=args['solver'])
+    y = time.time()
+    z = (y - x) / 60 # z is time for lopf in minutes
 
 # write results
 network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
