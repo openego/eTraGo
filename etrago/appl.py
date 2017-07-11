@@ -11,8 +11,8 @@ __license__ = "tba"
 __author__ = "tba"
 
 # work around set path
-import sys
-sys.path.append('/home/dozeumbuw/Dokumente/ZNES/open_eGo/Coding/eTraGo/eTraGo/etrago')
+#import sys
+#sys.path.append('')
 
 import numpy as np
 np.random.seed()
@@ -26,7 +26,7 @@ from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
-        'db': 'oedb2', # db session   ## oedb2
+        'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2301,
@@ -91,23 +91,16 @@ def etrago(args):
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
     # start powerflow calculations
-    x = time.time()
-    network.lopf(scenario.timeindex, solver_name=args['solver'])
-    y = time.time()
-    z = (y - x) / 60 # z is time for lopf in minutes
+    if args['method'] == 'lopf':
+        x = time.time()
+        network.lopf(scenario.timeindex, solver_name=args['solver'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
 
     return network
 
 
 network = etrago(args)
-
-# start powerflow calculations
-if args['method'] == 'lopf':
-    x = time.time()
-    network.lopf(scenario.timeindex, solver_name=args['solver'])
-    y = time.time()
-    z = (y - x) / 60 # z is time for lopf in minutes
-
 
 # write results
 #network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
