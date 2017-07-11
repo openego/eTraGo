@@ -96,22 +96,22 @@ def etrago(args):
     y = time.time()
     z = (y - x) / 60 # z is time for lopf in minutes
 
-    return
+    return network
 
-<<<<<<< HEAD
-test = etrago(args)
-=======
+
+network = etrago(args)
+
 # start powerflow calculations
 if args['method'] == 'lopf':
     x = time.time()
     network.lopf(scenario.timeindex, solver_name=args['solver'])
     y = time.time()
     z = (y - x) / 60 # z is time for lopf in minutes
->>>>>>> 887dba8def8a4218aa6a6be2b0497d80263532e3
+
 
 # write results
-network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-                                                     True})
+#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
+#                                                      True})
 #results_to_csv(network, args['results'])
 
 # plots
