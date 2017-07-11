@@ -90,23 +90,19 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-    # start powerflow calculations
-    x = time.time()
-    network.lopf(scenario.timeindex, solver_name=args['solver'])
-    y = time.time()
-    z = (y - x) / 60 # z is time for lopf in minutes
+	# start powerflow calculations
+	if args['method'] == 'lopf':
+        x = time.time()
+	    network.lopf(scenario.timeindex, solver_name=args['solver'])
+	    y = time.time()
+	    z = (y - x) / 60 # z is time for lopf in minutes
 
     return network
 
 
-network = etrago(args)
+#network = etrago(args)
 
-# start powerflow calculations
-if args['method'] == 'lopf':
-    x = time.time()
-    network.lopf(scenario.timeindex, solver_name=args['solver'])
-    y = time.time()
-    z = (y - x) / 60 # z is time for lopf in minutes
+
 
 
 # write results
