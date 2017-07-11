@@ -135,6 +135,9 @@ def data_manipulation_sh (network):
 def results_to_csv(network, path):
     """
     """
+    if path==False:
+        return None
+
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
