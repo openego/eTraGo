@@ -26,7 +26,7 @@ from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
-        'db': 'oedb', # db session
+        'db': 'oedb2', # db session   ## oedb2
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2301,
@@ -101,8 +101,8 @@ def etrago(args):
 test = etrago(args)
 
 # write results
-#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-#                                                     True})
+network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
+                                                     True})
 #results_to_csv(network, args['results'])
 
 # plots
