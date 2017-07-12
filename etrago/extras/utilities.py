@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import time
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -154,3 +155,17 @@ def results_to_csv(network, path):
            network.Z.to_csv(path.strip('0123456789')+'/Z.csv', index=False)
 
     return
+
+def parallisation(network, start_h, end_h, group_size, solver_name):
+
+    print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
+    x = time.time()
+    for i in range(int((end_h-start_h+1)/group_size)):
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name)
+
+
+    y = time.time()
+    z = (y - x) / 60
+    return
+
+

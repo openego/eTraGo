@@ -18,7 +18,7 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallisation
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
@@ -83,6 +83,9 @@ if args['network_clustering']:
     network.generators.control="PV"
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+# for parallisation (optional)
+parallisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name='gurobi')
 
 # start powerflow calculations
 if args['method'] == 'lopf':
