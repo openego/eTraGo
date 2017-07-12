@@ -13,7 +13,7 @@ __author__ = "tba"
 import numpy as np
 np.random.seed()
 from egopowerflow.tools.tools import oedb_session
-from egopowerflow.tools.io import NetworkScenario
+from egopowerflow.tools.io import NetworkScenario, results_to_oedb
 import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
@@ -31,11 +31,13 @@ args = {'network_clustering':False,
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results':False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':False}
+        'generator_noise':False,
+        'comments': ''}
 
 
 session = oedb_session(args['db'])
@@ -95,9 +97,14 @@ if args['method'] == 'lopf':
 if not args['lpfile'] == False:
     network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
                                                      True})
+
+# write PyPSA results back to database
+if args['export']:
+    results_to_oedb(session, network, 'hv', args)   
+
 # write PyPSA results to csv to path
 results_to_csv(network, args['results'])
-
+   
 # plots
 
 # make a line loading plot
