@@ -1,4 +1,4 @@
-from extras.utilities import *
+from etrago.extras.utilities import *
 from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators
 from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from itertools import product

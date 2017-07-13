@@ -22,19 +22,19 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
         'db': 'oedb2', # db session   ## oedb2
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 2301,
-        'end_h' : 2302,
+        'start_h': 2320,
+        'end_h' : 2321,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
-        'outfile': '/path', # state if and where you want to save pyomo's lp file
-        'results': '/path', # state if and where you want to save results as csv
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'results':False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
@@ -96,19 +96,19 @@ def etrago(args):
 	    network.lopf(scenario.timeindex, solver_name=args['solver'])
 	    y = time.time()
 	    z = (y - x) / 60 # z is time for lopf in minutes
-
+	    
+	# write lpfile to path    
+	if not args['lpfile'] == False:
+    	network.model.write(args['lpfile'], 
+    	io_options={'symbolic_solver_labels': True})
+      # write PyPSA results to csv to path
+        results_to_csv(network, args['results'])
+   
+    
     return network
 
 
 #network = etrago(args)
-
-
-
-
-# write results
-#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-#                                                      True})
-#results_to_csv(network, args['results'])
 
 # plots
 
