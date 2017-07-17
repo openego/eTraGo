@@ -12,7 +12,7 @@ __author__ = "tba"
 
 # work around set path
 #import sys
-#sys.path.append('')
+#sys.path.append('/home/dozeumbuw/Dokumente/ZNES/open_eGo/Coding/eTraGo/eTraGo/')
 
 import numpy as np
 np.random.seed()
@@ -26,7 +26,7 @@ from etrago.extras.utilities import load_shedding, data_manipulation_sh, results
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
-        'db': 'oedb', # db session
+        'db': 'oedb2', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2320,
@@ -92,23 +92,24 @@ def etrago(args):
 
 
 	# start powerflow calculations
-	if args['method'] == 'lopf':
+    if args['method'] == 'lopf':
         x = time.time()
-	    network.lopf(scenario.timeindex, solver_name=args['solver'])
-	    y = time.time()
-	    z = (y - x) / 60 # z is time for lopf in minutes
-	    
-	# write lpfile to path    
-	if not args['lpfile'] == False:
-    	network.model.write(args['lpfile'], 
-    	io_options={'symbolic_solver_labels': True})
+        network.lopf(scenario.timeindex, solver_name=args['solver'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+
+	# write lpfile to path
+    if not args['lpfile'] == False:
+        network.model.write(args['lpfile'],
+        io_options={'symbolic_solver_labels': True})
       # write PyPSA results to csv to path
         results_to_csv(network, args['results'])
 
     return network
 
 
-#network = etrago(args)
+#
+network = etrago(args)
 
 # write results
 #network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
@@ -119,10 +120,10 @@ def etrago(args):
 # plots
 
 # make a line loading plot
-#plot_line_loading(network)
+plot_line_loading(network)
 
 # plot stacked sum of nominal power for each generator type and timestep
-#plot_stacked_gen(network, resolution="MW")
+plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 #storage_distribution(network)
