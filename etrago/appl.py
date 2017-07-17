@@ -100,7 +100,8 @@ if not args['lpfile'] == False:
     network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
                                                      True})
 # write PyPSA results to csv to path
-results_to_csv(network, args['results'])
+if not args['results'] == False:
+    results_to_csv(network, args['results'])
 
 # plots
 
