@@ -18,7 +18,7 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallisation
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
@@ -26,7 +26,7 @@ args = {'network_clustering':False,
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2320,
-        'end_h' : 2321,
+        'end_h' : 2324,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
@@ -35,7 +35,8 @@ args = {'network_clustering':False,
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':False}
+        'generator_noise':False,
+        'parallelisation':True}
 
 
 session = oedb_session(args['db'])
@@ -84,11 +85,11 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-# for parallisation (optional)
-parallisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name='gurobi')
-
+# parallisation
+if args['parallelisation']:
+    parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name='gurobi')
 # start powerflow calculations
-if args['method'] == 'lopf':
+elif args['method'] == 'lopf':
     x = time.time()
     network.lopf(scenario.timeindex, solver_name=args['solver'])
     y = time.time()

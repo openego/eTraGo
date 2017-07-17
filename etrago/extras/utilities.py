@@ -156,7 +156,7 @@ def results_to_csv(network, path):
 
     return
 
-def parallisation(network, start_h, end_h, group_size, solver_name):
+def parallelisation(network, start_h, end_h, group_size, solver_name):
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
