@@ -35,3 +35,10 @@ With you activate environment `cd` to the cloned directory and run:
 
 This will install all need packages into your environment. Now you should be 
 ready to go. 
+
+Copyleft
+=========================
+
+Code licensed under "GNU Affero General Public License Version 3 (AGPL-3.0)"
+It is a collaborative work with several copyright owner:
+Cite as "eTraGo" © Flensburg University of Applied Sciences, Centre for Sustainable Energy Systems © Europa-Universität Flensburg, Centre for Sustainable Energy Systems © DLR Institute for Networked Energy Systems"
