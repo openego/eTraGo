@@ -14,6 +14,9 @@ import numpy as np
 np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
+from pyomo.environ import Constraint
+from pyomo.environ import Var
+from pyomo.environ import NonNegativeIntegers
 import time
 from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, gen_dist, storage_distribution
 from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
@@ -24,7 +27,7 @@ args = {'network_clustering':False,
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2301,
-        'end_h' : 2302,
+        'end_h' : 2303,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
         'outfile': '/path', # state if and where you want to save pyomo's lp file
@@ -83,18 +86,34 @@ if args['network_clustering']:
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 def extra_functionality(network,snapshots):
+    
 
-    network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)   
-
+     network.model.Hilfzahl1= Var(within = NonNegativeIntegers) 
+     network.model.Hilfzahl2= Var(within = NonNegativeIntegers)
+ 
+     def cRule(model,snapshots):
+         for i in network.model.passive_branch_p_index:
+             network.model.passive_branch_p[i] == network.model.Hilfzahl1 - network.model.Hilfzahl2
+         return (network.model.passive_branch_p[i])
+     network.model.cRule=Constraint(list(snapshots),rule=cRule)
+     
+#==============================================================================
+#      def cRule(model,snapshots):
+#         return (network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index == network.model.Hilfzahl1 - network.model.Hilfzahl2)
+#     network.model.cRule=Constraint(list(snapshots),rule=cRule)
+#==============================================================================
+    
+     network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)
+    
 # start powerflow calculations
 x = time.time()
-network.lopf(scenario.timeindex, solver_name=args['solver'])
+network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
 y = time.time()
 z = (y - x) / 60 # z is time for lopf in minutes
 
 # write results
-network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-                                                     True})
+#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
+#                                                    True})
 results_to_csv(network, args['results'])
 
 # plots
