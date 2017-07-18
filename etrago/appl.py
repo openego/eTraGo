@@ -103,42 +103,47 @@ plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
 storage_distribution(network)
 
+network_pf = network
+
+
 #--------------------
+def pf_post_lopf(network_pf, contingency_factor = 1):
+    # pf for Q and line loss determination
 
-# pf for Q and line loss determination
+    # save p flows of lines after lopf
+    linesp_lopf = network.lines_t.p0
 
-# save p flows of lines after lopf
-linesp_lopf = network.lines_t.p0
+    # same for the transformer
+    transfp_lopf = network.transformers_t.p0
+    
+    #For the PF, set the P to the optimised P
+    network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network.generators.index)
+    network_pf.generators_t.p_set = network_pf.generators_t.p
 
-# same for the transforer
-transfp_lopf = network.transformers_t.p0
- 
+    #set all buses to PV, since we don't know what Q set points are
+    #network.generators.control = "PV"
 
-#For the PF, set the P to the optimised P
-network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
-network.generators_t.p_set = network.generators_t.p
+    #Need some PQ buses so that Jacobian doesn't break
+    #f = network.generators[network.generators.bus == "24220"]
+    #network.generators.loc[f.index,"control"] = "PQ"
 
-#set all buses to PV, since we don't know what Q set points are
-network.generators.control = "PV"
+    #Troubleshooting
 
-#Need some PQ buses so that Jacobian doesn't break
-f = network.generators[network.generators.bus == "24220"]
-network.generators.loc[f.index,"control"] = "PQ"
+    contingency_factor = contingency_factor
 
-#Troubleshooting
+    network_pf.lines.s_nom = contingency_factor*network_pf.lines.s_nom
+    network_pf.transformers.s_nom = network_pf.transformers.s_nom*contingency_factor
 
-contingency_factor = 1.6
+    #network.generators_t.p_set = network.generators_t.p_set*0.9
+    #network.loads_t.p_set = network.loads_t.p_set*0.9
 
-network.lines.s_nom = contingency_factor*network.lines.s_nom
-network.transformers.s_nom = network.transformers.s_nom*contingency_factor
+    network_pf.pf(network.snapshots)
 
-#network.generators_t.p_set = network.generators_t.p_set*0.9
-#network.loads_t.p_set = network.loads_t.p_set*0.9
+    #calculate p line losses
 
-network.pf(network.snapshots)
+    return network_pf
 
-#calculate p line losses
-
+pf_post_lopf(network_pf, contingency_factor=10)
 
 
 # close session
