@@ -10,9 +10,6 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
-# work around set path
-#import sys
-#sys.path.append('/home/dozeumbuw/Dokumente/ZNES/open_eGo/Coding/eTraGo/eTraGo/')
 
 import numpy as np
 np.random.seed()
@@ -26,7 +23,7 @@ from etrago.extras.utilities import load_shedding, data_manipulation_sh, results
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
-        'db': 'oedb2', # db session
+        'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2320,
@@ -40,7 +37,7 @@ args = {'network_clustering':False,
         'storage_extendable':True,
         'load_shedding':True,
         'generator_noise':False,
-        'parallelisation':True}
+        'parallelisation':False}
 
 def etrago(args):
     session = oedb_session(args['db'])
