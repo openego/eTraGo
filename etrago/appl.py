@@ -22,7 +22,7 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
@@ -30,16 +30,17 @@ args = {'network_clustering':False,
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'start_h': 2320,
-        'end_h' : 2321,
+        'end_h' : 2324,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results':False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':False}
+        'generator_noise':False,
+        'parallelisation':True}
 
 def etrago(args):
     session = oedb_session(args['db'])
@@ -90,32 +91,29 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-
-	# start powerflow calculations
-    if args['method'] == 'lopf':
+    # parallisation
+    if args['parallelisation']:
+        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'])
+    # start powerflow calculations
+    elif args['method'] == 'lopf':
         x = time.time()
         network.lopf(scenario.timeindex, solver_name=args['solver'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
 
-	# write lpfile to path
+    # write lpfile to path
     if not args['lpfile'] == False:
-        network.model.write(args['lpfile'],
-        io_options={'symbolic_solver_labels': True})
-      # write PyPSA results to csv to path
+        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
+                                                     True})
+    # write PyPSA results to csv to path
+    if not args['results'] == False:
         results_to_csv(network, args['results'])
 
     return network
 
 
-#
+# execute etrago function
 network = etrago(args)
-
-# write results
-#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':
-#                                                      True})
-#results_to_csv(network, args['results'])
-
 
 # plots
 
