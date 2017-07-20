@@ -10,8 +10,8 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
-
 import numpy as np
+from numpy import genfromtxt
 np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
@@ -55,6 +55,11 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+    
+    # create generator noise 
+    noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+    np.savetxt("noise_values.csv", noise_values, delimiter=",")
+    noise_values = genfromtxt('noise_values.csv', delimiter=',')
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -63,8 +68,7 @@ def etrago(args):
 
     if args['generator_noise']:
         # add random noise to all generators with marginal_cost of 0.
-        network.generators.marginal_cost[ network.generators.marginal_cost
-         == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
+        network.generators.marginal_cost = noise_values
 
     if args['storage_extendable']:
         # set virtual storages to be extendable
