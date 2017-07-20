@@ -54,10 +54,10 @@ network = add_coordinates(network)
   
 network.transformers.x=network.transformers.x*0.1
 
-network.loads_t.p_set =network.loads_t.p_set*0.5
-network.loads_t.q_set = network.loads_t.q_set*0.5
-network.generators_t.p_set =network.generators_t.p_set*0.5
-network.generators_t.q_set = network.generators_t.q_set*0.5
+network.loads_t.p_set =network.loads_t.p_set*0.1
+network.loads_t.q_set = network.loads_t.q_set*0.1
+network.generators_t.p_set =network.generators_t.p_set*0.1
+network.generators_t.q_set = network.generators_t.q_set*0.1
 
 
 if args['branch_capacity_factor']:
