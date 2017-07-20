@@ -23,15 +23,15 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 2301,
-        'end_h' : 2302,
-        'scn_name': 'SH Status Quo',
+        'start_h': 2320,
+        'end_h' : 2320,
+        'scn_name': 'Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
         'outfile': '/path', # state if and where you want to save pyomo's lp file
         'results': '/path', # state if and where you want to save results as csv
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'storage_extendable':True,
+        'storage_extendable':False,
         'load_shedding':True,
         'generator_noise':False}
 
@@ -52,6 +52,9 @@ network = scenario.build_network()
 # add coordinates
 network = add_coordinates(network)
   
+network.transformers.x=network.transformers.x*0.1
+
+
 if args['branch_capacity_factor']:
     network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
     network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
@@ -102,23 +105,12 @@ plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 storage_distribution(network)
+prepf = network
+pups = network
 
-network_pf = network
-
-
-#--------------------
-def pf_post_lopf(network_pf, contingency_factor = 1):
-    # pf for Q and line loss determination
-
-    # save p flows of lines after lopf
-    linesp_lopf = network.lines_t.p0
-
-    # same for the transformer
-    transfp_lopf = network.transformers_t.p0
-    
-    #For the PF, set the P to the optimised P
-    network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network.generators.index)
-    network_pf.generators_t.p_set = network_pf.generators_t.p
+#For the PF, set the P to the optimised P
+pups.generators_t.p_set = pups.generators_t.p_set.reindex(columns=pups.generators.index)
+pups.generators_t.p_set = pups.generators_t.p
 
     #set all buses to PV, since we don't know what Q set points are
     #network.generators.control = "PV"
@@ -128,23 +120,40 @@ def pf_post_lopf(network_pf, contingency_factor = 1):
     #network.generators.loc[f.index,"control"] = "PQ"
 
     #Troubleshooting
+contingency_factor=2
+#network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
+#network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
+#network.transformers.x=network.transformers.x['22596']*0.1
+network.loads_t.p_set =network.loads_t.p_set*0.5
+network.loads_t.q_set = network.loads_t.q_set*0.5
+network.generators_t.p_set =network.generators_t.p_set*0.5
+network.generators_t.q_set = network.generators_t.q_set*0.5
 
-    contingency_factor = contingency_factor
-
-    network_pf.lines.s_nom = contingency_factor*network_pf.lines.s_nom
-    network_pf.transformers.s_nom = network_pf.transformers.s_nom*contingency_factor
+pups.lines.s_nom = contingency_factor*pups.lines.s_nom
+pups.transformers.s_nom = pups.transformers.s_nom*contingency_factor
 
     #network.generators_t.p_set = network.generators_t.p_set*0.9
     #network.loads_t.p_set = network.loads_t.p_set*0.9
 
-    network_pf.pf(network.snapshots)
+    #network_pf.pf(network.snapshots)
 
     #calculate p line losses
 
-    return network_pf
+pups.pf(pups.snapshots, use_seed=True)
 
-pf_post_lopf(network_pf, contingency_factor=10)
+import matplotlib.pyplot as plt
+fig,ax = plt.subplots(1,1)
+fig.set_size_inches(6,6)
+load_distribution = network.loads_t.p_set.loc[network.snapshots[0]].groupby(network.loads.bus).sum()
+load_distribution_q = network.loads_t.q_set.loc[network.snapshots[0]].groupby(network.loads.bus).sum()
+network.plot(bus_sizes=load_distribution,ax=ax,title="Load distribution")
+network.plot(bus_colors='r',bus_sizes=load_distribution_q,ax=ax,title="q Load distribution")
 
+plt.show()
+
+network.buses_t.v_mag_pu.min().plot()
+network.buses_t.v_mag_pu.max().plot()
+plt.show()
 
 # close session
 session.close()
