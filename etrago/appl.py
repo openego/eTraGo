@@ -54,6 +54,11 @@ network = add_coordinates(network)
   
 network.transformers.x=network.transformers.x*0.1
 
+network.loads_t.p_set =network.loads_t.p_set*0.5
+network.loads_t.q_set = network.loads_t.q_set*0.5
+network.generators_t.p_set =network.generators_t.p_set*0.5
+network.generators_t.q_set = network.generators_t.q_set*0.5
+
 
 if args['branch_capacity_factor']:
     network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -124,11 +129,6 @@ contingency_factor=2
 #network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
 #network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
 #network.transformers.x=network.transformers.x['22596']*0.1
-network.loads_t.p_set =network.loads_t.p_set*0.5
-network.loads_t.q_set = network.loads_t.q_set*0.5
-network.generators_t.p_set =network.generators_t.p_set*0.5
-network.generators_t.q_set = network.generators_t.q_set*0.5
-
 pups.lines.s_nom = contingency_factor*pups.lines.s_nom
 pups.transformers.s_nom = pups.transformers.s_nom*contingency_factor
 
