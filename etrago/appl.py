@@ -26,7 +26,7 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
         'start_h': 2320,
         'end_h' : 2324,
         'scn_name': 'SH Status Quo',
@@ -101,9 +101,9 @@ def etrago(args):
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
-    elif args['pf_post_lopf']:
-        network.lopf(scenario.timeindex, solver_name=args['solver'])
-        network.pf(scenario.timeindex)
+    
+    if args['pf_post_lopf']:
+        network.pf(scenario.timeindex, use_seed=True)
 
     # write lpfile to path
     if not args['lpfile'] == False:
