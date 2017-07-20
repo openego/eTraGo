@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import time
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -135,6 +136,9 @@ def data_manipulation_sh (network):
 def results_to_csv(network, path):
     """
     """
+    if path==False:
+        return None
+
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
@@ -151,3 +155,45 @@ def results_to_csv(network, path):
            network.Z.to_csv(path.strip('0123456789')+'/Z.csv', index=False)
 
     return
+
+def parallelisation(network, start_h, end_h, group_size, solver_name):
+
+    print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
+    x = time.time()
+    for i in range(int((end_h-start_h+1)/group_size)):
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name)
+
+
+    y = time.time()
+    z = (y - x) / 60
+    return
+
+def pf_post_lopf(network, scenario):
+    
+    network_pf = network    
+
+    #For the PF, set the P to the optimised P
+    network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
+    network_pf.generators_t.p_set = network_pf.generators_t.p
+    
+    #Calculate q set from p_set with given cosphi
+    #todo
+
+    #Troubleshooting        
+    #network_pf.generators_t.q_set = network_pf.generators_t.q_set*0
+    #network.loads_t.q_set = network.loads_t.q_set*0
+    #network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
+    #network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
+    #network.transformers.x=network.transformers.x['22596']*0.01
+    #contingency_factor=2
+    #network.lines.s_nom = contingency_factor*pups.lines.s_nom
+    #network.transformers.s_nom = network.transformers.s_nom*contingency_factor
+    
+    #execute non-linear pf
+    network_pf.pf(scenario.timeindex, use_seed=True)
+    
+    #calculate p line losses
+    #todo
+
+    return network_pf
+
