@@ -26,7 +26,7 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2323,
         'end_h' : 2324,
         'scn_name': 'SH Status Quo',
@@ -37,7 +37,7 @@ args = {'network_clustering':False,
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':False,
+        'generator_noise':True,
         'parallelisation':False}
 
 def etrago(args):
@@ -57,12 +57,8 @@ def etrago(args):
     # add coordinates
     network = add_coordinates(network)
     
-    # create generator noise 
-    noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-    np.savetxt("noise_values.csv", noise_values, delimiter=",")
-    noise_values = genfromtxt('noise_values.csv', delimiter=',')
-
-    network.transformers.x=network.transformers.x*0.01
+    # TEMPORARY vague adjustment due to transformer bug in data processing
+    #network.transformers.x=network.transformers.x*0.01
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -70,7 +66,11 @@ def etrago(args):
 
 
     if args['generator_noise']:
-        # add random noise to all generators with marginal_cost of 0.
+        # create generator noise 
+        noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+        np.savetxt("noise_values.csv", noise_values, delimiter=",")
+        noise_values = genfromtxt('noise_values.csv', delimiter=',')
+        # add random noise to all generator
         network.generators.marginal_cost = noise_values
 
     if args['storage_extendable']:
