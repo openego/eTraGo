@@ -19,15 +19,15 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
-        'start_h': 2320,
+        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'start_h': 2323,
         'end_h' : 2324,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
@@ -56,6 +56,8 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+
+    network.transformers.x=network.transformers.x*0.01
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -101,9 +103,8 @@ def etrago(args):
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
-    
     if args['pf_post_lopf']:
-        network.pf(scenario.timeindex, use_seed=True)
+        pf_post_lopf(network, scenario)
 
     # write lpfile to path
     if not args['lpfile'] == False:
@@ -129,50 +130,7 @@ plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 storage_distribution(network)
-prepf = network
-pups = network
 
-#For the PF, set the P to the optimised P
-pups.generators_t.p_set = pups.generators_t.p_set.reindex(columns=pups.generators.index)
-pups.generators_t.p_set = pups.generators_t.p
-
-    #set all buses to PV, since we don't know what Q set points are
-    #network.generators.control = "PV"
-
-    #Need some PQ buses so that Jacobian doesn't break
-    #f = network.generators[network.generators.bus == "24220"]
-    #network.generators.loc[f.index,"control"] = "PQ"
-
-    #Troubleshooting
-contingency_factor=2
-#network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
-#network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
-#network.transformers.x=network.transformers.x['22596']*0.1
-pups.lines.s_nom = contingency_factor*pups.lines.s_nom
-pups.transformers.s_nom = pups.transformers.s_nom*contingency_factor
-
-    #network.generators_t.p_set = network.generators_t.p_set*0.9
-    #network.loads_t.p_set = network.loads_t.p_set*0.9
-
-    #network_pf.pf(network.snapshots)
-
-    #calculate p line losses
-
-pups.pf(pups.snapshots, use_seed=True)
-
-import matplotlib.pyplot as plt
-fig,ax = plt.subplots(1,1)
-fig.set_size_inches(6,6)
-load_distribution = network.loads_t.p_set.loc[network.snapshots[0]].groupby(network.loads.bus).sum()
-load_distribution_q = network.loads_t.q_set.loc[network.snapshots[0]].groupby(network.loads.bus).sum()
-network.plot(bus_sizes=load_distribution,ax=ax,title="Load distribution")
-network.plot(bus_colors='r',bus_sizes=load_distribution_q,ax=ax,title="q Load distribution")
-
-plt.show()
-
-network.buses_t.v_mag_pu.min().plot()
-network.buses_t.v_mag_pu.max().plot()
-plt.show()
 
 # close session
 #session.close()
