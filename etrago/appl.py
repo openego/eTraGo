@@ -10,95 +10,114 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
+
 import numpy as np
 np.random.seed()
 from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario
 import time
-from egopowerflow.tools.plot import plot_line_loading, plot_stacked_gen, add_coordinates, curtailment, gen_dist, storage_distribution
-from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
+                                     add_coordinates, curtailment, gen_dist,
+                                     storage_distribution)
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
+        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
         'start_h': 2320,
-        'end_h' : 2320,
-        'scn_name': 'Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
-        'outfile': '/path', # state if and where you want to save pyomo's lp file
-        'results': '/path', # state if and where you want to save results as csv
+        'end_h' : 2324,
+        'scn_name': 'SH Status Quo',
+        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'storage_extendable':False,
+        'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':False}
+        'generator_noise':False,
+        'parallelisation':False}
+
+def etrago(args):
+    session = oedb_session(args['db'])
+
+    # additional arguments cfgpath, version, prefix
+    scenario = NetworkScenario(session,
+                               version=args['gridversion'],
+                               prefix=args['ormcls_prefix'],
+                               method=args['method'],
+                               start_h=args['start_h'],
+                               end_h=args['end_h'],
+                               scn_name=args['scn_name'])
+
+    network = scenario.build_network()
+
+    # add coordinates
+    network = add_coordinates(network)
+
+    if args['branch_capacity_factor']:
+        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
 
-session = oedb_session(args['db'])
+    if args['generator_noise']:
+        # add random noise to all generators with marginal_cost of 0.
+        network.generators.marginal_cost[ network.generators.marginal_cost
+         == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
 
-# additional arguments cfgpath, version, prefix
-scenario = NetworkScenario(session,
-                           version=args['gridversion'],
-                           prefix=args['ormcls_prefix'],
-                           method=args['method'],
-                           start_h=args['start_h'],
-                           end_h=args['end_h'],
-                           scn_name=args['scn_name'])
-
-network = scenario.build_network()
-
-# add coordinates
-network = add_coordinates(network)
-  
-network.transformers.x=network.transformers.x*0.1
-
-network.loads_t.p_set =network.loads_t.p_set*0.1
-network.loads_t.q_set = network.loads_t.q_set*0.1
-network.generators_t.p_set =network.generators_t.p_set*0.1
-network.generators_t.q_set = network.generators_t.q_set*0.1
+    if args['storage_extendable']:
+        # set virtual storages to be extendable
+        network.storage_units.p_nom_extendable = True
+        # set virtual storage costs with regards to snapshot length
+        network.storage_units.capital_cost = (network.storage_units.capital_cost /
+        (8760//(args['end_h']-args['start_h']+1)))
 
 
-if args['branch_capacity_factor']:
-    network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-    network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+    # for SH scenario run do data preperation:
+    if args['scn_name'] == 'SH Status Quo':
+        data_manipulation_sh(network)
 
+    #load shedding in order to hunt infeasibilities
+    if args['load_shedding']:
+    	load_shedding(network)
 
-if args['generator_noise']:
-    # add random noise to all generators with marginal_cost of 0. 
-    network.generators.marginal_cost[ network.generators.marginal_cost == 0] = abs(np.random.normal(0,0.00001,sum(network.generators.marginal_cost == 0)))
+    # network clustering
+    if args['network_clustering']:
+        network.generators.control="PV"
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+        network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-if args['storage_extendable']:
-    # set virtual storages to be extendable
-    network.storage_units.p_nom_extendable = True
-    # set virtual storage costs with regards to snapshot length 
-    network.storage_units.capital_cost = network.storage_units.capital_cost / (8760//(args['end_h']-args['start_h']+1))
-
+    # parallisation
+    if args['parallelisation']:
+        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'])
+    # start linear optimal powerflow calculations
+    elif args['method'] == 'lopf':
+        x = time.time()
+        network.lopf(scenario.timeindex, solver_name=args['solver'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+    # start non-linear powerflow simulation
+    elif args['method'] == 'pf':
+        network.pf(scenario.timeindex)
     
-# for SH scenario run do data preperation:
-if args['scn_name'] == 'SH Status Quo':
-    data_manipulation_sh(network)
+    if args['pf_post_lopf']:
+        network.pf(scenario.timeindex, use_seed=True)
 
-#load shedding in order to hunt infeasibilities
-if args['load_shedding']:
-	load_shedding(network)
+    # write lpfile to path
+    if not args['lpfile'] == False:
+        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
+                                                     True})
+    # write PyPSA results to csv to path
+    if not args['results'] == False:
+        results_to_csv(network, args['results'])
 
-# network clustering
-if args['network_clustering']:
-    network.generators.control="PV"
-    busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
-    network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+    return network
 
-# start powerflow calculations
-x = time.time()
-network.lopf(scenario.timeindex, solver_name=args['solver'])
-y = time.time()
-z = (y - x) / 60 # z is time for lopf in minutes
 
-# write results
-#network.model.write(args['outfile'], io_options={'symbolic_solver_labels':True})
-#results_to_csv(network, args['results'])
+# execute etrago function
+network = etrago(args)
 
 # plots
 
@@ -156,4 +175,4 @@ network.buses_t.v_mag_pu.max().plot()
 plt.show()
 
 # close session
-session.close()
+#session.close()
