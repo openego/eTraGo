@@ -116,19 +116,37 @@ def load_shedding (network, **kwargs):
     p_nom=p_nom,
     carrier='load shedding',
     bus=network.buses.index),
-    index=network.buses.index + ' load'),
+    index=network.buses.index + '00000'),
     "Generator"
     )
-
     return
 
 
 def data_manipulation_sh (network):
-
+    from shapely.geometry import Point, LineString, MultiLineString
+    from geoalchemy2.shape import from_shape, to_shape
+    
+    new_bus = str(network.buses.index.astype(int).max()+1)
+    new_trafo = str(network.transformers.index.astype(int).max()+1)
+    new_line = str(network.lines.index.astype(int).max()+1)
+    
     #add connection from Luebeck to Siems
-    network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-    network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=1600)
-    network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
+    network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
+    network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
+    network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
+    network.lines.cables[new_line]=3.0
+    
+    #bus geom
+    point_bus1 = Point(10.760835,53.909745)
+    network.buses.geom[new_bus]= from_shape(point_bus1, 4326)
+    
+    #line geom/topo
+    network.lines.geom[new_line] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['26387']),point_bus1])]),4326)
+    network.lines.topo[new_line] = from_shape(LineString([to_shape(network.buses.geom['26387']),point_bus1]),4326)
+    
+    #trafo geom/topo
+    network.transformers.geom[new_trafo] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326)
+    network.transformers.topo[new_trafo] = from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326)
     
     return
     
