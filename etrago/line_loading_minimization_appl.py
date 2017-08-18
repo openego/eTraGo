@@ -83,16 +83,16 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-def extra_functionality(network,snapshots):        
-    
-    network.model.number1= Var(network.model.passive_branch_p_index, within = PositiveReals) 
-    network.model.number2= Var(network.model.passive_branch_p_index, within = PositiveReals)
+def extra_functionality(network,snapshots):
 
-    def cRule(model):
-        for i in network.model.passive_branch_p_index:
-            return (network.model.number1[i] + network.model.number2[i] == network.model.passive_branch_p[i])
-    network.model.cRule=Constraint(rule=cRule)
-         
+    network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+    network.model.number2 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+
+    def cRule(model, c, l, t):
+        return (model.number1[c, l, t] + model.number2[c, l, t] == model.passive_branch_p[c, l, t])
+
+    network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
+
     network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)
 
 # start powerflow calculations
