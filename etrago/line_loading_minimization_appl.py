@@ -90,11 +90,11 @@ def extra_functionality(network,snapshots):
 
     def cRule(model):
         for i in network.model.passive_branch_p_index:
-            return (model.number1[i] + model.number2[i] == network.model.passive_branch_p[i])
+            return (network.model.number1[i] + network.model.number2[i] == network.model.passive_branch_p[i])
     network.model.cRule=Constraint(rule=cRule)
          
     network.model.objective.expr += 0.01* sum(network.model.passive_branch_p[i] for i in network.model.passive_branch_p_index)
-    
+
 # start powerflow calculations
 x = time.time()
 network.lopf(scenario.timeindex,solver_name=args['solver'],
@@ -106,7 +106,7 @@ z = (y - x) / 60 # z is time for lopf in minutes
 
 
 # write results
-# network.model.write(args['outfile'], io_options={'symbolic_solver_labels':True})
+network.model.write(args['outfile'], io_options={'symbolic_solver_labels':True})
 
 results_to_csv(network, args['results'])
 
