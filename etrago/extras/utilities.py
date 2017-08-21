@@ -127,9 +127,12 @@ def load_shedding (network, **kwargs):
 def data_manipulation_sh (network):
 
     #add connection from Luebeck to Siems
-    network.add("Bus", "Siems220",carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-    network.add("Transformer", "Siems220_380", bus0="25536", bus1="Siems220", x=1.29960, tap_ratio=1, s_nom=1600)
-    network.add("Line","LuebeckSiems", bus0="26387",bus1="Siems220", x=0.0001, s_nom=1600)
+    new_bus = str(int(network.buses.index.max())+1)
+    new_trafo = str(int(network.transformers.index.max())+1)
+    new_line = str(int(network.lines.index.max())+1)
+    network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
+    network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
+    network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
     
     return
     
@@ -168,4 +171,32 @@ def parallelisation(network, start_h, end_h, group_size, solver_name):
     z = (y - x) / 60
     return
 
+def pf_post_lopf(network, scenario):
+    
+    network_pf = network    
+
+    #For the PF, set the P to the optimised P
+    network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
+    network_pf.generators_t.p_set = network_pf.generators_t.p
+    
+    #Calculate q set from p_set with given cosphi
+    #todo
+
+    #Troubleshooting        
+    #network_pf.generators_t.q_set = network_pf.generators_t.q_set*0
+    #network.loads_t.q_set = network.loads_t.q_set*0
+    #network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
+    #network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
+    #network.transformers.x=network.transformers.x['22596']*0.01
+    #contingency_factor=2
+    #network.lines.s_nom = contingency_factor*pups.lines.s_nom
+    #network.transformers.s_nom = network.transformers.s_nom*contingency_factor
+    
+    #execute non-linear pf
+    network_pf.pf(scenario.timeindex, use_seed=True)
+    
+    #calculate p line losses
+    #todo
+
+    return network_pf
 
