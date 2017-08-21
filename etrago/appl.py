@@ -24,19 +24,19 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion': None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 2320,
-        'end_h' : 2324,
-        'scn_name': 'SH Status Quo',
+        'start_h': 1,
+        'end_h' : 2,
+        'scn_name': 'Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
-        'load_shedding':True,
-        'generator_noise':False,
+        'load_shedding':False,
+        'generator_noise':True,
         'parallelisation':False}
 
 def etrago(args):
@@ -55,7 +55,7 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-    
+      
     # create generator noise 
     noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
     np.savetxt("noise_values.csv", noise_values, delimiter=",")
@@ -65,18 +65,17 @@ def etrago(args):
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
-
     if args['generator_noise']:
         # add random noise to all generators with marginal_cost of 0.
         network.generators.marginal_cost = noise_values
 
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        network.storage_units.p_nom_extendable = True
+        if network.storage_units.source.any()=='extendable_storage':
+            network.storage_units.p_nom_extendable = True
         # set virtual storage costs with regards to snapshot length
-        network.storage_units.capital_cost = (network.storage_units.capital_cost /
-        (8760//(args['end_h']-args['start_h']+1)))
-
+            network.storage_units.capital_cost = (network.storage_units.capital_cost /
+            (8760//(args['end_h']-args['start_h']+1)))
 
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo':
@@ -125,7 +124,8 @@ plot_line_loading(network)
 plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
-#storage_distribution(network)
+storage_distribution(network)
 
 # close session
 #session.close()
+
