@@ -1,18 +1,20 @@
 {
-"network_clustering":"False",
-"db": "znes", 
-"gridversion": "None",
+"network_clustering": false,
+"db": "oedb", 
+"gridversion": "v0.2.11",
 "method": "lopf",
-"pf_post_lopf":"False",
+"pf_post_lopf": false,
 "start_h": 2323,
 "end_h" : 2324,
 "scn_name": "SH Status Quo",
-"ormcls_prefix": "EgoGridPfHv", 
-"lpfile": "False",
-"results": "False",
+"ormcls_prefix": "EgoPfHv", 
+"lpfile": false,
+"results": false,
 "solver": "gurobi",
 "branch_capacity_factor": 1,
-"storage_extendable":"True",
-"load_shedding":"True",
-"generator_noise":"True",
-"parallelisation":"False"}
+"storage_extendable": true,
+"load_shedding": true,
+"generator_noise": true,
+"parallelisation": false
+}
+
