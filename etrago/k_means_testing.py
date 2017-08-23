@@ -23,7 +23,6 @@ Error handling:
 
 
 """
-
 __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
@@ -40,13 +39,8 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      storage_distribution)
 from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
-
-# imports for k-mean
-from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
 import pandas as pd
-import numpy as np
 import json
 
 # import scenario settings **args
