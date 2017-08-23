@@ -31,7 +31,7 @@ args = {'network_clustering':False,
         'end_h' : 2324,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
