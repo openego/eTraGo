@@ -19,7 +19,7 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, calc_line_losses
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
@@ -32,7 +32,7 @@ args = {'network_clustering':False,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': '/srv/ES2050/open_eGo/AP3/lopf_results/gurobi_sh_pf_1' , # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':False,
@@ -108,8 +108,10 @@ def etrago(args):
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
+        
     if args['pf_post_lopf']:
         pf_post_lopf(network, scenario)
+        calc_line_losses(network)
 
     # write lpfile to path
     if not args['lpfile'] == False:
@@ -135,7 +137,6 @@ plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 storage_distribution(network)
-
 
 # close session
 #session.close()

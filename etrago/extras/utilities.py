@@ -192,8 +192,35 @@ def pf_post_lopf(network, scenario):
     #execute non-linear pf
     network_pf.pf(scenario.timeindex, use_seed=True)
     
-    #calculate p line losses
-    #todo
-
     return network_pf
 
+def calc_line_losses(network):
+    """ Calculate losses per line with PF result data
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    s0 : series
+        apparent power of line
+    i0 : series
+        current of line  
+    -------
+
+    """
+    
+    # calculate apparent power S = sqrt(p² + q²)
+    s0 = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
+        apply(np.sqrt))
+    # calculate current I = S / U
+    i0 = s0 / network.lines.v_nom
+    # calculate losses per line and timestep network.lines_t.line_losses = I² * R
+    p_loss_t = i0**2 * network.lines.r
+    network.lines_t.line_losses = p_loss_t
+    # calculate total losses per line
+    p_loss = np.sum(p_loss_t)
+    # calculate total losses on all lines
+    p_loss_overall = sum(p_loss)
+    print("Total lines losses for all snapshots and lines [MW]:",p_loss_overall)
+  
+    return
+    
+    
