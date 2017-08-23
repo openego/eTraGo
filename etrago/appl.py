@@ -19,21 +19,20 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
 import pandas as pd
-
-
+"""
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion': None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion': 'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2323,
         'end_h' : 2324,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
+        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
@@ -42,7 +41,7 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':True,
         'parallelisation':False}
-
+"""
 def etrago(args):
     session = oedb_session(args['db'])
 
@@ -62,7 +61,6 @@ def etrago(args):
     
     # TEMPORARY vague adjustment due to transformer bug in data processing
     #network.transformers.x=network.transformers.x*0.01
-
 
 
     if args['branch_capacity_factor']:
@@ -185,4 +183,5 @@ plot_stacked_gen(network, resolution="MW")
 storage_distribution(network)
 
 # close session
-session.close()
+#session.close()
+
