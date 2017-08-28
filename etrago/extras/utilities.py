@@ -108,15 +108,20 @@ def load_shedding (network, **kwargs):
 
     marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
     p_nom = kwargs.get('p_nom', p_nom_def)
-
+    
     network.add("Carrier", "load")
+    start = network.buses.index.astype(int).max()
+    nums = len(network.buses.index)
+    end = start+nums
+    index = list(range(start,end))
+    index = [str(x) for x in index]
     network.import_components_from_dataframe(
     pd.DataFrame(
     dict(marginal_cost=marginal_cost,
     p_nom=p_nom,
     carrier='load shedding',
     bus=network.buses.index),
-    index=network.buses.index + '00000'),
+    index=index),
     "Generator"
     )
     return
@@ -134,8 +139,8 @@ def data_manipulation_sh (network):
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
-    network.lines.cables[new_line]=3.0
-    
+    network.lines.loc[new_line,'cables']=3.0
+
     #bus geom
     point_bus1 = Point(10.760835,53.909745)
     network.buses.geom[new_bus]= from_shape(point_bus1, 4326)
@@ -147,6 +152,18 @@ def data_manipulation_sh (network):
     #trafo geom/topo
     network.transformers.geom[new_trafo] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326)
     network.transformers.topo[new_trafo] = from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326)
+    
+#    #bus geom
+#    point_bus1 = Point(10.760835,53.909745)
+#    network.buses.loc[new_bus,'geom'] = from_shape(point_bus1, 4326)
+#    
+#    #line geom/topo
+#    network.lines.loc[new_line,'geom'] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['26387']),point_bus1])]),4326)
+#    network.lines.loc[new_line,'topo'] = from_shape(LineString([to_shape(network.buses.geom['26387']),point_bus1]),4326)
+#    
+#    #trafo geom/topo
+#    network.transformers.loc[new_trafo,'geom'] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326)
+#    network.transformers.loc[new_trafo,'topo'] = from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326)
     
     return
     
