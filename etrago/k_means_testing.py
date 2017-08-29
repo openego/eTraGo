@@ -104,41 +104,44 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-    print('start k-mean clustering')
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control="PV"
-    network.buses['v_nom'] = 380.
-    # problem our lines have no v_nom. this is implicitly defined by the connected buses:
-    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+
+    if args['k_mean_clustering']:
+      print('start k-mean clustering')
+      # prepare k-mean
+      # k-means clustering (first try)
+      network.generators.control="PV"
+      network.buses['v_nom'] = 380.
+      # problem our lines have no v_nom. this is implicitly defined by the connected buses:
+      network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
     
-    # adjust the x of the lines which are not 380. 
-    lines_v_nom_b = network.lines.v_nom != 380
-    network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
-    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+      # adjust the x of the lines which are not 380. 
+      lines_v_nom_b = network.lines.v_nom != 380
+      network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+      network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
     
-    trafo_index = network.transformers.index
+      trafo_index = network.transformers.index
     
-    network.import_components_from_dataframe(
-     network.transformers.loc[:,['bus0','bus1','x','s_nom']]
-     .assign(x=0.1*380**2/2000)
-     .set_index('T' + trafo_index),
-     'Line')
-    network.transformers.drop(trafo_index, inplace=True)
+      network.import_components_from_dataframe(
+       network.transformers.loc[:,['bus0','bus1','x','s_nom']]
+       .assign(x=0.1*380**2/2000)
+       .set_index('T' + trafo_index),
+       'Line')
+      network.transformers.drop(trafo_index, inplace=True)
     
-    for attr in network.transformers_t:
-      network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+      for attr in network.transformers_t:
+        network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
     
     
-    # k-mean clustering
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
+      # k-mean clustering
+      busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
                len(network.buses)), index=network.buses.index) , n_clusters= 50)
          # ToDo:
             #change np.repeat(1, len(network.buses) to load and conv P_max
     
-    clustering = get_clustering_from_busmap(network, busmap)
-    network = clustering.network
-    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+      clustering = get_clustering_from_busmap(network, busmap)
+      network = clustering.network
+      #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
 
     # parallisation

@@ -15,6 +15,7 @@
 "storage_extendable": true,
 "load_shedding": true,
 "generator_noise": true,
-"parallelisation": false
+"parallelisation": false,
+"k_mean_clustering": true
 }
 
