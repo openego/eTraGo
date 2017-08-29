@@ -132,10 +132,6 @@ def data_manipulation_sh (network):
     from shapely.geometry import Point, LineString, MultiLineString
     from geoalchemy2.shape import from_shape, to_shape
     
-    new_bus = str(network.buses.index.astype(int).max()+1)
-    new_trafo = str(network.transformers.index.astype(int).max()+1)
-    new_line = str(network.lines.index.astype(int).max()+1)
-    
     #add connection from Luebeck to Siems
 
     new_bus = str(int(network.buses.index.max())+1)
