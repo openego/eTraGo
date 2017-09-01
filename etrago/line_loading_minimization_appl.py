@@ -22,17 +22,17 @@ from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_vo
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'start_h': 2301,
-         'end_h' : 2303,
+        'start_h': 2320,
+        'end_h' : 2321,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
-        'outfile': '/path', # state if and where you want to save pyomo's lp file
+        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
+        'outfile': '/path/file.lp', # state if and where you want to save pyomo's lp file
         'results': '/path', # state if and where you want to save results as csv
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'storage_extendable':True,
+        'storage_extendable':False,
         'load_shedding':True,
         'generator_noise':False}
 
@@ -93,12 +93,11 @@ def extra_functionality(network,snapshots):
 
     network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
 
-    network.model.objective.expr += 0.01* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
+    network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
 
 # start powerflow calculations
 x = time.time()
-network.lopf(scenario.timeindex,solver_name=args['solver'],
-             extra_functionality=extra_functionality)
+network.lopf(scenario.timeindex,solver_name=args['solver'], extra_functionality=extra_functionality)
 y = time.time()
 
 z = (y - x) / 60 # z is time for lopf in minutes
@@ -108,7 +107,7 @@ z = (y - x) / 60 # z is time for lopf in minutes
 #write results
 network.model.write(args['outfile'], io_options={'symbolic_solver_labels':True})
 
-results_to_csv(network, args['results'])
+#results_to_csv(network, args['results'])
 
 # plots
 
