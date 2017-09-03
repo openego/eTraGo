@@ -1,4 +1,4 @@
-from extras.utilities import *
+from etrago.extras.utilities import *
 from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators
 from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from itertools import product
@@ -73,16 +73,13 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 def graph_from_edges(edges):
     """ Construct an undirected multigraph from a list containing data on
     weighted edges.
-
     Parameters
     ----------
     edges : list
         List of tuples each containing first node, second node, weight, key.
-
     Returns
     -------
     M : :class:`networkx.classes.multigraph.MultiGraph
-
     """
 
     M = nx.MultiGraph()
@@ -111,19 +108,16 @@ def gen(nodes, n, graph):
 def shortest_path(paths, graph):
     """ Finding minimum path lengths between sources and targets pairs defined
     in paths.
-
     Parameters
     ----------
     ways : list
         List of tuples containing a source and target node
     graph : :class:`networkx.classes.multigraph.MultiGraph
         Graph representation of an electrical grid.
-
     Returns
     -------
     df : pd.DataFrame
         DataFrame holding source and target node and the minimum path length.
-
     """
 
     idxnames = ['source', 'target']
@@ -244,4 +238,4 @@ def busmap_from_psql(network, session, scn_name):
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
-    return busmap
+return busmap
