@@ -28,7 +28,7 @@ args = {'network_clustering':False,
         'end_h' : 2321,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv' 
-        'outfile': '/path/file.lp', # state if and where you want to save pyomo's lp file
+        'outfile': '/home/ulf/file.lp', # state if and where you want to save pyomo's lp file
         'results': '/path', # state if and where you want to save results as csv
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
@@ -83,7 +83,7 @@ if args['network_clustering']:
     busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
     network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-def extra_functionality(network,snapshots):
+def loading_minimization(network,snapshots):
 
     network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
     network.model.number2 = Var(network.model.passive_branch_p_index, within = PositiveReals)
@@ -94,6 +94,9 @@ def extra_functionality(network,snapshots):
     network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
 
     network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
+
+#extra_functionality = loading_minimization
+extra_functionality=None
 
 # start powerflow calculations
 x = time.time()

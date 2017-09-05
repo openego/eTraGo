@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import time
+from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -193,12 +194,12 @@ def results_to_csv(network, path):
 
     return
 
-def parallelisation(network, start_h, end_h, group_size, solver_name):
+def parallelisation(network, start_h, end_h, group_size, solver_name, extra_functionality=None):
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
     for i in range(int((end_h-start_h+1)/group_size)):
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name)
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
 
 
     y = time.time()
@@ -233,4 +234,17 @@ def pf_post_lopf(network, scenario):
     #todo
 
     return network_pf
+
+def loading_minimization(network,snapshots):
+
+    network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+    network.model.number2 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+
+    def cRule(model, c, l, t):
+        return (model.number1[c, l, t] - model.number2[c, l, t] == model.passive_branch_p[c, l, t])
+
+    network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
+
+    network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
+
 
