@@ -8,17 +8,15 @@ A speciality in this context is that transmission grids are described by the 380
 The focus of optimization are flexibility options with a special focus on energy storages. Grid expansion measures are not part of this tool and will be instead part of 'eGo' https://github.com/openego/eGo
 
 
-Setup dev branch
+Setup 
 =========================
 
 
 Run:
 
     ```
-    git clone -b dev https://github.com/openego/eTraGo
+    git clone https://github.com/openego/eTraGo
     ```
-
-To get the repository with the cluster code. 
 
 Create a virtualenvironment (where you like it) and activate it: 
 
@@ -27,18 +25,17 @@ Create a virtualenvironment (where you like it) and activate it:
    source venv/bin/activate 
    ```
 
-With you activate environment `cd` to the cloned directory and run: 
+With your activated environment `cd` to the cloned directory and run: 
 
     ```
-    pip install -r requirements.txt
+    pip install -e eTraGo
     ```
 
-This will install all need packages into your environment. Now you should be 
-ready to go. 
+This will install all needed packages into your environment. Now you should be ready to go. 
 
 Copyleft
 =========================
 
 Code licensed under "GNU Affero General Public License Version 3 (AGPL-3.0)"
-It is a collaborative work with several copyright owner:
+It is a collaborative work with several copyright owners:
 Cite as "eTraGo" © Flensburg University of Applied Sciences, Centre for Sustainable Energy Systems © Europa-Universität Flensburg, Centre for Sustainable Energy Systems © DLR Institute for Networked Energy Systems"
