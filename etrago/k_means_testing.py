@@ -140,7 +140,7 @@ def etrago(args):
 
       network.import_components_from_dataframe(
        network.transformers.loc[:,['bus0','bus1','x','s_nom']]
-       .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1)**2))
+       .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1))**2)
        .set_index('T' + trafo_index),
        'Line')
       network.transformers.drop(trafo_index, inplace=True)
