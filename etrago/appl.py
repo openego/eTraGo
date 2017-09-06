@@ -19,18 +19,18 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion': None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion': 'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
-        'start_h': 2323,
-        'end_h' : 2324,
+        'start_h': 2320,
+        'end_h' : 2321,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
+        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
@@ -39,6 +39,7 @@ args = {'network_clustering':False,
         'storage_extendable':True,
         'load_shedding':True,
         'generator_noise':True,
+        'minimize_loading':False,
         'parallelisation':False,
         'comments': None}
 
@@ -97,13 +98,19 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
+    # Branch loading minimization
+    if args['minimize_loading']:
+        extra_functionality = loading_minimization
+    else:
+        extra_functionality=None
+
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'])
+        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'])
+        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
