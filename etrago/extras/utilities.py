@@ -144,7 +144,6 @@ def data_manipulation_sh (network):
 
     #bus geom
     point_bus1 = Point(10.760835,53.909745)
-
     network.buses.set_value(new_bus, 'geom', from_shape(point_bus1, 4326))
 
     #line geom/topo
@@ -155,20 +154,6 @@ def data_manipulation_sh (network):
     network.transformers.set_value(new_trafo, 'geom', from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326))
     network.transformers.set_value(new_trafo, 'geom', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
 
-#    future way to add the geoms of the new components, currently bugged in pandas/shapely
-
-#    #bus geom
-#    point_bus1 = Point(10.760835,53.909745)
-#    network.buses.loc[new_bus,'geom'] = from_shape(point_bus1, 4326)
-#    
-#    #line geom/topo
-#    network.lines.loc[new_line,'geom'] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['26387']),point_bus1])]),4326)
-#    network.lines.loc[new_line,'topo'] = from_shape(LineString([to_shape(network.buses.geom['26387']),point_bus1]),4326)
-#    
-#    #trafo geom/topo
-#    network.transformers.loc[new_trafo,'geom'] = from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326)
-#    network.transformers.loc[new_trafo,'topo'] = from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326)
-    
     return
     
 def results_to_csv(network, path):
