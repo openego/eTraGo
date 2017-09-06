@@ -135,10 +135,12 @@ def etrago(args):
       network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
 
       trafo_index = network.transformers.index
+      transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+
 
       network.import_components_from_dataframe(
        network.transformers.loc[:,['bus0','bus1','x','s_nom']]
-       .assign(x=0.1*380**2/2000)
+       .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1)**2))
        .set_index('T' + trafo_index),
        'Line')
       network.transformers.drop(trafo_index, inplace=True)
