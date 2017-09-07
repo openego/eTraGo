@@ -21,7 +21,7 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                     # storage_distribution)
 from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf
 #from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
-from plotting import plot_max_line_loading,plot_max_opt_line_loading,transformers_distribution
+from plotting import plot_max_opt_line_loading_bench,plot_max_line_loading,plot_max_opt_line_loading,transformers_distribution,plot_dif_line_MW,plot_dif_line_percent
 
 from oemof.db import cfg
 
@@ -46,7 +46,7 @@ args = {'network_clustering':False,
         'generator_noise':True,
         'parallelisation':False,
         'line_extendable': True,
-        'calc_type' : True} # True for methodik of line_extendable  #False for all lines are extendables
+        'calc_type' : False} # True for methodik of line_extendable  #False for all lines are extendables
 
 def etrago(args):
     start_time = time.time()
@@ -176,11 +176,13 @@ def etrago(args):
             time_list = sorted(time_list,key=getKey)
         
             lines_time=[]
+            all_time = []
             i = 0
             while(i<len(time_list)):
 #                if(i > 0.1*(args['end_h']-args['start_h'])):
 #                    break
-                lines_time.append(time_list[len(time_list)-1-i][0])  
+                lines_time.append(time_list[len(time_list)-1-i][0]) 
+                all_time.append(time_list[len(time_list)-1-i][0])
             
                 index = [a for a,u in enumerate(max_loading[2]) if u==lines_time[i]]
                 
@@ -202,7 +204,7 @@ def etrago(args):
                                 (50*8760)*(args['end_h']-args['start_h'])
                         elif(U_bus_0 == 220):
                             network.lines.capital_cost[max_loading[0][k]] = \
-                                (1600000*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                                (800000*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
                                 (50*8760)*(args['end_h']-args['start_h'])
                         else:
                             network.lines.capital_cost[max_loading[0][k]] = \
@@ -303,15 +305,51 @@ def etrago(args):
 
             i=0
             while(i<len(trafo)):
-                if(trafo[i] in lines_time == True):
+                if(trafo[i] in all_time == True):
                     i+=1
                 else:
-                    lines_time.append(trafo[i])
+                    all_time.append(trafo[i])
                     i+=1
+                    
+            Line_list = []
+            Trafo_list = []
+            
+            i=0
+            while(i<len(network.lines.s_nom_opt)):
+                 Line_list.append([])
+                 i+=1
+            
+            x=0
+            while(x<len(network.transformers.s_nom_opt)):
+                Trafo_list.append([])
+                x+=1
         
-        
-            for k in lines_time:
-                network.lopf(network.snapshots[k:k+1], solver_name=args['solver'])
+            i=0
+            while(i<len(all_time)):
+                network.lopf(network.snapshots[all_time[i]:all_time[i]+1], solver_name=args['solver'])
+                x=0
+                while(x<len(network.lines.s_nom_opt)):
+                    Line_list[x].append(network.lines.s_nom_opt[x])
+                    x+=1
+                y=0
+                while(y<len(network.transformers.s_nom_opt)):
+                    Trafo_list[y].append(network.transformers.s_nom_opt[y])
+                    y+=1
+                i+=1
+                
+               
+            i = 0
+            while(i<len(network.lines.s_nom_opt)):
+                s_nom_opt = max(Line_list[i])
+                network.lines.s_nom_opt[i]=s_nom_opt
+                i+=1
+            
+            i = 0
+            while(i<len(network.transformers.s_nom_opt)):
+                s_nom_opt = max(Trafo_list[i])
+                network.transformers.s_nom_opt[i]=s_nom_opt
+                i+=1
+                
  
         else:
                 
@@ -334,7 +372,7 @@ def etrago(args):
                             (50*8760)*(args['end_h']-args['start_h'])
                     elif(U_bus_0 == 220):
                         network.lines.capital_cost[i] = \
-                            (1600000*network.lines.length[i]/network.lines.s_nom[i])/\
+                            (800000*network.lines.length[i]/network.lines.s_nom[i])/\
                             (50*8760)*(args['end_h']-args['start_h'])
                     else:
                         network.lines.capital_cost[i] = \
@@ -401,71 +439,180 @@ def etrago(args):
         results_to_csv(network, args['results'])
 
     
-    return network,start_time,lines_time,max_loading,max_loading_trafo
+    return network,start_time#,lines_time,max_loading,max_loading_trafo,trafo
 
 
 
 # execute etrago function
-#network,start_time = etrago(args)
+network,start_time = etrago(args)
 # execute etrago function
-network,start_time,lines_time,max_loading,max_loading_trafo = etrago(args)
+#network,start_time,lines_time,max_loading,max_loading_trafo,trafo_time = etrago(args)
+print('finish')
 end_time = time.time()
 z = (end_time - start_time) / 60 # z is time for lopf in minutes
 # plots
 
 # make a line loading plot
-plot_line_loading(network,filename='line_maximum_loading_meth_2_vergleich.jpg')
-
-plot_max_line_loading(network,filename='line_maximum_loading_meth_2.jpg')
-
-plot_max_opt_line_loading(network,filename='line_maximum_loading_meth_opt.jpg')
+plot_max_line_loading(network,filename='line_maximum_loading_bench_2.jpg')
+plot_max_opt_line_loading_bench(network,filename='line_maximum_loading_bench_opt.jpg')
+#plot_max_opt_line_loading(network,lines_time,filename='line_maximum_loading_bench_opt.jpg')
 
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable transformers
-transformers_distribution(network,filename='plot_transformer_meth.jpg')
+transformers_distribution(network,filename='plot_transformer_bench.jpg')
 # plot to show extendable storages
 #storage_distribution(network)
 
 # close session
 #session.close()
 import csv
+from math import sqrt
   
-with open('lines_meth.csv', 'w') as csvfile:
+
+#with open('lines_bench.csv', 'w') as csvfile:
+#    fieldnames = ['line_key','s_nom_extendable','s_nom','p','loading_old','s_nom_opt','loading_new','dif']
+#    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+#
+#    writer.writeheader()
+#    
+#    i = 0
+#    while (i<len(network.lines.s_nom)):
+#        
+#        p = []
+#        q = []
+#        x=0
+#        while(x<len(lines_time)):
+#            p.append(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]].loc[network.snapshots[lines_time[x]]]))
+#            if network.lines_t.q0.empty:
+#                q.append(0)
+#            else:
+#                q.append(abs(network.lines_t.q0[network.lines_t.q0.keys()[i]].loc[network.snapshots[lines_time[x]]]))
+#                
+#            x+=1
+#            
+#        max_p = max(p)
+#        max_q = max(q)
+#            
+#        s_nom = network.lines.s_nom_opt[i]
+#        loading=(sqrt(max_p**2+max_q**2)/s_nom*100)
+#        
+#        writer.writerow({'line_key': network.lines.s_nom.keys()[i],
+#                         's_nom_extendable': network.lines.s_nom_extendable[i],
+#                         's_nom': network.lines.s_nom[i],
+#                         'p': max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]])),
+#                         'loading_old': round(max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]]))/network.lines.s_nom[i]*100,2),
+#                         's_nom_opt':network.lines.s_nom_opt[i],
+#                         'loading_new': round(loading,2),
+#                         'dif': network.lines.s_nom_opt[i]-network.lines.s_nom[i]}) 
+#        i+=1
+
+with open('lines_bench.csv', 'w') as csvfile:
     fieldnames = ['line_key','s_nom_extendable','s_nom','p','loading_old','s_nom_opt','loading_new','dif']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
     writer.writeheader()
     
     i = 0
-    while (i<len(network.lines.s_nom)):    
+    while (i<len(network.lines.s_nom)):
+        
+        p = abs(network.lines_t.p0[network.lines_t.p0.keys()[i]])
+        if network.lines_t.q0.empty:
+            max_q = 0
+        else:
+            q = abs(network.lines_t.q0[network.lines_t.q0.keys()[i]])
+            max_q = max(q)  
+            
+        max_p = max(p)
+                 
+        s_nom = network.lines.s_nom_opt[i]
+        loading=(sqrt(max_p**2+max_q**2)/s_nom*100)
+        
         writer.writerow({'line_key': network.lines.s_nom.keys()[i],
                          's_nom_extendable': network.lines.s_nom_extendable[i],
                          's_nom': network.lines.s_nom[i],
                          'p': max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]])),
                          'loading_old': round(max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]]))/network.lines.s_nom[i]*100,2),
                          's_nom_opt':network.lines.s_nom_opt[i],
-                         'loading_new': round(max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]]))/network.lines.s_nom_opt[i]*100,2),
+                         'loading_new': round(loading,2),
                          'dif': network.lines.s_nom_opt[i]-network.lines.s_nom[i]}) 
         i+=1
           
 
 
-with open('transformer_meth.csv', 'w') as csvfile:
+#with open('transformer_bench.csv', 'w') as csvfile:
+#    fieldnames = ['transformer_key','s_nom_extendable','s_nom','p','loading_old','s_nom_opt','loading_new','dif']
+#    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+#
+#    writer.writeheader()    
+#    
+#    
+#    i = 0
+#    while (i<len(network.transformers.s_nom)):   
+#        
+#        p = []
+#        q = []
+#        x=0
+#        while(x<len(trafo_time)):
+#            p.append(abs(network.transformers_t.p0[network.transformers_t.p0.keys()[i]].loc[network.snapshots[trafo_time[x]]]))
+#            if network.transformers_t.q0.empty:
+#                q.append(0)
+#            else:
+#                q.append(abs(network.transformers_t.q0[network.transformers_t.q0.keys()[i]].loc[network.snapshots[trafo_time[x]]]))
+#                
+#            x+=1
+#            
+#        max_p = max(p)
+#        max_q = max(q)
+#            
+#        s_nom = network.transformers.s_nom_opt[i]
+#        loading=(sqrt(max_p**2+max_q**2)/s_nom*100)
+#        
+#        
+#        writer.writerow({'transformer_key': network.transformers.s_nom.keys()[i],
+#                         's_nom_extendable': network.transformers.s_nom_extendable[i],
+#                         's_nom': network.transformers.s_nom[i],
+#                         'p': max(abs(network.transformers_t.p0[network.transformers.s_nom.keys()[i]])),
+#                         'loading_old': round(max(abs(network.transformers_t.p0[network.transformers.s_nom.keys()[i]]))/network.transformers.s_nom[i]*100,2),
+#                         's_nom_opt':network.transformers.s_nom_opt[i],
+#                         'loading_new': round(loading,2),
+#                         'dif': network.transformers.s_nom_opt[i]-network.transformers.s_nom[i]}) 
+#        i+=1     
+
+with open('transformer_bench.csv', 'w') as csvfile:
     fieldnames = ['transformer_key','s_nom_extendable','s_nom','p','loading_old','s_nom_opt','loading_new','dif']
     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-    writer.writeheader()
+    writer.writeheader() 
     
     i = 0
-    while (i<len(network.transformers.s_nom)):    
+    while (i<len(network.transformers.s_nom)):
+        p = abs(network.transformers_t.p0[network.transformers_t.p0.keys()[i]])
+        if network.transformers_t.q0.empty:
+            max_q = 0
+        else:
+            q = abs(network.transformers_t.q0[network.transformers_t.q0.keys()[i]])     
+            max_q = max(q)
+            
+            
+        max_p = max(p)
+        
+            
+        s_nom = network.transformers.s_nom_opt[i]
+        loading=(sqrt(max_p**2+max_q**2)/s_nom*100)
+        
+        
         writer.writerow({'transformer_key': network.transformers.s_nom.keys()[i],
                          's_nom_extendable': network.transformers.s_nom_extendable[i],
                          's_nom': network.transformers.s_nom[i],
                          'p': max(abs(network.transformers_t.p0[network.transformers.s_nom.keys()[i]])),
                          'loading_old': round(max(abs(network.transformers_t.p0[network.transformers.s_nom.keys()[i]]))/network.transformers.s_nom[i]*100,2),
                          's_nom_opt':network.transformers.s_nom_opt[i],
-                         'loading_new': round(max(abs(network.transformers_t.p0[network.transformers.s_nom.keys()[i]]))/network.transformers.s_nom_opt[i]*100,2),
+                         'loading_new': round(loading,2),
                          'dif': network.transformers.s_nom_opt[i]-network.transformers.s_nom[i]}) 
-        i+=1          
+        i+=1               
+
+plot_dif_line_MW(network,filename='plot_line_distribution_MW_bench.jpg')
+
+plot_dif_line_percent(network,filename='plot_line_distribution_Percent_bench.jpg')
