@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 import time
+from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
+from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -109,31 +111,51 @@ def load_shedding (network, **kwargs):
 
     marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
     p_nom = kwargs.get('p_nom', p_nom_def)
-
+    
     network.add("Carrier", "load")
+    start = network.buses.index.astype(int).max()
+    nums = len(network.buses.index)
+    end = start+nums
+    index = list(range(start,end))
+    index = [str(x) for x in index]
     network.import_components_from_dataframe(
     pd.DataFrame(
     dict(marginal_cost=marginal_cost,
     p_nom=p_nom,
     carrier='load shedding',
     bus=network.buses.index),
-    index=network.buses.index + ' load'),
+    index=index),
     "Generator"
     )
-
     return
 
 
 def data_manipulation_sh (network):
-
+    from shapely.geometry import Point, LineString, MultiLineString
+    from geoalchemy2.shape import from_shape, to_shape
+    
     #add connection from Luebeck to Siems
+
     new_bus = str(int(network.buses.index.max())+1)
     new_trafo = str(int(network.transformers.index.max())+1)
     new_line = str(int(network.lines.index.max())+1)
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
-    
+    network.lines.loc[new_line,'cables']=3.0
+
+    #bus geom
+    point_bus1 = Point(10.760835,53.909745)
+    network.buses.set_value(new_bus, 'geom', from_shape(point_bus1, 4326))
+
+    #line geom/topo
+    network.lines.set_value(new_line, 'geom', from_shape(MultiLineString([LineString([to_shape(network.buses.geom['26387']),point_bus1])]),4326))
+    network.lines.set_value(new_line, 'topo', from_shape(LineString([to_shape(network.buses.geom['26387']),point_bus1]),4326))
+
+    #trafo geom/topo
+    network.transformers.set_value(new_trafo, 'geom', from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326))
+    network.transformers.set_value(new_trafo, 'geom', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
+
     return
     
 def results_to_csv(network, path):
@@ -159,12 +181,12 @@ def results_to_csv(network, path):
 
     return
 
-def parallelisation(network, start_h, end_h, group_size, solver_name):
+def parallelisation(network, start_h, end_h, group_size, solver_name, extra_functionality=None):
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
     for i in range(int((end_h-start_h+1)/group_size)):
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name)
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
 
 
     y = time.time()
@@ -199,4 +221,92 @@ def pf_post_lopf(network, scenario):
     #todo
 
     return network_pf
+
+def loading_minimization(network,snapshots):
+
+    network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+    network.model.number2 = Var(network.model.passive_branch_p_index, within = PositiveReals)
+
+    def cRule(model, c, l, t):
+        return (model.number1[c, l, t] - model.number2[c, l, t] == model.passive_branch_p[c, l, t])
+
+    network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
+
+    network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
+
+def kmean_clustering(network):
+    """ Implement k-mean clustering in existing network
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    Returns
+    -------
+
+    """
+    def weighting_for_scenario(x):
+        b_i = x.index
+        g = normed(gen.reindex(b_i, fill_value=0))
+        l = normed(load.reindex(b_i, fill_value=0))
+      
+        w= g + l
+        return (w * (100. / w.max())).astype(int)
+
+    def normed(x):
+        return (x/x.sum()).fillna(0.)
+    
+    print('start k-mean clustering')
+    # prepare k-mean
+    # k-means clustering (first try)
+    network.generators.control="PV"
+    network.buses['v_nom'] = 380.
+    # problem our lines have no v_nom. this is implicitly defined by the connected buses:
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+    # adjust the x of the lines which are not 380. 
+    lines_v_nom_b = network.lines.v_nom != 380
+    network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+    trafo_index = network.transformers.index
+    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+
+
+    network.import_components_from_dataframe(
+    network.transformers.loc[:,['bus0','bus1','x','s_nom']]
+    .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1))**2)
+    .set_index('T' + trafo_index),
+    'Line')
+    network.transformers.drop(trafo_index, inplace=True)
+
+    for attr in network.transformers_t:
+      network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+
+    #ToDo: change conv to types minus wind and solar 
+    conv_types = {'biomass', 'run_of_river', 'gas', 'oil','coal', 'waste','uranium'}
+    # Attention: network.generators.carrier.unique() 
+    # conv_types only for SH scenario defined!
+    gen = (network.generators.loc[network.generators.carrier.isin(conv_types)
+        ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
+        fill_value=0.) + network.storage_units.loc[network.storage_units.carrier.isin(conv_types)
+        ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
+        
+    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+    # k-mean clustering
+    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
+    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
+    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters= 10)
+
+
+    # ToDo change function in order to use bus_strategies or similar
+    clustering = get_clustering_from_busmap(network, busmap)
+    network = clustering.network
+    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+    return network
+
+    
+    
+   
 
