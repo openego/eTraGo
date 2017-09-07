@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
@@ -216,11 +217,50 @@ def pf_post_lopf(network, scenario):
     #execute non-linear pf
     network_pf.pf(scenario.timeindex, use_seed=True)
     
-    #calculate p line losses
-    #todo
-
     return network_pf
 
+def calc_line_losses(network):
+    """ Calculate losses per line with PF result data
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    s0 : series
+        apparent power of line
+    i0 : series
+        current of line  
+    -------
+
+    """
+    #### Line losses
+    # calculate apparent power S = sqrt(p² + q²)
+    s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
+        apply(np.sqrt))
+    # calculate current I = S / U
+    i0_lines = s0_lines / network.lines.v_nom
+    # calculate losses per line and timestep network.lines_t.line_losses = I² * R
+    network.lines_t.losses = i0_lines**2 * network.lines.r
+    # calculate total losses per line
+    network.lines.losses = np.sum(network.lines_t.losses)
+        
+    #### Transformer losses
+    # calculate apparent power S = sqrt(p² + q²)
+    s0_trafo = ((network.transformers_t.p0**2 + network.transformers_t.q0**2).\
+        apply(np.sqrt))
+    # calculate losses per transformer and timestep
+    #    network.transformers_t.losses = s0_trafo / network.transformers.s_nom ## !!! this needs to be finalised
+    # calculate fix no-load losses per transformer
+    network.transformers.losses_fix = 0.00275 * network.transformers.s_nom # average value according to http://ibn.ch/HomePageSchule/Schule/GIBZ/19_Transformatoren/19_Transformatoren_Loesung.pdf
+    # calculate total losses per line
+    network.transformers.losses = network.transformers.losses_fix # + np.sum(network.transformers_t.losses)
+        
+    # calculate total losses (possibly enhance with adding these values to network container)
+    losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
+    print("Total lines losses for all snapshots [MW]:",round(losses_total,2))
+    losses_costs = losses_total * np.average(network.buses_t.marginal_price)
+    print("Total costs for these losses [EUR]:",round(losses_costs,2))
+  
+    return
+    
 def loading_minimization(network,snapshots):
 
     network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
