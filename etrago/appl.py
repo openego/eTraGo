@@ -27,16 +27,16 @@ args = {'network_clustering':False,
         'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
-        'start_h': 2320,
-        'end_h' : 2325,
-        'scn_name': 'SH Status Quo',
+        'start_h': 1,
+        'end_h' : 12,
+        'scn_name': 'SH NEP 2035',
         'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': '/srv/ES2050/open_eGo/AP3/lopf_results/gurobi_sh_pf_1' , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'storage_extendable':False,
-        'load_shedding':True,
+        'storage_extendable':True,
+        'load_shedding':False,
         'generator_noise':False,
         'parallelisation':False}
 
@@ -95,7 +95,9 @@ def etrago(args):
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-
+    
+ #   network.snapshot_weightings[3]=3
+       
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'])
@@ -108,11 +110,18 @@ def etrago(args):
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
+       # calc_line_losses(network)
         
     if args['pf_post_lopf']:
         pf_post_lopf(network, scenario)
         calc_line_losses(network)
-
+    
+       # provide storage installation costs
+    if sum(network.storage_units.p_nom_opt) != 0:
+        installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
+        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
+        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
+        
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':

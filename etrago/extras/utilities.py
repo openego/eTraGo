@@ -207,20 +207,33 @@ def calc_line_losses(network):
     -------
 
     """
-    
+    #### Line losses
     # calculate apparent power S = sqrt(p² + q²)
-    s0 = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
+    s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
         apply(np.sqrt))
     # calculate current I = S / U
-    i0 = s0 / network.lines.v_nom
+    i0_lines = s0_lines / network.lines.v_nom
     # calculate losses per line and timestep network.lines_t.line_losses = I² * R
-    p_loss_t = i0**2 * network.lines.r
-    network.lines_t.line_losses = p_loss_t
+    network.lines_t.losses = i0_lines**2 * network.lines.r
     # calculate total losses per line
-    p_loss = np.sum(p_loss_t)
-    # calculate total losses on all lines
-    p_loss_overall = sum(p_loss)
-    print("Total lines losses for all snapshots and lines [MW]:",p_loss_overall)
+    network.lines.losses = np.sum(network.lines_t.losses)
+        
+    #### Transformer losses
+    # calculate apparent power S = sqrt(p² + q²)
+    s0_trafo = ((network.transformers_t.p0**2 + network.transformers_t.q0**2).\
+        apply(np.sqrt))
+    # calculate losses per transformer and timestep
+    #    network.transformers_t.losses = s0_trafo / network.transformers.s_nom ## !!! this needs to be finalised
+    # calculate fix no-load losses per transformer
+    network.transformers.losses_fix = 0.00275 * network.transformers.s_nom # average value according to http://ibn.ch/HomePageSchule/Schule/GIBZ/19_Transformatoren/19_Transformatoren_Loesung.pdf
+    # calculate total losses per line
+    network.transformers.losses = network.transformers.losses_fix # + np.sum(network.transformers_t.losses)
+        
+    # calculate total losses (possibly enhance with adding these values to network container)
+    losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
+    print("Total lines losses for all snapshots [MW]:",round(losses_total,2))
+    losses_costs = losses_total * np.average(network.buses_t.marginal_price)
+    print("Total costs for these losses [EUR]:",round(losses_costs,2))
   
     return
     
