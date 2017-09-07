@@ -30,7 +30,6 @@ args = {'network_clustering':False,
         'start_snapshot': 2320,
         'end_snapshot' : 2321,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
@@ -47,6 +46,11 @@ def etrago(args):
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
+    if args['gridversion'] == None:
+        args['ormcls_prefix'] = 'EgoGridPfHv'
+    else:
+        args['ormcls_prefix'] = 'EgoPfHv'
+        
     scenario = NetworkScenario(session,
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
