@@ -27,8 +27,8 @@ args = {'network_clustering':False,
         'gridversion': 'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
-        'start_h': 2320,
-        'end_h' : 2321,
+        'start_snapshot': 2320,
+        'end_snapshot' : 2321,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
@@ -51,8 +51,8 @@ def etrago(args):
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
                                method=args['method'],
-                               start_h=args['start_h'],
-                               end_h=args['end_h'],
+                               start_snapshot=args['start_snapshot'],
+                               end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
@@ -82,7 +82,7 @@ def etrago(args):
             network.storage_units.p_nom_extendable = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
-            (8760//(args['end_h']-args['start_h']+1)))
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
 
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo':
@@ -106,7 +106,7 @@ def etrago(args):
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
