@@ -115,7 +115,7 @@ def etrago(args):
     
     # k-mean clustering
     if args['k_mean_clustering']:
-        kmean_clustering(network)
+        network = kmean_clustering(network)
         
     # Branch loading minimization
     if args['minimize_loading']:
