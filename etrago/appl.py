@@ -20,7 +20,7 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
 
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses,kmean_clustering
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, kmean_clustering, group_parallel_lines
 
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
@@ -45,7 +45,8 @@ args = {'network_clustering':False,
         'minimize_loading':False,
         'k_mean_clustering': True,
         'parallelisation':False,
-       'comments': None}
+        'line_grouping': False,
+        'comments': None}
 
 
 def etrago(args):
@@ -122,7 +123,11 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
-
+        
+    # grouping of parallel lines
+    if args['line_grouping']:
+        group_parallel_lines(network)
+        
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
