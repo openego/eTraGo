@@ -155,7 +155,7 @@ def data_manipulation_sh (network):
 
     #trafo geom/topo
     network.transformers.set_value(new_trafo, 'geom', from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326))
-    network.transformers.set_value(new_trafo, 'geom', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
+    network.transformers.set_value(new_trafo, 'topo', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
 
     return
     
@@ -346,7 +346,58 @@ def kmean_clustering(network):
 
     return network
 
+def group_parallel_lines(network):
     
+    #ordering of buses: (not sure if still necessary, remaining from SQL code)
+    old_lines = network.lines
     
-   
-
+    for line in old_lines.index:
+        bus0_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).min())
+        bus1_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).max())
+        old_lines.set_value(line,'bus0',bus0_new)
+        old_lines.set_value(line,'bus1',bus1_new)
+        
+    # saving the old index
+    for line in old_lines:
+        old_lines['old_index'] = network.lines.index
+    
+    grouped = old_lines.groupby(['bus0','bus1'])
+    
+    #calculating electrical properties for parallel lines
+    grouped_agg = grouped.agg({ 'b': np.sum,
+                                'b_pu': np.sum,
+                                'cables': np.sum, 
+                                'capital_cost': np.min, 
+                                'frequency': np.mean, 
+                                'g': np.sum,
+                                'g_pu': np.sum, 
+                                'geom': lambda x: x[0],
+                                'length': lambda x: x.min(), 
+                                'num_parallel': np.sum, 
+                                'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))), 
+                                'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))), 
+                                's_nom': np.sum,
+                                's_nom_extendable': lambda x: x.min(), 
+                                's_nom_max': np.sum, 
+                                's_nom_min': np.sum, 
+                                's_nom_opt': np.sum, 
+                                'scn_name': lambda x: x.min(),  
+                                'sub_network': lambda x: x.min(), 
+                                'terrain_factor': lambda x: x.min(), 
+                                'topo': lambda x: x[0],
+                                'type': lambda x: x.min(),  
+                                'v_ang_max': lambda x: x.min(), 
+                                'v_ang_min': lambda x: x.min(), 
+                                'x': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+                                'x_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+                                'old_index': np.min})
+    
+    for i in range(0,len(grouped_agg.index)):
+        grouped_agg.set_value(grouped_agg.index[i],'bus0',grouped_agg.index[i][0])
+        grouped_agg.set_value(grouped_agg.index[i],'bus1',grouped_agg.index[i][1])
+        
+    new_lines=grouped_agg.set_index(grouped_agg.old_index)
+    new_lines=new_lines.drop('old_index',1)
+    network.lines = new_lines
+    
+    return
