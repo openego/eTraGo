@@ -352,8 +352,8 @@ def group_parallel_lines(network):
     old_lines = network.lines
     
     for line in old_lines.index:
-        bus0_new = old_lines.loc[line,['bus0','bus1']].astype(int).min()
-        bus1_new = old_lines.loc[line,['bus0','bus1']].astype(int).max()
+        bus0_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).min())
+        bus1_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).max())
         old_lines.set_value(line,'bus0',bus0_new)
         old_lines.set_value(line,'bus1',bus1_new)
         
