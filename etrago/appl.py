@@ -19,22 +19,23 @@ import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, kmean_clustering
+
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses,kmean_clustering
+
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
 from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
 import pandas as pd
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
-        'start_h': 2320,
-        'end_h' : 2321,
-        'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
-        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
+        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
+        'start_snapshot': 2320,
+        'end_snapshot' : 2321,
+        'scn_name': 'SH NEP 2035',
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
@@ -44,24 +45,35 @@ args = {'network_clustering':False,
         'minimize_loading':False,
         'k_mean_clustering': True,
         'parallelisation':False,
-        'comments': None}
+       'comments': None}
+
 
 def etrago(args):
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
+    if args['gridversion'] == None:
+        args['ormcls_prefix'] = 'EgoGridPfHv'
+    else:
+        args['ormcls_prefix'] = 'EgoPfHv'
+        
     scenario = NetworkScenario(session,
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
                                method=args['method'],
-                               start_h=args['start_h'],
-                               end_h=args['end_h'],
+                               start_snapshot=args['start_snapshot'],
+                               end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
 
     # add coordinates
     network = add_coordinates(network)
+    
+    # create generator noise 
+    noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+    np.savetxt("noise_values.csv", noise_values, delimiter=",")
+    noise_values = genfromtxt('noise_values.csv', delimiter=',')
     
     # TEMPORARY vague adjustment due to transformer bug in data processing
     #network.transformers.x=network.transformers.x*0.01
@@ -85,7 +97,7 @@ def etrago(args):
             network.storage_units.p_nom_extendable = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
-            (8760//(args['end_h']-args['start_h']+1)))
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
 
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo':
@@ -113,7 +125,7 @@ def etrago(args):
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_h=args['start_h'], end_h=args['end_h'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
@@ -123,9 +135,18 @@ def etrago(args):
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
+       # calc_line_losses(network)
+        
     if args['pf_post_lopf']:
         pf_post_lopf(network, scenario)
-
+        calc_line_losses(network)
+    
+       # provide storage installation costs
+    if sum(network.storage_units.p_nom_opt) != 0:
+        installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
+        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
+        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
+        
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
