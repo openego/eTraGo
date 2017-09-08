@@ -155,7 +155,7 @@ def data_manipulation_sh (network):
 
     #trafo geom/topo
     network.transformers.set_value(new_trafo, 'geom', from_shape(MultiLineString([LineString([to_shape(network.buses.geom['25536']),point_bus1])]),4326))
-    network.transformers.set_value(new_trafo, 'geom', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
+    network.transformers.set_value(new_trafo, 'topo', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
 
     return
     
