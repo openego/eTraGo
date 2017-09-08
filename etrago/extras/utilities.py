@@ -348,12 +348,22 @@ def kmean_clustering(network):
 
 def group_parallel_lines(network):
     
+    #ordering of buses: (not sure if still necessary, remaining from SQL code)
     old_lines = network.lines
+    
+    for line in old_lines.index:
+        bus0_new = old_lines.loc[line,['bus0','bus1']].astype(int).min()
+        bus1_new = old_lines.loc[line,['bus0','bus1']].astype(int).max()
+        old_lines.set_value(line,'bus0',bus0_new)
+        old_lines.set_value(line,'bus1',bus1_new)
+        
+    # saving the old index
     for line in old_lines:
         old_lines['old_index'] = network.lines.index
     
     grouped = old_lines.groupby(['bus0','bus1'])
     
+    #calculating electrical properties for parallel lines
     grouped_agg = grouped.agg({ 'b': np.sum,
                                 'b_pu': np.sum,
                                 'cables': np.sum, 
@@ -390,7 +400,4 @@ def group_parallel_lines(network):
     new_lines=new_lines.drop('old_index',1)
     network.lines = new_lines
     
-    return    
-    
-   
-
+    return
