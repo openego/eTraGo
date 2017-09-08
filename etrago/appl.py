@@ -103,6 +103,10 @@ def etrago(args):
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo':
         data_manipulation_sh(network)
+        
+    # grouping of parallel lines
+    if args['line_grouping']:
+        group_parallel_lines(network)
 
     #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
@@ -123,10 +127,6 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
-        
-    # grouping of parallel lines
-    if args['line_grouping']:
-        group_parallel_lines(network)
         
     # parallisation
     if args['parallelisation']:
