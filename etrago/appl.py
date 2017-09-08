@@ -30,7 +30,7 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 2320,
         'end_snapshot' : 2321,
         'scn_name': 'SH NEP 2035',
@@ -43,7 +43,7 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':True,
         'minimize_loading':False,
-        'k_mean_clustering': True,
+        'k_mean_clustering': False,
         'parallelisation':False,
        'comments': None}
 
@@ -100,7 +100,7 @@ def etrago(args):
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
 
     # for SH scenario run do data preperation:
-    if args['scn_name'] == 'SH Status Quo':
+    if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
 
     #load shedding in order to hunt infeasibilities
