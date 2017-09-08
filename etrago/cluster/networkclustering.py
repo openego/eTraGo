@@ -214,8 +214,10 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
-    df.to_sql('ego_grid_pf_hv_busmap', if_exists='append',
-              con=session.bind, schema='model_draft')
+    for i, d in df.reset_index().iterrows():
+        session.add(EgoGridPfHvBusmap(**d.to_dict()))
+
+    session.commit()
 
     return
 
