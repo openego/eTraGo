@@ -30,10 +30,10 @@ args = {'network_clustering':False,
         'db': 'oedb', # db session
         'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 2320,
-        'end_snapshot' : 2321,
-        'scn_name': 'SH NEP 2035',
+        'end_snapshot' : 2326,
+        'scn_name': 'SH Status Quo',
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
@@ -77,7 +77,7 @@ def etrago(args):
     noise_values = genfromtxt('noise_values.csv', delimiter=',')
     
     # TEMPORARY vague adjustment due to transformer bug in data processing
-    #network.transformers.x=network.transformers.x*0.01
+    network.transformers.x=network.transformers.x*0.0001
 
 
     if args['branch_capacity_factor']:
