@@ -3,7 +3,6 @@ import numpy as np
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
-from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -233,26 +232,21 @@ def calc_line_losses(network):
 
     """
     #### Line losses
-    # calculate apparent power S = sqrt(p² + q²)
+    # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
-        apply(np.sqrt))
-    # calculate current I = S / U
-    i0_lines = s0_lines / network.lines.v_nom
-    # calculate losses per line and timestep network.lines_t.line_losses = I² * R
-    network.lines_t.losses = i0_lines**2 * network.lines.r
-    # calculate total losses per line
-    network.lines.losses = np.sum(network.lines_t.losses)
-        
-    #### Transformer losses
-    # calculate apparent power S = sqrt(p² + q²)
-    s0_trafo = ((network.transformers_t.p0**2 + network.transformers_t.q0**2).\
-        apply(np.sqrt))
-    # calculate losses per transformer and timestep
-    #    network.transformers_t.losses = s0_trafo / network.transformers.s_nom ## !!! this needs to be finalised
-    # calculate fix no-load losses per transformer
-    network.transformers.losses_fix = 0.00275 * network.transformers.s_nom # average value according to http://ibn.ch/HomePageSchule/Schule/GIBZ/19_Transformatoren/19_Transformatoren_Loesung.pdf
-    # calculate total losses per line
-    network.transformers.losses = network.transformers.losses_fix # + np.sum(network.transformers_t.losses)
+        apply(np.sqrt)) 
+    # calculate current I = S / U [in A]
+    i0_lines = np.multiply(s0_lines, 1000000) / np.multiply(network.lines.v_nom, 1000) 
+    # calculate losses per line and timestep network.lines_t.line_losses = I² * R [in MW]
+    network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
+    # calculate total losses per line [in MW]
+    network.lines = network.lines.assign(losses=np.sum(network.lines_t.losses).values)
+    
+    #### Transformer losses   
+    # https://books.google.de/books?id=0glcCgAAQBAJ&pg=PA151&lpg=PA151&dq=wirkungsgrad+transformator+1000+mva&source=bl&ots=a6TKhNfwrJ&sig=r2HCpHczRRqdgzX_JDdlJo4hj-k&hl=de&sa=X&ved=0ahUKEwib5JTFs6fWAhVJY1AKHa1cAeAQ6AEIXjAI#v=onepage&q=wirkungsgrad%20transformator%201000%20mva&f=false
+    # Crastan, Elektrische Energieversorgung, p.151
+    # trafo 1000 MVA: 99.8 %
+    network.transformers = network.transformers.assign(losses=np.multiply(network.transformers.s_nom,(1-0.998)).values)
         
     # calculate total losses (possibly enhance with adding these values to network container)
     losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
@@ -273,78 +267,6 @@ def loading_minimization(network,snapshots):
     network.model.cRule=Constraint(network.model.passive_branch_p_index, rule=cRule)
 
     network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
-
-def kmean_clustering(network):
-    """ Implement k-mean clustering in existing network
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    Returns
-    -------
-
-    """
-    def weighting_for_scenario(x):
-        b_i = x.index
-        g = normed(gen.reindex(b_i, fill_value=0))
-        l = normed(load.reindex(b_i, fill_value=0))
-      
-        w= g + l
-        return (w * (100. / w.max())).astype(int)
-
-    def normed(x):
-        return (x/x.sum()).fillna(0.)
-    
-    print('start k-mean clustering')
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control="PV"
-    network.buses['v_nom'] = 380.
-    # problem our lines have no v_nom. this is implicitly defined by the connected buses:
-    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
-
-    # adjust the x of the lines which are not 380. 
-    lines_v_nom_b = network.lines.v_nom != 380
-    network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
-    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
-
-    trafo_index = network.transformers.index
-    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
-
-
-    network.import_components_from_dataframe(
-    network.transformers.loc[:,['bus0','bus1','x','s_nom']]
-    .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1))**2)
-    .set_index('T' + trafo_index),
-    'Line')
-    network.transformers.drop(trafo_index, inplace=True)
-
-    for attr in network.transformers_t:
-      network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
-
-    #ToDo: change conv to types minus wind and solar 
-    conv_types = {'biomass', 'run_of_river', 'gas', 'oil','coal', 'waste','uranium'}
-    # Attention: network.generators.carrier.unique() 
-    # conv_types only for SH scenario defined!
-    gen = (network.generators.loc[network.generators.carrier.isin(conv_types)
-        ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
-        fill_value=0.) + network.storage_units.loc[network.storage_units.carrier.isin(conv_types)
-        ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
-        
-    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
-
-    # k-mean clustering
-    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
-    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters= 10)
-
-
-    # ToDo change function in order to use bus_strategies or similar
-    clustering = get_clustering_from_busmap(network, busmap)
-    network = clustering.network
-    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-
-    return network
 
 def group_parallel_lines(network):
     
