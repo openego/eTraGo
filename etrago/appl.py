@@ -23,10 +23,10 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
 from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, kmean_clustering, group_parallel_lines
 
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
-from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
+from pypsa.networkclustering import get_clustering_from_busmap, busmap_by_kmeans
 import pandas as pd
 
-args = {'network_clustering':False,
+args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved in Feature-branch
         'db': 'oedb', # db session
         'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
@@ -37,14 +37,14 @@ args = {'network_clustering':False,
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
-        'solver': 'gurobi', #glpk, cplex or gurobi
+        'solver': 'cplex', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
         'generator_noise':True,
         'minimize_loading':False,
         'k_mean_clustering': False,
-        'parallelisation':False,
+        'parallelisation':True,
         'line_grouping': False,
         'comments': None}
 
@@ -130,7 +130,7 @@ def etrago(args):
         
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_h=args['start_snapshot'], end_h=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
