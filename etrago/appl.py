@@ -17,29 +17,31 @@ from egopowerflow.tools.tools import oedb_session
 from egopowerflow.tools.io import NetworkScenario, results_to_oedb
 import time
 from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
-                                     add_coordinates, curtailment, gen_dist,
+                                     add_coordinates, gen_dist, curtailment,
                                      storage_distribution)
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+from extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization
+from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
+
 
 args = {'network_clustering':False,
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion': None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2320,
-        'end_h' : 2321,
+        'end_h' : 2323,
         'scn_name': 'SH Status Quo',
-        'ormcls_prefix': 'EgoPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
-        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
+        'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
+        'lpfile': 'Output.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
+        'results': 'Results.lp', # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
         'load_shedding':True,
-        'generator_noise':True,
-        'minimize_loading':False,
+        'generator_noise':False,
+        'minimize_loading':True,
+ #       'marginal_cost_noise':True,
         'parallelisation':False,
         'comments': None}
 
@@ -62,7 +64,6 @@ def etrago(args):
     
     # TEMPORARY vague adjustment due to transformer bug in data processing
     #network.transformers.x=network.transformers.x*0.01
-
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -118,7 +119,7 @@ def etrago(args):
         network.pf(scenario.timeindex)
     if args['pf_post_lopf']:
         pf_post_lopf(network, scenario)
-
+    
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
@@ -137,7 +138,38 @@ def etrago(args):
 # execute etrago function
 network = etrago(args)
 
+
+# Define a Marginal cost noise
+
+#Efficiency by carrier
+p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
+capacity_by_carrier = network.generators.p_nom.groupby(network.generators.carrier).sum()
+efficiency_by_carrier = p_by_carrier / (capacity_by_carrier*(args['end_h']-args['start_h']+1))
+
+# Total efficiency
+efficiency_total = network.generators_t.p.sum().sum()/ (network.generators.p_nom.sum()*(args['end_h']-args['start_h']+1))
+
+#efficiency_by_generator 
+efficiency_by_generator = network.generators_t.p.sum() / (network.generators.p_nom* (args['end_h']-args['start_h']+1))
+
+list_new_marginal_cost=[]
+for i in network.generators.index:
+    tech = network.generators.carrier[i]
+    difference_by_generator = (efficiency_by_carrier[tech] - efficiency_by_generator[i])
+    new_marginal_cost = network.generators.marginal_cost[i] + difference_by_generator
+    list_new_marginal_cost.append(new_marginal_cost)
+
+#Save or read the list of new_marginal_cost
+np.savetxt("list_new_marginal_cost.csv", list_new_marginal_cost, delimiter=",")
+marginal_cost = genfromtxt('list_new_marginal_cost.csv', delimiter=',')
+# add marginal-cost-noise to all generators
+network.generators.marginal_cost = list_new_marginal_cost
+
+    
+curtailment(network,carrier="wind")
+
 # plots
+gen_dist(network)
 
 # make a line loading plot
 plot_line_loading(network)
