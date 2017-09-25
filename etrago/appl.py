@@ -13,15 +13,13 @@ __author__ = "tba"
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
-from egopowerflow.tools.tools import oedb_session
-from egopowerflow.tools.io import NetworkScenario, results_to_oedb
 import time
-from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
+from etrago.extras.tools import oedb_session
+from etrago.extras.io import NetworkScenario, results_to_oedb
+from etrago.plots.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-
 from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
-
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 from pypsa.networkclustering import get_clustering_from_busmap, busmap_by_kmeans
 import pandas as pd

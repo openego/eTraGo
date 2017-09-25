@@ -1,0 +1,43 @@
+{
+    "lopf":
+    {
+	"Bus": null,
+	"Generator": 
+	{
+	    "GeneratorPqSet": ["p_set", "p_max_pu"]
+	},
+	"Line": null,
+	"Transformer": null,
+	"Load":
+    	{
+	    "LoadPqSet": ["p_set", "q_set"]
+	},
+	"Storage":
+       	{
+	    "StoragePqSet": ["p_set"]
+	}
+    },
+    "pf":
+    {
+	"Bus":
+	{
+	    "BusVMagSet":["v_mag_pu_set"]
+	},
+	"Generator":
+       	{
+	    "GeneratorPqSet": ["p_set", "q_set"]
+	},
+	"Line": null,
+	"Transformer": null,
+	"Load": 
+	{
+	    "LoadPqSet": ["p_set", "q_set"]
+	},
+	"Storage":
+       	{
+	    "StoragePqSet": ["p_set", "q_set"]
+	}
+    }
+}
+
+
