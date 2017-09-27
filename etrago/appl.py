@@ -29,7 +29,7 @@ args = {'network_clustering':False,
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2320,
-        'end_h' : 2323,
+        'end_h' : 2330,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': 'Output.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
@@ -41,7 +41,7 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':False,
         'minimize_loading':True,
- #       'marginal_cost_noise':True,
+        'marginal_cost_noise':False,
         'parallelisation':False,
         'comments': None}
 
@@ -64,7 +64,8 @@ def etrago(args):
     
     # TEMPORARY vague adjustment due to transformer bug in data processing
     #network.transformers.x=network.transformers.x*0.01
-
+            
+        
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
@@ -76,7 +77,8 @@ def etrago(args):
         noise_values = genfromtxt('noise_values.csv', delimiter=',')
         # add random noise to all generator
         network.generators.marginal_cost = noise_values
-
+        
+        
     if args['storage_extendable']:
         # set virtual storages to be extendable
         if network.storage_units.source.any()=='extendable_storage':
@@ -93,6 +95,12 @@ def etrago(args):
     if args['load_shedding']:
     	load_shedding(network)
 
+    if args['marginal_cost_noise']:
+        #create marginal-cost-noise
+        list_new_marginal_cost = genfromtxt('list_new_marginal_cost.csv',delimiter=",")
+        # add marginal-cost-noise to all generators
+        network.generators.marginal_cost = list_new_marginal_cost
+        
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
@@ -138,33 +146,28 @@ def etrago(args):
 # execute etrago function
 network = etrago(args)
 
+def marginal_cost_noise(network):
+    #utilization by carrier
+    p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
+    capacity_by_carrier = network.generators.p_nom.groupby(network.generators.carrier).sum()
+    utilization_by_carrier = p_by_carrier / (capacity_by_carrier*(args['end_h']-args['start_h']+1))
+    
+    # Total utilization
+    utilization_total = network.generators_t.p.sum().sum()/ (network.generators.p_nom.sum()*(args['end_h']-args['start_h']+1))
+    
+    #utilization_by_generator 
+    utilization_by_generator = network.generators_t.p.sum() / (network.generators.p_nom* (args['end_h']-args['start_h']+1))
+    list_new_marginal_cost=[]
+    for i in network.generators.index:
+        tech = network.generators.carrier[i]
+        difference_by_generator = (utilization_by_carrier[tech] - utilization_by_generator[i])
+        new_marginal_cost = network.generators.marginal_cost[i] + (difference_by_generator/utilization_total)
+        list_new_marginal_cost.append(new_marginal_cost)
+       
+    #Save or read the list of new_marginal_cost
+    np.savetxt("list_new_marginal_cost.csv", list_new_marginal_cost, delimiter=",")
 
-# Define a Marginal cost noise
-
-#Efficiency by carrier
-p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
-capacity_by_carrier = network.generators.p_nom.groupby(network.generators.carrier).sum()
-efficiency_by_carrier = p_by_carrier / (capacity_by_carrier*(args['end_h']-args['start_h']+1))
-
-# Total efficiency
-efficiency_total = network.generators_t.p.sum().sum()/ (network.generators.p_nom.sum()*(args['end_h']-args['start_h']+1))
-
-#efficiency_by_generator 
-efficiency_by_generator = network.generators_t.p.sum() / (network.generators.p_nom* (args['end_h']-args['start_h']+1))
-
-list_new_marginal_cost=[]
-for i in network.generators.index:
-    tech = network.generators.carrier[i]
-    difference_by_generator = (efficiency_by_carrier[tech] - efficiency_by_generator[i])
-    new_marginal_cost = network.generators.marginal_cost[i] + difference_by_generator
-    list_new_marginal_cost.append(new_marginal_cost)
-
-#Save or read the list of new_marginal_cost
-np.savetxt("list_new_marginal_cost.csv", list_new_marginal_cost, delimiter=",")
-marginal_cost = genfromtxt('list_new_marginal_cost.csv', delimiter=',')
-# add marginal-cost-noise to all generators
-network.generators.marginal_cost = list_new_marginal_cost
-
+marginal_cost_noise(network)
     
 curtailment(network,carrier="wind")
 
