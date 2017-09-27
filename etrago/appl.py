@@ -20,32 +20,30 @@ from egopowerflow.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
 
-from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, kmean_clustering, group_parallel_lines
+from etrago.extras.utilities import load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage
-from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
-import pandas as pd
-
-args = {'network_clustering':False,
+args = {'network_clustering':True,
         'db': 'oedb', # db session
         'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': True, #state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2320,
-        'end_snapshot' : 2326,
+        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'start_snapshot': 1,
+        'end_snapshot' : 12,
         'scn_name': 'SH Status Quo',
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'storage_extendable':True,
-        'load_shedding':True,
+        'load_shedding':False,
         'generator_noise':True,
+        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         'k_mean_clustering': False,
         'parallelisation':False,
-        'line_grouping': False,
+        'line_grouping': True,
         'comments': None}
 
 
@@ -70,12 +68,7 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-    
-    # create generator noise 
-    noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-    np.savetxt("noise_values.csv", noise_values, delimiter=",")
-    noise_values = genfromtxt('noise_values.csv', delimiter=',')
-    
+      
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
 
@@ -85,13 +78,19 @@ def etrago(args):
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
     if args['generator_noise']:
-        # create generator noise 
-        noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-        np.savetxt("noise_values.csv", noise_values, delimiter=",")
-        noise_values = genfromtxt('noise_values.csv', delimiter=',')
-        # add random noise to all generator
-        network.generators.marginal_cost = noise_values
-
+        # create or reproduce generator noise 
+        if not args['reproduce_noise'] == False:    
+            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            # add random noise to all generator
+            network.generators.marginal_cost = noise_values
+        else:
+            noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+            np.savetxt("noise_values.csv", noise_values, delimiter=",")
+            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            # add random noise to all generator
+            network.generators.marginal_cost = noise_values
+      
+      
     if args['storage_extendable']:
         # set virtual storages to be extendable
         if network.storage_units.source.any()=='extendable_storage':
@@ -174,7 +173,6 @@ network = etrago(args)
 
 # make a line loading plot
 plot_line_loading(network)
-
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
 
