@@ -176,25 +176,9 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         network.cluster = False
         path = os.path.join(path, 'original')
 
-    snapshots = network.snapshots
+    # execute etrago function
+    network = etrago(args)
 
-    # add coordinates to network nodes and make ready for map plotting
-    network = add_coordinates(network)
-
-    # add source names to generators
-    add_source_types(session, network, table=Source)
-
-    # start powerflow calculations
-    network_lopf(network, snapshots, extra_functionality=daily_bounds,
-                 solver_name='gurobi')
-
-
-
-    # write results to csv
-    if write_results:
-        results_to_csv(network, path)
-
-        #write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
 
@@ -208,7 +192,7 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'start_snapshot': 1,
         'end_snapshot' : 48,
         'scn_name': 'SH Status Quo',
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'lpfile': '/home/ulf/lptest.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
@@ -216,7 +200,7 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'storage_extendable':True,
         'load_shedding':False,
         'generator_noise':True,
-        'minimize_loading':False,
+        'extra_functionality':None,
         'k_mean_clustering': False,
         'parallelisation':False,
         'line_grouping': False,
@@ -291,19 +275,13 @@ def etrago(args):
     if args['k_mean_clustering']:
         network = kmean_clustering(network)
         
-    # Branch loading minimization
-    if args['minimize_loading']:
-        extra_functionality = loading_minimization
-    else:
-        extra_functionality=None
-        
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_h=args['start_snapshot'], end_h=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=args['extra_functionality'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
@@ -336,8 +314,74 @@ def etrago(args):
     return network
 
   
-# execute etrago function
-network = etrago(args)
+
+session = oedb_session(args['db'])
+
+# additional arguments cfgpath, version, prefix
+if args['gridversion'] == None:
+    args['ormcls_prefix'] = 'EgoGridPfHv'
+else:
+    args['ormcls_prefix'] = 'EgoPfHv'
+    
+scenario = NetworkScenario(session,
+                           version=args['gridversion'],
+                           prefix=args['ormcls_prefix'],
+                           method=args['method'],
+                           start_snapshot=args['start_snapshot'],
+                           end_snapshot=args['end_snapshot'],
+                           scn_name=args['scn_name'])
+
+network = scenario.build_network()
+
+# add coordinates
+network = add_coordinates(network)
+
+# TEMPORARY vague adjustment due to transformer bug in data processing
+network.transformers.x=network.transformers.x*0.0001
+
+
+if args['branch_capacity_factor']:
+    network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+    network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+
+if args['generator_noise']:
+    # create generator noise 
+    noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+    np.savetxt("noise_values.csv", noise_values, delimiter=",")
+    noise_values = genfromtxt('noise_values.csv', delimiter=',')
+    # add random noise to all generator
+    network.generators.marginal_cost = noise_values
+
+if args['storage_extendable']:
+    # set virtual storages to be extendable
+    if network.storage_units.source.any()=='extendable_storage':
+        network.storage_units.p_nom_extendable = True
+    # set virtual storage costs with regards to snapshot length
+        network.storage_units.capital_cost = (network.storage_units.capital_cost /
+        (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+
+# for SH scenario run do data preperation:
+if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
+    data_manipulation_sh(network)
+    
+# grouping of parallel lines
+if args['line_grouping']:
+    group_parallel_lines(network)
+
+#load shedding in order to hunt infeasibilities
+if args['load_shedding']:
+	load_shedding(network)
+
+# network clustering
+if args['network_clustering']:
+    network.generators.control="PV"
+    busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+    network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+# k-mean clustering
+if args['k_mean_clustering']:
+    network = kmean_clustering(network)
+
 
 ###############################################################################
 # Run scenarios .....
@@ -348,7 +392,7 @@ clusters = [] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = True
 
 home = os.path.expanduser("~")
-resultspath = os.path.join(home, 'snapshot-clustering-results', scenario)
+resultspath = os.path.join(home, 'snapshot-clustering-results', args['scn_name'])
 
 # This will calculate the original problem
 run(network=network.copy(), path=resultspath,
