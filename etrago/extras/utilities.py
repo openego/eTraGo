@@ -113,7 +113,7 @@ def load_shedding (network, **kwargs):
     p_nom = kwargs.get('p_nom', p_nom_def)
     
     network.add("Carrier", "load")
-    start = network.generators.index.astype(int).max()
+    start = network.buses.index.astype(int).max()
     nums = len(network.buses.index)
     end = start+nums
     index = list(range(start,end))
