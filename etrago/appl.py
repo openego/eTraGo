@@ -129,7 +129,7 @@ def etrago(args):
         
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_h=args['start_snapshot'], end_h=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
