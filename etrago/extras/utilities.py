@@ -201,6 +201,18 @@ def pf_post_lopf(network, scenario):
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
     
+    old_slack = network.generators.index[network.generators.control == 'Slack'][0]
+    new_slack = network.generators_t.p.sum().sort_values().tail(1).index[0]
+    # check if old slack was PV or PQ control:
+    if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar','wind'):
+        old_control = 'PQ'
+    elif network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] not in ('solar','wind'):
+        old_control = 'PV'
+    elif network.generators.p_nom[old_slack] < 50:
+        old_control = 'PQ'
+     
+    network.generators.set_value(old_slack, 'control', old_control)
+    network.generators.set_value(new_slack, 'control', 'Slack')
     #Calculate q set from p_set with given cosphi
     #todo
 
