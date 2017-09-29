@@ -48,6 +48,88 @@ args = {'network_clustering':True,
 
 
 def etrago(args):
+    """The etrago function works with following arguments:
+    
+    
+    Parameters
+    ----------
+    network_clustering (bool):
+        True or false
+        
+    db (str): 'oedb', 
+        Name of Database session setting stored in config.ini of oemof.db
+        
+    gridversion (str):
+        'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10)
+         for grid schema
+         
+    method (str):
+        'lopf', # lopf or pf
+        
+    pf_post_lopf (bool): 
+        False, #state whether you want to perform a pf after a lopf simulation
+        
+    start_snapshot (int): 
+        Start hour of the scenario year to be calculated
+        
+    end_snapshot (int) : 
+        End hour of the scenario year to be calculated
+        
+    scn_name (str): 
+        scenario name e.g. 'SH Status Quo'
+        
+    lpfile (obj): 
+        False, # state if and where you want to save pyomo's 
+        lp file: False or '/path/tofolder'
+        
+    results (obj): 
+        False, # state if and where you want to save results as csv: False 
+        or '/path/tofolder'
+        
+    export (bool): 
+        False, # state if you want to export the results back to the database
+        
+    solver (str): 
+        'gurobi', #glpk, cplex or gurobi
+        
+    branch_capacity_factor (numeric): 
+        1, #to globally extend or lower branch capacities
+        
+    storage_extendable (bool):
+        True,
+        
+    load_shedding (bool):
+        False,
+        
+    generator_noise (bool):
+        True,
+        
+    reproduce_noise (bool): 
+        False, # state if you want to use a predefined set 
+        of random noise for the given scenario. if so, provide 
+        path, e.g. 'noise_values.csv'
+        
+    minimize_loading (bool):
+        False,
+        
+    k_mean_clustering (bool): 
+        False,
+    parallelisation (bool):
+        False,
+    line_grouping (bool): 
+        True,
+    comments (str): 
+        None
+
+    Result:
+    -------
+        
+
+    """
+
+
+
+
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
