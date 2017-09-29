@@ -4,7 +4,7 @@
    contain the root `toctree` directive.
 
 Welcome to eTraGo's documentation!
-=================================
+==================================
 
 
 .. figure:: images/etrago_logo.png
@@ -28,6 +28,7 @@ The focus of optimization are flexibility options with a special focus on energy
 
    welcome
    getting_started
+   usage
    usage_details
    about
 

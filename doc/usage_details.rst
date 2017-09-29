@@ -1,7 +1,7 @@
 .. _eTraGo-examples:
 
 How to use eTraGo?
-~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 Examples
 ========
@@ -10,7 +10,7 @@ Examples
 
 
 Usage
-=====================
+=====
 
 Text
 
