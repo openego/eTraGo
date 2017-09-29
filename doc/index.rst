@@ -28,7 +28,6 @@ The focus of optimization are flexibility options with a special focus on energy
 
    welcome
    getting_started
-   usage
    usage_details
    about
 
