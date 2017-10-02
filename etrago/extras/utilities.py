@@ -1,4 +1,4 @@
-import pandas as pd
+﻿import pandas as pd
 import numpy as np
 import os
 import time
@@ -47,6 +47,68 @@ def buses_grid_linked(network, voltage_level):
     df = network.buses[mask]
 
     return df.index
+
+def clip_foreign(network): 
+    """
+    Delete all components and timelines located outside of Germany. 
+    Add difference between remaining load and generation as network.foreign_trade.
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
+    
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 15.1) |
+                                                (network.buses['x'] < 5.7) |
+                                                (network.buses['y'] > 55.2) |
+                                                (network.buses['y'] < 47.33)].index)   
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 13.8) &
+                                               (network.buses['y'] < 47.7)].index)
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.16) &
+                                               (network.buses['y'] < 49.926)].index)
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.3) &
+                                               (network.buses['y'] < 49.21)].index)
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.96) &
+                                               (network.buses['y'] < 53.15) &
+                                               (network.buses['y'] > 53.1)].index)
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 9.9) &
+                                               (network.buses['y'] < 47.5)].index)
+    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 11.95) &
+                                               (network.buses['x'] < 11.97) &
+                                               (network.buses['y'] > 54.5)].index)
+    
+    network.lines = network.lines.drop(network.lines[
+            (network.lines['bus0'].isin(network.buses.index) == False) |
+            (network.lines['bus1'].isin(network.buses.index) == False)].index)
+    network.transformers = network.transformers.drop(network.transformers[
+            (network.transformers['bus0'].isin(network.buses.index) == False) |
+            (network.transformers['bus1'].isin(network.buses.index) == False)].index)
+    network.generators = network.generators.drop(network.generators[
+            (network.generators['bus'].isin(network.buses.index) == False)].index)
+    network.loads = network.loads.drop(network.loads[
+            (network.loads['bus'].isin(network.buses.index) == False)].index)
+    network.storage_units = network.storage_units.drop(network.storage_units[
+            (network.storage_units['bus'].isin(network.buses.index) == False)].index)
+    
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers']
+    for g in components: #loads_t
+        h = g + '_t'
+        nw = getattr(network, h) # network.loads_t
+        for i in nw.keys(): #network.loads_t.p
+            cols = [j for j in getattr(nw, i).columns if j not in getattr(network, g).index]
+            for k in cols:
+                del getattr(nw, i)[k]
+    
+    network.foreign_trade = network.loads_t.p.sum(axis=1).subtract(
+                            network.generators_t.p.sum(axis=1))
+    
+    return network
 
 
 def connected_grid_lines(network, busids):
