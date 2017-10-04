@@ -21,27 +21,32 @@ from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
 from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
-args = {'network_clustering':True,
+args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot' : 12,
         'scn_name': 'SH Status Quo',
+        'solver': 'gurobi', # glpk, cplex or gurobi
+        # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
-        'solver': 'gurobi', #glpk, cplex or gurobi
-        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'storage_extendable':True,
-        'load_shedding':False,
-        'generator_noise':True,
+        # Settings:        
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
+        # Clustering:
         'k_mean_clustering': False,
+        'network_clustering':True,
+        # Simplifications:
         'parallelisation':False,
         'line_grouping': True,
+        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
+        'load_shedding':False,
         'comments': None}
 
 
@@ -51,74 +56,105 @@ def etrago(args):
     
     Parameters
     ----------
-    network_clustering (bool):
-        True or false
-        
-    db (str): 'oedb', 
+           
+    db (str): 
+    	'oedb', 
         Name of Database session setting stored in config.ini of oemof.db
         
     gridversion (str):
-        'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10)
-         for grid schema
+        'v0.2.11', 
+        Name of the data version number of oedb: state 'None' for 
+        model_draft (sand-box) or an explicit version number 
+        (e.g. 'v0.2.10') for the grid schema.
          
     method (str):
-        'lopf', # lopf or pf
+        'lopf', 
+        Choose between a non-linear power flow ('pf') or
+        a linear optimal power flow ('lopf').
         
     pf_post_lopf (bool): 
-        False, #state whether you want to perform a pf after a lopf simulation
-        
-    start_snapshot (int): 
-        Start hour of the scenario year to be calculated
+        False, 
+        Option to run a non-linear power flow (pf) directly after the 
+        linear optimal power flow (and thus the dispatch) has finished.
+                
+    start_snapshot (int):
+    	1, 
+        Start hour of the scenario year to be calculated.
         
     end_snapshot (int) : 
-        End hour of the scenario year to be calculated
+    	2,
+        End hour of the scenario year to be calculated.
         
     scn_name (str): 
-        scenario name e.g. 'SH Status Quo'
-        
-    lpfile (obj): 
-        False, # state if and where you want to save pyomo's 
-        lp file: False or '/path/tofolder'
-        
-    results (obj): 
-        False, # state if and where you want to save results as csv: False 
-        or '/path/tofolder'
-        
-    export (bool): 
-        False, # state if you want to export the results back to the database
+    	'Status Quo',
+	Choose your scenario. Currently, there are three different 
+	scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not 
+	want to use the full German dataset, you can use the excerpt of 
+	Schleswig-Holstein by adding the acronym SH to the scenario 
+	name (e.g. 'SH Status Quo').
         
     solver (str): 
-        'gurobi', #glpk, cplex or gurobi
+        'glpk', 
+        Choose your preferred solver. Current options: 'glpk' (open-source),
+        'cplex' or 'gurobi'.
+                
+    lpfile (obj): 
+        False, 
+        State if and where you want to save pyomo's lp file. Options:
+        False or '/path/tofolder'.
         
-    branch_capacity_factor (numeric): 
-        1, #to globally extend or lower branch capacities
+    results (obj): 
+        False, 
+        State if and where you want to save results as csv files.Options: 
+        False or '/path/tofolder'.
+        
+    export (bool): 
+        False, 
+        State if you want to export the results of your calculation 
+        back to the database.
         
     storage_extendable (bool):
         True,
-        
-    load_shedding (bool):
-        False,
+        Choose if you want to allow to install extendable storages 
+        (unlimited in size) at each grid node in order to meet the flexibility demand. 
         
     generator_noise (bool):
         True,
+        Choose if you want to apply a small random noise to the marginal 
+        costs of each generator in order to prevent an optima plateau.
         
-    reproduce_noise (bool): 
-        False, # state if you want to use a predefined set 
-        of random noise for the given scenario. if so, provide 
-        path, e.g. 'noise_values.csv'
+    reproduce_noise (obj): 
+        False, 
+        State if you want to use a predefined set of random noise for 
+        the given scenario. If so, provide path to the csv file,
+        e.g. 'noise_values.csv'.
         
     minimize_loading (bool):
         False,
         
     k_mean_clustering (bool): 
         False,
+    
+    network_clustering (bool):
+        False, 
+        True or false
+        
     parallelisation (bool):
         False,
+        
     line_grouping (bool): 
         True,
+   
+    branch_capacity_factor (numeric): 
+        1, 
+        to globally extend or lower branch capacities
+           
+    load_shedding (bool):
+        False,
+        
     comments (str): 
         None
-
+        
     Result:
     -------
         
