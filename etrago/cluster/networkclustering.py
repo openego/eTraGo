@@ -248,7 +248,7 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network):
+def kmean_clustering(network, n_clusters=10):
     """ Implement k-mean clustering in existing network
     ----------
     network : :class:`pypsa.Network
@@ -310,7 +310,7 @@ def kmean_clustering(network):
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
     weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters= 10)
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
 
 
     # ToDo change function in order to use bus_strategies or similar

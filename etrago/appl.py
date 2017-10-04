@@ -23,31 +23,31 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':None, # None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot' : 2,
-        'scn_name': 'SH Status Quo',
-        'solver': 'glpk', # glpk, cplex or gurobi
+        'scn_name': 'eGo 100',
+        'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
-        'export': False, # state if you want to export the results back to the database
+        'lpfile': '/home/openego/pf_results/storage_paper', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'results': '/home/openego/pf_results/storage_paper', # state if and where you want to save results as csv: False or '/path/tofolder'
+        'export': True, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False,
+        'k_mean_clustering': True,
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False,
         'line_grouping': False,
-        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
+        'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
         'load_shedding':False,
-        'comments': None}
+        'comments': 'TEST eGo 100 with 100 k buses'}
 
 
 def etrago(args):
@@ -235,7 +235,7 @@ def etrago(args):
     
     # k-mean clustering
     if args['k_mean_clustering']:
-        network = kmean_clustering(network)
+        network = kmean_clustering(network, n_clusters=100)
         
     # Branch loading minimization
     if args['minimize_loading']:
