@@ -16,5 +16,9 @@ setup(name='eTraGo',
       include_package_data=True,
       install_requires=['egoio == 0.2.11',
                         'scikit-learn == 0.19.0'],
-	  dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA']
+	  dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
+      extras_require={
+        'docs': [
+            'sphinx >= 1.4',
+            'sphinx_rtd_theme']}
      )
