@@ -27,9 +27,9 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 12,
+        'end_snapshot' : 2,
         'scn_name': 'SH Status Quo',
-        'solver': 'gurobi', # glpk, cplex or gurobi
+        'solver': 'glpk', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
@@ -41,10 +41,10 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False,
-        'network_clustering':True,
+        'network_clustering': False,
         # Simplifications:
         'parallelisation':False,
-        'line_grouping': True,
+        'line_grouping': False,
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'load_shedding':False,
         'comments': None}
