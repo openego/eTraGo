@@ -24,7 +24,7 @@ from etrago.extras.utilities import load_shedding, data_manipulation_sh, results
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 from pypsa.networkclustering import get_clustering_from_busmap, busmap_by_kmeans
 
-from cluster.snapshot import group, linkage, fcluster, get_medoids
+from etrago.cluster.snapshot import group, linkage, fcluster, get_medoids
 from pypsa.opf import network_lopf
 import pyomo.environ as po
 
@@ -176,11 +176,21 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         network.cluster = False
         path = os.path.join(path, 'original')
 
-    # execute etrago function
-    network = etrago(args)
+    snapshots = network.snapshots
+    # start powerflow calculations
+    network_lopf(network, snapshots, extra_functionality=daily_bounds,
+                 solver_name='gurobi')
 
+
+
+    # write results to csv
+    if write_results:
+        results_to_csv(network, path)
+
+        #write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
+
 
 ###############################################################################
 
@@ -200,121 +210,14 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'storage_extendable':True,
         'load_shedding':False,
         'generator_noise':True,
-        'extra_functionality':None,
+        'extra_functionality':daily_bounds,
         'k_mean_clustering': False,
         'parallelisation':False,
         'line_grouping': False,
         'comments': None}
 
 
-def etrago(args):
-    session = oedb_session(args['db'])
-
-    # additional arguments cfgpath, version, prefix
-    if args['gridversion'] == None:
-        args['ormcls_prefix'] = 'EgoGridPfHv'
-    else:
-        args['ormcls_prefix'] = 'EgoPfHv'
-        
-    scenario = NetworkScenario(session,
-                               version=args['gridversion'],
-                               prefix=args['ormcls_prefix'],
-                               method=args['method'],
-                               start_snapshot=args['start_snapshot'],
-                               end_snapshot=args['end_snapshot'],
-                               scn_name=args['scn_name'])
-
-    network = scenario.build_network()
-
-    # add coordinates
-    network = add_coordinates(network)
-    
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
-
-
-    if args['branch_capacity_factor']:
-        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
-
-    if args['generator_noise']:
-        # create generator noise 
-        noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-        np.savetxt("noise_values.csv", noise_values, delimiter=",")
-        noise_values = genfromtxt('noise_values.csv', delimiter=',')
-        # add random noise to all generator
-        network.generators.marginal_cost = noise_values
-
-    if args['storage_extendable']:
-        # set virtual storages to be extendable
-        if network.storage_units.source.any()=='extendable_storage':
-            network.storage_units.p_nom_extendable = True
-        # set virtual storage costs with regards to snapshot length
-            network.storage_units.capital_cost = (network.storage_units.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-
-    # for SH scenario run do data preperation:
-    if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
-        data_manipulation_sh(network)
-        
-    # grouping of parallel lines
-    if args['line_grouping']:
-        group_parallel_lines(network)
-
-    #load shedding in order to hunt infeasibilities
-    if args['load_shedding']:
-    	load_shedding(network)
-
-    # network clustering
-    if args['network_clustering']:
-        network.generators.control="PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
-        network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-    
-    # k-mean clustering
-    if args['k_mean_clustering']:
-        network = kmean_clustering(network)
-        
-    # parallisation
-    if args['parallelisation']:
-        parallelisation(network, start_h=args['start_snapshot'], end_h=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-    # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=args['extra_functionality'])
-        y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
-    # start non-linear powerflow simulation
-    elif args['method'] == 'pf':
-        network.pf(scenario.timeindex)
-       # calc_line_losses(network)
-        
-    if args['pf_post_lopf']:
-        pf_post_lopf(network, scenario)
-        calc_line_losses(network)
-    
-       # provide storage installation costs
-    if sum(network.storage_units.p_nom_opt) != 0:
-        installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
-        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
-        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
-        
-    # write lpfile to path
-    if not args['lpfile'] == False:
-        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                     True})
-    # write PyPSA results back to database
-    if args['export']:
-        results_to_oedb(session, network, 'hv', args)  
-        
-    # write PyPSA results to csv to path
-    if not args['results'] == False:
-        results_to_csv(network, args['results'])
-
-    return network
-
   
-
 session = oedb_session(args['db'])
 
 # additional arguments cfgpath, version, prefix
@@ -388,7 +291,7 @@ if args['k_mean_clustering']:
 ###############################################################################
 
 how = 'daily'
-clusters = [] #[7] +  [i*7*2 for i in range(1,7)]
+clusters = [2] #[7] +  [i*7*2 for i in range(1,7)]
 write_results = True
 
 home = os.path.expanduser("~")
