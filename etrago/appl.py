@@ -40,7 +40,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': True,
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False,
@@ -234,8 +234,8 @@ def etrago(args):
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
     # k-mean clustering
-    if args['k_mean_clustering']:
-        network = kmean_clustering(network, n_clusters=10)
+    if not args['k_mean_clustering'] == False:
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
         
     # Branch loading minimization
     if args['minimize_loading']:
