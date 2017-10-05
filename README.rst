@@ -1,6 +1,6 @@
 .. image:: https://readthedocs.org/projects/etrago/badge/?version=latest
-:target: http://etrago.readthedocs.io/en/latest/?badge=latest
-:alt: Documentation Status
+    :target: http://etrago.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
 
 eTraGo
 ======
