@@ -54,7 +54,9 @@ extensions = [
 #    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
     'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
 #    'sphinx_paramlinks',#to have links to the types of the parameters of the functions
+     'numpydoc'
 ]
+
 # Napoleon settings
 napoleon_google_docstring = True
 napoleon_numpy_docstring = True
@@ -102,7 +104,7 @@ release = '0.3dev'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-#language = None
+language = None
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
