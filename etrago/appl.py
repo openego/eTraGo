@@ -40,7 +40,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False,
+        'k_mean_clustering': True,
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False,
@@ -235,7 +235,7 @@ def etrago(args):
     
     # k-mean clustering
     if args['k_mean_clustering']:
-        network = kmean_clustering(network, n_clusters=100)
+        network = kmean_clustering(network, n_clusters=10)
         
     # Branch loading minimization
     if args['minimize_loading']:
