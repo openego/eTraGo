@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
+import numpy as np
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -233,4 +234,31 @@ def loading_minimization(network,snapshots):
 
     network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
 
+def marginal_cost_noise(network, start_h, end_h):    
+    #utilization by carrier
+    p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
+    capacity_by_carrier = network.generators.p_nom.groupby(network.generators.carrier).sum()
+    utilization_by_carrier = p_by_carrier / (capacity_by_carrier*(end_h-start_h+1))
+    #utilization_by_generator 
+    utilization_by_generator = network.generators_t.p.sum() / (network.generators.p_nom* (end_h-start_h+1))
+    #differences of the utilization by generator and carrier
+    list_difference=[]
+    length = len(network.generators.index)
+    i=0
+    while i < length:
+        tech = network.generators.carrier[i]
+        difference_by_generator = (utilization_by_carrier[tech] - utilization_by_generator[i])
+        list_difference.append(difference_by_generator)
+        i += 1
+    maximum = max(list_difference)
+    list_difference = list_difference + abs(min(list_difference)) 
+    #Create marginal cost noise
+    list_new_marginal_cost=[]
+    i=0
+    while i < length:
+        new_marginal_cost = network.generators.marginal_cost[i] + ((list_difference[i] / maximum) * 0.001 )
+        list_new_marginal_cost.append(new_marginal_cost)
+        i += 1
+    #Save the list of new_marginal_cost
+    np.savetxt("list_new_marginal_cost.csv", list_new_marginal_cost, delimiter=",")
 
