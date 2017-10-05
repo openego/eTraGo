@@ -200,7 +200,7 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 48,
+        'end_snapshot' : 96,
         'scn_name': 'SH Status Quo',
         'lpfile': '/home/ulf/lptest.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
