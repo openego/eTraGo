@@ -194,6 +194,9 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
                        apply(lambda x: x if x > 0 else 0)], axis=1).\
                        groupby(network.generators.carrier, axis=1).sum()
         load = network.loads_t.p.sum(axis=1)
+        if hasattr(network, 'foreign_trade'):
+            p_by_carrier['imports'] = network.foreign_trade[network.foreign_trade > 0]
+            p_by_carrier['imports'] = p_by_carrier['imports'].fillna(0)
     # sum for a single bus
     elif bus is not None:
         filtered_gens = network.generators[network.generators['bus'] == bus]
@@ -219,7 +222,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
               'wind':'skyblue',
               'slack':'pink',
               'load shedding': 'red',
-              'nan':'m'}
+              'nan':'m',
+              'imports':'salmon'}
 
 #    TODO: column reordering based on available columns
 
@@ -286,15 +290,17 @@ def storage_distribution(network, filename=None):
         Specify filename
         If not given, figure will be show directly
     """
-    storage_distribution = network.storage_units.p_nom_opt.groupby(network.storage_units.bus).sum()
+    
+    stores = network.storage_units   
+    storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(network.storage_units.bus).sum().reindex(network.buses.index,fill_value=0.)
 
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
-    
+   
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
     else:
-         network.plot(bus_sizes=2*storage_distribution,ax=ax,title="Storage distribution")
+         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
     
     if filename is None:
         plt.show()
