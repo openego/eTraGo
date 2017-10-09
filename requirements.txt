@@ -1,4 +1,9 @@
+# Packages for read the docs
 sphinx_rtd_theme
+numpydoc
+
+Extension error:
+Could not import extension numpydoc (exception: No module named 'numpydoc')
 # use pip install -r requirements.txt to setup your virtualenv 
 
 # eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
