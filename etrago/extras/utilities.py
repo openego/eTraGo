@@ -51,7 +51,7 @@ def buses_grid_linked(network, voltage_level):
 def clip_foreign(network): 
     """
     Delete all components and timelines located outside of Germany. 
-    Add difference between remaining load and generation as network.foreign_trade.
+    Add transborder flows divided by country of origin as network.foreign_trade.
     
     Parameters
     ----------
@@ -64,25 +64,101 @@ def clip_foreign(network):
         Overall container of PyPSA
     """
     
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 15.1) |
-                                                (network.buses['x'] < 5.7) |
-                                                (network.buses['y'] > 55.2) |
-                                                (network.buses['y'] < 47.33)].index)   
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 13.8) &
-                                               (network.buses['y'] < 47.7)].index)
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.16) &
-                                               (network.buses['y'] < 49.926)].index)
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.3) &
-                                               (network.buses['y'] < 49.21)].index)
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 6.96) &
-                                               (network.buses['y'] < 53.15) &
-                                               (network.buses['y'] > 53.1)].index)
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] < 9.9) &
-                                               (network.buses['y'] < 47.5)].index)
-    network.buses = network.buses.drop(network.buses[(network.buses['x'] > 11.95) &
+    # get foreign buses by country
+    poland = pd.Series(index=network.buses[(network.buses['x'] > 17)].index,
+                                                  data="Poland")
+    czech = pd.Series(index=network.buses[(network.buses['x'] < 17) &
+                                            (network.buses['x'] > 15.1)].index,
+                                            data="Czech")
+    denmark = pd.Series(index=network.buses[((network.buses['y'] < 60) &
+                                            (network.buses['y'] > 55.2)) |
+                                            ((network.buses['x'] > 11.95) &
                                                (network.buses['x'] < 11.97) &
-                                               (network.buses['y'] > 54.5)].index)
+                                               (network.buses['y'] > 54.5))].index,
+                                            data="Denmark")
+    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
+                                            data="Sweden")
+    austria = pd.Series(index=network.buses[(network.buses['y'] < 47.33) &
+                                            (network.buses['x'] > 9) |
+                                            ((network.buses['x'] > 9.65) &
+                                            (network.buses['x'] < 9.9) &
+                                            (network.buses['y'] < 47.5) &
+                                            (network.buses['y'] > 47.3)) |
+                                            ((network.buses['x'] > 12.14) &
+                                            (network.buses['x'] < 12.15) &
+                                            (network.buses['y'] > 47.57) &
+                                            (network.buses['y'] < 47.58)) |
+                                            (network.buses['y'] < 47.6) &
+                                            (network.buses['x'] > 14.1)].index,
+                                            data="Austria")
+    switzerland = pd.Series(index=network.buses[((network.buses['x'] > 8.1) &
+                                                 (network.buses['x'] < 8.3) &
+                                                 (network.buses['y'] < 46.8)) |
+                                                 ((network.buses['x'] > 7.82) &
+                                                 (network.buses['x'] < 7.88) &
+                                                 (network.buses['y'] > 47.54) &
+                                                 (network.buses['y'] < 47.57)) |
+                                                 ((network.buses['x'] > 10.91) &
+                                                 (network.buses['x'] < 10.92) &
+                                                 (network.buses['y'] > 49.91) &
+                                                 (network.buses['y'] < 49.92))].index,
+                                                data="Switzerland")
+    netherlands = pd.Series(index=network.buses[((network.buses['x'] < 6.96) &
+                                               (network.buses['y'] < 53.15) &
+                                               (network.buses['y'] > 53.1)) |
+                                                ((network.buses['x'] < 5.4) &
+                                               (network.buses['y'] > 52.1))].index,
+                                                data = "Netherlands")
+    luxembourg = pd.Series(index=network.buses[((network.buses['x'] < 6.15) &
+                                               (network.buses['y'] < 49.91) &
+                                               (network.buses['y'] > 49.65))].index,
+                                                data="Luxembourg")
+    france = pd.Series(index=network.buses[(network.buses['x'] < 4.5) |
+                                            ((network.buses['x'] > 7.507) &
+                                            (network.buses['x'] < 7.508) &
+                                            (network.buses['y'] > 47.64) &
+                                            (network.buses['y'] < 47.65)) |
+                                            ((network.buses['x'] > 6.2) &
+                                            (network.buses['x'] < 6.3) &
+                                            (network.buses['y'] > 49.1) &
+                                            (network.buses['y'] < 49.2)) |
+                                            ((network.buses['x'] > 6.7) &
+                                            (network.buses['x'] < 6.76) &
+                                            (network.buses['y'] > 49.13) &
+                                            (network.buses['y'] < 49.16))].index,
+                                            data="France")
+    foreign_buses = pd.Series()
+    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden, austria, switzerland,
+                          netherlands, luxembourg, france])
     
+    network.buses = network.buses.drop(network.buses.loc[foreign_buses.index].index)                                        
+    
+    # identify transborder lines (one bus foreign, one bus not) and the country
+    # it is coming from
+    transborder_lines = pd.DataFrame(index=network.lines[
+            ((network.lines['bus0'].isin(network.buses.index) == False) &
+              (network.lines['bus1'].isin(network.buses.index) == True)) |
+            ((network.lines['bus0'].isin(network.buses.index) == True) &
+              (network.lines['bus1'].isin(network.buses.index) == False))].index)
+    transborder_lines['bus0'] = network.lines['bus0']
+    transborder_lines['bus1'] = network.lines['bus1']
+    transborder_lines['country'] = ""
+    for i in range (0, len(transborder_lines)):
+        if transborder_lines.iloc[i, 0] in foreign_buses.index:
+            transborder_lines['country'][i] = foreign_buses[str(transborder_lines.iloc[i, 0])]
+        else:
+            transborder_lines['country'][i] = foreign_buses[str(transborder_lines.iloc[i, 1])]
+
+    # identify amount of flows per line and group to get flow per country
+    transborder_flows = network.lines_t.p0[transborder_lines.index]
+    for i in transborder_flows.columns:
+        if network.lines.loc[str(i)]['bus1'] in foreign_buses.index:
+            transborder_flows.loc[:, str(i)] = transborder_flows.loc[:, str(i)]*-1
+
+    network.foreign_trade = transborder_flows.\
+                       groupby(transborder_lines['country'], axis=1).sum()
+    
+    # drop foreign components     
     network.lines = network.lines.drop(network.lines[
             (network.lines['bus0'].isin(network.buses.index) == False) |
             (network.lines['bus1'].isin(network.buses.index) == False)].index)
@@ -104,9 +180,6 @@ def clip_foreign(network):
             cols = [j for j in getattr(nw, i).columns if j not in getattr(network, g).index]
             for k in cols:
                 del getattr(nw, i)[k]
-    
-    network.foreign_trade = network.loads_t.p.sum(axis=1).subtract(
-                            network.generators_t.p.sum(axis=1))
     
     return network
 
