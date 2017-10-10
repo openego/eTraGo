@@ -208,8 +208,15 @@ def pf_post_lopf(network, scenario):
     gens_summed = network.generators_t.p.sum()
     old_gens['p_summed']= gens_summed
         
-    max_gen_bus = old_gens[network.generators['control'] == 'PV'].groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values()
-    new_slack_bus = max_gen_bus.index[len(max_gen_bus.index)-1]
+    max_gen_buses_index = old_gens.groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values().index
+    
+    for bus_iter in range(1,len(max_gen_buses_index)-1):
+        if old_gens[(network.generators['bus']==max_gen_buses_index[len(max_gen_buses_index)-bus_iter])&(network.generators['control']=='PV')].empty:
+            continue
+        else:
+            new_slack_bus = max_gen_buses_index[len(max_gen_buses_index)-bus_iter]
+            break
+        
     network.generators=network.generators.drop('p_summed',1)
     new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].index[0]    
     
