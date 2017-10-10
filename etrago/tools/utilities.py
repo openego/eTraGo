@@ -1,4 +1,4 @@
-<<<<<<< HEAD:etrago/tools/utilities.py
+
 """This is the docstring for the example.py module.  Modules names should
 have short, all-lowercase names.  The module name may have underscores if
 this improves readability.
@@ -15,9 +15,6 @@ __author__ = "tba"
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 import pandas as pd
-=======
-﻿import pandas as pd
->>>>>>> features/german-dispatch:etrago/extras/utilities.py
 import numpy as np
 import os
 import time
