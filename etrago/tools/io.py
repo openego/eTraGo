@@ -16,9 +16,9 @@ carr_ormclass: str
 
 """
 
-__copyright__ = ""
-__license__ = ""
-__author__ = ""
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = "ulfmueller, mariusves"
 
 import pypsa
 from importlib import import_module
