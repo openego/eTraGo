@@ -35,13 +35,13 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. v0.2.10) for grid schema
-        'method': 'lopf', # lopf or pf
+        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. 'v0.2.11') for grid schema
+        'method': 'lopf', # 'lopf' or 'pf'
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1,
+        'start_snapshot': 1, 
         'end_snapshot' : 2,
-        'scn_name': 'Status Quo',
-        'solver': 'gurobi', # glpk, cplex or gurobi
+        'scn_name': 'Status Quo', # state which scenario you want to run: 'Status Quo', 'NEP 2035', 'eGo100'
+        'solver': 'gurobi', # 'glpk', 'cplex' or 'gurobi'
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
@@ -53,12 +53,12 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False,
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
-        'parallelisation':False,
-        'line_grouping': True,
-        'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
-        'load_shedding':False,
+        'parallelisation':False, # state if you want to run snapshots parallely.
+        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
+        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -146,23 +146,37 @@ def etrago(args):
         
     k_mean_clustering (bool): 
         False,
+        State if you want to apply a clustering of all network buses down to 
+        only 'k' buses. The weighting takes place considering generation and load
+        at each node. 
+        If so, state the number of k you want to apply. Otherwise put False.
     
     network_clustering (bool):
         False, 
-        True or false
+        Choose if you want to cluster the full HV/EHV dataset down to only the EHV 
+        buses. In that case, all HV buses are assigned to their closest EHV sub-station, 
+        taking into account the shortest distance on power lines.
         
     parallelisation (bool):
         False,
+        Choose if you want to calculate a certain number of snapshots in parallel. If
+        yes, define the respective amount in the if-clause execution below. Otherwise 
+        state False here.
         
     line_grouping (bool): 
         True,
+        State if you want to group lines that connect the same two buses into one system.
    
     branch_capacity_factor (numeric): 
         1, 
-        to globally extend or lower branch capacities
+        Add a factor here if you want to globally change line capacities (e.g. to "consider"
+        an (n-1) criterion or for debugging purposes.
            
     load_shedding (bool):
         False,
+        State here if you want to make use of the load shedding function which is helpful when
+        debugging: a very expensive generator is set to each bus and meets the demand when regular
+        generators cannot do so.
         
     comments (str): 
         None
