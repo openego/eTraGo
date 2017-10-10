@@ -211,14 +211,14 @@ def pf_post_lopf(network, scenario):
     max_gen_buses_index = old_gens.groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values().index
     
     for bus_iter in range(1,len(max_gen_buses_index)-1):
-        if old_gens[(network.generators['bus']==max_gen_buses_index[len(max_gen_buses_index)-bus_iter])&(network.generators['control']=='PV')].empty:
+        if old_gens[(network.generators['bus']==max_gen_buses_index[-bus_iter])&(network.generators['control']=='PV')].empty:
             continue
         else:
-            new_slack_bus = max_gen_buses_index[len(max_gen_buses_index)-bus_iter]
+            new_slack_bus = max_gen_buses_index[-bus_iter]
             break
         
     network.generators=network.generators.drop('p_summed',1)
-    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].index[0]    
+    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].sort_values().index[-1]    
     
     # check if old slack was PV or PQ control:
     if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar','wind'):
