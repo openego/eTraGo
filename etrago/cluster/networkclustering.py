@@ -1,5 +1,29 @@
-from etrago.extras.utilities import *
-from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators
+"""
+Networkclustering.py defines the methods to cluster power grid
+networks for application within the tool eTraGo. 
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation; either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
+
+
+from etrago.tools.utilities import *
+from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
 from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from itertools import product
 import networkx as nx
@@ -247,3 +271,75 @@ def busmap_from_psql(network, session, scn_name):
         busmap = fetch()
 
     return busmap
+
+def kmean_clustering(network, n_clusters=10):
+    """ Implement k-mean clustering in existing network
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    Returns
+    -------
+
+    """
+    def weighting_for_scenario(x):
+        b_i = x.index
+        g = normed(gen.reindex(b_i, fill_value=0))
+        l = normed(load.reindex(b_i, fill_value=0))
+      
+        w= g + l
+        return (w * (100. / w.max())).astype(int)
+
+    def normed(x):
+        return (x/x.sum()).fillna(0.)
+    
+    print('start k-mean clustering')
+    # prepare k-mean
+    # k-means clustering (first try)
+    network.generators.control="PV"
+    network.buses['v_nom'] = 380.
+    # problem our lines have no v_nom. this is implicitly defined by the connected buses:
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+    # adjust the x of the lines which are not 380. 
+    lines_v_nom_b = network.lines.v_nom != 380
+    network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+    trafo_index = network.transformers.index
+    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+
+
+    network.import_components_from_dataframe(
+    network.transformers.loc[:,['bus0','bus1','x','s_nom']]
+    .assign(x=network.transformers.x*(380./transformer_voltages.max(axis=1))**2)
+    .set_index('T' + trafo_index),
+    'Line')
+    network.transformers.drop(trafo_index, inplace=True)
+
+    for attr in network.transformers_t:
+      network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+
+    #ToDo: change conv to types minus wind and solar 
+    conv_types = {'biomass', 'run_of_river', 'gas', 'oil','coal', 'waste','uranium'}
+    # Attention: network.generators.carrier.unique() 
+    # conv_types only for SH scenario defined!
+    gen = (network.generators.loc[network.generators.carrier.isin(conv_types)
+        ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
+        fill_value=0.) + network.storage_units.loc[network.storage_units.carrier.isin(conv_types)
+        ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
+        
+    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+    # k-mean clustering
+    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
+    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
+    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
+
+
+    # ToDo change function in order to use bus_strategies or similar
+    clustering = get_clustering_from_busmap(network, busmap)
+    network = clustering.network
+    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+    return network
