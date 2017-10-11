@@ -315,7 +315,6 @@ def kmean_clustering(network, n_clusters=10):
 
     # ToDo change function in order to use bus_strategies or similar
     clustering = get_clustering_from_busmap(network, busmap)
-    network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-    return network
+    return clustering
