@@ -57,6 +57,7 @@ def oedb_session(section='oedb'):
     session = Session()
     return session
 
+  
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
 
@@ -101,6 +102,7 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
+  
 def clip_foreign(network): 
     """
     Delete all components and timelines located outside of Germany. 
@@ -386,19 +388,33 @@ def pf_post_lopf(network, scenario):
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
     
-    #Calculate q set from p_set with given cosphi
-    #todo
-
-    #Troubleshooting        
-    #network_pf.generators_t.q_set = network_pf.generators_t.q_set*0
-    #network.loads_t.q_set = network.loads_t.q_set*0
-    #network.loads_t.p_set['28314'] = network.loads_t.p_set['28314']*0.5
-    #network.loads_t.q_set['28314'] = network.loads_t.q_set['28314']*0.5
-    #network.transformers.x=network.transformers.x['22596']*0.01
-    #contingency_factor=2
-    #network.lines.s_nom = contingency_factor*pups.lines.s_nom
-    #network.transformers.s_nom = network.transformers.s_nom*contingency_factor
+    old_slack = network.generators.index[network.generators.control == 'Slack'][0]
+    old_gens = network.generators
+    gens_summed = network.generators_t.p.sum()
+    old_gens['p_summed']= gens_summed  
+    max_gen_buses_index = old_gens.groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values().index
     
+    for bus_iter in range(1,len(max_gen_buses_index)-1):
+        if old_gens[(network.generators['bus']==max_gen_buses_index[-bus_iter])&(network.generators['control']=='PV')].empty:
+            continue
+        else:
+            new_slack_bus = max_gen_buses_index[-bus_iter]
+            break
+        
+    network.generators=network.generators.drop('p_summed',1)
+    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].sort_values().index[-1]    
+    
+    # check if old slack was PV or PQ control:
+    if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar','wind'):
+        old_control = 'PQ'
+    elif network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] not in ('solar','wind'):
+        old_control = 'PV'
+    elif network.generators.p_nom[old_slack] < 50:
+        old_control = 'PQ'
+     
+    network.generators = network.generators.set_value(old_slack, 'control', old_control)
+    network.generators = network.generators.set_value(new_slack_gen, 'control', 'Slack')
+   
     #execute non-linear pf
     network_pf.pf(scenario.timeindex, use_seed=True)
     
@@ -453,6 +469,7 @@ def loading_minimization(network,snapshots):
 
     network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
 
+    
 def group_parallel_lines(network):
     
     #ordering of buses: (not sure if still necessary, remaining from SQL code)
