@@ -86,9 +86,9 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'eTraGo'
-copyright = u'2015-2017, open_eGo-Team'
-author = u'open_eGo-Team'
+project = u'eTraGo - Optimization of flexibility options for transmission grids based on PyPSA'
+copyright = u'2015-2017, Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems'
+author = u'ulfmueller, lukasol, wolfbunke, mariusves, s3pp'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
