@@ -34,9 +34,9 @@ args = {# Setup and Configuration:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
-        # Settings:        
+        # Settings:
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise 
+        'generator_noise':True, # state if you want to apply a small generator noise
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
@@ -134,24 +134,24 @@ def etrago(args):
         
     k_mean_clustering (bool): 
         False,
-    
+
     network_clustering (bool):
         False, 
         True or false
         
     parallelisation (bool):
         False,
-        
+
     line_grouping (bool): 
         True,
-   
+
     branch_capacity_factor (numeric): 
         1, 
         to globally extend or lower branch capacities
            
     load_shedding (bool):
         False,
-        
+
     comments (str): 
         None
         
@@ -188,6 +188,7 @@ def etrago(args):
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
 
+    clustering = None
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -235,7 +236,9 @@ def etrago(args):
     
     # k-mean clustering
     if args['k_mean_clustering']:
-        network = kmean_clustering(network, n_clusters=100)
+        clustering = kmean_clustering(network, n_clusters=100)
+        original_network = network.copy()
+        network = clustering.network.copy()
         
     # Branch loading minimization
     if args['minimize_loading']:
@@ -266,7 +269,10 @@ def etrago(args):
         installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
         storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
         print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
-        
+
+    if clustering:
+        disaggregate(scenario, original_network, network, clustering, solver=args['solver'], extras=extra_functionality)
+
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
