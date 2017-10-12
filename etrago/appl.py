@@ -13,7 +13,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public License
+You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 """
@@ -35,16 +35,16 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. 'v0.2.11') for grid schema
-        'method': 'lopf', # 'lopf' or 'pf'
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
-        'scn_name': 'Status Quo', # state which scenario you want to run: 'Status Quo', 'NEP 2035', 'eGo100'
-        'solver': 'gurobi', # 'glpk', 'cplex' or 'gurobi'
+        'end_snapshot' : 24,
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'solver': 'glpk', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
@@ -52,13 +52,13 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': True, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -187,9 +187,6 @@ def etrago(args):
 
     """
 
-
-
-
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
@@ -317,7 +314,6 @@ network = etrago(args)
 plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
-
 # plot to show extendable storages
 storage_distribution(network)
 
