@@ -28,7 +28,7 @@ __author__ = "wolf_bunke"
 import sys
 import os
 import shlex
-from unittest.mock import MagicMock
+#from unittest.mock import MagicMock
 #from mock import Mock as MagicMock
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -52,24 +52,24 @@ extensions = [
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
 #    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
-    'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
+# 'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
 #    'sphinx_paramlinks',#to have links to the types of the parameters of the functions
      'numpydoc',
 ]
 
 # Napoleon settings
-napoleon_google_docstring = True
-napoleon_numpy_docstring = True
-napoleon_include_init_with_doc = False
-napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = False
-napoleon_use_admonition_for_examples = False
-napoleon_use_admonition_for_notes = False
-napoleon_use_admonition_for_references = False
-napoleon_use_ivar = True
-napoleon_use_param = True
-napoleon_use_rtype = True
-napoleon_use_keyword = True
+#napoleon_google_docstring = True
+#napoleon_numpy_docstring = True
+#napoleon_include_init_with_doc = False
+#napoleon_include_private_with_doc = False
+#napoleon_include_special_with_doc = False
+#napoleon_use_admonition_for_examples = False
+#napoleon_use_admonition_for_notes = False
+#napoleon_use_admonition_for_references = False
+#napoleon_use_ivar = True
+#napoleon_use_param = True
+#napoleon_use_rtype = True
+#napoleon_use_keyword = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -146,17 +146,17 @@ todo_include_todos = True
 
 # Fix import error of modules which depend on C modules (mock out the imports for these modules)
 # see http://read-the-docs.readthedocs.io/en/latest/faq.html#i-get-import-errors-on-libraries-that-depend-on-c-modules
-if 'READTHEDOCS' in os.environ:
-    class Mock(MagicMock):
-        @classmethod
-        def __getattr__(cls, name):
-                return MagicMock()
+#if 'READTHEDOCS' in os.environ:
+#    class Mock(MagicMock):
+#        @classmethod
+#        def __getattr__(cls, name):
+#                return MagicMock()
 
     #MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c']
     # ToDo: Change to eTraGo
-    MOCK_MODULES = ['pandas', 'pypsa']
+#    MOCK_MODULES = ['pandas', 'pypsa']
        
-    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+#    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Options for HTML output ----------------------------------------------
 
@@ -258,7 +258,7 @@ html_theme = 'sphinx_rtd_theme'
 #html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'etragodoc'
+htmlhelp_basename = 'eTraGodoc'
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -346,4 +346,4 @@ texinfo_documents = [
 intersphinx_mapping = {'https://docs.python.org/': None}
 
 # Numbered figures
-numfig = True
+#numfig = True
