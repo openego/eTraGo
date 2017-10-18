@@ -306,16 +306,16 @@ def etrago(args):
 
   
 # execute etrago function
-network = etrago(args)
+#network = etrago(args)
 
 # plots
 
 # make a line loading plot
-plot_line_loading(network)
+#plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
-plot_stacked_gen(network, resolution="MW")
+#plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
-storage_distribution(network)
+#storage_distribution(network)
 
 # close session
 #session.close()
