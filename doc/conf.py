@@ -154,7 +154,7 @@ if 'READTHEDOCS' in os.environ:
 
     #MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c']
     # ToDo: Change to eTraGo
-    MOCK_MODULES = ['numpy', 'scipy', 'pandas.dataframe', 'pypsa']
+    MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c']
        
     sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
