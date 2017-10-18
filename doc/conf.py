@@ -51,7 +51,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
-    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
+#    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
     'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
 #    'sphinx_paramlinks',#to have links to the types of the parameters of the functions
      'numpydoc'
