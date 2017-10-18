@@ -23,8 +23,5 @@ setup(name='eTraGo',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3'],
 	  dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
-      extras_require={
-        'docs': [
-            'sphinx >= 1.4',
-            'sphinx_rtd_theme']}
+
      )
