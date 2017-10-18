@@ -157,7 +157,7 @@ if 'READTHEDOCS' in os.environ:
     # ToDo: Change to eTraGo
 #    MOCK_MODULES = ['pandas', 'pypsa']
        
-#    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+    sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
 
 # -- Options for HTML output ----------------------------------------------
 
