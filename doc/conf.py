@@ -152,7 +152,8 @@ if 'READTHEDOCS' in os.environ:
         def __getattr__(cls, name):
                 return MagicMock()
 
-    MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 'libgeos_c.so']
+    MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
+    'libgeos_c.so', 'shapely']
     # ToDo: Change to eTraGo
 #    MOCK_MODULES = ['pandas', 'pypsa']
        
