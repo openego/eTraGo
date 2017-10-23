@@ -423,6 +423,34 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     plot.set_ylabel('Difference in Generation in MW')
     plot.set_title('Difference in Generation')
     plt.tight_layout()
+    
+def plot_voltage(network):
+    """
+    Plot voltage at buses as hexbin
+    
+    
+    Parameters
+    ----------
+    network : PyPSA network container
+
+    Returns
+    -------
+    Plot 
+    """
+    
+    x = np.array(network.buses['x'])
+    y = np.array(network.buses['y'])
+    
+    alpha = np.array(network.buses_t.v_mag_pu.loc[network.snapshots[0]])
+    
+    fig,ax = plt.subplots(1,1)
+    fig.set_size_inches(6,4)
+    
+    plt.hexbin(x, y, C=alpha, cmap=plt.cm.jet, gridsize=100)
+    cb = plt.colorbar()   
+    cb.set_label('Voltage Magnitude per unit of v_nom')
+    network.plot(ax=ax,line_widths=pd.Series(0.5,network.lines.index), bus_sizes=0)
+    plt.show()
 
 def curtailment(network, carrier='wind', filename=None):
     
