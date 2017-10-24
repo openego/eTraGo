@@ -10,6 +10,7 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "tba"
 
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
@@ -29,7 +30,7 @@ args = {'network_clustering':False,
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2315,
-        'end_h' : 2320,
+        'end_h' : 2316,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': 'Output.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
@@ -41,7 +42,7 @@ args = {'network_clustering':False,
         'load_shedding':True,
         'generator_noise':False,
         'minimize_loading':True,
-        'marginal_cost_noise':False,
+        'marginal_cost_noise':True,
         'parallelisation':False,
         'comments': None}
 
@@ -78,7 +79,6 @@ def etrago(args):
         # add random noise to all generator
         network.generators.marginal_cost = noise_values
         
-        
     if args['storage_extendable']:
         # set virtual storages to be extendable
         if network.storage_units.source.any()=='extendable_storage':
@@ -94,13 +94,7 @@ def etrago(args):
     #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
     	load_shedding(network)
-
-    if args['marginal_cost_noise']:
-        #create marginal-cost-noise
-        list_new_marginal_cost = genfromtxt('list_new_marginal_cost.csv',delimiter=",")
-        # add marginal-cost-noise to all generators
-        network.generators.marginal_cost = list_new_marginal_cost
-        
+  
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
@@ -140,29 +134,116 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
+    #Create marginal cost noise
+    marginal_cost_noise(network, start_h=args['start_h'], end_h=args['end_h'])
+    
+    if args['marginal_cost_noise']:
+        #do a second calculation of the lopf
+        second_scenario = NetworkScenario(session,
+                               version=args['gridversion'],
+                               prefix=args['ormcls_prefix'],
+                               method=args['method'],
+                               start_h=args['start_h'],
+                               end_h=args['end_h'],
+                               scn_name=args['scn_name'])
+        
+        second_network = second_scenario.build_network()
+        second_network = add_coordinates(second_network)
+          
+        second_network.lines.s_nom = second_network.lines.s_nom * args['branch_capacity_factor']
+        second_network.transformers.s_nom = second_network.transformers.s_nom*args['branch_capacity_factor']
+
+        if args['scn_name'] == 'SH Status Quo':
+            data_manipulation_sh(second_network)
+        
+        if args['storage_extendable']:
+        # set virtual storages to be extendable
+            if second_network.storage_units.source.any()=='extendable_storage':
+                second_network.storage_units.p_nom_extendable = True
+            # set virtual storage costs with regards to snapshot length
+                second_network.storage_units.capital_cost = (second_network.storage_units.capital_cost /
+                (8760//(args['end_h']-args['start_h']+1)))    
+            
+        load_shedding(second_network)    
+               
+        #create marginal-cost-noise
+        list_new_marginal_cost = genfromtxt('list_new_marginal_cost.csv',delimiter=",")
+        # add marginal-cost-noise to all generators
+        second_network.generators.marginal_cost = list_new_marginal_cost
+        
+        if args['network_clustering']:
+            second_network.generators.control="PV"
+            second_busmap = busmap_from_psql(second_network, session, scn_name=args['scn_name'])
+            second_network = cluster_on_extra_high_voltage(second_network, second_busmap, with_time=True)
+       
+        # start powerflow calculations
+        x = time.time()
+        second_network.lopf(second_scenario.timeindex, solver_name=args['solver'])
+        y = time.time()
+        z = (y - x) / 60
+        
+        #histogram of the change in dispatch from all generators 
+        def histogram (network, second_network,carrier = 'wind', filename = None):
+            
+            liste_numbers=[]
+            differences=[]
+            if carrier is None: 
+                numbers = network.generators_t.p.sum() - second_network.generators_t.p.sum()
+                differences.append(numbers)
+                for i in numbers: 
+                    if i !=0:
+                        liste_numbers.append(i)
+            else:
+                numbers = network.generators_t.p.sum()[network.generators.carrier == carrier] - second_network.generators_t.p.sum()[second_network.generators.carrier == carrier]
+                differences.append(numbers)
+                for i in numbers: 
+                    if i !=0:
+                        liste_numbers.append(i)
+            
+            plt.hist(differences, bins = 50)
+            plt.title("Differences in dispatch")
+            plt.xlabel("Value (difference)")
+            plt.ylabel("Frequency (numbers of generators)")
+            
+            if filename is None:
+                plt.show()
+            else:
+                plt.savefig(filename)
+                plt.close()
+                
+            print(len(liste_numbers), max(liste_numbers),min(liste_numbers))
+                          
+        histogram(network,second_network, None)
+        # histogram(network,second_network,'wind')
+        # histogram(network,second_network,'solar')
+        
+        plot_stacked_gen(second_network, resolution="MW")
+        
+        
     return network
 
   
 # execute etrago function
 network = etrago(args)
-
-#Create marginal cost noise
-marginal_cost_noise(network, start_h=args['start_h'], end_h=args['end_h'])
-    
-curtailment(network,carrier="wind")
-
-# plots
-gen_dist(network)
-
-# make a line loading plot
-plot_line_loading(network)
+   
+#==============================================================================
+# curtailment(network,carrier="wind")
+# 
+# # plots
+# gen_dist(network)
+# 
+# # make a line loading plot
+# plot_line_loading(network)
+#==============================================================================
 
 # plot stacked sum of nominal power for each generator type and timestep
 plot_stacked_gen(network, resolution="MW")
 
-# plot to show extendable storages
-storage_distribution(network)
-
+#==============================================================================
+# # plot to show extendable storages
+# storage_distribution(network)
+# 
+#==============================================================================
 # close session
 #session.close()
 
