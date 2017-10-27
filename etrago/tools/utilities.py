@@ -372,7 +372,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
-    network.storage_units.state_of_charge_initial = 0
+
     for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
         if i>0:
             network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[network.snapshots[group_size*i-1]]
