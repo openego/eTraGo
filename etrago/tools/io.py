@@ -282,6 +282,9 @@ class NetworkScenario(ScenarioBase):
         return network
     
 def clear_results_db(session):
+    '''Used to clear the result tables in the OEDB. Caution!
+        This deletes EVERY RESULT SET!'''
+    
     from egoio.db_tables.model_draft import EgoGridPfHvResultBus as BusResult,\
                                             EgoGridPfHvResultBusT as BusTResult,\
                                             EgoGridPfHvResultStorage as StorageResult,\
@@ -295,21 +298,36 @@ def clear_results_db(session):
                                             EgoGridPfHvResultTransformer as TransformerResult,\
                                             EgoGridPfHvResultTransformerT as TransformerTResult,\
                                             EgoGridPfHvResultMeta as ResultMeta
-    session.query(BusResult).delete()
-    session.query(BusTResult).delete()
-    session.query(StorageResult).delete()
-    session.query(StorageTResult).delete()
-    session.query(GeneratorResult).delete()
-    session.query(GeneratorTResult).delete()
-    session.query(LoadResult).delete()
-    session.query(LoadTResult).delete()
-    session.query(LineResult).delete()
-    session.query(LineTResult).delete()
-    session.query(TransformerResult).delete()
-    session.query(TransformerTResult).delete()
-    session.query(ResultMeta).delete()
-    session.commit()
-
+    print('Are you sure that you want to clear all results in the OEDB?')
+    choice = ''
+    while choice not in ['y', 'n']:
+        choice = input('(y/n): ')
+    if choice == 'y':
+        print('Are you sure?')
+        choice2 = ''
+        while choice2 not in ['y', 'n']:
+            choice2 = input('(y/n): ')
+        if choice2 == 'y':
+            print('Deleting all results...')
+            session.query(BusResult).delete()
+            session.query(BusTResult).delete()
+            session.query(StorageResult).delete()
+            session.query(StorageTResult).delete()
+            session.query(GeneratorResult).delete()
+            session.query(GeneratorTResult).delete()
+            session.query(LoadResult).delete()
+            session.query(LoadTResult).delete()
+            session.query(LineResult).delete()
+            session.query(LineTResult).delete()
+            session.query(TransformerResult).delete()
+            session.query(TransformerTResult).delete()
+            session.query(ResultMeta).delete()
+            session.commit()
+        else:
+            print('Deleting aborted!')
+    else:
+            print('Deleting aborted!')
+    
 
 def results_to_oedb(session, network, grid, args):
     """Return results obtained from PyPSA to oedb"""
