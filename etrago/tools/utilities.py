@@ -368,13 +368,16 @@ def results_to_csv(network, path):
 
     return
 
-def parallelisation(network, start_h, end_h, group_size, solver_name, extra_functionality=None):
+def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_name, extra_functionality=None):
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
-    for i in range(int((end_h-start_h+1)/group_size)):
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
 
+    for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
+        if i>0:
+            network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[network.snapshots[group_size*i-1]]
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
+        network.lines.s_nom = network.lines.s_nom_opt
 
     y = time.time()
     z = (y - x) / 60
