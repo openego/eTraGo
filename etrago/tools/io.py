@@ -227,7 +227,8 @@ class NetworkScenario(ScenarioBase):
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
                                 'soc_cyclic': 'cyclic_state_of_charge',
-                                'soc_initial': 'state_of_charge_initial'}}
+                                'soc_initial': 'state_of_charge_initial',
+                                'source': 'carrier'}}
 
             timevarying_override = True
 
