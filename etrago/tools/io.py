@@ -386,11 +386,31 @@ def results_to_oedb(session, network, args, grid='hv'):
     #get source_id
     sources = pd.read_sql(session.query(Source).statement,session.bind)
     for gen in network.generators.index:
-        old_source_id = int(sources.source_id[sources.name == network.generators.carrier[gen]])
-        network.generators.set_value(gen, 'source', int(old_source_id))
+        if network.generators.carrier[gen] not in sources.name.values:
+            new_source = Source()
+            new_source.source_id = session.query(func.max(Source.source_id)).scalar()+1
+            new_source.name = network.generators.carrier[gen]
+            session.add(new_source)
+            session.commit()
+            sources = pd.read_sql(session.query(Source).statement,session.bind)
+        try:
+            old_source_id = int(sources.source_id[sources.name == network.generators.carrier[gen]])
+            network.generators.set_value(gen, 'source', int(old_source_id))
+        except:
+            print('Source ' + network.generators.carrier[gen] + ' is not in the source table!')
     for stor in network.storage_units.index:
-        old_source_id = int(sources.source_id[sources.name == network.storage_units.carrier[stor]])
-        network.storage_units.set_value(stor, 'source', int(old_source_id))   
+        if network.storage_units.carrier[stor] not in sources.name.values:
+            new_source = Source()
+            new_source.source_id = session.query(func.max(Source.source_id)).scalar()+1
+            new_source.name = network.storage_units.carrier[stor]
+            session.add(new_source)
+            session.commit()
+            sources = pd.read_sql(session.query(Source).statement,session.bind)
+        try:
+            old_source_id = int(sources.source_id[sources.name == network.storage_units.carrier[stor]])
+            network.storage_units.set_value(stor, 'source', int(old_source_id))   
+        except:
+            print('Source ' + network.storage_units.carrier[stor] + ' is not in the source table!')
     
     whereismyindex = {BusResult: network.buses.index,
                       LoadResult: network.loads.index,
