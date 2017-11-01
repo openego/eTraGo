@@ -296,7 +296,7 @@ def etrago(args):
                                                      True})
     # write PyPSA results back to database
     if args['export']:
-        results_to_oedb(session, network, 'hv', args)  
+        results_to_oedb(session, network, args, 'hv')  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
