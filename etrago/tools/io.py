@@ -238,9 +238,8 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.8.0' or '0.11.0':
-            
-            print(pypsa.__version__)
+        if pypsa.__version__ == '0.11.0':
+
 
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
