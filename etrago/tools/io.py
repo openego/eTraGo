@@ -117,7 +117,12 @@ class NetworkScenario(ScenarioBase):
         try:
 
             ormclass = self._mapped['TempResolution']
-            tr = self.session.query(ormclass).filter(
+            if self.version:
+                tr = self.session.query(ormclass).filter(
+                ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
+                
+            else:
+                tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).one()
 
         except (KeyError, NoResultFound):
