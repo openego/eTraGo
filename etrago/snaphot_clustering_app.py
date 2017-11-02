@@ -187,7 +187,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     if write_results:
         results_to_csv(network, path)
 
-        #write_lpfile(network, path=os.path.join(path, "file.lp"))
+        write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
 
@@ -200,9 +200,9 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 96,
-        'scn_name': 'SH Status Quo',
-        'lpfile': '/home/ulf/lptest.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
+        'end_snapshot' : 2190,
+        'scn_name': 'SH NEP 2035',
+        'lpfile': '/home/openego/file.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
@@ -291,7 +291,7 @@ if args['k_mean_clustering']:
 ###############################################################################
 
 how = 'daily'
-clusters = [2] #[7] +  [i*7*2 for i in range(1,7)]
+clusters =[i*5 for i in range(1,219)]#[7] +  [i for i in range(1,2)]
 write_results = True
 
 home = os.path.expanduser("~")
