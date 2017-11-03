@@ -30,10 +30,7 @@ import networkx as nx
 import multiprocessing as mp
 from math import ceil
 import pandas as pd
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 from networkx import NetworkXNoPath
-from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from pickle import dump
 from pypsa import Network
 import pypsa.io as io
@@ -49,6 +46,23 @@ def _leading(busmap, df):
 
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
+    """ Create a new clustered pypsa.Network given a busmap mapping all busids
+    to other busids of the same set.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+    busmap : dict
+        Maps old bus_ids to new bus_ids.
+    with_time : bool
+        If true time-varying data will also be aggregated.
+
+    Returns
+    -------
+    network : pypsa.Network
+        Container for all network components.
+    """
 
     network_c = Network()
 
@@ -170,6 +184,42 @@ def shortest_path(paths, graph):
 def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
                             cpu_cores=4):
     """ Create busmap between voltage levels based on dijkstra shortest path.
+    The result is written to the `model_draft` on the OpenEnergy - Platform. The
+    relation name is `ego_grid_pf_hv_busmap`.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    session : sqlalchemy.orm.session.Session object
+        Establishes conversations with the database.
+    scn_name : str
+        Name of the scenario.
+    fromlvl : list
+        List of voltage-levels to cluster.
+    tolvl : list
+        List of voltage-levels to remain.
+    cpu_cores : int
+        Number of CPU-cores.
+
+    Raises
+    ------
+    AssertionError
+        If there are buses with a voltage-level not covered by fromlvl or tolvl.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+
+        Relation `ego_grid_pf_hv_busmap` has the following attributes:
+            * scn_name
+            * bus0
+            * bus1,
+            * path_length.
+
     """
 
     # cpu_cores = mp.cpu_count()
@@ -247,7 +297,23 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
 
 
 def busmap_from_psql(network, session, scn_name):
-    """
+    """ Retrieve busmap from OEP-relation `model_draft.ego_grid_pf_hv_busmap`
+    by a given scenario name. If not present the busmap is created with default
+    values to cluster on the EHV-level (110 --> 220, 380 kV)
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    session : sqlalchemy.orm.session.Session object
+        Establishes conversations with the database.
+    scn_name : str
+        Name of the scenario.
+
+    Returns
+    -------
+    busmap : dict
+        Maps old bus_ids to new bus_ids.
     """
 
     def fetch():
