@@ -385,13 +385,12 @@ def kmean_clustering(network, n_clusters=10):
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-    #ToDo: change conv to types minus wind and solar 
-    conv_types = {'biomass', 'run_of_river', 'gas', 'oil','coal', 'waste','uranium'}
+    #define weighting based on conventional 'old' generator spatial distribution
+    non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
     # Attention: network.generators.carrier.unique() 
-    # conv_types only for SH scenario defined!
-    gen = (network.generators.loc[network.generators.carrier.isin(conv_types)
+    gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
         ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
-        fill_value=0.) + network.storage_units.loc[network.storage_units.carrier.isin(conv_types)
+        fill_value=0.) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
         ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
         
     load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
