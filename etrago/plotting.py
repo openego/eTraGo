@@ -13,11 +13,8 @@ def plot_max_line_loading(network,filename=None):
     Specify filename
     If not given, figure will be show directly"""
     
-    # TODO: replace p0 by max(p0,p1) and analogously for q0
-    # TODO: implement for all given snapshots
-                
-    # calculate relative line loading as S/S_nom
     # with S = sqrt(P^2 + Q^2)
+    
     loading=[]
     i=0
     while(i<len(network.lines)):
@@ -47,9 +44,13 @@ def plot_max_line_loading(network,filename=None):
         plt.savefig(filename)
         plt.close()
         
+        
 def plot_max_opt_line_loading_bench(network,filename=None):
+    
+    # For Benchmark calculation    
+    
     """
-    Plot line loading as color on lines
+    Plot optimal line loading as color on lines
     Displays line loading relative to nominal capacity
     Parameters
     ----------
@@ -59,11 +60,8 @@ def plot_max_opt_line_loading_bench(network,filename=None):
     Specify filename
     If not given, figure will be show directly"""
     
-    # TODO: replace p0 by max(p0,p1) and analogously for q0
-    # TODO: implement for all given snapshots
-                
-    # calculate relative line loading as S/S_nom
     # with S = sqrt(P^2 + Q^2)
+    
     loading=[]
     i=0
     while(i<len(network.lines)):
@@ -95,7 +93,7 @@ def plot_max_opt_line_loading_bench(network,filename=None):
         
 def plot_max_opt_line_loading(network,line_time,filename=None):
     """
-    Plot line loading as color on lines
+    Plot optimal line loading as color on lines
     Displays line loading relative to nominal capacity
     Parameters
     ----------
@@ -105,10 +103,7 @@ def plot_max_opt_line_loading(network,line_time,filename=None):
         Specify filename
         If not given, figure will be show directly
     """
-    # TODO: replace p0 by max(p0,p1) and analogously for q0
-    # TODO: implement for all given snapshots
-
-    # calculate relative line loading as S/S_nom
+    
     # with S = sqrt(P^2 + Q^2)
     loading=[]
     i=0
@@ -150,7 +145,7 @@ def plot_max_opt_line_loading(network,line_time,filename=None):
         
 def transformers_distribution(network, filename=None):
     """
-    Plot storage distribution as circles on grid nodes
+    Plot transformers distribution as circles on grid nodes
     Displays storage size and distribution in network.
     Parameters
     ----------
@@ -168,7 +163,7 @@ def transformers_distribution(network, filename=None):
     fig.set_size_inches(6,6)
    
     if sum(transformers_distribution) == 0:
-         network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
+         network.plot(bus_sizes=0,ax=ax,title="Transformers distribution")
     else:
          network.plot(bus_sizes=transformers_distribution,ax=ax,line_widths=0.3,title="Transformers distribution")
     
@@ -178,7 +173,21 @@ def transformers_distribution(network, filename=None):
         plt.savefig(filename)
         plt.close()
                     
+                    
 def plot_dif_line_MW(network,filename=None):
+    """
+    Plot the addition capacity which are calculated for lines as color on lines
+    Displays addition capacity
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename : str
+        Specify filename
+        If not given, figure will be show directly
+    """    
+    
+    
     dif=[]
     i=0
     while(i<len(network.lines)):
@@ -197,8 +206,20 @@ def plot_dif_line_MW(network,filename=None):
     else:
         plt.savefig(filename)
         plt.close()    
+        
 
 def plot_dif_line_percent(network,filename=None):
+    """
+    Plot the addition capacity which are calculated for lines as color on lines
+    Displays addition capacity in percent
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename : str
+        Specify filename
+        If not given, figure will be show directly
+    """    
     dif=[]
     i=0
     while(i<len(network.lines)):
