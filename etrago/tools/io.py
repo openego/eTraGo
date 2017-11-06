@@ -250,9 +250,7 @@ class NetworkScenario(ScenarioBase):
         for comp, comp_t_dict in self.config.items():
 
             # TODO: This is confusing, should be fixed in db
-            tablename = {'Storage': 'StorageUnit', 'Source': 'Carrier'}
-
-            pypsa_comp_name = tablename[comp] if comp in tablename else comp
+            pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
 
             df = self.fetch_by_relname(comp)
 
