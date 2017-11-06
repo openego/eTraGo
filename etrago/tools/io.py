@@ -147,8 +147,12 @@ class NetworkScenario(ScenarioBase):
         """
 
         ormclass = self._mapped[name]
-        query = self.session.query(ormclass).filter(
-            ormclass.scn_name == self.scn_name)
+        query = self.session.query(ormclass)
+
+        if name != carr_ormclass:
+
+            query = query.filter(
+                ormclass.scn_name == self.scn_name)
 
         if self.version:
             query = query.filter(ormclass.version == self.version)
@@ -246,7 +250,9 @@ class NetworkScenario(ScenarioBase):
         for comp, comp_t_dict in self.config.items():
 
             # TODO: This is confusing, should be fixed in db
-            pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
+            tablename = {'Storage': 'StorageUnit', 'Source': 'Carrier'}
+
+            pypsa_comp_name = tablename[comp] if comp in tablename else comp
 
             df = self.by_scenario(comp)
 
