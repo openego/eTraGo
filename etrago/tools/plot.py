@@ -424,7 +424,7 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     plot.set_title('Difference in Generation')
     plt.tight_layout()
     
-def plot_voltage(network):
+def plot_voltage(network, boundaries=[]):
     """
     Plot voltage at buses as hexbin
     
@@ -432,6 +432,7 @@ def plot_voltage(network):
     Parameters
     ----------
     network : PyPSA network container
+    boundaries: list of 2 values, setting the lower and upper bound of colorbar
 
     Returns
     -------
@@ -445,10 +446,18 @@ def plot_voltage(network):
     
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,4)
-    
-    plt.hexbin(x, y, C=alpha, cmap=plt.cm.jet, gridsize=100)
-    cb = plt.colorbar()   
+    cmap = plt.cm.jet 
+    if not boundaries:
+        plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100) 
+        cb = plt.colorbar()
+    elif boundaries:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        norm = matplotlib.colors.BoundaryNorm(v, cmap.N)
+        plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100, norm=norm) 
+        cb = plt.colorbar(boundaries=v, ticks=v[0:101:10], norm=norm)
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label('Voltage Magnitude per unit of v_nom')
+    
     network.plot(ax=ax,line_widths=pd.Series(0.5,network.lines.index), bus_sizes=0)
     plt.show()
 
