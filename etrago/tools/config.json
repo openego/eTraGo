@@ -15,8 +15,7 @@
 	"Storage":
        	{
 	    "StoragePqSet": ["p_set"]
-	},
-	"Source": null
+	}
     },
     "pf":
     {
