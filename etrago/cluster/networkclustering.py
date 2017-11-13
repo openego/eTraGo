@@ -1,6 +1,6 @@
 """
 Networkclustering.py defines the methods to cluster power grid
-networks for application within the tool eTraGo. 
+networks for application within the tool eTraGo.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU Affero General Public License as
@@ -343,6 +343,10 @@ def kmean_clustering(network, n_clusters=10):
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+
+    n_clusters: int
+        Number of Cluster.    
+
     Returns
     -------
 
@@ -351,13 +355,12 @@ def kmean_clustering(network, n_clusters=10):
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
-      
-        w= g + l
+        w = g + l
         return (w * (100. / w.max())).astype(int)
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
-    
+
     print('start k-mean clustering')
     # prepare k-mean
     # k-means clustering (first try)
@@ -366,7 +369,7 @@ def kmean_clustering(network, n_clusters=10):
     # problem our lines have no v_nom. this is implicitly defined by the connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    # adjust the x of the lines which are not 380. 
+    # adjust the x of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
     network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
@@ -387,18 +390,19 @@ def kmean_clustering(network, n_clusters=10):
 
     #define weighting based on conventional 'old' generator spatial distribution
     non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
-    # Attention: network.generators.carrier.unique() 
+    # Attention: network.generators.carrier.unique()
     gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
-        ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
+        ].groupby('bus').p_nom.sum().reindex(network.buses.index,
         fill_value=0.) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
         ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
-        
+
     load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
 
     # k-mean clustering
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
     weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+
     busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
 
 
