@@ -38,8 +38,8 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2000,
-        'end_snapshot' : 2020,
+        'start_snapshot': 1,
+        'end_snapshot' : 24,
         'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -311,7 +311,7 @@ network = etrago(args)
 
 
 # Problem of kmean and Dataset see etrago #77:
-# setting k > 20 results in a cluster of k <= 20
+# setting k > 19 results in a cluster of k <= 19
 # The weighting function causes this because load and generation is zero in
 # many buses. Those buses are replaced by pypsa.networkclustering.busmap_by_kmeans by
 # points = (network.buses.loc[buses_i, ["x","y"]].values
@@ -366,7 +366,7 @@ def weighting_for_scenario_test(x):
     w =  (l+ g)*1000 # try to higher the valuse to have int values
     return (w * (100. / w.max())).astype(int)
 
-
+network.generators
 
 # testing
 weight = weighting_for_scenario_test(network.buses).reindex(network.buses.index, fill_value=1)
