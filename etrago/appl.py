@@ -188,7 +188,7 @@ def etrago(args):
 
     """
 
-    session = oedb_session(args['db'])
+    session, conn = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
     if args['gridversion'] == None:
