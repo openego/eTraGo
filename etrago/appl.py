@@ -40,8 +40,8 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
         'end_snapshot' : 24,
-        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
-        'solver': 'glpk', # glpk, cplex or gurobi
+        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
@@ -52,13 +52,13 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
+        'k_mean_clustering': 140, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 1, # globally extend or lower branch capacities
-        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -150,7 +150,8 @@ def etrago(args):
         only 'k' buses. The weighting takes place considering generation and load
         at each node. 
         If so, state the number of k you want to apply. Otherwise put False.
-	This function doesn't work together with 'line_grouping = True'.
+	    This function doesn't work together with 'line_grouping = True'
+	    or 'network_clustering = True'.
     
     network_clustering (bool):
         False, 
@@ -307,12 +308,12 @@ def etrago(args):
 
   
 # execute etrago function
-#network = etrago(args)
+network = etrago(args)
 
 # plots
 
 # make a line loading plot
-#plot_line_loading(network)
+plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
 #plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
