@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Mon Oct 23 13:55:19 2017
 
-@author: Clara
-"""
 import pandas as pd
 import re
 from importlib import import_module
@@ -21,15 +17,12 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
         df_decommisionning = pd.read_sql(query.statement,
                          self.session.bind,
                          index_col=name.lower() + '_id')
-        df_decommisionning.scn_name = self.scn_name
-        print(df_decommisionning)
+        
         if df_decommisionning.empty == False:
-            df = df.drop(df_decommisionning)
-    
+            df = df[~df.index.isin(df_decommisionning.index)]
     
         query = self.session.query(ormclass).filter(
                         ormclass.scn_name == 'extension_' + self.add_network)
-
 
         df_extension = pd.read_sql(query.statement,
                          self.session.bind,
@@ -39,16 +32,15 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
     
         if df_extension.empty == False:
             df = df.append(df_extension)
-            
-            
-        return df            
+                        
+        return df          
+    
     
     if self.add_be_no:
         ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtension' + name)
         
         query = self.session.query(ormclass).filter(
-                        ormclass.scn_name == 'BE_NO_NEP 2035' )#+ self.scn_name)
-
+                        ormclass.scn_name == 'BE_NO_' + self.scn_name)
 
         df_be_no = pd.read_sql(query.statement,
                          self.session.bind,
@@ -119,6 +111,7 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
         
             return df
         
+        
         if self.add_be_no:
             
             ormclass = getattr(self._pkg, 'EgoGridPfHvExtension' + name)
@@ -151,18 +144,9 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
                     df_be_no.index = self.timeindex
                 except AssertionError:
                         print("No data for %s in column %s." % (name, column))
-                print(df_be_no)
-           
-                #df = df.append(df_be_no)
+                           
+                df = df.append(df_be_no)
         
                 return df
             
             return df
-
-
-
-
-    
-
-    
-  

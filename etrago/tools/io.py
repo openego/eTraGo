@@ -154,14 +154,10 @@ class NetworkScenario(ScenarioBase):
 
         ormclass = self._mapped[name]
         if self.add_be_no:
-            query = self.session.query(ormclass).filter(#or_
-                                      #(ormclass.scn_name == self.scn_name,ormclass.scn_name == self.add_network, ormclass.scn_name == 'BE_NO_' + self.scn_name))
-                                      ormclass.scn_name == self.scn_name)
+            query = self.session.query(ormclass).filter(ormclass.scn_name == self.scn_name)
                                       
         else:
-            query = self.session.query(ormclass).filter(#or_
-                                      #(ormclass.scn_name == self.scn_name,ormclass.scn_name == self.add_network))
-                                     ormclass.scn_name == self.scn_name)
+            query = self.session.query(ormclass).filter(ormclass.scn_name == self.scn_name)
         
         if self.version:
             query = query.filter(ormclass.version == self.version)
