@@ -364,7 +364,7 @@ def kmean_clustering(network, n_clusters=10):
         print("w_max = " + str(w.max()))
         print("w_min = " + str(w.min()))
 
-        return (w * (100. / w.max())).astype(float)
+        return (w * (100000. / w.max())).astype(float)
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
@@ -413,7 +413,7 @@ def kmean_clustering(network, n_clusters=10):
     # help print
     print(weight.where(weight>0).count())
 
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
 
 
     # ToDo change function in order to use bus_strategies or similar
