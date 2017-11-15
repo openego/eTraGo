@@ -353,7 +353,7 @@ def kmean_clustering(network, n_clusters=10):
         l = normed(load.reindex(b_i, fill_value=0))
       
         w= g + l
-        return (w * (100. / w.max())).astype(int)
+        return (w * (100000. / w.max())).astype(int)
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
