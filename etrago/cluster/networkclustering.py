@@ -338,27 +338,110 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network, n_clusters=10):
+def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
     """ Implement k-mean clustering in existing network
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+        
+    n_clusters: int
+        Number of k for K-mean Clustering.    
+    
+    w_methode: stt
+        Name of weighting Method for K-mean Clustering
+        'False' or 'Load and Generation' are implemented.
+        
     Returns
     -------
 
     """
-    def weighting_for_scenario(x):
-        b_i = x.index
-        g = normed(gen.reindex(b_i, fill_value=0))
-        l = normed(load.reindex(b_i, fill_value=0))
-      
-        w= g + l
-        return (w * (100000. / w.max())).astype(int)
+    def genload_weighting(network, w_methode='Load and Generation'):
+        """
+        
+        """
+        import decimal
+        import numpy as np
+        import math
 
-    def normed(x):
-        return (x/x.sum()).fillna(0.)
+        def w_round(n):
+            """
+            Round to first decimal place of non-zero digit
+            """
+            if n == 0:
+                return 0
+            sgn = -1 if n < 0 else 1
+            scale = int(-math.floor(math.log10(abs(n))))
+            if scale <= 0:
+                scale = 1
+            factor = 10**scale
+            return sgn*math.floor(abs(n)*factor)/factor
+        
+
+        
+        def weighting_for_scenario(x, g, l):
+            """
+            Calculate the factor for the K-mean weighting by Load and Generation
+            
+            Parameter:
+            ----------
+            w: pandas.Series
+                Series of bus index and weight of
+                Load and Generation.
+            g: pandas.Series
+                Series of buses and the sum of p_nom per bus index
+            l: pandas.Series
+                Series of buses and the sum of load per bus index   
+            
+            Return:
+            -------
+            weigthed pandas.Series by load and generation
+            
+            """
+            b_i = x.index
+            g = normed(g.reindex(b_i, fill_value=0))
+            l = normed(l.reindex(b_i, fill_value=0))
+          
+            w= g + l
+            
+            sd = w[w>0.].nsmallest(1)
+            # lenght of smallest number until first digit
+            q = int(len(str(w_round(np.float64(sd)))) -1) 
+            # calculate the factor by 10^q -> e.g. 10^5 
+            factor = 10**q # 10 in power of q lenght (5)
+            
+            return (w * (factor / w.max())).astype(int)
+
+        def normed(x):
+            return (x/x.sum()).fillna(0.)
+            
+        if w_methode == 'Load and Generation':
+            #define weighting based on conventional 'old' generator spatial distribution
+            non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
+            
+            # Attention: network.generators.carrier.unique() 
+            gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
+                ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
+                fill_value=0.) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
+                ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
+            
+            load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+            
+            weight = weighting_for_scenario(network.buses, gen, load).reindex(network.buses.index, fill_value=1)
+            
+            busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
+            
+            print("Use weighting by Load and Generation. ")
+            
+        else:
+            # k-mean clustering
+            busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
+                     len(network.buses)), index=network.buses.index) , n_clusters= n_clusters)
+            print("Use K-mean without weighting.")
+        return busmap
     
-    print('start k-mean clustering')
+        
+    print('Start k-mean clustering with k: '+ str(n_clusters))
+
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control="PV"
@@ -385,26 +468,19 @@ def kmean_clustering(network, n_clusters=10):
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-    #define weighting based on conventional 'old' generator spatial distribution
-    non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
-    # Attention: network.generators.carrier.unique() 
-    gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
-        ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
-        fill_value=0.) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
-        ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0.))
-        
-    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
-
-    # k-mean clustering
-    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
-    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
-
-
+    
+    
+    busmap = genload_weighting(network, w_methode)
+    
+  
     # ToDo change function in order to use bus_strategies or similar
     clustering = get_clustering_from_busmap(network, busmap)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-
+    # Short Report
+    print("The number of k due to weighting of Load and Generation is in your\n"  
+    + "scenario: " + str(network.buses.carrier.count()) \
+    + " of " + str(n_clusters))
+   
+    
     return network
