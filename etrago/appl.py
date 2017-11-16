@@ -264,7 +264,7 @@ def etrago(args):
     if not args['k_mean_clustering'] == False:
         network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
                                 #w_methode =None) 
-                                  w_methode ='Load and Generation')
+                                  w_method ='Load and Generation')
                                   
         
     # Branch loading minimization
