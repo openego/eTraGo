@@ -338,7 +338,7 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
+def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
     """ Implement k-mean clustering in existing network
     ----------
     network : :class:`pypsa.Network
@@ -347,7 +347,7 @@ def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
     n_clusters: int
         Number of k for K-mean Clustering.    
     
-    w_methode: stt
+    w_method: stt
         Name of weighting Method for K-mean Clustering
         'False' or 'Load and Generation' are implemented.
         
@@ -355,7 +355,7 @@ def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
     -------
 
     """
-    def genload_weighting(network, w_methode='Load and Generation'):
+    def genload_weighting(network, w_method='Load and Generation'):
         """
         
         """
@@ -414,7 +414,7 @@ def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
         def normed(x):
             return (x/x.sum()).fillna(0.)
             
-        if w_methode == 'Load and Generation':
+        if w_method == 'Load and Generation':
             #define weighting based on conventional 'old' generator spatial distribution
             non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
             
@@ -470,7 +470,7 @@ def kmean_clustering(network, n_clusters=10, w_methode='Load and Generation'):
 
     
     
-    busmap = genload_weighting(network, w_methode)
+    busmap = genload_weighting(network, w_method)
     
   
     # ToDo change function in order to use bus_strategies or similar
