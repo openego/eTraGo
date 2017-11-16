@@ -52,7 +52,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 140, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 200, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -150,8 +150,10 @@ def etrago(args):
         only 'k' buses. The weighting takes place considering generation and load
         at each node. 
         If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
-	    or 'network_clustering = True'.
+	    Note: The number of clusters k is automatically limited if the same values 
+	    of generation and consumption occur at serveral buses to one bus. 
+	    This function doesn't work together with 'line_grouping = True' or 
+	    'network_clustering = True'.
     
     network_clustering (bool):
         False, 
@@ -260,7 +262,10 @@ def etrago(args):
     
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
+                                #w_methode =None) 
+                                  w_methode ='Load and Generation')
+                                  
         
     # Branch loading minimization
     if args['minimize_loading']:
