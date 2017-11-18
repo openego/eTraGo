@@ -24,12 +24,13 @@ import pypsa
 from importlib import import_module
 import pandas as pd
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from collections import OrderedDict
 import re
 import json
 import os
-
+from etrago.tools.nep import add_by_scenario, add_series_by_scenario
+import numpy as np
 
 packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
@@ -55,12 +56,12 @@ class ScenarioBase():
 
         cfgpath = kwargs.get('cfgpath', '')
         self.config = loadcfg(cfgpath)[method]
-
         self.session = session
         self.version = version
         self._prefix = kwargs.get('prefix', 'EgoGridPfHv')
         self._pkg = import_module(packagename + '.' + schema)
         self._mapped = {}
+       
 
         # map static and timevarying classes
         for k, v in self.config.items():
@@ -94,6 +95,8 @@ class NetworkScenario(ScenarioBase):
         super().__init__(session, *args, **kwargs)
 
         self.scn_name = kwargs.get('scn_name', 'Status Quo')
+        self.add_network = kwargs.get('add_network')
+        self.add_be_no = kwargs.get('add_be_no')
         self.method   = kwargs.get('method', 'lopf')
         self.start_snapshot  = kwargs.get('start_snapshot', 1)
         self.end_snapshot    = kwargs.get('end_snapshot', 20)
@@ -113,16 +116,24 @@ class NetworkScenario(ScenarioBase):
     def configure_timeindex(self):
         """
         """
-
+        global timeindex
+        global tr
+        
         try:
 
             ormclass = self._mapped['TempResolution']
-            tr = self.session.query(ormclass).filter(
+            if self.version:
+                tr = self.session.query(ormclass).filter(
+                ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
+                
+            else:
+                tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).one()
-
+       
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
-
+       
+            
         timeindex = pd.DatetimeIndex(start=tr.start_time,
                                      periods=tr.timesteps,
                                      freq=tr.resolution)
@@ -142,9 +153,16 @@ class NetworkScenario(ScenarioBase):
         """
 
         ormclass = self._mapped[name]
-        query = self.session.query(ormclass).filter(
-            ormclass.scn_name == self.scn_name)
-
+        if self.add_be_no:
+            query = self.session.query(ormclass).filter(#or_
+                                      #(ormclass.scn_name == self.scn_name,ormclass.scn_name == self.add_network, ormclass.scn_name == 'BE_NO_' + self.scn_name))
+                                      ormclass.scn_name == self.scn_name)
+                                      
+        else:
+            query = self.session.query(ormclass).filter(#or_
+                                      #(ormclass.scn_name == self.scn_name,ormclass.scn_name == self.add_network))
+                                     ormclass.scn_name == self.scn_name)
+        
         if self.version:
             query = query.filter(ormclass.version == self.version)
 
@@ -155,12 +173,17 @@ class NetworkScenario(ScenarioBase):
         df = pd.read_sql(query.statement,
                          self.session.bind,
                          index_col=name.lower() + '_id')
-
+        
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
-
+        
+        
+        if self.add_network != None or self.add_be_no == True:
+            
+            df = add_by_scenario(self, df, name)
+            #print(df)
         return df
-
+    
     def series_by_scenario(self, name, column):
         """
         """
@@ -190,13 +213,19 @@ class NetworkScenario(ScenarioBase):
 
         # change of format to fit pypsa
         df = df[column].apply(pd.Series).transpose()
+        
 
         try:
             assert not df.empty
             df.index = self.timeindex
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
-
+        
+        #if self.add_network != None :
+            
+           # df = add_series_by_scenario(self, df, name, column)
+            #print(df)
+            
         return df
 
     def build_network(self, *args, **kwargs):
@@ -212,7 +241,9 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.8.0':
+        if pypsa.__version__ == '0.8.0' or '0.11.0':
+            
+            print(pypsa.__version__)
 
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
@@ -243,6 +274,7 @@ class NetworkScenario(ScenarioBase):
             pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
 
             df = self.by_scenario(comp)
+            
 
             if comp in old_to_new_name:
 
@@ -312,7 +344,7 @@ def clear_results_db(session):
 
 
 def results_to_oedb(session, network, grid, args):
-    """Return results obtained from PyPSA to oedb"""
+   # """Return results obtained from PyPSA to oedb"""
     # moved this here to prevent error when not using the mv-schema
     import datetime
     if grid.lower() == 'mv':

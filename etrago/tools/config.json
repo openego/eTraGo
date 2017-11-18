@@ -7,6 +7,7 @@
 	    "GeneratorPqSet": ["p_set", "p_max_pu"]
 	},
 	"Line": null,
+	
 	"Transformer": null,
 	"Load":
     	{
@@ -28,6 +29,7 @@
 	    "GeneratorPqSet": ["p_set", "q_set"]
 	},
 	"Line": null,
+	
 	"Transformer": null,
 	"Load": 
 	{

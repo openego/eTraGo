@@ -21,33 +21,39 @@ from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
 from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
+#from etrago.tools.nep import add_extension_network
+
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
-        'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'db': 'local', # db session
+        'gridversion': 'v0.2.11',  # None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1,
-        'end_snapshot' : 2,
+        'start_snapshot': 4560,
+        'end_snapshot' :4561,
         'scn_name': 'SH Status Quo',
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
-        'export': False, # state if you want to export the results back to the database
+        'results':False, # state if and where you want to save results as csv: False or '/path/tofolder'
+        'export': False, # state if you want to export the results back to the databasen 
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': False , #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False,
+        'k_mean_clustering': 20,
         'network_clustering': False,
         # Simplifications:
-        'parallelisation':False,
+        'parallelisation':False, 
         'line_grouping': False,
         'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
-        'load_shedding':False,
-        'comments':None }
+        'load_shedding':True,
+        'comments':None,
+        # Scenario variances
+        'add_network':None, #'NEP', # None or new scenario name e.g. 'NEP' 
+        'add_be_no': False  # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
+        }
 
 
 def etrago(args):
@@ -162,8 +168,6 @@ def etrago(args):
     """
 
 
-
-
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
@@ -176,12 +180,15 @@ def etrago(args):
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
                                method=args['method'],
+                               add_network = args['add_network'],
+                               add_be_no = args['add_be_no'],
                                start_snapshot=args['start_snapshot'],
                                end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
 
+    network.links.marginal_cost = 0
     # add coordinates
     network = add_coordinates(network)
       
@@ -190,6 +197,8 @@ def etrago(args):
 
 
     if args['branch_capacity_factor']:
+        
+        
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
@@ -246,6 +255,7 @@ def etrago(args):
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+    
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
@@ -269,8 +279,8 @@ def etrago(args):
         
     # write lpfile to path
     if not args['lpfile'] == False:
-        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                     True})
+        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':True})
+        
     # write PyPSA results back to database
     if args['export']:
         results_to_oedb(session, network, 'hv', args)  
@@ -294,6 +304,8 @@ plot_stacked_gen(network, resolution="MW")
 
 # plot to show extendable storages
 storage_distribution(network)
+
+curtailment(network)
 
 # close session
 #session.close()

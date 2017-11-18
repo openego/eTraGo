@@ -39,7 +39,7 @@ def add_coordinates(network):
     return network
     
 def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
-                      arrows=False):
+                      arrows= False ):
     """
     Plot line loading as color on lines
 
@@ -67,11 +67,18 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
          loading = ((network.lines_t.p0.loc[network.snapshots[timestep]] ** 2 +
                    network.lines_t.q0.loc[network.snapshots[timestep]] ** 2).\
                    apply(sqrt) / (network.lines.s_nom)) * 100 
-
+    
+    """loading_links = (network.links_t.p0.loc[network.snapshots[timestep]]/ \
+                   (network.links.p_nom)) * 100 
+    comp = [abs(loading), loading_links]   
+    line_colors = pd.Series( index= comp)  
+    line_cmap = dict(line_cmap = c_map, link_cmap = cmap)     
     # do the plotting
+    ll = network.plot(line_colors, line_cmap,
+                      title="Line loading", line_widths=0.55)"""
+    
     ll = network.plot(line_colors=abs(loading), line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
-    
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
@@ -147,7 +154,7 @@ def plot_residual_load(network):
     """
 
     renewables = network.generators[
-                    network.generators.dispatch == 'variable']
+                    network.generators.former_dispatch == 'variable']
     renewables_t = network.generators.p_nom[renewables.index] * \
                         network.generators_t.p_max_pu[renewables.index]
     load = network.loads_t.p_set.sum(axis=1)
