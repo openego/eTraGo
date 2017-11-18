@@ -1,14 +1,26 @@
-"""This is the docstring for the example.py module.  Modules names should
-have short, all-lowercase names.  The module name may have underscores if
-this improves readability.
-Every module should have a docstring at the very top of the file.  The
-module's docstring may extend over multiple lines.  If your docstring does
-extend over multiple lines, the closing three quotation marks must be on
-a line by itself, preferably preceded by a blank line."""
+﻿"""
+This is the application file for the tool eTraGo. 
 
-__copyright__ = "tba"
-__license__ = "tba"
-__author__ = "tba"
+Define your connection parameters and power flow settings before executing the function etrago.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation; either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+"""
+
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 
 import numpy as np
 from numpy import genfromtxt
@@ -24,25 +36,26 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'local', # db session
-        'gridversion': 'v0.2.11',  # None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'db': 'oedb', # db session
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 4560,
-        'end_snapshot' :4561,
-        'scn_name': 'SH Status Quo',
+        'start_snapshot': 3482, 
+        'end_snapshot' : 3683,
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results':False, # state if and where you want to save results as csv: False or '/path/tofolder'
-        'export': False, # state if you want to export the results back to the databasen 
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False , #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 20,
+
+        'k_mean_clustering': 20, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False, 
@@ -54,6 +67,7 @@ args = {# Setup and Configuration:
         'add_network':None, #'NEP', # None or new scenario name e.g. 'NEP' 
         'add_be_no': False  # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
         }
+
 
 
 def etrago(args):
@@ -140,23 +154,39 @@ def etrago(args):
         
     k_mean_clustering (bool): 
         False,
+        State if you want to apply a clustering of all network buses down to 
+        only 'k' buses. The weighting takes place considering generation and load
+        at each node. 
+        If so, state the number of k you want to apply. Otherwise put False.
+	    This function doesn't work together with 'line_grouping = True'
+	    or 'network_clustering = True'.
     
     network_clustering (bool):
         False, 
-        True or false
+        Choose if you want to cluster the full HV/EHV dataset down to only the EHV 
+        buses. In that case, all HV buses are assigned to their closest EHV sub-station, 
+        taking into account the shortest distance on power lines.
         
     parallelisation (bool):
         False,
+        Choose if you want to calculate a certain number of snapshots in parallel. If
+        yes, define the respective amount in the if-clause execution below. Otherwise 
+        state False here.
         
     line_grouping (bool): 
         True,
+        State if you want to group lines that connect the same two buses into one system.
    
     branch_capacity_factor (numeric): 
         1, 
-        to globally extend or lower branch capacities
+        Add a factor here if you want to globally change line capacities (e.g. to "consider"
+        an (n-1) criterion or for debugging purposes.
            
     load_shedding (bool):
         False,
+        State here if you want to make use of the load shedding function which is helpful when
+        debugging: a very expensive generator is set to each bus and meets the demand when regular
+        generators cannot do so.
         
     comments (str): 
         None
@@ -218,7 +248,7 @@ def etrago(args):
       
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.source.any()=='extendable_storage':
+        if network.storage_units.carrier.any()=='extendable_storage':
             network.storage_units.p_nom_extendable = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
@@ -243,8 +273,8 @@ def etrago(args):
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
     # k-mean clustering
-    if args['k_mean_clustering']:
-        network = kmean_clustering(network, n_clusters=100)
+    if not args['k_mean_clustering'] == False:
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
         
     # Branch loading minimization
     if args['minimize_loading']:
@@ -283,7 +313,7 @@ def etrago(args):
         
     # write PyPSA results back to database
     if args['export']:
-        results_to_oedb(session, network, 'hv', args)  
+        results_to_oedb(session, network, args, 'hv')  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
@@ -300,10 +330,9 @@ network = etrago(args)
 # make a line loading plot
 plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
-plot_stacked_gen(network, resolution="MW")
-
+#plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
-storage_distribution(network)
+#storage_distribution(network)
 
 curtailment(network)
 
