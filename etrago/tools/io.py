@@ -142,13 +142,17 @@ class NetworkScenario(ScenarioBase):
         # TODO column naming in database
         return {k.source_id: k.name for k in query.all()}
 
-    def by_scenario(self, name):
+    def fetch_by_relname(self, name):
         """
         """
 
         ormclass = self._mapped[name]
-        query = self.session.query(ormclass).filter(
-            ormclass.scn_name == self.scn_name)
+        query = self.session.query(ormclass)
+
+        if name != carr_ormclass:
+
+            query = query.filter(
+                ormclass.scn_name == self.scn_name)
 
         if self.version:
             query = query.filter(ormclass.version == self.version)
@@ -166,7 +170,7 @@ class NetworkScenario(ScenarioBase):
 
         return df
 
-    def series_by_scenario(self, name, column):
+    def series_fetch_by_relname(self, name, column):
         """
         """
 
@@ -248,7 +252,7 @@ class NetworkScenario(ScenarioBase):
             # TODO: This is confusing, should be fixed in db
             pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
 
-            df = self.by_scenario(comp)
+            df = self.fetch_by_relname(comp)
 
             if comp in old_to_new_name:
 
@@ -263,7 +267,7 @@ class NetworkScenario(ScenarioBase):
 
                     for col in columns:
 
-                        df_series = self.series_by_scenario(comp_t, col)
+                        df_series = self.series_fetch_by_relname(comp_t, col)
 
                         # TODO: VMagPuSet?
                         if timevarying_override and comp == 'Generator':
@@ -282,6 +286,10 @@ class NetworkScenario(ScenarioBase):
                         except (ValueError, AttributeError):
                             print("Series %s of component %s could not be "
                                   "imported" % (col, pypsa_comp_name))
+
+        # populate carrier attribute in PyPSA network
+        network.import_components_from_dataframe(
+            self.fetch_by_relname(carr_ormclass), 'Carrier')
 
         self.network = network
 
