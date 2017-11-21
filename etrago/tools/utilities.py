@@ -381,7 +381,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
 
     y = time.time()
     z = (y - x) / 60
-    return"""
+    return
 
 def pf_post_lopf(network, scenario):
     
@@ -435,6 +435,7 @@ def calc_line_losses(network):
     -------
 
     """
+    
     #### Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\

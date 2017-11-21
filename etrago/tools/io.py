@@ -174,13 +174,14 @@ class NetworkScenario(ScenarioBase):
                          self.session.bind,
                          index_col=name.lower() + '_id')
         
+        if self.add_network != None or self.add_be_no == True:
+            df = add_by_scenario(self, df, name)
+            
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
         
         
-        if self.add_network != None or self.add_be_no == True:
-            
-            df = add_by_scenario(self, df, name)
+
             #print(df)
         return df
     
@@ -221,10 +222,10 @@ class NetworkScenario(ScenarioBase):
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
         
-        #if self.add_network != None :
+        if self.add_be_no:
             
-           # df = add_series_by_scenario(self, df, name, column)
-            #print(df)
+           df = add_series_by_scenario(self, df, name, column)
+           return df
             
         return df
 

@@ -36,13 +36,13 @@ from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'db': 'local', # db session
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 3482, 
         'end_snapshot' : 3683,
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -54,8 +54,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False , #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-
-        'k_mean_clustering': 20, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False, 
@@ -64,7 +63,7 @@ args = {# Setup and Configuration:
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network':None, #'NEP', # None or new scenario name e.g. 'NEP' 
+        'add_network': 'delete_electrical_neighbours', #'NEP', # None or new scenario name e.g. 'NEP' 
         'add_be_no': False  # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
         }
 
@@ -219,6 +218,8 @@ def etrago(args):
     network = scenario.build_network()
 
     network.links.marginal_cost = 0
+    network.generators.p_max_pu = 'NaN'
+    network.generators.p_min_pu = 0
     # add coordinates
     network = add_coordinates(network)
       

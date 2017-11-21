@@ -7,7 +7,7 @@ Created on Mon Oct 23 13:55:19 2017
 import pandas as pd
 import re
 from importlib import import_module
-
+from sqlalchemy import and_
   
 def add_by_scenario (self, df, name,  *args, **kwargs):
     
@@ -22,8 +22,8 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
                          self.session.bind,
                          index_col=name.lower() + '_id')
         df_decommisionning.scn_name = self.scn_name
-    
-        if df_decommisionning.empty ==False:
+        print(df_decommisionning)
+        if df_decommisionning.empty == False:
             df = df.drop(df_decommisionning)
     
     
@@ -47,7 +47,7 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
         ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtension' + name)
         
         query = self.session.query(ormclass).filter(
-                        ormclass.scn_name == 'BE_NO_' + self.scn_name)
+                        ormclass.scn_name == 'BE_NO_NEP 2035' )#+ self.scn_name)
 
 
         df_be_no = pd.read_sql(query.statement,
@@ -151,9 +151,9 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
                     df_be_no.index = self.timeindex
                 except AssertionError:
                         print("No data for %s in column %s." % (name, column))
-            
+                print(df_be_no)
            
-                df = df.append(df_be_no)
+                #df = df.append(df_be_no)
         
                 return df
             
