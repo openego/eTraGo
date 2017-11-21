@@ -17,7 +17,7 @@ A speciality in this context is that transmission grids are described by the 380
 
 The focus of optimization are flexibility options with a special focus on energy storages. Grid expansion measures are not part of this tool and will be instead part of 'eGo' https://github.com/openego/eGo
 
-.. warning:: Note, eTraGo is still under constraction
+.. warning:: Note, eTraGo and especially its documentation is still in heavy development.
 
 
 
