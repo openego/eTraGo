@@ -26,14 +26,10 @@ The focus of optimization are flexibility options with a special focus on energy
    :maxdepth: 7
    :titlesonly:
 
-   welcome
+   about
    getting_started
    usage_details
-   about
-
    whatsnew
-   
-   
    api
 
 
