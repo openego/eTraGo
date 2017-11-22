@@ -355,16 +355,11 @@ def kmean_clustering(network, n_clusters=10):
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
-        w = (l + g)
 
-        # print test
-        print("g = " + str(g.where(g>0).count()))
-        print("l = " + str(l.where(l>0).count()))
-        print("w = " + str(w.where(w>0).count()))
-        print("w_max = " + str(w.max()))
-        print("w_min = " + str(w.min()))
+     
+        w= g + l
+        return (w * (100000. / w.max())).astype(int)
 
-        return (w * (100000. / w.max())).astype(float)
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
@@ -410,8 +405,6 @@ def kmean_clustering(network, n_clusters=10):
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
     weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    # help print
-    print(weight.where(weight>0).count())
 
     busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
 
