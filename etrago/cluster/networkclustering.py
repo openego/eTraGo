@@ -432,6 +432,9 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
             
             print("Use weighting by Load and Generation. ")
             
+            print("The maximal possible number of k due to weighting of Load and Generation is in your\n"  
+                     + "scenario: " + str(len(set(weight))) \
+                     + " instead of the desired " + str(n_clusters))            
         else:
             # k-mean clustering
             busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
@@ -477,10 +480,7 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
     clustering = get_clustering_from_busmap(network, busmap)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-    # Short Report
-    print("The maximal possible number of k due to weighting of Load and Generation is in your\n"  
-    + "scenario: " + str(network.buses.carrier.count()) \
-    + " instead of the desired " + str(n_clusters))
+
    
     
     return network
