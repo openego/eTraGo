@@ -1,6 +1,6 @@
 """
 Networkclustering.py defines the methods to cluster power grid
-networks for application within the tool eTraGo. 
+networks for application within the tool eTraGo.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU Affero General Public License as
@@ -350,7 +350,7 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
     w_method: stt
         Name of weighting Method for K-mean Clustering
         'False' or 'Load and Generation' are implemented.
-        
+
     Returns
     -------
 
@@ -452,7 +452,7 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
     # problem our lines have no v_nom. this is implicitly defined by the connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    # adjust the x of the lines which are not 380. 
+    # adjust the x of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
     network.lines.loc[lines_v_nom_b, 'x'] *= (380./network.lines.loc[lines_v_nom_b, 'v_nom'])**2
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
@@ -471,16 +471,14 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
+
     
     
     busmap = genload_weighting(network, w_method)
     
-  
     # ToDo change function in order to use bus_strategies or similar
     clustering = get_clustering_from_busmap(network, busmap)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-   
-    
     return network

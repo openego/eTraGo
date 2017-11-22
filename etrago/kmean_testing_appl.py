@@ -52,13 +52,13 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 140, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 1, # globally extend or lower branch capacities
-        'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -150,11 +150,7 @@ def etrago(args):
         only 'k' buses. The weighting takes place considering generation and load
         at each node.
         If so, state the number of k you want to apply. Otherwise put False.
-
-	    Note: The number of clusters k is automatically limited if the same values
-	    of generation and consumption occur at serveral buses to one bus.
-	    This function doesn't work together with 'line_grouping = True' or
-	    'network_clustering = True'.
+        This function doesn't work together with 'line_grouping = True'.
 
     network_clustering (bool):
         False,
@@ -263,9 +259,7 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
-                                  w_method ='Load and Generation')
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -315,10 +309,83 @@ def etrago(args):
 # execute etrago function
 network = etrago(args)
 
+
+# Problem of kmean and Dataset see etrago #77:
+# setting k > 19 results in a cluster of k <= 19
+# The weighting function causes this because load and generation is zero in
+# many buses. Those buses are replaced by pypsa.networkclustering.busmap_by_kmeans by
+# points = (network.buses.loc[buses_i, ["x","y"]].values
+#                  .repeat(bus_weightings.reindex(buses_i).astype(int), axis=0))
+
+
+# testing if geometries are equal
+network.buses.x.unique()
+network.buses.y.unique()
+
+
+# test settings from etrago.networkclustering
+n_clusters = 70
+# Load and generators of Scenaio
+load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
+
+gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
+    ].groupby('bus').p_nom.sum().reindex(network.buses.index,
+    fill_value=0) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
+    ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0))
+
+# different number off load and generator buses
+# for args setting 'start_snapshot': 1,'end_snapshot' : 24, 'scn_name': 'SH Status Quo',
+# number of buses generator = 91 , Load = 21
+len(gen.index)
+len(load.index)
+
+# Values > o gen = 15, load = 21
+gen.where(gen>0).count()
+load.where(load>0).count()
+
+#network.buses.info()
+#network.loads.info()
+
+# testing points for kmean out of pypsa.networkclustering.busmap_by_kmeans
+# and etrago.networkclustering weighting_for_scenario
+
+from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
+import pandas as pd
+
+# kmean functions
+def normed(x):
+    return (x/x.sum()).fillna(0.)
+
+# kmean weighting function
+def weighting_for_scenario_test(x):
+    b_i = x.index
+    g = normed(gen.reindex(b_i, fill_value=0))
+    l = normed(load.reindex(b_i, fill_value=0))
+    w =  (l+ g)*1000 # try to higher the valuse to have int values
+    return (w * (100. / w.max())).astype(int)
+
+network.generators
+
+# testing
+weight = weighting_for_scenario_test(network.buses).reindex(network.buses.index, fill_value=1)
+# lenght by setting = 91
+len(weight)
+# non zero values = 19
+weight.where(weight>0).count()
+#weight
+
+# all zero values are replaced as weight
+# random noise of generators or other strategy needed
+busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
+
+
+
 # plots
 
 # make a line loading plot
-#plot_line_loading(network)
+plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
 #plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
