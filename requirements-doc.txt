@@ -1,0 +1,7 @@
+# Packages for read the docs
+# Using single requirments for docs, see:
+# https://github.com/rtfd/readthedocs.org/issues/2070 
+sphinx_rtd_theme
+pandas >=0.20.3, <=0.20.3
+pypsa >=0.08.0, <=0.08.0
+numpydoc

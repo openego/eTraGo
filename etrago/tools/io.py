@@ -16,9 +16,9 @@ carr_ormclass: str
 
 """
 
-__copyright__ = ""
-__license__ = ""
-__author__ = ""
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = "ulfmueller, mariusves"
 
 import pypsa
 from importlib import import_module
@@ -117,7 +117,12 @@ class NetworkScenario(ScenarioBase):
         try:
 
             ormclass = self._mapped['TempResolution']
-            tr = self.session.query(ormclass).filter(
+            if self.version:
+                tr = self.session.query(ormclass).filter(
+                ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
+                
+            else:
+                tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).one()
 
         except (KeyError, NoResultFound):
@@ -137,13 +142,17 @@ class NetworkScenario(ScenarioBase):
         # TODO column naming in database
         return {k.source_id: k.name for k in query.all()}
 
-    def by_scenario(self, name):
+    def fetch_by_relname(self, name):
         """
         """
 
         ormclass = self._mapped[name]
-        query = self.session.query(ormclass).filter(
-            ormclass.scn_name == self.scn_name)
+        query = self.session.query(ormclass)
+
+        if name != carr_ormclass:
+
+            query = query.filter(
+                ormclass.scn_name == self.scn_name)
 
         if self.version:
             query = query.filter(ormclass.version == self.version)
@@ -161,7 +170,7 @@ class NetworkScenario(ScenarioBase):
 
         return df
 
-    def series_by_scenario(self, name, column):
+    def series_fetch_by_relname(self, name, column):
         """
         """
 
@@ -227,7 +236,8 @@ class NetworkScenario(ScenarioBase):
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
                                 'soc_cyclic': 'cyclic_state_of_charge',
-                                'soc_initial': 'state_of_charge_initial'}}
+                                'soc_initial': 'state_of_charge_initial',
+                                'source': 'carrier'}}
 
             timevarying_override = True
 
@@ -242,7 +252,7 @@ class NetworkScenario(ScenarioBase):
             # TODO: This is confusing, should be fixed in db
             pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
 
-            df = self.by_scenario(comp)
+            df = self.fetch_by_relname(comp)
 
             if comp in old_to_new_name:
 
@@ -257,7 +267,7 @@ class NetworkScenario(ScenarioBase):
 
                     for col in columns:
 
-                        df_series = self.series_by_scenario(comp_t, col)
+                        df_series = self.series_fetch_by_relname(comp_t, col)
 
                         # TODO: VMagPuSet?
                         if timevarying_override and comp == 'Generator':
@@ -277,11 +287,18 @@ class NetworkScenario(ScenarioBase):
                             print("Series %s of component %s could not be "
                                   "imported" % (col, pypsa_comp_name))
 
+        # populate carrier attribute in PyPSA network
+        network.import_components_from_dataframe(
+            self.fetch_by_relname(carr_ormclass), 'Carrier')
+
         self.network = network
 
         return network
     
 def clear_results_db(session):
+    '''Used to clear the result tables in the OEDB. Caution!
+        This deletes EVERY RESULT SET!'''
+    
     from egoio.db_tables.model_draft import EgoGridPfHvResultBus as BusResult,\
                                             EgoGridPfHvResultBusT as BusTResult,\
                                             EgoGridPfHvResultStorage as StorageResult,\
@@ -295,23 +312,38 @@ def clear_results_db(session):
                                             EgoGridPfHvResultTransformer as TransformerResult,\
                                             EgoGridPfHvResultTransformerT as TransformerTResult,\
                                             EgoGridPfHvResultMeta as ResultMeta
-    session.query(BusResult).delete()
-    session.query(BusTResult).delete()
-    session.query(StorageResult).delete()
-    session.query(StorageTResult).delete()
-    session.query(GeneratorResult).delete()
-    session.query(GeneratorTResult).delete()
-    session.query(LoadResult).delete()
-    session.query(LoadTResult).delete()
-    session.query(LineResult).delete()
-    session.query(LineTResult).delete()
-    session.query(TransformerResult).delete()
-    session.query(TransformerTResult).delete()
-    session.query(ResultMeta).delete()
-    session.commit()
+    print('Are you sure that you want to clear all results in the OEDB?')
+    choice = ''
+    while choice not in ['y', 'n']:
+        choice = input('(y/n): ')
+    if choice == 'y':
+        print('Are you sure?')
+        choice2 = ''
+        while choice2 not in ['y', 'n']:
+            choice2 = input('(y/n): ')
+        if choice2 == 'y':
+            print('Deleting all results...')
+            session.query(BusResult).delete()
+            session.query(BusTResult).delete()
+            session.query(StorageResult).delete()
+            session.query(StorageTResult).delete()
+            session.query(GeneratorResult).delete()
+            session.query(GeneratorTResult).delete()
+            session.query(LoadResult).delete()
+            session.query(LoadTResult).delete()
+            session.query(LineResult).delete()
+            session.query(LineTResult).delete()
+            session.query(TransformerResult).delete()
+            session.query(TransformerTResult).delete()
+            session.query(ResultMeta).delete()
+            session.commit()
+        else:
+            print('Deleting aborted!')
+    else:
+            print('Deleting aborted!')
+    
 
-
-def results_to_oedb(session, network, grid, args):
+def results_to_oedb(session, network, args, grid='hv'):
     """Return results obtained from PyPSA to oedb"""
     # moved this here to prevent error when not using the mv-schema
     import datetime
@@ -330,10 +362,12 @@ def results_to_oedb(session, network, grid, args):
                                                 EgoGridPfHvResultLoadT as LoadTResult,\
                                                 EgoGridPfHvResultTransformer as TransformerResult,\
                                                 EgoGridPfHvResultTransformerT as TransformerTResult,\
-                                                EgoGridPfHvResultMeta as ResultMeta
+                                                EgoGridPfHvResultMeta as ResultMeta,\
+                                                EgoGridPfHvSource as Source
     else:
         print('Please enter mv or hv!')
-
+    
+    print('Uploading results to db...')
     # get last result id and get new one
     last_res_id = session.query(func.max(ResultMeta.result_id)).scalar()
     if last_res_id == None:
@@ -351,620 +385,143 @@ def results_to_oedb(session, network, grid, args):
     res_meta.result_id=new_res_id
     res_meta.scn_name=args['scn_name']
     res_meta.calc_date= datetime.datetime.now()
+#    res_meta.user_name = will be added when ego.io sessionmaker is implemented!
     res_meta.method=args['method']
-    res_meta.gridversion = args['gridversion']
     res_meta.start_snapshot = args['start_snapshot']
     res_meta.end_snapshot = args['end_snapshot']
     res_meta.snapshots = network.snapshots.tolist()
     res_meta.solver = args['solver']
-    res_meta.branch_capacity_factor = args['branch_capacity_factor']
-    res_meta.pf_post_lopf = args['pf_post_lopf']
-    res_meta.network_clustering = args['network_clustering']
-    res_meta.storage_extendable = args['storage_extendable']
-    res_meta.load_shedding = args['load_shedding']
-    res_meta.generator_noise = args['generator_noise']
-    res_meta.minimize_loading=args['minimize_loading']
-    res_meta.k_mean_clustering=args['k_mean_clustering']
-    res_meta.parallelisation=args['parallelisation']
-    res_meta.line_grouping=args['line_grouping']
-    res_meta.misc=meta_misc
-    res_meta.comments=args['comments']
+    res_meta.settings=meta_misc
     
     session.add(res_meta)
     session.commit()
+
+    #get source_id
+    sources = pd.read_sql(session.query(Source).statement,session.bind)
+    for gen in network.generators.index:
+        if network.generators.carrier[gen] not in sources.name.values:
+            new_source = Source()
+            new_source.source_id = session.query(func.max(Source.source_id)).scalar()+1
+            new_source.name = network.generators.carrier[gen]
+            session.add(new_source)
+            session.commit()
+            sources = pd.read_sql(session.query(Source).statement,session.bind)
+        try:
+            old_source_id = int(sources.source_id[sources.name == network.generators.carrier[gen]])
+            network.generators.set_value(gen, 'source', int(old_source_id))
+        except:
+            print('Source ' + network.generators.carrier[gen] + ' is not in the source table!')
+    for stor in network.storage_units.index:
+        if network.storage_units.carrier[stor] not in sources.name.values:
+            new_source = Source()
+            new_source.source_id = session.query(func.max(Source.source_id)).scalar()+1
+            new_source.name = network.storage_units.carrier[stor]
+            session.add(new_source)
+            session.commit()
+            sources = pd.read_sql(session.query(Source).statement,session.bind)
+        try:
+            old_source_id = int(sources.source_id[sources.name == network.storage_units.carrier[stor]])
+            network.storage_units.set_value(stor, 'source', int(old_source_id))   
+        except:
+            print('Source ' + network.storage_units.carrier[stor] + ' is not in the source table!')
     
-    # new result bus
+    whereismyindex = {BusResult: network.buses.index,
+                      LoadResult: network.loads.index,
+                      LineResult: network.lines.index,
+                      TransformerResult: network.transformers.index,
+                      StorageResult: network.storage_units.index,
+                      GeneratorResult: network.generators.index,
+                      BusTResult: network.buses.index,
+                      LoadTResult: network.loads.index,
+                      LineTResult: network.lines.index,
+                      TransformerTResult: network.transformers.index,
+                      StorageTResult: network.storage_units.index,
+                      GeneratorTResult: network.generators.index}
     
-    for col in network.buses_t.v_mag_pu:
-        res_bus = BusResult()
-        
-        res_bus.result_id = new_res_id
-        res_bus.bus_id = col      
-        try:
-            res_bus.x = network.buses.x[col]
-        except:
-            res_bus.x = None
-        try:
-            res_bus.y = network.buses.y[col]
-        except:
-            res_bus.y = None
-        try:
-            res_bus.v_nom = network.buses.v_nom[col]
-        except: 
-            res_bus.v_nom = None
-        try:
-            res_bus.current_type=network.buses.carrier[col]
-        except: 
-            res_bus.current_type=None
-        try:
-            res_bus.v_mag_pu_min = network.buses.v_mag_pu_min[col]
-        except:
-            res_bus.v_mag_pu_min = None
-        try:
-            res_bus.v_mag_pu_max = network.buses.v_mag_pu_max[col]
-        except:
-            res_bus.v_mag_pu_max = None
-        try:
-            res_bus.geom = network.buses.geom[col]
-        except:
-            res_bus.geom = None
-        session.add(res_bus)
-    session.commit()
-
-# not working yet since ego.io classes are not yet iterable
-#    for col in network.buses_t.v_mag_pu:
-#        res_bus = BusResult()
-#        res_bus.result_id = new_res_id
-#        res_bus.bus_id = col
-#        for var in dir(res_bus):
-#            if not var.startswith('_') and var not in ('result_id','bus_id'):
-#                try:
-#                    res_bus.var = 3 #network.buses.var[col]
-#                except:
-#                    raise ValueError('WRONG')
-#        session.add(res_bus)
-#    session.commit()
-
-
-    # new result bus_t
-    for col in network.buses_t.v_mag_pu:
-        res_bus_t = BusTResult()
-        
-        res_bus_t.result_id = new_res_id
-        res_bus_t.bus_id = col
-        try:
-            res_bus_t.p = network.buses_t.p[col].tolist()
-        except:
-            res_bus_t.p = None
-        try:
-            res_bus_t.q = network.buses_t.q[col].tolist()
-        except:
-            res_bus_t.q = None
-        try:
-            res_bus_t.v_mag_pu = network.buses_t.v_mag_pu[col].tolist()
-        except:
-            res_bus_t.v_mag_pu = None
-        try:
-            res_bus_t.v_ang = network.buses_t.v_ang[col].tolist()
-        except:
-            res_bus_t.v_ang = None
-        try:
-            res_bus_t.marginal_price = network.buses_t.marginal_price[col].tolist() 
-        except:
-            res_bus_t.marginal_price = None
+    whereismydata = {BusResult: network.buses,
+                     LoadResult: network.loads,
+                     LineResult: network.lines,
+                     TransformerResult: network.transformers,
+                     StorageResult: network.storage_units,
+                     GeneratorResult: network.generators,
+                     BusTResult: network.buses_t,
+                     LoadTResult: network.loads_t,
+                     LineTResult: network.lines_t,
+                     TransformerTResult: network.transformers_t,
+                     StorageTResult: network.storage_units_t,
+                     GeneratorTResult: network.generators_t}
+    
+    new_to_old_name = {'p_min_pu_fixed': 'p_min_pu',
+                        'p_max_pu_fixed': 'p_max_pu',
+                        'dispatch': 'former_dispatch',
+                        'current_type': 'carrier',
+                        'soc_cyclic': 'cyclic_state_of_charge',
+                        'soc_initial': 'state_of_charge_initial'}
+    
+    ormclasses = [BusResult,LoadResult,LineResult,TransformerResult,GeneratorResult,StorageResult,
+                  BusTResult,LoadTResult,LineTResult,TransformerTResult,GeneratorTResult,StorageTResult]
+   
+    for ormclass in ormclasses:
+        for index in whereismyindex[ormclass]:
+            myinstance = ormclass()
+            columns = ormclass.__table__.columns.keys()
+            columns.remove('result_id')
+            myinstance.result_id = new_res_id
+            for col in columns:
+                if '_id' in col:
+                    class_id_name = col
+                else:
+                    continue        
+            setattr(myinstance, class_id_name, index)
+            columns.remove(class_id_name)
             
-        session.add(res_bus_t)
-    session.commit()
-
-
-    # generator results
-    for col in network.generators_t.p:
-        res_gen = GeneratorResult()
-        res_gen.result_id = new_res_id
-        res_gen.generator_id = col
-        res_gen.bus = int(network.generators.bus[col])
-        try: 
-            res_gen.dispatch = network.generators.former_dispatch[col]
-        except:
-            res_gen.dispatch = None
-        try: 
-            res_gen.control = network.generators.control[col]
-        except:
-            res_gen.control = None
-        try: 
-            res_gen.p_nom = network.generators.p_nom[col]
-        except:
-            res_gen.p_nom = None
-        try: 
-            res_gen.p_nom_extendable = bool(network.generators.p_nom_extendable[col])
-        except:
-            res_gen.p_nom_extendable = None
-        try: 
-            res_gen.p_nom_min = network.generators.p_nom_min[col]
-        except:
-            res_gen.p_nom_min = None
-        try: 
-            res_gen.p_nom_max = network.generators.p_nom_max[col]
-        except:
-            res_gen.p_nom_max = None
-        try: 
-            res_gen.p_min_pu_fixed = network.generators.p_min_pu[col]
-        except:
-            res_gen.p_min_pu_fixed = None
-        try: 
-            res_gen.p_max_pu_fixed = network.generators.p_max_pu[col]
-        except:
-            res_gen.p_max_pu_fixed = None
-        try: 
-            res_gen.sign = network.generators.sign[col]
-        except:
-            res_gen.sign = None
-#        try: 
-#            res_gen.source = network.generators.carrier[col]
-#        except:
-#            res_gen.source = None
-        try: 
-            res_gen.marginal_cost = network.generators.marginal_cost[col]
-        except:
-            res_gen.marginal_cost = None
-        try: 
-            res_gen.capital_cost = network.generators.capital_cost[col] 
-        except:
-            res_gen.capital_cost = None
-        try: 
-            res_gen.efficiency = network.generators.efficiency[col]
-        except:
-            res_gen.efficiency = None
-        try: 
-            res_gen.p_nom_opt = network.generators.p_nom_opt[col]
-        except:
-            res_gen.p_nom_opt = None
-        session.add(res_gen)
-    session.commit()           
-
-    # generator_t results
-    for col in network.generators_t.p:
-        res_gen_t = GeneratorTResult()
-        res_gen_t.result_id = new_res_id
-        res_gen_t.generator_id = col
-        try:
-            res_gen_t.p_set = network.generators_t.p_set[col].tolist()
-        except:
-            res_gen_t.p_set = None
-        try:
-            res_gen_t.q_set = network.generators_t.q_set[col].tolist()
-        except:
-            res_gen_t.q_set = None
-        try:
-            res_gen_t.p_min_pu = network.generators_t.p_min_pu[col].tolist()
-        except:
-            res_gen_t.p_min_pu = None
-        try:
-            res_gen_t.p_max_pu = network.generators_t.p_max_pu[col].tolist()
-        except:
-            res_gen_t.p_max_pu = None
-        try:
-            res_gen_t.p = network.generators_t.p[col].tolist()
-        except:
-            res_gen_t.p = None
-        try:
-            res_gen_t.q = network.generators_t.q[col].tolist()
-        except:
-            res_gen_t.q = None
-        try:
-            res_gen_t.status = network.generators_t.status[col].tolist()
-        except:
-            res_gen_t.status = None
-        session.add(res_gen_t)
-    session.commit()
+            if str(ormclass)[:-2].endswith('T'):
+                for col in columns:
+                    if col =='soc_set':
+                        try:
+                            setattr(myinstance, col, getattr(whereismydata[ormclass],'state_of_charge_set')[index].tolist())
+                        except:
+                            pass
+                    else:    
+                        try:
+                            setattr(myinstance, col, getattr(whereismydata[ormclass],col)[index].tolist())
+                        except:
+                            pass
+                session.add(myinstance)
                 
-                
-    # line results
-    for col in network.lines_t.p0:
-        res_line = LineResult()
-        res_line.result_id=new_res_id,
-        res_line.line_id=col
-        res_line.bus0=int(network.lines.bus0[col])
-        res_line.bus1=int(network.lines.bus1[col])
-        try:
-            res_line.x = network.lines.x[col]
-        except:
-            res_line.x = None
-        try:
-            res_line.r = network.lines.r[col]
-        except:
-            res_line.r = None
-        try:
-            res_line.g = network.lines.g[col]
-        except:
-            res_line.g = None
-        try:
-            res_line.b = network.lines.b[col]
-        except:
-            res_line.b = None
-        try:
-            res_line.s_nom = network.lines.s_nom[col]
-        except:
-            res_line.s_nom = None
-        try:
-            res_line.s_nom_extendable = bool(network.lines.s_nom_extendable[col])
-        except:
-            res_line.s_nom_extendable = None
-        try:
-            res_line.s_nom_min = network.lines.s_nom_min[col]
-        except:
-            res_line.s_nom_min = None
-        try:
-            res_line.s_nom_max = network.lines.s_nom_max[col]
-        except:
-            res_line.s_nom_max = None
-        try:
-            res_line.capital_cost = network.lines.capital_cost[col]
-        except:
-            res_line.capital_cost = None
-        try:
-            res_line.length = network.lines.length[col]
-        except:
-            res_line.length = None
-        try:
-            res_line.cables = int(network.lines.cables[col])
-        except:
-            res_line.cables = None
-        try:
-            res_line.frequency = network.lines.frequency[col]
-        except:
-            res_line.frequency = None
-        try:
-            res_line.terrain_factor = network.lines.terrain_factor[col]
-        except:
-            res_line.terrain_factor = None
-        try:
-            res_line.x_pu = network.lines.x_pu[col]
-        except:
-            res_line.x_pu = None
-        try:
-            res_line.r_pu = network.lines.r_pu[col]
-        except:
-            res_line.r_pu = None
-        try:
-            res_line.g_pu = network.lines.g_pu[col]
-        except:
-            res_line.g_pu = None
-        try:
-            res_line.b_pu = network.lines.b_pu[col]
-        except:
-            res_line.b_pu = None
-        try:
-            res_line.s_nom_opt = network.lines.s_nom_opt[col]
-        except:
-            res_line.s_nom_opt = None
-        try:
-            res_line.geom = network.lines.geom[col]
-        except:
-            res_line.geom = None
-        try:
-            res_line.topo = network.lines.topo[col]
-        except:
-            res_line.topo = None
-        session.add(res_line)
-    session.commit()
-            
-
-    # line_t results            
-    for col in network.lines_t.p0:
-        res_line_t = LineTResult()
-        res_line_t.result_id=new_res_id,
-        res_line_t.line_id=col          
-        try:
-            res_line_t.p0 = network.lines_t.p0[col].tolist()
-        except:
-            res_line_t.p0 = None
-        try:
-            res_line_t.q0 = network.lines_t.q0[col].tolist()
-        except:
-            res_line_t.q0 = None
-        try:
-            res_line_t.p1 = network.lines_t.p1[col].tolist()
-        except:
-            res_line_t.p1 = None
-        try:
-            res_line_t.q1 = network.lines_t.q1[col].tolist()
-        except: 
-            res_line_t.q1 = None
-        session.add(res_line_t)
-    session.commit()
+            else:            
+                for col in columns:
+                    if col in new_to_old_name:
+                        if col == 'soc_cyclic':
+                            try:
+                                setattr(myinstance, col, bool(whereismydata[ormclass].loc[index, new_to_old_name[col]]))
+                            except:
+                                pass
+                        elif 'Storage' in str(ormclass) and col == 'dispatch':
+                            try:
+                                setattr(myinstance, col, whereismydata[ormclass].loc[index, col])
+                            except:
+                                pass 
+                        else:
+                            try:
+                                setattr(myinstance, col, whereismydata[ormclass].loc[index, new_to_old_name[col]])
+                            except:
+                                pass
+                    elif col in ['s_nom_extendable','p_nom_extendable']:
+                        try:
+                            setattr(myinstance, col, bool(whereismydata[ormclass].loc[index, col]))
+                        except:
+                            pass
+                    else:
+                        try:
+                            setattr(myinstance, col, whereismydata[ormclass].loc[index, col])
+                        except:
+                            pass
+                session.add(myinstance)
     
-
-    # load results
-    for col in network.loads_t.p:
-        res_load = LoadResult()
-        res_load.result_id=new_res_id,
-        res_load.load_id=col   
-        res_load.bus = int(network.loads.bus[col])
-        try:
-            res_load.sign = network.loads.sign[col]
-        except:
-            res_load.sign = None
-        try:
-            res_load.e_annual = network.loads.e_annual[col]
-        except:
-            res_load.e_annual = None
-        session.add(res_load)
-    session.commit()    
-        
-    # load_t results
-    for col in network.loads_t.p:
-        res_load_t = LoadTResult()
-        res_load_t.result_id=new_res_id,
-        res_load_t.load_id=col 
-        try:
-            res_load_t.p_set = network.loads_t.p_set[col].tolist()
-        except:
-            res_load_t.p_set = None
-        try:
-            res_load_t.q_set = network.loads_t.q_set[col].tolist()
-        except:
-            res_load_t.q_set = None
-        try:
-            res_load_t.p = network.loads_t.p[col].tolist()
-        except:
-            res_load_t.p = None
-        try:
-            res_load_t.q = network.loads_t.q[col].tolist()
-        except:
-            res_load_t.q = None
-        session.add(res_load_t)
-    session.commit()    
-            
-
-    # insert results of transformers
-
-    for col in network.transformers_t.p0:
-        res_transformer = TransformerResult()
-        res_transformer.result_id=new_res_id
-        res_transformer.trafo_id=col
-        res_transformer.bus0=int(network.transformers.bus0[col])
-        res_transformer.bus1=int(network.transformers.bus1[col])
-        try:
-            res_transformer.x = network.transformers.x[col]
-        except:
-            res_transformer.x = None
-        try:
-            res_transformer.r = network.transformers.r[col]
-        except:
-            res_transformer.r = None
-        try:
-            res_transformer.g = network.transformers.g[col]
-        except:
-            res_transformer.g = None
-        try:
-            res_transformer.b = network.transformers.b[col]
-        except:
-            res_transformer.b = None
-        try:
-            res_transformer.s_nom = network.transformers.s_nom[col]
-        except:
-            res_transformer.s_nom = None
-        try:
-            res_transformer.s_nom_extendable = bool(network.transformers.s_nom_extendable[col])
-        except:
-            res_transformer.s_nom_extendable = None
-        try:
-            res_transformer.s_nom_min = network.transformers.s_nom_min[col]
-        except:
-            res_transformer.s_nom_min = None
-        try:
-            res_transformer.s_nom_max = network.transformers.s_nom_max[col]
-        except:
-            res_transformer.s_nom_max = None
-        try:
-            res_transformer.tap_ratio = network.transformers.tap_ratio[col]
-        except:
-            res_transformer.tap_ratio = None
-        try:
-            res_transformer.phase_shift = network.transformers.phase_shift[col]
-        except:
-            res_transformer.phase_shift = None
-        try:
-            res_transformer.capital_cost = network.transformers.capital_cost[col]
-        except:
-            res_transformer.capital_cost = None
-        try:
-            res_transformer.x_pu = network.transformers.x_pu[col]
-        except:
-            res_transformer.x_pu = None
-        try:
-            res_transformer.r_pu = network.transformers.r_pu[col]
-        except:
-            res_transformer.r_pu = None
-        try:
-            res_transformer.g_pu = network.transformers.g_pu[col]
-        except:
-            res_transformer.g_pu = None
-        try:
-            res_transformer.b_pu = network.transformers.b_pu[col]
-        except:
-            res_transformer.b_pu = None
-        try:
-            res_transformer.s_nom_opt = network.transformers.s_nom_opt[col]
-        except:
-            res_transformer.s_nom_opt = None
-        try:
-            res_transformer.geom = network.transformers.geom[col]
-        except:
-            res_transformer.geom = None
-        try:
-            res_transformer.topo = network.transformers.topo[col]
-        except:
-            res_transformer.topo = None
-        session.add(res_transformer)
-    session.commit()
+        session.commit()
+    print('Upload finished!')
     
-    # insert results of transformers_t   
-    for col in network.transformers_t.p0:
-        res_transformer_t = TransformerTResult()
-        res_transformer_t.result_id=new_res_id
-        res_transformer_t.trafo_id=col
-        try:
-            res_transformer_t.p0 = network.transformers_t.p0[col].tolist()
-        except:
-            res_transformer_t.p0 = None
-        try:
-            res_transformer_t.q0 = network.transformers_t.q0[col].tolist()
-        except:
-            res_transformer_t.q0 = None
-        try:
-            res_transformer_t.p1 = network.transformers_t.p1[col].tolist()
-        except:
-            res_transformer_t.p1 = None
-        try:
-            res_transformer_t.q1 = network.transformers_t.q1[col].tolist()
-        except:
-            res_transformer_t.q1 = None
-        session.add(res_transformer_t)
-    session.commit()
-        
-
-    
-    # storage_units results
-
-    for col in network.storage_units_t.p:
-        res_sto = StorageResult()
-        res_sto.result_id=new_res_id,
-        res_sto.storage_id=col,
-        res_sto.bus=int(network.storage_units.bus[col])
-        try:
-            res_sto.dispatch = network.storage_units.dispatch[col]
-        except:
-            res_sto.dispatch = None
-        try:
-            res_sto.control = network.storage_units.control[col]
-        except:
-            res_sto.control = None
-        try:
-            res_sto.p_nom = network.storage_units.p_nom[col]
-        except:
-            res_sto.p_nom = None
-        try:
-            res_sto.p_nom_extendable = bool(network.storage_units.p_nom_extendable[col])
-        except:
-            res_sto.p_nom_extendable = None
-        try:
-            res_sto.p_nom_min = network.storage_units.p_nom_min[col]
-        except:
-            res_sto.p_nom_min = None
-        try:
-            res_sto.p_nom_max = network.storage_units.p_nom_max[col]
-        except:
-            res_sto.p_nom_max = None
-        try:
-            res_sto.p_min_pu_fixed = network.storage_units.p_min_pu[col]
-        except:
-            res_sto.p_min_pu_fixed = None
-        try:
-            res_sto.p_max_pu_fixed = network.storage_units.p_max_pu[col]
-        except:
-            res_sto.p_max_pu_fixed = None
-        try:
-            res_sto.sign = network.storage_units.sign[col]
-        except:
-            res_sto.sign = None
-#        try:
-#            res_sto.source = network.storage_units.carrier[col]
-#        except:
-#            res_sto.source = None
-        try:
-            res_sto.marginal_cost = network.storage_units.marginal_cost[col]
-        except:
-            res_sto.marginal_cost = None
-        try:
-            res_sto.capital_cost = network.storage_units.capital_cost[col]
-        except:
-            res_sto.capital_cost = None
-        try:
-            res_sto.efficiency = network.storage_units.efficiency[col]
-        except:
-            res_sto.efficiency = None
-        try:
-            res_sto.soc_initial = network.storage_units.state_of_charge_initial[col]
-        except:
-            res_sto.soc_initial = None
-        try:
-            res_sto.soc_cyclic = bool(network.storage_units.cyclic_state_of_charge[col])
-        except:
-            res_sto.soc_cyclic = None
-        try:
-            res_sto.max_hours = network.storage_units.max_hours[col]
-        except:
-            res_sto.max_hours = None
-        try:
-            res_sto.efficiency_store = network.storage_units.efficiency_store[col]
-        except:
-            res_sto.efficiency_store = None
-        try:
-            res_sto.efficiency_dispatch = network.storage_units.efficiency_dispatch[col]
-        except:
-            res_sto.efficiency_dispatch = None
-        try:
-            res_sto.standing_loss = network.storage_units.standing_loss[col]
-        except:
-            res_sto.standing_loss = None
-        try:
-            res_sto.p_nom_opt = network.storage_units.p_nom_opt[col]
-        except:
-            res_sto.p_nom_opt = None   
-        session.add(res_sto)
-    session.commit()
-    
-    # storage_units_t results    
-    for col in network.storage_units_t.p:
-        res_sto_t = StorageTResult()
-        res_sto_t.result_id=new_res_id,
-        res_sto_t.storage_id=col,
-        try:
-            res_sto_t.p_set = network.storage_units_t.p_set[col].tolist()
-        except:
-            res_sto_t.p_set = None
-        try:
-            res_sto_t.q_set = network.storage_units_t.q_set[col].tolist()
-        except:
-            res_sto_t.q_set = None
-        try:
-            res_sto_t.p_min_pu = network.storage_units_t.p_min_pu[col].tolist()
-        except:
-            res_sto_t.p_min_pu = None
-        try:
-            res_sto_t.p_max_pu = network.storage_units_t.p_max_pu[col].tolist()
-        except:
-            res_sto_t.p_max_pu = None
-        try:
-            res_sto_t.soc_set = network.storage_units_t.state_of_charge_set[col].tolist()
-        except:
-            res_sto_t.soc_set = None
-        try:
-            res_sto_t.inflow = network.storage_units_t.inflow[col].tolist()
-        except:
-              res_sto_t.inflow = None     
-        try:
-            res_sto_t.p = network.storage_units_t.p[col].tolist()
-        except:
-            res_sto_t.p = None
-        try:
-            res_sto_t.q = network.storage_units_t.q[col].tolist()
-        except:
-            res_sto_t.q = None
-        try:
-            res_sto_t.state_of_charge = network.storage_units_t.state_of_charge[col].tolist()
-        except:
-            res_sto_t.state_of_charge = None
-        try:
-            res_sto_t.spill = network.storage_units_t.spill[col].tolist()
-        except:
-            res_sto_t.spill = None
-        session.add(res_sto_t)
-    session.commit()
-        
-
     
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.8.0']:
