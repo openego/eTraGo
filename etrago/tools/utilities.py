@@ -552,5 +552,6 @@ def subnetworks_switches(network, session):
                 or_(Line.bus0.in_(buses),
                     Line.bus1.in_(buses))))
         lines.update({Line.scn_name: 'Status Quo 110kV switch'}, synchronize_session='fetch')
+    #session.query(Line).filter(Line.scn_name == 'lines_on_switches').delete()
     session.commit()
     return

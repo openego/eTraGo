@@ -42,7 +42,7 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 3482, 
         'end_snapshot' : 3482,
-        'scn_name': 'Status Quo 110kV switches', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo 110kV switch', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
