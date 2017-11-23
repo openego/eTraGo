@@ -21,6 +21,8 @@ from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
 from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
+from etrago.cluster.disaggregation import disaggregate
+
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
         'gridversion':'v0.2.11', # None for model_draft or Version number (e.g. v0.2.10) for grid schema
@@ -29,7 +31,7 @@ args = {# Setup and Configuration:
         'start_snapshot': 1,
         'end_snapshot' : 2,
         'scn_name': 'SH Status Quo',
-        'solver': 'gurobi', # glpk, cplex or gurobi
+        'solver': 'glpk', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False, # state if and where you want to save results as csv: False or '/path/tofolder'
@@ -40,7 +42,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False,
+        'k_mean_clustering': True,
         'network_clustering': False,
         # Simplifications:
         'parallelisation':False,
@@ -271,7 +273,7 @@ def etrago(args):
         print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
 
     if clustering:
-        disaggregate(scenario, original_network, network, clustering, solver=args['solver'], extras=extra_functionality)
+        disaggregate(scenario, original_network, network, clustering, solver=args['solver'])
 
     # write lpfile to path
     if not args['lpfile'] == False:

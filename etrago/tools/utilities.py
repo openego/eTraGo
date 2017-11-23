@@ -19,6 +19,8 @@ import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
+from oedialect import dialect
+
 def oedb_session(section='oedb'):
     """Get SQLAlchemy session object with valid connection to OEDB"""
 
@@ -27,7 +29,8 @@ def oedb_session(section='oedb'):
         from oemof import db
         conn = db.connection(section=section)
 
-    except:
+    except Exception as e:
+        raise e
         print('Please provide connection parameters to database:')
 
         host = input('host (default 127.0.0.1): ') or '127.0.0.1'
