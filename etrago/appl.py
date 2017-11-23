@@ -32,7 +32,7 @@ from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      storage_distribution)
 from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
+                                    loading_minimization, calc_line_losses, group_parallel_lines, subnetworks_switches)
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 args = {# Setup and Configuration:
@@ -42,7 +42,7 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 3482, 
         'end_snapshot' : 3482,
-        'scn_name': 'Status Quo 110kV switch', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo 110kV switches', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -61,7 +61,9 @@ args = {# Setup and Configuration:
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 1, # globally extend or lower branch capacities
         'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
-        'comments':None }
+        'comments':None,
+        'switches': True, #state if you use a scenario with switches and want to delete certain switches to avoid subnetworks
+        }
 
 
 def etrago(args):
@@ -181,6 +183,9 @@ def etrago(args):
         State here if you want to make use of the load shedding function which is helpful when
         debugging: a very expensive generator is set to each bus and meets the demand when regular
         generators cannot do so.
+    
+    switches(bool):
+        State if you use a scenario with switches and want to delete certain switches to avoid subnetworks.
         
     comments (str): 
         None
@@ -208,14 +213,25 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
+    
+    # delete subnetworks when using switches
+    if args['switches'] == True:
+        subnetworks_switches(network, session)
+        scenario = NetworkScenario(session,
+                               version=args['gridversion'],
+                               prefix=args['ormcls_prefix'],
+                               method=args['method'],
+                               start_snapshot=args['start_snapshot'],
+                               end_snapshot=args['end_snapshot'],
+                               scn_name=args['scn_name'])
+        network = scenario.build_network()
 
     # add coordinates
     network = add_coordinates(network)
       
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
-
-
+        
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
@@ -310,7 +326,7 @@ def etrago(args):
 
   
 # execute etrago function
-network_switches = etrago(args)
+network = etrago(args)
 
 # plots
 

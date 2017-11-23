@@ -28,6 +28,9 @@ import numpy as np
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
+from egoio.db_tables.model_draft import EgoGridPfHvLine as Line
+from sqlalchemy import and_, or_
+from etrago.tools.io import NetworkScenario
 
 def oedb_session(section='oedb'):
     """Get SQLAlchemy session object with valid connection to OEDB"""
@@ -527,4 +530,27 @@ def group_parallel_lines(network):
     new_lines=new_lines.drop('old_index',1)
     network.lines = new_lines
     
+    return
+
+def subnetworks_switches(network, session):
+    """
+    Inserts lines which were cut out before due to switches in the 110 kV grid
+    to avoid having isolated subnetworks in the grid.
+    
+    Returns
+    --------
+    
+    Parameters
+    ----------
+    network : pypsa.Network
+    """
+    network.determine_network_topology()
+    for subs in network.sub_networks.index[1:]:
+        buses = network.buses.loc[network.buses['sub_network'] == str(subs)].index
+        lines = session.query(Line).filter(and_(
+                Line.scn_name == 'lines_on_switches',
+                or_(Line.bus0.in_(buses),
+                    Line.bus1.in_(buses))))
+        lines.update({Line.scn_name: 'Status Quo 110kV switch'}, synchronize_session='fetch')
+    session.commit()
     return
