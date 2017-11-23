@@ -11,6 +11,7 @@ __license__ = "tba"
 __author__ = "tba"
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
@@ -25,12 +26,12 @@ from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_vo
 
 
 args = {'network_clustering':False,
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf':False , #state whether you want to perform a pf after a lopf simulation
         'start_h': 2315,
-        'end_h' : 2316,
+        'end_h' : 2483,
         'scn_name': 'SH Status Quo',
         'ormcls_prefix': 'EgoGridPfHv', #if gridversion:'version-number' then 'EgoPfHv', if gridversion:None then 'EgoGridPfHv'
         'lpfile': 'Output.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder/file.lp'
@@ -185,40 +186,42 @@ def etrago(args):
         #histogram of the change in dispatch from all generators 
         def histogram (network, second_network,carrier = 'wind', filename = None):
             
-            liste_numbers=[]
-            differences=[]
             if carrier is None: 
-                numbers = network.generators_t.p.sum() - second_network.generators_t.p.sum()
-                differences.append(numbers)
-                for i in numbers: 
-                    if i !=0:
-                        liste_numbers.append(i)
+                numbers = (network.generators_t.p.sum()-second_network.generators_t.p.sum())  
             else:
-                numbers = network.generators_t.p.sum()[network.generators.carrier == carrier] - second_network.generators_t.p.sum()[second_network.generators.carrier == carrier]
-                differences.append(numbers)
-                for i in numbers: 
-                    if i !=0:
-                        liste_numbers.append(i)
+                numbers = (network.generators_t.p.sum()[network.generators.carrier == carrier] - second_network.generators_t.p.sum()[second_network.generators.carrier == carrier])          
             
-            plt.hist(differences, bins = 50)
-            plt.title("Differences in dispatch")
-            plt.xlabel("Value (difference)")
-            plt.ylabel("Frequency (numbers of generators)")
+            #calculate sigma
+            mu = sum(numbers) / len(numbers)
+            summe_varianz = 0
+            for i in numbers:
+                varianz = (i-mu)**2 
+                summe_varianz = summe_varianz + varianz
+            sigma = (summe_varianz/(len(numbers)-1))**(1/2)
+            print(sigma)
+                    
+            sns.set(style="darkgrid", font="sans-serif", font_scale=1)
+            data = numbers #genfromtxt('differences.csv', delimiter=',')                     
+            f, (ax_std,ax_box, ax_hist) = plt.subplots(3, sharex=True, 
+                                                gridspec_kw={"height_ratios": (.15, .15, .85)})
+            sns.boxplot(data, ax=ax_box)
+            sns.distplot(data, bins=100, hist = True,kde =True, ax=ax_hist)
+            sns.pointplot(np.std(data),ax=ax_std)
             
-            if filename is None:
-                plt.show()
-            else:
-                plt.savefig(filename)
-                plt.close()
-                
-            print(len(liste_numbers), max(liste_numbers),min(liste_numbers))
-                          
+            ax_box.set(yticks=[],ylabel="Median")
+            ax_std.set(yticks=[],title="Histogram:Differences in dispatch",ylabel="Sigma")
+            
+            sns.despine(ax=ax_hist)
+            sns.despine(ax=ax_box, left=True)
+            sns.despine(ax=ax_std, left=True)
+            
+            plt.ylabel('Frequency')
+            plt.xlabel('Abs. differences')
+            
         histogram(network,second_network, None)
-        # histogram(network,second_network,'wind')
-        # histogram(network,second_network,'solar')
-        
-        plot_stacked_gen(second_network, resolution="MW")
-        
+        #histogram(network,second_network,'wind')
+        #histogram(network,second_network,'solar')
+                
         
     return network
 
@@ -237,7 +240,7 @@ network = etrago(args)
 #==============================================================================
 
 # plot stacked sum of nominal power for each generator type and timestep
-plot_stacked_gen(network, resolution="MW")
+#plot_stacked_gen(network, resolution="MW")
 
 #==============================================================================
 # # plot to show extendable storages
