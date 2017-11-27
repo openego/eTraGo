@@ -8,6 +8,12 @@ from pypsa import Network
 
 class Disaggregation:
     def __init__(self, original_network, clustered_network, clustering):
+        """
+        :param original_network: Initial (unclustered) network structure
+        :param clustered_network: Clustered network used for the optimization
+        :param clustering: The clustering object as returned by
+        `pypsa.networkclustering.get_clustering_from_busmap`
+        """
         self.original_network = original_network
         self.clustered_network = clustered_network
         self.clustering = clustering
@@ -17,9 +23,27 @@ class Disaggregation:
                               left_index=True, right_index=True)
 
     def add_constraints(self, cluster, extra_functionality=None):
+        """
+        Dummy function that allows the extension of `extra_functionalites` by
+        custom conditions.
+
+        :param cluster: Index of the cluster to disaggregate
+        :param extra_functionality: extra_functionalities to extend
+        :return: unaltered `extra_functionalites`
+        """
         return extra_functionality
 
     def construct_partial_network(self, cluster):
+        """
+        Compute the network partial network that has been merged into a single
+        cluster
+
+        :param cluster: Index of the cluster to disaggregate
+        :return: Tuple of (partial_network, external_buses) where
+        `partial_network` is the result of the partial decomposition
+        and `external_buses` represent clusters adjacent to `cluster` that may
+        be influenced by calculations done on the partial network.
+        """
         partial_network = Network()
 
         # find all lines that have at least one bus inside the cluster
