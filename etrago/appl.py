@@ -33,7 +33,7 @@ from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
 from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
-from etrago.cluster.disaggregation import disaggregate
+from etrago.cluster.disaggregation import MiniSolverDisaggregation
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -56,6 +56,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': 50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'disaggregation': 'mini', # or None
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
@@ -298,7 +299,14 @@ def etrago(args):
         print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
 
     if clustering:
-        disaggregate(scenario, original_network, network, clustering, solver=args['solver'])
+        disagg = args.get('disaggregation')
+        if disagg:
+            if disagg == 'mini':
+                disaggreagation = MiniSolverDisaggregation(original_network, network, clustering)
+            else:
+                raise Exception('Invalid disaggregation command: ' + disagg)
+
+            disaggreagation.execute(scenario, solver=args['solver'])
 
     # write lpfile to path
     if not args['lpfile'] == False:
