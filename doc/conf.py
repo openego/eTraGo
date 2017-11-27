@@ -50,7 +50,7 @@ extensions = [
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
-    'sphinx.ext.pngmath',
+    'sphinx.ext.imgmath' ,
     'sphinx.ext.viewcode',
 #    'sphinx.ext.autosummary',
 #    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
