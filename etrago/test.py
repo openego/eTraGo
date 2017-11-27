@@ -22,7 +22,10 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 
-
+import numpy as np
+from numpy import genfromtxt
+np.random.seed()
+import time
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
