@@ -175,7 +175,7 @@ if 'READTHEDOCS' in os.environ:
     sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
     
     MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
-                'libgeos_c.so', 'shapely', 'geoalchemy2']
+                'libgeos_c.so', 'shapely', 'geoalchemy2', 'geoalchemy2.shape ']
 
        
 
