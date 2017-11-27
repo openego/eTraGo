@@ -6,7 +6,6 @@ Subpackages
 
 .. toctree::
 
-    etrago
     etrago.cluster
     etrago.tools
 
