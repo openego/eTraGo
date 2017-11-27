@@ -109,16 +109,20 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     return network_c
 
 def graph_from_edges(edges):
-    """ Construct an undirected multigraph from a list containing data on
+    """ 
+    Construct an undirected multigraph from a list containing data on
     weighted edges.
+
 
     Parameters
     ----------
+    
     edges : list
         List of tuples each containing first node, second node, weight, key.
 
     Returns
     -------
+    
     M : :class:`networkx.classes.multigraph.MultiGraph
 
     """
@@ -339,13 +343,20 @@ def busmap_from_psql(network, session, scn_name):
     return busmap
 
 def kmean_clustering(network, n_clusters=10):
-    """ Implement k-mean clustering in existing network
+    """ 
+    Implement k-mean clustering in existing network
+   
+    Parameters
     ----------
+    
     network : :class:`pypsa.Network
         Overall container of PyPSA
+        
     Returns
     -------
-
+    network : pypsa.Network object
+        Container for all network components.
+        
     """
     def weighting_for_scenario(x):
         b_i = x.index
