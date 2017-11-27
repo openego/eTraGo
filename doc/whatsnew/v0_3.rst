@@ -1,0 +1,8 @@
+
+Release 0.3 (September 8, 2017)
++++++++++++++++++++++++++++++++
+
+**Release introducing k-means clustering and several additional functionalities**
+
+-------------------------------
+

@@ -35,6 +35,7 @@ from unittest.mock import MagicMock
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath("."))
 
 # -- General configuration ------------------------------------------------
 
@@ -153,7 +154,9 @@ class Mock(MagicMock):
             return MagicMock()
 
 
-MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 'libgeos_c.so', 'shapely']
+MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
+                'libgeos_c.so', 'shapely', 'geoalchemy2', 'egopowerflow',
+                'geoalchemy2.types' ]
     # ToDo: Change to eTraGo
 #    MOCK_MODULES = ['pandas', 'pypsa']
        

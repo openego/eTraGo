@@ -16,7 +16,7 @@ Submodules
 etrago\.appl module
 -------------------
 
-.. automodule:: etrago.appl
+.. automodule:: appl
     :members:
     :undoc-members:
     :show-inheritance:
@@ -24,7 +24,7 @@ etrago\.appl module
 etrago\.snaphot\_clustering\_app module
 ---------------------------------------
 
-.. automodule:: etrago.snaphot_clustering_app
+.. automodule:: snaphot_clustering_app
     :members:
     :undoc-members:
     :show-inheritance:
