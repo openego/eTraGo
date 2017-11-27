@@ -28,34 +28,106 @@ import numpy as np
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
+import configparser as cp
+
+def readcfg(path):
+    """ Reads the configuration file
+    Parameters
+    ----------
+    path : str
+        Filepath.
+    Returns
+    -------
+    cfg : configparser.ConfigParser
+        Used for configuration file parser language.
+    """
+
+    cfg = cp.ConfigParser()
+    cfg.read(path)
+    return cfg
+
+def writecfg(path, section):
+    """ Writes the configuration file
+    Parameters
+    ----------
+    path : str
+        Filepath.
+    Returns
+    -------
+    cfg : configparser.ConfigParser
+        Used for configuration file parser language.
+    """
+    host = input('host (default 127.0.0.1): ') or '127.0.0.1'
+    port = input('port (default 5432): ') or '5432'
+    user = input('user (default postgres): ') or 'postgres'
+    db = input('database name: ')
+    password = input('password: ')
+    
+    if not os.path.exists(path[:-10]):
+        os.makedirs(path[:-10])
+        
+    cfg = cp.ConfigParser()
+    cfg.add_section(section)
+    cfg.set(section, 'username', user)
+    cfg.set(section, 'host', host)
+    cfg.set(section, 'port', port)
+    cfg.set(section, 'db', db)
+    cfg.set(section, 'password', password)
+    with open(path, 'a') as configfile:
+        cfg.write(configfile)
+        
+    return cfg
+
+def dbconnect(section, cfg):
+    """ Uses db connection parameters to establish a connection.
+    Parameters
+    ----------
+    section : str
+        Section in configuration file.
+    cfg : configparser.ConfigParser
+        Used for configuration file parser language.
+    Returs
+    ------
+    conn : sqlalchemy.engine.Engine
+    """
+
+    conn = create_engine(
+        "postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}".format(
+            user=cfg.get(section, 'username'),
+            password=cfg.get(section, 'password'),
+            host=cfg.get(section, 'host'),
+            port=cfg.get(section, 'port'),
+            db=cfg.get(section, 'db')))
+    return conn
 
 def oedb_session(section='oedb'):
-    """Get SQLAlchemy session object with valid connection to OEDB"""
+    """Get SQLAlchemy session object with valid connection to OEDB
+    
+    A configuration file in ~/.open_eGo/config.ini is created if nonexistent:
+        [oedb]
+        username =
+        password =
+        host =
+        port =
+        db =
+    """
 
     # get session object by oemof.db tools (requires .oemof/config.ini
     try:
-        from oemof import db
-        conn = db.connection(section=section)
+        # read configuration file
+        path = os.path.join(os.path.expanduser("~"), '.open_eGo', 'config.ini')
+        config = readcfg(path=path)
+
+        # establish DB connection
+        conn = dbconnect(section=section, cfg=config)
 
     except:
-        print('Please provide connection parameters to database:')
-
-        host = input('host (default 127.0.0.1): ') or '127.0.0.1'
-        port = input('port (default 5432): ') or '5432'
-        user = input('user (default postgres): ') or 'postgres'
-        database = input('database name: ')
-        password = input('password: ')
-
-        conn = create_engine(
-            'postgresql://' + '%s:%s@%s:%s/%s' % (user,
-                                                  password,
-                                                  host,
-                                                  port,
-                                                  database))
+        config = writecfg(path, section)
+        conn = dbconnect(section=section, cfg=config)
 
     Session = sessionmaker(bind=conn)
     session = Session()
-    return session
+    return session, conn
 
   
 def buses_of_vlvl(network, voltage_level):
