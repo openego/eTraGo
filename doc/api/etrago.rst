@@ -20,6 +20,15 @@ etrago\.appl module
     :undoc-members:
     :show-inheritance:
 
+etrago\.test module
+-------------------
+
+.. automodule:: etrago.test
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+
 
 Module contents
 ---------------
