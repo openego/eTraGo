@@ -326,8 +326,9 @@ def etrago(args):
 
 
 if __name__ == '__main__':
-    print("Start main")
-
+    # Sphinx does not run this code.
+    print("run eTraGo automatically")
     network = etrago(args)
+
 
 
