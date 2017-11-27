@@ -52,6 +52,7 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.imgmath',
     'sphinx.ext.viewcode',
+    'sphinx.ext.autosummary',
 #    'sphinxcontrib.napoleon',#enable Napoleon interpreter of docstrings Sphinx v<=1.2
     'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
 #    'sphinx_paramlinks',#to have links to the types of the parameters of the functions
@@ -156,7 +157,7 @@ class Mock(MagicMock):
 
 MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
                 'libgeos_c.so', 'shapely', 'geoalchemy2', 'egopowerflow',
-                'geoalchemy2.types' ]
+                'geoalchemy2.types', 'geoalchemy2.shape' ]
     # ToDo: Change to eTraGo
 #    MOCK_MODULES = ['pandas', 'pypsa']
        

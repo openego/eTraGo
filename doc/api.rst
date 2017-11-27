@@ -1,7 +1,7 @@
 .. make doc-string generated documentation appear here
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 7
    :glob:
    :titlesonly:
 
