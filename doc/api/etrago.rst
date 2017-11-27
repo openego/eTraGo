@@ -7,8 +7,7 @@ Subpackages
 .. toctree::
 
     etrago.cluster
-    etrago.extras
-    etrago.plots
+    etrago.tools
 
 Submodules
 ----------
@@ -16,7 +15,7 @@ Submodules
 etrago\.appl module
 -------------------
 
-.. automodule:: appl
+.. automodule:: etrago.appl
     :members:
     :undoc-members:
     :show-inheritance:
@@ -24,7 +23,7 @@ etrago\.appl module
 etrago\.snaphot\_clustering\_app module
 ---------------------------------------
 
-.. automodule:: snaphot_clustering_app
+.. automodule:: etrago.snaphot_clustering_app
     :members:
     :undoc-members:
     :show-inheritance:

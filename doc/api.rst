@@ -1,7 +1,8 @@
 .. make doc-string generated documentation appear here
 
 .. toctree::
-   :maxdepth: 7
+   :maxdepth: 1
+   :glob:
    :titlesonly:
 
-   eTraGo API <api/modules>
+   API <api/modules>
