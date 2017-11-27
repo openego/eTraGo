@@ -156,7 +156,8 @@ class Mock(MagicMock):
 
 MOCK_MODULES = ['libgeos', 'geos', 'libgeos_c', 'geos_c','libgeos_c.so.1', 
                 'libgeos_c.so', 'shapely', 'geoalchemy2', 'egopowerflow',
-                'geoalchemy2.types', 'geoalchemy2.shape' ]
+                'geoalchemy2.types', 'geoalchemy2.shape','sqlalchemy',
+                'matplotlib' ]
     # ToDo: Change to eTraGo
 #    MOCK_MODULES = ['pandas', 'pypsa']
        
