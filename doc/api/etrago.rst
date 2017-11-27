@@ -6,6 +6,7 @@ Subpackages
 
 .. toctree::
 
+    etrago
     etrago.cluster
     etrago.tools
 
@@ -19,15 +20,6 @@ etrago\.appl module
     :members:
     :undoc-members:
     :show-inheritance:
-
-etrago\.test module
--------------------
-
-.. automodule:: etrago.test
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 
 
 Module contents

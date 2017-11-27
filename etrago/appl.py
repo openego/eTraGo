@@ -142,9 +142,8 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to 
         only 'k' buses. The weighting takes place considering generation and load
-        at each node. 
-        If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
+        at each node. If so, state the number of k you want to apply. Otherwise 
+        put False. This function doesn't work together with 'line_grouping = True'
 	    or 'network_clustering = True'.
     
     network_clustering (bool):
