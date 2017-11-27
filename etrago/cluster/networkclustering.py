@@ -1,5 +1,5 @@
-"""
-Networkclustering.py defines the methods to cluster power grid
+# -*- coding: utf-8 -*-
+""" Networkclustering.py defines the methods to cluster power grid
 networks for application within the tool eTraGo. 
 
 This program is free software; you can redistribute it and/or
@@ -14,7 +14,6 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -53,8 +52,10 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     ----------
     network : pypsa.Network
         Container for all network components.
+        
     busmap : dict
         Maps old bus_ids to new bus_ids.
+        
     with_time : bool
         If true time-varying data will also be aggregated.
 
