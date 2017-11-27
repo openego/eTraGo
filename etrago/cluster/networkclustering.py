@@ -22,8 +22,8 @@ __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
 
 #from etrago.tools.utilities import *
-#from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
-#from egoio.db_tables.model_draft import EgoGridPfHvBusmap
+from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
+from egoio.db_tables.model_draft import EgoGridPfHvBusmap
 from itertools import product
 import networkx as nx
 import multiprocessing as mp
@@ -427,8 +427,7 @@ if __name__ == '__main__':
     # Sphinx does not run this code.
     # Do not import internal packages directly  
     from etrago.tools.utilities import *
-    from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
-    from egoio.db_tables.model_draft import EgoGridPfHvBusmap
+
     
          
     
