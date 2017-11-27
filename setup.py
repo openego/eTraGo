@@ -21,9 +21,7 @@ setup(name='eTraGo',
                         'sqlalchemy >= 1.0.15, <= 1.1.4',
                         'oemof.db >=0.0.4, <=0.0.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
-                        'matplotlib >= 1.5.3, <=1.5.3',
-                        'numpy == 1.12.1',
-                        'numpydoc == 0.7.0'],
+                        'matplotlib >= 1.5.3, <=1.5.3'],
 	  dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
         extras_require={
         'docs': [
