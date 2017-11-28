@@ -139,6 +139,12 @@ class Disaggregation:
         self.solve(scenario, solver)
 
     def solve(self, scenario, solver):
+        """
+        Decompose each cluster into separate units and try to optimize them
+        separately
+        :param scenario:
+        :param solver: Solver that may be used to optimize partial networks
+        """
         clusters = set(self.clustering.busmap.values)
         n = len(clusters)
         i = 0
