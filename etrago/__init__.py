@@ -1,13 +1,29 @@
-"""This is the docstring for the example.py module.  Modules names should
-have short, all-lowercase names.  The module name may have underscores if
-this improves readability.
-Every module should have a docstring at the very top of the file.  The
-module's docstring may extend over multiple lines.  If your docstring does
-extend over multiple lines, the closing three quotation marks must be on
-a line by itself, preferably preceded by a blank line."""
+"""
+eTraGo
+******
+- Optimization of flexibility options for transmission grids based on PyPSA
 
-__copyright__ = "tba"
-__license__ = "tba"
-__author__ = "tba"
+
+"""
+
+__version__ = "0.4"
+__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
+
+
+#https://stackoverflow.com/questions/33743880/what-does-from-future-import-absolute-import-actually-do
+from __future__ import absolute_import
+
+from .tools.io import *
+from .tools.plot import *
+from .tools.utiliies import*
+from .tools.snapshot_clustering import *
+
+from .cluster.snapshot import prepare_network, linkage, fcluster, get_medoids, update_data_frames
+from .cluster.networkclustering import cluster_on_extra_high_voltage, graph_from_edges, gen, shortest_path, busmap_by_shortest_path, busmap_from_psql, kmean_clustering
+ 
+import logging
+logging.basicConfig(level=logging.INFO)
 
 
