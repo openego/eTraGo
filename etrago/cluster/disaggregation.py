@@ -136,9 +136,9 @@ class Disaggregation:
         return partial_network, external_buses
 
     def execute(self, scenario, solver=None):
-        self.build_cluster_maps(scenario, solver)
+        self.solve(scenario, solver)
 
-    def build_cluster_maps(self, scenario, solver):
+    def solve(self, scenario, solver):
         clusters = set(self.clustering.busmap.values)
         n = len(clusters)
         i = 0
@@ -151,22 +151,22 @@ class Disaggregation:
             profile.enable()
             t = time.time()
             partial_network, externals = self.construct_partial_network(cluster)
-            extras = self.add_constraints(cluster)
             print('Decomposed in ', (time.time() - t))
             t = time.time()
             profile.disable()
             profile.enable()
-
-            partial_network.lopf(scenario.timeindex, solver_name=solver,
-                                 extra_functionality=extras)
+            self.solve_partial_network(cluster, partial_network, scenario, solver)
             profile.disable()
-
-            update_constraints(partial_network, externals)
 
             print('Decomposition optimized in ', (time.time() - t))
 
         profile.print_stats(sort='cumtime')
 
+    def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
+        extras = self.add_constraints(cluster)
+        partial_network.lopf(scenario.timeindex,
+                             solver_name=solver,
+                             extra_functionality=extras)
 
 class MiniSolverDisaggregation(Disaggregation):
     def add_constraints(self, cluster, extra_functionality=None):
