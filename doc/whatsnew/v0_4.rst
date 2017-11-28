@@ -8,5 +8,15 @@ Additionally, some restructuring has been carried out, plotting functions
 have been updated and the first approach for a documentation was set up.
 
 
+Added features
+--------------
+* 
 
----------------------------------
+Bug fixes
+---------
+* 
+
+Other changes
+-------------
+* merging of ego.powerflow into eTraGo
+* 

@@ -1,7 +1,7 @@
-Release 0.1 (June 30, 2017)
+Release x.x (month day, 20yy)
 +++++++++++++++++++++++++++
 
-**First release of eTraGo**
+<short summary>
 
 Added features
 --------------

@@ -6,6 +6,18 @@ Release 0.2 (September 8, 2017)
 
 This new version shall be install via pip and a setup.py. 
 Moreover there has been minor adjustments such as the creation of a 
-allable etrago function.
+callable etrago function.
 
---------------------------------------
+Added features
+--------------
+* install via pip and a setup.py
+* callable etrago function
+
+Bug fixes
+---------
+* 
+
+Other changes
+-------------
+* 
+
