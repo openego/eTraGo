@@ -21,7 +21,9 @@ __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 #from .tools.snapshot_clustering import *
 
 #from .cluster.snapshot import prepare_network, linkage, fcluster, get_medoids, update_data_frames
-#from .cluster.networkclustering import cluster_on_extra_high_voltage, graph_from_edges, gen, shortest_path, busmap_by_shortest_path, busmap_from_psql, kmean_clustering
+#from .cluster.networkclustering import cluster_on_extra_high_voltage, graph_from_edges, gen, shortest_path, busmap_by_shortest_path, busmap_from_psql, 
+
+from .cluster.networkclustering import kmean_clustering
  
 #import logging
 #logging.basicConfig(level=logging.INFO)
