@@ -35,12 +35,11 @@ from etrago.tools.utilities import oedb_session, load_shedding, data_manipulatio
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 
+from etrago.tools.plot import plot_max_line_loading,plot_max_opt_line_loading,plot_max_opt_line_loading_bench,transformers_distribution,plot_dif_line_MW,plot_dif_line_percent
 from etrago.tools.line_extendable_functions import capacity_factor,overload_lines,overload_trafo,set_line_cost,set_trafo_cost
 import pandas as pd
 import csv
 from math import sqrt
-
-from etrago.plotting import plot_max_line_loading,plot_max_opt_line_loading,plot_max_opt_line_loading_bench,transformers_distribution,plot_dif_line_MW,plot_dif_line_percent
 
 
 ################################################################################
@@ -447,9 +446,6 @@ def etrago(args):
                             s_current.append(abs(sqrt(p[x]**2+q[x]**2)))
                         x+=1
 
-                    print("lines_time" + str(len(lines_time)))
-                    print("p:" + str(p))
-                    print("s_current:" + str(s_current))
                     s_nom = network.lines.s_nom_opt[i]
                     #loading=(max(s_current)/s_nom*100)    # bug ValueError: max() arg is an empty sequence
 
