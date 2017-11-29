@@ -70,7 +70,7 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         #
         'line_extendable':True,
-        'calc_type' : True,      # True for methodik of line_extendable  #False for all lines are extendables
+        'calc_type' : False,      # True for methodik of line_extendable  #False for all lines are extendables
         'line_ext_vers' : '5_DE_NEP2035_24h_1.3',
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
@@ -284,7 +284,7 @@ def etrago(args):
             file_name_method = 'method'
 
             # set the capacity-factory for the first lopf
-            cap_fac = 1.3
+            cap_fac =1.3
 
             # Change the capcity of lines and transformers
             network = capacity_factor(network,cap_fac)
@@ -447,7 +447,7 @@ def etrago(args):
                         x+=1
 
                     s_nom = network.lines.s_nom_opt[i]
-                    #loading=(max(s_current)/s_nom*100)    # bug ValueError: max() arg is an empty sequence
+                    loading=(max(s_current)/s_nom*100)    # bug ValueError: max() arg is an empty sequence
 
                     writer.writerow({'line_key': network.lines.s_nom.keys()[i],
                                      's_nom_extendable': network.lines.s_nom_extendable[i],
@@ -455,7 +455,7 @@ def etrago(args):
                                      'p': max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]])),
                                      'loading_old': round(max(abs(network.lines_t.p0[network.lines.s_nom.keys()[i]]))/network.lines.s_nom[i]*100,2),
                                      's_nom_opt':network.lines.s_nom_opt[i],
-                                     #'loading_new': round(loading,2),               # due to bug
+                                     'loading_new': round(loading,2),               # due to bug
                                      'dif': network.lines.s_nom_opt[i]-network.lines.s_nom[i]})
                     i+=1
 
@@ -610,7 +610,7 @@ def etrago(args):
             plot_max_line_loading(network,filename = filename)
 
             filename = args['line_ext_vers'] + '_02_Opt_line_maximum_loading_' + file_name_method +'.png'
-            #plot_max_opt_line_loading_bench(network,filename = filename)            #bug in function
+            plot_max_opt_line_loading_bench(network,filename = filename)            #bug in function
 
             #################### Saving Datas in csv #########################
             filename = args['line_ext_vers'] + '_01_Lines_' + file_name_method +'.csv'
