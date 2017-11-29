@@ -150,8 +150,11 @@ def etrago(args):
         only 'k' buses. The weighting takes place considering generation and load
         at each node.
         If so, state the number of k you want to apply. Otherwise put False.
-	This function doesn't work together with 'line_grouping = True'
-	or 'network_clustering = True'.
+
+	    Note: The number of clusters k is automatically limited if the same values
+	    of generation and consumption occur at serveral buses to one bus.
+	    This function doesn't work together with 'line_grouping = True' or
+	    'network_clustering = True'.
 
     network_clustering (bool):
         False,
@@ -260,7 +263,9 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
+
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
+                                  w_method ='Load and Generation')
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -313,7 +318,7 @@ network = etrago(args)
 # plots
 
 # make a line loading plot
-plot_line_loading(network)
+#plot_line_loading(network)
 # plot stacked sum of nominal power for each generator type and timestep
 #plot_stacked_gen(network, resolution="MW")
 # plot to show extendable storages
