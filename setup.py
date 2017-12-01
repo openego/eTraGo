@@ -14,7 +14,12 @@ setup(name='eTraGo',
       license="GNU Affero General Public License Version 3 (AGPL-3.0)",
       packages=find_packages(),
       install_requires=['egoio == 0.2.11',
-                        'egopowerflow == 0.0.5',
-                        'scikit-learn == 0.19.0'],
-	  dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA']
+                        'scikit-learn == 0.19.0',
+		        'pandas >= 0.17.0, <=0.19.1',
+                        'pypsa >= 0.8.0, <= 0.8.0',
+                        'sqlalchemy >= 1.0.15, <= 1.1.4',
+                        'oemof.db >=0.0.4, <=0.0.4',
+                        'geoalchemy2 >= 0.3.0, <=0.4.0',
+                        'matplotlib >= 1.5.3, <=1.5.3'], 
+        dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA']
      )
