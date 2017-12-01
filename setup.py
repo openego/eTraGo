@@ -21,5 +21,5 @@ setup(name='eTraGo',
                         'oemof.db >=0.0.4, <=0.0.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3'], 
-        dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@dev#egg=PyPSA']
+        dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@features/snapshot_clustering#egg=PyPSA']
      )
