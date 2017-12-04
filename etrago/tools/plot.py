@@ -97,17 +97,11 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     if arrows:
         ax = plt.axes()
         path = ll[1].get_segments()
-        x_coords_lines = np.zeros([len(path)])
         cmap = cmap
         colors = cmap(ll[1].get_array()/100)
         for i in range(0, len(path)):
-            x_coords_lines[i] = network.buses.loc[str(network.lines.iloc[i, 2]),'x']
             color = colors[i]
-            if (x_coords_lines[i] == path[i][0][0] and loading[i] >= 0)\
-                or (x_coords_lines[i] != path[i][0][0] and loading[i] < 0):
-                    arrowprops = dict(arrowstyle="<-", color=color)
-            else:
-                arrowprops = dict(arrowstyle="->", color=color)
+            arrowprops = dict(arrowstyle="<-", color=color)
             ax.annotate("",
                         xy=abs((path[i][0] - path[i][1]) * 0.51 - path[i][0]),
                         xytext=abs((path[i][0] - path[i][1]) * 0.49 - path[i][0]),
