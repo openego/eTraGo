@@ -254,7 +254,7 @@ if args['generator_noise']:
 
 if args['storage_extendable']:
     # set virtual storages to be extendable
-    if network.storage_units.source.any()=='extendable_storage':
+    if network.storage_units.carrier.any()=='extendable_storage':
         network.storage_units.p_nom_extendable = True
     # set virtual storage costs with regards to snapshot length
         network.storage_units.capital_cost = (network.storage_units.capital_cost /
