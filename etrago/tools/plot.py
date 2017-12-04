@@ -94,19 +94,6 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
 
     cb.set_label('Line loading in %')
     
-#==============================================================================
-#     x, y, u, v = np.zeros((4, 10))
-#     path = ll[1].get_segments()
-#     for i in range(0, len(x)):
-#         x[i] = path[i][0][0]
-#         y[i] = path[i][0][1]
-#         u[i] = path[i][1][0] - path[i][0][0]
-#         v[i] = path[i][1][1] - path[i][0][1]
-#     plt.quiver(x, y, u, v, scale=1, units="xy")
-#     plt.axis('equal')
-#     plt.grid()
-#==============================================================================
-    
     if arrows:
         ax = plt.axes()
         path = ll[1].get_segments()
@@ -127,16 +114,6 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
                         arrowprops=arrowprops,
                         size=10
                         )
-    
-#==============================================================================
-#     ax = plt.axes()
-#     for i in range(0, 10):
-#         ax.arrow(x = ll[1].get_segments()[i][0][0],
-#                  y = ll[1].get_segments()[i][0][1],
-#                  dx = ll[1].get_segments()[i][1][0] - ll[1].get_segments()[i][0][0],
-#                  dy = ll[1].get_segments()[i][1][1] - ll[1].get_segments()[i][0][1]
-#                  )
-#==============================================================================
     
     if filename is None:
         plt.show()
