@@ -1,0 +1,6 @@
+Release v0.1.0 (XY XX, 2017)
+++++++++++++++++++++++++++++++
+
+As this is the first release of eTraGo
+
+

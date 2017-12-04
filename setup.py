@@ -9,10 +9,11 @@ setup(name='eTraGo',
       author='DLR VE, ZNES Flensburg',
       author_email='',
       description='electrical Transmission Grid Optimization of flexibility options for transmission grids based on PyPSA',
-      version='0.3',
-	  url='https://github.com/openego/eTraGo',
+      version='0.4',
+      url='https://github.com/openego/eTraGo',
       license="GNU Affero General Public License Version 3 (AGPL-3.0)",
       packages=find_packages(),
+      include_package_data=True,
       install_requires=['egoio == 0.2.11',
                         'scikit-learn == 0.19.0',
 		        'pandas >= 0.17.0, <=0.19.1',
@@ -21,5 +22,9 @@ setup(name='eTraGo',
                         'oemof.db >=0.0.4, <=0.0.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3'], 
-        dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@features/snapshot_clustering#egg=PyPSA']
+        dependency_links=['git+ssh://git@github.com/openego/PyPSA.git@features/snapshot_clustering#egg=PyPSA'],
+        extras_require={
+        'docs': [
+            'sphinx >= 1.4',
+            'sphinx_rtd_theme']}
      )
