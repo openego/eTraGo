@@ -84,7 +84,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
 
     if with_time:
-        network_c.now = network.now
+        network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
 
     # dealing with generators
