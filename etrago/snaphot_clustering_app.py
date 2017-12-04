@@ -200,7 +200,7 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 2190,
+        'end_snapshot' : 168,
         'scn_name': 'SH NEP 2035',
         'lpfile': '/home/openego/file.lp', # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
         'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
@@ -291,7 +291,7 @@ if args['k_mean_clustering']:
 ###############################################################################
 
 how = 'daily'
-clusters =[i*5 for i in range(1,219)]#[7] +  [i for i in range(1,2)]
+clusters =[i for i in range(1,2)]#[7] +  [i for i in range(1,2)]
 write_results = True
 
 home = os.path.expanduser("~")
