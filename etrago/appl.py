@@ -36,7 +36,7 @@ from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulati
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
