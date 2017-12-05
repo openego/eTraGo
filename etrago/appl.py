@@ -41,7 +41,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 3482, 
-        'end_snapshot' : 3482,
+        'end_snapshot' : 3483,
         'scn_name': 'Status Quo 110kV switch', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
