@@ -1,5 +1,5 @@
-"""
-Networkclustering.py defines the methods to cluster power grid
+# -*- coding: utf-8 -*-
+""" Networkclustering.py defines the methods to cluster power grid
 networks for application within the tool eTraGo. 
 
 This program is free software; you can redistribute it and/or
@@ -14,28 +14,30 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
+import os
 
-from etrago.tools.utilities import *
-from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
-from egoio.db_tables.model_draft import EgoGridPfHvBusmap
-from itertools import product
-import networkx as nx
-import multiprocessing as mp
-from math import ceil
-import pandas as pd
-from networkx import NetworkXNoPath
-from pickle import dump
-from pypsa import Network
-import pypsa.io as io
-import pypsa.components as components
-from six import iteritems
+if not 'READTHEDOCS' in os.environ:
+    from etrago.tools.utilities import *
+    from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
+    from egoio.db_tables.model_draft import EgoGridPfHvBusmap
+    
+    from itertools import product
+    import networkx as nx
+    import multiprocessing as mp
+    from math import ceil
+    import pandas as pd
+    from networkx import NetworkXNoPath
+    from pickle import dump
+    from pypsa import Network
+    import pypsa.io as io
+    import pypsa.components as components
+    from six import iteritems
 
 # TODO: Workaround because of agg
 def _leading(busmap, df):
@@ -53,8 +55,10 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     ----------
     network : pypsa.Network
         Container for all network components.
+        
     busmap : dict
         Maps old bus_ids to new bus_ids.
+        
     with_time : bool
         If true time-varying data will also be aggregated.
 
@@ -109,16 +113,20 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     return network_c
 
 def graph_from_edges(edges):
-    """ Construct an undirected multigraph from a list containing data on
+    """ 
+    Construct an undirected multigraph from a list containing data on
     weighted edges.
+
 
     Parameters
     ----------
+    
     edges : list
         List of tuples each containing first node, second node, weight, key.
 
     Returns
     -------
+    
     M : :class:`networkx.classes.multigraph.MultiGraph
 
     """
@@ -339,13 +347,20 @@ def busmap_from_psql(network, session, scn_name):
     return busmap
 
 def kmean_clustering(network, n_clusters=10):
-    """ Implement k-mean clustering in existing network
+    """ 
+    Implement k-mean clustering in existing network
+   
+    Parameters
     ----------
+    
     network : :class:`pypsa.Network
         Overall container of PyPSA
+        
     Returns
     -------
-
+    network : pypsa.Network object
+        Container for all network components.
+        
     """
     def weighting_for_scenario(x):
         b_i = x.index
@@ -408,3 +423,4 @@ def kmean_clustering(network, n_clusters=10):
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
     return network
+    
