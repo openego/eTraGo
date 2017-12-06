@@ -22,14 +22,15 @@ __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
 
 import os
+from matplotlib import pyplot as plt
+import pandas as pd
+import numpy as np
+import time
+import matplotlib
+from math import sqrt
 if not 'READTHEDOCS' in os.environ:
-    from math import sqrt
     from geoalchemy2.shape import to_shape
-    from matplotlib import pyplot as plt
-    import pandas as pd
-    import numpy as np
-    import time
-    import matplotlib
+
 
 
 def add_coordinates(network):
