@@ -12,7 +12,7 @@ Add description here....
 Overview of setting arguments 
 =============================
 
-.. automodule:: etrago
+.. automodule:: etrago.appl
     :members:
     :undoc-members:
     :show-inheritance:
