@@ -49,7 +49,7 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
         'end_snapshot' : 2,
-        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -62,11 +62,11 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -312,29 +312,19 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
+    # close session
+    session.close()
+
     return network
 
- 
+
 if __name__ == '__main__':
-        
-    # Start eTraGo 
-    network = etrago(args)
-    
-     
     # execute etrago function
-    #network = etrago(args)
-
+    network = etrago(args)
     # plots
-
     # make a line loading plot
-    #plot_line_loading(network)
+    plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    #plot_stacked_gen(network, resolution="MW")
+    plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    #storage_distribution(network)
-
-    # close session
-    #session.close()
-
-
-
+    storage_distribution(network)
