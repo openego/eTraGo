@@ -20,6 +20,8 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
+
+import os
 if not 'READTHEDOCS' in os.environ:
     from math import sqrt
     from geoalchemy2.shape import to_shape
@@ -696,3 +698,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
     else:
        plt.savefig(filename)
        plt.close()
+        
+        
+if __name__ == '__main__':
+    pass
