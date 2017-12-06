@@ -20,21 +20,24 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
+import os
 
-from etrago.tools.utilities import *
-from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
-from egoio.db_tables.model_draft import EgoGridPfHvBusmap
-from itertools import product
-import networkx as nx
-import multiprocessing as mp
-from math import ceil
-import pandas as pd
-from networkx import NetworkXNoPath
-from pickle import dump
-from pypsa import Network
-import pypsa.io as io
-import pypsa.components as components
-from six import iteritems
+if not 'READTHEDOCS' in os.environ:
+    from etrago.tools.utilities import *
+    from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
+    from egoio.db_tables.model_draft import EgoGridPfHvBusmap
+    
+    from itertools import product
+    import networkx as nx
+    import multiprocessing as mp
+    from math import ceil
+    import pandas as pd
+    from networkx import NetworkXNoPath
+    from pickle import dump
+    from pypsa import Network
+    import pypsa.io as io
+    import pypsa.components as components
+    from six import iteritems
 
 # TODO: Workaround because of agg
 def _leading(busmap, df):
