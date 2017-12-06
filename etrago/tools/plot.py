@@ -696,9 +696,3 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
     else:
        plt.savefig(filename)
        plt.close()
-
-
-
-    
-if __name__ == '__main__':
-    pass
