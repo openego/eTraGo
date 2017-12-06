@@ -20,13 +20,14 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
-from math import sqrt
-from geoalchemy2.shape import to_shape
-from matplotlib import pyplot as plt
-import pandas as pd
-import numpy as np
-import time
-import matplotlib
+if not 'READTHEDOCS' in os.environ:
+    from math import sqrt
+    from geoalchemy2.shape import to_shape
+    from matplotlib import pyplot as plt
+    import pandas as pd
+    import numpy as np
+    import time
+    import matplotlib
 
 
 def add_coordinates(network):
