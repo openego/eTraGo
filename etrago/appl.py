@@ -26,6 +26,21 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
+import os
+
+if not 'READTHEDOCS' in os.environ:
+    # Sphinx does not run this code.
+    # Do not import internal packages directly  
+    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+                                     add_coordinates, curtailment, gen_dist,
+                                     storage_distribution)
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                    results_to_csv, parallelisation, pf_post_lopf, 
+                                    loading_minimization, calc_line_losses, group_parallel_lines)
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+
+
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -301,17 +316,7 @@ def etrago(args):
 
  
 if __name__ == '__main__':
-    # Sphinx does not run this code.
-    # Do not import internal packages directly  
-    from etrago.tools.io import NetworkScenario, results_to_oedb
-    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
-                                     add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
-    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-    
+        
     # Start eTraGo 
     network = etrago(args)
     
