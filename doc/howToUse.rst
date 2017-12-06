@@ -1,7 +1,7 @@
 How to use eTraGo?
 ~~~~~~~~~~~~~~~~~~
 
-Add discription here....
+Add description here....
 
 .. code-block:: python
 
