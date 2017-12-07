@@ -470,14 +470,14 @@ def kmean_clustering(network, n_clusters=10, w_method='Load and Generation'):
 
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
-
-
-    
-    
+ 
     busmap = genload_weighting(network, w_method)
     
+    # dealing with generators
+    network.generators['weight'] = 1
+    
     # ToDo change function in order to use bus_strategies or similar
-    clustering = get_clustering_from_busmap(network, busmap)
+    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
