@@ -1,0 +1,14 @@
+Release 0.2 (July 20, 2017)
++++++++++++++++++++++++++++
+
+**This is the version 0.2 of eTraGo.**
+
+
+This new version shall be install via pip and a setup.py. 
+Moreover there has been minor adjustments such as the creation of a 
+callable etrago function.
+
+Added features
+--------------
+* install via pip and a setup.py
+* callable etrago function
