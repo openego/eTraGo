@@ -33,7 +33,7 @@ class Disaggregation:
         """
         return extra_functionality
 
-    def construct_partial_network(self, cluster):
+    def construct_partial_network(self, cluster, scenario):
         """
         Compute the network partial network that has been merged into a single
         cluster
@@ -44,7 +44,7 @@ class Disaggregation:
         and `external_buses` represent clusters adjacent to `cluster` that may
         be influenced by calculations done on the partial network.
         """
-        partial_network = Network()
+        partial_network = scenario.build_network()
 
         # find all lines that have at least one bus inside the cluster
         busflags = (self.buses['cluster'] == cluster)
@@ -156,17 +156,28 @@ class Disaggregation:
             print('Decompose cluster %s (%d/%d)' % (cluster, i, n))
             profile.enable()
             t = time.time()
-            partial_network, externals = self.construct_partial_network(cluster)
+            partial_network, externals = self.construct_partial_network(cluster, scenario)
             print('Decomposed in ', (time.time() - t))
             t = time.time()
             profile.disable()
             profile.enable()
             self.solve_partial_network(cluster, partial_network, scenario, solver)
+            self.transfer_results(partial_network, externals)
             profile.disable()
-
             print('Decomposition optimized in ', (time.time() - t))
 
         profile.print_stats(sort='cumtime')
+
+    def transfer_results(self, partial_network, externals):
+        for bustype in ['loads', 'generators', 'stores', 'storage_units',
+                     'generators', 'shunt_impedances']:
+            changed_buses = getattr(partial_network, bustype).index.intersection(getattr(self.original_network, bustype).index)
+            orig_buses = getattr(self.original_network, bustype+'_t')
+            part_buses = getattr(partial_network, bustype + '_t')
+            for key in orig_buses.keys():
+                for snap in partial_network.snapshots:
+                    orig_buses[key].loc[snap].update(part_buses[key].loc[snap])
+
 
     def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
         extras = self.add_constraints(cluster)
@@ -188,34 +199,38 @@ class MiniSolverDisaggregation(Disaggregation):
                 bus=lambda df: df.bus.map(self.clustering.busmap))
             grouper = [generators.carrier]
             i = 0
-            for snapshot in snapshots:
-                for carrier in generators.carrier:
-                    def construct_constraint(model):
-                        # TODO: Optimize
+            for carrier in generators.carrier:
+                def construct_constraint(model, snapshot):
+                    # TODO: Optimize
 
-                        generator_p = [model.generator_p[(x, snapshot)] for x in
-                                       generators[generators.bus == cluster][
-                                           generators.carrier == carrier].index]
-                        if not generator_p:
-                            return Constraint.Feasible
-                        sum_generator_p = sum(generator_p)
+                    generator_p = [model.generator_p[(x, snapshot)] for x in
+                                   generators.loc[(generators.bus == cluster) &
+                                                  (generators.carrier == carrier)].index]
+                    if not generator_p:
+                        return Constraint.Feasible
+                    sum_generator_p = sum(generator_p)
 
-                        cluster_generators = self.clustered_network.generators[
-                            self.clustered_network.generators.bus == cluster][
-                            self.clustered_network.generators.carrier == carrier]
-                        sum_clustered_p = sum(
-                            self.clustered_network.generators_t['p'][c][
-                                snapshot] for
-                            c in cluster_generators.index)
-                        return sum_generator_p == sum_clustered_p
+                    cluster_generators = self.clustered_network.generators[
+                        self.clustered_network.generators.bus == cluster][
+                        self.clustered_network.generators.carrier == carrier]
+                    sum_clustered_p = sum(
+                        self.clustered_network.generators_t['p'][c][
+                            snapshot] for
+                        c in cluster_generators.index)
+                    return sum_generator_p == sum_clustered_p
 
-                    # TODO: Generate a better name
-                    network.model.add_component('validate_generators' + str(i),
-                                                Constraint(
-                                                    rule=construct_constraint))
-                    i += 1
+                # TODO: Generate a better name
+                network.model.add_component('validate_generators' + str(i),
+                                            Constraint(list(snapshots),
+                                                rule=construct_constraint))
+                i += 1
 
         return extra_functionality
+
+
+class UniformDisaggregation(Disaggregation):
+    def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
+        pass
 
 
 def swap_series(s):
