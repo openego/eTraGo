@@ -26,14 +26,16 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from tools.io import NetworkScenario, results_to_oedb
-from tools.plot import (plot_line_loading, plot_stacked_gen,
+import os
+if not 'READTHEDOCS' in os.environ:
+    from tools.io import NetworkScenario, results_to_oedb
+    from tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
+    from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                    results_to_csv, parallelisation, pf_post_lopf,
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
