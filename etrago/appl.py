@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This is the application file for the tool eTraGo. 
 
@@ -15,7 +16,6 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -26,14 +26,21 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from tools.io import NetworkScenario, results_to_oedb
-from tools.plot import (plot_line_loading, plot_stacked_gen,
+
+import os
+
+if not 'READTHEDOCS' in os.environ:
+    # Sphinx does not run this code.
+    # Do not import internal packages directly  
+    from tools.io import NetworkScenario, results_to_oedb
+    from tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+    from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -49,8 +56,8 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise 
+        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
+        'generator_noise':False, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
@@ -150,9 +157,8 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to 
         only 'k' buses. The weighting takes place considering generation and load
-        at each node. 
-        If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
+        at each node. If so, state the number of k you want to apply. Otherwise 
+        put False. This function doesn't work together with 'line_grouping = True'
 	    or 'network_clustering = True'.
     
     network_clustering (bool):

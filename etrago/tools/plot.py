@@ -20,13 +20,17 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
-from math import sqrt
-from geoalchemy2.shape import to_shape
+
+import os
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import time
 import matplotlib
+from math import sqrt
+if not 'READTHEDOCS' in os.environ:
+    from geoalchemy2.shape import to_shape
+
 
 
 def add_coordinates(network):
@@ -694,9 +698,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
     else:
        plt.savefig(filename)
        plt.close()
-
-
-
-    
+        
+        
 if __name__ == '__main__':
     pass

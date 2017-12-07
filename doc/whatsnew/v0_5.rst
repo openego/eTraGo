@@ -1,0 +1,19 @@
+Release 0.5 (December 08, 2017)
+++++++++++++++++++++++++++++++++
+
+<short summary>
+
+
+Added features
+--------------
+* Readthedocs documentation
+* 
+
+Bug fixes
+---------
+* 
+
+Other changes
+-------------
+* update PyPSA Version from 0.8.0 to PyPSA 0.11.0 
+
