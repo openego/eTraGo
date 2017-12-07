@@ -21,7 +21,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
 import os
-
 if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import *
     from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans

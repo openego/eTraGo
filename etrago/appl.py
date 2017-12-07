@@ -26,6 +26,7 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
+
 import os
 
 if not 'READTHEDOCS' in os.environ:
@@ -39,7 +40,6 @@ if not 'READTHEDOCS' in os.environ:
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-
 
 
 args = {# Setup and Configuration:
