@@ -13,4 +13,4 @@ Overview of setting arguments
 =============================
 
 .. automodule:: etrago.appl
-    :members:
+    :members: etrago
