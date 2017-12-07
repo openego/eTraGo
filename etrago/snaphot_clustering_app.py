@@ -20,22 +20,18 @@ from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-
-#from cluster.snapshot import group, linkage, fcluster, get_medoids
-#from pypsa.opf import network_lopf
-#import pyomo.environ as po
 from cluster.snapshot_cl import snapshot_clustering, daily_bounds
 
 args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved in Feature-branch
         'db': 'oedb', # db session
-        'gridversion':None, #None for model_draft or Version number (e.g. v0.2.10) for grid schema
+        'gridversion':'v0.2.11', #None for model_draft or Version number (e.g. v0.2.10) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, #state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot' : 48,
-        'scn_name': 'SH status Quo',
+        'scn_name': 'SH Status Quo',
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or '/path/tofolder'
-        'results': False , # state if and where you want to save results as csv: False or '/path/tofolder'
+        'results': False, #'C:/eTraGo/etrago/results', # state if and where you want to save results as csv: False or '/path/tofolder'
         'export': False, # state if you want to export the results back to the database
         'solver': 'gurobi', #glpk, cplex or gurobi
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
@@ -44,7 +40,7 @@ args = {'network_clustering':False, #!!Fehlermeldung assert-Statement // Solved 
         'generator_noise':True,
         'extra_functionality':daily_bounds,
         'k_mean_clustering': False,
-        'snapshot_clustering': True,
+        'snapshot_clustering':True,
         'parallelisation':False,
         'line_grouping': False,
         'comments': None}
@@ -121,6 +117,10 @@ def etrago(args):
     # snapshot clustering
     if args['snapshot_clustering']:
         network = snapshot_clustering(network, how='daily', clusters= [2])
+        
+    # write PyPSA results to csv to path
+    if not args['results'] == False:
+        results_to_csv(network, args['results'])
 
     # close session
     session.close()

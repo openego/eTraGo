@@ -34,6 +34,7 @@ from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
 from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+from cluster.snapshot_cl import snapshot_clustering, daily_bounds
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -41,21 +42,24 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 48,
+        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results':'C:/eTraGo/etrago/results', # state if and where you want to save results as csv: False or /path/tofolder
+        'results2':'C:/eTraGo/etrago/results2', 
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise 
+        'generator_noise':False, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'extra_functionality':daily_bounds,
+        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. State False or True
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
@@ -268,8 +272,16 @@ def etrago(args):
     if args['minimize_loading']:
         extra_functionality = loading_minimization
     else:
-        extra_functionality=None
+        extra_functionality = None
         
+    # snapshot clustering
+    if args['snapshot_clustering']:
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters= [2])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+        #extra_functionality = daily_bounds
+      
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
@@ -303,8 +315,8 @@ def etrago(args):
         results_to_oedb(session, network, args, 'hv')  
         
     # write PyPSA results to csv to path
-    if not args['results'] == False:
-        results_to_csv(network, args['results'])
+    if not args['results2'] == False:
+        results_to_csv(network, args['results2'])
 
     # close session
     session.close()
@@ -322,3 +334,5 @@ if __name__ == '__main__':
     plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     storage_distribution(network)
+    #curtailment(network)
+    #gen_dist(network)
