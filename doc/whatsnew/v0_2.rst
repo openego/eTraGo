@@ -12,12 +12,3 @@ Added features
 --------------
 * install via pip and a setup.py
 * callable etrago function
-
-Bug fixes
----------
-* 
-
-Other changes
--------------
-* 
-
