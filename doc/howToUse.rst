@@ -14,5 +14,3 @@ Overview of setting arguments
 
 .. automodule:: etrago.appl
     :members:
-    :undoc-members:
-    :show-inheritance:
