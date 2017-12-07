@@ -12,7 +12,5 @@ Add description here....
 Overview of setting arguments 
 =============================
 
-
-
-:meth:`etrago.appl.etrago`
+The tool ego is using a main python script ‘appl.py’ in which your parameters, calculation methods and scenario settings are set in a python dictionary called args. The documentation of the program settings can you find here: :meth:`etrago.appl.etrago`.
 
