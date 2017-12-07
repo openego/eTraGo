@@ -1,7 +1,12 @@
 """line extendables functions"""
-from math import sqrt
 import numpy as np
+from numpy import genfromtxt
+np.random.seed()
+import progressbar
+import time
+from math import sqrt
 import os
+import pandas as pd
 if not 'READTHEDOCS' in os.environ:
     from tools.io import NetworkScenario, results_to_oedb
     from tools.plot import (plot_line_loading, plot_stacked_gen,add_coordinates,
@@ -15,7 +20,7 @@ if not 'READTHEDOCS' in os.environ:
                                  group_parallel_lines)
     from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
-
+import csv
 # toDo reduce import
 
 
@@ -369,10 +374,14 @@ def set_trafo_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
 
 
 
-def line_extendable(network, args):
+def line_extendable(network, args, scenario,start_time):
     """
     Function witch prepare and run a
     line_extendable calculation.
+
+
+
+
     """
 
     ############################## methode ##############################
@@ -381,7 +390,7 @@ def line_extendable(network, args):
         file_name_method = 'method'
 
         # set the capacity-factory for the first lopf
-        cap_fac =1.3
+        cap_fac =1.3 # 1.3
 
         # Change the capcity of lines and transformers
         network = capacity_factor(network,cap_fac)
@@ -397,7 +406,7 @@ def line_extendable(network, args):
 
         # plotting the loadings of lines at start
         filename = args['line_ext_vers'] + '_01_Start_line_maximum_loading_' + file_name_method +'.png'
-        plot_max_line_loading(network,filename = filename)
+        #plot_max_line_loading(network,filename = filename)
 
 
         ############################ Analyse ############################
@@ -701,10 +710,11 @@ def line_extendable(network, args):
 
 #            network.lopf(scenario.timeindex, solver_name=args['solver'])
         objective=[[0],[network.objective]]
+        print(str(network.objective))
 
         ###################### Plotting the Results ######################
         filename = args['line_ext_vers'] + '_01_Start_line_maximum_loading_' + file_name_method +'.png'
-        plot_max_line_loading(network,filename = filename)
+        #plot_max_line_loading(network,filename = filename)
 
         filename = args['line_ext_vers'] + '_02_Opt_line_maximum_loading_' + file_name_method +'.png'
         plot_max_opt_line_loading_bench(network,filename = filename)            #bug in function
@@ -767,11 +777,10 @@ def line_extendable(network, args):
                                  'dif': network.transformers.s_nom_opt[i]-network.transformers.s_nom[i]})
                 i+=1
 
-        return network,start_time,objective,file_name_method
+        return network,start_time
 
 
-
-def line_extendable_ma(network, args):
+def line_extendable_ma(network, args,start_time):
     """
     Calculation based on MA and own method
     """
