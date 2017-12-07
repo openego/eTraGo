@@ -25,15 +25,29 @@ __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
+import progressbar
 import time
-from tools.io import NetworkScenario, results_to_oedb
-from tools.plot import (plot_line_loading, plot_stacked_gen,
+from etrago.tools.io import NetworkScenario, results_to_oedb
+from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
-from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+
+from etrago.extras.utilities import data_manipulation_sh,load_shedding,parallelisation,pf_post_lopf,results_to_csv
+from etrago.line_extendable_functions import capacity_factor,overload_lines,overload_trafo,set_line_cost,set_trafo_cost
+from etrago.plotting import plot_max_line_loading,plot_max_opt_line_loading,plot_max_opt_line_loading_bench,transformers_distribution,plot_dif_line_MW,plot_dif_line_percent
+import pandas as pd
+
+################################################################################
+
+## Angepasst von file line_optimization(gekuerzt).py
+
+################################################################################
+
+
+
+
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -42,7 +56,7 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot' : 2,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -53,6 +67,8 @@ args = {# Setup and Configuration:
         'generator_noise':True, # state if you want to apply a small generator noise
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
+        #
+        'line_extendable':True,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
@@ -254,6 +270,102 @@ def etrago(args):
     if args['load_shedding']:
     	load_shedding(network)
 
+     ########################### line_optimization ###########################
+
+    if args['line_extendable']:
+
+        # set the capacity-factory for the first lopf
+        cap_fac = 1.3
+
+        # Change the capcity of lines and transformers
+        network = capacity_factor(network,cap_fac)
+
+        ############################ 1. Lopf ###########################
+        parallelisation(network, start_h=args['start_snapshot'], \
+            end_h=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+
+
+        # return to original capacities
+        network = capacity_factor(network,(1/cap_fac))
+
+
+        # plotting the loadings of lines at start
+        plot_max_line_loading(network,filename = 'Start_maximum_line_loading.png')
+
+
+        ############################ Analyse ############################
+
+        # Finding the overload lines and timesteps
+        maximum_line_loading,line_time_list = overload_lines(network)
+
+        # Finding the overload transformers and timestep
+        maximum_trafo_loading,trafo_time_list = overload_trafo(network)
+
+        ####################### Set capital cost ########################
+
+        # Set capital cost for extendable lines
+        cost_1 = 60000 # 110kV extendable
+        cost_2 = 1600000/2 # 220kV extendable
+        cost_3 = 200000 # 380kV extendable
+
+        network,lines_time,all_time = set_line_cost(network,\
+                                                    line_time_list,\
+                                                    maximum_line_loading,\
+                                                    cost_1,\
+                                                    cost_2,\
+                                                    cost_3)
+
+
+        # Set capital cost for extendable trafo
+        cost_1 = 5200000/300 # 220/110kV or 380/110kV extendable
+        cost_2 = 8500000/600# 380/220kV extendable
+        cost_3 = 8500000/600 # other extendable
+
+        network,trafo_time = set_trafo_cost(network,\
+                                            trafo_time_list,\
+                                            maximum_trafo_loading,\
+                                            cost_1,\
+                                            cost_2,\
+                                            cost_3)
+
+
+        ####################### Set all timesteps #######################
+        all_time.sort()
+        i=0
+        while(i<len(trafo_time)):
+            if((trafo_time[i] in all_time) == True):
+                i+=1
+            else:
+                all_time.append(trafo_time[i])
+                i+=1
+
+        ######################### calc 2. Lopf ##########################
+        length_time = len(all_time)
+        if(length_time==0):
+            timeindex = scenario.timeindex
+
+        network.lines.capital_cost =\
+                                    network.lines.capital_cost * length_time
+
+        network.transformers.capital_cost =\
+                             network.transformers.capital_cost * length_time
+
+        all_time.sort()
+        i=0
+        while(i<len(all_time)):
+            if i==0:
+                timeindex = network.snapshots[all_time[i]:all_time[i]+1]
+            else:
+                timeindex =pd.DatetimeIndex.append(timeindex,\
+                          other=network.snapshots[all_time[i]:all_time[i]+1])
+            i+=1
+
+        network.lopf(timeindex, solver_name=args['solver'])
+
+
+
+
+
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
@@ -306,19 +418,34 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
-    # close session
-    session.close()
-
     return network
 
 
-if __name__ == '__main__':
-    # execute etrago function
-    network = etrago(args)
-    # plots
-    # make a line loading plot
-    plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    storage_distribution(network)
+
+# execute etrago function
+network = etrago(args)
+
+
+
+network.
+
+
+
+# plot stacked sum of nominal power for each generator type and timestep
+plot_stacked_gen(network, resolution="MW")
+
+# plot to show extendable transformers
+transformers_distribution(network,filename='transformers_distribution.png')
+
+# plot the extendables power
+plot_dif_line_MW(network,filename='extendables_lines.png')
+
+# plot the extendables power in percent
+plot_dif_line_percent(network,filename='extendables_lines_percent.png')
+
+
+
+# ToDo bug in this plot function
+##################### Plotting the Results #####################
+plot_max_opt_line_loading(network,lines_time,\
+                             filename='maximum_optimal_lines.png')
