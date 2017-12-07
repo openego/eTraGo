@@ -1,5 +1,5 @@
-Release 0.2 (September 8, 2017)
-+++++++++++++++++++++++++++++++
+Release 0.2 (July 20, 2017)
++++++++++++++++++++++++++++
 
 **This is the version 0.2 of eTraGo.**
 
