@@ -1,4 +1,4 @@
-Setup 
+Installation 
 =========================
 
 
@@ -23,7 +23,7 @@ With your activated environment `cd` to the cloned directory and run:
 
 This will install all needed packages into your environment. Now you should be ready to go. 
 
-Setup for windows users
+Installation for windows users
 -----------------------------------
 
 - install anaconda inclusing python 3 (https://www.anaconda.com/download/)
@@ -44,23 +44,12 @@ Setup for windows users
    
 - download and install github (https://desktop.github.com) 
 
-- open GitHubDesktop and clone the follwing reposotories from open_eGo
- - Pypsa
- - eTraGo
- - ego.io
+- open GitHubDesktop and clone eTraGo from open_eGo
 
 - open an anaconda prompt as administrator and run:
-
-   ```
-   pip install -e path/to/Github/Folder/pypsa
-   ```
    
    ```
    pip install -e path/to/Github/Folder/eTraGo
-   ```
-   
-   ```
-   pip install -e path/to/Github/Folder/ego.io
    ```
    
    ```
