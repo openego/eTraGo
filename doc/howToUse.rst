@@ -12,5 +12,7 @@ Add description here....
 Overview of setting arguments 
 =============================
 
-.. automodule:: etrago.appl
-    :members: etrago
+
+
+:meth:`etrago.appl.etrago`
+
