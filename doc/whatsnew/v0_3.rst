@@ -8,14 +8,3 @@ Release 0.3 (September 8, 2017)
 Added features
 --------------
 * k-means clustering
-* 
-
-Bug fixes
----------
-* 
-
-Other changes
--------------
-* 
-
-
