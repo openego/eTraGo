@@ -198,33 +198,28 @@ class MiniSolverDisaggregation(Disaggregation):
             generators = self.original_network.generators.assign(
                 bus=lambda df: df.bus.map(self.clustering.busmap))
             grouper = [generators.carrier]
-            i = 0
-            for carrier in generators.carrier:
-                def construct_constraint(model, snapshot):
-                    # TODO: Optimize
+            def construct_constraint(model, snapshot, carrier):
+                # TODO: Optimize
 
-                    generator_p = [model.generator_p[(x, snapshot)] for x in
-                                   generators.loc[(generators.bus == cluster) &
-                                                  (generators.carrier == carrier)].index]
-                    if not generator_p:
-                        return Constraint.Feasible
-                    sum_generator_p = sum(generator_p)
+                generator_p = [model.generator_p[(x, snapshot)] for x in
+                               generators.loc[(generators.bus == cluster) &
+                                              (generators.carrier == carrier)].index]
+                if not generator_p:
+                    return Constraint.Feasible
+                sum_generator_p = sum(generator_p)
 
-                    cluster_generators = self.clustered_network.generators[
-                        self.clustered_network.generators.bus == cluster][
-                        self.clustered_network.generators.carrier == carrier]
-                    sum_clustered_p = sum(
-                        self.clustered_network.generators_t['p'][c][
-                            snapshot] for
-                        c in cluster_generators.index)
-                    return sum_generator_p == sum_clustered_p
+                cluster_generators = self.clustered_network.generators[
+                    (self.clustered_network.generators.bus == cluster) &
+                    (self.clustered_network.generators.carrier == carrier)]
+                sum_clustered_p = sum(
+                    self.clustered_network.generators_t['p'][c][
+                        snapshot] for
+                    c in cluster_generators.index)
+                return sum_generator_p == sum_clustered_p
 
-                # TODO: Generate a better name
-                network.model.add_component('validate_generators' + str(i),
-                                            Constraint(list(snapshots),
-                                                rule=construct_constraint))
-                i += 1
-
+            # TODO: Generate a better name
+            network.model.validate_generators = Constraint(list(snapshots), set(generators.carrier),
+                                            rule=construct_constraint)
         return extra_functionality
 
 
