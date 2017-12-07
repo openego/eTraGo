@@ -297,9 +297,7 @@ def etrago(args):
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-    #   #    #    #    # #    #    #
-     #   # #  ####  # #   ###      #
-    # #    #  #   #   #  #   #    ###
+
     # line extendable in order of a grid extension
     if args['line_extendable']:
         line_extendable(network,args,scenario,start_time)
