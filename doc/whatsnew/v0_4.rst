@@ -1,6 +1,6 @@
 Release 0.4 (October 12, 2017)
 ++++++++++++++++++++++++++++++
-**eTraGo introduces ego.powerflow functionalities**
+**eTraGo integrates ego.powerflow functionalities**
 
 
 Release 0.4 is mainly the merging of ego.powerflow into eTraGo. 
