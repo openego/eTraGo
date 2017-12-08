@@ -1,17 +1,16 @@
 Release 0.5 (December 08, 2017)
 ++++++++++++++++++++++++++++++++
-
-<short summary>
+eTraGo now works with PyPSA 0.11.0.
 
 
 Added features
 --------------
 * Readthedocs documentation
-* 
+* Result export to postgresql database in particular to the open energy data base (oedb) 
 
 Bug fixes
 ---------
-* 
+* k-means clustering got a more suitable scaling factor concerning calculations on the 110kV grid.
 
 Other changes
 -------------
