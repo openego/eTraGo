@@ -20,13 +20,17 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
-from math import sqrt
-from geoalchemy2.shape import to_shape
+
+import os
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import time
 import matplotlib
+from math import sqrt
+if not 'READTHEDOCS' in os.environ:
+    from geoalchemy2.shape import to_shape
+
 
 
 def add_coordinates(network):
@@ -79,7 +83,7 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
                    apply(sqrt) / (network.lines.s_nom)) * 100 
 
     # do the plotting
-    ll = network.plot(line_colors=abs(loading), line_cmap=cmap,
+    ll = network.plot(line_colors=loading, line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
     
     # add colorbar, note mappable sliced from ll by [1]
@@ -94,19 +98,6 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
 
     cb.set_label('Line loading in %')
     
-#==============================================================================
-#     x, y, u, v = np.zeros((4, 10))
-#     path = ll[1].get_segments()
-#     for i in range(0, len(x)):
-#         x[i] = path[i][0][0]
-#         y[i] = path[i][0][1]
-#         u[i] = path[i][1][0] - path[i][0][0]
-#         v[i] = path[i][1][1] - path[i][0][1]
-#     plt.quiver(x, y, u, v, scale=1, units="xy")
-#     plt.axis('equal')
-#     plt.grid()
-#==============================================================================
-    
     if arrows:
         ax = plt.axes()
         path = ll[1].get_segments()
@@ -116,27 +107,16 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
         for i in range(0, len(path)):
             x_coords_lines[i] = network.buses.loc[str(network.lines.iloc[i, 2]),'x']
             color = colors[i]
-            if (x_coords_lines[i] == path[i][0][0] and loading[i] >= 0)\
-                or (x_coords_lines[i] != path[i][0][0] and loading[i] < 0):
-                    arrowprops = dict(arrowstyle="<-", color=color)
-            else:
+            if (x_coords_lines[i] == path[i][0][0] and loading_c[i] >= 0):
                 arrowprops = dict(arrowstyle="->", color=color)
+            else:
+                arrowprops = dict(arrowstyle="<-", color=color)
             ax.annotate("",
                         xy=abs((path[i][0] - path[i][1]) * 0.51 - path[i][0]),
                         xytext=abs((path[i][0] - path[i][1]) * 0.49 - path[i][0]),
                         arrowprops=arrowprops,
                         size=10
                         )
-    
-#==============================================================================
-#     ax = plt.axes()
-#     for i in range(0, 10):
-#         ax.arrow(x = ll[1].get_segments()[i][0][0],
-#                  y = ll[1].get_segments()[i][0][1],
-#                  dx = ll[1].get_segments()[i][1][0] - ll[1].get_segments()[i][0][0],
-#                  dy = ll[1].get_segments()[i][1][1] - ll[1].get_segments()[i][0][1]
-#                  )
-#==============================================================================
     
     if filename is None:
         plt.show()
@@ -423,6 +403,43 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     plot.set_ylabel('Difference in Generation in MW')
     plot.set_title('Difference in Generation')
     plt.tight_layout()
+    
+def plot_voltage(network, boundaries=[]):
+    """
+    Plot voltage at buses as hexbin
+    
+    
+    Parameters
+    ----------
+    network : PyPSA network container
+    boundaries: list of 2 values, setting the lower and upper bound of colorbar
+
+    Returns
+    -------
+    Plot 
+    """
+    
+    x = np.array(network.buses['x'])
+    y = np.array(network.buses['y'])
+    
+    alpha = np.array(network.buses_t.v_mag_pu.loc[network.snapshots[0]])
+    
+    fig,ax = plt.subplots(1,1)
+    fig.set_size_inches(6,4)
+    cmap = plt.cm.jet 
+    if not boundaries:
+        plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100) 
+        cb = plt.colorbar()
+    elif boundaries:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        norm = matplotlib.colors.BoundaryNorm(v, cmap.N)
+        plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100, norm=norm) 
+        cb = plt.colorbar(boundaries=v, ticks=v[0:101:10], norm=norm)
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb.set_label('Voltage Magnitude per unit of v_nom')
+    
+    network.plot(ax=ax,line_widths=pd.Series(0.5,network.lines.index), bus_sizes=0)
+    plt.show()
 
 def curtailment(network, carrier='wind', filename=None):
     
@@ -681,9 +698,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
     else:
        plt.savefig(filename)
        plt.close()
-
-
-
-    
+        
+        
 if __name__ == '__main__':
     pass

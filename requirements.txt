@@ -1,5 +1,3 @@
-# Packages for read the docs
-sphinx_rtd_theme
 
 # use pip install -r requirements.txt to setup your virtualenv 
 
