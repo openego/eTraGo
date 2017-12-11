@@ -20,6 +20,7 @@ if not 'READTHEDOCS' in os.environ:
                                  group_parallel_lines)
     from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
+    from appl import etrago                                       
 import csv
 # toDo reduce import
 
@@ -373,8 +374,113 @@ def set_trafo_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
     return network,trafo_time
 
 
+def line_extendable_short(network, args, scenario):
+    """
+    Function witch prepare and run a
+    line_extendable calculation.
 
-def line_extendable(network, args, scenario,start_time):
+    """  
+   
+   
+   # set the capacity-factory for the first lopf
+    cap_fac = 1.3
+         
+    # Change the capcity of lines and transformers
+    network = capacity_factor(network,cap_fac)
+                                        
+    ############################ 1. Lopf ###########################
+    parallelisation(network, start_snapshot=args['start_snapshot'], \
+        end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+         
+        
+    # return to original capacities
+    network = capacity_factor(network,(1/cap_fac))
+        
+        
+    # plotting the loadings of lines at start
+    plot_max_line_loading(network,filename = 'Start_maximum_line_loading.png')
+         
+         
+    ############################ Analyse ############################
+         
+    # Finding the overload lines and timesteps
+    maximum_line_loading,line_time_list = overload_lines(network)
+         
+    # Finding the overload transformers and timestep
+    maximum_trafo_loading,trafo_time_list = overload_trafo(network)
+                     
+    ####################### Set capital cost ########################
+         
+    # Set capital cost for extendable lines
+    cost_1 = 60000 # 110kV extendable
+    cost_2 = 1600000/2 # 220kV extendable
+    cost_3 = 200000 # 380kV extendable
+        
+    network,lines_time,all_time = set_line_cost(network,\
+                                                line_time_list,\
+                                                maximum_line_loading,\
+                                                cost_1,\
+                                                cost_2,\
+                                                cost_3)
+         
+         
+    # Set capital cost for extendable trafo
+    cost_1 = 5200000/300 # 220/110kV or 380/110kV extendable
+    cost_2 = 8500000/600# 380/220kV extendable
+    cost_3 = 8500000/600 # other extendable
+         
+    network,trafo_time = set_trafo_cost(network,\
+                                        trafo_time_list,\
+                                        maximum_trafo_loading,\
+                                        cost_1,\
+                                        cost_2,\
+                                        cost_3)
+        
+         
+    ####################### Set all timesteps #######################
+    all_time.sort() 
+    i=0
+    while(i<len(trafo_time)):
+        if((trafo_time[i] in all_time) == True):
+            i+=1
+        else:
+            all_time.append(trafo_time[i])
+            i+=1
+                
+    ######################### calc 2. Lopf ##########################
+    length_time = len(all_time)
+    if(length_time==0):
+        timeindex = scenario.timeindex
+        
+    network.lines.capital_cost =\
+                                network.lines.capital_cost * length_time
+
+    network.transformers.capital_cost =\
+                         network.transformers.capital_cost * length_time
+    
+    all_time.sort()
+    i=0
+    while(i<len(all_time)):
+        if i==0:
+            timeindex = network.snapshots[all_time[i]:all_time[i]+1]
+        else:
+            timeindex =pd.DatetimeIndex.append(timeindex,\
+                      other=network.snapshots[all_time[i]:all_time[i]+1])
+        i+=1
+           
+    network.lopf(timeindex, solver_name=args['solver'])            
+                    
+        
+    ##################### Plotting the Results #####################
+    plot_max_opt_line_loading(network,lines_time,\
+                                  filename='maximum_optimal_lines.png')
+         
+    return network
+
+
+
+
+def line_extendable(network, args, scenario, start_time):
     """
     Function witch prepare and run a
     line_extendable calculation.
@@ -383,7 +489,8 @@ def line_extendable(network, args, scenario,start_time):
 
 
     """
-
+  
+    
     ############################## methode ##############################
     # If calc_type == True -> Methodik
     if args['calc_type']:
@@ -705,12 +812,24 @@ def line_extendable(network, args, scenario,start_time):
                 timeindex = pd.DatetimeIndex.append(timeindex,other=network.snapshots[all_time[i]:all_time[i]+1])
             i+=1
 
-        network.lopf(timeindex, solver_name=args['solver'])
+      # change position of lopf
+      
+        x = time.time()
+        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+
+        #network.lopf(timeindex, solver_name=args['solver'])
 
 
-#            network.lopf(scenario.timeindex, solver_name=args['solver'])
+        #   network.lopf(scenario.timeindex, solver_name=args['solver'])
         objective=[[0],[network.objective]]
         print(str(network.objective))
+        
+        
+        
+        
+        
 
         ###################### Plotting the Results ######################
         filename = args['line_ext_vers'] + '_01_Start_line_maximum_loading_' + file_name_method +'.png'
@@ -777,7 +896,7 @@ def line_extendable(network, args, scenario,start_time):
                                  'dif': network.transformers.s_nom_opt[i]-network.transformers.s_nom[i]})
                 i+=1
 
-        return network,start_time
+        return network, start_time
 
 
 def line_extendable_ma(network, args,start_time):

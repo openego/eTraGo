@@ -45,7 +45,8 @@ if not 'READTHEDOCS' in os.environ:
                                            kmean_clustering)
     from tools.line_extendable import (capacity_factor,overload_lines,
                                         overload_trafo,set_line_cost,set_trafo_cost,
-                                        line_extendable, line_extendable_ma)
+                                        line_extendable, line_extendable_ma,
+                                        line_extendable_short)
 
 ################################################################################
 
@@ -214,7 +215,7 @@ def etrago(args):
     """
     # Set start time
     start_time = time.time()
-
+    
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
@@ -293,14 +294,14 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
-
+        
+    # line extendable in order of a grid extension
+    if args['line_extendable']:
+        line_extendable_short(network,args,scenario)
+        
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-
-    # line extendable in order of a grid extension
-    if args['line_extendable']:
-        line_extendable(network,args,scenario,start_time)
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
@@ -308,6 +309,7 @@ def etrago(args):
         network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
+        
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
@@ -335,9 +337,9 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
-    return network, start_time
+    return network
 
-
+# return start_time in if ...
 
 
 if __name__ == '__main__':
@@ -347,9 +349,10 @@ if __name__ == '__main__':
     # make a line loading plot
     #plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
+    #storage_distribution(network)
+    # Set start time
+   # start_time = time.time()
 
-
-    line_extendable_ma(network,args,start_time)
+    #line_extendable_ma(network,args,start_time)
