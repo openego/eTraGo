@@ -95,8 +95,7 @@ class Disaggregation:
 
         buses_in_lines = self.buses[busflags].index
 
-        bus_types = ['loads', 'generators', 'stores', 'storage_units',
-                     'generators', 'shunt_impedances']
+        bus_types = ['loads', 'generators', 'stores', 'storage_units', 'shunt_impedances']
 
         partial_network.buses = self.original_network.buses[
             self.original_network.buses.index.isin(buses_in_lines)]
@@ -169,8 +168,7 @@ class Disaggregation:
         profile.print_stats(sort='cumtime')
 
     def transfer_results(self, partial_network, externals):
-        for bustype in ['loads', 'generators', 'stores', 'storage_units',
-                     'generators', 'shunt_impedances']:
+        for bustype in ['loads', 'generators', 'stores', 'storage_units', 'shunt_impedances']:
             changed_buses = getattr(partial_network, bustype).index.intersection(getattr(self.original_network, bustype).index)
             orig_buses = getattr(self.original_network, bustype+'_t')
             part_buses = getattr(partial_network, bustype + '_t')
@@ -189,8 +187,9 @@ class MiniSolverDisaggregation(Disaggregation):
     def add_constraints(self, cluster, extra_functionality=None):
         if extra_functionality is None:
             extra_functionality = lambda network, snapshots: None
-        return self._validate_disaggregation_generators(cluster,
+        extra_functionality = self._validate_disaggregation_generators(cluster,
                                                         extra_functionality)
+        return extra_functionality
 
     def _validate_disaggregation_generators(self, cluster, f):
         def extra_functionality(network, snapshots):
@@ -212,8 +211,7 @@ class MiniSolverDisaggregation(Disaggregation):
                     (self.clustered_network.generators.bus == cluster) &
                     (self.clustered_network.generators.carrier == carrier)]
                 sum_clustered_p = sum(
-                    self.clustered_network.generators_t['p'][c][
-                        snapshot] for
+                    self.clustered_network.generators_t['p'].loc[snapshot,c] for
                     c in cluster_generators.index)
                 return sum_generator_p == sum_clustered_p
 
@@ -222,6 +220,33 @@ class MiniSolverDisaggregation(Disaggregation):
                                             rule=construct_constraint)
         return extra_functionality
 
+    def _validate_disaggregation_buses(self, cluster, f):
+        def extra_functionality(network, snapshots):
+            f(network, snapshots)
+
+            for bustype, bustype_pypsa, suffixes in [
+                ('storage', 'storage_units', ['_dispatch', '_spill', '_store']),
+                ('store', 'stores',[''])]:
+                generators = getattr(self.original_network, bustype_pypsa).assign(
+                    bus=lambda df: df.bus.map(self.clustering.busmap))
+                for suffix in suffixes:
+                    def construct_constraint(model, snapshot):
+                        # TODO: Optimize
+                        buses_p = [getattr(model,bustype + '_p' + suffix)[(x, snapshot)] for x in
+                                       generators.loc[(generators.bus == cluster)].index]
+                        if not buses_p:
+                            return Constraint.Feasible
+                        sum_bus_p = sum(buses_p)
+                        cluster_buses = getattr(self.clustered_network, bustype_pypsa)[
+                            (getattr(self.clustered_network, bustype_pypsa).bus == cluster)]
+                        sum_clustered_p = sum(
+                            getattr(self.clustered_network, bustype_pypsa + '_t')['p'].loc[snapshot,c] for
+                            c in cluster_buses.index)
+                        return sum_bus_p == sum_clustered_p
+
+                    # TODO: Generate a better name
+                    network.model.add_component('validate_' + bustype + suffix,Constraint(list(snapshots), rule=construct_constraint))
+        return extra_functionality
 
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
