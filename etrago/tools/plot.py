@@ -316,7 +316,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
               'slack':'pink',
               'load shedding': 'red',
               'nan':'m',
-              'imports':'salmon'}
+              'imports':'salmon',
+              '':'m'}
 
 #    TODO: column reordering based on available columns
 
