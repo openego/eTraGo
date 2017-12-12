@@ -55,6 +55,8 @@ class Disaggregation:
         and `external_buses` represent clusters adjacent to `cluster` that may
         be influenced by calculations done on the partial network.
         """
+
+        #Create an empty network
         partial_network = scenario.build_network()
 
         # find all lines that have at least one bus inside the cluster
@@ -68,22 +70,23 @@ class Disaggregation:
         partial_network.snapshot_weightings = self.original_network.snapshot_weightings
         partial_network.carriers = self.original_network.carriers
 
-        line_types = ['lines', 'links', 'transformers']
-
         # Collect all connectors that have some node inside the cluster
 
         external_buses = pd.DataFrame()
 
-
-
+        line_types = ['lines', 'links', 'transformers']
         for line_type in line_types:
+            # Copy all lines that reside entirely inside the cluster ...
             setattr(partial_network, line_type,
                     filter_internal_connector(
                         getattr(self.original_network, line_type),
                         is_bus_in_cluster))
+
+            # ... and their time series
             setattr(partial_network, line_type + '_t',
                     getattr(self.original_network, line_type + '_t'))
 
+            # Copy all lines whose `bus0` lies within the cluster
             left_external_connectors = filter_left_external_connector(
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
@@ -93,6 +96,7 @@ class Disaggregation:
                 external_buses = pd.concat(
                     (external_buses, left_external_connectors.bus0))
 
+            # Copy all lines whose `bus1` lies within the cluster
             right_external_connectors = filter_right_external_connector(
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
@@ -108,41 +112,50 @@ class Disaggregation:
 
         bus_types = ['loads', 'generators', 'stores', 'storage_units', 'shunt_impedances']
 
+        # Copy all values that are part of the cluster
         partial_network.buses = self.original_network.buses[
             self.original_network.buses.index.isin(buses_in_lines)]
 
+        # Collect all buses that are external, but connected to the cluster ...
         externals_to_insert = self.clustered_network.buses[
             self.clustered_network.buses.index.isin(
                 map(lambda x: x[0][len(self.idx_prefix):],
                     external_buses.values))]
 
+        # ... prefix them to avoid name clashes with buses from the original
+        # network ...
         self.reindex_with_prefix(externals_to_insert)
 
+        # .. and insert them as well as their time series
         partial_network.buses = partial_network.buses.append(externals_to_insert)
         partial_network.buses_t = self.original_network.buses_t
 
+        # TODO: Rename `bustype` to on_bus_type
         for bustype in bus_types:
             # Copy loads, generators, ... from original network to network copy
             setattr(partial_network, bustype,
                     filter_buses(getattr(self.original_network, bustype),
                                  buses_in_lines))
 
-            # Include external clusters
+            # Collect on-bus components from external, connected clusters
             buses_to_insert = filter_buses(
                 getattr(self.clustered_network, bustype),
                 map(lambda x: x[0][len(self.idx_prefix):],
                     external_buses.values))
 
+            # Prefix their external bindings
             buses_to_insert.bus = self.idx_prefix + buses_to_insert.bus
 
             setattr(partial_network, bustype,
                     getattr(partial_network, bustype).append(buses_to_insert))
 
-            # Also copy t-dictionaries
+            # Also copy their time series
             setattr(partial_network,
                     bustype + '_t',
                     getattr(self.original_network, bustype + '_t'))
 
+        # Just a simple sanity check
+        # TODO: Remove when sure that disaggregation will not go insane anymore
         for line_type in line_types:
             assert (getattr(partial_network, line_type).bus0.isin(
                 partial_network.buses.index).all())
