@@ -22,6 +22,8 @@ class Disaggregation:
                               clustering.busmap.to_frame(name='cluster'),
                               left_index=True, right_index=True)
 
+        self.idx_prefix = '_'
+
     def add_constraints(self, cluster, extra_functionality=None):
         """
         Dummy function that allows the extension of `extra_functionalites` by
@@ -32,6 +34,15 @@ class Disaggregation:
         :return: unaltered `extra_functionalites`
         """
         return extra_functionality
+
+    def reindex_with_prefix(self, dataframe, prefix=None):
+        if prefix is None:
+            prefix = self.idx_prefix
+            dataframe.set_index(
+                dataframe.index.map(lambda x: self.idx_prefix + x),
+            inplace=True)
+
+
 
     def construct_partial_network(self, cluster, scenario):
         """
@@ -63,7 +74,7 @@ class Disaggregation:
 
         external_buses = pd.DataFrame()
 
-        idx_prefix = '_'
+
 
         for line_type in line_types:
             setattr(partial_network, line_type,
@@ -78,7 +89,7 @@ class Disaggregation:
                 is_bus_in_cluster)
 
             if not left_external_connectors.empty:
-                left_external_connectors.bus0 = idx_prefix + left_external_connectors.bus0_s
+                left_external_connectors.bus0 = self.idx_prefix + left_external_connectors.bus0_s
                 external_buses = pd.concat(
                     (external_buses, left_external_connectors.bus0))
 
@@ -86,7 +97,7 @@ class Disaggregation:
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
-                right_external_connectors.bus1 = idx_prefix + right_external_connectors.bus1_s
+                right_external_connectors.bus1 = self.idx_prefix + right_external_connectors.bus1_s
                 external_buses = pd.concat(
                     (external_buses, right_external_connectors.bus1))
 
@@ -99,11 +110,15 @@ class Disaggregation:
 
         partial_network.buses = self.original_network.buses[
             self.original_network.buses.index.isin(buses_in_lines)]
-        partial_network.buses = partial_network.buses.append(
-            self.clustered_network.buses[
-                self.clustered_network.buses.index.isin(
-                    map(lambda x: x[0][len(idx_prefix):],
-                        external_buses.values))])
+
+        externals_to_insert = self.clustered_network.buses[
+            self.clustered_network.buses.index.isin(
+                map(lambda x: x[0][len(self.idx_prefix):],
+                    external_buses.values))]
+
+        self.reindex_with_prefix(externals_to_insert)
+
+        partial_network.buses = partial_network.buses.append(externals_to_insert)
         partial_network.buses_t = self.original_network.buses_t
 
         for bustype in bus_types:
@@ -115,9 +130,11 @@ class Disaggregation:
             # Include external clusters
             buses_to_insert = filter_buses(
                 getattr(self.clustered_network, bustype),
-                map(lambda x: x[0][len(idx_prefix):],
+                map(lambda x: x[0][len(self.idx_prefix):],
                     external_buses.values))
-            buses_to_insert.index = pd.Index(idx_prefix + buses_to_insert.index)
+
+            buses_to_insert.bus = self.idx_prefix + buses_to_insert.bus
+
             setattr(partial_network, bustype,
                     getattr(partial_network, bustype).append(buses_to_insert))
 
