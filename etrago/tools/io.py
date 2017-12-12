@@ -221,7 +221,7 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.8.0':
+        if pypsa.__version__ == '0.11.0':
 
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
@@ -524,6 +524,6 @@ def results_to_oedb(session, network, args, grid='hv'):
     
     
 if __name__ == '__main__':
-    if pypsa.__version__ not in ['0.6.2', '0.8.0']:
+    if pypsa.__version__ not in ['0.6.2', '0.11.0']:
         print('Pypsa version %s not supported.' % pypsa.__version__)
     pass
