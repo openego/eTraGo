@@ -36,11 +36,11 @@ from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulati
                                     loading_minimization, calc_line_losses, group_parallel_lines, subnetworks_switches)
 from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
-start = [1, 1]
+start = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2160, 4344, 6552]
 
-end = [1, 1]
+end = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 
-steps = [1, 2]
+steps = [0, 1, 3, 7, 15, 31, 63, 127, 167, 167, 167, 167]
 
 i = 0
 
@@ -67,7 +67,7 @@ n = 0
 
 while n < 2*len(start):
     
-    results_list.append('TotalResults'+ str(n) + '.csv')
+    results_list.append('TotalResults' + str(n) + '.csv')
 
     args = {# Setup and Configuration:
             'db': 'local', # db session
@@ -384,14 +384,18 @@ while n < 2*len(start):
     
     n = n + 1
     
+    
     # plots
     
     # make a line loading plot
     #plot_line_loading(network)
+    
     # plot stacked sum of nominal power for each generator type and timestep
     #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     #storage_distribution(network)
+    
+    
     
     # close session
     #session.close()
