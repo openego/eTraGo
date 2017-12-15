@@ -419,7 +419,9 @@ def kmean_clustering(network, n_clusters=10):
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = 1
-    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True)
+    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
+    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
