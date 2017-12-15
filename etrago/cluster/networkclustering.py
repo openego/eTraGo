@@ -91,6 +91,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         network_c.set_snapshots(network.snapshots)
 
     # dealing with generators
+    network.generators.control="PV"
     network.generators['weight'] = 1
     new_df, new_pnl = aggregategenerators(network, busmap, with_time)
     io.import_components_from_dataframe(network_c, new_df, 'Generator')
