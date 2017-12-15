@@ -67,7 +67,7 @@ n = 0
 
 while n < 2*len(start):
     
-    results_list.append('TotalResults' + str(n) + '.csv')
+    results_list.append('outputStatusQuo' + str(n) + '.csv')
 
     args = {# Setup and Configuration:
             'db': 'local', # db session
@@ -76,7 +76,7 @@ while n < 2*len(start):
             'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
             'start_snapshot': start_list[n], 
             'end_snapshot' : end_list[n],
-            'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+            'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             'solver': 'glpk', # glpk, cplex or gurobi
             # Export options:
             'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -377,7 +377,7 @@ while n < 2*len(start):
     calc_time = (end_time - start_time)
     print(calc_time)
     
-    name.append('results'+ str(n) + '2.csv')
+    name.append('results'+ str(n) + '.csv')
 
     output['time'] = calc_time
     output.to_csv(name[n], sep=';', decimal=',')
