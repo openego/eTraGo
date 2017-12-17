@@ -26,15 +26,15 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from etrago.tools.io import NetworkScenario, results_to_oedb
-from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+from tools.io import NetworkScenario, results_to_oedb
+from tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+from cluster.snapshot import snapshot_clustering, daily_bounds
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -42,13 +42,12 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 48,
-        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 72,
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':'C:/eTraGo/etrago/results', # state if and where you want to save results as csv: False or /path/tofolder
-        'results2':'C:/eTraGo/etrago/results2', 
+        'results':False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
@@ -59,7 +58,7 @@ args = {# Setup and Configuration:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':daily_bounds,
-        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. State False or True
+        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
@@ -276,29 +275,29 @@ def etrago(args):
         
     # snapshot clustering
     if args['snapshot_clustering']:
+        #extra_functionality = daily_bounds
         x = time.time()
         network = snapshot_clustering(network, how='daily', clusters= [2])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
-        #extra_functionality = daily_bounds
-      
-    # parallisation
-    if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-    # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
-        y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
-    # start non-linear powerflow simulation
-    elif args['method'] == 'pf':
-        network.pf(scenario.timeindex)
-       # calc_line_losses(network)
-        
-    if args['pf_post_lopf']:
-        pf_post_lopf(network, scenario)
-        calc_line_losses(network)
+    else:
+        # parallisation
+        if args['parallelisation']:
+            parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        # start linear optimal powerflow calculations
+        elif args['method'] == 'lopf':
+            x = time.time()
+            network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+            y = time.time()
+            z = (y - x) / 60 # z is time for lopf in minutes
+        # start non-linear powerflow simulation
+        elif args['method'] == 'pf':
+            network.pf(scenario.timeindex)
+           # calc_line_losses(network)
+            
+        if args['pf_post_lopf']:
+            pf_post_lopf(network, scenario)
+            calc_line_losses(network)
     
        # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
@@ -309,15 +308,15 @@ def etrago(args):
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                     True})
+                                                    True})
     
     # write PyPSA results back to database
     if args['export']:
         results_to_oedb(session, network, args, 'hv')  
         
     # write PyPSA results to csv to path
-    if not args['results2'] == False:
-        results_to_csv(network, args['results2'])
+    if not args['results'] == False:
+        results_to_csv(network, args['results'])
 
     # close session
     session.close()
@@ -330,10 +329,9 @@ if __name__ == '__main__':
     network = etrago(args)
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+    #plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
-    #curtailment(network)
-    #gen_dist(network)
+    #storage_distribution(network)
+   
