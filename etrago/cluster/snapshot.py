@@ -26,9 +26,10 @@ import logging
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
+from etrago.tools.utilities import results_to_csv
 
-write_results = False
-home = os.path.expanduser("~")
+write_results = True
+home = os.path.expanduser('C:/eTraGo/etrago')
 resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
 
 def snapshot_clustering(network, how='daily', clusters= []):
@@ -80,13 +81,12 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     # start powerflow calculations
     network_lopf(network, snapshots, extra_functionality = daily_bounds,
                  solver_name='gurobi')
-#==============================================================================
-#     # write results to csv
-#     if write_results:
-#         results_to_csv(network, path)
-# 
-#         write_lpfile(network, path=os.path.join(path, "file.lp"))
-#==============================================================================
+    
+    # write results to csv
+    if write_results:
+        results_to_csv(network, path)
+
+        write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network        
 
