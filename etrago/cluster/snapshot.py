@@ -34,6 +34,12 @@ resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_nam
 
 def snapshot_clustering(network, how='daily', clusters= []):
 
+#==============================================================================
+#     # This will calculate the original problem
+#     run(network=network.copy(), path=resultspath,
+#     write_results=write_results, n_clusters=None)
+#==============================================================================
+    
     for c in clusters:
         path = os.path.join(resultspath, how)
 
