@@ -1,4 +1,6 @@
-﻿"""
+﻿
+# -*- coding: utf-8 -*-
+
 This is the application file for the tool eTraGo. 
 
 Define your connection parameters and power flow settings before executing the function etrago.
@@ -15,7 +17,6 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -26,12 +27,21 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from etrago.tools.io import NetworkScenario, results_to_oedb
-from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+
+import os
+
+if not 'READTHEDOCS' in os.environ:
+    # Sphinx does not run this code.
+    # Do not import internal packages directly  
+    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                    results_to_csv, parallelisation, pf_post_lopf, 
+                                    loading_minimization, calc_line_losses, group_parallel_lines)
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+
 
 #from etrago.tools.nep import add_extension_network
 
@@ -155,9 +165,8 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to 
         only 'k' buses. The weighting takes place considering generation and load
-        at each node. 
-        If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
+        at each node. If so, state the number of k you want to apply. Otherwise 
+        put False. This function doesn't work together with 'line_grouping = True'
 	    or 'network_clustering = True'.
     
     network_clustering (bool):
@@ -320,23 +329,24 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
+    # close session
+    session.close()
+
     return network
 
-  
-# execute etrago function
-network = etrago(args)
 
-# plots
-
-# make a line loading plot
-plot_line_loading(network)
-# plot stacked sum of nominal power for each generator type and timestep
-#plot_stacked_gen(network, resolution="MW")
-# plot to show extendable storages
-#storage_distribution(network)
-
-curtailment(network)
 
 # close session
 #session.close()
 
+
+if __name__ == '__main__':
+    # execute etrago function
+    network = etrago(args)
+    # plots
+    # make a line loading plot
+    plot_line_loading(network)
+    # plot stacked sum of nominal power for each generator type and timestep
+    plot_stacked_gen(network, resolution="MW")
+    # plot to show extendable storages
+    storage_distribution(network)

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Plot.py defines functions necessary to plot results of eTraGo.
 
 This program is free software; you can redistribute it and/or
@@ -20,13 +20,17 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
-from math import sqrt
-from geoalchemy2.shape import to_shape
+
+import os
 from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import time
 import matplotlib
+from math import sqrt
+if not 'READTHEDOCS' in os.environ:
+    from geoalchemy2.shape import to_shape
+
 
 
 def add_coordinates(network):
@@ -84,10 +88,8 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     line_colors = pd.Series( index= comp)  
     line_cmap = dict(line_cmap = c_map, link_cmap = cmap)     
     # do the plotting
-    ll = network.plot(line_colors, line_cmap,
-                      title="Line loading", line_widths=0.55)"""
-    
-    ll = network.plot(line_colors=abs(loading), line_cmap=cmap,
+
+    ll = network.plot(line_colors=loading, line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
 
@@ -101,19 +103,6 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
 
     cb.set_label('Line loading in %')
     
-#==============================================================================
-#     x, y, u, v = np.zeros((4, 10))
-#     path = ll[1].get_segments()
-#     for i in range(0, len(x)):
-#         x[i] = path[i][0][0]
-#         y[i] = path[i][0][1]
-#         u[i] = path[i][1][0] - path[i][0][0]
-#         v[i] = path[i][1][1] - path[i][0][1]
-#     plt.quiver(x, y, u, v, scale=1, units="xy")
-#     plt.axis('equal')
-#     plt.grid()
-#==============================================================================
-    
     if arrows:
         ax = plt.axes()
         path = ll[1].get_segments()
@@ -123,27 +112,16 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
         for i in range(0, len(path)):
             x_coords_lines[i] = network.buses.loc[str(network.lines.iloc[i, 2]),'x']
             color = colors[i]
-            if (x_coords_lines[i] == path[i][0][0] and loading[i] >= 0)\
-                or (x_coords_lines[i] != path[i][0][0] and loading[i] < 0):
-                    arrowprops = dict(arrowstyle="<-", color=color)
-            else:
+            if (x_coords_lines[i] == path[i][0][0] and loading_c[i] >= 0):
                 arrowprops = dict(arrowstyle="->", color=color)
+            else:
+                arrowprops = dict(arrowstyle="<-", color=color)
             ax.annotate("",
                         xy=abs((path[i][0] - path[i][1]) * 0.51 - path[i][0]),
                         xytext=abs((path[i][0] - path[i][1]) * 0.49 - path[i][0]),
                         arrowprops=arrowprops,
                         size=10
                         )
-    
-#==============================================================================
-#     ax = plt.axes()
-#     for i in range(0, 10):
-#         ax.arrow(x = ll[1].get_segments()[i][0][0],
-#                  y = ll[1].get_segments()[i][0][1],
-#                  dx = ll[1].get_segments()[i][1][0] - ll[1].get_segments()[i][0][0],
-#                  dy = ll[1].get_segments()[i][1][1] - ll[1].get_segments()[i][0][1]
-#                  )
-#==============================================================================
     
     if filename is None:
         plt.show()
@@ -343,7 +321,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
               'slack':'pink',
               'load shedding': 'red',
               'nan':'m',
-              'imports':'salmon'}
+              'imports':'salmon',
+              '':'m'}
 
 #    TODO: column reordering based on available columns
 
@@ -725,9 +704,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
     else:
        plt.savefig(filename)
        plt.close()
-
-
-
-    
+        
+        
 if __name__ == '__main__':
     pass
