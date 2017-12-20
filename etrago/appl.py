@@ -40,7 +40,7 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 3482, 
+        'start_snapshot': 3682, 
         'end_snapshot' : 3683,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
@@ -63,8 +63,8 @@ args = {# Setup and Configuration:
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network': 'NEP', # None or new scenario name e.g. 'NEP' 
-        'add_be_no': None  # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
+        'add_network':'NEP', # None or new scenario name e.g. 'NEP' 
+        'add_be_no': False   # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
         }
 
 
@@ -224,7 +224,8 @@ def etrago(args):
       
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
-
+    network.transformers.tap_ratio = 1
+    network.transformers.phase_shift = 0
 
     if args['branch_capacity_factor']:
         
