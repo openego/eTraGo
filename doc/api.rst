@@ -2,7 +2,6 @@
 
 .. toctree::
    :maxdepth: 7
-   :glob:
    :titlesonly:
 
-   API <api/modules>
+   eTraGo API <api/modules>
