@@ -1,0 +1,25 @@
+Release 0.5 (December 08, 2017)
+++++++++++++++++++++++++++++++++
+eTraGo works with PyPSA 0.11.0.
+
+
+Added features
+--------------
+* Readthedocs documentation
+* Result export to postgresql database in particular to the open energy data base (oedb)
+* parallelisation function hands over SOC of storages to following problem.
+* New plot for displaying voltage deviations at network buses.
+* Line loading plot displays the direction of power flows.
+
+
+Bug fixes
+---------
+* k-means clustering got a more suitable scaling factor concerning calculations on the 110kV grid. 
+* K-means weighting of the buses is a bit more robust to changes in the data structure.
+* the list of carriers is imported again to the pypsa network from the oedb data model.
+
+
+Other changes
+-------------
+* update PyPSA Version from 0.8.0 to PyPSA 0.11.0 
+
