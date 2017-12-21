@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 This is the application file for the tool eTraGo.
 
@@ -16,6 +15,7 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -26,30 +26,21 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-
-import os
-
-if not 'READTHEDOCS' in os.environ:
-    # Sphinx does not run this code.
-    # Do not import internal packages directly  
-    from etrago.tools.io import NetworkScenario, results_to_oedb
-    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+from etrago.tools.io import NetworkScenario, results_to_oedb
+from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
-    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-
+                                     storage_distribution)
+from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
+from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
+        'start_snapshot': 1,
         'end_snapshot' : 24,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -57,17 +48,17 @@ args = {# Setup and Configuration:
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
+        'generator_noise':True, # state if you want to apply a small generator noise
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 140, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 1, # globally extend or lower branch capacities
-        'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -157,10 +148,10 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to
         only 'k' buses. The weighting takes place considering generation and load
-        at each node. If so, state the number of k you want to apply. Otherwise 
-        put False. This function doesn't work together with 'line_grouping = True'
-	      or 'network_clustering = True'.
-   
+        at each node.
+        If so, state the number of k you want to apply. Otherwise put False.
+        This function doesn't work together with 'line_grouping = True'.
+
     network_clustering (bool):
         False,
         Choose if you want to cluster the full HV/EHV dataset down to only the EHV
@@ -242,8 +233,8 @@ def etrago(args):
 
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
-            network.storage_units.p_nom_extendable[network.storage_units.carrier=='extendable_storage'] = True
+        if network.storage_units.carrier.any()=='extendable_storage':
+            network.storage_units.p_nom_extendable = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
@@ -268,9 +259,7 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
-                                  w_method ='Load and Generation')
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -314,19 +303,93 @@ def etrago(args):
     if not args['results'] == False:
         results_to_csv(network, args['results'])
 
-    # close session
-    session.close()
-
     return network
 
 
-if __name__ == '__main__':
-    # execute etrago function
-    network = etrago(args)
-    # plots
-    # make a line loading plot
-    plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    storage_distribution(network)
+# execute etrago function
+network = etrago(args)
+
+
+# Problem of kmean and Dataset see etrago #77:
+# setting k > 19 results in a cluster of k <= 19
+# The weighting function causes this because load and generation is zero in
+# many buses. Those buses are replaced by pypsa.networkclustering.busmap_by_kmeans by
+# points = (network.buses.loc[buses_i, ["x","y"]].values
+#                  .repeat(bus_weightings.reindex(buses_i).astype(int), axis=0))
+
+
+# testing if geometries are equal
+network.buses.x.unique()
+network.buses.y.unique()
+
+
+# test settings from etrago.networkclustering
+n_clusters = 70
+# Load and generators of Scenaio
+load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
+
+gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
+    ].groupby('bus').p_nom.sum().reindex(network.buses.index,
+    fill_value=0) + network.storage_units.loc[(network.storage_units.carrier.isin(non_conv_types)==False)
+    ].groupby('bus').p_nom.sum().reindex(network.buses.index, fill_value=0))
+
+# different number off load and generator buses
+# for args setting 'start_snapshot': 1,'end_snapshot' : 24, 'scn_name': 'SH Status Quo',
+# number of buses generator = 91 , Load = 21
+len(gen.index)
+len(load.index)
+
+# Values > o gen = 15, load = 21
+gen.where(gen>0).count()
+load.where(load>0).count()
+
+#network.buses.info()
+#network.loads.info()
+
+# testing points for kmean out of pypsa.networkclustering.busmap_by_kmeans
+# and etrago.networkclustering weighting_for_scenario
+
+from pypsa.networkclustering import busmap_by_kmeans, get_clustering_from_busmap
+import pandas as pd
+
+# kmean functions
+def normed(x):
+    return (x/x.sum()).fillna(0.)
+
+# kmean weighting function
+def weighting_for_scenario_test(x):
+    b_i = x.index
+    g = normed(gen.reindex(b_i, fill_value=0))
+    l = normed(load.reindex(b_i, fill_value=0))
+    w =  (l+ g)*1000 # try to higher the valuse to have int values
+    return (w * (100. / w.max())).astype(int)
+
+network.generators
+
+# testing
+weight = weighting_for_scenario_test(network.buses).reindex(network.buses.index, fill_value=1)
+# lenght by setting = 91
+len(weight)
+# non zero values = 19
+weight.where(weight>0).count()
+#weight
+
+# all zero values are replaced as weight
+# random noise of generators or other strategy needed
+busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), buses_i=network.buses.index , n_clusters=n_clusters)
+
+
+
+# plots
+
+# make a line loading plot
+plot_line_loading(network)
+# plot stacked sum of nominal power for each generator type and timestep
+#plot_stacked_gen(network, resolution="MW")
+# plot to show extendable storages
+#storage_distribution(network)
+
+# close session
+#session.close()
