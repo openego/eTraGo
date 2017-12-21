@@ -220,7 +220,7 @@ class NetworkScenario(ScenarioBase):
         network.set_snapshots(self.timeindex)
 
         timevarying_override = False
-       
+
         if pypsa.__version__ == '0.11.0':
 
             old_to_new_name = {'Generator':
