@@ -42,12 +42,12 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 72,
+        'end_snapshot' : 120,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results':'C:\eTraGo\etrago', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
@@ -57,8 +57,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'extra_functionality':daily_bounds,
-        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
@@ -274,31 +273,30 @@ def etrago(args):
         extra_functionality = None
         
     # snapshot clustering
-    if args['snapshot_clustering']:
-        # the results will be stored under "snapshot-clustering-results"
-        #extra_functionality = daily_bounds
+    if not args['snapshot_clustering']==False:
+        extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [1,2,3])
+        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
-    else:
-        # parallisation
-        if args['parallelisation']:
-            parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-        # start linear optimal powerflow calculations
-        elif args['method'] == 'lopf':
-            x = time.time()
-            network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
-            y = time.time()
-            z = (y - x) / 60 # z is time for lopf in minutes
-        # start non-linear powerflow simulation
-        elif args['method'] == 'pf':
-            network.pf(scenario.timeindex)
-           # calc_line_losses(network)
-            
-        if args['pf_post_lopf']:
-            pf_post_lopf(network, scenario)
-            calc_line_losses(network)
+    
+    # parallisation
+    if args['parallelisation']:
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+    # start linear optimal powerflow calculations
+    elif args['method'] == 'lopf':
+        x = time.time()
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+    # start non-linear powerflow simulation
+    elif args['method'] == 'pf':
+        network.pf(scenario.timeindex)
+       # calc_line_losses(network)
+        
+    if args['pf_post_lopf']:
+        pf_post_lopf(network, scenario)
+        calc_line_losses(network)
     
        # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
@@ -335,4 +333,5 @@ if __name__ == '__main__':
     #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     #storage_distribution(network)
+
    
