@@ -522,6 +522,17 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
         session.commit()
     print('Upload finished!')
     
+    return
+
+def run_sql_script(conn, scriptname='results_md2grid.sql'):
+    """This function runs .sql scripts in the folder 'sql_scripts' """
+    
+    script_dir = os.path.abspath(
+                 os.path.join(os.path.dirname(__file__), 'sql_scripts'))
+    script_str = open(os.path.join(script_dir, scriptname)).read()
+    conn.execution_options(autocommit=True).execute(script_str)
+    
+    return
     
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.11.0']:
