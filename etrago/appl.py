@@ -38,7 +38,7 @@ from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
@@ -47,7 +47,7 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':'C:\eTraGo\etrago', # state if and where you want to save results as csv: False or /path/tofolder
+        'results':False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
