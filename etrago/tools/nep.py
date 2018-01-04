@@ -28,12 +28,16 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
                          self.session.bind,
                          index_col=name.lower() + '_id')
     
-        df_extension.scn_name = self.scn_name
+        
     
+        if name == 'Link':
+            df_extension['bus0'] = df_extension.bus0.astype(int)
+            df_extension['bus1'] = df_extension.bus1.astype(int)
+            
         if df_extension.empty == False:
             df = df.append(df_extension)
                         
-        return df          
+        #return df          
     
     
     if self.add_be_no:
@@ -46,12 +50,13 @@ def add_by_scenario (self, df, name,  *args, **kwargs):
                          self.session.bind,
                          index_col=name.lower() + '_id')
     
-        df_be_no.scn_name = self.scn_name
-    
+        
+        
+
         if df_be_no.empty == False:
             df = df.append(df_be_no)
         
-        return df
+       # return df
         
     return df            
     """data = pd.read_sql(query.statement,
@@ -98,7 +103,7 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
 
         # change of format to fit pypsa
             df_nep = df_nep[column].apply(pd.Series).transpose()
-            df_nep.scn_name = self.scn_name
+           
 
             try:
                 assert not df.empty
@@ -109,7 +114,7 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
            
             df = df.append(df_nep)
         
-            return df
+           # return df
         
         
         if self.add_be_no:
@@ -137,7 +142,7 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
 
         # change of format to fit pypsa
                 df_be_no = df_be_no[column].apply(pd.Series).transpose()
-                df_be_no.scn_name = self.scn_name
+               
 
                 try:
                     assert not df.empty
@@ -147,6 +152,6 @@ def add_series_by_scenario (self, df, name, column,  *args, **kwargs):
                            
                 df = df.append(df_be_no)
         
-                return df
+               # return df
             
             return df

@@ -86,7 +86,7 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
                    (network.links.p_nom)) * 100 
     comp = [abs(loading), loading_links]   
     line_colors = pd.Series( index= comp)  
-    line_cmap = dict(line_cmap = c_map, link_cmap = cmap)     
+    line_cmap = dict(line_cmap = c_map, link_cmap = cmap)   """  
     # do the plotting
 
     ll = network.plot(line_colors=loading, line_cmap=cmap,

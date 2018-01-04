@@ -37,6 +37,7 @@ if not 'READTHEDOCS' in os.environ:
     import pypsa.io as io
     import pypsa.components as components
     from six import iteritems
+    from sqlalchemy import or_, exists
 
 # TODO: Workaround because of agg
 def _leading(busmap, df):
@@ -76,6 +77,11 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask,:]
+    
+    # keep attached links
+    links = network.links.copy()
+    mask = links.bus0.isin(buses.index)
+    links = links.loc[mask,:]
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -84,6 +90,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     io.import_components_from_dataframe(network_c, buses, "Bus")
     io.import_components_from_dataframe(network_c, lines, "Line")
+    io.import_components_from_dataframe(network_c, links, "Link")
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
 
     if with_time:
@@ -304,7 +311,7 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     return
 
 
-def busmap_from_psql(network, session, scn_name):
+def busmap_from_psql(network, session, scn_name, add_network):
     """ Retrieve busmap from OEP-relation `model_draft.ego_grid_pf_hv_busmap`
     by a given scenario name. If not present the busmap is created with default
     values to cluster on the EHV-level (110 --> 220, 380 kV)
@@ -325,12 +332,20 @@ def busmap_from_psql(network, session, scn_name):
     """
 
     def fetch():
-
-        query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name)
-
-        return dict(query.all())
-
+        
+        if add_network == None: 
+           query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                filter(EgoGridPfHvBusmap.scn_name == scn_name)
+           return dict(query.all())
+                
+        else: 
+             if session.query(exists().where(EgoGridPfHvBusmap.scn_name == add_network)).scalar() and session.query(exists().where(EgoGridPfHvBusmap.scn_name == scn_name)).scalar():
+                 query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                 filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == add_network))
+                 return dict(query.all())
+             else:
+                 print('Additional network does not exist in busmap')
+ 
     busmap = fetch()
 
     # TODO: Or better try/except/finally

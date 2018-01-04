@@ -171,6 +171,9 @@ class NetworkScenario(ScenarioBase):
         df = pd.read_sql(query.statement,
                          self.session.bind,
                          index_col=name.lower() + '_id')
+        if name == 'Link':
+            df['bus0'] = df.bus0.astype(int)
+            df['bus1'] = df.bus1.astype(int)
         
         if self.add_network != None or self.add_be_no == True:
             df = add_by_scenario(self, df, name)

@@ -1,6 +1,6 @@
 ﻿
 # -*- coding: utf-8 -*-
-
+"""
 This is the application file for the tool eTraGo. 
 
 Define your connection parameters and power flow settings before executing the function etrago.
@@ -17,12 +17,12 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
+
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
-
+"""
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
@@ -47,7 +47,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'local', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 3682, 
@@ -73,10 +73,10 @@ args = {# Setup and Configuration:
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network':'NEP', # None or new scenario name e.g. 'NEP' 
+        'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
         'add_be_no': False   # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
         }
-
+ 
 
 
 def etrago(args):
@@ -279,7 +279,7 @@ def etrago(args):
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'], add_network=args['add_network'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
     # k-mean clustering
