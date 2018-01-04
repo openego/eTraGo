@@ -278,7 +278,7 @@ def etrago(args):
         # the results will be stored under "snapshot-clustering-results"
         #extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [1,2,3])
+        network = snapshot_clustering(network, how='daily', clusters= [1,2])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     else:

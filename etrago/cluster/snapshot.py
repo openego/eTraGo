@@ -29,7 +29,7 @@ from scipy.linalg import norm
 from etrago.tools.utilities import results_to_csv
 
 write_results = True
-home = os.path.expanduser('C:/eTraGo/etrago')
+home = os.path.expanduser('results')
 resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
 
 def snapshot_clustering(network, how='daily', clusters= []):
