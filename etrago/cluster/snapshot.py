@@ -29,15 +29,15 @@ from scipy.linalg import norm
 from etrago.tools.utilities import results_to_csv
 
 write_results = True
-home = os.path.expanduser('results')
+home = os.path.expanduser('~/pf_results/')
 resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
 
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
-#     # This will calculate the original problem
-#     run(network=network.copy(), path=resultspath,
-#     write_results=write_results, n_clusters=None)
+#    # This will calculate the original problem
+#    run(network=network.copy(), path=resultspath,
+#    write_results=write_results, n_clusters=None)
 #==============================================================================
     
     for c in clusters:

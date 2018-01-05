@@ -47,8 +47,8 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 72,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 8760,
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -60,7 +60,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 2, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':daily_bounds,
         'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
@@ -282,7 +282,7 @@ def etrago(args):
         # the results will be stored under "snapshot-clustering-results"
         #extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [1,2])
+        network = snapshot_clustering(network, how='daily', clusters= [365,5,10,15,20,25,30,35,40,45,50,100,200,300])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     else:
