@@ -30,8 +30,7 @@ from etrago.tools.utilities import results_to_csv
 
 write_results = True
 home = os.path.expanduser('~/pf_results/')
-resultspath = os.path.join(home, 'snapshot-clustering-results-k10',) # args['scn_name'])
-
+resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
