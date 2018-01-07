@@ -60,9 +60,9 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 2, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'extra_functionality':daily_bounds,
+        'extra_functionality':False,
         'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -282,7 +282,7 @@ def etrago(args):
         # the results will be stored under "snapshot-clustering-results"
         #extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [365,5,10,15,20,25,30,35,40,45,50,100,200,300])
+        network = snapshot_clustering(network, how='daily', clusters= [5,10,15,20,25,30,35,40,45,50,100,200,300])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     else:
