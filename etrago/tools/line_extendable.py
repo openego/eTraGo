@@ -2,7 +2,7 @@
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
-import progressbar
+#import progressbar
 import time
 from math import sqrt
 import os

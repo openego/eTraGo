@@ -25,7 +25,7 @@ __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
-import progressbar
+#import progressbar
 import time
 import pandas as pd
 from math import sqrt
@@ -55,8 +55,8 @@ if not 'READTHEDOCS' in os.environ:
 ################################################################################
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
-        'gridversion': 'v0.2.10', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'db': 'local', # db session
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
@@ -69,8 +69,8 @@ args = {# Setup and Configuration:
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise
-        'reproduce_noise': True, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'generator_noise':True, # state if you want to apply a small generator noise
+        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         #
         'line_extendable':True,
@@ -80,7 +80,7 @@ args = {# Setup and Configuration:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
-        'parallelisation':True, # state if you want to run snapshots parallely.
+        'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': True, # state if you want to group lines running between the same buses.
         'branch_capacity_factor':1, # globally extend or lower branch capacities
         'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
@@ -347,11 +347,11 @@ if __name__ == '__main__':
     network = etrago(args)
     # plots
     # make a line loading plot
-    #plot_line_loading(network)
+    # plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    #plot_stacked_gen(network, resolution="MW")
+    # plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    #storage_distribution(network)
+    # storage_distribution(network)
     # Set start time
    # start_time = time.time()
 

@@ -38,12 +38,12 @@ if not 'READTHEDOCS' in os.environ:
     from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 2,
+        'end_snapshot' : 24,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
