@@ -1,7 +1,7 @@
 What's New
 ~~~~~~~~~~
 
-See what's new as per release!
+These are new features and improvements of note in each release.
 
 .. contents:: `Releases`
     :depth: 1
@@ -9,4 +9,8 @@ See what's new as per release!
     :backlinks: top
 
 
-.. include::  whatsnew/v0-1-0.rst
+.. include:: whatsnew/v0_5.rst
+.. include:: whatsnew/v0_4.rst
+.. include:: whatsnew/v0_3.rst
+.. include:: whatsnew/v0_2.rst
+.. include:: whatsnew/v0_1.rst
