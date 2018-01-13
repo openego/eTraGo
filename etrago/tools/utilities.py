@@ -29,7 +29,7 @@ import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
-from oedialect import dialect
+#from oedialect import dialect
 
 def oedb_session(section='oedb'):
     """Get SQLAlchemy session object with valid connection to OEDB"""
