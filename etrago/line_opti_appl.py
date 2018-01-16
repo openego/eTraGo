@@ -45,8 +45,7 @@ if not 'READTHEDOCS' in os.environ:
                                            kmean_clustering)
     from tools.line_extendable import (capacity_factor,overload_lines,
                                         overload_trafo,set_line_cost,set_trafo_cost,
-                                        line_extendable, line_extendable_ma,
-                                        line_extendable_short)
+                                        line_extendable)
 
 ################################################################################
 
@@ -74,14 +73,14 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         #
         'line_extendable':True,
-        'calc_type': True,      # True for methodik of line_extendable  #False for all lines are extendables
-        'line_ext_vers': '5_DE_NEP2035_24h_1.3',
+        #'calc_type': True,      # True for methodik of line_extendable  #False for all lines are extendables
+        #'line_ext_vers': '5_DE_NEP2035_24h_1.3',
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor':1, # globally extend or lower branch capacities
         'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
@@ -297,7 +296,7 @@ def etrago(args):
         
     # line extendable in order of a grid extension
     if args['line_extendable']:
-        line_extendable_short(network,args,scenario)
+        line_extendable(network,args,scenario)
         
     # parallisation
     if args['parallelisation']:

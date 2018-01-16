@@ -26,7 +26,8 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-
+import pandas as pd
+from math import sqrt
 import os
 
 if not 'READTHEDOCS' in os.environ:
@@ -35,39 +36,43 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.io import NetworkScenario, results_to_oedb
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion)
+                                     storage_distribution, storage_expansion, plot_max_line_loading, 
+                                     plot_max_opt_line_loading)
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-
-
+    from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
+                                           kmean_clustering)
+    from etrago.tools.line_extendable import (capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable)
+  
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 744,
-        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' :24,
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
+        #Line Extendable Function
+        'line_extendable':True,
         # Clustering:
-        'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
-        'parallelisation':True, # state if you want to run snapshots parallely.
+        'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
+        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'load_shedding':True , # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -152,6 +157,9 @@ def etrago(args):
         
     minimize_loading (bool):
         False,
+        
+    line_extendable (bool):
+        ....................................
         
     k_mean_clustering (bool): 
         False,
@@ -275,6 +283,10 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
+        
+    # line extendable in order of a grid extension
+    if args['line_extendable']:
+        line_extendable(network,args,scenario)
         
     # parallisation
     if args['parallelisation']:
