@@ -95,7 +95,7 @@ class Disaggregation:
                 is_bus_in_cluster)
 
             if not left_external_connectors.empty:
-                left_external_connectors.bus0 = self.idx_prefix + left_external_connectors.bus0_s
+                left_external_connectors.bus0 = self.idx_prefix + left_external_connectors.bus0
                 external_buses = pd.concat(
                     (external_buses, left_external_connectors.bus0))
 
@@ -104,7 +104,7 @@ class Disaggregation:
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
-                right_external_connectors.bus1 = self.idx_prefix + right_external_connectors.bus1_s
+                right_external_connectors.bus1 = self.idx_prefix + right_external_connectors.bus1
                 external_buses = pd.concat(
                     (external_buses, right_external_connectors.bus1))
 
