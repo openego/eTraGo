@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-This is the application file for the tool eTraGo.
+This is the application file for the tool eTraGo. 
 
 Define your connection parameters and power flow settings before executing the function etrago.
 
@@ -15,7 +16,6 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -26,12 +26,20 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from etrago.tools.io import NetworkScenario, results_to_oedb
-from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+
+import os
+
+if not 'READTHEDOCS' in os.environ:
+    # Sphinx does not run this code.
+    # Do not import internal packages directly  
+    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
-from etrago.tools.utilities import oedb_session, load_shedding, data_manipulation_sh, results_to_csv, parallelisation, pf_post_lopf, loading_minimization, calc_line_losses, group_parallel_lines
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+                                     storage_distribution, storage_expansion)
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                    results_to_csv, parallelisation, pf_post_lopf, 
+                                    loading_minimization, calc_line_losses, group_parallel_lines)
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
 from etrago.cluster.disaggregation import MiniSolverDisaggregation
 
@@ -40,8 +48,8 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1,
-        'end_snapshot' : 24,
+        'start_snapshot': 1, 
+        'end_snapshot' : 12,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -59,6 +67,7 @@ args = {# Setup and Configuration:
         'disaggregation': 'mini', # or None
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
+        'skip_snapshots':4,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -149,29 +158,28 @@ def etrago(args):
         
     k_mean_clustering (bool): 
         False,
-        State if you want to apply a clustering of all network buses down to
+        State if you want to apply a clustering of all network buses down to 
         only 'k' buses. The weighting takes place considering generation and load
-        at each node.
-        If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
+        at each node. If so, state the number of k you want to apply. Otherwise 
+        put False. This function doesn't work together with 'line_grouping = True'
 	    or 'network_clustering = True'.
-
+    
     network_clustering (bool):
         False, 
-        Choose if you want to cluster the full HV/EHV dataset down to only the EHV
-        buses. In that case, all HV buses are assigned to their closest EHV sub-station,
+        Choose if you want to cluster the full HV/EHV dataset down to only the EHV 
+        buses. In that case, all HV buses are assigned to their closest EHV sub-station, 
         taking into account the shortest distance on power lines.
         
     parallelisation (bool):
         False,
         Choose if you want to calculate a certain number of snapshots in parallel. If
-        yes, define the respective amount in the if-clause execution below. Otherwise
+        yes, define the respective amount in the if-clause execution below. Otherwise 
         state False here.
-
+        
     line_grouping (bool): 
         True,
         State if you want to group lines that connect the same two buses into one system.
-
+   
     branch_capacity_factor (numeric): 
         1, 
         Add a factor here if you want to globally change line capacities (e.g. to "consider"
@@ -182,7 +190,7 @@ def etrago(args):
         State here if you want to make use of the load shedding function which is helpful when
         debugging: a very expensive generator is set to each bus and meets the demand when regular
         generators cannot do so.
-
+        
     comments (str): 
         None
         
@@ -212,9 +220,10 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
+
+    # TEMPORARY vague adjustment due to transformer bug in data processing     
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
 
     clustering = None
 
@@ -238,8 +247,8 @@ def etrago(args):
       
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.carrier.any()=='extendable_storage':
-            network.storage_units.p_nom_extendable = True
+        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
+            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
@@ -273,6 +282,10 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
+    
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     # parallisation
     if args['parallelisation']:
@@ -280,7 +293,7 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
@@ -314,11 +327,14 @@ def etrago(args):
                                                      True})
     # write PyPSA results back to database
     if args['export']:
-        results_to_oedb(session, network, args, 'hv')
+        results_to_oedb(session, network, args, 'hv')  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
         results_to_csv(network, args['results'])
+
+    # close session
+    session.close()
 
     return network
 
@@ -326,15 +342,13 @@ def etrago(args):
 # execute etrago function
 network = etrago(args)
 
-# plots
-
-# make a line loading plot
-plot_line_loading(network)
-# plot stacked sum of nominal power for each generator type and timestep
-#plot_stacked_gen(network, resolution="MW")
-# plot to show extendable storages
-#storage_distribution(network)
-
-# close session
-#session.close()
-
+if __name__ == '__main__':
+    # execute etrago function
+    network = etrago(args)
+    # plots
+    # make a line loading plot
+    plot_line_loading(network)
+    # plot stacked sum of nominal power for each generator type and timestep
+    plot_stacked_gen(network, resolution="MW")
+    # plot to show extendable storages
+    storage_distribution(network)
