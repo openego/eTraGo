@@ -72,7 +72,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     buses = aggregatebuses(network, busmap, {'x':_leading(busmap, network.buses),
                                              'y':_leading(busmap, network.buses)})
-
     # keep attached lines
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
@@ -196,7 +195,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
+def busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no, fromlvl, tolvl,
                             cpu_cores=4):
     """ Create busmap between voltage levels based on dijkstra shortest path.
     The result is written to the `model_draft` on the OpenEnergy - Platform. The
@@ -236,7 +235,17 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
             * path_length.
 
     """
-
+    """if add_network == None and add_be_no == True:
+            #df['scn_name'] = 'BE_NO_' + scn_name
+            scn_name = 'BE_NO_' + scn_name
+    if add_network != None and add_be_no == True:
+           # df['scn_name'] = 'BE_NO_' + scn_name + '_' + add_network
+            scn_name = 'BE_NO_' + scn_name + '_' + add_network
+    if add_network != None and add_be_no == False:
+            #df['scn_name'] = scn_name + '_' + add_network
+            scn_name = scn_name + '_' + add_network"""
+    
+    
     # cpu_cores = mp.cpu_count()
 
     # data preperation
@@ -299,7 +308,15 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
+    #if add_network == None and add_be_no == False:
+    
+        
+    #else:
+
+    print(scn_name)
     df['scn_name'] = scn_name
+    print(df)
+            
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
@@ -311,7 +328,7 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     return
 
 
-def busmap_from_psql(network, session, scn_name, add_network):
+def busmap_from_psql(network, session, scn_name, add_network, add_be_no):
     """ Retrieve busmap from OEP-relation `model_draft.ego_grid_pf_hv_busmap`
     by a given scenario name. If not present the busmap is created with default
     values to cluster on the EHV-level (110 --> 220, 380 kV)
@@ -333,18 +350,41 @@ def busmap_from_psql(network, session, scn_name, add_network):
 
     def fetch():
         
-        if add_network == None: 
-           query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+        if add_network == None and not add_be_no:
+            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
                 filter(EgoGridPfHvBusmap.scn_name == scn_name)
-           return dict(query.all())
                 
         else: 
-             if session.query(exists().where(EgoGridPfHvBusmap.scn_name == add_network)).scalar() and session.query(exists().where(EgoGridPfHvBusmap.scn_name == scn_name)).scalar():
-                 query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                 filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == add_network))
-                 return dict(query.all())
-             else:
-                 print('Additional network does not exist in busmap')
+            if add_network != None and not add_be_no:
+                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name ==  'extension_' + add_network))
+            if add_network != None and add_be_no:
+                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name, EgoGridPfHvBusmap.scn_name ==  'extension_' + add_network))
+            if add_network == None and add_be_no:
+                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name))
+                
+        return dict(query.all())
+       
+        """if add_network == None and add_be_no == False: 
+           query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                filter(EgoGridPfHvBusmap.scn_name == scn_name)
+                
+        if add_network != None and add_be_no == False:  
+            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                 filter(EgoGridPfHvBusmap.scn_name == scn_name +'_' + add_network)
+                 
+        if add_network != None and add_be_no == True:  
+            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                 filter(EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name +'_' + add_network)
+        
+        if add_network == None and add_be_no == True:  
+            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+                 filter(EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name)"""
+                 
+        return dict(query.all())         
+                 
  
     busmap = fetch()
 
@@ -354,11 +394,20 @@ def busmap_from_psql(network, session, scn_name, add_network):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name,
+        busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no,
                                 fromlvl=[110], tolvl=[220, 380],
                                 cpu_cores=int(cpu_cores))
+
         busmap = fetch()
 
+    """if add_network != None:
+        print('Additional network does not exist in busmap')
+        cpu_cores = input('cpu_cores (default 4): ') or '4'
+        
+        busmap_by_shortest_path(network, session, 'extension_' + add_network,
+                                fromlvl=[110], tolvl=[220, 380],
+                                cpu_cores=int(cpu_cores))"""
+        
     return busmap
 
 def kmean_clustering(network, n_clusters=10):

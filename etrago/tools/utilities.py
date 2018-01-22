@@ -381,6 +381,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
 
     y = time.time()
     z = (y - x) / 60
+    print(z)
     return
 
 def pf_post_lopf(network, scenario):

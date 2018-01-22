@@ -29,7 +29,7 @@ from collections import OrderedDict
 import re
 import json
 import os
-from etrago.tools.nep import add_by_scenario, add_series_by_scenario
+#from etrago.tools.nep import add_by_scenario, add_series_by_scenario
 import numpy as np
 
 packagename = 'egoio.db_tables'
@@ -102,7 +102,6 @@ class NetworkScenario(ScenarioBase):
         self.end_snapshot    = kwargs.get('end_snapshot', 20)
         self.temp_id  = kwargs.get('temp_id', 1)
         self.network  = None
-
         self.configure_timeindex()
 
     def __repr__(self):
@@ -129,6 +128,7 @@ class NetworkScenario(ScenarioBase):
             else:
                 tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).one()
+            
        
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
@@ -137,7 +137,7 @@ class NetworkScenario(ScenarioBase):
         timeindex = pd.DatetimeIndex(start=tr.start_time,
                                      periods=tr.timesteps,
                                      freq=tr.resolution)
-
+        
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
 
     def id_to_source(self):
@@ -175,8 +175,8 @@ class NetworkScenario(ScenarioBase):
             df['bus0'] = df.bus0.astype(int)
             df['bus1'] = df.bus1.astype(int)
         
-        if self.add_network != None or self.add_be_no == True:
-            df = add_by_scenario(self, df, name)
+        #if self.add_network != None or self.add_be_no == True:
+           # df = add_by_scenario(self, df, name)
             
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
@@ -214,36 +214,43 @@ class NetworkScenario(ScenarioBase):
                                 self.session.bind,
                                 columns=[column],
                                 index_col=id_column)
-
+        
+        #if self.add_be_no == True:
+         #  df = add_series_by_scenario(self, df, name, column)
+           
         df.index = df.index.astype(str)
-
+       
+           
         # change of format to fit pypsa
         df = df[column].apply(pd.Series).transpose()
+       
         
-
+           #print(df2)
+           
         try:
             assert not df.empty
             df.index = self.timeindex
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
         
-        if self.add_be_no:
-            
-           df = add_series_by_scenario(self, df, name, column)
-           return df
+       
             
         return df
 
-    def build_network(self, *args, **kwargs):
+    def build_network(self, network = None, *args, **kwargs):
         """
         """
         # TODO: build_network takes care of divergences in database design and
         # future PyPSA changes from PyPSA's v0.6 on. This concept should be
         # replaced, when the oedb has a revision system in place, because
         # sometime this will break!!!
-
-        network = pypsa.Network()
-        network.set_snapshots(self.timeindex)
+        
+        if network != None :
+            network = network 
+            
+        else:
+            network = pypsa.Network()
+            network.set_snapshots(self.timeindex)
 
         timevarying_override = False
 
@@ -298,9 +305,10 @@ class NetworkScenario(ScenarioBase):
                     for col in columns:
 
                         df_series = self.series_fetch_by_relname(comp_t, col)
+                        
 
                         # TODO: VMagPuSet?
-                        if timevarying_override and comp == 'Generator':
+                        if timevarying_override and comp == 'Generator' and not df_series.empty:
                             idx = df[df.former_dispatch == 'flexible'].index
                             idx = [i for i in idx if i in df_series.columns]
                             df_series.drop(idx, axis=1, inplace=True)
@@ -324,6 +332,58 @@ class NetworkScenario(ScenarioBase):
         self.network = network
 
         return network
+    
+def overlay_network (network, session, overlay_scn_name, start_snapshot, end_snapshot, *args, **kwargs):
+    
+            print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
+            
+            if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and kwargs.get('network_cluserting') == True :
+                print('Some transformers will have buses which are not definded due to network_clustering, they will be deleted automatically.')
+    ### Zubau
+                    
+            scenario = NetworkScenario(session,
+                               version=None,
+                               prefix='EgoGridPfHvExtension',
+                               method=kwargs.get('method', 'lopf'),
+                               start_snapshot=start_snapshot,
+                               end_snapshot=end_snapshot,
+                               scn_name='extension_' + overlay_scn_name )
+
+            network = scenario.build_network(network)
+        
+    ### Rückbau
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+    
+            query = session.query(ormclass).filter(
+                        ormclass.scn_name == 'decommissioning_' + overlay_scn_name)
+    
+            df_decommisionning = pd.read_sql(query.statement,
+                         session.bind,
+                         index_col='line_id')
+            df_decommisionning.index = df_decommisionning.index.astype(str)
+        
+            network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+        
+            network.transformers = network.transformers[network.transformers.bus0.astype(str).isin(network.buses.index)]
+    ### Load shedding Lasten an neuen buses
+            
+            if not network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].empty:
+                start = network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].index.astype(int).max()+1
+                index = list(range(start,start+len(network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name])))
+                network.import_components_from_dataframe(
+                        pd.DataFrame(
+                                dict(marginal_cost=100000,
+                                     p_nom=network.loads_t.p_set.max().max(),
+                                     carrier='load shedding',
+                                     bus=network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name]),
+                                     index=index),
+                                     "Generator"
+                                     )
+            
+    #network.transformers.drop(network.transformers.bus0.astype(str) != network.buses.index)
+        
+            return network
+    
     
 def clear_results_db(session):
     '''Used to clear the result tables in the OEDB. Caution!

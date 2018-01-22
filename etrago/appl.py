@@ -1,5 +1,4 @@
-﻿
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 This is the application file for the tool eTraGo. 
 
@@ -27,13 +26,13 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-
+import datetime
 import os
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly  
-    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.io import NetworkScenario, results_to_oedb, overlay_network
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
@@ -41,17 +40,18 @@ if not 'READTHEDOCS' in os.environ:
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+   # from etrago.tools.nep import overlay_network
 
 
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
         'db': 'local', # db session
-        'gridversion': 'v0.3.0', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 3682, 
-        'end_snapshot' : 3683,
+        'start_snapshot': 1, 
+        'end_snapshot' : 8,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -61,20 +61,20 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False , #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False,
+        'network_clustering':True,
         # Simplifications:
-        'parallelisation':False, 
+        'parallelisation': True, 
         'line_grouping': False,
         'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
         'load_shedding':True,
         'comments':None,
         # Scenario variances
         'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
-        'add_be_no': False   # state if you want to add Belgium and Norway as electrical neighbours, only for future scenarios!
+        'add_be_no': True   # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
  
 
@@ -130,7 +130,7 @@ def etrago(args):
     lpfile (obj): 
         False, 
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.
+        False or '/path/tofolder'.import numpy as np
         
     results (obj): 
         False, 
@@ -205,7 +205,7 @@ def etrago(args):
 
     """
 
-
+    
     session = oedb_session(args['db'])
 
     # additional arguments cfgpath, version, prefix
@@ -218,8 +218,8 @@ def etrago(args):
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
                                method=args['method'],
-                               add_network = args['add_network'],
-                               add_be_no = args['add_be_no'],
+                               #add_network = args['add_network'],
+                               #add_be_no = args['add_be_no'],
                                start_snapshot=args['start_snapshot'],
                                end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'])
@@ -233,9 +233,7 @@ def etrago(args):
       
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
-    network.transformers.tap_ratio = 1
-    network.transformers.phase_shift = 0
-
+   
     if args['branch_capacity_factor']:
         
         
@@ -279,7 +277,7 @@ def etrago(args):
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'], add_network=args['add_network'])
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'], add_network=args['add_network'], add_be_no=args['add_be_no'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
     # k-mean clustering
@@ -292,16 +290,45 @@ def etrago(args):
     else:
         extra_functionality=None
         
+    if args ['add_network'] != None:
+         network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
+         
+         network.lines.s_nom_extendable[network.lines.scn_name == 'extension_' + args ['add_network']] = True
+         network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_' + args ['add_network']] = True
+         network.links.p_nom_extendable[network.links.scn_name == 'extension_' + args ['add_network']] = True
+         network.lines.capital_cost = (network.lines.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         network.links.capital_cost = (network.links.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         network.transformers.capital_cost = (network.transformers.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         
+    if args ['add_be_no']:
+         network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
+         
+         network.lines.s_nom_extendable[network.lines.scn_name == 'extension_BE_NO_NEP 2035'] = True
+         network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_BE_NO_NEP 2035'] = True
+         network.links.p_nom_extendable[network.links.scn_name == 'extension_BE_NO_NEP 2035'] = True
+         network.lines.capital_cost = (network.lines.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         network.links.capital_cost = (network.links.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         network.transformers.capital_cost = (network.transformers.capital_cost /
+            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         
+    print(datetime.datetime.now())
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=2, solver_name=args['solver'], extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
         network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
+        z = (y - x) / 60 
+        print('Time for lopf in minutes')
+        print(z)# z is time for lopf in minutes
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
@@ -342,11 +369,13 @@ def etrago(args):
 
 if __name__ == '__main__':
     # execute etrago function
+    print(datetime.datetime.now())
     network = etrago(args)
+    print(datetime.datetime.now())
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+    #plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
+    #storage_distribution(network)
