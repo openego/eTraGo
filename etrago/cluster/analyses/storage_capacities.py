@@ -3,7 +3,6 @@
 """
 
 from os import path, listdir
-
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,9 +10,7 @@ import pandas as pd
 # TODO: check why are there multiple storages for e.g. bus with name 2 and 9
 
 results_dir = 'snapshot-clustering-results-k10-noDailyBounds'
-
-# get all directories from the result directory
-daily_path = path.join('/home/simnh/pf_results', results_dir, 'daily')
+clustered_path = path.join('/home/simnh/pf_results', results_dir, 'daily')
 original_path = path.join('/home/simnh/pf_results', results_dir, 'original')
 
 original = pd.read_csv(path.join(original_path, 'storage_units.csv'))
@@ -23,12 +20,12 @@ buses = pd.read_csv(path.join(original_path, 'buses.csv'))
 clustered = {}
 # nested dict with absolute difference per cluster and bus
 abs_diff = {}
-for d in listdir(daily_path):
+for d in listdir(clustered_path):
     # TODO: excluse distance matrix, move this file to the root directory?
     if d != 'Z.csv':
         abs_diff[d] = {}
         clustered[d] = pd.read_csv(
-            path.join(daily_path, d, 'storage_units.csv'))
+            path.join(clustered_path, d, 'storage_units.csv'))
         # add absolute storage capacity difference to dataframe
         clustered[d]['abs_diff'] = (
             original.p_nom_opt -
@@ -57,4 +54,4 @@ def plot_heatmap(buses, difference):
     plt.show()
     fig.savefig('clustered.png')
 
-plot_heatmap(buses, abs_diff['10'], boundaries=[])
+plot_heatmap(buses, abs_diff['10'])
