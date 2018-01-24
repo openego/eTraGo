@@ -16,6 +16,7 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -41,10 +42,12 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-    from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
-                                           kmean_clustering)
+    from etrago.cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
+    
     from etrago.tools.line_extendable import (capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable)
-  
+
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+
 args = {# Setup and Configuration:
         'db': 'local', # db session
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
@@ -68,6 +71,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
@@ -283,18 +287,26 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
-        
+           
     # line extendable in order of a grid extension
     if args['line_extendable']:
-        line_extendable(network,args,scenario)
-        
+        line_extendable(network,args,scenario) 
+   
+    # snapshot clustering
+    if not args['snapshot_clustering']==False:
+        extra_functionality = daily_bounds
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+    
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
