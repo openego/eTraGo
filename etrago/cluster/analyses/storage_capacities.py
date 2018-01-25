@@ -2,12 +2,12 @@
 """
 """
 from config import clustered_path, original_path, plot_path
+
 from os import path, listdir
 
 import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-
 import numpy as np
 import pandas as pd
 

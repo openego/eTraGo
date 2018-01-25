@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """
 """
-from config import clustered_path, original_path, plot_path
+from config import clustered_path, original_path #, plot_path
+
 from os import path, listdir
 
 import matplotlib
+from matplotlib import pyplot as plt
 import pandas as pd
 
 network = pd.read_csv(path.join(original_path, 'network.csv'))
@@ -41,4 +43,5 @@ ax.set_xlabel('Clustered Days')
 results['rel_time'].plot(ax=ax2, style='*--', color='red')
 ax2.set_ylabel('Relative run-time deviation in %')
 fig = ax.get_figure()
-fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
+plt.show()
+#fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
