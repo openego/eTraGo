@@ -471,9 +471,13 @@ def line_extendable(network, args, scenario):
                     
         
     ##################### Plotting the Results #####################
-    plot_max_opt_line_loading(network,lines_time,\
-                                  filename='maximum_optimal_lines.png')
-         
+    if len(lines_time) >0:
+    
+        plot_max_opt_line_loading(network,lines_time,\
+                                      filename='maximum_optimal_lines.png')
+    else:
+        print("No expansions required", len(lines_time))
+    
     return network
 
 
