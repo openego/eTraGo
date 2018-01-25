@@ -2,14 +2,18 @@
 """
 plots to anaylse the cluster structure (based on the distance martrix)
 """
+from config import clustered_path
+
+from os import path
+
 import matplotlib
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 
-Z = pd.read_csv(
-    '/home/simnh/pf_results/' \
-    'snapshot-clustering-results-k10-noDailyBounds/daily/Z.csv').values
+# TODO: replace clustered path by root path, once the results
+# structure is changend
+Z = pd.read_csv(path.join(clustered_path, 'Z.csv')).values
 
 last = Z[-200:, 2]
 last_rev = last[::-1]

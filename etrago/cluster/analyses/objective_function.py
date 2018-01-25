@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 """
+from config import clustered_path, original_path, plot_path
 from os import path, listdir
 
 import matplotlib
 import pandas as pd
-
-results_dir = 'snapshot-clustering-results-k10-noDailyBounds'
-clustered_path = path.join('/home/simnh/pf_results', results_dir, 'daily')
-original_path = path.join('/home/simnh/pf_results', results_dir, 'original')
 
 network = pd.read_csv(path.join(original_path, 'network.csv'))
 
@@ -44,4 +41,4 @@ ax.set_xlabel('Clustered Days')
 results['rel_time'].plot(ax=ax2, style='*--', color='red')
 ax2.set_ylabel('Relative run-time deviation in %')
 fig = ax.get_figure()
-# fig.savefig("comparison_obj_time.eps")
+fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
