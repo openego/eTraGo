@@ -2,7 +2,7 @@
 """
 """
 from config import clustered_path, original_path #, plot_path
-
+# TODO: Make plot_path import work...don't know why it does not
 from os import path, listdir
 
 import matplotlib
