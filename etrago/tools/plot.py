@@ -74,19 +74,23 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     x = time.time()
     cmap = plt.cm.jet
     if network.lines_t.q0.empty:
-        loading_c = (network.lines_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.lines.s_nom)) * 100 
-        loading = abs(loading_c)
+        array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+        loading_lines = pd.Series(abs((network.lines_t.p0.loc[network.snapshots[timestep]]/ \
+                   (network.lines.s_nom)) * 100).data, index = array_line)
+    
+        array_link = [['Link'] * len(network.links), network.links.index]
+    
+        loading_links = pd.Series(abs((network.links_t.p0.loc[network.snapshots[timestep]]/ \
+                   (network.links.p_nom)) * 100).data, index = array_link)
+    
+        loading = loading_lines.append(loading_links)
+        
     else:
          loading = ((network.lines_t.p0.loc[network.snapshots[timestep]] ** 2 +
                    network.lines_t.q0.loc[network.snapshots[timestep]] ** 2).\
                    apply(sqrt) / (network.lines.s_nom)) * 100 
-    
-    """loading_links = (network.links_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.links.p_nom)) * 100 
-    comp = [abs(loading), loading_links]   
-    line_colors = pd.Series( index= comp)  
-    line_cmap = dict(line_cmap = c_map, link_cmap = cmap)   """  
+
     # do the plotting
 
     ll = network.plot(line_colors=loading, line_cmap=cmap,
@@ -234,7 +238,42 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
 
+def extension_overlay_network(network, scn_name= 'NEP 2035', timestep=0, filename=None, boundaries=[0,100]):
+   
+    cmap = plt.cm.jet
+    
+    overlay_network = network
+    overlay_network.lines = overlay_network.lines[overlay_network.lines.scn_name != scn_name]
+    overlay_network.links = overlay_network.links[overlay_network.links.scn_name != scn_name]
+    overlay_network.loads = overlay_network.loads[overlay_network.loads.scn_name != scn_name]
+    overlay_network.generators = overlay_network.generators[overlay_network.generators.scn_name != scn_name]
+    """overlay_network.buses = overlay_network.buses[overlay_network.lines.bus0.astype(str).isin(overlay_network.buses.index)
+                                                  or overlay_network.lines.bus1.astype(str).isin(overlay_network.buses.index)
+                                                  or overlay_network.links.bus0.astype(str).isin(overlay_network.buses.index)
+                                                  or overlay_network.links.bus1.astype(str).isin(overlay_network.buses.index)]"""
+    
+    array_line = [['Line'] * len(overlay_network.lines), overlay_network.lines.index]
+    
+    extension_lines = pd.Series((100* (overlay_network.lines.s_nom_opt - overlay_network.lines.s_nom_min) / overlay_network.lines.s_nom).data, index = array_line)
 
+    array_link = [['Link'] * len(overlay_network.links), overlay_network.links.index]
+    
+    extension_links = pd.Series((100* overlay_network.links.p_nom_opt / (overlay_network.links.p_nom)).data, index = array_link)
+    
+    extension = extension_lines.append(extension_links)
+    
+    ll = overlay_network.plot(line_colors=extension, line_cmap=cmap, bus_sizes = 0, 
+                      title="Optimized AC- and DC-line extension", line_widths=0.75)
+    if not boundaries:
+        cb = plt.colorbar(ll[1])
+    elif boundaries:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+
+    cb.set_label('line extension relative to s_nom in %')
+    
 def plot_residual_load(network):
     """ Plots residual load summed of all exisiting buses.
 

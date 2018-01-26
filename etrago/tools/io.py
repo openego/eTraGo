@@ -295,6 +295,9 @@ class NetworkScenario(ScenarioBase):
 
                 tmp = old_to_new_name[comp]
                 df.rename(columns=tmp, inplace=True)
+                
+                if self.scn_name == 'extension_nep2035_b2' and comp == 'Line':
+                    print(df)
 
             network.import_components_from_dataframe(df, pypsa_comp_name)
 

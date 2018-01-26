@@ -28,6 +28,7 @@ np.random.seed()
 import time
 import datetime
 import os
+from geoalchemy2.shape import to_shape
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
@@ -35,7 +36,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.io import NetworkScenario, results_to_oedb, overlay_network
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
+                                     storage_distribution, extension_overlay_network)
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
@@ -51,29 +52,29 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 8,
+        'end_snapshot' : 2,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'lpfile': '/home/clara/Dokumente/file.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering':True,
         # Simplifications:
-        'parallelisation': True, 
+        'parallelisation': False, 
         'line_grouping': False,
         'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
+        'add_network': None,#'nep2035_b2', # None or new scenario name e.g. 'NEP' 
         'add_be_no': True   # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
  
@@ -292,16 +293,27 @@ def etrago(args):
         
     if args ['add_network'] != None:
          network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
-         
-         network.lines.s_nom_extendable[network.lines.scn_name == 'extension_' + args ['add_network']] = True
-         network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_' + args ['add_network']] = True
-         network.links.p_nom_extendable[network.links.scn_name == 'extension_' + args ['add_network']] = True
-         network.lines.capital_cost = (network.lines.capital_cost /
+        
+         network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + args ['add_network'])] = True
+         network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + args ['add_network'])] = True
+         network.links.p_nom_extendable[network.links.scn_name == ('extension_' + args ['add_network'])] = True
+         if not args['parallelisation']:
+            network.lines.capital_cost = (network.lines.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         network.links.capital_cost = (network.links.capital_cost /
+            network.links.capital_cost = (network.links.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         network.transformers.capital_cost = (network.transformers.capital_cost /
+            network.transformers.capital_cost = (network.transformers.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         else:
+            network.lines.capital_cost = (network.lines.capital_cost /(8760//2))
+            network.links.capital_cost = (network.links.capital_cost /(8760//2))
+            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//2))
+            
+         extension_buses = network.buses[network.buses.scn_name =='extension_' + args ['add_network'] ]
+         for idx, row in extension_buses.iterrows():
+            wkt_geom = to_shape(row['geom'])
+            network.buses.loc[idx, 'x'] = wkt_geom.x
+            network.buses.loc[idx, 'y'] = wkt_geom.y
          
     if args ['add_be_no']:
          network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
@@ -309,13 +321,26 @@ def etrago(args):
          network.lines.s_nom_extendable[network.lines.scn_name == 'extension_BE_NO_NEP 2035'] = True
          network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_BE_NO_NEP 2035'] = True
          network.links.p_nom_extendable[network.links.scn_name == 'extension_BE_NO_NEP 2035'] = True
-         network.lines.capital_cost = (network.lines.capital_cost /
+        
+         if not args['parallelisation']:
+            network.lines.capital_cost = (network.lines.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         network.links.capital_cost = (network.links.capital_cost /
+            network.links.capital_cost = (network.links.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         network.transformers.capital_cost = (network.transformers.capital_cost /
+            network.transformers.capital_cost = (network.transformers.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
+         else:
+            network.lines.capital_cost = (network.lines.capital_cost /(8760//2))
+            network.links.capital_cost = (network.links.capital_cost /(8760//2))
+            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//2))
+            
+         extension_buses = network.buses[network.buses.scn_name =='extension_BE_NO_NEP 2035' ]
          
+         for idx, row in extension_buses.iterrows():
+            wkt_geom = to_shape(row['geom'])
+            network.buses.loc[idx, 'x'] = wkt_geom.x
+            network.buses.loc[idx, 'y'] = wkt_geom.y
+            
     print(datetime.datetime.now())
     # parallisation
     if args['parallelisation']:
@@ -379,3 +404,4 @@ if __name__ == '__main__':
     #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     #storage_distribution(network)
+    #extension_overlay_network(network)
