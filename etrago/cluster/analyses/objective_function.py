@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 """
-from config import clustered_path, original_path #, plot_path
+from config import clustered_path, original_path, plot_path
 # TODO: Make plot_path import work...don't know why it does not
 from os import path, listdir
 
@@ -43,5 +43,4 @@ ax.set_xlabel('Clustered Days')
 results['rel_time'].plot(ax=ax2, style='*--', color='red')
 ax2.set_ylabel('Relative run-time deviation in %')
 fig = ax.get_figure()
-plt.show()
-#fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
+fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
