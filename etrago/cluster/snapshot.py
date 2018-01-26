@@ -30,7 +30,7 @@ from etrago.tools.utilities import results_to_csv
 
 write_results = True
 home = os.path.expanduser('~/pf_results/')
-resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
+resultspath = os.path.join(home, 'snapshot-clustering-results-k10-test123',) # args['scn_name'])
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
@@ -155,11 +155,7 @@ def daily_bounds(network, snapshots):
 
         sus = network.storage_units
         # take every first hour of the clustered days
-        network.model.period_start = network.snapshot_weightings.index[0::24]
-
-        # network.model.period_ends = pd.DatetimeIndex(
-        #         [i for i in network.snapshot_weightings.index[0::24]] +
-        #         [network.snapshot_weightings.index[-1]])
+        network.model.period_starts = network.snapshot_weightings.index[0::24]
 
         network.model.storages = sus.index
 
@@ -170,10 +166,11 @@ def daily_bounds(network, snapshots):
             """
             return (
                 m.state_of_charge[s, p] ==
-                m.state_of_charge[s, p + pd.Timedelta(hours=23)
-            )
+                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+            
         network.model.period_bound = po.Constraint(
             network.model.storages, network.model.period_starts, rule=day_rule)
+        import pdb; pdb.set_trace()
 
 
 def group(df, how='daily'):
