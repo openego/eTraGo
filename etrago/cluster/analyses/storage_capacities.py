@@ -40,19 +40,24 @@ clustered = {}
 # nested dict with absolute difference per cluster and bus
 abs_diff = {}
 
+c_df = pd.DataFrame()
 with PdfPages(path.join(plot_path, 'storage-capacities.pdf')) as pdf:
     for d in listdir(clustered_path):
         # TODO: excluse distance matrix, move this file to the root directory?
         if d != 'Z.csv':
             abs_diff[d] = {}
-            clustered[d] = pd.read_csv(
-                path.join(clustered_path, d, 'storage_units.csv'))
-            # add absolute storage capacity difference to dataframe
-            clustered[d]['abs_diff'] = (
-                original.p_nom_opt -
-                clustered[d].p_nom_opt)
+            df = pd.read_csv(path.join(clustered_path, d, 'storage_units.csv'))
+            df['cdays'] = int(d)
+            df['abs_diff'] = df.p_nom_opt - original.p_nom_opt
             abs_diff[d] = {
-                b: sum(clustered[d].loc[clustered[d]['bus'] == b]['abs_diff'])
+                b: sum(df.loc[df['bus'] == b]['abs_diff'])
                 for b in buses['name']}
+            c_df = pd.concat([c_df, df])
+            clustered[d] = df
             fig = plot_heatmap(buses, abs_diff[d])
             pdf.savefig(fig)
+
+
+# experimental stuff
+c_df.set_index(['cdays', 'name'], inplace=True)
+c_df.sort_index()
