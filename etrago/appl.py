@@ -47,7 +47,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 8760,
+        'end_snapshot' : 168,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -282,7 +282,7 @@ def etrago(args):
         # the results will be stored under "snapshot-clustering-results"
         #extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [5,10,15,20,25,30,35,40,45,50,100,200,300])
+        network = snapshot_clustering(network, how='daily', clusters= [5])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     else:

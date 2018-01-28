@@ -30,7 +30,7 @@ from etrago.tools.utilities import results_to_csv
 
 write_results = True
 home = os.path.expanduser('~/pf_results/')
-resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-withpypsaweighting',) # args['scn_name'])
+resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
@@ -61,7 +61,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries : pd.DataFrame
         Clustered timeseries
     """
-    from tsam.tsam import timeseriesaggregation as tsam
+    import tsam.timeseriesaggregation as tsam
 
     if how == 'daily':
         hours = 24
@@ -77,6 +77,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     
+    import pdb; pdb.set_trace()
     return timeseries
 
 
@@ -105,7 +106,8 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
         medoids = get_medoids(clusters)
 
-        tsam_ts = tsam_cluster(timeseries_df, typical_periods=n_clusters,
+        tsam_ts = tsam_cluster(prepare_pypsa_timeseries(network), 
+                               typical_periods=n_clusters,
                                how='daily')
 
         update_data_frames(network, medoids)
@@ -129,6 +131,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
+
 
 def prepare_pypsa_timeseries(network, normed=False):
     """
@@ -395,4 +398,3 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugef√
     network.storage_units.p_nom_min = values
     resultspath = 'compare-'+resultspath
 
-    return resultspath
