@@ -48,6 +48,38 @@ def snapshot_clustering(network, how='daily', clusters= []):
 
     return network
 
+
+def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
+    """
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with timeseries to cluster
+
+    Returns
+    -------
+    timeseries : pd.DataFrame
+        Clustered timeseries
+    """
+    from tsam.tsam import timeseriesaggregation as tsam
+
+    if how == 'daily':
+        hours = 24
+    if how == 'weekly':
+        hours = 168
+
+    aggregation = tsam.TimeSeriesAggregation(
+        timeseries_df,
+        noTypicalPeriods=typical_periods,
+        hoursPerPeriod=hours,
+        clusterMethod='hierarchical')
+
+    timeseries = aggregation.createTypicalPeriods()
+    cluster_weights = aggregation.clusterPeriodNoOccur
+    
+    return timeseries
+
+
 def run(network, path, write_results=False, n_clusters=None, how='daily',
         normed=False):
     """
@@ -72,6 +104,9 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         clusters = fcluster(df, Z, n_groups, n_clusters)
 
         medoids = get_medoids(clusters)
+
+        tsam_ts = tsam_cluster(timeseries_df, typical_periods=n_clusters,
+                               how='daily')
 
         update_data_frames(network, medoids)
 
