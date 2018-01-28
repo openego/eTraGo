@@ -77,7 +77,6 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     
-    import pdb; pdb.set_trace()
     return timeseries
 
 
@@ -106,7 +105,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
         medoids = get_medoids(clusters)
 
-        tsam_ts = tsam_cluster(prepare_pypsa_timeseries(network), 
+        tsam_ts = tsam_cluster(prepare_pypsa_timeseries(network),
                                typical_periods=n_clusters,
                                how='daily')
 
@@ -205,7 +204,7 @@ def daily_bounds(network, snapshots):
             return (
                 m.state_of_charge[s, p] ==
                 m.state_of_charge[s, p + pd.Timedelta(hours=23)])
-            
+
         network.model.period_bound = po.Constraint(
             network.model.storages, network.model.period_starts, rule=day_rule)
 
@@ -397,4 +396,3 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugef√
     network.storage_units.p_nom_max = values
     network.storage_units.p_nom_min = values
     resultspath = 'compare-'+resultspath
-
