@@ -127,19 +127,21 @@ def daily_bounds(network, snapshots):
     if network.cluster:
 
         sus = network.storage_units
-
-        network.model.period_ends = pd.DatetimeIndex(
-                [i for i in network.snapshot_weightings.index[0::24]] +
-                [network.snapshot_weightings.index[-1]])
-
+        # take every first hour of the clustered days
+        network.model.period_starts = network.snapshot_weightings.index[0::24]
 
         network.model.storages = sus.index
-        def week_rule(m, s, p):
-            return m.state_of_charge[s, p] == (sus.at[s, 'max_hours'] *
-                                               0.5 * m.storage_p_nom[s])
-        network.model.period_bound = po.Constraint(network.model.storages,
-                                                   network.model.period_ends,
-                                                   rule=week_rule)
+
+        def day_rule(m, s, p):
+            """
+            Sets the soc of the every first hour to the soc of the last hour
+            of the day (i.e. + 23 hours)
+            """
+            return (
+                m.state_of_charge[s, p] ==
+                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+            
+        network.model.period_bound = po.Constraint(network.model.storages, network.model.period_starts, rule=day_rule)
 
 def group(df, how='daily'):
     """ Hierachical clustering of timeseries returning the linkage matrix
