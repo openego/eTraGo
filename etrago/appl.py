@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 ﻿# -*- coding: utf-8 -*-
+=======
+>>>>>>> 54bde32818c12944c68b094c87dab56ecc3e8112
 """
 This is the application file for the tool eTraGo. 
 
@@ -44,6 +47,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
    # from etrago.tools.nep import overlay_network
 
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
 #from etrago.tools.nep import add_extension_network
 
@@ -55,6 +59,7 @@ args = {# Setup and Configuration:
         'start_snapshot': 1, 
         'end_snapshot' : 168,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -66,8 +71,9 @@ args = {# Setup and Configuration:
         'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering':True,
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
 	'skip_snapshots':4,
@@ -292,7 +298,15 @@ def etrago(args):
     if args['minimize_loading']:
         extra_functionality = loading_minimization
     else:
-        extra_functionality=None
+        extra_functionality = None
+        
+    # snapshot clustering
+    if not args['snapshot_clustering']==False:
+        extra_functionality = daily_bounds
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
     
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
