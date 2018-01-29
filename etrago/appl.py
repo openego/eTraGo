@@ -37,6 +37,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, extension_overlay_network)
+
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
@@ -69,6 +70,7 @@ args = {# Setup and Configuration:
         'network_clustering':True,
         # Simplifications:
         'parallelisation': False, 
+	'skip_snapshots':4,
         'line_grouping': False,
         'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
         'load_shedding':True,
@@ -77,7 +79,7 @@ args = {# Setup and Configuration:
         'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
         'add_be_no': True   # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
- 
+
 
 
 def etrago(args):
@@ -229,10 +231,13 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
-   
+
+
+    # TEMPORARY vague adjustment due to transformer bug in data processing     
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
+
+
     if args['branch_capacity_factor']:
         
         
@@ -255,8 +260,8 @@ def etrago(args):
       
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.carrier.any()=='extendable_storage':
-            network.storage_units.p_nom_extendable = True
+        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
+            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
@@ -288,6 +293,10 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
+    
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     if args ['add_network'] != None:
          network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
@@ -347,7 +356,7 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print('Time for lopf in minutes')
