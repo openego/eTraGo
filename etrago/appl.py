@@ -52,17 +52,17 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'end_snapshot' : 168,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': '/home/clara/Dokumente/file.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
@@ -74,7 +74,7 @@ args = {# Setup and Configuration:
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network': None,#'nep2035_b2', # None or new scenario name e.g. 'NEP' 
+        'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
         'add_be_no': True   # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
  
@@ -219,8 +219,6 @@ def etrago(args):
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
                                method=args['method'],
-                               #add_network = args['add_network'],
-                               #add_be_no = args['add_be_no'],
                                start_snapshot=args['start_snapshot'],
                                end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'])
@@ -305,9 +303,9 @@ def etrago(args):
             network.transformers.capital_cost = (network.transformers.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
          else:
-            network.lines.capital_cost = (network.lines.capital_cost /(8760//2))
-            network.links.capital_cost = (network.links.capital_cost /(8760//2))
-            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//2))
+            network.lines.capital_cost = (network.lines.capital_cost /(8760//4))
+            network.links.capital_cost = (network.links.capital_cost /(8760//4))
+            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//4))
             
          extension_buses = network.buses[network.buses.scn_name =='extension_' + args ['add_network'] ]
          for idx, row in extension_buses.iterrows():
@@ -322,7 +320,7 @@ def etrago(args):
          network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_BE_NO_NEP 2035'] = True
          network.links.p_nom_extendable[network.links.scn_name == 'extension_BE_NO_NEP 2035'] = True
         
-         if not args['parallelisation']:
+         """if not args['parallelisation']:
             network.lines.capital_cost = (network.lines.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
             network.links.capital_cost = (network.links.capital_cost /
@@ -330,9 +328,9 @@ def etrago(args):
             network.transformers.capital_cost = (network.transformers.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
          else:
-            network.lines.capital_cost = (network.lines.capital_cost /(8760//2))
-            network.links.capital_cost = (network.links.capital_cost /(8760//2))
-            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//2))
+            network.lines.capital_cost = (network.lines.capital_cost /(8760//4))
+            network.links.capital_cost = (network.links.capital_cost /(8760//4))
+            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//4))"""
             
          extension_buses = network.buses[network.buses.scn_name =='extension_BE_NO_NEP 2035' ]
          
@@ -344,7 +342,7 @@ def etrago(args):
     print(datetime.datetime.now())
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=2, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
