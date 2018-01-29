@@ -15,7 +15,6 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -26,15 +25,22 @@ import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-from etrago.tools.io import NetworkScenario, results_to_oedb
-from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
+
+import os
+
+if not 'READTHEDOCS' in os.environ:
+    # Sphinx does not run this code.
+    # Do not import internal packages directly  
+    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
-from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                     storage_distribution, storage_expansion)
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -47,19 +53,20 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
+        'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
+        'skip_snapshots':4,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -152,9 +159,8 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to 
         only 'k' buses. The weighting takes place considering generation and load
-        at each node. 
-        If so, state the number of k you want to apply. Otherwise put False.
-	    This function doesn't work together with 'line_grouping = True'
+        at each node. If so, state the number of k you want to apply. Otherwise 
+        put False. This function doesn't work together with 'line_grouping = True'
 	    or 'network_clustering = True'.
     
     network_clustering (bool):
@@ -213,10 +219,10 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
 
+    # TEMPORARY vague adjustment due to transformer bug in data processing     
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -238,8 +244,8 @@ def etrago(args):
       
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.carrier.any()=='extendable_storage':
-            network.storage_units.p_nom_extendable = True
+        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
+            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
@@ -280,6 +286,10 @@ def etrago(args):
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
+        
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
@@ -307,8 +317,7 @@ def etrago(args):
     # write lpfile to path
     if not args['lpfile'] == False:
         network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                    True})
-    
+                                                     True})
     # write PyPSA results back to database
     if args['export']:
         results_to_oedb(session, network, args, 'hv')  
@@ -328,10 +337,8 @@ if __name__ == '__main__':
     network = etrago(args)
     # plots
     # make a line loading plot
-    #plot_line_loading(network)
+    plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    #plot_stacked_gen(network, resolution="MW")
+    plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    #storage_distribution(network)
-
-   
+    storage_distribution(network)
