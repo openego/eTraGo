@@ -53,8 +53,8 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
-        'end_snapshot' :240,
+        'start_snapshot': 4321, 
+        'end_snapshot' :4345,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -62,20 +62,22 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise 
+        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
+        'generator_noise':False, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         #Line Extendable Function
         'line_extendable':True,
+        'method 2lopf' : False, # Select calculation method for 2nd LOPF. False for normal LOPF or 'snapshot_clustering'
+        'num_clusters': 3, #Number of clusters for the 2nd LOPF. Use if method 2lopf = snapshot_clustering
         # Clustering:
         'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering': False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'branch_capacity_factor': 0.4, # globally extend or lower branch capacities
         'load_shedding':True , # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 

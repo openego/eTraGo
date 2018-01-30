@@ -19,11 +19,29 @@ if not 'READTHEDOCS' in os.environ:
                                  group_parallel_lines)
     from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+
     #from appl import etrago                                       
-import csv
+#import csv
 # toDo reduce import
 
-
+def annualized_costs(cc,t,i):
+     """
+     This function calculates the Equivalent Annual Cost of an project.
+     
+     ########################### input parameters ###########################
+ 
+     cc: Capital Cost (Overnight)
+     t: Lifetime of the project / investment.
+     i: Interest rate of the project / investment.
+ 
+     ########################### output parameters ##########################
+     EAC : The function return the Equivalent Annual Cost of the project.
+      
+     """
+     EAC = cc * (i/(1-1/(1+i)**t))
+     
+     return EAC
 
 
 def capacity_factor(network,cap_fac):
@@ -133,7 +151,14 @@ def overload_lines(network):
     def getKey(item):
                 return item[1]
 
+    print('max loading = ', max_loading)
+    print('Time steps = ', timesteps)
+    print('time list unsorted= ', time_list)
+
     time_list = sorted(time_list,key=getKey)
+    
+ 
+    print('time list sorted= ', time_list)
 
     return max_loading,time_list
 
@@ -266,10 +291,15 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
 #                break
         lines_time.append(time_list[len(time_list)-1-i][0])
         all_time.append(time_list[len(time_list)-1-i][0])
-
+        
+        print ('lines_time', lines_time)
+        
         index = [a for a,u in enumerate(max_loading[2]) if u==lines_time[i]]
 
+        print('index', index)
+
         for k in index:
+            print('k= ', k)
             if(max_loading[1][k]>100):
                 network.lines.s_nom_extendable[max_loading[0][k]] = True
                 network.lines.s_nom_min[max_loading[0][k]] = network.lines.s_nom[max_loading[0][k]]
@@ -283,19 +313,33 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
 
                 if(U_bus_0 == U_bus_1):
                     if(U_bus_0 == 110):
-                        network.lines.capital_cost[max_loading[0][k]] = \
-                            (cost_1*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                            (90*8760)
+                        cc0 = cost_1
+                        #network.lines.capital_cost[max_loading[0][k]] = \
+                        #    (cost_1*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                        #    (90*8760)
                     elif(U_bus_0 == 220):
-                        network.lines.capital_cost[max_loading[0][k]] = \
-                            (cost_2*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                            (90*8760)
+                        cc0 = cost_2
+                        #network.lines.capital_cost[max_loading[0][k]] = \
+                        #    (cost_2*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                        #    (90*8760)
                     else:
-                        network.lines.capital_cost[max_loading[0][k]] = \
-                            (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                            (90*8760)
+                        cc0 = cost_3
+                        #network.lines.capital_cost[max_loading[0][k]] = \
+                        #    (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                        #    (90*8760)
+                    cc1 = (cc0*network.lines.length[max_loading[0][k]])
+                    maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
+                    cc = cc1/maxload1
+                    network.lines.capital_cost[max_loading[0][k]] = annualized_costs(cc,40,0.05)
+                    print('cc1= ', cc1)
+                    print('maxload1= ', maxload1)
+                
                 else:
                     print('Error')
+                    
+                print('cap costs =', network.lines.capital_cost[max_loading[0][k]])
+            else:  # Delete else, just for the print function
+                    print('No excecute in k= ', k)
         i+=1
 
     return network,lines_time,all_time
@@ -379,7 +423,6 @@ def line_extendable(network, args, scenario):
     line_extendable calculation.
 
     """  
-   
    
    # set the capacity-factory for the first lopf
     cap_fac = 1.3
@@ -466,8 +509,35 @@ def line_extendable(network, args, scenario):
             timeindex =pd.DatetimeIndex.append(timeindex,\
                       other=network.snapshots[all_time[i]:all_time[i]+1])
         i+=1
-           
-    network.lopf(timeindex, solver_name=args['solver'])            
+    
+    ##Method for 2nd LOPF
+    
+    ##Snapshot_Clustering
+    
+    if args['method 2lopf'] == 'snapshot_clustering':
+        NumClusters = args['num_clusters']
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters= NumClusters)
+        #extra_functionality = None
+        y = time.time()
+        print('time sc= ', y-x)
+    else:
+        x = time.time()
+        network.lopf(timeindex, solver_name=args['solver'])  
+        y = time.time()
+        print('time 2nd lopf= ', y-x)
+    
+    
+    
+    
+    #x = time.time()
+    #'snapshot_clustering'= 3, #Num of clusters
+    
+    #y = time.time()
+    #z = (y - x) / 60 # z is time for lopf in minutes
+    
+    ##LOPF2 - temporaly disable
+    #network.lopf(timeindex, solver_name=args['solver'])            
                     
         
     ##################### Plotting the Results #####################
