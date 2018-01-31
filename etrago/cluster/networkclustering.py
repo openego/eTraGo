@@ -91,6 +91,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         network_c.set_snapshots(network.snapshots)
 
     # dealing with generators
+    network.generators.control="PV"
     network.generators['weight'] = 1
     new_df, new_pnl = aggregategenerators(network, busmap, with_time)
     io.import_components_from_dataframe(network_c, new_df, 'Generator')
@@ -417,7 +418,10 @@ def kmean_clustering(network, n_clusters=10):
 
 
     # ToDo change function in order to use bus_strategies or similar
-    clustering = get_clustering_from_busmap(network, busmap)
+    network.generators['weight'] = 1
+    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
+    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
