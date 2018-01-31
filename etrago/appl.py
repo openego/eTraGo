@@ -35,12 +35,13 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.io import NetworkScenario, results_to_oedb
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+                                     storage_distribution)
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-
+    from egoio.tools import db
+    from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -197,8 +198,9 @@ def etrago(args):
         
 
     """
-
-    session = oedb_session(args['db'])
+    conn = db.connection(section=args['db'])
+    Session = sessionmaker(bind=conn)
+    session = Session()
 
     # additional arguments cfgpath, version, prefix
     if args['gridversion'] == None:
@@ -311,7 +313,13 @@ def etrago(args):
                                                      True})
     # write PyPSA results back to database
     if args['export']:
-        results_to_oedb(session, network, args, 'hv')  
+        username = str(conn.url).split('//')[1].split(':')[0]
+        args['user_name'] = username
+        safe_results=False #default is False. If it is set to 'True' the result set will be safed 
+                           #to the versioned grid schema eventually apart from 
+                           #being saved to the model_draft. 
+                           #ONLY set to True if you know what you are doing.  
+        results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
