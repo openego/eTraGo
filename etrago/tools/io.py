@@ -342,7 +342,7 @@ def clear_results_db(session):
             print('Deleting aborted!')
     
 
-def results_to_oedb(session, network, args, grid='hv'):
+def results_to_oedb(session, network, args, grid='hv', safe_results = False):
     """Return results obtained from PyPSA to oedb"""
     # moved this here to prevent error when not using the mv-schema
     import datetime
@@ -384,10 +384,11 @@ def results_to_oedb(session, network, args, grid='hv'):
     res_meta.result_id=new_res_id
     res_meta.scn_name=args['scn_name']
     res_meta.calc_date= datetime.datetime.now()
-#    res_meta.user_name = will be added when ego.io sessionmaker is implemented!
+    res_meta.user_name = args['user_name']
     res_meta.method=args['method']
     res_meta.start_snapshot = args['start_snapshot']
     res_meta.end_snapshot = args['end_snapshot']
+    res_meta.safe_results = safe_results
     res_meta.snapshots = network.snapshots.tolist()
     res_meta.solver = args['solver']
     res_meta.settings=meta_misc
@@ -521,6 +522,17 @@ def results_to_oedb(session, network, args, grid='hv'):
         session.commit()
     print('Upload finished!')
     
+    return
+
+def run_sql_script(conn, scriptname='results_md2grid.sql'):
+    """This function runs .sql scripts in the folder 'sql_scripts' """
+    
+    script_dir = os.path.abspath(
+                 os.path.join(os.path.dirname(__file__), 'sql_scripts'))
+    script_str = open(os.path.join(script_dir, scriptname)).read()
+    conn.execution_options(autocommit=True).execute(script_str)
+    
+    return
     
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.11.0']:

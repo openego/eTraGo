@@ -316,7 +316,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
               'slack':'pink',
               'load shedding': 'red',
               'nan':'m',
-              'imports':'salmon'}
+              'imports':'salmon',
+              '':'m'}
 
 #    TODO: column reordering based on available columns
 
@@ -492,7 +493,7 @@ def storage_distribution(network, filename=None):
     fig.set_size_inches(6,6)
    
     if sum(storage_distribution) == 0:
-         network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
+         network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
          network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
     
@@ -502,6 +503,36 @@ def storage_distribution(network, filename=None):
         plt.savefig(filename)
         plt.close()
 
+def storage_expansion(network, filename=None):
+    """
+    Plot storage distribution as circles on grid nodes
+
+    Displays storage size and distribution in network.
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename : str
+        Specify filename
+        If not given, figure will be show directly
+    """
+    
+    stores = network.storage_units[network.storage_units.carrier=='extendable_storage']   
+    storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(network.storage_units.bus).sum().reindex(network.buses.index,fill_value=0.)
+
+    fig,ax = plt.subplots(1,1)
+    fig.set_size_inches(6,6)
+   
+    if sum(storage_distribution) == 0:
+         network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
+    else:
+         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage expansion distribution")
+    
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
 
 def gen_dist(network, techs=None, snapshot=0, n_cols=3,gen_size=0.2, filename=None):
 

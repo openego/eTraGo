@@ -32,24 +32,24 @@ import os
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly  
-    from tools.io import NetworkScenario, results_to_oedb
-    from tools.plot import (plot_line_loading, plot_stacked_gen,
+    from etrago.tools.io import NetworkScenario, results_to_oedb
+    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
-    from tools.utilities import (load_shedding, data_manipulation_sh,
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-    from cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'end_snapshot' : 12,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -57,16 +57,17 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'skip_snapshots':4,
+        'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
@@ -219,10 +220,10 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
 
+    # TEMPORARY vague adjustment due to transformer bug in data processing     
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -244,8 +245,8 @@ def etrago(args):
       
     if args['storage_extendable']:
         # set virtual storages to be extendable
-        if network.storage_units.carrier.any()=='extendable_storage':
-            network.storage_units.p_nom_extendable = True
+        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
+            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
         # set virtual storage costs with regards to snapshot length
             network.storage_units.capital_cost = (network.storage_units.capital_cost /
             (8760//(args['end_snapshot']-args['start_snapshot']+1)))
@@ -277,6 +278,10 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality=None
+    
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     # parallisation
     if args['parallelisation']:
@@ -284,7 +289,7 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
@@ -308,7 +313,13 @@ def etrago(args):
                                                      True})
     # write PyPSA results back to database
     if args['export']:
-        results_to_oedb(session, network, args, 'hv')  
+        username = str(conn.url).split('//')[1].split(':')[0]
+        args['user_name'] = username
+        safe_results=False #default is False. If it is set to 'True' the result set will be safed 
+                           #to the versioned grid schema eventually apart from 
+                           #being saved to the model_draft. 
+                           #ONLY set to True if you know what you are doing.  
+        results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
