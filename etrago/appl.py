@@ -45,7 +45,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
@@ -55,7 +55,7 @@ args = {# Setup and Configuration:
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
-        'export': False, # state if you want to export the results back to the database
+        'export': True, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':False, # state if you want to apply a small generator noise 
@@ -66,10 +66,10 @@ args = {# Setup and Configuration:
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'line_grouping': True, # state if you want to group lines running between the same buses.
+        'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
-        'comments':None }
+        'comments':'Testing123' }
 
 
 def etrago(args):
@@ -310,7 +310,11 @@ def etrago(args):
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
-        results_to_oedb(session, network, args, grid='hv', safe_results = True)  
+        safe_results=False #default is False. If it is set to 'True' the result set will be safed 
+                           #to the versioned grid schema eventually apart from 
+                           #being saved to the model_draft. 
+                           #ONLY set to True if you know what you are doing.  
+        results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)  
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
