@@ -6,8 +6,64 @@ from importlib import import_module
 from sqlalchemy import and_
 from etrago.tools.io import NetworkScenario
 
+def calc_nearest_point(bus1, network):
+        
+      # bus0 = network.buses[network.buses.index == '39464' or network.buses.index ==  '39465']
+        #print(bus1)
+        #etwork = kwargs[network]
+    bus1_index = network.buses.index[network.buses.index == bus1]
+        #print(bus1_index)       
+    x0 = network.buses.x[network.buses.index.isin(bus1_index)]
+        #print(x0.values)
+    y0 = network.buses.y[network.buses.index.isin(bus1_index)]
+       # print(y0.values)
+    comparable_buses = network.buses[~network.buses.index.isin(bus1_index)]
+        #print(comparable_buses)
+    x1 = comparable_buses.x
+        #print(x1.values)
+    y1 = comparable_buses.y
+        #print(y1.values)
+    distance =(x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+        
+    min_distance = distance.min()
+        #print(min_distance)
+        
+    bus0 = comparable_buses[((x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)) == min_distance]
+        
+    bus0 = bus0.index[bus0.index == bus0.index.max()]
+    bus0 = ''.join(bus0.values)
+    #print(bus0)
+    return bus0
 
-  
+def find_point(bus1, network):
+        #global network
+        #df = pd.DataFrame({'from_bus': bus1.values}) 
+        #print(bus1)
+        
+        #df['to_bus'] = calc_nearest_point(df['from_bus'], network)
+        bus0 = bus1.apply(calc_nearest_point, network = network)
+        #bus0 = df.apply(calc_nearest_point,  axis = 1)
+
+        return bus0.values
+   
+    
+def connect_oyerlay_network (network):
+    bus1 = network.transformers.bus0[~(network.transformers.bus0.isin(network.buses.index))
+                                    & (network.transformers.bus1.isin(network.buses.index))]
+    bus_1 = network.transformers.bus1[~network.transformers.bus1.isin(network.buses.index)]
+    bus1 = bus1.append(bus_1)
+    bus_1 = network.transformers.bus1[~network.transformers.bus1.isin(network.buses.index)]
+   
+    index = ['trafo_id']
+    column = ['trafo_id', 'bus0', 'bus1', 'x', 's_nom']
+    
+    df =pd.DataFrame(columns=column)
+    df.set_index('trafo_id')
+    
+    df['bus0'] = network.lines.bus0[(~network.lines.bus0.isin(network.lines.bus1)) &
+      (network.lines.scn_name == 'extension_nep2035_b2')]
+    
+   # bus1 = network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]
 def add_by_scenario (self, df, name,  *args, **kwargs):
     
     if self.add_network != None:

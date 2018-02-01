@@ -29,6 +29,8 @@ from collections import OrderedDict
 import re
 import json
 import os
+from geoalchemy2.shape import to_shape
+
 #from etrago.tools.nep import add_by_scenario, add_series_by_scenario
 import numpy as np
 
@@ -338,13 +340,14 @@ class NetworkScenario(ScenarioBase):
     
 def overlay_network (network, session, overlay_scn_name, start_snapshot, end_snapshot, *args, **kwargs):
     
-            print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
+    print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
             
-            if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and kwargs.get('network_cluserting') == True :
+    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and kwargs.get('network_cluserting') == True :
                 print('Some transformers will have buses which are not definded due to network_clustering, they will be deleted automatically.')
+                
     ### Zubau
                     
-            scenario = NetworkScenario(session,
+    scenario = NetworkScenario(session,
                                version=None,
                                prefix='EgoGridPfHvExtension',
                                method=kwargs.get('method', 'lopf'),
@@ -352,25 +355,31 @@ def overlay_network (network, session, overlay_scn_name, start_snapshot, end_sna
                                end_snapshot=end_snapshot,
                                scn_name='extension_' + overlay_scn_name )
 
-            network = scenario.build_network(network)
+    network = scenario.build_network(network)
         
+    extension_buses = network.buses[network.buses.scn_name =='extension_' + overlay_scn_name ]
+    for idx, row in extension_buses.iterrows():
+            wkt_geom = to_shape(row['geom'])
+            network.buses.loc[idx, 'x'] = wkt_geom.x
+            network.buses.loc[idx, 'y'] = wkt_geom.y
+
     ### Rückbau
-            ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+    """ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
     
-            query = session.query(ormclass).filter(
+    query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + overlay_scn_name)
     
-            df_decommisionning = pd.read_sql(query.statement,
+    df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
                          index_col='line_id')
-            df_decommisionning.index = df_decommisionning.index.astype(str)
+    df_decommisionning.index = df_decommisionning.index.astype(str)
         
-            network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]"""
         
-            network.transformers = network.transformers[network.transformers.bus0.astype(str).isin(network.buses.index)]
+    network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
     ### Load shedding Lasten an neuen buses
             
-            if not network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].empty:
+    if not network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].empty:
                 start = network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].index.astype(int).max()+1
                 index = list(range(start,start+len(network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name])))
                 network.import_components_from_dataframe(
@@ -383,11 +392,27 @@ def overlay_network (network, session, overlay_scn_name, start_snapshot, end_sna
                                      "Generator"
                                      )
             
-    #network.transformers.drop(network.transformers.bus0.astype(str) != network.buses.index)
+    return network
         
-            return network
+def decommissioning(network, session, overlay_scn_name):
+    ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
     
+    query = session.query(ormclass).filter(
+                        ormclass.scn_name == 'decommissioning_' + overlay_scn_name)
     
+    df_decommisionning = pd.read_sql(query.statement,
+                         session.bind,
+                         index_col='line_id')
+    df_decommisionning.index = df_decommisionning.index.astype(str)
+        
+    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+    
+    #network.buses = network.buses[(network.buses.index.isin(network.lines.bus0)) | (network.buses.index.isin(network.lines.bus1)) |
+               #     (network.buses.index.isin(network.links.bus0)) | (network.buses.index.isin(network.links.bus1)) |
+              #    (network.buses.index.isin(network.transformers.bus0)) | (network.buses.index.isin(network.transformers.bus1))]
+            
+    return network
+        
 def clear_results_db(session):
     '''Used to clear the result tables in the OEDB. Caution!
         This deletes EVERY RESULT SET!'''

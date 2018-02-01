@@ -29,22 +29,21 @@ np.random.seed()
 import time
 import datetime
 import os
-from geoalchemy2.shape import to_shape
+
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly  
-    from etrago.tools.io import NetworkScenario, results_to_oedb, overlay_network
+    from etrago.tools.io import NetworkScenario, results_to_oedb, overlay_network, decommissioning
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, extension_overlay_network)
 
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
+                                    loading_minimization, calc_line_losses, group_parallel_lines, calc_nearest_point)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-   # from etrago.tools.nep import overlay_network
-
+   
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
 #from etrago.tools.nep import add_extension_network
@@ -55,7 +54,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 168,
+        'end_snapshot' : 2,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -65,12 +64,12 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': False, #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
 	    'skip_snapshots':False,
@@ -80,7 +79,7 @@ args = {# Setup and Configuration:
         'comments':None,
         # Scenario variances
         'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
-        'add_be_no': True   # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'add_be_no': True  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
 
 
@@ -272,7 +271,7 @@ def etrago(args):
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
-        
+      
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
@@ -287,6 +286,7 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'], add_network=args['add_network'], add_be_no=args['add_be_no'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
+  
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
         network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
@@ -296,42 +296,34 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality = None
-        
-    # snapshot clustering
-    if not args['snapshot_clustering']==False:
-        extra_functionality = daily_bounds
-        x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
-        y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
+
     
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     if args ['add_network'] != None:
-         network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
         
-         network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + args ['add_network'])] = True
-         network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + args ['add_network'])] = True
-         network.links.p_nom_extendable[network.links.scn_name == ('extension_' + args ['add_network'])] = True
+         network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
+         
          if not args['parallelisation']:
-            network.lines.capital_cost = (network.lines.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-            network.links.capital_cost = (network.links.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-            network.transformers.capital_cost = (network.transformers.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         else:
-            network.lines.capital_cost = (network.lines.capital_cost /(8760//4))
-            network.links.capital_cost = (network.links.capital_cost /(8760//4))
-            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//4))
+             network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + args ['add_network'])] = True
+             network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + args ['add_network'])] = True
+             network.links.p_nom_extendable[network.links.scn_name == ('extension_' + args ['add_network'])] = True
+       #(network.transformers.bus0.isin(network.buses.index)) |
+         if not args['k_mean_clustering'] == False:
+            #network.transformers = network.transformers[(network.transformers.bus1.isin(network.buses.index)) ]
+            network.buses = network.buses[(network.buses.index.isin(network.lines.bus0)) | (network.buses.index.isin(network.lines.bus1)) |
+                    (network.buses.index.isin(network.links.bus0)) | (network.buses.index.isin(network.links.bus1)) |
+                  (network.buses.index.isin(network.transformers.bus0)) | (network.buses.index.isin(network.transformers.bus1))]
+            network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
+            network.lines.s_nom_max[network.lines.scn_name == ('extension_' + args ['add_network'])] = network.lines.s_nom_max - network.lines.s_nom_min
+            network.lines.s_nom_min[network.lines.scn_name == ('extension_' + args ['add_network'])] = 0
+            network.transformers.s_nom_max[network.transformers.scn_name == ('extension_' + args ['add_network'])] = 10000000
             
-         extension_buses = network.buses[network.buses.scn_name =='extension_' + args ['add_network'] ]
-         for idx, row in extension_buses.iterrows():
-            wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
+         else:
+             network = decommissioning(network, session, overlay_scn_name = args ['add_network'] )
+     
          
     if args ['add_be_no']:
          network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
@@ -340,26 +332,23 @@ def etrago(args):
          network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_BE_NO_NEP 2035'] = True
          network.links.p_nom_extendable[network.links.scn_name == 'extension_BE_NO_NEP 2035'] = True
         
-         """if not args['parallelisation']:
-            network.lines.capital_cost = (network.lines.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-            network.links.capital_cost = (network.links.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-            network.transformers.capital_cost = (network.transformers.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-         else:
-            network.lines.capital_cost = (network.lines.capital_cost /(8760//4))
-            network.links.capital_cost = (network.links.capital_cost /(8760//4))
-            network.transformers.capital_cost = (network.transformers.capital_cost /(8760//4))"""
-            
-         extension_buses = network.buses[network.buses.scn_name =='extension_BE_NO_NEP 2035' ]
+         network.transformers = network.transformers[(network.transformers.bus1.isin(network.buses.index)) ]
+         network.transformers.bus1[~network.transformers.bus1.isin(network.buses.index)] = (network.transformers.bus0[~network.transformers.bus1.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
+         network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
          
-         for idx, row in extension_buses.iterrows():
-            wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
             
     print(datetime.datetime.now())
+    
+            
+    # snapshot clustering
+    if not args['snapshot_clustering']==False:
+        extra_functionality = daily_bounds
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+        print(network.snapshot_weightings)
+
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
