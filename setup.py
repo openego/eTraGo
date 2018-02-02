@@ -4,7 +4,7 @@ __author__ = "mariusves"
 
 
 from setuptools import find_packages, setup
-
+import os
 setup(name='eTraGo',
       author='DLR VE, ZNES Flensburg',
       author_email='',
