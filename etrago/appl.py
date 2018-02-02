@@ -49,12 +49,12 @@ if not 'READTHEDOCS' in os.environ:
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'local', # db session
+        'db': 'oedb', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'end_snapshot' : 2 ,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -67,7 +67,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -347,7 +347,7 @@ def etrago(args):
         network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
-        print(network.snapshot_weightings)
+       
 
     # parallisation
     if args['parallelisation']:
