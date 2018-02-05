@@ -97,8 +97,6 @@ class NetworkScenario(ScenarioBase):
         super().__init__(session, *args, **kwargs)
 
         self.scn_name = kwargs.get('scn_name', 'Status Quo')
-        self.add_network = kwargs.get('add_network')
-        self.add_be_no = kwargs.get('add_be_no')
         self.method   = kwargs.get('method', 'lopf')
         self.start_snapshot  = kwargs.get('start_snapshot', 1)
         self.end_snapshot    = kwargs.get('end_snapshot', 20)
@@ -257,7 +255,7 @@ class NetworkScenario(ScenarioBase):
         timevarying_override = False
 
 
-        if pypsa.__version__ == '0.11.0' or '0.8.0':
+        if pypsa.__version__ == '0.11.0':
 
 
 
@@ -338,80 +336,6 @@ class NetworkScenario(ScenarioBase):
 
         return network
     
-def overlay_network (network, session, overlay_scn_name, start_snapshot, end_snapshot, *args, **kwargs):
-    
-    print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
-            
-    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and kwargs.get('network_cluserting') == True :
-                print('Some transformers will have buses which are not definded due to network_clustering, they will be deleted automatically.')
-                
-    ### Zubau
-                    
-    scenario = NetworkScenario(session,
-                               version=None,
-                               prefix='EgoGridPfHvExtension',
-                               method=kwargs.get('method', 'lopf'),
-                               start_snapshot=start_snapshot,
-                               end_snapshot=end_snapshot,
-                               scn_name='extension_' + overlay_scn_name )
-
-    network = scenario.build_network(network)
-        
-    extension_buses = network.buses[network.buses.scn_name =='extension_' + overlay_scn_name ]
-    for idx, row in extension_buses.iterrows():
-            wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
-
-    ### Rückbau
-    """ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
-    
-    query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + overlay_scn_name)
-    
-    df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
-                         index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
-        
-    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]"""
-        
-    network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
-    ### Load shedding Lasten an neuen buses
-            
-    if not network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].empty:
-                start = network.generators[network.generators.scn_name == 'extension_' + overlay_scn_name].index.astype(int).max()+1
-                index = list(range(start,start+len(network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name])))
-                network.import_components_from_dataframe(
-                        pd.DataFrame(
-                                dict(marginal_cost=100000,
-                                     p_nom=network.loads_t.p_set.max().max(),
-                                     carrier='load shedding',
-                                     bus=network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name]),
-                                     index=index),
-                                     "Generator"
-                                     )
-            
-    return network
-        
-def decommissioning(network, session, overlay_scn_name):
-    ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
-    
-    query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + overlay_scn_name)
-    
-    df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
-                         index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
-        
-    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
-    
-    #network.buses = network.buses[(network.buses.index.isin(network.lines.bus0)) | (network.buses.index.isin(network.lines.bus1)) |
-               #     (network.buses.index.isin(network.links.bus0)) | (network.buses.index.isin(network.links.bus1)) |
-              #    (network.buses.index.isin(network.transformers.bus0)) | (network.buses.index.isin(network.transformers.bus1))]
-            
-    return network
         
 def clear_results_db(session):
     '''Used to clear the result tables in the OEDB. Caution!

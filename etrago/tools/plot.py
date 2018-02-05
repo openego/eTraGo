@@ -238,20 +238,14 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
 
-def extension_overlay_network(network, scn_name= 'NEP 2035', timestep=0, filename=None, boundaries=[0,100]):
+def extension_overlay_network(network, overlay_scn_name= 'NEP 2035', timestep=0, filename=None, boundaries=[0,100]):
    
     cmap = plt.cm.jet
     
     overlay_network = network
-    overlay_network.lines = overlay_network.lines[overlay_network.lines.scn_name != scn_name]
-    overlay_network.links = overlay_network.links[overlay_network.links.scn_name != scn_name]
-    overlay_network.loads = overlay_network.loads[overlay_network.loads.scn_name != scn_name]
-    overlay_network.generators = overlay_network.generators[overlay_network.generators.scn_name != scn_name]
-    """overlay_network.buses = overlay_network.buses[overlay_network.lines.bus0.astype(str).isin(overlay_network.buses.index)
-                                                  or overlay_network.lines.bus1.astype(str).isin(overlay_network.buses.index)
-                                                  or overlay_network.links.bus0.astype(str).isin(overlay_network.buses.index)
-                                                  or overlay_network.links.bus1.astype(str).isin(overlay_network.buses.index)]"""
-    
+    overlay_network.lines = overlay_network.lines[overlay_network.lines.scn_name == overlay_scn_name]
+    overlay_network.links = overlay_network.links[overlay_network.links.scn_name == overlay_scn_name]
+     
     array_line = [['Line'] * len(overlay_network.lines), overlay_network.lines.index]
     
     extension_lines = pd.Series((100* (overlay_network.lines.s_nom_opt - overlay_network.lines.s_nom_min) / overlay_network.lines.s_nom).data, index = array_line)

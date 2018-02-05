@@ -530,26 +530,3 @@ def group_parallel_lines(network):
     network.lines = new_lines
     
     return
-
-def calc_nearest_point(bus1, network):
-        
-    bus1_index = network.buses.index[network.buses.index == bus1]  
-    x0 = network.buses.x[network.buses.index.isin(bus1_index)]
-        #print(x0.values)
-    y0 = network.buses.y[network.buses.index.isin(bus1_index)]
-       # print(y0.values)
-    comparable_buses = network.buses[~network.buses.index.isin(bus1_index)]
-        #print(comparable_buses)
-    x1 = comparable_buses.x
-        #print(x1.values)
-    y1 = comparable_buses.y
-        #print(y1.values)
-    distance =(x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
-        
-    min_distance = distance.min()
-            
-    bus0 = comparable_buses[((x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)) == min_distance]
-    bus0 = bus0.index[bus0.index == bus0.index.max()]
-    bus0 = ''.join(bus0.values)
-    #print(bus0)
-    return bus0

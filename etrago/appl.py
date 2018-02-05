@@ -34,22 +34,23 @@ import os
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly  
-    from etrago.tools.io import NetworkScenario, results_to_oedb, overlay_network, decommissioning
+    from etrago.tools.io import NetworkScenario, results_to_oedb
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, extension_overlay_network)
 
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines, calc_nearest_point)
+                                    loading_minimization, calc_line_losses, group_parallel_lines)
+    
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-   
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
-
+    from etrago.tools.nep import overlay_network
+    
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
@@ -62,12 +63,12 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': True, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -78,8 +79,8 @@ args = {# Setup and Configuration:
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'add_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
-        'add_be_no': True  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
+        'add_Belgium_Norway': False  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         }
 
 
@@ -283,7 +284,7 @@ def etrago(args):
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'], add_network=args['add_network'], add_be_no=args['add_be_no'])
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
   
@@ -302,44 +303,12 @@ def etrago(args):
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
-    if args ['add_network'] != None:
-        
-         network = overlay_network(network, session, overlay_scn_name = args ['add_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
+    if args ['overlay_network'] != None:
+         network = overlay_network(network, session, overlay_scn_name = args ['overlay_network'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
          
-         if not args['parallelisation']:
-             network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + args ['add_network'])] = True
-             network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + args ['add_network'])] = True
-             network.links.p_nom_extendable[network.links.scn_name == ('extension_' + args ['add_network'])] = True
-       #(network.transformers.bus0.isin(network.buses.index)) |
-         if not args['k_mean_clustering'] == False:
-            #network.transformers = network.transformers[(network.transformers.bus1.isin(network.buses.index)) ]
-            network.buses = network.buses[(network.buses.index.isin(network.lines.bus0)) | (network.buses.index.isin(network.lines.bus1)) |
-                    (network.buses.index.isin(network.links.bus0)) | (network.buses.index.isin(network.links.bus1)) |
-                  (network.buses.index.isin(network.transformers.bus0)) | (network.buses.index.isin(network.transformers.bus1))]
-            network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-            network.lines.s_nom_max[network.lines.scn_name == ('extension_' + args ['add_network'])] = network.lines.s_nom_max - network.lines.s_nom_min
-            network.lines.s_nom_min[network.lines.scn_name == ('extension_' + args ['add_network'])] = 0
-            network.transformers.s_nom_max[network.transformers.scn_name == ('extension_' + args ['add_network'])] = 10000000
-            
-         else:
-             network = decommissioning(network, session, overlay_scn_name = args ['add_network'] )
-     
-         
-    if args ['add_be_no']:
+    if args ['add_Belgium_Norway']:
          network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
-         
-         network.lines.s_nom_extendable[network.lines.scn_name == 'extension_BE_NO_NEP 2035'] = True
-         network.transformers.s_nom_extendable[network.transformers.scn_name == 'extension_BE_NO_NEP 2035'] = True
-         network.links.p_nom_extendable[network.links.scn_name == 'extension_BE_NO_NEP 2035'] = True
         
-         network.transformers = network.transformers[(network.transformers.bus1.isin(network.buses.index)) ]
-         network.transformers.bus1[~network.transformers.bus1.isin(network.buses.index)] = (network.transformers.bus0[~network.transformers.bus1.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-         network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-         
-            
-    print(datetime.datetime.now())
-    
-            
     # snapshot clustering
     if not args['snapshot_clustering']==False:
         extra_functionality = daily_bounds
@@ -351,12 +320,12 @@ def etrago(args):
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'],  solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'],extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print('Time for lopf in minutes')
