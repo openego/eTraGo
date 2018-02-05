@@ -5,11 +5,12 @@ from importlib import import_module
 from etrago.tools.io import NetworkScenario
 from geoalchemy2.shape import to_shape
    
-def overlay_network (network, session, overlay_scn_name, start_snapshot, end_snapshot, *args, **kwargs):
+def overlay_network (network, session, overlay_scn_name, k_mean_clustering, start_snapshot, end_snapshot, *args, **kwargs):
     
     parallelisation =  kwargs.get('parallelisation')
-    k_mean_clustering = kwargs.get('k_mean_clustering')
+    #k_mean_clustering = kwargs.get('k_mean_clustering')
     network_clustering = kwargs.get('network_cluserting')
+    print(k_mean_clustering)
 
     print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
             
@@ -67,8 +68,8 @@ def overlay_network (network, session, overlay_scn_name, start_snapshot, end_sna
             network.lines.s_nom_min[network.lines.scn_name == ('extension_' +  overlay_scn_name)] = 0
             network.transformers.s_nom_max[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = 10000000
             
-    else: 
-        decommissioning(network, session, overlay_scn_name)
+   # else: 
+      #  decommissioning(network, session, overlay_scn_name)
         
             
     return network
@@ -108,10 +109,12 @@ def calc_nearest_point(bus1, network):
 
     y1 = comparable_buses.y
     
-    min_distance = distance(x0, x1, y0, y1).min()
+    distance = (x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+    
+    min_distance = distance.min()
         
-    bus0 = comparable_buses.index[(distance(x0, x1, y0, y1) == min_distance) | (comparable_buses.index == comparable_buses.index.max()) ]
-   
+    bus0 = comparable_buses[(((x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)) == min_distance)  ]
+    bus0 = bus0.index[bus0.index == bus0.index.max()]
     bus0 = ''.join(bus0.values)
 
     return bus0

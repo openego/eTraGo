@@ -195,7 +195,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no, fromlvl, tolvl,
+def busmap_by_shortest_path(network, session, scn_name,  fromlvl, tolvl,
                             cpu_cores=4):
     """ Create busmap between voltage levels based on dijkstra shortest path.
     The result is written to the `model_draft` on the OpenEnergy - Platform. The
@@ -235,15 +235,7 @@ def busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no, 
             * path_length.
 
     """
-    """if add_network == None and add_be_no == True:
-            #df['scn_name'] = 'BE_NO_' + scn_name
-            scn_name = 'BE_NO_' + scn_name
-    if add_network != None and add_be_no == True:
-           # df['scn_name'] = 'BE_NO_' + scn_name + '_' + add_network
-            scn_name = 'BE_NO_' + scn_name + '_' + add_network
-    if add_network != None and add_be_no == False:
-            #df['scn_name'] = scn_name + '_' + add_network
-            scn_name = scn_name + '_' + add_network"""
+
     
     
     # cpu_cores = mp.cpu_count()
@@ -308,11 +300,7 @@ def busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no, 
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
-    #if add_network == None and add_be_no == False:
-    
-        
-    #else:
-
+   
     print(scn_name)
     df['scn_name'] = scn_name
     print(df)
@@ -328,7 +316,7 @@ def busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no, 
     return
 
 
-def busmap_from_psql(network, session, scn_name, add_network, add_be_no):
+def busmap_from_psql(network, session, scn_name):
     """ Retrieve busmap from OEP-relation `model_draft.ego_grid_pf_hv_busmap`
     by a given scenario name. If not present the busmap is created with default
     values to cluster on the EHV-level (110 --> 220, 380 kV)
@@ -350,42 +338,12 @@ def busmap_from_psql(network, session, scn_name, add_network, add_be_no):
 
     def fetch():
         
-        if add_network == None and not add_be_no:
-            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+        query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
                 filter(EgoGridPfHvBusmap.scn_name == scn_name)
-                
-        else: 
-            if add_network != None and not add_be_no:
-                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name ==  'extension_' + add_network))
-            if add_network != None and add_be_no:
-                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name, EgoGridPfHvBusmap.scn_name ==  'extension_' + add_network))
-            if add_network == None and add_be_no:
-                query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                filter(or_(EgoGridPfHvBusmap.scn_name == scn_name, EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name))
-                
+      
         return dict(query.all())
        
-        """if add_network == None and add_be_no == False: 
-           query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                filter(EgoGridPfHvBusmap.scn_name == scn_name)
-                
-        if add_network != None and add_be_no == False:  
-            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                 filter(EgoGridPfHvBusmap.scn_name == scn_name +'_' + add_network)
-                 
-        if add_network != None and add_be_no == True:  
-            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                 filter(EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name +'_' + add_network)
-        
-        if add_network == None and add_be_no == True:  
-            query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                 filter(EgoGridPfHvBusmap.scn_name == 'BE_NO_' + scn_name)"""
-                 
-        return dict(query.all())         
-                 
- 
+    
     busmap = fetch()
 
     # TODO: Or better try/except/finally
@@ -394,19 +352,13 @@ def busmap_from_psql(network, session, scn_name, add_network, add_be_no):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name, add_network, add_be_no,
+        busmap_by_shortest_path(network, session, scn_name,
                                 fromlvl=[110], tolvl=[220, 380],
                                 cpu_cores=int(cpu_cores))
 
         busmap = fetch()
 
-    """if add_network != None:
-        print('Additional network does not exist in busmap')
-        cpu_cores = input('cpu_cores (default 4): ') or '4'
-        
-        busmap_by_shortest_path(network, session, 'extension_' + add_network,
-                                fromlvl=[110], tolvl=[220, 380],
-                                cpu_cores=int(cpu_cores))"""
+
         
     return busmap
 

@@ -255,7 +255,7 @@ class NetworkScenario(ScenarioBase):
         timevarying_override = False
 
 
-        if pypsa.__version__ == '0.11.0':
+        if pypsa.__version__ == '0.11.0' or '0.8.0':
 
 
 
