@@ -530,3 +530,28 @@ def group_parallel_lines(network):
     network.lines = new_lines
     
     return
+
+def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 40):
+    
+    """ Convert capital_costs to fit to pypsa and caluculated time
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    p : interest rate, estimated 0.05
+    T : number of periods, default 40 years (source: StromNEV Anlage 1)
+    -------
+
+    """
+    # Add costs for converter
+    network.links.capital_cost = network.links.capital_cost + 400000
+        
+    # Calculate present value of an annuity (PVA)
+    PVA = 1/(p-1)/(p* T**(1+p))
+    
+    #
+    network.lines.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.links.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.lines.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    
+    return network
+    

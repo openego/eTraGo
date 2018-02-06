@@ -5,16 +5,11 @@ from importlib import import_module
 from etrago.tools.io import NetworkScenario
 from geoalchemy2.shape import to_shape
    
-def overlay_network (network, session, overlay_scn_name, k_mean_clustering, start_snapshot, end_snapshot, *args, **kwargs):
+def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_clustering, start_snapshot, end_snapshot, *args, **kwargs):
     
-    parallelisation =  kwargs.get('parallelisation')
-    #k_mean_clustering = kwargs.get('k_mean_clustering')
-    network_clustering = kwargs.get('network_cluserting')
-    print(k_mean_clustering)
-
     print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
             
-    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and network_clustering:
+    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and  kwargs.get('network_cluserting'):
                 print('Some transformers will have buses which are not definded due to network_clustering, they will be deleted automatically.')
                 
     ### Adding overlay-network to existing network                    
@@ -50,17 +45,20 @@ def overlay_network (network, session, overlay_scn_name, k_mean_clustering, star
                                      index=index),
                                      "Generator"
                                      )
-    ### Adjust capital_costs to simualtion time            
-    network.lines.capital_cost = (network.lines.capital_cost / (8760//(end_snapshot - start_snapshot +1)))
-    network.links.capital_cost = (network.links.capital_cost / (8760//(end_snapshot - start_snapshot +1)))
-    network.transformers.capital_cost = (network.transformers.capital_cost / (8760//(end_snapshot - start_snapshot +1)))
+    ### Set components extendable
+    if set_extendable == 'NEP Zubaunetz':
+        network.lines.s_nom_extendable[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name)]= True
+        network.links.p_nom_extendable[(network.links.scn_name == 'extension_' + overlay_scn_name)] = True
+        network.transformers.s_nom_extendable[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == 'extension_' + overlay_scn_name)] = True
+        
+    elif set_extendable == 'overlay_network':
+        network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + overlay_scn_name)] = True
+        network.links.p_nom_extendable[network.links.scn_name == ('extension_' + overlay_scn_name)] = True
+        network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = True
+        
+
     
-   ### Set new lines extandable, only works when not calculate parallel    
-    if not parallelisation:
-             network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + overlay_scn_name)] = True
-             network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' +  overlay_scn_name)] = True
-             network.links.p_nom_extendable[network.links.scn_name == ('extension_' +  overlay_scn_name)] = True
-             
+            
    ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
     if not k_mean_clustering == False:
             network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
@@ -68,8 +66,8 @@ def overlay_network (network, session, overlay_scn_name, k_mean_clustering, star
             network.lines.s_nom_min[network.lines.scn_name == ('extension_' +  overlay_scn_name)] = 0
             network.transformers.s_nom_max[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = 10000000
             
-   # else: 
-      #  decommissioning(network, session, overlay_scn_name)
+    else: 
+       decommissioning(network, session, overlay_scn_name)
         
             
     return network

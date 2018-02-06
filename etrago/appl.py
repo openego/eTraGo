@@ -39,7 +39,7 @@ if not 'READTHEDOCS' in os.environ:
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, extension_overlay_network)
 
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     
@@ -54,8 +54,8 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'start_snapshot': 167, 
+        'end_snapshot' : 168,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -65,10 +65,10 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': True, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering': False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -80,7 +80,8 @@ args = {# Setup and Configuration:
         'comments':None,
         # Scenario variances
         'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
-        'add_Belgium_Norway': False  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'set_extendable' : 'NEP Zubaunetz' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
         }
 
 
@@ -235,6 +236,8 @@ def etrago(args):
     # add coordinates
     network = add_coordinates(network)
 
+    # adjust capital_cost to annual payment and simulation period
+    network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
@@ -304,11 +307,13 @@ def etrago(args):
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     if args ['overlay_network'] != None:
-         network = overlay_network(network, session, overlay_scn_name = args ['overlay_network'], k_mean_clustering = args ['k_mean_clustering'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
-         
+         network = overlay_network(network, session, overlay_scn_name = args ['overlay_network'], set_extendable = args ['set_extendable'], k_mean_clustering = args ['k_mean_clustering'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
+         network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+
     if args ['add_Belgium_Norway']:
-         network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
-        
+         network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', set_extendable = args ['set_extendable'], start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
+         network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+
     # snapshot clustering
     if not args['snapshot_clustering']==False:
         extra_functionality = daily_bounds
