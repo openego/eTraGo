@@ -49,9 +49,9 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
     if set_extendable == 'NEP Zubaunetz':
         network.lines.s_nom_extendable[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name)]= True
         network.links.p_nom_extendable[(network.links.scn_name == 'extension_' + overlay_scn_name)] = True
-        network.transformers.s_nom_extendable[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == 'extension_' + overlay_scn_name)] = True
+        network.transformers.s_nom_extendable[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == ('extension_' + overlay_scn_name))] = True
         
-    elif set_extendable == 'overlay_network':
+    if set_extendable == 'overlay_network':
         network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + overlay_scn_name)] = True
         network.links.p_nom_extendable[network.links.scn_name == ('extension_' + overlay_scn_name)] = True
         network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = True
