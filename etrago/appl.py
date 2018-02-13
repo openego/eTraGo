@@ -50,12 +50,12 @@ if not 'READTHEDOCS' in os.environ:
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 168,
+        'end_snapshot' : 744,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -70,7 +70,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':6, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
 	    'skip_snapshots':False,
@@ -80,8 +80,8 @@ args = {# Setup and Configuration:
         'comments':None,
         # Scenario variances
         'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
-        'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
-        'set_extendable' : 'NEP Zubaunetz' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
+        'add_Belgium_Norway': True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'set_extendable' : 'overlay network' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
         }
 
 
@@ -308,10 +308,10 @@ def etrago(args):
         
     if args ['overlay_network'] != None:
          network = overlay_network(network, session, overlay_scn_name = args ['overlay_network'], set_extendable = args ['set_extendable'], k_mean_clustering = args ['k_mean_clustering'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
-         network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+         network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     if args ['add_Belgium_Norway']:
-         network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', set_extendable = args ['set_extendable'], start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
+         network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', set_extendable = args ['set_extendable'],k_mean_clustering = args ['k_mean_clustering'], start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
          network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     # snapshot clustering
