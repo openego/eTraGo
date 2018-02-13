@@ -68,7 +68,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':6, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -80,8 +80,9 @@ args = {# Setup and Configuration:
         'comments':None,
         # Scenario variances
         'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
-        'add_Belgium_Norway': True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
-        'set_extendable' : 'overlay network' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
+        'add_Belgium_Norway':True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
+        'set_extendable' :'overlay_network' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
+
         }
 
 
@@ -324,7 +325,8 @@ def etrago(args):
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'],  solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1,
+                        solver_name=args['solver'],  solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':

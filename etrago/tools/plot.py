@@ -242,22 +242,24 @@ def extension_overlay_network(network, overlay_scn_name= 'NEP 2035', timestep=0,
    
     cmap = plt.cm.jet
     
-    overlay_network = network
-    overlay_network.lines = overlay_network.lines[overlay_network.lines.scn_name == overlay_scn_name]
-    overlay_network.links = overlay_network.links[overlay_network.links.scn_name == overlay_scn_name]
+    overlay_network = network.copy()
+    overlay_network.lines = overlay_network.lines[overlay_network.lines.s_nom_extendable == True]
+    overlay_network.links = overlay_network.links[overlay_network.links.p_nom_extendable == True]
      
     array_line = [['Line'] * len(overlay_network.lines), overlay_network.lines.index]
     
-    extension_lines = pd.Series((100* (overlay_network.lines.s_nom_opt - overlay_network.lines.s_nom_min) / overlay_network.lines.s_nom).data, index = array_line)
+    extension_lines = pd.Series((100*(overlay_network.lines.s_nom_opt - overlay_network.lines.s_nom_min) / overlay_network.lines.s_nom).data, index = array_line)
 
     array_link = [['Link'] * len(overlay_network.links), overlay_network.links.index]
     
-    extension_links = pd.Series((100* overlay_network.links.p_nom_opt / (overlay_network.links.p_nom)).data, index = array_link)
+    extension_links = pd.Series((100*overlay_network.links.p_nom_opt / (overlay_network.links.p_nom)).data, index = array_link)
     
     extension = extension_lines.append(extension_links)
     
+    network.plot(line_colors = "grey",  bus_sizes = 0, line_widths = 0.55 )
+    
     ll = overlay_network.plot(line_colors=extension, line_cmap=cmap, bus_sizes = 0, 
-                      title="Optimized AC- and DC-line extension", line_widths=0.75)
+                      title="Optimized AC- and DC-line extension", line_widths=2)
     if not boundaries:
         cb = plt.colorbar(ll[1])
     elif boundaries:
