@@ -537,7 +537,7 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    p : interest rate, estimated 0.05
+    p : interest rate, default 0.05
     T : number of periods, default 40 years (source: StromNEV Anlage 1)
     -------
 
