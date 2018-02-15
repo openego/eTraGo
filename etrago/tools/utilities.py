@@ -550,8 +550,8 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     
     #
     network.lines.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
-    network.links.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
-    network.lines.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.links.capital_cost = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.transformers.capital_cost = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
     
     return network
     

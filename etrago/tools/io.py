@@ -215,8 +215,6 @@ class NetworkScenario(ScenarioBase):
                                 columns=[column],
                                 index_col=id_column)
         
-        #if self.add_be_no == True:
-         #  df = add_series_by_scenario(self, df, name, column)
            
         df.index = df.index.astype(str)
        
@@ -225,7 +223,6 @@ class NetworkScenario(ScenarioBase):
         df = df[column].apply(pd.Series).transpose()
        
         
-           #print(df2)
            
         try:
             assert not df.empty

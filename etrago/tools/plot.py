@@ -269,7 +269,58 @@ def extension_overlay_network(network, overlay_scn_name= 'NEP 2035', timestep=0,
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
     cb.set_label('line extension relative to s_nom in %')
+
+def full_load_hours(network):
+    cmap = plt.cm.jet
     
+    array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+    load_lines = pd.Series(abs((network.lines_t.p0.sum()/ \
+                   (network.lines.s_nom))).data, index = array_line)
+    
+    array_link = [['Link'] * len(network.links), network.links.index]
+    
+    load_links = pd.Series((network.links_t.p0.sum()/ \
+                   (network.links.p_nom)).data , index = array_link)
+    
+    load_hours = load_lines.append(load_links)
+    
+    
+    ll = network.plot(line_colors=load_hours, line_cmap=cmap,
+                      title="Full load-hours of lines", line_widths=0.55)
+  
+    cb = plt.colorbar(ll[1])
+
+    cb.set_label('Number of full-load hours')
+"""    
+def load_hours(network, min_load = 0.9, max_load = 1):
+    cmap = plt.cm.jet
+    
+    array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+    x = network.lines.loc[network.lines_t['p0'] / network.lines.s_nom >= min_load, 's_nom'  ].sum()
+    
+    load_lines = pd.Series(len(network.lines_t.p0[(abs(network.lines_t.p0/network.lines.s_nom)>= min_load) & \
+                                                  (abs(network.lines_t.p0/network.lines.s_nom) <= max_load) ].loc[network.snapshots]), index = array_line)
+    
+    array_link = [['Link'] * len(network.links), network.links.index]
+    
+    load_links = pd.Series(len(network.links_t[(abs(network.links_t.p0/network.links.p_nom) >= min_load) ]&
+                                                  (abs(network.links_t.p0/network.links.p_nom) <= max_load) ]), index = array_link)
+    
+    load_hours = load_lines.append(load_links)
+    
+    
+    ll = network.plot(line_colors=load_hours, line_cmap=cmap,
+                      title="Number of hours with more then 90% load", line_widths=0.55)
+  
+    cb = plt.colorbar(ll[1])
+
+    cb.set_label('Number of hours')
+    
+"""
+ 
+
 def plot_residual_load(network):
     """ Plots residual load summed of all exisiting buses.
 
