@@ -27,17 +27,25 @@ import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
 
 write_results = True
-home = os.path.expanduser('C:/eTraGo/etrago')
-resultspath = os.path.join(home, 'snapshot-clustering-results',) # args['scn_name'])
 
-def snapshot_clustering(network, how='daily', clusters=10):
 
-    path = os.path.join(resultspath, how)
+home = os.path.expanduser('~/pf_results/')
+resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-withpypsaweighting',) # args['scn_name'])
+def snapshot_clustering(network, how='daily', clusters= []):
 
-    network = run(network=network.copy(), path=path,
-        write_results=write_results, n_clusters=clusters,
-        how=how, normed=False)
-        
+#==============================================================================
+    # This will calculate the original problem
+    run(network=network.copy(), path=resultspath,
+    write_results=write_results, n_clusters=None)
+#==============================================================================
+
+    for c in clusters:
+        path = os.path.join(resultspath, how)
+
+        run(network=network.copy(), path=path,
+            write_results=write_results, n_clusters=c,
+            how=how, normed=False)
+
     return network
 
 def run(network, path, write_results=False, n_clusters=None, how='daily',
@@ -64,9 +72,29 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
     medoids = get_medoids(clusters)
 
-    update_data_frames(network, medoids)
 
-    return network        
+        update_data_frames(network, medoids)
+
+        snapshots = network.snapshots
+
+    else:
+        network.cluster = False
+        path = os.path.join(path, 'original')
+
+    snapshots = network.snapshots
+
+    # start powerflow calculations
+    network_lopf(network, snapshots, extra_functionality = daily_bounds,
+                 solver_name='gurobi')
+
+    # write results to csv
+    if write_results:
+        results_to_csv(network, path)
+
+        write_lpfile(network, path=os.path.join(path, "file.lp"))
+
+
+    return network
 
 def prepare_pypsa_timeseries(network, normed=False):
     """
@@ -130,6 +158,7 @@ def daily_bounds(network, snapshots):
         # take every first hour of the clustered days
         network.model.period_starts = network.snapshot_weightings.index[0::24]
 
+
         network.model.storages = sus.index
 
         def day_rule(m, s, p):
@@ -141,7 +170,10 @@ def daily_bounds(network, snapshots):
                 m.state_of_charge[s, p] ==
                 m.state_of_charge[s, p + pd.Timedelta(hours=23)])
             
-        network.model.period_bound = po.Constraint(network.model.storages, network.model.period_starts, rule=day_rule)
+        network.model.period_bound = po.Constraint(
+            network.model.storages, network.model.period_starts, rule=day_rule)
+
+
 
 def group(df, how='daily'):
     """ Hierachical clustering of timeseries returning the linkage matrix
@@ -332,7 +364,3 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugef√
     resultspath = 'compare-'+resultspath
 
     return resultspath
-
-
-
-

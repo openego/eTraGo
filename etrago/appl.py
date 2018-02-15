@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 336fe2da9d5c08fcb462d8fd6aef8510705d28d8
 """
 This is the application file for the tool eTraGo. 
 
@@ -42,7 +45,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-    
+
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from etrago.tools.nep import overlay_network
@@ -63,14 +66,17 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
+
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering':250, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':6, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'extra_functionality':False,
+        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
 	    'skip_snapshots':False,
@@ -236,6 +242,10 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+      
+    # TEMPORARY vague adjustment due to transformer bug in data processing
+    network.transformers.x=network.transformers.x*0.0001
+
 
     # adjust capital_cost to annual payment and simulation period
     network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
@@ -319,7 +329,7 @@ def etrago(args):
     if not args['snapshot_clustering']==False:
         extra_functionality = None #daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
+        network = snapshot_clustering(network, how='daily', clusters= [5,10,15,20,25,30,35,40,45,50,100,200,300])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
 
