@@ -220,6 +220,9 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+	
+    # set SOC at the beginning and end of the period to equal values
+    network.storage_units.cyclic_state_of_charge = True
 
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
