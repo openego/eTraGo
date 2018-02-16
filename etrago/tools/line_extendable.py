@@ -248,6 +248,9 @@ def overload_trafo(network):
                 return item[1]
 
     time_list = sorted(time_list,key=getKey)
+    
+    print('timesteps tx', timesteps)
+    print('time list tx', time_list)
 
     return max_loading,time_list
 
@@ -431,10 +434,17 @@ def line_extendable(network, args, scenario):
     network = capacity_factor(network,cap_fac)
                                         
     ############################ 1. Lopf ###########################
-    parallelisation(network, start_snapshot=args['start_snapshot'], \
-        end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
-         
-        
+    x = time.time()
+    print ('bf 1st LOPF snapshots', len(network.snapshots))
+    network.lopf(network.snapshots, solver_name=args['solver']) 
+    print('results after 1stLOPF', network.lines_t.p0 )
+    #parallelisation(network, start_snapshot=args['start_snapshot'], \
+    #    end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+    y = time.time()
+    print('time 1st lopf= ', y-x)          
+    
+    
+    
     # return to original capacities
     network = capacity_factor(network,(1/cap_fac))
         
@@ -490,6 +500,7 @@ def line_extendable(network, args, scenario):
             i+=1
                 
     ######################### calc 2. Lopf ##########################
+    print('all time pre1', all_time)
     length_time = len(all_time)
     if(length_time==0):
         timeindex = scenario.timeindex
@@ -501,6 +512,7 @@ def line_extendable(network, args, scenario):
                          network.transformers.capital_cost * length_time
     
     all_time.sort()
+    print('all time pre2', all_time)
     i=0
     while(i<len(all_time)):
         if i==0:
@@ -509,36 +521,12 @@ def line_extendable(network, args, scenario):
             timeindex =pd.DatetimeIndex.append(timeindex,\
                       other=network.snapshots[all_time[i]:all_time[i]+1])
         i+=1
-    
+    print('timeindex=',timeindex )
     ##Method for 2nd LOPF
-    
-    ##Snapshot_Clustering
-    
-    if args['method 2lopf'] == 'snapshot_clustering':
-        NumClusters = args['num_clusters']
-        x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= NumClusters)
-        #extra_functionality = None
-        y = time.time()
-        print('time sc= ', y-x)
-    else:
-        x = time.time()
-        network.lopf(timeindex, solver_name=args['solver'])  
-        y = time.time()
-        print('time 2nd lopf= ', y-x)
-    
-    
-    
-    
-    #x = time.time()
-    #'snapshot_clustering'= 3, #Num of clusters
-    
-    #y = time.time()
-    #z = (y - x) / 60 # z is time for lopf in minutes
-    
-    ##LOPF2 - temporaly disable
-    #network.lopf(timeindex, solver_name=args['solver'])            
-                    
+    x = time.time()
+    network.lopf(timeindex, solver_name=args['solver'])  
+    y = time.time()
+    print('time 2nd lopf= ', y-x)                          
         
     ##################### Plotting the Results #####################
     if len(lines_time) >0:
