@@ -54,10 +54,10 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/openego/pf_results/110paper/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -69,7 +69,7 @@ args = {# Setup and Configuration:
         'skip_snapshots':5,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
