@@ -546,7 +546,7 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     network.links.capital_cost = network.links.capital_cost + 400000
         
     # Calculate present value of an annuity (PVA)
-    PVA = 1/(p-1)/(p* T**(1+p))
+    PVA =(1 / p) - (1 / (p*(1 + p) ** T))
     
     #
     network.lines.capital_cost = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))

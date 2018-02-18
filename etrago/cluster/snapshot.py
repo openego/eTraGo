@@ -18,25 +18,29 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "Simon Hilpert"
 
+
 import os
 import pandas as pd
 import pyomo.environ as po
+from pypsa.opf import network_lopf
 import logging
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
+from etrago.tools.utilities import results_to_csv
+
 
 write_results = True
 
 
 home = os.path.expanduser('~/pf_results/')
-resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-withpypsaweighting',) # args['scn_name'])
+resultspath = os.path.join(home, 'eTraGo_results',) # args['scn_name'])
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
     # This will calculate the original problem
-    run(network=network.copy(), path=resultspath,
-    write_results=write_results, n_clusters=None)
+   # run(network=network.copy(), path=resultspath,
+ #   write_results=write_results, n_clusters=None)
 #==============================================================================
 
     for c in clusters:
@@ -53,24 +57,24 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     """
     """
     # reduce storage costs due to clusters
+    if n_clusters is not None:
+        path = os.path.join(path, str(n_clusters))
 
-    path = os.path.join(path, str(n_clusters))
-
-    network.cluster = True
+        network.cluster = True
 
     # calculate clusters
 
-    timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
+        timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
 
-    df, n_groups = group(timeseries_df, how=how)
+        df, n_groups = group(timeseries_df, how=how)
 
-    Z = linkage(df, n_groups)
+        Z = linkage(df, n_groups)
 
-    network.Z = pd.DataFrame(Z)
+        network.Z = pd.DataFrame(Z)
 
-    clusters = fcluster(df, Z, n_groups, n_clusters)
+        clusters = fcluster(df, Z, n_groups, n_clusters)
 
-    medoids = get_medoids(clusters)
+        medoids = get_medoids(clusters)
 
 
         update_data_frames(network, medoids)

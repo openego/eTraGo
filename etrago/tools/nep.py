@@ -9,7 +9,7 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
     
     print('Adding overlay network ' + overlay_scn_name + ' to existing network.')
             
-    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and  kwargs.get('network_cluserting'):
+    if (overlay_scn_name == 'nep2035_b2' or overlay_scn_name == 'NEP') and  k_mean_clustering:
                 print('Some transformers will have buses which are not definded due to network_clustering, they will be deleted automatically.')
                 
     ### Adding overlay-network to existing network                    
@@ -47,29 +47,30 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
                                      )
     ### Set components extendable
     if set_extendable == 'NEP Zubaunetz':
-        network.lines.s_nom_extendable[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name)]= True
-        network.links.p_nom_extendable[(network.links.scn_name == 'extension_' + overlay_scn_name)] = True
-         ## Add costs for trafos to line costs
-        network.lines.capital_cost[network.lines.scn_name == ('extension_' + overlay_scn_name)] = network.lines.capital_cost + (2*14166)
-
+       # network.lines.s_nom_extendable.loc['project' != 'EnLAG'] = True(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name)]= True
+       network.lines.loc[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name), 's_nom_extendable'] = True
+       network.transformers.loc[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == ('extension_' + overlay_scn_name)), 's_nom_extendable'] = True      
+       network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
+      
         
     if set_extendable == 'overlay_network_and_trafos':
-        network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + overlay_scn_name)] = True
-        network.links.p_nom_extendable[network.links.scn_name == ('extension_' + overlay_scn_name)] = True
-
-        network.transformers.s_nom_extendable[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = True
+        network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable' ] = True
+        network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
+        network.transformers.loc[network.transformers.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable'] = True
         
-    if set_extendable == 'overlay_network':
-        network.lines.s_nom_extendable[network.lines.scn_name == ('extension_' + overlay_scn_name)] = True
-        network.links.p_nom_extendable[network.links.scn_name == ('extension_' + overlay_scn_name)] = True
-        network.lines.capital_cost = network.lines.capital_cost +( 2 * 14166 )
-
+    if set_extendable == 'overlay_network':# and overlay_scn_name != 'BE_NO_NEP 2035':
+        network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable' ] = True
+        network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
+        network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 'capital_cost'] = network.lines.capital_cost +( 2 * 14166 )
+       # network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom'] = network.lines.s_nom_min
+        
    ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
     if not k_mean_clustering == False:
-            network.transformers.bus0[~network.transformers.bus0.isin(network.buses.index)] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-            network.lines.s_nom_max[network.lines.scn_name == ('extension_' + overlay_scn_name)] = network.lines.s_nom_max - network.lines.s_nom_min
-            network.lines.s_nom_min[network.lines.scn_name == ('extension_' +  overlay_scn_name)] = 0
-            network.transformers.s_nom[network.transformers.scn_name == ('extension_' + overlay_scn_name)] = 10000000
+            network.transformers.loc[~network.transformers.bus0.isin(network.buses.index), 'bus0'] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
+            network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_max'] = network.lines.s_nom_max - network.lines.s_nom_min
+            network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom'] = network.lines.s_nom_max
+            network.lines.loc[network.lines.scn_name == ('extension_' +  overlay_scn_name), 's_nom_min'] = 0
+            network.transformers.loc[network.transformers.scn_name == ('extension_' + overlay_scn_name), 's_nom'] = 1000000
             
     else: 
        decommissioning(network, session, overlay_scn_name)

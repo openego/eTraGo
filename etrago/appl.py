@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 
-
-=======
->>>>>>> 336fe2da9d5c08fcb462d8fd6aef8510705d28d8
 """
 This is the application file for the tool eTraGo. 
 
@@ -58,7 +54,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 744,
+        'end_snapshot' : 72,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -66,28 +62,26 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-
-        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
-        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
 	    'skip_snapshots':False,
         'line_grouping': False,
         'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
-        'load_shedding':True,
+        'load_shedding':False,
         'comments':None,
         # Scenario variances
         'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
         'add_Belgium_Norway':True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
-        'set_extendable' :'overlay_network' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
+        'set_extendable' : 'overlay_network_and_trafos' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
 
         }
 
@@ -218,7 +212,6 @@ def etrago(args):
         
 
     """
-
     
     session = oedb_session(args['db'])
 
@@ -246,7 +239,6 @@ def etrago(args):
     # TEMPORARY vague adjustment due to transformer bug in data processing
     network.transformers.x=network.transformers.x*0.0001
 
-
     # adjust capital_cost to annual payment and simulation period
     network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
@@ -254,12 +246,6 @@ def etrago(args):
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
 
-
-    if args['branch_capacity_factor']:
-        
-        
-        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
     if args['generator_noise']:
         # create or reproduce generator noise 
@@ -324,36 +310,42 @@ def etrago(args):
     if args ['add_Belgium_Norway']:
          network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', set_extendable = args ['set_extendable'],k_mean_clustering = args ['k_mean_clustering'], start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
          network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
-
+         
+    if args['branch_capacity_factor']:
+        
+        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+        
     # snapshot clustering
     if not args['snapshot_clustering']==False:
         extra_functionality = None #daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [5,10,15,20,25,30,35,40,45,50,100,200,300])
+        network = snapshot_clustering(network, how='daily', clusters= [2])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
+        print("Time for LOPF [min]:",round(z,2)) 
 
     # parallisation
-    if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1,
+    else:
+        if args['parallelisation']:
+            parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1,
                         solver_name=args['solver'],  solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=None)
-        y = time.time()
-        z = (y - x) / 60 
-        print('Time for lopf in minutes')
-        print(z)# z is time for lopf in minutes
-    # start non-linear powerflow simulation
-    elif args['method'] == 'pf':
-        network.pf(scenario.timeindex)
-       # calc_line_losses(network)
+        elif args['method'] == 'lopf':
+            x = time.time()
+            network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+            y = time.time()
+            z = (y - x) / 60 
+            print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
+            # start non-linear powerflow simulation
+        elif args['method'] == 'pf':
+                network.pf(scenario.timeindex)
+            # calc_line_losses(network)
         
-    if args['pf_post_lopf']:
-        pf_post_lopf(network, scenario)
-        calc_line_losses(network)
+        if args['pf_post_lopf']:
+            pf_post_lopf(network, scenario)
+            calc_line_losses(network)
     
        # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
