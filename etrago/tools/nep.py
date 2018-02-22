@@ -22,7 +22,7 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
                                scn_name='extension_' + overlay_scn_name )
 
     network = scenario.build_network(network)
-    
+    network.links.p_min_pu = -1
     ### Set coordinates for new buses   
     extension_buses = network.buses[network.buses.scn_name =='extension_' + overlay_scn_name ]
     for idx, row in extension_buses.iterrows():
@@ -42,12 +42,13 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
                                      p_nom=network.loads_t.p_set.max().max(),
                                      carrier='load shedding',
                                      bus=network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name]),
+                                     weight = 1.0,
                                      index=index),
                                      "Generator"
                                      )
+                
     ### Set components extendable
     if set_extendable == 'NEP Zubaunetz':
-       # network.lines.s_nom_extendable.loc['project' != 'EnLAG'] = True(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name)]= True
        network.lines.loc[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name), 's_nom_extendable'] = True
        network.transformers.loc[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == ('extension_' + overlay_scn_name)), 's_nom_extendable'] = True      
        network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True

@@ -54,7 +54,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 72,
+        'end_snapshot' : 8760,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -64,7 +64,7 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': False, #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
@@ -75,11 +75,11 @@ args = {# Setup and Configuration:
         'parallelisation': False, 
 	    'skip_snapshots':False,
         'line_grouping': False,
-        'branch_capacity_factor': 0.7, #to globally extend or lower branch capacities
-        'load_shedding':False,
+        'branch_capacity_factor': 1, #to globally extend or lower branch capacities
+        'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'overlay_network': 'NEP', # None or new scenario name e.g. 'NEP' 
+        'overlay_network': 'nep2035_confirmed', # None or new scenario name e.g. 'NEP' 
         'add_Belgium_Norway':True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         'set_extendable' : 'overlay_network_and_trafos' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
 
@@ -240,7 +240,7 @@ def etrago(args):
     network.transformers.x=network.transformers.x*0.0001
 
     # adjust capital_cost to annual payment and simulation period
-    network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+   # network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
@@ -305,12 +305,13 @@ def etrago(args):
         
     if args ['overlay_network'] != None:
          network = overlay_network(network, session, overlay_scn_name = args ['overlay_network'], set_extendable = args ['set_extendable'], k_mean_clustering = args ['k_mean_clustering'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'])
-         network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     if args ['add_Belgium_Norway']:
          network = overlay_network(network, session, overlay_scn_name = 'BE_NO_NEP 2035', set_extendable = args ['set_extendable'],k_mean_clustering = args ['k_mean_clustering'], start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'] )
-         network= convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
-         
+        
+    if args ['set_extendable'] != None:
+        network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+
     if args['branch_capacity_factor']:
         
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
@@ -320,7 +321,7 @@ def etrago(args):
     if not args['snapshot_clustering']==False:
         extra_functionality = None #daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [2])
+        network = snapshot_clustering(network, how='daily', clusters= [100])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
         print("Time for LOPF [min]:",round(z,2)) 
@@ -334,7 +335,7 @@ def etrago(args):
     # start linear optimal powerflow calculations
         elif args['method'] == 'lopf':
             x = time.time()
-            network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+            network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads': 2, 'method':2, 'BarConvTol':1.e-3,'FeasibilityTol':1.e-3})
             y = time.time()
             z = (y - x) / 60 
             print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
@@ -363,7 +364,7 @@ def etrago(args):
         
     # write PyPSA results to csv to path
     if not args['results'] == False:
-        results_to_csv(network, '/home/clara/Schreibtisch/network')
+        results_to_csv(network, args['results'])
 
     # close session
     session.close()

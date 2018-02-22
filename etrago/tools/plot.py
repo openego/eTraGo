@@ -260,14 +260,15 @@ def extension_overlay_network(network, overlay_scn_name= 'NEP 2035', timestep=0,
     
     ll = overlay_network.plot(line_colors=extension, line_cmap=cmap, bus_sizes = 0, 
                       title="Optimized AC- and DC-line extension", line_widths=2)
-    if not boundaries:
-        cb = plt.colorbar(ll[1])
-    elif boundaries:
-        v = np.linspace(boundaries[0], boundaries[1], 101)
-        cb = plt.colorbar(ll[1], boundaries=v,
+    
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+    cb = plt.colorbar(ll[1], boundaries=v,
                           ticks=v[0:101:10])
-        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
+    cb_Link = plt.colorbar(ll[2], boundaries=v,
+                          ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb_Link.remove()
     cb.set_label('line extension relative to s_nom in %')
 
     if filename is None:
@@ -327,8 +328,10 @@ def max_load(network, boundaries=[0,100], filename = None, two_cb = False):
     cmap_link = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     
-    load_lines = pd.Series(abs((network.lines_t.p0.max()/ \
-                   (network.lines.s_nom))*100).data , index = array_line)
+    print(3)
+    
+    load_lines = pd.Series((abs(network.lines_t.p0).max()/ \
+                   (network.lines.s_nom)*100).data , index = array_line)
     
     array_link = [['Link'] * len(network.links), network.links.index]
     
@@ -356,7 +359,7 @@ def max_load(network, boundaries=[0,100], filename = None, two_cb = False):
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
         
     if two_cb:
-        cb_Link.set_label('Maximum load of DC-lines %')
+        #cb_Link.set_label('Maximum load of DC-lines %')
         cb.set_label('Maximum load of AC-lines %')
         
     else:
@@ -618,6 +621,7 @@ def curtailment(network, carrier='wind', filename=None):
     p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
     p_available_by_carrier =p_available.groupby(network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
+    print(p_curtailed_by_carrier.sum())
     p_df = pd.DataFrame({carrier + " available" : p_available_by_carrier[carrier],
                          carrier + " dispatched" : p_by_carrier[carrier],
                          carrier + " curtailed" : p_curtailed_by_carrier[carrier]})

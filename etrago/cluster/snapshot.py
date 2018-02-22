@@ -89,7 +89,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
     # start powerflow calculations
     network_lopf(network, snapshots, extra_functionality = daily_bounds,
-                 solver_name='gurobi')
+                 solver_name='gurobi', solver_options={'threads': 4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6})
 
     # write results to csv
     if write_results:
