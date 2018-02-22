@@ -42,7 +42,6 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
                                      p_nom=network.loads_t.p_set.max().max(),
                                      carrier='load shedding',
                                      bus=network.buses.index[network.buses.scn_name == 'extension_' + overlay_scn_name]),
-                                     weight = 1.0,
                                      index=index),
                                      "Generator"
                                      )
