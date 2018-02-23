@@ -353,44 +353,58 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     z = (y - x) / 60
     return
 
-def pf_post_lopf(network, scenario):
-    
-    network_pf = network    
-
+def pf_post_lopf(network, lpf_or_pf='lpf',transit_flow_110 = True):
+      
+    network_pf=network.copy()
     #For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
     
-    old_slack = network.generators.index[network.generators.control == 'Slack'][0]
-    old_gens = network.generators
-    gens_summed = network.generators_t.p.sum()
+    old_slack = network_pf.generators.index[network_pf.generators.control == 'Slack'][0]
+    old_gens = network_pf.generators
+    gens_summed = network_pf.generators_t.p.sum()
     old_gens['p_summed']= gens_summed  
     max_gen_buses_index = old_gens.groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values().index
     
     for bus_iter in range(1,len(max_gen_buses_index)-1):
-        if old_gens[(network.generators['bus']==max_gen_buses_index[-bus_iter])&(network.generators['control']=='PV')].empty:
+        if old_gens[(network_pf.generators['bus']==max_gen_buses_index[-bus_iter])&(network_pf.generators['control']=='PV')].empty:
             continue
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
         
-    network.generators=network.generators.drop('p_summed',1)
-    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].sort_values().index[-1]    
+    network_pf.generators=network_pf.generators.drop('p_summed',1)
+    new_slack_gen = network_pf.generators.p_nom[(network_pf.generators['bus'] == new_slack_bus)&(network_pf.generators['control'] == 'PV')].sort_values().index[-1]    
     
     # check if old slack was PV or PQ control:
-    if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar','wind'):
+    if network_pf.generators.p_nom[old_slack] > 50 and network_pf.generators.carrier[old_slack] in ('solar','wind'):
         old_control = 'PQ'
-    elif network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] not in ('solar','wind'):
+    elif network_pf.generators.p_nom[old_slack] > 50 and network_pf.generators.carrier[old_slack] not in ('solar','wind'):
         old_control = 'PV'
-    elif network.generators.p_nom[old_slack] < 50:
+    elif network_pf.generators.p_nom[old_slack] < 50:
         old_control = 'PQ'
      
-    network.generators = network.generators.set_value(old_slack, 'control', old_control)
-    network.generators = network.generators.set_value(new_slack_gen, 'control', 'Slack')
+    network_pf.generators = network_pf.generators.set_value(old_slack, 'control', old_control)
+    network_pf.generators = network_pf.generators.set_value(new_slack_gen, 'control', 'Slack')
+
+    if transit_flow_110 == True:
+        network_pf.generators["v_nom"] = network_pf.generators.bus.map(network_pf.buses.v_nom)
+        generators_v_nom_b = network_pf.generators.v_nom != 110
+        network_pf.generators_t.p_set[generators_v_nom_b.index[generators_v_nom_b==True]]=0
+
+        network_pf.lines["v_nom"] = network_pf.lines.bus0.map(network_pf.buses.v_nom)
+        lines_v_nom_b = network_pf.lines.v_nom != 110
+        network_pf.lines.loc[lines_v_nom_b, 'x'] = 0.0000001
+        network_pf.transformers.x = 0.0000001
+        
+
    
     #execute non-linear pf
-    network_pf.pf(scenario.timeindex, use_seed=True)
-    
+    if lpf_or_pf == 'pf':
+        network_pf.pf(network_pf.snapshots, use_seed=True)
+    elif lpf_or_pf == 'lpf':
+        network_pf.lpf(network_pf.snapshots)
+
     return network_pf
 
 def calc_line_losses(network):

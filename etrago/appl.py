@@ -44,17 +44,17 @@ if not 'READTHEDOCS' in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'ssh', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': True, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 8760,
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 24,
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False, #'/home/ulf/pf_results/110paper/EHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
@@ -62,14 +62,14 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':5,
+        'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -301,7 +301,7 @@ def etrago(args):
        # calc_line_losses(network)
         
     if args['pf_post_lopf']:
-        pf_post_lopf(network, scenario)
+        network_pf=pf_post_lopf(network, lpf_or_pf='lpf')
         calc_line_losses(network)
     
        # provide storage installation costs
@@ -331,16 +331,27 @@ def etrago(args):
     # close session
     #session.close()
 
-    return network
+    return network, network_pf
+    
 
 
 if __name__ == '__main__':
     # execute etrago function
-    network = etrago(args)
+    network, network_pf = etrago(args)
     # plots
     # make a line loading plot
     plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    plot_stacked_gen(network=network, resolution="MW")
     # plot to show extendable storages
     storage_distribution(network)
+    
+    loading_c = (network.lines_t.p0.loc[network.snapshots[0]]/ \
+                   (network.lines.s_nom)) * 100    
+ 
+    loading_c_pf = (network_pf.lines_t.p0.loc[network_pf.snapshots[0]]/ \
+                   (network_pf.lines.s_nom)) * 100 
+    loading110diff = loading_c_pf[network.lines[network.lines.v_nom == 110].index]- loading_c[network.lines[network.lines.v_nom == 110].index]
+    cmap = plt.cm.jet
+    ll = network.plot(line_colors=loading110diff, line_cmap=cmap)
+    plt.colorbar(ll[1])
