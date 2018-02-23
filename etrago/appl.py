@@ -64,22 +64,22 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, #'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
         'snapshot_clustering':True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, 
-	    'skip_snapshots':False,
+	'skip_snapshots':False,
         'line_grouping': False,
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
         'load_shedding':True,
         'comments':None,
         # Scenario variances
-        'overlay_network': 'nep2035_confirmed', # None or new scenario name e.g. 'NEP' 
+        'overlay_network': 'nep2035_b2', # None or new scenario name e.g. 'NEP' 
         'add_Belgium_Norway':True,  # state if you want to add Belgium and Norway as electrical neighbours, only NEP 2035
         'set_extendable' : 'overlay_network_and_trafos' # None or wich part of NEP-scenario you want to set extandable  (NEP Zubaunetz)
 
