@@ -74,10 +74,11 @@ args = {# Setup and Configuration:
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering': 4, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
-        'parallelisation': False, # state if you want to run snapshots parallely.
+        'parallelisation':False, # state if you want to run snapshots parallely.
+        'skip_snapshots':4,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.2, # globally extend or lower branch capacities
-        'load_shedding':True , # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -287,11 +288,8 @@ def etrago(args):
     if args['minimize_loading']:
         extra_functionality = loading_minimization
     else:
-        extra_functionality=None
-   
-    #Temporal xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    print('snapshots', len(network.snapshots))
-    
+        extra_functionality = None
+        
     # snapshot clustering
     if not args['snapshot_clustering']==False:
         extra_functionality = daily_bounds
@@ -299,12 +297,7 @@ def etrago(args):
         network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
-        print ('snapshot time = ', y-x)
-    
-    #Temporal 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    print('snapshots2', len(network.snapshots))
-    #print('snapshots2Desc', network.snapshots)
-    
+
     # line extendable in order of a grid extension
     if args['line_extendable']:
         line_extendable(network,args,scenario) 
@@ -312,8 +305,12 @@ def etrago(args):
     # TEMPORAL line extendable in order of a grid extension
     if args['line_extendableBM']:
         line_extendableBM(network,args,scenario) 
-    
-    
+    	
+
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
+        
     # parallisation
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
@@ -324,7 +321,6 @@ def etrago(args):
         network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
-        print('LOPF time = ', y-x)
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
