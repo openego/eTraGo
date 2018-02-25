@@ -138,8 +138,7 @@ def daily_bounds(network, snapshots):
             of the day (i.e. + 23 hours)
             """
             return (
-                m.state_of_charge[s, p] ==
-                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+                m.state_of_charge[s, p] == m.state_of_charge[s, p + pd.Timedelta(hours=23)])
             
         network.model.period_bound = po.Constraint(network.model.storages, network.model.period_starts, rule=day_rule)
 

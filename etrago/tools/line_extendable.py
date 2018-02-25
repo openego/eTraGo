@@ -546,14 +546,7 @@ def line_extendable(network, args, scenario):
     #    end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
     
     y = time.time()
-    print('time 1st lopf= ', y-x) 
-    z = y -x
-    z= pd.Series(data=z)
-    z.to_csv(path='/home/felipe/Uniproject/test123.csv')
-    z.to_frame()
-    z.plot()
-    z.index
-    #z.index='runtime 2nd lopf'
+    z1st = y -x
     
     print('results after 1stLOPF', network.lines_t.p0 )
     
@@ -630,35 +623,57 @@ def line_extendable(network, args, scenario):
     print('Snapshots 0', network.snapshots)
     print('all time pre2', all_time)
    
-    """
-    i=0
-    while(i<len(all_time)):
-        if i==0:
-            timeindex = network.snapshots[all_time[i]:all_time[i]+1]
+    
+    if args['snapshot_clustering']==False:
+        i=0
+        while(i<len(all_time)):
+            if i==0:
+                timeindex = network.snapshots[all_time[i]:all_time[i]+1]
+            else:
+                timeindex =pd.DatetimeIndex.append(timeindex,\
+                          other=network.snapshots[all_time[i]:all_time[i]+1])
+            i+=1
+        print('timeindex=',timeindex )
+        print('no snapshot ns')
+                ##Method for 2nd LOPF
+        x = time.time()
+        network.lopf(timeindex, solver_name=args['solver'])  
+        y = time.time()
+        
+        ##################### Plotting the Results #####################
+        if len(lines_time) >0:
+        
+            plot_max_opt_line_loading(network,lines_time,\
+                                          filename='maximum_optimal_lines.png')
         else:
-            timeindex =pd.DatetimeIndex.append(timeindex,\
-                      other=network.snapshots[all_time[i]:all_time[i]+1])
-        i+=1
-    print('timeindex=',timeindex )
-    """
- 
-    ##Method for 2nd LOPF
-    x = time.time()
-    network.lopf(network.snapshots, solver_name=args['solver'])  
-    y = time.time()
+            print("No expansions required", len(lines_time))
+        storage_distribution(network)
+
+    else:
+        ##Method for 2nd LOPF
+        x = time.time()
+        network.lopf(network.snapshots, solver_name=args['solver'])  
+        y = time.time()
+        print('snapshot s')
+        #Add plot function for snapshot!!!
+    
+    # Export CSV file with simulation times
+    z = y-x
+    pathexp = '/home/felipe/Uniproject/' #path for the export file
+    km = str (args ['k_mean_clustering'])
+    sc = str (args ['snapshot_clustering'])
+    zt = pd.Series([z1st , z] , index = ['run time 1st LOPF, k-mean= ' + km +\
+                   ', SC= ' + sc, 'run time 2nd LOPF, k-mean= ' + km + 'SC= ' + sc])
+    zt.to_csv(path= pathexp + 'ResultsExpansions.csv')
+    #z.to_frame()
+    #z.plot()
+    
     #print('results after 2ndLOPF', network.lines_t.p0 )
     print('time 2nd lopf= ', y-x)                          
     print("Lines_extendable_S_fin",network.lines.s_nom)
     print("Lines_extendable_S_fin_opt",network.lines.s_nom_opt)
     print("Lines_extendable_S_fin_ext",network.lines.s_nom_extendable)
-    ##################### Plotting the Results #####################
-    #if len(lines_time) >0:
-    
-        #plot_max_opt_line_loading(network,lines_time,\
-        #                              filename='maximum_optimal_lines.png')
-    #else:
-        #print("No expansions required", len(lines_time))
-    storage_distribution(network)
+
     
     return network
 
