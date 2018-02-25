@@ -67,6 +67,52 @@ def capacity_factor(network,cap_fac):
     return network
 
 
+def extend_all_lines(network):
+    
+    """
+    This functions set all the lines to be extendable. (Case1&2:benchmark)
+    This function was created to compare the performance of the simulation 
+    by doing just 1LOPF setting all lines extandable
+    
+    ########################### input parameters ###########################
+
+    network: The whole network, which are to calculate
+
+    ########################### output parameters ##########################
+
+    network: The whole network, after all lines are set as extendable
+    
+    """
+    
+    network.lines.s_nom_extendable = True
+    network.lines.s_nom_min = network.lines.s_nom
+    network.lines.s_nom_max = np.inf
+    
+    return network
+
+def extend_all_trafos(network):
+    
+    """
+    This functions set all the trafos to be extendable. (Case1&2:benchmark)
+    This function was created to compare the performance of the simulation 
+    by doing just 1LOPF setting all trafos extandable
+    
+    ########################### input parameters ###########################
+
+    network: The whole network, which are to calculate
+
+    ########################### output parameters ##########################
+
+    network: The whole network, after all lines are set as extendable
+    
+    """
+    
+    network.transformers.s_nom_extendable = True
+    network.transformers.s_nom_min = network.transformers.s_nom
+    network.transformers.s_nom_max = np.inf
+    
+    return network
+
 def overload_lines(network):
 
     """
@@ -348,6 +394,47 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
     return network,lines_time,all_time
 
 
+def set_line_cost_BM(network,cost_1,cost_2,cost_3):
+    
+    i=0
+    while(i<len(network.lines)):
+        name_bus_0 = network.lines.bus0[i]
+        name_bus_1 = network.lines.bus1[i]
+
+        U_bus_0 = network.buses.v_nom[name_bus_0]
+        U_bus_1 = network.buses.v_nom[name_bus_1]
+
+        if(U_bus_0 == U_bus_1):
+            if(U_bus_0 == 110):
+                cc0 = cost_1
+                #network.lines.capital_cost[max_loading[0][k]] = \
+                #    (cost_1*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                #    (90*8760)
+            elif(U_bus_0 == 220):
+                cc0 = cost_2
+                #network.lines.capital_cost[max_loading[0][k]] = \
+                #    (cost_2*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                #    (90*8760)
+            else:
+                cc0 = cost_3
+                #network.lines.capital_cost[max_loading[0][k]] = \
+                #    (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
+                #    (90*8760)
+            cc1 = (cc0*network.lines.length[i])
+            maxload1 = network.lines.s_nom[i] #* ((max_loading[1][k])/100)
+            cc = cc1/maxload1
+            network.lines.capital_cost[i] = annualized_costs(cc,40,0.05)
+            print('cc1= ', cc1)
+            print('maxload1= ', maxload1)
+        
+        else:
+            print('Error')
+                    
+        i+=1
+            
+    return network
+
+
 def set_trafo_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
 
     """
@@ -426,24 +513,49 @@ def line_extendable(network, args, scenario):
     line_extendable calculation.
 
     """  
-   
+    
+    print("Lines_extendable_S_ini",network.lines.s_nom)
+    print("Lines_extendable_S_ini_opt",network.lines.s_nom_opt)
    # set the capacity-factory for the first lopf
     cap_fac = 1.3
          
     # Change the capcity of lines and transformers
     network = capacity_factor(network,cap_fac)
                                         
+    ######################## Set all lines extendable ##############
+    
+    #network = extend_all_lines(network)
+    
+    
+    #print("Lines_extendable_S_ini_ext",network.lines.s_nom_extendable)
+    #print("Lines_extendable_S_ini_min",network.lines.s_nom_min)
+    #print("Lines_extendable_S_ini_max",network.lines.s_nom_max)
+    
     ############################ 1. Lopf ###########################
-    x = time.time()
+    
     print ('bf 1st LOPF snapshots', len(network.snapshots))
-    network.lopf(network.snapshots, solver_name=args['solver']) 
-    print('results after 1stLOPF', network.lines_t.p0 )
+    
+    last_snapshot = len(network.snapshots)  
+    x = time.time()
+    #network.lopf(network.snapshots, solver_name=args['solver']) 
+    
+    parallelisation(network, start_snapshot=1, \
+        end_snapshot= last_snapshot ,group_size=1, solver_name=args['solver'])
+    
     #parallelisation(network, start_snapshot=args['start_snapshot'], \
     #    end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+    
     y = time.time()
-    print('time 1st lopf= ', y-x)          
+    print('time 1st lopf= ', y-x) 
+    z = y -x
+    z= pd.Series(data=z)
+    z.to_csv(path='/home/felipe/Uniproject/test123.csv')
+    z.to_frame()
+    z.plot()
+    z.index
+    #z.index='runtime 2nd lopf'
     
-    
+    print('results after 1stLOPF', network.lines_t.p0 )
     
     # return to original capacities
     network = capacity_factor(network,(1/cap_fac))
@@ -464,9 +576,9 @@ def line_extendable(network, args, scenario):
     ####################### Set capital cost ########################
          
     # Set capital cost for extendable lines
-    cost_1 = 60000 # 110kV extendable
-    cost_2 = 1600000/2 # 220kV extendable
-    cost_3 = 200000 # 380kV extendable
+    cost_1 = 6.0000 # 110kV extendable
+    cost_2 = 1.600000/2 # 220kV extendable
+    cost_3 = 2.00000 # 380kV extendable
         
     network,lines_time,all_time = set_line_cost(network,\
                                                 line_time_list,\
@@ -490,6 +602,7 @@ def line_extendable(network, args, scenario):
         
          
     ####################### Set all timesteps #######################
+    
     all_time.sort() 
     i=0
     while(i<len(trafo_time)):
@@ -498,13 +611,14 @@ def line_extendable(network, args, scenario):
         else:
             all_time.append(trafo_time[i])
             i+=1
-                
+            
     ######################### calc 2. Lopf ##########################
+
     print('all time pre1', all_time)
     length_time = len(all_time)
     if(length_time==0):
         timeindex = scenario.timeindex
-        
+      
     network.lines.capital_cost =\
                                 network.lines.capital_cost * length_time
 
@@ -512,7 +626,11 @@ def line_extendable(network, args, scenario):
                          network.transformers.capital_cost * length_time
     
     all_time.sort()
+    print('Snapshots len0', len(network.snapshots))
+    print('Snapshots 0', network.snapshots)
     print('all time pre2', all_time)
+   
+    """
     i=0
     while(i<len(all_time)):
         if i==0:
@@ -522,25 +640,62 @@ def line_extendable(network, args, scenario):
                       other=network.snapshots[all_time[i]:all_time[i]+1])
         i+=1
     print('timeindex=',timeindex )
+    """
+ 
     ##Method for 2nd LOPF
     x = time.time()
-    network.lopf(timeindex, solver_name=args['solver'])  
+    network.lopf(network.snapshots, solver_name=args['solver'])  
     y = time.time()
+    #print('results after 2ndLOPF', network.lines_t.p0 )
     print('time 2nd lopf= ', y-x)                          
-        
+    print("Lines_extendable_S_fin",network.lines.s_nom)
+    print("Lines_extendable_S_fin_opt",network.lines.s_nom_opt)
+    print("Lines_extendable_S_fin_ext",network.lines.s_nom_extendable)
     ##################### Plotting the Results #####################
-    if len(lines_time) >0:
+    #if len(lines_time) >0:
     
-        plot_max_opt_line_loading(network,lines_time,\
-                                      filename='maximum_optimal_lines.png')
-    else:
-        print("No expansions required", len(lines_time))
+        #plot_max_opt_line_loading(network,lines_time,\
+        #                              filename='maximum_optimal_lines.png')
+    #else:
+        #print("No expansions required", len(lines_time))
+    storage_distribution(network)
     
     return network
 
+def line_extendableBM(network, args, scenario):
+    
+    """
+    Function which prepare and run a
+    line_extendable calculation.
 
+    """  
+    print("Lines_extendable_S_ini0_ext",network.lines.s_nom_extendable)
+    
+    network = extend_all_lines(network)
+    
+    network = extend_all_trafos(network)
+    
+    print("Lines_extendable_S_ini",network.lines.s_nom)
+    print("Lines_extendable_S_ini_ext",network.lines.s_nom_extendable)
+    
+    ####################### Set capital cost ########################
+         
+    # Set capital cost for extendable lines
+    cost_1 = 60000 # 110kV extendable
+    cost_2 = 1600000/2 # 220kV extendable
+    cost_3 = 200000 # 380kV extendable
+    
+    network = set_line_cost_BM(network,cost_1,cost_2,cost_3)
+    
 
-
-
-
-
+    x = time.time()
+    print('time xx = ', x) 
+    network.lopf(network.snapshots, solver_name=args['solver'])  
+    y = time.time()
+    
+    print('time unique lopf= ', y-x)                          
+    print("Lines_extendable_S_fin",network.lines.s_nom)
+    print("Lines_extendable_S_fin_ext",network.lines.s_nom_extendable)
+    
+    
+    return network

@@ -44,7 +44,7 @@ if not 'READTHEDOCS' in os.environ:
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
     
-    from etrago.tools.line_extendable import (capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable)
+    from etrago.tools.line_extendable import (capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable, line_extendableBM)
 
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
@@ -54,7 +54,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' :1008,
+        'end_snapshot' : 2160,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -62,20 +62,21 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'generator_noise': True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         #Line Extendable Function
-        'line_extendable':True,
+        'line_extendable': True,
+        'line_extendableBM': False,
         # Clustering:
         'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering': 5, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering': 4, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation': False, # state if you want to run snapshots parallely.
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 0.4, # globally extend or lower branch capacities
+        'branch_capacity_factor': 0.2, # globally extend or lower branch capacities
         'load_shedding':True , # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -293,7 +294,7 @@ def etrago(args):
     
     # snapshot clustering
     if not args['snapshot_clustering']==False:
-        extra_functionality = None
+        extra_functionality = daily_bounds
         x = time.time()
         network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
         y = time.time()
@@ -302,11 +303,16 @@ def etrago(args):
     
     #Temporal 2 xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     print('snapshots2', len(network.snapshots))
-    print('snapshots2Desc', network.snapshots)
+    #print('snapshots2Desc', network.snapshots)
     
     # line extendable in order of a grid extension
     if args['line_extendable']:
         line_extendable(network,args,scenario) 
+    
+    # TEMPORAL line extendable in order of a grid extension
+    if args['line_extendableBM']:
+        line_extendableBM(network,args,scenario) 
+    
     
     # parallisation
     if args['parallelisation']:
