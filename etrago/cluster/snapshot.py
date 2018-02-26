@@ -26,7 +26,7 @@ import logging
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
-from tools.utilities import results_to_csv
+from etrago.tools.utilities import results_to_csv
 
 import matplotlib.pyplot as plt
 global all_changes
