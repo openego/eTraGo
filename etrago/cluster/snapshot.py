@@ -26,7 +26,13 @@ import logging
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
-from etrago.tools.utilities import results_to_csv
+from tools.utilities import results_to_csv
+
+import matplotlib.pyplot as plt
+global all_changes
+global all_cluster_ids
+all_changes=[]
+all_cluster_ids=[]
 
 write_results = True
 home = os.path.expanduser('~/pf_results/')
@@ -45,6 +51,8 @@ def snapshot_clustering(network, how='daily', clusters= []):
         run(network=network.copy(), path=path,
             write_results=write_results, n_clusters=c,
             how=how, normed=False)
+    
+    compare_days()
 
     return network
 
@@ -255,6 +263,7 @@ def linkage(df, n_groups, method='ward', metric='euclidean'):
     # R = hac.inconsistent(Z, d=10)
     return Z
 
+
 def fcluster(df, Z, n_groups, n_clusters):
     """
     """
@@ -275,9 +284,48 @@ def fcluster(df, Z, n_groups, n_clusters):
     df.index = df.index.swaplevel(0, 'cluster_id')
     # just to have datetime at the last level of the multiindex df
     df.index = df.index.swaplevel('datetime', 'group')
-
+    
+    #save the dataframe as csv-file
+    df.to_csv('output_dataframe.csv', sep='\t')
+    
+    # count the number of changes between the clusters
+    result=df.index.get_level_values('cluster_id')
+    k = float(0)
+    changes = 0
+    #all_changes=[]
+    for i in result: 
+        if k != i :
+            changes=changes+1
+        k=i
+    #save the changes with n_clusters as index 
+    all_changes.append(changes)
+    all_cluster_ids.append(n_clusters)
+    
     return df
 
+def compare_days():
+    
+    #plot the different days
+    x = all_cluster_ids
+    y = all_changes
+    plt.plot(x,y)
+    plt.ylabel('n_days method 3', fontsize=20)
+    plt.xlabel('n_representative days', fontsize=20)
+    plt.title('Compare numbre of days', fontsize=20)
+    plt.show()
+    
+    #save the days as a dictionnaire
+    dictA = {}
+    for i in range(len(all_changes)):
+        dictA[all_cluster_ids[i]] = all_changes[i]
+    print (dictA)
+    
+#==============================================================================
+#     w = csv.writer(open("output.csv", "w"))
+#     for key, val in dictA.items():
+#         w.writerow([key, val])
+#==============================================================================
+    
 def get_medoids(df):
     """
 
@@ -340,9 +388,14 @@ def get_medoids(df):
         medoids[c]['size'] = cluster_size[c]
         # dates from original data
         medoids[c]['dates'] = medoids[c]['data'].index.get_level_values('datetime')
-
+        
+    pf = pd.DataFrame(medoids) 
+    pf.to_csv('output_medoids.csv', sep='\t')
+    
+    #print(cluster_size) 
+    #print (medoids)
     return medoids
-
+    
 ####################################??????????????????????????????????????
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
     # default: 4500 € / MW, high 300 €/MW
