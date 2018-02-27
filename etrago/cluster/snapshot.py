@@ -35,8 +35,8 @@ def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
     # This will calculate the original problem
-    run(network=network.copy(), path=resultspath,
-    write_results=write_results, n_clusters=None)
+#    run(network=network.copy(), path=resultspath,
+#    write_results=write_results, n_clusters=None)
 #==============================================================================
 
     for c in clusters:
@@ -77,7 +77,10 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     
-    return timeseries
+    # timeseries['weights'] = cluster_weights 
+    # timeseries.set_index(['timeindex', 'weights'], inplace=True)
+    
+    return timeseries, cluster_weights
 
 
 def run(network, path, write_results=False, n_clusters=None, how='daily',
@@ -105,9 +108,11 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 
         medoids = get_medoids(clusters)
 
-        tsam_ts = tsam_cluster(prepare_pypsa_timeseries(network),
+        tsam_ts, cluster_weights = tsam_cluster(prepare_pypsa_timeseries(network),
                                typical_periods=n_clusters,
                                how='daily')
+
+        import pdb; pdb.set_trace()
 
         update_data_frames(network, medoids)
 
@@ -149,7 +154,7 @@ def prepare_pypsa_timeseries(network, normed=False):
 
     return df
 
-def update_data_frames(network, medoids):
+def update_data_frames(network, tsam_df):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -166,21 +171,13 @@ def update_data_frames(network, medoids):
     network
 
     """
-    # merge all the dates
-    dates = medoids[1]['dates'].append(other=[medoids[m]['dates']
-                                       for m in medoids])
-    # remove duplicates
-    dates = dates.unique()
-    # sort the index
-    dates = dates.sort_values()
+    
 
     # set snapshots weights
-    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
-    for m in medoids:
-        network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
-
-    # set snapshots based on manipulated snapshot weighting index
-    network.snapshots = network.snapshot_weightings.index
+    network.snapshot_weightings = pd.Series(
+        tsam_df.index.get_level_values('weights'), 
+        index=tsam_df.index.get_level_values('timeindex'))
+        
     network.snapshots = network.snapshots.sort_values()
 
     return network
