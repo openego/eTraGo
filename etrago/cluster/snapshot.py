@@ -162,8 +162,7 @@ def update_data_frames(network, tsam_df):
     Parameters
     -----------
     network : pyPSA network object
-    medoids : dictionary
-        dictionary with medoids created by 'cluster'-function (s.above)
+    tsam_df : pd.DataFrame
 
 
     Returns
@@ -171,7 +170,6 @@ def update_data_frames(network, tsam_df):
     network
 
     """
-    
 
     # set snapshots weights
     network.snapshot_weightings = pd.Series(
