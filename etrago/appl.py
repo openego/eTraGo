@@ -48,9 +48,9 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': True, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
-        'end_snapshot' : 24,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'start_snapshot': 3493, 
+        'end_snapshot' : 3494,
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -69,7 +69,7 @@ args = {# Setup and Configuration:
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -292,7 +292,7 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6})
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)#, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6})
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
@@ -340,11 +340,13 @@ if __name__ == '__main__':
     network, network_pf = etrago(args)
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+    plot_line_loading(network_test, timestep=1, boundaries=[0,100])
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network=network, resolution="MW")
+    plot_stacked_gen(network=network_pf, resolution="MW")
     # plot to show extendable storages
     storage_distribution(network)
+    
+    from matplotlib import pyplot as plt
     
     loading_c = (network.lines_t.p0.loc[network.snapshots[0]]/ \
                    (network.lines.s_nom)) * 100    
@@ -353,5 +355,34 @@ if __name__ == '__main__':
                    (network_pf.lines.s_nom)) * 100 
     loading110diff = loading_c_pf[network.lines[network.lines.v_nom == 110].index]- loading_c[network.lines[network.lines.v_nom == 110].index]
     cmap = plt.cm.jet
-    ll = network.plot(line_colors=loading110diff, line_cmap=cmap)
-    plt.colorbar(ll[1])
+    
+    network_110 = network.copy()
+    network_110.buses = network_110.buses[network_110.buses.v_nom==110]
+    ll = network_110.plot(line_colors=abs(loading110diff), line_cmap=cmap,line_widths=0.55)
+    #plt.colorbar(ll[1])
+    
+    boundaries=[0,50]
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])   
+   
+    
+    ax = plt.axes()
+    path = ll[1].get_segments()
+    x_coords_lines = np.zeros([len(path)])
+    cmap = cmap
+    colors = cmap(ll[1].get_array()/100)
+    for i in range(0, len(path)):
+        x_coords_lines[i] = network.buses.loc[str(network.lines.iloc[i, 2]),'x']
+        color = colors[i]
+        if (x_coords_lines[i] == path[i][0][0] and loading_c[i] >= 0):
+            arrowprops = dict(arrowstyle="->", color=color)
+        else:
+            arrowprops = dict(arrowstyle="<-", color=color)
+        ax.annotate("",
+                    xy=abs((path[i][0] - path[i][1]) * 0.51 - path[i][0]),
+                    xytext=abs((path[i][0] - path[i][1]) * 0.49 - path[i][0]),
+                    arrowprops=arrowprops,
+                    size=10
+                    )
