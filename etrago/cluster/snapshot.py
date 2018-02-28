@@ -18,28 +18,93 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "Simon Hilpert"
 
-
-import pdb
+import os
 import pandas as pd
+import pyomo.environ as po
+from pypsa.opf import network_lopf
+import logging
 import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
+from etrago.tools.utilities import results_to_csv
 
-def prepare_network(network, how='daily', normed=True):
-    """ Hierachical clustering of timeseries returning the linkage matrix
+import matplotlib.pyplot as plt
+global all_changes
+global all_cluster_ids
+all_changes=[]
+all_cluster_ids=[]
 
-    Parameters
-    -----------
-    network : pyPSA network object
+write_results = True
+home = os.path.expanduser('~/pf_results/')
+resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-withpypsaweighting',) # args['scn_name'])
+def snapshot_clustering(network, how='daily', clusters= []):
 
-    how : string
-       String indicating how to cluster: 'weekly', 'daily' or 'hourly'
-    normed : boolean
-        If True: normed timeseries will be used for clustering, if False,
-        absolute  timeseries of loads and renewable-production will be
-        used for clustering
+#==============================================================================
+    # This will calculate the original problem
+    run(network=network.copy(), path=resultspath,
+    write_results=write_results, n_clusters=None)
+#==============================================================================
 
+    for c in clusters:
+        path = os.path.join(resultspath, how)
 
+        run(network=network.copy(), path=path,
+            write_results=write_results, n_clusters=c,
+            how=how, normed=False)
+    
+    compare_days()
+
+    return network
+
+def run(network, path, write_results=False, n_clusters=None, how='daily',
+        normed=False):
+    """
+    """
+    # reduce storage costs due to clusters
+
+    if n_clusters is not None:
+        path = os.path.join(path, str(n_clusters))
+
+        network.cluster = True
+
+        # calculate clusters
+
+        timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
+
+        df, n_groups = group(timeseries_df, how=how)
+
+        Z = linkage(df, n_groups)
+
+        network.Z = pd.DataFrame(Z)
+
+        clusters = fcluster(df, Z, n_groups, n_clusters)
+
+        medoids = get_medoids(clusters)
+
+        update_data_frames(network, medoids)
+
+        snapshots = network.snapshots
+
+    else:
+        network.cluster = False
+        path = os.path.join(path, 'original')
+
+    snapshots = network.snapshots
+
+    # start powerflow calculations
+    network_lopf(network, snapshots, extra_functionality = daily_bounds,
+                 solver_name='gurobi')
+
+    # write results to csv
+    if write_results:
+        results_to_csv(network, path)
+
+        write_lpfile(network, path=os.path.join(path, "file.lp"))
+
+    return network
+
+def prepare_pypsa_timeseries(network, normed=False):
+    """
     """
 
     if normed:
@@ -52,7 +117,84 @@ def prepare_network(network, how='daily', normed=True):
         loads = network.loads_t.p_set
         renewables = network.generators_t.p_set
         df = pd.concat([renewables, loads], axis=1)
-    df.index.name = 'datetime'
+
+    return df
+
+def update_data_frames(network, medoids):
+    """ Updates the snapshots, snapshots weights and the dataframes based on
+    the original data in the network and the medoids created by clustering
+    these original data.
+
+    Parameters
+    -----------
+    network : pyPSA network object
+    medoids : dictionary
+        dictionary with medoids created by 'cluster'-function (s.above)
+
+
+    Returns
+    -------
+    network
+
+    """
+    # merge all the dates
+    dates = medoids[1]['dates'].append(other=[medoids[m]['dates']
+                                       for m in medoids])
+    # remove duplicates
+    dates = dates.unique()
+    # sort the index
+    dates = dates.sort_values()
+
+    # set snapshots weights
+    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
+    for m in medoids:
+        network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
+
+    # set snapshots based on manipulated snapshot weighting index
+    network.snapshots = network.snapshot_weightings.index
+    network.snapshots = network.snapshots.sort_values()
+
+    return network
+
+def daily_bounds(network, snapshots):
+    """ This will bound the storage level to 0.5 max_level every 24th hour.
+    """
+    if network.cluster:
+
+        sus = network.storage_units
+        # take every first hour of the clustered days
+        network.model.period_starts = network.snapshot_weightings.index[0::24]
+
+        network.model.storages = sus.index
+
+        def day_rule(m, s, p):
+            """
+            Sets the soc of the every first hour to the soc of the last hour
+            of the day (i.e. + 23 hours)
+            """
+            return (
+                m.state_of_charge[s, p] ==
+                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+            
+        network.model.period_bound = po.Constraint(
+            network.model.storages, network.model.period_starts, rule=day_rule)
+
+
+def group(df, how='daily'):
+    """ Hierachical clustering of timeseries returning the linkage matrix
+
+    Parameters
+    -----------
+    df : pandas DataFrame with timeseries to cluster
+
+    how : string
+       String indicating how to cluster: 'weekly', 'daily' or 'hourly'
+    """
+
+    if df.index.name != 'datetime':
+        logging.info('Setting the name of your pd-DataFrame index to: datetime.')
+        df.index.name = 'datetime'
+
 
     if how == 'daily':
         df['group'] = df.index.dayofyear
@@ -92,7 +234,11 @@ def prepare_network(network, how='daily', normed=True):
 
     return df, n_groups
 
-def linkage(df, n_groups):
+def linkage(df, n_groups, method='ward', metric='euclidean'):
+    """
+    """
+
+    logging.info("Computing distance matrix...")
     # create the distance matrix based on the forbenius norm: |A-B|_F where A is
     # a 24 x N matrix with N the number of timeseries inside the dataframe df
     # TODO: We can save have time as we only need the upper triangle once as the
@@ -109,10 +255,14 @@ def linkage(df, n_groups):
 
     # condensed distance matrix as vector for linkage (upper triangle as a vector)
     y = Y[np.triu_indices(n_groups, 1)]
-    # create linkage matrix with wards algorithm an euclidean norm
-    Z = hac.linkage(y, method='ward', metric='euclidean')
+    # create linkage matrix with wards algorithm and euclidean norm
+
+    logging.info("Computing linkage Z with method: {0}" \
+                 " and metric: {1}...".format(method, metric))
+    Z = hac.linkage(y, method=method, metric=metric)
     # R = hac.inconsistent(Z, d=10)
     return Z
+
 
 def fcluster(df, Z, n_groups, n_clusters):
     """
@@ -134,9 +284,48 @@ def fcluster(df, Z, n_groups, n_clusters):
     df.index = df.index.swaplevel(0, 'cluster_id')
     # just to have datetime at the last level of the multiindex df
     df.index = df.index.swaplevel('datetime', 'group')
-
+    
+    #save the dataframe as csv-file
+    df.to_csv('output_dataframe.csv', sep='\t')
+    
+    # count the number of changes between the clusters
+    result=df.index.get_level_values('cluster_id')
+    k = float(0)
+    changes = 0
+    #all_changes=[]
+    for i in result: 
+        if k != i :
+            changes=changes+1
+        k=i
+    #save the changes with n_clusters as index 
+    all_changes.append(changes)
+    all_cluster_ids.append(n_clusters)
+    
     return df
 
+def compare_days():
+    
+    #plot the different days
+    x = all_cluster_ids
+    y = all_changes
+    plt.plot(x,y)
+    plt.ylabel('n_days method 3', fontsize=20)
+    plt.xlabel('n_representative days', fontsize=20)
+    plt.title('Compare numbre of days', fontsize=20)
+    plt.show()
+    
+    #save the days as a dictionnaire
+    dictA = {}
+    for i in range(len(all_changes)):
+        dictA[all_cluster_ids[i]] = all_changes[i]
+    print (dictA)
+    
+#==============================================================================
+#     w = csv.writer(open("output.csv", "w"))
+#     for key, val in dictA.items():
+#         w.writerow([key, val])
+#==============================================================================
+    
 def get_medoids(df):
     """
 
@@ -166,7 +355,7 @@ def get_medoids(df):
     cluster_ids = [i for i in df.index.get_level_values('cluster_id').unique()
                    if not np.isnan(i)]
     for c in cluster_ids:
-        print('Computing medoid for cluster: ', c, '...')
+        logging.info('Computing medoid for cluster: {})'.format(c))
         # days in the cluster is the df subset indexed by the cluster id 'c'
         cluster_group[c] = df.loc[c]
         # the size for daily clusters is the length of all hourly vals / 24
@@ -199,71 +388,29 @@ def get_medoids(df):
         medoids[c]['size'] = cluster_size[c]
         # dates from original data
         medoids[c]['dates'] = medoids[c]['data'].index.get_level_values('datetime')
-
+        
+    pf = pd.DataFrame(medoids) 
+    pf.to_csv('output_medoids.csv', sep='\t')
+    
+    #print(cluster_size) 
+    #print (medoids)
     return medoids
+    
+####################################??????????????????????????????????????
+def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
+    # default: 4500 € / MW, high 300 €/MW
+    crf = (1 / wacc) - (wacc / ((1 + wacc) ** lifetime))
+    network.storage_units.capital_cost = costs / crf
 
-def update_data_frames(network, medoids, squeze=False):
-    """ Updates the snapshots, snapshots weights and the dataframes based on
-    the original data in the network and the medoids created by clustering
-    these original data.
+def write_lpfile(network=None, path=None):
+    network.model.write(path,
+                        io_options={'symbolic_solver_labels':True})
 
-    Parameters
-    -----------
-    network : pyPSA network object
-    medoids : dictionary
-        dictionary with medoids created by 'cluster'-function (s.above)
-    squeze : Boolean
-        Remove data from pyPSA dataframe except the selected medoids (this
-        is not necessary as if the snapshots are set correctly this data
-        will be skipped anyway. But it can be beneficial for processing.)
+def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugefügt
+    path = resultspath.strip('daily')
+    values = pd.read_csv(path + 'storage_capacity.csv')[n_clusters].values
+    network.storage_units.p_nom_max = values
+    network.storage_units.p_nom_min = values
+    resultspath = 'compare-'+resultspath
 
-    Returns
-    -------
-    network
-
-    """
-    # merge all the dates
-    dates = medoids[1]['dates'].append(other=[medoids[m]['dates']
-                                       for m in medoids])
-    # remove duplicates
-    dates = dates.unique()
-    # sort the index
-    dates = dates.sort_values()
-
-    # set snapshots weights
-    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
-    for m in medoids:
-        network.snapshot_weightings[medoids[m]['dates']] = medoids[m]['size']
-
-    if squeze:
-        # replace p_sets with new dataframes, therefore create empty data
-        l = network.loads_t.p_set.loc[dates]
-        network.loads_t.p_set = l
-        network.loads_t.p_set.dropna(inplace=True)
-
-        g = network.generators_t.p_max_pu.loc[dates]
-        network.generators_t.p_max_pu = g
-        network.generators_t.p_max_pu.dropna(inplace=True)
-
-        g1 = network.generators_t.p_set.loc[dates]
-        network.generators_t.p_set = g1
-        network.generators_t.p_set.dropna(inplace=True)
-        # p (results)
-#        s = network.storage_units_t.p.loc[dates]
-#        network.storage_units_t.p = s
-#        network.storage_units_t.p.dropna(inplace=True)
-#
-#        l1 = network.loads_t.p.loc[dates]
-#        network.loads_t.p = l1
-#        network.loads_t.p.dropna(inplace=True)
-#
-#        g2 = network.generators_t.p.loc[dates]
-#        network.generators_t.p = g2
-#        network.generators_t.p.dropna(inplace=True)
-
-    # set snapshots based on manipulated snapshot weighting index
-    network.snapshots = network.snapshot_weightings.index
-    network.snapshots = network.snapshots.sort_values()
-
-    return network
-
+    return resultspath
