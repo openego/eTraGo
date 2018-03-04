@@ -50,11 +50,11 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot': 8760,
-        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/lukas/open_eGo/lopf_results/offshore/SQ_full_EHVk500_t5',#'/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/lukas/open_eGo/lopf_results/offshore/NEP+_full_EHVk100_t10',#'/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable': True, # state if you want storages to be installed at each node if necessary.
@@ -62,11 +62,11 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading': False,
         # Clustering:
-        'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation': False, # state if you want to run snapshots parallely.
-        'skip_snapshots': 5,
+        'skip_snapshots': 10,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
@@ -274,22 +274,32 @@ def etrago(args):
 
     # set numbers for offshore wind to their connection points
     # Büttel
-    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind')] = 1778.4#3096.2
+    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind')] = 3096.2 #1778.4
     # Dörpen West
-    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind')] = 1428
+    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind')] = 2528 #1428
     # Diele
     network.generators.p_nom.loc[(network.generators.bus == '27153') & (network.generators.carrier == 'wind')] = 1200
     # Emden
-    network.generators.p_nom.loc[(network.generators.bus == '24710') & (network.generators.carrier == 'wind')] = 113
+    network.generators.p_nom.loc[(network.generators.bus == '24710') & (network.generators.carrier == 'wind')] = 2813 #113
     network.generators.p_nom.loc[(network.generators.bus == '26135') & (network.generators.carrier == 'wind')] = 0
     # Hagermarsch
     network.generators.p_nom.loc[(network.generators.bus == '25427') & (network.generators.carrier == 'wind')] = 60
     # Inhausen
     network.generators.p_nom.loc[(network.generators.bus == '24374') & (network.generators.carrier == 'wind')] = 111
+    # Cloppenburg
+    network.generators.p_nom.loc[(network.generators.bus == '25249') & (network.generators.carrier == 'wind')] = 900 #0
+    # Hanekenfähr
+    network.generators.p_nom.loc[(network.generators.bus == '25451') & (network.generators.carrier == 'wind')] = 2700#1800 #0
     # Bentwisch
     network.generators.p_nom.loc[(network.generators.bus == '24579') & (network.generators.carrier == 'wind')] = 336.3
     # Lubmin
-    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind')] = 0
+    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind')] = 735 #0
+    # Siedenbrünzow/Sanitz
+    network.generators.p_nom.loc[(network.generators.bus == '27541') & (network.generators.carrier == 'wind')] = 1800 #0
+    # Wilhemshaven2
+    network.generators.p_nom.loc[(network.generators.bus == '26892') & (network.generators.carrier == 'wind')] = 2000 #0
+    # Segeberg
+    network.generators.p_nom.loc[(network.generators.bus == '24876') & (network.generators.carrier == 'wind')] = 1800 #0
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
