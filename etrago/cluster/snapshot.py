@@ -27,6 +27,7 @@ import numpy as np
 import scipy.cluster.hierarchy as hac
 from scipy.linalg import norm
 from etrago.tools.utilities import results_to_csv
+import tsam.timeseriesaggregation as tsam
 
 write_results = True
 home = os.path.expanduser('~/pf_results/')
@@ -61,12 +62,14 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries : pd.DataFrame
         Clustered timeseries
     """
-    import tsam.timeseriesaggregation as tsam
+    #import tsam.timeseriesaggregation as tsam
 
     if how == 'daily':
         hours = 24
     if how == 'weekly':
         hours = 168
+
+    
 
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
@@ -76,10 +79,12 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
 
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
-    
-    # timeseries['weights'] = cluster_weights 
-    # timeseries.set_index(['timeindex', 'weights'], inplace=True)
-    
+       
+#==============================================================================
+#     timeseries = timeseries.reset_index()
+#     timeseries.drop(['level_0','TimeStep'], axis=1, inplace=True)
+#==============================================================================
+       
     return timeseries, cluster_weights
 
 
@@ -95,35 +100,31 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         network.cluster = True
 
         # calculate clusters
-
-        timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
-
-        df, n_groups = group(timeseries_df, how=how)
-
-        Z = linkage(df, n_groups)
-
-        network.Z = pd.DataFrame(Z)
-
-        clusters = fcluster(df, Z, n_groups, n_clusters)
-
-        medoids = get_medoids(clusters)
+#==============================================================================
+#         timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
+#         df, n_groups = group(timeseries_df, how=how)
+#         Z = linkage(df, n_groups)
+#         network.Z = pd.DataFrame(Z)
+#         clusters = fcluster(df, Z, n_groups, n_clusters)
+#         medoids = get_medoids(clusters)
+#==============================================================================
 
         tsam_ts, cluster_weights = tsam_cluster(prepare_pypsa_timeseries(network),
                                typical_periods=n_clusters,
-                               how='daily')
-
-        import pdb; pdb.set_trace()
-
-        update_data_frames(network, medoids)
-
+                               how='daily')       
+        
+        update_data_frames(network,tsam_ts, cluster_weights) #,medoids
+        
+        
         snapshots = network.snapshots
-
+        
+        
     else:
         network.cluster = False
         path = os.path.join(path, 'original')
 
     snapshots = network.snapshots
-
+    
     # start powerflow calculations
     network_lopf(network, snapshots, extra_functionality = daily_bounds,
                  solver_name='gurobi')
@@ -140,7 +141,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
-
+    
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
         normed_renewables = network.generators_t.p_max_pu
@@ -151,10 +152,11 @@ def prepare_pypsa_timeseries(network, normed=False):
         loads = network.loads_t.p_set
         renewables = network.generators_t.p_set
         df = pd.concat([renewables, loads], axis=1)
-
+    df.to_csv('output_dataframe.csv', sep='\t')
     return df
 
-def update_data_frames(network, tsam_df):
+
+def update_data_frames(network, tsam_ts, cluster_weights):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -170,16 +172,37 @@ def update_data_frames(network, tsam_df):
     network
 
     """
-
-    # set snapshots weights
-    network.snapshot_weightings = pd.Series(
-        tsam_df.index.get_level_values('weights'), 
-        index=tsam_df.index.get_level_values('timeindex'))
-        
+    # reset index to use index levels as normal columns, neuer zusätzlicher index, 0-191 Spalte 0
+    tsam_ts = tsam_ts.reset_index()   
+    # map level 0 to weights, jedem neuen index (0-191) wird einem neuen weigthing zugeordnet)
+    snapshot_weightings = tsam_ts['level_0'].apply(lambda row: cluster_weights[row])    
+    # use the index (0...len(df)) of snapshot weigthings for snapshots, die snapshots werden neu definiert
+    network.snapshots = snapshot_weightings.index    
+    # set name of Series index and Series (needs to match the standard PyPSA naming)
+    snapshot_weightings.index.name = 'snapshots'
+    snapshot_weightings.name = 'weight'    
+    # drop obsolete columns from data frame 
+    tsam_ts.drop(['level_0', 'TimeStep'], axis=1, inplace=True)  
+    
+    network.snapshot_weightings = snapshot_weightings
     network.snapshots = network.snapshots.sort_values()
-
+     
+    # create new p_set dataframe for loads and generators    
+    column_gens= len(network.generators_t.p_set.columns)
+    column_loads = column_gens + len (network.loads_t.p_set.columns)
+    network.generators_t.p_set = tsam_ts.iloc[:,:column_gens]
+    network.loads_t.p_set = tsam_ts.iloc[:,column_gens:column_loads]
+    import pdb; pdb.set_trace()
+    
+#==============================================================================
+#      set snapshots weights
+#     network.snapshot_weightings = pd.Series(
+#         tsam_df.index.get_level_values('weights'), 
+#         index=tsam_df.index.get_level_values('timeindex'))
+#==============================================================================
+            
     return network
-
+    
 def daily_bounds(network, snapshots):
     """ This will bound the storage level to 0.5 max_level every 24th hour.
     """
