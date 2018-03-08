@@ -120,7 +120,7 @@ class NetworkScenario(ScenarioBase):
             if self.version:
                 tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
-                
+
             else:
                 tr = self.session.query(ormclass).filter(
                 ormclass.temp_id == self.temp_id).one()
@@ -168,6 +168,15 @@ class NetworkScenario(ScenarioBase):
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
 
+        if name == 'Line':
+            print('got it line')
+#            df = df.drop(['s_nom'], axis=1)
+            df['s_nom'] = 17000.0
+            print(df)
+        if name == 'Trafo':
+            print('got it Trafo')
+#            df = df.drop(['s_nom'], axis=1)
+            df['s_nom'] = 17000.0
         return df
 
     def series_fetch_by_relname(self, name, column):
@@ -220,7 +229,7 @@ class NetworkScenario(ScenarioBase):
         network.set_snapshots(self.timeindex)
 
         timevarying_override = False
-       
+
         if pypsa.__version__ == '0.11.0':
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
@@ -293,11 +302,11 @@ class NetworkScenario(ScenarioBase):
         self.network = network
 
         return network
-    
+
 def clear_results_db(session):
     '''Used to clear the result tables in the OEDB. Caution!
         This deletes EVERY RESULT SET!'''
-    
+
     from egoio.db_tables.model_draft import EgoGridPfHvResultBus as BusResult,\
                                             EgoGridPfHvResultBusT as BusTResult,\
                                             EgoGridPfHvResultStorage as StorageResult,\
@@ -340,7 +349,7 @@ def clear_results_db(session):
             print('Deleting aborted!')
     else:
             print('Deleting aborted!')
-    
+
 
 def results_to_oedb(session, network, args, grid='hv', safe_results = False):
     """Return results obtained from PyPSA to oedb"""
@@ -365,16 +374,16 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                                                 EgoGridPfHvSource as Source
     else:
         print('Please enter mv or hv!')
-    
+
     print('Uploading results to db...')
     # get last result id and get new one
     last_res_id = session.query(func.max(ResultMeta.result_id)).scalar()
     if last_res_id == None:
         new_res_id = 1
-    else: 
+    else:
         new_res_id = last_res_id + 1
-       
-    # result meta data 
+
+    # result meta data
     res_meta = ResultMeta()
     meta_misc = []
     for arg, value in args.items():
@@ -392,7 +401,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
     res_meta.snapshots = network.snapshots.tolist()
     res_meta.solver = args['solver']
     res_meta.settings=meta_misc
-    
+
     session.add(res_meta)
     session.commit()
 
@@ -421,10 +430,10 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
             sources = pd.read_sql(session.query(Source).statement,session.bind)
         try:
             old_source_id = int(sources.source_id[sources.name == network.storage_units.carrier[stor]])
-            network.storage_units.set_value(stor, 'source', int(old_source_id))   
+            network.storage_units.set_value(stor, 'source', int(old_source_id))
         except:
             print('Source ' + network.storage_units.carrier[stor] + ' is not in the source table!')
-    
+
     whereismyindex = {BusResult: network.buses.index,
                       LoadResult: network.loads.index,
                       LineResult: network.lines.index,
@@ -437,7 +446,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                       TransformerTResult: network.transformers.index,
                       StorageTResult: network.storage_units.index,
                       GeneratorTResult: network.generators.index}
-    
+
     whereismydata = {BusResult: network.buses,
                      LoadResult: network.loads,
                      LineResult: network.lines,
@@ -450,17 +459,17 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                      TransformerTResult: network.transformers_t,
                      StorageTResult: network.storage_units_t,
                      GeneratorTResult: network.generators_t}
-    
+
     new_to_old_name = {'p_min_pu_fixed': 'p_min_pu',
                         'p_max_pu_fixed': 'p_max_pu',
                         'dispatch': 'former_dispatch',
                         'current_type': 'carrier',
                         'soc_cyclic': 'cyclic_state_of_charge',
                         'soc_initial': 'state_of_charge_initial'}
-    
+
     ormclasses = [BusResult,LoadResult,LineResult,TransformerResult,GeneratorResult,StorageResult,
                   BusTResult,LoadTResult,LineTResult,TransformerTResult,GeneratorTResult,StorageTResult]
-   
+
     for ormclass in ormclasses:
         for index in whereismyindex[ormclass]:
             myinstance = ormclass()
@@ -471,10 +480,10 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                 if '_id' in col:
                     class_id_name = col
                 else:
-                    continue        
+                    continue
             setattr(myinstance, class_id_name, index)
             columns.remove(class_id_name)
-            
+
             if str(ormclass)[:-2].endswith('T'):
                 for col in columns:
                     if col =='soc_set':
@@ -482,14 +491,14 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                             setattr(myinstance, col, getattr(whereismydata[ormclass],'state_of_charge_set')[index].tolist())
                         except:
                             pass
-                    else:    
+                    else:
                         try:
                             setattr(myinstance, col, getattr(whereismydata[ormclass],col)[index].tolist())
                         except:
                             pass
                 session.add(myinstance)
-                
-            else:            
+
+            else:
                 for col in columns:
                     if col in new_to_old_name:
                         if col == 'soc_cyclic':
@@ -501,7 +510,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                             try:
                                 setattr(myinstance, col, whereismydata[ormclass].loc[index, col])
                             except:
-                                pass 
+                                pass
                         else:
                             try:
                                 setattr(myinstance, col, whereismydata[ormclass].loc[index, new_to_old_name[col]])
@@ -518,22 +527,22 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                         except:
                             pass
                 session.add(myinstance)
-    
+
         session.commit()
     print('Upload finished!')
-    
+
     return
 
 def run_sql_script(conn, scriptname='results_md2grid.sql'):
     """This function runs .sql scripts in the folder 'sql_scripts' """
-    
+
     script_dir = os.path.abspath(
                  os.path.join(os.path.dirname(__file__), 'sql_scripts'))
     script_str = open(os.path.join(script_dir, scriptname)).read()
     conn.execution_options(autocommit=True).execute(script_str)
-    
+
     return
-    
+
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.11.0']:
         print('Pypsa version %s not supported.' % pypsa.__version__)
