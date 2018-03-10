@@ -176,12 +176,12 @@ class NetworkScenario(ScenarioBase):
 
             for index, row in df.iterrows():
                 if not index in self.cntry_links:
-                    df.at[index, 's_nom'] = df.at[index, 's_nom'] * self.brnch_fct
+                    df.at[index, 's_nom'] = 100000 #df.at[index, 's_nom'] * self.brnch_fct
             print(df)
         if name == 'Trafo':
             print('got it Trafo')
 #            df = df.drop(['s_nom'], axis=1)
-            df['s_nom'] = df['s_nom'] * self.brnch_fct
+            df['s_nom'] = 100000 #df['s_nom'] * self.brnch_fct
         return df
 
     def series_fetch_by_relname(self, name, column):
