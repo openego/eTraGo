@@ -214,7 +214,9 @@ def etrago(args):
                                method=args['method'],
                                start_snapshot=args['start_snapshot'],
                                end_snapshot=args['end_snapshot'],
-                               scn_name=args['scn_name'])
+                               scn_name=args['scn_name'],
+                               cntry_links=args['cntry_links'],
+                               brnch_fct=args['branch_capacity_factor'])
 
     network = scenario.build_network()
 

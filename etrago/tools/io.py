@@ -99,6 +99,8 @@ class NetworkScenario(ScenarioBase):
         self.end_snapshot    = kwargs.get('end_snapshot', 20)
         self.temp_id  = kwargs.get('temp_id', 1)
         self.network  = None
+        self.cntry_links = kwargs.get('cntry_links', [])
+        self.brnch_fct = kwargs.get('brnch_fct', 1.)
 
         self.configure_timeindex()
 
@@ -169,14 +171,17 @@ class NetworkScenario(ScenarioBase):
             df.source = df.source.map(self.id_to_source())
 
         if name == 'Line':
+
             print('got it line')
-#            df = df.drop(['s_nom'], axis=1)
-            df['s_nom'] = 17000.0
+
+            for index, row in df.iterrows():
+                if not index in self.cntry_links:
+                    df.at[index, 's_nom'] = df.at[index, 's_nom'] * self.brnch_fct
             print(df)
         if name == 'Trafo':
             print('got it Trafo')
 #            df = df.drop(['s_nom'], axis=1)
-            df['s_nom'] = 17000.0
+            df['s_nom'] = df['s_nom'] * self.brnch_fct
         return df
 
     def series_fetch_by_relname(self, name, column):
