@@ -493,9 +493,30 @@ def storage_distribution(network, filename=None):
     fig.set_size_inches(6,6)
    
     if sum(storage_distribution) == 0:
-         network.plot(bus_sizes=0,ax=ax,title="No storages")
+         ll=network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
+         ll=network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
+    
+    x1=network.buses.x
+    y1=network.buses.y
+    
+    sd = storage_distribution.round(1)
+    print('aaa', sd)
+    
+    for i, txt in enumerate(sd):
+        ax.annotate(txt, (x1[i],y1[i]), xytext=(x1[i]+0.05, y1[i]+0.05),
+                    ###arrowprops=dict(facecolor='black', shrink=0.1, width=0.05, headwidth = 7, headlength=6)
+                    )
+        
+    ax.legend(ncol=2, loc="upper left"),
+    
+    plt.legend((ll),
+        ('Storage size (MW)', 'Transmission Lines'),
+        scatterpoints = 1,
+        loc='upper right',
+        ncol=1,
+        fontsize=10
+        )
     
     if filename is None:
         plt.show()
