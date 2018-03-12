@@ -501,11 +501,10 @@ def storage_distribution(network, filename=None):
     y1=network.buses.y
     
     sd = storage_distribution.round(1)
-    print('aaa', sd)
     
     for i, txt in enumerate(sd):
         ax.annotate(txt, (x1[i],y1[i]), xytext=(x1[i]+0.05, y1[i]+0.05),
-                    ###arrowprops=dict(facecolor='black', shrink=0.1, width=0.05, headwidth = 7, headlength=6)
+                    #arrowprops=dict(facecolor='black', shrink=0.1, width=0.05, headwidth = 7, headlength=6)
                     )
         
     ax.legend(ncol=2, loc="upper left"),
