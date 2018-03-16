@@ -20,10 +20,12 @@ if not 'READTHEDOCS' in os.environ:
     from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
-
+    from cluster.analyses.config import root_path
     #from appl import etrago                                       
 #import csv
 # toDo reduce import
+    
+    print("path01", root_path)
 
 def annualized_costs(cc,t,i):
      """
@@ -657,14 +659,24 @@ def line_extendable(network, args, scenario):
         print('snapshot s')
         #Add plot function for snapshot!!!
     
+    #Number of files in Path
+    files1 = os.listdir(root_path)
+    nfiles = str(len(files1)+1)
+    
     # Export CSV file with simulation times
     z = y-x
-    pathexp = '/home/felipe/Uniproject/' #path for the export file
-    km = str (args ['k_mean_clustering'])
-    sc = str (args ['snapshot_clustering'])
-    zt = pd.Series([z1st , z] , index = ['run time 1st LOPF, k-mean= ' + km +\
-                   ', SC= ' + sc, 'run time 2nd LOPF, k-mean= ' + km + 'SC= ' + sc])
-    zt.to_csv(path= pathexp + 'ResultsExpansions.csv')
+    #km = str (args ['k_mean_clustering'])
+    km = args ['k_mean_clustering']
+    #sc = str (args ['snapshot_clustering'])
+    sc = args ['snapshot_clustering']
+    
+    #zt = pd.Series([z1st , z] , index = ['run time 1st LOPF, k-mean= ' + km +\
+    #               ', SC= ' + sc, 'run time 2nd LOPF, k-mean= ' + km + 'SC= ' + sc])
+    
+    data = [(z1st, z, km )]
+    zd = pd.DataFrame(data, index = [sc], columns = ['1st LOPF', '2nd LOPF', 'k-mean'])
+    
+    zd.to_csv(root_path + 'ResultsExpansions' + nfiles +'.csv')
     #z.to_frame()
     #z.plot()
     
