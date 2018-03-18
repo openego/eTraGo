@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 """
-from config import clustered_path, original_path, plot_path, root_path
+from config import sim_results_path, total_results_path, plot_path
 # TODO: Make plot_path import work...don't know why it does not
 from os import path, listdir
 
@@ -11,11 +11,11 @@ import pandas as pd
 import os
 kmean = []
 
-files1 = os.listdir(root_path)
+files1 = os.listdir(sim_results_path)
 
 for c in range (1,len(files1)+1):
     #print('c',c)
-    path01= root_path + 'ResultsExpansions' + str(c) +'.csv'
+    path01= sim_results_path + 'ResultsExpansions' + str(c) +'.csv'
     Total = pd.read_csv(path01)
     k= Total.loc[0]['k-mean']
     
@@ -33,7 +33,7 @@ print('K-MEAN', kmean)
 result1= results.sort_values(['k-mean'], ascending = [1]) 
 
 print('total results', result1)
-#result1.to_csv(root_path + 'TotalResults.csv')
+result1.to_csv(total_results_path + 'TotalResults.csv')
 
 for i in range(len(kmean)):
     value = int(kmean[i])
@@ -47,6 +47,6 @@ for i in range(len(kmean)):
     ax.set_ylabel('Simulation Time 2nd LOPF (s)')
     ax.set_xlabel('Number of Snapshots')
     
-    #fig = ax.get_figure()
-    #fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
+    fig = ax.get_figure()
+    fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
     

@@ -20,12 +20,10 @@ if not 'READTHEDOCS' in os.environ:
     from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
-    from cluster.analyses.config import root_path
+    from cluster.analysis.config import sim_results_path
     #from appl import etrago                                       
 #import csv
 # toDo reduce import
-    
-    print("path01", root_path)
 
 def annualized_costs(cc,t,i):
      """
@@ -660,7 +658,7 @@ def line_extendable(network, args, scenario):
         #Add plot function for snapshot!!!
     
     #Number of files in Path
-    files1 = os.listdir(root_path)
+    files1 = os.listdir(sim_results_path)
     nfiles = str(len(files1)+1)
     
     # Export CSV file with simulation times
@@ -676,7 +674,7 @@ def line_extendable(network, args, scenario):
     data = [(z1st, z, km )]
     zd = pd.DataFrame(data, index = [sc], columns = ['1st LOPF', '2nd LOPF', 'k-mean'])
     
-    zd.to_csv(root_path + 'ResultsExpansions' + nfiles +'.csv')
+    zd.to_csv(sim_results_path + 'ResultsExpansions' + nfiles +'.csv')
     #z.to_frame()
     #z.plot()
     
