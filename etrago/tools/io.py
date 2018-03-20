@@ -17,7 +17,7 @@ carr_ormclass: str
 Notes
 -----
 A configuration file connecting the chosen optimization method with
-components to be queried is needed.
+components to be queried is needed for NetworkScenario class.
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
