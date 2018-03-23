@@ -71,6 +71,7 @@ def overlay_network (network, session, overlay_scn_name, set_extendable, k_mean_
             network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom'] = network.lines.s_nom_max
             network.lines.loc[network.lines.scn_name == ('extension_' +  overlay_scn_name), 's_nom_min'] = 0
             network.transformers.loc[network.transformers.scn_name == ('extension_' + overlay_scn_name), 's_nom'] = 1000000
+            network.transformers.loc[network.transformers.scn_name == ('extension_' + overlay_scn_name), 's_nom_max'] = 1000000
             
     else: 
        decommissioning(network, session, overlay_scn_name)

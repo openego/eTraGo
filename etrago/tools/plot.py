@@ -238,7 +238,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
 
-def extension_overlay_network(network, overlay_scn_name= 'NEP 2035', timestep=0, filename=None, boundaries=[0,100]):
+def extension_overlay_network(network, filename=None, boundaries=[0,100]):
    
     cmap = plt.cm.jet
     
@@ -294,7 +294,7 @@ def full_load_hours(network, boundaries=[0,4830], filename = None, two_cb = Fals
     
     
     ll = network.plot(line_colors=load_hours, line_cmap=cmap, bus_sizes = 0,
-                      title="Full load-hours of lines", line_widths=0.8)
+                      title="Full load-hours of lines", line_widths=2)
   
     if not boundaries:
         cb = plt.colorbar(ll[1])
@@ -328,21 +328,20 @@ def max_load(network, boundaries=[0,100], filename = None, two_cb = False):
     cmap_link = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     
-    print(3)
     
     load_lines = pd.Series((abs(network.lines_t.p0).max()/ \
                    (network.lines.s_nom)*100).data , index = array_line)
     
     array_link = [['Link'] * len(network.links), network.links.index]
     
-    load_links = pd.Series(abs((network.links_t.p0.max()/ \
+    load_links = pd.Series((abs(network.links_t.p0.max()/ \
                    (network.links.p_nom)) *100).data , index = array_link)
     
     load_hours = load_lines.append(load_links)
     
     
     ll = network.plot(line_colors=load_hours,  line_cmap={'Line': cmap_line, 'Link':cmap_link}, bus_sizes =0,
-                      title="Maximum of line loading", line_widths=0.75)
+                      title="Maximum of line loading", line_widths=2)
     
     if not boundaries:
         cb = plt.colorbar(ll[1])
@@ -370,34 +369,40 @@ def max_load(network, boundaries=[0,100], filename = None, two_cb = False):
         plt.savefig(filename)
         plt.close()
         
-"""def load_hours(network, min_load = 0.9, max_load = 1):
-    cmap = plt.cm.jet
-    
+def load_hours(network, min_load = 0.9, max_load = 1, boundaries = [0,8760]):
+    cmap_line = plt.cm.jet
+    cmap_link = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
-    
-    high_loaded_lines = network.lines[(abs(network.lines_t.p0.loc[network.snapshots]\
-                                           /network.lines.s_nom).data>= min_load) & \
-                                                  (abs(network.lines_t.p0/network.lines.s_nom) <= max_load) ]
-    
-    
-    
-    load_lines = pd.Series(len(network.lines_t.p0[(abs(network.lines_t.p0/network.lines.s_nom)>= min_load) & \
-                                                  (abs(network.lines_t.p0/network.lines.s_nom) <= max_load) ].loc[network.snapshots]), index = array_line)
+     
+    load_lines = pd.Series((
+                    (abs(network.lines_t.p0[(abs(network.lines_t.p0)/network.lines.s_nom_opt >= min_load) &(abs(network.lines_t.p0)/network.lines.s_nom_opt <= max_load) ])\
+                              / abs(network.lines_t.p0[(abs(network.lines_t.p0)/network.lines.s_nom_opt >= min_load) &(abs(network.lines_t.p0)/network.lines.s_nom_opt <= max_load)])).sum()
+                    ).data, index = array_line)
     
     array_link = [['Link'] * len(network.links), network.links.index]
     
-    load_links = pd.Series(len(network.links_t[(abs(network.links_t.p0/network.links.p_nom) >= min_load) ]&
-                                                  (abs(network.links_t.p0/network.links.p_nom) <= max_load) ]), index = array_link)
-    
+    load_links = pd.Series((
+                    (abs(network.links_t.p0[(abs(network.links_t.p0)/network.links.p_nom_opt >= min_load) &(abs(network.links_t.p0)/network.links.p_nom_opt <= max_load) ])\
+                              / abs(network.links_t.p0[(abs(network.links_t.p0)/network.links.p_nom_opt >= min_load) &(abs(network.links_t.p0)/network.links.p_nom_opt <= max_load)])).sum()
+                    ).data, index = array_link)
+                    
     load_hours = load_lines.append(load_links)
     
     
-    ll = network.plot(line_colors=load_hours, line_cmap=cmap,
-                      title="Number of hours with more then 90% load", line_widths=0.55)
+    ll = network.plot(line_colors=load_hours,  line_cmap={'Line': cmap_line, 'Link':cmap_link}, bus_sizes =0,
+                      title="Number of hours with more then 90% load", line_widths=2)
   
-    cb = plt.colorbar(ll[1])
-
-    cb.set_label('Number of hours')"""
+    v1 = np.linspace(boundaries[0], boundaries[1], 101)
+    v= np.linspace(boundaries[0], boundaries[1], 101)
+    cb_Link = plt.colorbar(ll[2], boundaries=v1,
+                          ticks=v[0:101:10])
+    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    cb.set_label('Number of hours')
     
 
  
