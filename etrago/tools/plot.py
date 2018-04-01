@@ -891,7 +891,57 @@ def plot_max_opt_line_loading(network,line_time,filename=None):
     else:
         plt.savefig(filename)
         plt.close()
-        
+ 
+def plot_max_opt_line_loading_SN(network,filename=None):
+    """
+    Plot optimal line loading as color on lines
+    Displays line loading relative to nominal capacity
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename : str
+        Specify filename
+        If not given, figure will be show directly
+    """
+    
+    # with S = sqrt(P^2 + Q^2)
+    loading=[]
+    i=0
+    while(i<len(network.lines)):
+        p = []
+        q = []
+        x=0
+        while(x<len(network.snapshots)):
+            p.append(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]].loc[network.snapshots[x]]))
+            if network.lines_t.q0.empty:
+                q.append(0)
+            else:
+                q.append(abs(network.lines_t.q0[network.lines_t.q0.keys()[i]].loc[network.snapshots[x]]))
+                
+            x+=1
+            
+        max_p = max(p)
+        max_q = max(q)
+            
+        s_nom = network.lines.s_nom_opt[network.lines_t.p0.keys()[i]]
+        loading.append(sqrt(max_p**2+max_q**2)/s_nom*100)
+            
+        i+=1
+
+    # do the plotting
+    ll = network.plot(line_colors=loading, line_cmap=plt.cm.jet,
+                      title="Line maximum loading")
+
+    # add colorbar, note mappable sliced from ll by [1]
+    cb = plt.colorbar(ll[1])
+    cb.set_label('Line loading in %')
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+             
 
         
 def transformers_distribution(network, filename=None):

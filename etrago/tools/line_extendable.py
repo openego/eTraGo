@@ -12,7 +12,7 @@ if not 'READTHEDOCS' in os.environ:
                             curtailment, gen_dist, storage_distribution,
                             plot_max_line_loading, plot_max_opt_line_loading,
                             plot_max_opt_line_loading_bench,transformers_distribution,
-                            plot_dif_line_MW,plot_dif_line_percent)
+                            plot_dif_line_MW,plot_dif_line_percent, plot_max_opt_line_loading_SN)
     from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                  results_to_csv, parallelisation, pf_post_lopf,
                                  loading_minimization, calc_line_losses,
@@ -197,14 +197,7 @@ def overload_lines(network):
     def getKey(item):
                 return item[1]
 
-    print('max loading = ', max_loading)
-    print('Time steps = ', timesteps)
-    print('time list unsorted= ', time_list)
-
     time_list = sorted(time_list,key=getKey)
-    
- 
-    print('time list sorted= ', time_list)
 
     return max_loading,time_list
 
@@ -294,9 +287,6 @@ def overload_trafo(network):
                 return item[1]
 
     time_list = sorted(time_list,key=getKey)
-    
-    print('timesteps tx', timesteps)
-    print('time list tx', time_list)
 
     return max_loading,time_list
 
@@ -341,14 +331,9 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
         lines_time.append(time_list[len(time_list)-1-i][0])
         all_time.append(time_list[len(time_list)-1-i][0])
         
-        print ('lines_time', lines_time)
-        
         index = [a for a,u in enumerate(max_loading[2]) if u==lines_time[i]]
 
-        print('index', index)
-
         for k in index:
-            print('k= ', k)
             if(max_loading[1][k]>100):
                 network.lines.s_nom_extendable[max_loading[0][k]] = True
                 network.lines.s_nom_min[max_loading[0][k]] = network.lines.s_nom[max_loading[0][k]]
@@ -363,14 +348,8 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
                 if(U_bus_0 == U_bus_1):
                     if(U_bus_0 == 110):
                         cc0 = cost_1
-                        #network.lines.capital_cost[max_loading[0][k]] = \
-                        #    (cost_1*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                        #    (90*8760)
                     elif(U_bus_0 == 220):
                         cc0 = cost_2
-                        #network.lines.capital_cost[max_loading[0][k]] = \
-                        #    (cost_2*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                        #    (90*8760)
                     else:
                         cc0 = cost_3
                         #network.lines.capital_cost[max_loading[0][k]] = \
@@ -380,15 +359,10 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
                     maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
                     cc = cc1/maxload1
                     network.lines.capital_cost[max_loading[0][k]] = annualized_costs(cc,40,0.05)
-                    print('cc1= ', cc1)
-                    print('maxload1= ', maxload1)
                 
                 else:
                     print('Error')
                     
-                print('cap costs =', network.lines.capital_cost[max_loading[0][k]])
-            else:  # Delete else, just for the print function
-                    print('No excecute in k= ', k)
         i+=1
 
     return network,lines_time,all_time
@@ -407,25 +381,14 @@ def set_line_cost_BM(network,cost_1,cost_2,cost_3):
         if(U_bus_0 == U_bus_1):
             if(U_bus_0 == 110):
                 cc0 = cost_1
-                #network.lines.capital_cost[max_loading[0][k]] = \
-                #    (cost_1*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                #    (90*8760)
             elif(U_bus_0 == 220):
                 cc0 = cost_2
-                #network.lines.capital_cost[max_loading[0][k]] = \
-                #    (cost_2*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                #    (90*8760)
             else:
                 cc0 = cost_3
-                #network.lines.capital_cost[max_loading[0][k]] = \
-                #    (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
-                #    (90*8760)
             cc1 = (cc0*network.lines.length[i])
-            maxload1 = network.lines.s_nom[i] #* ((max_loading[1][k])/100)
+            maxload1 = network.lines.s_nom[i]
             cc = cc1/maxload1
             network.lines.capital_cost[i] = annualized_costs(cc,40,0.05)
-            print('cc1= ', cc1)
-            print('maxload1= ', maxload1)
         
         else:
             print('Error')
@@ -514,42 +477,29 @@ def line_extendable(network, args, scenario):
 
     """  
     
-    print("Lines_extendable_S_ini",network.lines.s_nom)
-    print("Lines_extendable_S_ini_opt",network.lines.s_nom_opt)
    # set the capacity-factory for the first lopf
     cap_fac = 1.3
          
     # Change the capcity of lines and transformers
     network = capacity_factor(network,cap_fac)
-                                        
-    ######################## Set all lines extendable ##############
-    
-    #network = extend_all_lines(network)
-    
-    
-    #print("Lines_extendable_S_ini_ext",network.lines.s_nom_extendable)
-    #print("Lines_extendable_S_ini_min",network.lines.s_nom_min)
-    #print("Lines_extendable_S_ini_max",network.lines.s_nom_max)
     
     ############################ 1. Lopf ###########################
     
-    print ('bf 1st LOPF snapshots', len(network.snapshots))
-    
-    last_snapshot = len(network.snapshots)  
-    x = time.time()
-    #network.lopf(network.snapshots, solver_name=args['solver']) 
-    
-    parallelisation(network, start_snapshot=1, \
-        end_snapshot= last_snapshot ,group_size=1, solver_name=args['solver'])
-    
-    #parallelisation(network, start_snapshot=args['start_snapshot'], \
-    #    end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
-    
-    y = time.time()
-    z1st = y -x
-    
-    print('results after 1stLOPF', network.lines_t.p0 )
-    
+    if args['snapshot_clustering']==False:
+        x = time.time()
+        parallelisation(network, start_snapshot=args['start_snapshot'], \
+            end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+        y = time.time()
+        z1st = y -x
+        
+    else:
+        last_snapshot = len(network.snapshots)  
+        x = time.time()
+        parallelisation(network, start_snapshot=1, \
+            end_snapshot= last_snapshot ,group_size=1, solver_name=args['solver'])
+        y = time.time()
+        z1st = y -x
+
     # return to original capacities
     network = capacity_factor(network,(1/cap_fac))
         
@@ -569,9 +519,9 @@ def line_extendable(network, args, scenario):
     ####################### Set capital cost ########################
          
     # Set capital cost for extendable lines
-    cost_1 = 6.0000 # 110kV extendable
-    cost_2 = 1.600000/2 # 220kV extendable
-    cost_3 = 2.00000 # 380kV extendable
+    cost_1 = 60000 # 110kV extendable
+    cost_2 = 1600000/2 # 220kV extendable
+    cost_3 = 200000 # 380kV extendable
         
     network,lines_time,all_time = set_line_cost(network,\
                                                 line_time_list,\
@@ -607,7 +557,6 @@ def line_extendable(network, args, scenario):
             
     ######################### calc 2. Lopf ##########################
 
-    print('all time pre1', all_time)
     length_time = len(all_time)
     if(length_time==0):
         timeindex = scenario.timeindex
@@ -619,10 +568,6 @@ def line_extendable(network, args, scenario):
                          network.transformers.capital_cost * length_time
     
     all_time.sort()
-    print('Snapshots len0', len(network.snapshots))
-    print('Snapshots 0', network.snapshots)
-    print('all time pre2', all_time)
-   
     
     if args['snapshot_clustering']==False:
         i=0
@@ -633,16 +578,13 @@ def line_extendable(network, args, scenario):
                 timeindex =pd.DatetimeIndex.append(timeindex,\
                           other=network.snapshots[all_time[i]:all_time[i]+1])
             i+=1
-        print('timeindex=',timeindex )
-        print('no snapshot ns')
-                ##Method for 2nd LOPF
+        ##Method for 2nd LOPF
         x = time.time()
         network.lopf(timeindex, solver_name=args['solver'])  
         y = time.time()
         
         ##################### Plotting the Results #####################
         if len(lines_time) >0:
-        
             plot_max_opt_line_loading(network,lines_time,\
                                           filename='maximum_optimal_lines.png')
         else:
@@ -650,42 +592,41 @@ def line_extendable(network, args, scenario):
         storage_distribution(network)
 
     else:
-        ##Method for 2nd LOPF
+        #Method for 2nd LOPF
         x = time.time()
         network.lopf(network.snapshots, solver_name=args['solver'])  
         y = time.time()
-        print('snapshot s')
-        #Add plot function for snapshot!!!
+        
+        ##################### Plotting the Results #####################
+        #Plot function for snapshot
+        
+        plot_max_opt_line_loading_SN(network,\
+                              filename='maximum_optimal_lines.png')
+        
+    # Export CSV file with simulation times
+    z = y-x
+    ts= "2LOPF" #Type of simulation. 2LOPF or Benchmark
+    export_results(args, z1st, z, ts)
+    
+    return network
+
+def export_results(args, z1st, z, ts):
     
     #Number of files in Path
     files1 = os.listdir(sim_results_path)
     nfiles = str(len(files1)+1)
     
     # Export CSV file with simulation times
-    z = y-x
-    #km = str (args ['k_mean_clustering'])
+    
     km = args ['k_mean_clustering']
-    #sc = str (args ['snapshot_clustering'])
     sc = args ['snapshot_clustering']
-    
-    #zt = pd.Series([z1st , z] , index = ['run time 1st LOPF, k-mean= ' + km +\
-    #               ', SC= ' + sc, 'run time 2nd LOPF, k-mean= ' + km + 'SC= ' + sc])
-    
-    data = [(z1st, z, km )]
-    zd = pd.DataFrame(data, index = [sc], columns = ['1st LOPF', '2nd LOPF', 'k-mean'])
+    st = args ['storage_extendable']
+
+    data = [(z1st, z, km, st, ts )]
+    zd = pd.DataFrame(data, index = [sc], columns = ['1st LOPF', '2nd LOPF', 'k-mean','Storage', 'TypeSim'])
     
     zd.to_csv(sim_results_path + 'ResultsExpansions' + nfiles +'.csv')
-    #z.to_frame()
-    #z.plot()
     
-    #print('results after 2ndLOPF', network.lines_t.p0 )
-    print('time 2nd lopf= ', y-x)                          
-    print("Lines_extendable_S_fin",network.lines.s_nom)
-    print("Lines_extendable_S_fin_opt",network.lines.s_nom_opt)
-    print("Lines_extendable_S_fin_ext",network.lines.s_nom_extendable)
-
-    
-    return network
 
 def line_extendableBM(network, args, scenario):
     
@@ -694,14 +635,10 @@ def line_extendableBM(network, args, scenario):
     line_extendable calculation.
 
     """  
-    print("Lines_extendable_S_ini0_ext",network.lines.s_nom_extendable)
     
     network = extend_all_lines(network)
     
     network = extend_all_trafos(network)
-    
-    print("Lines_extendable_S_ini",network.lines.s_nom)
-    print("Lines_extendable_S_ini_ext",network.lines.s_nom_extendable)
     
     ####################### Set capital cost ########################
          
@@ -714,13 +651,14 @@ def line_extendableBM(network, args, scenario):
     
 
     x = time.time()
-    print('time xx = ', x) 
     network.lopf(network.snapshots, solver_name=args['solver'])  
     y = time.time()
+    z = y-x
     
-    print('time unique lopf= ', y-x)                          
-    print("Lines_extendable_S_fin",network.lines.s_nom)
-    print("Lines_extendable_S_fin_ext",network.lines.s_nom_extendable)
-    
+    # Export CSV file with simulation times
+    z1st = 0 
+    ts= "BM"
+    export_results(args, z1st, z, ts)
+
     
     return network

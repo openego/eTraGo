@@ -14,7 +14,7 @@ kmean = []
 files1 = os.listdir(sim_results_path)
 
 for c in range (1,len(files1)+1):
-    #print('c',c)
+
     path01= sim_results_path + 'ResultsExpansions' + str(c) +'.csv'
     Total = pd.read_csv(path01)
     k= Total.loc[0]['k-mean']
@@ -23,30 +23,52 @@ for c in range (1,len(files1)+1):
         results = Total
     else:
         results= results.append(Total)
-        print('c=',c)
  
     if (k in kmean) == False:
             kmean.append(k)
 
-print('K-MEAN', kmean)
-
-result1= results.sort_values(['k-mean'], ascending = [1]) 
-
-print('total results', result1)
-result1.to_csv(total_results_path + 'TotalResults.csv')
+results.rename(columns={'Unnamed: 0':'Snapshots'}, inplace=True)
+results.to_csv(total_results_path + 'TotalResults.csv')
 
 for i in range(len(kmean)):
     value = int(kmean[i])
-    print('value1', value)
-    RS = result1.loc[result1 ['k-mean'] == value]
-    print('RS'+ str(i),RS)
-    
+    RS = results.loc[results ['k-mean'] == value]
+    R2LOPFST = RS.loc[(RS['TypeSim'] == '2LOPF') & (RS['Storage'] == True)]
+    R2LOPFST = R2LOPFST.sort_values(['Snapshots'], ascending = [1]) 
+    R2LOPFnoST = RS.loc[(RS['TypeSim'] == '2LOPF') & (RS['Storage'] == False)]
+    R2LOPFnoST = R2LOPFnoST.sort_values(['Snapshots'], ascending = [1]) 
+    RBMST = RS.loc[(RS['TypeSim'] == 'BM') & (RS['Storage'] == True)]
+    RBMST = RBMST.sort_values(['Snapshots'], ascending = [1]) 
+    RBMnoST = RS.loc[(RS['TypeSim'] == 'BM') & (RS['Storage'] == False)]
+    RBMnoST = RBMnoST.sort_values(['Snapshots'], ascending = [1]) 
 
-    ax = RS.plot(x='Unnamed: 0', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value))
+    ##Plot graphs with storage
+    fig, ax = plt.subplots()
+    ax2 = ax 
+
+    R2LOPFST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax=ax, label="2 LOPFs")
+    RBMST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax = ax2, label = "Benchmark", ls = "--")
     
     ax.set_ylabel('Simulation Time 2nd LOPF (s)')
     ax.set_xlabel('Number of Snapshots')
     
+    plt.show()
+    
     fig = ax.get_figure()
     fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
+    
+    ##Plot graphs without storage
+    fig, ax = plt.subplots()
+    ax2 = ax 
+
+    R2LOPFnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax=ax, label="2 LOPFs")
+    RBMnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax = ax2, label="Benchmark", ls = "--")
+    
+    ax.set_ylabel('Simulation Time 2nd LOPF (s)')
+    ax.set_xlabel('Number of Snapshots')
+    
+    plt.show()
+    
+    fig = ax.get_figure()
+    fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +' without Storage.eps'))
     

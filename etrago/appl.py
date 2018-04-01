@@ -53,8 +53,8 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, #4320, 
-        'end_snapshot' : 96, #4488,
+        'start_snapshot': 1, 
+        'end_snapshot' : 2880,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -62,7 +62,7 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable': True, # state if you want storages to be installed at each node if necessary.
         'generator_noise': True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -72,7 +72,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering': 2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering': 4,# state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots': False,
@@ -302,7 +302,7 @@ def etrago(args):
     if args['line_extendable']:
         line_extendable(network,args,scenario) 
     
-    # TEMPORAL line extendable in order of a grid extension
+    # TEMPORAL line extendable just 2nd LOPF
     if args['line_extendableBM']:
         line_extendableBM(network,args,scenario) 
     	
