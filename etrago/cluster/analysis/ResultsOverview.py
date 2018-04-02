@@ -11,6 +11,7 @@ import pandas as pd
 import os
 kmean = []
 
+
 files1 = os.listdir(sim_results_path)
 
 for c in range (1,len(files1)+1):
@@ -43,32 +44,37 @@ for i in range(len(kmean)):
     RBMnoST = RBMnoST.sort_values(['Snapshots'], ascending = [1]) 
 
     ##Plot graphs with storage
-    fig, ax = plt.subplots()
-    ax2 = ax 
-
-    R2LOPFST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax=ax, label="2 LOPFs")
-    RBMST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax = ax2, label = "Benchmark", ls = "--")
     
-    ax.set_ylabel('Simulation Time 2nd LOPF (s)')
-    ax.set_xlabel('Number of Snapshots')
+    if not (R2LOPFST.empty or RBMST.empty):
+        fig, ax = plt.subplots()
+        ax2 = ax 
+        if not R2LOPFST.empty:
+            R2LOPFST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax=ax, label="2 LOPFs")
+        if not RBMST.empty:
+            RBMST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax = ax2, label = "Benchmark", ls = "--")
     
-    plt.show()
-    
-    fig = ax.get_figure()
-    fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
-    
+        ax.set_ylabel('Simulation Time 2nd LOPF (s)')
+        ax.set_xlabel('Number of Snapshots')
+        
+        plt.show()
+        
+        fig = ax.get_figure()
+        fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
+        
     ##Plot graphs without storage
-    fig, ax = plt.subplots()
-    ax2 = ax 
-
-    R2LOPFnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax=ax, label="2 LOPFs")
-    RBMnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax = ax2, label="Benchmark", ls = "--")
+    if not (R2LOPFnoST.empty or RBMnoST.empty):
+        fig, ax = plt.subplots()
+        ax2 = ax 
+        if not R2LOPFnoST.empty:
+            R2LOPFnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax=ax, label="2 LOPFs")
+        if not RBMnoST.empty:
+            RBMnoST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' without Storage', ax = ax2, label="Benchmark", ls = "--")
     
-    ax.set_ylabel('Simulation Time 2nd LOPF (s)')
-    ax.set_xlabel('Number of Snapshots')
-    
-    plt.show()
-    
-    fig = ax.get_figure()
-    fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +' without Storage.eps'))
-    
+        ax.set_ylabel('Simulation Time 2nd LOPF (s)')
+        ax.set_xlabel('Number of Snapshots')
+        
+        plt.show()
+        
+        fig = ax.get_figure()
+        fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +' without Storage.eps'))
+        
