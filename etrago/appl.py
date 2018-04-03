@@ -63,6 +63,7 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': False,
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -274,7 +275,7 @@ def etrago(args):
     
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'], load_cluster=args['load_cluster'])
         
     # Branch loading minimization
     if args['minimize_loading']:
