@@ -346,7 +346,7 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network, n_clusters=10):
+def kmean_clustering(network, n_clusters=10, load_cluster=False):
     """ 
     Implement k-mean clustering in existing network
    
@@ -421,13 +421,13 @@ def kmean_clustering(network, n_clusters=10):
         #print(busmap_file[0])
         #busmap = pd.Series(data=busmap_file[:,1], index=busmap_file[:,0]).astype(str)
         busmap = pd.Series.from_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', index_col=0).astype(str)
-        print("busmap = ", busmap)
-        np.savetxt("k_cluster_%i_busmap_loaded" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
+#        print("busmap = ", busmap)
+        #np.savetxt("k_cluster_%i_busmap_loaded" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
         #print("busmap.data = ", busmap[0])
         #noise_values = genfromtxt('noise_values.csv', delimiter=',')
     else:
         busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)#, n_jobs=-1)
-        print(busmap)
+        #print(busmap)
         np.savetxt("k_cluster_%i_busmap" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
 
 
