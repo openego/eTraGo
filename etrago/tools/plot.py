@@ -27,6 +27,7 @@ import pandas as pd
 import numpy as np
 import time
 import matplotlib
+import math
 from math import sqrt
 if not 'READTHEDOCS' in os.environ:
     from geoalchemy2.shape import to_shape
@@ -472,7 +473,7 @@ def curtailment(network, carrier='wind', filename=None):
         plt.savefig(filename)
         plt.close()
         
-def storage_distribution(network, filename=None):
+def storage_distribution(network, filename=None, labels=False):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -489,6 +490,24 @@ def storage_distribution(network, filename=None):
     stores = network.storage_units   
     storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(network.storage_units.bus).sum().reindex(network.buses.index,fill_value=0.)
 
+    msd = max(storage_distribution)
+    if msd != 0:
+        LabelVal = int(math.log10(msd))
+        LabelVal2 = 10 ** LabelVal
+    else:
+        LabelVal = 0
+        LabelVal2 = 0
+        
+    if LabelVal <0:
+        LabelUnit = 'kW'
+    elif LabelVal <3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        LabelVal2 = LabelVal2/1000
+        
+    LabelVal3 = str(LabelVal2)
+    
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
    
@@ -497,20 +516,21 @@ def storage_distribution(network, filename=None):
     else:
          ll=network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
     
-    x1=network.buses.x
-    y1=network.buses.y
-    
-    sd = storage_distribution.round(1)
-    
-    for i, txt in enumerate(sd):
-        ax.annotate(txt, (x1[i],y1[i]), xytext=(x1[i]+0.05, y1[i]+0.05),
-                    #arrowprops=dict(facecolor='black', shrink=0.1, width=0.05, headwidth = 7, headlength=6)
-                    )
+    if labels == True: 
+        x1=network.buses.x
+        y1=network.buses.y
+        
+        sd = storage_distribution.round(1)
+        
+        for i, txt in enumerate(sd):
+            ax.annotate(txt, (x1[i],y1[i]), xytext=(x1[i]+0.05, y1[i]+0.05),
+                        #arrowprops=dict(facecolor='black', shrink=0.1, width=0.05, headwidth = 7, headlength=6)
+                        )
         
     ax.legend(ncol=2, loc="upper left"),
     
     plt.legend((ll),
-        ('Storage size (MW)', 'Transmission Lines'),
+        ('Storage size (= ' + LabelVal3 + ' ' + LabelUnit + ')', 'Transmission Lines'),
         scatterpoints = 1,
         loc='upper right',
         ncol=1,
