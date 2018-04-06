@@ -22,22 +22,19 @@ import os
 import pandas as pd
 import pyomo.environ as po
 from pypsa.opf import network_lopf
-import logging
-import numpy as np
-import scipy.cluster.hierarchy as hac
-from scipy.linalg import norm
 from etrago.tools.utilities import results_to_csv
 import tsam.timeseriesaggregation as tsam
 
 write_results = True
-home = os.path.expanduser('~/pf_results/')
+home = os.path.expanduser('C:/eTraGo/etrago')
 resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
+
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
-    # This will calculate the original problem
-#    run(network=network.copy(), path=resultspath,
-#    write_results=write_results, n_clusters=None)
+#     # This will calculate the original problem
+#     run(network=network.copy(), path=resultspath,
+#     write_results=write_results, n_clusters=None)
 #==============================================================================
 
     for c in clusters:
@@ -62,30 +59,45 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries : pd.DataFrame
         Clustered timeseries
     """
-    #import tsam.timeseriesaggregation as tsam
 
     if how == 'daily':
         hours = 24
     if how == 'weekly':
         hours = 168
 
-    
-
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
+        rescaleClusterPeriods=False, 
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
-
+    
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
-       
-#==============================================================================
-#     timeseries = timeseries.reset_index()
-#     timeseries.drop(['level_0','TimeStep'], axis=1, inplace=True)
-#==============================================================================
-       
-    return timeseries, cluster_weights
+    
+    # get the medoids/ the clusterCenterIndices
+    clusterCenterIndices= aggregation.clusterCenterIndices 
+    
+    # get all index for every hour of that day of the clusterCenterIndices
+    start=[]
+    # get the first hour of the clusterCenterIndices (days start with 0)
+    for i in clusterCenterIndices:
+        start.append(i*hours)
+    
+    # get a list with all hours belonging to the clusterCenterIndices
+    nrhours=[]
+    for j in start:
+        nrhours.append(j)
+        x=1
+        while x < hours: 
+            j=j+1
+            nrhours.append(j)
+            x=x+1
+            
+    # get the origial Datetimeindex
+    dates = timeseries_df.iloc[nrhours].index 
+        
+    return timeseries, cluster_weights, dates, hours
 
 
 def run(network, path, write_results=False, n_clusters=None, how='daily',
@@ -100,23 +112,11 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
         network.cluster = True
 
         # calculate clusters
-#==============================================================================
-#         timeseries_df = prepare_pypsa_timeseries(network, normed=normed)
-#         df, n_groups = group(timeseries_df, how=how)
-#         Z = linkage(df, n_groups)
-#         network.Z = pd.DataFrame(Z)
-#         clusters = fcluster(df, Z, n_groups, n_clusters)
-#         medoids = get_medoids(clusters)
-#==============================================================================
-
-        tsam_ts, cluster_weights = tsam_cluster(prepare_pypsa_timeseries(network),
+        tsam_ts, cluster_weights,dates,hours = tsam_cluster(prepare_pypsa_timeseries(network),
                                typical_periods=n_clusters,
                                how='daily')       
-        
-        update_data_frames(network,tsam_ts, cluster_weights) #,medoids
-        
-        
-        snapshots = network.snapshots
+               
+        update_data_frames(network, cluster_weights, dates, hours)                 
         
         
     else:
@@ -128,15 +128,13 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     # start powerflow calculations
     network_lopf(network, snapshots, extra_functionality = daily_bounds,
                  solver_name='gurobi')
-
+    
     # write results to csv
     if write_results:
         results_to_csv(network, path)
-
         write_lpfile(network, path=os.path.join(path, "file.lp"))
 
     return network
-
 
 def prepare_pypsa_timeseries(network, normed=False):
     """
@@ -152,11 +150,11 @@ def prepare_pypsa_timeseries(network, normed=False):
         loads = network.loads_t.p_set
         renewables = network.generators_t.p_set
         df = pd.concat([renewables, loads], axis=1)
-    df.to_csv('output_dataframe.csv', sep='\t')
+    
     return df
 
 
-def update_data_frames(network, tsam_ts, cluster_weights):
+def update_data_frames(network,cluster_weights, dates,hours):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -164,43 +162,32 @@ def update_data_frames(network, tsam_ts, cluster_weights):
     Parameters
     -----------
     network : pyPSA network object
-    tsam_df : pd.DataFrame
+    cluster_weights: dictionary 
+    dates: Datetimeindex 
 
 
     Returns
     -------
     network
 
-    """
-    # reset index to use index levels as normal columns, neuer zusätzlicher index, 0-191 Spalte 0
-    tsam_ts = tsam_ts.reset_index()   
-    # map level 0 to weights, jedem neuen index (0-191) wird einem neuen weigthing zugeordnet)
-    snapshot_weightings = tsam_ts['level_0'].apply(lambda row: cluster_weights[row])    
-    # use the index (0...len(df)) of snapshot weigthings for snapshots, die snapshots werden neu definiert
-    network.snapshots = snapshot_weightings.index    
-    # set name of Series index and Series (needs to match the standard PyPSA naming)
-    snapshot_weightings.index.name = 'snapshots'
-    snapshot_weightings.name = 'weight'    
-    # drop obsolete columns from data frame 
-    tsam_ts.drop(['level_0', 'TimeStep'], axis=1, inplace=True)  
+    """ 
+    network.snapshot_weightings= network.snapshot_weightings.loc[dates]
+    network.snapshots = network.snapshot_weightings.index
     
-    network.snapshot_weightings = snapshot_weightings
-    network.snapshots = network.snapshots.sort_values()
-     
-    # create new p_set dataframe for loads and generators    
-    column_gens= len(network.generators_t.p_set.columns)
-    column_loads = column_gens + len (network.loads_t.p_set.columns)
-    network.generators_t.p_set = tsam_ts.iloc[:,:column_gens]
-    network.loads_t.p_set = tsam_ts.iloc[:,column_gens:column_loads]
-    import pdb; pdb.set_trace()
+    #set new snapshot weights from cluster_weights
+    snapshot_weightings=[]
+    for i in cluster_weights.values():
+        x=0
+        while x<hours: 
+            snapshot_weightings.append(i)
+            x+=1
+    for i in range(len(network.snapshot_weightings)):
+        network.snapshot_weightings[i] = snapshot_weightings[i]   
     
-#==============================================================================
-#      set snapshots weights
-#     network.snapshot_weightings = pd.Series(
-#         tsam_df.index.get_level_values('weights'), 
-#         index=tsam_df.index.get_level_values('timeindex'))
-#==============================================================================
-            
+    #put the snapshot in the right order
+    network.snapshots.sort_values()
+    network.snapshot_weightings.sort_index()
+    
     return network
     
 def daily_bounds(network, snapshots):
@@ -227,178 +214,7 @@ def daily_bounds(network, snapshots):
             network.model.storages, network.model.period_starts, rule=day_rule)
 
 
-def group(df, how='daily'):
-    """ Hierachical clustering of timeseries returning the linkage matrix
-
-    Parameters
-    -----------
-    df : pandas DataFrame with timeseries to cluster
-
-    how : string
-       String indicating how to cluster: 'weekly', 'daily' or 'hourly'
-    """
-
-    if df.index.name != 'datetime':
-        logging.info('Setting the name of your pd-DataFrame index to: datetime.')
-        df.index.name = 'datetime'
-
-
-    if how == 'daily':
-        df['group'] = df.index.dayofyear
-        hours = 24
-        n_groups = int(len(df.index) / hours) # for one year: 365
-
-        # set new index for dataframe
-        df.set_index(['group'], append=True, inplace=True)
-        # move 'group' to the first index
-        df.index = df.index.swaplevel(0, 'group')
-
-    if how == 'weekly':
-        #raise NotImplementedError('The week option is not implemented')
-        df['group'] = df.index.weekofyear
-
-        hours = 168
-        # for weeks we need to do -1 to exclude the last week, as it might
-        # not be 168 hours (is dirty should be done a little more sophistic.)
-
-
-        # set new index for dataframe
-        df.set_index(['group'], append=True, inplace=True)
-        # move 'group' to the first index
-
-        df.index = df.index.swaplevel(0, 'group')
-
-
-        # drop incomplete weeks...
-        for g in df.index.get_level_values('group').unique():
-            if len(df.loc[g]) != 168:
-                df.drop(g, inplace=True)
-
-        n_groups = int(len(df.index) / hours)
-
-    if how == 'hourly':
-        raise NotImplementedError('The hourly option is not implemented')
-
-    return df, n_groups
-
-def linkage(df, n_groups, method='ward', metric='euclidean'):
-    """
-    """
-
-    logging.info("Computing distance matrix...")
-    # create the distance matrix based on the forbenius norm: |A-B|_F where A is
-    # a 24 x N matrix with N the number of timeseries inside the dataframe df
-    # TODO: We can save have time as we only need the upper triangle once as the
-    # distance matrix is symmetric
-    if True:
-        Y = np.empty((n_groups, n_groups,))
-        Y[:] = np.NAN
-        for i in range(len(Y)):
-            for j in range(len(Y[i,:])):
-                A = df.loc[i+1].values
-                B = df.loc[j+1].values
-                #print('Computing distance of:{},{}'.format(i,j))
-                Y[i,j] = norm(A-B, ord='fro')
-
-    # condensed distance matrix as vector for linkage (upper triangle as a vector)
-    y = Y[np.triu_indices(n_groups, 1)]
-    # create linkage matrix with wards algorithm and euclidean norm
-
-    logging.info("Computing linkage Z with method: {0}" \
-                 " and metric: {1}...".format(method, metric))
-    Z = hac.linkage(y, method=method, metric=metric)
-    # R = hac.inconsistent(Z, d=10)
-    return Z
-
-def fcluster(df, Z, n_groups, n_clusters):
-    """
-    """
-    # create flat cluster, i.e. maximal number of clusters...
-    T = hac.fcluster(Z, criterion='maxclust', depth=2, t=n_clusters)
-
-    # add cluster id to original dataframe
-    df['cluster_id'] = np.NAN
-    # group is either days (1-365) or weeks (1-52)
-
-    #for d in df.index.get_level_values('group').unique():
-    for g in range(1, n_groups+1):
-        # T[d-1] because df.index is e.g. 1-365 (d) and T= is 0...364
-        df.ix[g, 'cluster_id'] = T[g-1]
-    # add the cluster id to the index
-    df.set_index(['cluster_id'], append=True, inplace=True)
-    # set cluster id as first index level for easier looping through cluster_ids
-    df.index = df.index.swaplevel(0, 'cluster_id')
-    # just to have datetime at the last level of the multiindex df
-    df.index = df.index.swaplevel('datetime', 'group')
-
-    return df
-
-def get_medoids(df):
-    """
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Dataframe returned by `cluster` function
-
-    Returns
-    --------
-     Nested dictionary, first key is cluster id. Nested keys are:
-
-        'data': with the representative data for each cluster (medoid)
-        'size' : size of the cluster in days/weeks (weight)
-        'dates': pandas.datetimeindex with dates of original data of clusters.
-    """
-    # calculate hours of the group (e.g. 24 for day, 168 for week etc)
-    hours = int(len(df) / len(set(df.index.get_level_values('group'))))
-
-    # Finding medoids, clustersizes, etc.
-    cluster_group = {}
-    cluster_size = {}
-    medoids = {}
-
-    # this is necessary fors weeks, because there might be no cluster for
-    # elements inside the dataframe, i.e. no complete weeks
-    cluster_ids = [i for i in df.index.get_level_values('cluster_id').unique()
-                   if not np.isnan(i)]
-    for c in cluster_ids:
-        logging.info('Computing medoid for cluster: {})'.format(c))
-        # days in the cluster is the df subset indexed by the cluster id 'c'
-        cluster_group[c] = df.loc[c]
-        # the size for daily clusters is the length of all hourly vals / 24
-        cluster_size[c] = len(df.loc[c]) / hours
-
-        # store the cluster 'days' i.e. all observations of cluster in 'cluster'
-        # TODO: Maybe rather use copy() to keep cluster_days untouched (reference problem)
-        cluster = cluster_group[c]
-
-        #pdb.set_trace()
-        # Finding medoids (this is a little hackisch but should work correctly):
-        # 1) create emtpy distance matrix with size of cluster
-        # 2) loop through matrix and add the distance between two 'days'
-        # 3) As we want days, we have to slice 24*i...
-        Yc = np.empty((int(cluster_size[c]), int(cluster_size[c]),))
-        Yc[:] = np.NAN
-        for i in range(len(Yc)):
-            for j in range(len(Yc[i,:])):
-                A = cluster.iloc[hours*i:hours*i+hours].values
-                B = cluster.iloc[hours*j:hours*j+hours].values
-                Yc[i,j] = norm(A-B, ord='fro')
-        # taking the index with the minimum summed distance as medoid
-        mid = np.argmin(Yc.sum(axis=0))
-
-        # store data about medoids
-        medoids[c] = {}
-        # find medoid
-        medoids[c]['data'] = cluster.iloc[hours*mid:hours*mid+hours]
-        # size ( weight)
-        medoids[c]['size'] = cluster_size[c]
-        # dates from original data
-        medoids[c]['dates'] = medoids[c]['data'].index.get_level_values('datetime')
-
-    return medoids
-
-####################################??????????????????????????????????????
+####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
     # default: 4500 € / MW, high 300 €/MW
     crf = (1 / wacc) - (wacc / ((1 + wacc) ** lifetime))
@@ -414,3 +230,4 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugef�
     network.storage_units.p_nom_max = values
     network.storage_units.p_nom_min = values
     resultspath = 'compare-'+resultspath
+
