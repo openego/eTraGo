@@ -49,8 +49,8 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': True, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 3493, 
-        'end_snapshot' : 3494,
+        'start_snapshot': 1, 
+        'end_snapshot' : 8760,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -60,12 +60,12 @@ args = {# Setup and Configuration:
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': True, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'extra_functionality':daily_bounds,
+        'extra_functionality':False,
         'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -238,7 +238,7 @@ def etrago(args):
     if args['generator_noise']:
         # create or reproduce generator noise 
         if not args['reproduce_noise'] == False:    
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            noise_values = genfromtxt('noise_values_NEP2035.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
         else:
@@ -292,9 +292,9 @@ def etrago(args):
     # snapshot clustering
     if args['snapshot_clustering']:
         # the results will be stored under "snapshot-clustering-results"
-        #extra_functionality = daily_bounds
+        extra_functionality = None
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [5])
+        network = snapshot_clustering(network, how='daily', clusters= [2])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     else:
@@ -379,23 +379,4 @@ if __name__ == '__main__':
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])   
-   
-    
-    ax = plt.axes()
-    path = ll[1].get_segments()
-    x_coords_lines = np.zeros([len(path)])
-    cmap = cmap
-    colors = cmap(ll[1].get_array()/100)
-    for i in range(0, len(path)):
-        x_coords_lines[i] = network.buses.loc[str(network.lines.iloc[i, 2]),'x']
-        color = colors[i]
-        if (x_coords_lines[i] == path[i][0][0] and loading_c[i] >= 0):
-            arrowprops = dict(arrowstyle="->", color=color)
-        else:
-            arrowprops = dict(arrowstyle="<-", color=color)
-        ax.annotate("",
-                    xy=abs((path[i][0] - path[i][1]) * 0.51 - path[i][0]),
-                    xytext=abs((path[i][0] - path[i][1]) * 0.49 - path[i][0]),
-                    arrowprops=arrowprops,
-                    size=10
-                    )
+    plt.savefig('transitflows.png')                   

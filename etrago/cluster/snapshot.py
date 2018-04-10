@@ -35,14 +35,14 @@ all_changes=[]
 all_cluster_ids=[]
 
 write_results = True
-home = os.path.expanduser('~/pf_results/')
-resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-withpypsaweighting',) # args['scn_name'])
+home = os.path.expanduser('~/pf_results/110paper/transitflows')
+resultspath = os.path.join(home, 'nep_snap2_transit',) # args['scn_name'])
 def snapshot_clustering(network, how='daily', clusters= []):
 
 #==============================================================================
     # This will calculate the original problem
-    run(network=network.copy(), path=resultspath,
-    write_results=write_results, n_clusters=None)
+#    run(network=network.copy(), path=resultspath,
+#    write_results=write_results, n_clusters=None)
 #==============================================================================
 
     for c in clusters:
@@ -92,7 +92,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     snapshots = network.snapshots
 
     # start powerflow calculations
-    network_lopf(network, snapshots, extra_functionality = daily_bounds,
+    network_lopf(network, snapshots, extra_functionality = None,
                  solver_name='gurobi')
 
     # write results to csv
