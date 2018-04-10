@@ -46,8 +46,8 @@ class Disaggregation:
 
     def construct_partial_network(self, cluster, scenario):
         """
-        Compute the network partial network that has been merged into a single
-        cluster. The resulting network retains the external cluster buses that
+        Compute the partial network that has been merged into a single cluster.
+        The resulting network retains the external cluster buses that
         share some line with the cluster identified by `cluster`.
         These external buses will be prefixed by self.id_prefix in order to
         prevent name clashes with buses in the disaggregation
