@@ -322,14 +322,10 @@ class UniformDisaggregation(Disaggregation):
                              .generators_t['p']
                              .loc[:, column(cluster, carrier)])
             weights = sum(pgs.weight)
-            for g_index in pgs.index:
-                for p_index in partial_network.generators_t['p'].index:
-                    partial_network.generators_t['p'].loc[
-                            p_index,
-                            column(g_index, carrier)] = (
-                                    cluster_t.loc[p_index] *
-                                    pgs.loc[g_index].weight /
-                                    weights)
+            pgs_t = partial_network.generators_t
+            for generator_id in pgs.index:
+                pgs_t['p'].loc[:, column(generator_id, carrier)] = (
+                        cluster_t * pgs.loc[generator_id].weight / weights)
 
 
 def swap_series(s):
