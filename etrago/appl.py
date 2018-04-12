@@ -41,7 +41,8 @@ if not 'READTHEDOCS' in os.environ:
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
 
-from etrago.cluster.disaggregation import MiniSolverDisaggregation
+from etrago.cluster.disaggregation import (MiniSolverDisaggregation,
+                                           UniformDisaggregation)
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -64,7 +65,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'disaggregation': 'mini', # or None
+        'disaggregation': 'uniform', # or None or mini
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':4,
@@ -318,6 +319,10 @@ def etrago(args):
                 disaggregation = MiniSolverDisaggregation(original_network,
                                                           network,
                                                           clustering)
+            elif disagg == 'uniform':
+                disaggregation = UniformDisaggregation(original_network,
+                                                       network,
+                                                       clustering)
 
             else:
                 raise Exception('Invalid disaggregation command: ' + disagg)
