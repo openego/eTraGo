@@ -328,6 +328,7 @@ def etrago(args):
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
             disaggregation.execute(scenario, solver=args['solver'])
+            network = original_network
 
     # write lpfile to path
     if not args['lpfile'] == False:
