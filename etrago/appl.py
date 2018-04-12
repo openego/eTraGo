@@ -315,11 +315,14 @@ def etrago(args):
         disagg = args.get('disaggregation')
         if disagg:
             if disagg == 'mini':
-                disaggreagation = MiniSolverDisaggregation(original_network, network, clustering)
+                disaggregation = MiniSolverDisaggregation(original_network,
+                                                          network,
+                                                          clustering)
+
             else:
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
-            disaggreagation.execute(scenario, solver=args['solver'])
+            disaggregation.execute(scenario, solver=args['solver'])
 
     # write lpfile to path
     if not args['lpfile'] == False:

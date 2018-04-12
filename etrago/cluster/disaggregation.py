@@ -70,7 +70,8 @@ class Disaggregation:
 
         # Copy configurations to new network
         partial_network.snapshots = self.original_network.snapshots
-        partial_network.snapshot_weightings = self.original_network.snapshot_weightings
+        partial_network.snapshot_weightings = (self.original_network
+                                                   .snapshot_weightings)
         partial_network.carriers = self.original_network.carriers
 
         # Collect all connectors that have some node inside the cluster
@@ -95,7 +96,8 @@ class Disaggregation:
                 is_bus_in_cluster)
 
             if not left_external_connectors.empty:
-                left_external_connectors.bus0 = self.idx_prefix + left_external_connectors.bus0
+                left_external_connectors.bus0 = (
+                        self.idx_prefix + left_external_connectors.bus0)
                 external_buses = pd.concat(
                     (external_buses, left_external_connectors.bus0))
 
@@ -104,7 +106,8 @@ class Disaggregation:
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
-                right_external_connectors.bus1 = self.idx_prefix + right_external_connectors.bus1
+                right_external_connectors.bus1 = (
+                        self.idx_prefix + right_external_connectors.bus1)
                 external_buses = pd.concat(
                     (external_buses, right_external_connectors.bus1))
 
@@ -113,7 +116,8 @@ class Disaggregation:
 
         buses_in_lines = self.buses[busflags].index
 
-        bus_types = ['loads', 'generators', 'stores', 'storage_units', 'shunt_impedances']
+        bus_types = ['loads', 'generators', 'stores', 'storage_units',
+                     'shunt_impedances']
 
         # Copy all values that are part of the cluster
         partial_network.buses = self.original_network.buses[
@@ -130,7 +134,8 @@ class Disaggregation:
         self.reindex_with_prefix(externals_to_insert)
 
         # .. and insert them as well as their time series
-        partial_network.buses = partial_network.buses.append(externals_to_insert)
+        partial_network.buses = (partial_network.buses
+                                                .append(externals_to_insert))
         partial_network.buses_t = self.original_network.buses_t
 
         # TODO: Rename `bustype` to on_bus_type
@@ -188,12 +193,15 @@ class Disaggregation:
             print('Decompose cluster %s (%d/%d)' % (cluster, i, n))
             profile.enable()
             t = time.time()
-            partial_network, externals = self.construct_partial_network(cluster, scenario)
+            partial_network, externals = self.construct_partial_network(
+                    cluster,
+                    scenario)
             print('Decomposed in ', (time.time() - t))
             t = time.time()
             profile.disable()
             profile.enable()
-            self.solve_partial_network(cluster, partial_network, scenario, solver)
+            self.solve_partial_network(cluster, partial_network, scenario,
+                                       solver)
             self.transfer_results(partial_network, externals)
             profile.disable()
             print('Decomposition optimized in ', (time.time() - t))
@@ -201,8 +209,12 @@ class Disaggregation:
         profile.print_stats(sort='cumtime')
 
     def transfer_results(self, partial_network, externals):
-        for bustype in ['loads', 'generators', 'stores', 'storage_units', 'shunt_impedances']:
-            changed_buses = getattr(partial_network, bustype).index.intersection(getattr(self.original_network, bustype).index)
+        for bustype in ['loads', 'generators', 'stores', 'storage_units',
+                        'shunt_impedances']:
+            changed_buses = (getattr(partial_network, bustype)
+                             .index
+                             .intersection(getattr(self.original_network,
+                                                   bustype).index))
             orig_buses = getattr(self.original_network, bustype+'_t')
             part_buses = getattr(partial_network, bustype + '_t')
             for key in orig_buses.keys():
@@ -210,7 +222,8 @@ class Disaggregation:
                     orig_buses[key].loc[snap].update(part_buses[key].loc[snap])
 
 
-    def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
+    def solve_partial_network(self, cluster, partial_network, scenario,
+                              solver=None):
         extras = self.add_constraints(cluster)
         partial_network.lopf(scenario.timeindex,
                              solver_name=solver,
@@ -220,8 +233,9 @@ class MiniSolverDisaggregation(Disaggregation):
     def add_constraints(self, cluster, extra_functionality=None):
         if extra_functionality is None:
             extra_functionality = lambda network, snapshots: None
-        extra_functionality = self._validate_disaggregation_generators(cluster,
-                                                        extra_functionality)
+        extra_functionality = self._validate_disaggregation_generators(
+                cluster,
+                extra_functionality)
         return extra_functionality
 
     def _validate_disaggregation_generators(self, cluster, f):
@@ -233,9 +247,10 @@ class MiniSolverDisaggregation(Disaggregation):
             def construct_constraint(model, snapshot, carrier):
                 # TODO: Optimize
 
-                generator_p = [model.generator_p[(x, snapshot)] for x in
-                               generators.loc[(generators.bus == cluster) &
-                                              (generators.carrier == carrier)].index]
+                generator_p = [model.generator_p[(x, snapshot)]
+                               for x in generators.loc[
+                                   (generators.bus == cluster) &
+                                   (generators.carrier == carrier)].index]
                 if not generator_p:
                     return Constraint.Feasible
                 sum_generator_p = sum(generator_p)
@@ -244,13 +259,15 @@ class MiniSolverDisaggregation(Disaggregation):
                     (self.clustered_network.generators.bus == cluster) &
                     (self.clustered_network.generators.carrier == carrier)]
                 sum_clustered_p = sum(
-                    self.clustered_network.generators_t['p'].loc[snapshot,c] for
-                    c in cluster_generators.index)
+                    self.clustered_network.generators_t['p'].loc[snapshot, c]
+                    for c in cluster_generators.index)
                 return sum_generator_p == sum_clustered_p
 
             # TODO: Generate a better name
-            network.model.validate_generators = Constraint(list(snapshots), set(generators.carrier),
-                                            rule=construct_constraint)
+            network.model.validate_generators = Constraint(
+                    list(snapshots),
+                    set(generators.carrier),
+                    rule=construct_constraint)
         return extra_functionality
 
     def _validate_disaggregation_buses(self, cluster, f):
