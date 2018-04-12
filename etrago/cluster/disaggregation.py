@@ -306,8 +306,30 @@ class MiniSolverDisaggregation(Disaggregation):
         return extra_functionality
 
 class UniformDisaggregation(Disaggregation):
-    def solve_partial_network(self, cluster, partial_network, scenario, solver=None):
-        pass
+    def solve_partial_network(self, cluster, partial_network, scenario,
+                              solver=None):
+        for carrier in set(partial_network.generators.carrier):
+            cgs = (self.clustered_network.generators
+                    [self.clustered_network.generators.bus == cluster]
+                    [self.clustered_network.generators.carrier == carrier])
+            assert len(cgs) == 1, (
+                   "Cluster {} has {} generators for carrier {}. " +
+                   "Should be only one.".format(cluster, len(cgs), carrier))
+            pgs = (partial_network.generators
+                    [partial_network.generators.carrier == carrier])
+            column = lambda cluster, carrier: "{} {}".format(cluster, carrier)
+            cluster_t = (self.clustered_network
+                             .generators_t['p']
+                             .loc[:, column(cluster, carrier)])
+            weights = sum(pgs.weight)
+            for g_index in pgs.index:
+                for p_index in partial_network.generators_t['p'].index:
+                    partial_network.generators_t['p'].loc[
+                            p_index,
+                            column(g_index, carrier)] = (
+                                    cluster_t.loc[p_index] *
+                                    pgs.loc[g_index].weight /
+                                    weights)
 
 
 def swap_series(s):
