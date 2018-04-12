@@ -220,7 +220,7 @@ class Disaggregation:
                              .index
                              .intersection(getattr(self.original_network,
                                                    bustype).index))
-            orig_buses = getattr(self.original_network, bustype+'_t')
+            orig_buses = getattr(self.original_network, bustype + '_t')
             part_buses = getattr(partial_network, bustype + '_t')
             for key in orig_buses.keys():
                 for snap in partial_network.snapshots:
