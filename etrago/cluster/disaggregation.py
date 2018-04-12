@@ -87,6 +87,9 @@ class Disaggregation:
                         is_bus_in_cluster))
 
             # ... and their time series
+            # TODO: These are all time series, not just the ones from lines
+            #       residing entirely in side the cluster.
+            #       Is this a problem?
             setattr(partial_network, line_type + '_t',
                     getattr(self.original_network, line_type + '_t'))
 
@@ -211,6 +214,8 @@ class Disaggregation:
     def transfer_results(self, partial_network, externals):
         for bustype in ['loads', 'generators', 'stores', 'storage_units',
                         'shunt_impedances']:
+            # TODO: This variable is never used again.
+            #       Is this a problem?
             changed_buses = (getattr(partial_network, bustype)
                              .index
                              .intersection(getattr(self.original_network,
@@ -270,6 +275,8 @@ class MiniSolverDisaggregation(Disaggregation):
                     rule=construct_constraint)
         return extra_functionality
 
+    # TODO: This function is never used.
+    #       Is this a problem?
     def _validate_disaggregation_buses(self, cluster, f):
         def extra_functionality(network, snapshots):
             f(network, snapshots)
