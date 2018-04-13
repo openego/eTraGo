@@ -313,8 +313,9 @@ class UniformDisaggregation(Disaggregation):
                     [self.clustered_network.generators.bus == cluster]
                     [self.clustered_network.generators.carrier == carrier])
             assert len(cgs) == 1, (
-                   "Cluster {} has {} generators for carrier {}. " +
-                   "Should be only one.".format(cluster, len(cgs), carrier))
+                   "Cluster {} has {} generators for carrier {}. "
+                   .format(cluster, len(cgs), carrier) +
+                   "Should be exactly one.")
             pgs = (partial_network.generators
                     [partial_network.generators.carrier == carrier])
             column = lambda cluster, carrier: "{} {}".format(cluster, carrier)
