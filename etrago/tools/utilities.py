@@ -303,7 +303,7 @@ def load_shedding (network, **kwargs):
     p_nom = kwargs.get('p_nom', p_nom_def)
     
     network.add("Carrier", "load")
-    start = network.generators.index.astype(int).max()+1
+    start = network.generators.index.to_series().str.rsplit(' ').str[0].astype(int).sort_values().max()+1
     index = list(range(start,start+len(network.buses.index)))
     network.import_components_from_dataframe(
     pd.DataFrame(
@@ -550,8 +550,9 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     
     #
     network.lines.capital_cost[network.lines.s_nom_extendable == True] = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
-    network.links.capital_cost = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
-    network.transformers.capital_cost = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.links.capital_cost[network.links.p_nom_extendable == True] = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.transformers.capital_cost[network.transformers.s_nom_extendable == True] = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.storage_units.capital_cost[network.storage_units.p_nom_extendable == True] = network.storage_units.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
     
     return network
     
