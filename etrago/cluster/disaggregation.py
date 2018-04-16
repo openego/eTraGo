@@ -319,7 +319,7 @@ class UniformDisaggregation(Disaggregation):
             if len(cgs) == 0:
                 break
             assert len(cgs) == 1, (
-                   "Cluster {} has {} generators for carrier {}. "
+                   "Cluster {} has {} generators for carrier {}.\n"
                    .format(cluster, len(cgs), carrier) +
                    "Should be exactly one.")
             pgs = (partial_network.generators
