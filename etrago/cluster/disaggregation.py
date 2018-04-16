@@ -316,6 +316,8 @@ class UniformDisaggregation(Disaggregation):
             cgs = (self.clustered_network.generators
                     [self.clustered_network.generators.bus == cluster]
                     [self.clustered_network.generators.carrier == carrier])
+            if len(cgs) == 0:
+                break
             assert len(cgs) == 1, (
                    "Cluster {} has {} generators for carrier {}. "
                    .format(cluster, len(cgs), carrier) +
