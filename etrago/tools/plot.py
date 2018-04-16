@@ -278,13 +278,18 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
         reso_int = 0.001
         
     # sum for all buses
-    if bus==None:    
-        p_by_carrier =  pd.concat([network.generators_t.p
-                       [network.generators[network.generators.control!='Slack'].index], 
-                       network.generators_t.p[network.generators[network.
-                       generators.control=='Slack'].index].iloc[:,0].
-                       apply(lambda x: x if x > 0 else 0)], axis=1).\
-                       groupby(network.generators.carrier, axis=1).sum()
+    if bus==None:
+        non_slacks = network.generators_t.p.loc[
+                :,
+                network.generators.control != 'Slack']
+        slacks = network.generators_t.p.loc[
+                :,
+                network.generators.control == 'Slack']
+        if not slacks.empty:
+            slacks = slacks.iloc[:,0].apply(lambda x: x if x > 0 else 0)
+        p_by_carrier = (pd.concat([non_slacks, slacks], axis=1)
+                          .groupby(network.generators.carrier, axis=1)
+                          .sum())
         load = network.loads_t.p.sum(axis=1)
         if hasattr(network, 'foreign_trade'):
             trade_sum = network.foreign_trade.sum(axis=1)
