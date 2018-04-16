@@ -99,20 +99,24 @@ class Disaggregation:
                 is_bus_in_cluster)
 
             if not left_external_connectors.empty:
-                left_external_connectors.bus0 = (
-                        self.idx_prefix + left_external_connectors.bus0)
-                external_buses = pd.concat(
-                    (external_buses, left_external_connectors.bus0))
+                f = lambda x: self.idx_prefix + self.clustering.busmap[x]
+                left_external_connectors.bus0 = (left_external_connectors
+                                                 .bus0
+                                                 .apply(f))
+                external_buses = pd.concat((external_buses,
+                                            left_external_connectors.bus0))
 
             # Copy all lines whose `bus1` lies within the cluster
             right_external_connectors = filter_right_external_connector(
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
-                right_external_connectors.bus1 = (
-                        self.idx_prefix + right_external_connectors.bus1)
-                external_buses = pd.concat(
-                    (external_buses, right_external_connectors.bus1))
+                f = lambda x: self.idx_prefix + self.clustering.busmap[x]
+                right_external_connectors.bus1 = (right_external_connectors
+                                                  .bus1
+                                                  .apply(f))
+                external_buses = pd.concat((external_buses,
+                                            right_external_connectors.bus1))
 
         # Collect all buses that are contained in or somehow connected to the
         # cluster
