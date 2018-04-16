@@ -335,6 +335,8 @@ class UniformDisaggregation(Disaggregation):
                     self.original_network.generators.index,
                     axis=1)
             for generator_id in pgs.index:
+                if " " in generator_id:
+                    break
                 pgs_t['p'].loc[:, generator_id] = (
                         cluster_t * pnmp.loc[generator_id] / psum)
 
