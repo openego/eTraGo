@@ -331,6 +331,9 @@ class UniformDisaggregation(Disaggregation):
             pnmp = pgs.p_nom * pgs.p_max_pu
             psum = sum(pnmp)
             pgs_t = partial_network.generators_t
+            pgs_t.p.reindex_axis(
+                    self.original_network.generators.index,
+                    axis=1)
             for generator_id in pgs.index:
                 pgs_t['p'].loc[:, column(generator_id, carrier)] = (
                         cluster_t * pnmp.loc[generator_id] / psum)
