@@ -82,16 +82,16 @@ def etrago(args):
 
     db : str
     	``'oedb'``,
-        Name of Database session setting stored in config.ini of oemof.db
+        Name of Database session setting stored in *config.ini* of *.egoio*
 
     gridversion : str
         ``'v0.2.11'``,
-        Name of the data version number of oedb: state 'None' for
+        Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
         (e.g. 'v0.2.10') for the grid schema.
 
     method : str
-        'lopf',
+        ``'lopf'``,
         Choose between a non-linear power flow ('pf') or
         a linear optimal power flow ('lopf').
 
@@ -109,27 +109,27 @@ def etrago(args):
         End hour of the scenario year to be calculated.
 
     scn_name : str
-    	`Status Quo`,
+    	``'Status Quo'``,
 	    Choose your scenario. Currently, there are three different
-	    scenarios: `Status Quo`, `NEP 2035`, `eGo100`. If you do not
+	    scenarios: ``'Status Quo'``, ``'NEP 2035'``, ``'eGo100'``. If you do not
 	    want to use the full German dataset, you can use the excerpt of
 	    Schleswig-Holstein by adding the acronym SH to the scenario
-	    name (e.g. 'SH Status Quo').
+	    name (e.g. ``'SH Status Quo'``).
 
     solver : str
-        `glpk`,
-        Choose your preferred solver. Current options: `glpk` (open-source),
-        `cplex` or 'gurobi'.
+        ``'glpk'``,
+        Choose your preferred solver. Current options: ``'glpk'`` (open-source),
+        ``'cplex'`` or ``'gurobi'``.
 
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
-        False or `/path/tofolder`.
+        False or ``'/path/tofolder'``.
 
     results : obj
         False,
         State if and where you want to save results as csv files.Options:
-        False or `/path/tofolder`.
+        False or ``'/path/tofolder'``.
 
     export : bool
         False,
@@ -150,7 +150,7 @@ def etrago(args):
         False,
         State if you want to use a predefined set of random noise for
         the given scenario. If so, provide path to the csv file,
-        e.g. 'noise_values.csv'.
+        e.g. ``'noise_values.csv'``.
 
     minimize_loading : bool
         False,
@@ -159,10 +159,10 @@ def etrago(args):
     k_mean_clustering : bool
         False,
         State if you want to apply a clustering of all network buses down to
-        only 'k' buses. The weighting takes place considering generation and load
+        only ``'k'`` buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
         put False. This function doesn't work together with 
-        'line_grouping = True' or 'network_clustering = True'.
+        ``'line_grouping = True'`` or ``'network_clustering = True'``.
 
     network_clustering : bool
         False,
