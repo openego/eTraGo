@@ -347,9 +347,6 @@ def etrago(args):
 
     return network
 
-  
-# execute etrago function
-network = etrago(args)
 
 if __name__ == '__main__':
     # execute etrago function
