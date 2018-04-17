@@ -217,7 +217,7 @@ class Disaggregation:
             profile.disable()
             print('Results transferred in ', (time.time() - t))
 
-        profile.print_stats(sort='cumtime')
+        # profile.print_stats(sort='cumtime')
 
     def transfer_results(self, partial_network, externals):
         for bustype in ['loads', 'generators', 'stores', 'storage_units',
