@@ -154,6 +154,7 @@ def etrago(args):
 
     minimize_loading : bool
         False,
+        ...
 
     k_mean_clustering : bool
         False,
