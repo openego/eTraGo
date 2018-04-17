@@ -109,27 +109,27 @@ def etrago(args):
         End hour of the scenario year to be calculated.
 
     scn_name : str
-    	'Status Quo',
-	Choose your scenario. Currently, there are three different
-	scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not
-	want to use the full German dataset, you can use the excerpt of
-	Schleswig-Holstein by adding the acronym SH to the scenario
-	name (e.g. 'SH Status Quo').
+    	`Status Quo`,
+	    Choose your scenario. Currently, there are three different
+	    scenarios: `Status Quo`, `NEP 2035`, `eGo100`. If you do not
+	    want to use the full German dataset, you can use the excerpt of
+	    Schleswig-Holstein by adding the acronym SH to the scenario
+	    name (e.g. 'SH Status Quo').
 
     solver : str
-        'glpk',
-        Choose your preferred solver. Current options: 'glpk' (open-source),
-        'cplex' or 'gurobi'.
+        `glpk`,
+        Choose your preferred solver. Current options: `glpk` (open-source),
+        `cplex` or 'gurobi'.
 
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.
+        False or `/path/tofolder`.
 
     results : obj
         False,
         State if and where you want to save results as csv files.Options:
-        False or '/path/tofolder'.
+        False or `/path/tofolder`.
 
     export : bool
         False,
@@ -161,8 +161,8 @@ def etrago(args):
         State if you want to apply a clustering of all network buses down to
         only 'k' buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
-        put False. This function doesn't work together with 'line_grouping = True'
-	    or 'network_clustering = True'.
+        put False. This function doesn't work together with 
+        'line_grouping = True' or 'network_clustering = True'.
 
     network_clustering : bool
         False,
