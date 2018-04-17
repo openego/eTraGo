@@ -326,7 +326,7 @@ class UniformDisaggregation(Disaggregation):
                    "Cluster {} has {} generators for carrier {}.\n"
                    .format(cluster, len(cgs), carrier) +
                    "Should be exactly one.")
-            pgs = (partial_network.generators
+            pgs = (partial_network.generators.select(lambda ix: " " not in ix)
                     [partial_network.generators.carrier == carrier])
             column = lambda cluster, carrier: "{} {}".format(cluster, carrier)
             cluster_t = (self.clustered_network
@@ -339,8 +339,6 @@ class UniformDisaggregation(Disaggregation):
                     self.original_network.generators.index,
                     axis=1)
             for generator_id in pgs.index:
-                if " " in generator_id:
-                    break
                 pgs_t['p'].loc[:, generator_id] = (
                         cluster_t * pnmp.loc[generator_id] / psum)
 
