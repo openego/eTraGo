@@ -68,7 +68,7 @@ args = {# Setup and Configuration:
         'disaggregation': 'uniform', # or None or mini
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':4,
+        'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
