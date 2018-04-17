@@ -333,7 +333,7 @@ class UniformDisaggregation(Disaggregation):
                              .generators_t['p']
                              .loc[:, column(cluster, carrier)])
             pnmp = pgs.p_nom * pgs.p_max_pu
-            psum = sum(pnmp)
+            psum = pnmp.sum()
             pgs_t = partial_network.generators_t
             pgs_t.p.reindex_axis(
                     self.original_network.generators.index,
