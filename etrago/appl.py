@@ -81,7 +81,7 @@ def etrago(args):
     ----------
 
     db : str
-    	``'oedb'``,
+        ``'oedb'``,
         Name of Database session setting stored in *config.ini* of *.egoio*
 
     gridversion : str
@@ -101,20 +101,20 @@ def etrago(args):
         linear optimal power flow (and thus the dispatch) has finished.
 
     start_snapshot : int
-    	1,
+        1,
         Start hour of the scenario year to be calculated.
 
     end_snapshot : int
-    	2,
+        2,
         End hour of the scenario year to be calculated.
 
     scn_name : str
-    	``'Status Quo'``,
-	    Choose your scenario. Currently, there are three different
-	    scenarios: ``'Status Quo'``, ``'NEP 2035'``, ``'eGo100'``. If you do not
-	    want to use the full German dataset, you can use the excerpt of
-	    Schleswig-Holstein by adding the acronym SH to the scenario
-	    name (e.g. ``'SH Status Quo'``).
+        ``'Status Quo'``,
+        choose your scenario. Currently, there are three different
+        scenarios: ``'Status Quo'``, ``'NEP 2035'``, ``'eGo100'``. If you do not
+        want to use the full German dataset, you can use the excerpt of
+        Schleswig-Holstein by adding the acronym SH to the scenario
+        name (e.g. ``'SH Status Quo'``).
 
     solver : str
         ``'glpk'``,
@@ -161,7 +161,7 @@ def etrago(args):
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
-        put False. This function doesn't work together with 
+        put False. This function doesn't work together with
         ``'line_grouping = True'`` or ``'network_clustering = True'``.
 
     network_clustering : bool
@@ -267,7 +267,7 @@ def etrago(args):
 
     #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
-    	load_shedding(network)
+        load_shedding(network)
 
     # network clustering
     if args['network_clustering']:
