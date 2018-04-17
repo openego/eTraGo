@@ -27,11 +27,14 @@ Create a virtualenvironment (where you like it) and activate it:
 Clone the source code from github
  
 .. code-block::
+
    $ git clone https://github.com/openego/eTraGo
- 
+
+
 With your activated environment `cd` to the cloned directory and run:  
 
 .. code-block::
+
    $ pip3 install -e eTraGo --process-dependency-links
 
 
