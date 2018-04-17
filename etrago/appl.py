@@ -194,8 +194,10 @@ def etrago(args):
     comments : str
         None
 
-    Result:
+    Returns
     -------
+    network : `pandas.DataFrame<dataframe>`
+        eTraGo result network based on `PyPSA network <https://www.pypsa.org/doc/components.html#network>`_
 
 
     """
