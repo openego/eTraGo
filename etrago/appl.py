@@ -81,11 +81,11 @@ def etrago(args):
     ----------
 
     db : str
-    	'oedb',
+    	``'oedb'``,
         Name of Database session setting stored in config.ini of oemof.db
 
     gridversion : str
-        'v0.2.11',
+        ``'v0.2.11'``,
         Name of the data version number of oedb: state 'None' for
         model_draft (sand-box) or an explicit version number
         (e.g. 'v0.2.10') for the grid schema.
