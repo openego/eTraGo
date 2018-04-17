@@ -16,24 +16,24 @@ Setup
 =========================
 
 
-Run:
-
-    ```
-    git clone https://github.com/openego/eTraGo
-    ```
-
 Create a virtualenvironment (where you like it) and activate it: 
 
-   ```
-   virtualenv -p python3 venv
-   source venv/bin/activate 
-   ```
+.. code-block::
 
-With your activated environment `cd` to the cloned directory and run: 
+   $ virtualenv venv --clear -p python3.5
+   $ source venv/bin/activate
+   $ cd venv 
+   
+ Clone the source code from github
+ 
 
-    ```
-    pip install -e eTraGo
-    ```
+   $ git clone https://github.com/openego/eTraGo
+   
+With your activated environment `cd` to the cloned directory and run:  
+
+ .. code-block::
+   $ pip3 install -e eTraGo --process-dependency-links --allow-all-external
+
 
 This will install all needed packages into your environment. Now you should be ready to go. 
 
