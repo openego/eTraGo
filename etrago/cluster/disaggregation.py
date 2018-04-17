@@ -211,7 +211,7 @@ class Disaggregation:
                                        solver)
             self.transfer_results(partial_network, externals)
             profile.disable()
-            print('Decomposition optimized in ', (time.time() - t))
+            print('Partial network solved in ', (time.time() - t))
 
         profile.print_stats(sort='cumtime')
 
