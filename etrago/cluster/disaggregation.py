@@ -203,9 +203,9 @@ class Disaggregation:
             partial_network, externals = self.construct_partial_network(
                     cluster,
                     scenario)
+            profile.disable()
             print('Decomposed in ', (time.time() - t))
             t = time.time()
-            profile.disable()
             profile.enable()
             self.solve_partial_network(cluster, partial_network, scenario,
                                        solver)
