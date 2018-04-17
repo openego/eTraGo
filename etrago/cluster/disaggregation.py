@@ -209,9 +209,13 @@ class Disaggregation:
             profile.enable()
             self.solve_partial_network(cluster, partial_network, scenario,
                                        solver)
-            self.transfer_results(partial_network, externals)
             profile.disable()
             print('Partial network solved in ', (time.time() - t))
+            profile.enable()
+            t = time.time()
+            self.transfer_results(partial_network, externals)
+            profile.disable()
+            print('Results transferred in ', (time.time() - t))
 
         profile.print_stats(sort='cumtime')
 
