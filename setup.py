@@ -18,19 +18,20 @@ setup(
       install_requires=['egoio == 0.3.0',
                         'scikit-learn == 0.19.0',
 		        'pandas >= 0.19.0, <=0.20.3',
-                        'pypsa >= 0.11.0, <= 0.11.0',
+                        'pypsa==0.11.0fork',
                         'sqlalchemy >= 1.0.15, <= 1.1.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3',
                         'shapely'],
-       dependency_links=['git+https://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
+       dependency_links=['git+https://github.com/openego/PyPSA.git@75b81175576e7b3472a6fc95c8842dd42d16954c#egg=pypsa-0.11.0fork'],
        extras_require={
         'docs': [
             'sphinx >= 1.4',
             'sphinx_rtd_theme']},
       package_data={
         'etrago': [
-		os.path.join('tools', 'config'),
                 os.path.join('tools', '*.json')]
               }
      )
+     
+
