@@ -26,16 +26,14 @@ from etrago.tools.utilities import results_to_csv
 import tsam.timeseriesaggregation as tsam
 
 write_results = True
-home = os.path.expanduser('C:/eTraGo/etrago')
-resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
+#home = os.path.expanduser('C:/eTraGo/etrago')
+#resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
 
-def snapshot_clustering(network, how='daily', clusters= []):
+def snapshot_clustering(network, resultspath, how='daily', clusters= []):
 
-#==============================================================================
-#     # This will calculate the original problem
-#     run(network=network.copy(), path=resultspath,
-#     write_results=write_results, n_clusters=None)
-#==============================================================================
+    # This will calculate the original problem
+    run(network=network.copy(), path=resultspath,
+    write_results=write_results, n_clusters=None)
 
     for c in clusters:
         path = os.path.join(resultspath, how)

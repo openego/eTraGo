@@ -43,11 +43,11 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 72,
+        'end_snapshot' : 504,
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -277,52 +277,64 @@ def etrago(args):
     else:
         extra_functionality = None
         
-    # snapshot clustering
-    if args['snapshot_clustering']:
-        # the results will be stored under "snapshot-clustering-results"
-        #extra_functionality = daily_bounds
-        x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters= [2])
-        y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
-    else:
-        # parallisation
-        if args['parallelisation']:
-            parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-        # start linear optimal powerflow calculations
-        elif args['method'] == 'lopf':
-            x = time.time()
-            network.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
-            y = time.time()
-            z = (y - x) / 60 # z is time for lopf in minutes
-        # start non-linear powerflow simulation
-        elif args['method'] == 'pf':
-            network.pf(scenario.timeindex)
-           # calc_line_losses(network)
-            
-        if args['pf_post_lopf']:
-            pf_post_lopf(network, scenario)
-            calc_line_losses(network)
-    
-       # provide storage installation costs
-    if sum(network.storage_units.p_nom_opt) != 0:
-        installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
-        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
-        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
-        
-    # write lpfile to path
-    if not args['lpfile'] == False:
-        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                    True})
-    
-    # write PyPSA results back to database
-    if args['export']:
-        results_to_oedb(session, network, args, 'hv')  
-        
-    # write PyPSA results to csv to path
-    if not args['results'] == False:
-        results_to_csv(network, args['results'])
+    # k-mean clustering
+    if not args['k_mean_clustering'] == False:
+        k_mean =[2,5,10]
 
+        for i in k_mean: 
+            print('++ Start model with k_mean = ' + str(i))
+            network_i = kmean_clustering(network, n_clusters= i)
+            home = os.path.expanduser('C:/eTraGo/etrago/results')
+            resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
+            
+            # snapshot clustering
+            if args['snapshot_clustering']:
+                # the results will be stored under "snapshot-clustering-results"
+                #extra_functionality = daily_bounds
+                x = time.time()
+                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [1,2,3,5,7,9,10])
+                y = time.time()
+                z = (y - x) / 60 # z is time for lopf in minutes
+            else:
+                # parallisation
+                if args['parallelisation']:
+                    parallelisation(network_i, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+                # start linear optimal powerflow calculations
+                elif args['method'] == 'lopf':
+                    x = time.time()
+                    network_i.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
+                    y = time.time()
+                    z = (y - x) / 60 # z is time for lopf in minutes
+                # start non-linear powerflow simulation
+                elif args['method'] == 'pf':
+                    network_i.pf(scenario.timeindex)
+                   # calc_line_losses(network)
+                    
+                if args['pf_post_lopf']:
+                    pf_post_lopf(network_i, scenario)
+                    calc_line_losses(network_i)
+        
+               # provide storage installation costs
+            if sum(network_i.storage_units.p_nom_opt) != 0:
+                installed_storages = network_i.storage_units[ network_i.storage_units.p_nom_opt!=0]
+                storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
+                print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
+                
+            # write lpfile to path
+            if not args['lpfile'] == False:
+                network_i.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
+                                                            True})
+        
+            # write PyPSA results back to database
+            if args['export']:
+                results_to_oedb(session, network_i, args, 'hv')  
+                
+            # write PyPSA results to csv to path
+            if not args['results'] == False:
+                results_to_csv(network_i, args['results'])
+        
+        np.savetxt("k_mean_parameter.csv", k_mean)
+        
     # close session
     session.close()
 
