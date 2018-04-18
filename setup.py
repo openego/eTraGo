@@ -2,14 +2,15 @@ __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität F
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "mariusves"
 
-
 from setuptools import find_packages, setup
 import os
-setup(name='eTraGo',
+
+setup(
+      name='eTraGo',
       author='DLR VE, ZNES Flensburg',
       author_email='',
       description='electrical Transmission Grid Optimization of flexibility options for transmission grids based on PyPSA',
-      version='0.5.1',
+      version='0.6',
       url='https://github.com/openego/eTraGo',
       license="GNU Affero General Public License Version 3 (AGPL-3.0)",
       packages=find_packages(),
@@ -22,13 +23,14 @@ setup(name='eTraGo',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3',
                         'shapely'],
-	  dependency_links=['git+https://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
-        extras_require={
+       dependency_links=['git+https://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
+       extras_require={
         'docs': [
             'sphinx >= 1.4',
             'sphinx_rtd_theme']},
       package_data={
         'etrago': [
-            os.path.join('tools', '*.json')]
+		os.path.join('tools', 'config'),
+                os.path.join('tools', '*.json')]
               }
      )
