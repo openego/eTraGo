@@ -29,14 +29,17 @@ def extendable (network, extendable, overlay_scn_name = None):
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
         network.lines.s_nom_max = float("inf")
+        #network.lines.capital_cost = 1000000
         
-        network.transformers.s_nom_extendable = True
-        network.transformers.s_nom_min = network.lines.s_nom
-        network.transformers.s_nom_max = float("inf")
-        
-        network.links.loc.p_nom_extendable = True
-        network.links.p_nom_min = network.lines.s_nom
-        network.links.p_nom_max = float("inf")
+        if not network.transformers.empty:
+            network.transformers.s_nom_extendable = True
+            network.transformers.s_nom_min = network.lines.s_nom
+            network.transformers.s_nom_max = float("inf")
+            
+        if not network.links.empty:
+            network.links.loc.p_nom_extendable = True
+            network.links.p_nom_min = network.lines.s_nom
+            network.links.p_nom_max = float("inf")
       
     elif extendable == 'transformers':
         network.transformers.s_nom_extendable = True
