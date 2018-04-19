@@ -617,7 +617,6 @@ def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_
     network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
 
    ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
-    print(k_mean_clustering) 
     if not k_mean_clustering == False:
             network.transformers.loc[~network.transformers.bus0.isin(network.buses.index), 'bus0'] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
             network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_max'] = network.lines.s_nom_max - network.lines.s_nom_min

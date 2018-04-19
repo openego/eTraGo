@@ -24,14 +24,24 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def extendable (network, extendable, overlay_scn_name = None):
-    
+ 
     if extendable == 'network':
-        network.lines.loc['s_nom_extendable'] = True
-        network.transformers.loc['s_nom_extendable'] = True      
-        network.links.loc[ 'p_nom_extendable'] = True
+        network.lines.s_nom_extendable = True
+        network.lines.s_nom_min = network.lines.s_nom
+        network.lines.s_nom_max = float("inf")
+        
+        network.transformers.s_nom_extendable = True
+        network.transformers.s_nom_min = network.lines.s_nom
+        network.transformers.s_nom_max = float("inf")
+        
+        network.links.loc.p_nom_extendable = True
+        network.links.p_nom_min = network.lines.s_nom
+        network.links.p_nom_max = float("inf")
       
     elif extendable == 'transformers':
-        network.transformers.loc['s_nom_extendable'] = True 
+        network.transformers.s_nom_extendable = True
+        network.transformers.s_nom_min = network.lines.s_nom
+        network.transformers.s_nom_max = float("inf")
         
 # Extension settings for extension-NEP 2305 scenarios
         
@@ -50,3 +60,5 @@ def extendable (network, extendable, overlay_scn_name = None):
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable' ] = True
         network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 'capital_cost'] = network.lines.capital_cost +( 2 * 14166 )
+    
+    return network

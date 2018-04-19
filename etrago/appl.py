@@ -57,21 +57,21 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
-            'scn_extension': 'nep2035_b2', # None or name of additional scenario (in extension_tables)
-            'scn_decommissioning': 'nep2035_b2', # None or name of decommissioning-scenario (in extension_tables)
+            'scn_extension': None, # None or name of additional scenario (in extension_tables)
+            'scn_decommissioning': None, #'nep2035_b2', # None or name of decommissioning-scenario (in extension_tables)
             'add_Belgium_Norway': True,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable': None, # None or which components you want to optimize (e.g. 'network')
+        'extendable': 'network', # None or which components you want to optimize (e.g. 'network')
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering':100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
         'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
