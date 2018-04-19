@@ -37,10 +37,10 @@ for i in kmean:
     for c in listdir(clustered_path): # go through the snapsot_parameters
         if c != 'Z.csv': 
             network_c = pd.read_csv(path.join(clustered_path, c, 'network.csv'))
-            abs_err[str(c)] = network_c['objective'].values[0]
             abserr=(abs(network_c['objective'].values[0] -
-                                   network['objective'].values[0])) * 100
-            rel_err[str(c)] = abserr/ network['objective'].values[0]
+                                   network['objective'].values[0]))
+            abs_err[str(c)] = network_c['objective'].values[0]
+            rel_err[str(c)] = (abserr/ network['objective'].values[0]*100)
             abs_time[str(c)] = float(network_c['time'])
             rel_time[str(c)] = ((float(network['time'])-float(network_c['time'])) /
                                 float(network['time'])) * 100

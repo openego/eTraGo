@@ -37,9 +37,9 @@ for i in kmean:
         if c != 'Z.csv':
             network_c = pd.read_csv(path.join(clustered_path, c, 'network.csv'))
             abserr= (abs(network_c['objective'].values[0] -
-                                   network['objective'].values[0])) * 100
-            abs_err.append(abserr)
-            rel_err.append(abserr / network['objective'].values[0])
+                                   network['objective'].values[0]))
+            abs_err.append(network_c['objective'].values[0])
+            rel_err.append(abserr / network['objective'].values[0]*100)
             abs_time.append(float(network_c['time']))
             rel_time.append((float(network['time'])-float(network_c['time'])) /
                                 float(network['time']) * 100)
