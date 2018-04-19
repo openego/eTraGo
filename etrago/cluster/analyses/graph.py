@@ -69,13 +69,13 @@ def plot_3d_surface (snapshot,k_parameter,variable,name):
     ax.set_zlabel(name) 
     plt.title('Clustering_analysis')
     plt.show()
-    fig.savefig(path.join(home, name + '.png'))
+    fig.savefig(path.join(home, 'Analysis_3d_surface, '+ name + '.png'))
    
     
 plot_3d_surface (snapshot,k_parameter,abs_time,name='Absolute time in s')
 plot_3d_surface (snapshot,k_parameter,rel_time,name='Relative time deviation in %')
 
-plot_3d_surface (snapshot,k_parameter,abs_err,name='Absolute Objective function')
+plot_3d_surface (snapshot,k_parameter,abs_err,name='Absolute objective function')
 plot_3d_surface (snapshot,k_parameter,rel_err,name='Relative obejective function deviation in %')
    
    #3D points -Computation time
@@ -93,11 +93,11 @@ def plot_3d_points (snapshot, k_parameter, variable, name):
     ax.set_zlabel(name) 
     plt.title('Clustering_analysis')
     plt.show()
-    fig.savefig(path.join(home, name + '.png'))
+    fig.savefig(path.join(home, 'Analysis_3d_point, '+ name + '.png'))
 
 plot_3d_points (snapshot,k_parameter,abs_time,name='Absolute time in s')
 plot_3d_points (snapshot,k_parameter,rel_time,name='Relative time deviation in %')
 
-plot_3d_points (snapshot,k_parameter,abs_err,name='Objective function')
-plot_3d_points (snapshot,k_parameter,rel_err,name='Relative obejective function deviation in %')
+plot_3d_points (snapshot,k_parameter,abs_err,name='Absolute objective function')
+plot_3d_points (snapshot,k_parameter,rel_err,name='Relative objective function deviation in %')
 

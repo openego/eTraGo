@@ -71,11 +71,11 @@ def plot_2d(variable, name):
     ax.set_ylabel(name)
     plt.legend(loc='best')
     plt.show()
-    fig.savefig(path.join(home, name + '.png'))
+    fig.savefig(path.join(home, 'Analysis_2d,'+ name + '.png'))
 
  #plotting time and objective function
 plot_2d('abs_time',name='Absolute time in s')
 plot_2d('rel_time',name='Relative time deviation in %')
 
-plot_2d('abs_err',name='Objective function')
+plot_2d('abs_err',name='Absolute objective function')
 plot_2d('rel_err',name='Relative objective function deviation in %')
