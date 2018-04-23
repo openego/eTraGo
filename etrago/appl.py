@@ -57,9 +57,9 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
-            'scn_extension': 'nep2035_b2', # None or name of additional scenario (in extension_tables)
-            'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables)
-            'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
+            'scn_extension': 'nep2035_b2', # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
+            'scn_decommissioning': 'nep2035_b2', # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
+            'add_Belgium_Norway': True,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
@@ -291,8 +291,7 @@ def etrago(args):
     if args['network_clustering']:
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
-        network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-    
+        network = cluster_on_extra_high_voltage(network, busmap, with_time=True)   
   
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
@@ -303,7 +302,6 @@ def etrago(args):
         extra_functionality = loading_minimization
     else:
         extra_functionality = None
-
     
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
