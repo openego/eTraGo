@@ -647,18 +647,20 @@ def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
           network : Network container including decommissioning
           
     '''  
-    ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+    if not k_mean_clustering:
+        
+        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
     
-    query = session.query(ormclass).filter(
+        query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
     
-    df_decommisionning = pd.read_sql(query.statement,
+        df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
                          index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
+        df_decommisionning.index = df_decommisionning.index.astype(str)
     
     ### Drop lines from existing network, if they will be decommisioned      
-    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+        network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
 
     return network
 
@@ -704,13 +706,21 @@ def calc_nearest_point(bus1, network):
     ''' 
 
     bus1_index = network.buses.index[network.buses.index == bus1]
-          
+    
+    forbidden_buses = np.append(bus1_index.values, network.lines.bus1[network.lines.bus0 == bus1].values)
+      
+    forbidden_buses = np.append(forbidden_buses, network.lines.bus0[network.lines.bus1 == bus1].values)
+    
+    forbidden_buses = np.append(forbidden_buses, network.links.bus0[network.lines.bus1 == bus1].values)
+    
+    forbidden_buses = np.append(forbidden_buses, network.links.bus1[network.lines.bus0 == bus1].values)
+   
     x0 = network.buses.x[network.buses.index.isin(bus1_index)]
     
     y0 = network.buses.y[network.buses.index.isin(bus1_index)]
     
-    comparable_buses = network.buses[~network.buses.index.isin(bus1_index)]
-  
+    comparable_buses = network.buses[~network.buses.index.isin(forbidden_buses)]
+
     x1 = comparable_buses.x
 
     y1 = comparable_buses.y

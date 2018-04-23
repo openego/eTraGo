@@ -25,41 +25,49 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 def extendable (network, extendable, overlay_scn_name = None):
  
-    if extendable == 'network':
+    if 'network' in extendable :
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
         network.lines.s_nom_max = float("inf")
-        #network.lines.capital_cost = 1000000
         
         if not network.transformers.empty:
             network.transformers.s_nom_extendable = True
-            network.transformers.s_nom_min = network.lines.s_nom
+            network.transformers.s_nom_min = network.transformers.s_nom
             network.transformers.s_nom_max = float("inf")
             
         if not network.links.empty:
             network.links.loc.p_nom_extendable = True
-            network.links.p_nom_min = network.lines.s_nom
+            network.links.p_nom_min = network.links.p_nom
             network.links.p_nom_max = float("inf")
       
-    elif extendable == 'transformers':
+    if 'transformers' in extendable:
         network.transformers.s_nom_extendable = True
-        network.transformers.s_nom_min = network.lines.s_nom
+        network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
+        
+    if 'storages' in extendable:       
+        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
+            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
+            
+    if 'generators' in extendable:       
+        network.generators.p_nom_extendable = True
+        network.generators.p_nom_min = network.generators.p_nom
+        network.generators.p_nom_max = float("inf")
         
 # Extension settings for extension-NEP 2305 scenarios
         
-    elif extendable == 'NEP Zubaunetz':
+    if 'NEP Zubaunetz' in extendable:
        network.lines.loc[(network.lines.project != 'EnLAG') & (network.lines.scn_name == 'extension_' + overlay_scn_name), 's_nom_extendable'] = True
        network.transformers.loc[(network.transformers.project != 'EnLAG') & (network.transformers.scn_name == ('extension_' + overlay_scn_name)), 's_nom_extendable'] = True      
        network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
       
         
-    elif extendable == 'overlay_network':
+    if 'overlay_network' in extendable:
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable' ] = True
         network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
         network.transformers.loc[network.transformers.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable'] = True
         
-    elif extendable == 'overlay_lines':
+    if 'overlay_lines' in extendable:
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 's_nom_extendable' ] = True
         network.links.loc[network.links.scn_name == ('extension_' + overlay_scn_name), 'p_nom_extendable'] = True
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 'capital_cost'] = network.lines.capital_cost +( 2 * 14166 )

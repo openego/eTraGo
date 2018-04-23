@@ -48,7 +48,7 @@ if not 'READTHEDOCS' in os.environ:
 #from etrago.tools.nep import add_extension_network
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
@@ -57,7 +57,7 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
-            'scn_extension': None, # None or name of additional scenario (in extension_tables)
+            'scn_extension': 'nep2035_b2', # None or name of additional scenario (in extension_tables)
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables)
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
@@ -65,8 +65,7 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable': None, # None or which components you want to optimize (e.g. 'network')
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'extendable':['network'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -80,7 +79,7 @@ args = {# Setup and Configuration:
         'skip_snapshots':False,
         'line_grouping': False,
         'branch_capacity_factor': 1, #to globally extend or lower branch capacities
-        'load_shedding':True,
+        'load_shedding':False,
         'comments':None,
         }
 
@@ -172,20 +171,17 @@ def etrago(args):
         State if you want to export the results of your calculation 
         back to the database.
         
-    extendable (string):
-        'network',
-        Choose which components you want to optimize.
+    extendable (None or array of strings):
+        ['network'],
+        Choose None or which components you want to optimize.
         Settings can be added in /tools/extendable.py. 
-        Currently there are the following possibilities:
+        The most important possibilities:
             'network': set all lines, links and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension' extendable
-        
-        
-    storage_extendable (bool):
-        True,
-        Choose if you want to allow to install extendable storages 
-        (unlimited in size) at each grid node in order to meet the flexibility demand. 
+            'storages': allow to install extendable storages (unlimited in size) 
+                        at each grid node in order to meet the flexibility demand. 
+      
         
     generator_noise (bool):
         True,
@@ -270,7 +266,6 @@ def etrago(args):
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
 
-
     if args['generator_noise']:
         # create or reproduce generator noise 
         if not args['reproduce_noise'] == False:    
@@ -283,13 +278,7 @@ def etrago(args):
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
-      
-      
-    if args['storage_extendable']:
-        # set virtual storages to be extendable
-        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
-            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
-
+   
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
@@ -329,18 +318,17 @@ def etrago(args):
     if args ['add_Belgium_Norway']:
          network = extension(network, session, scn_extension = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['k_mean_clustering'])
         
-    if args ['extendable'] != None or args ['storage_extendable']:
-        network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+    if args ['extendable'] != None:
         network = extendable(network, args['extendable'], args ['scn_extension'])
-
+        network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+    
     if args['branch_capacity_factor']:
-        
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
         
      #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
-    	load_shedding(network)
+        load_shedding(network)
         
     # snapshot clustering
     if not args['snapshot_clustering']==False:
