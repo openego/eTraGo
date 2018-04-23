@@ -37,20 +37,24 @@ if not 'READTHEDOCS' in os.environ:
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution)
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf,
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
-    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+                                    results_to_csv, parallelisation, 
+                                    pf_post_lopf,loading_minimization, 
+                                    calc_line_losses, group_parallel_lines)
+    from etrago.cluster.networkclustering import (busmap_from_psql, 
+                                                  cluster_on_extra_high_voltage, 
+                                                  kmean_clustering)
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
+                                     #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
+        'pf_post_lopf': False, # True to perform a pf after a lopf simulation
         'start_snapshot': 2005,
         'end_snapshot' : 2006,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'NEP 2035', # choose a scenario: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -139,7 +143,8 @@ def etrago(args):
     storage_extendable : bool
         True,
         Choose if you want to allow to install extendable storages
-        (unlimited in size) at each grid node in order to meet the flexibility demand.
+        (unlimited in size) at each grid node in order to meet the flexibility 
+        demand.
 
     generator_noise  bool
         True,
@@ -159,37 +164,38 @@ def etrago(args):
     k_mean_clustering : bool
         False,
         State if you want to apply a clustering of all network buses down to
-        only ``'k'`` buses. The weighting takes place considering generation and load
-        at each node. If so, state the number of k you want to apply. Otherwise
-        put False. This function doesn't work together with
+        only ``'k'`` buses. The weighting takes place considering generation 
+        and load at each node. If so, state the number of k you want to apply. 
+        Otherwise put False. This function doesn't work together with
         ``'line_grouping = True'`` or ``'network_clustering = True'``.
 
     network_clustering : bool
         False,
-        Choose if you want to cluster the full HV/EHV dataset down to only the EHV
-        buses. In that case, all HV buses are assigned to their closest EHV sub-station,
-        taking into account the shortest distance on power lines.
+        Choose if you want to cluster the full HV/EHV dataset down to only the 
+        EHV buses. In that case, all HV buses are assigned to their closest EHV
+        sub-station, taking into account the shortest distance on power lines.
 
     parallelisation : bool
         False,
-        Choose if you want to calculate a certain number of snapshots in parallel. If
-        yes, define the respective amount in the if-clause execution below. Otherwise
-        state False here.
+        Choose if you want to calculate a certain number of snapshots in 
+        parallel. If yes, define the respective amount in the if-clause 
+        execution below. Otherwise state False here.
 
     line_grouping : bool
         True,
-        State if you want to group lines that connect the same two buses into one system.
+        State if you want to group lines that connect the same two buses into 
+        one system.
 
     branch_capacity_factor : numeric
         1,
-        Add a factor here if you want to globally change line capacities (e.g. to "consider"
-        an (n-1) criterion or for debugging purposes.
+        Add a factor here if you want to globally change line capacities 
+        (e.g. to "consider" an (n-1) criterion or for debugging purposes.
 
     load_shedding : bool
         False,
-        State here if you want to make use of the load shedding function which is helpful when
-        debugging: a very expensive generator is set to each bus and meets the demand when regular
-        generators cannot do so.
+        State here if you want to make use of the load shedding function which 
+        is helpful when debugging: a very expensive generator is set to each 
+        bus and meets the demand when regular generators cannot do so.
 
     comments : str
         None
@@ -197,7 +203,8 @@ def etrago(args):
     Returns
     -------
     network : `pandas.DataFrame<dataframe>`
-        eTraGo result network based on `PyPSA network <https://www.pypsa.org/doc/components.html#network>`_
+        eTraGo result network based on 
+        `PyPSA network <https://www.pypsa.org/doc/components.html#network>`_
 
 
     """
@@ -233,7 +240,8 @@ def etrago(args):
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom*\
+        args['branch_capacity_factor']
 
     if args['generator_noise']:
         # create or reproduce generator noise
@@ -242,7 +250,8 @@ def etrago(args):
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
         else:
-            noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
+            noise_values = network.generators.marginal_cost + \
+            abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
             np.savetxt("noise_values.csv", noise_values, delimiter=",")
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
@@ -277,7 +286,9 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
+        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'],
+                                   line_length_factor= 1.25, remove_stubs=True, 
+                                   use_reduced_coordinates=False)
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -287,15 +298,20 @@ def etrago(args):
 
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
+        network.snapshot_weightings=network.snapshot_weightings\
+        [::args['skip_snapshots']]*args['skip_snapshots']
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+        parallelisation(network, start_snapshot=args['start_snapshot'], 
+                        end_snapshot=args['end_snapshot'],group_size=1, 
+                        solver_name=args['solver'], 
+                        extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], 
+                     extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation

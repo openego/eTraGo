@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """ Networkclustering.py defines the methods to cluster power grid
-networks for application within the tool eTraGo. 
+networks for application within the tool eTraGo. Many of the functions are
+based or taken from 
+https://github.com/PyPSA/PyPSA/blob/master/pypsa/networkclustering.py
+This applies especially for the k-means clustering algorithm. The method is 
+based on Hoersch et al. ( https://arxiv.org/pdf/1705.07617.pdf ).
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU Affero General Public License as
@@ -23,7 +27,10 @@ __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 import os
 if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import *
-    from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport, 
+                                         aggregategenerators, 
+                                         get_clustering_from_busmap, 
+                                         busmap_by_kmeans, busmap_by_stubs)
     from egoio.db_tables.model_draft import EgoGridPfHvBusmap
     
     from itertools import product
@@ -58,7 +65,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     busmap : dict
         Maps old bus_ids to new bus_ids.
         
-    with_time : bool
+    with_time : boolean
         If true time-varying data will also be aggregated.
 
     Returns
@@ -346,7 +353,8 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network, n_clusters=10):
+def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25, 
+                     remove_stubs=False, use_reduced_coordinates=False):
     """ 
     Implement k-mean clustering in existing network
    
@@ -355,6 +363,16 @@ def kmean_clustering(network, n_clusters=10):
     
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    n_clusters : int
+        Final number of clusters desired.
+    line_length_factor : float
+        Factor to multiply the crow-flies distance between new buses in order to get new
+        line lengths.
+    remove_stubs: boolean
+        Cluster network by reducing stubs and stubby trees
+        (i.e. sequentially reducing dead-ends).
+    use_reduced_coordinates: boolean
+        If True, do not average cluster coordinates, but take from busmap.
         
     Returns
     -------
@@ -387,7 +405,8 @@ def kmean_clustering(network, n_clusters=10):
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
 
     trafo_index = network.transformers.index
-    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), 
+                                      network.transformers.bus1.map(network.buses.v_nom)], axis=1)
 
 
     network.import_components_from_dataframe(
@@ -399,7 +418,26 @@ def kmean_clustering(network, n_clusters=10):
 
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+      
+    #remove stubs
+    if remove_stubs == True:
+        network.determine_network_topology()
+        busmap = busmap_by_stubs(network)
+        network.generators['weight'] = 1
+        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
+        #reset coordinates to the new reduced guys, rather than taking an average (copied from pypsa.networkclustering)
+        if use_reduced_coordinates:
+            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+            # i.e. network is changed in place!!
+            network.buses.loc[busmap.index,['x','y']] = network.buses.loc[busmap,['x','y']].values
 
+        clustering = get_clustering_from_busmap(network, busmap, 
+                                                aggregate_generators_weighted=True, 
+                                                aggregate_one_ports=aggregate_one_ports, 
+                                                line_length_factor=line_length_factor)
+        network = clustering.network
+    
     #define weighting based on conventional 'old' generator spatial distribution
     non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
     # Attention: network.generators.carrier.unique() 
@@ -421,9 +459,10 @@ def kmean_clustering(network, n_clusters=10):
     network.generators['weight'] = 1
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
+    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, 
+                                            aggregate_one_ports=aggregate_one_ports, 
+                                            line_length_factor=line_length_factor)
     network = clustering.network
-    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
     return network
     
