@@ -711,9 +711,9 @@ def calc_nearest_point(bus1, network):
       
     forbidden_buses = np.append(forbidden_buses, network.lines.bus0[network.lines.bus1 == bus1].values)
     
-    forbidden_buses = np.append(forbidden_buses, network.links.bus0[network.lines.bus1 == bus1].values)
+    forbidden_buses = np.append(forbidden_buses, network.links.bus0[network.links.bus1 == bus1].values)
     
-    forbidden_buses = np.append(forbidden_buses, network.links.bus1[network.lines.bus0 == bus1].values)
+    forbidden_buses = np.append(forbidden_buses, network.links.bus1[network.links.bus0 == bus1].values)
    
     x0 = network.buses.x[network.buses.index.isin(bus1_index)]
     
