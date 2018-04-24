@@ -1,3 +1,4 @@
+from itertools import product
 import cProfile
 import time
 
@@ -311,43 +312,58 @@ class MiniSolverDisaggregation(Disaggregation):
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
-        pgs_t = partial_network.generators_t
-        p_max_pu_t = pgs_t['p_max_pu']
-        pgs_t['p'].reindex(self.original_network.generators.index, axis=1)
-        for carrier in set(partial_network.generators.carrier):
-            cgs = (self.clustered_network.generators
-                    [self.clustered_network.generators.bus == cluster]
-                    [self.clustered_network.generators.carrier == carrier])
-            if len(cgs) == 0:
-                break
-            assert len(cgs) == 1, (
-                   "Cluster {} has {} generators for carrier {}.\n"
-                   .format(cluster, len(cgs), carrier) +
-                   "Should be exactly one.")
-            pgs = (partial_network.generators.select(lambda ix: " " not in ix)
-                    [partial_network.generators.carrier == carrier])
-            column = lambda cluster, carrier: "{} {}".format(cluster, carrier)
-            cluster_t = (self.clustered_network
-                             .generators_t['p']
-                             .loc[:, column(cluster, carrier)])
-            generators = p_max_pu_t.columns.intersection(pgs.index)
-            if not generators.empty:
-                pnmp = pgs.p_nom * p_max_pu_t.loc[:, generators]
-                index = generators
-                psum = pnmp.sum(axis=1)
-                for generator_id in index:
-                    # TODO: Check whether series multiplication works as
-                    #       expected.
-                    pgs_t['p'].loc[:, generator_id] = (
-                            cluster_t * pnmp.loc[:, generator_id] / psum)
+        bustypes = ('generators', 'storage_units')
+        groupings = {'generators': ('carrier',),
+                     'storage_units': ('carrier', 'max_hours')}
+        for bustype in bustypes:
+            pn_t = getattr(partial_network, bustype + '_t')
+            pn_t['p'].reindex(getattr(self.original_network, bustype).index,
+                              axis=1)
+            p_max_pu_t = pn_t['p_max_pu']
+            cl_t = getattr(self.clustered_network, bustype + '_t')
+            pn_buses = getattr(partial_network, bustype)
+            cl_buses = getattr(self.clustered_network, bustype)
+            groups = product(*
+                    [ [ {'key': key, 'value': value}
+                        for value in set(getattr(pn_buses, key))]
+                      for key in groupings[bustype]])
+            for group in groups:
+                clb = cl_buses[cl_buses.bus == cluster]
+                for axis in group:
+                    clb = clb[getattr(cl_buses, axis['key']) == axis['value']]
+                if len(clb) == 0:
+                    break
+                assert len(clb) == 1, (
+                    "Cluster {} has {} buses for group {}.\n"
+                    .format(cluster, len(clb), group) +
+                    "Should be exactly one.")
+                # Remove "cluster_id carrier" buses
+                pnb = pn_buses.select(lambda ix: " " not in ix)
+                for axis in group:
+                    pnb = pnb[getattr(pn_buses, axis['key']) == axis['value']]
+                column = (" ".join([cluster] +
+                                   [axis['value'] for axis in group])
+                          if bustype == 'generators'
+                          else cluster)
+                clt = cl_t['p'].loc[:, column]
+                timed = p_max_pu_t.columns.intersection(pnb.index)
+                if not timed.empty:
+                    pnmp = pnb.p_nom * p_max_pu_t.loc[:, timed]
+                    index = timed
+                    psum = pnmp.sum(axis=1)
+                    for bus_id in index:
+                        # TODO: Check whether series multiplication works as
+                        #       expected.
+                        pn_t['p'].loc[:, bus_id] = (
+                                clt * pnmp.loc[:, bus_id] / psum)
 
-            else:
-                pnmp = pgs.p_nom * pgs.p_max_pu
-                index = pnmp.index
-                psum = pnmp.sum()
-                for generator_id in index:
-                    pgs_t['p'].loc[:, generator_id] = (
-                            cluster_t * pnmp.loc[generator_id] / psum)
+                else:
+                    pnmp = pnb.p_nom * pnb.p_max_pu
+                    index = pnmp.index
+                    psum = pnmp.sum()
+                    for bus_id in index:
+                        pn_t['p'].loc[:, bus_id] = (
+                                clt * pnmp.loc[bus_id] / psum)
 
 
     def transfer_results(self, *args, **kwargs):
