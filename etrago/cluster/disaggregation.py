@@ -222,12 +222,6 @@ class Disaggregation:
     def transfer_results(self, partial_network, externals):
         for bustype in ['loads', 'generators', 'stores', 'storage_units',
                         'shunt_impedances']:
-            # TODO: This variable is never used again.
-            #       Is this a problem?
-            changed_buses = (getattr(partial_network, bustype)
-                             .index
-                             .intersection(getattr(self.original_network,
-                                                   bustype).index))
             orig_buses = getattr(self.original_network, bustype + '_t')
             part_buses = getattr(partial_network, bustype + '_t')
             for key in orig_buses.keys():
