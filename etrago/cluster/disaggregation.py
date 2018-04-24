@@ -317,8 +317,6 @@ class UniformDisaggregation(Disaggregation):
                      'storage_units': ('carrier', 'max_hours')}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
-            pn_t['p'].reindex(getattr(self.original_network, bustype).index,
-                              axis=1)
             p_max_pu_t = pn_t['p_max_pu']
             cl_t = getattr(self.clustered_network, bustype + '_t')
             pn_buses = getattr(partial_network, bustype)
