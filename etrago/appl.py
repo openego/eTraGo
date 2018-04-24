@@ -40,12 +40,13 @@ if not 'READTHEDOCS' in os.environ:
                                     results_to_csv, parallelisation, pf_post_lopf,
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
@@ -299,7 +300,7 @@ def etrago(args):
         for i in k_mean: 
             print('++ Start model with k_mean = ' + str(i))
             network_i = kmean_clustering(network, n_clusters= i)
-            home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/')
+            home = os.path.expanduser('/home/ulf/pf_results/snapshot_clustering/')
             resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
             
             # snapshot clustering
