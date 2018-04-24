@@ -312,6 +312,7 @@ class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
         pgs_t = partial_network.generators_t
+        p_max_pu_t = pgs_t['p_max_pu']
         pgs_t['p'].reindex(self.original_network.generators.index, axis=1)
         for carrier in set(partial_network.generators.carrier):
             cgs = (self.clustered_network.generators
@@ -329,11 +330,24 @@ class UniformDisaggregation(Disaggregation):
             cluster_t = (self.clustered_network
                              .generators_t['p']
                              .loc[:, column(cluster, carrier)])
-            pnmp = pgs.p_nom * pgs.p_max_pu
-            psum = pnmp.sum()
-            for generator_id in pgs.index:
-                pgs_t['p'].loc[:, generator_id] = (
-                        cluster_t * pnmp.loc[generator_id] / psum)
+            generators = p_max_pu_t.columns.intersection(pgs.index)
+            if not generators.empty:
+                pnmp = pgs.p_nom * p_max_pu_t.loc[:, generators]
+                index = generators
+                psum = pnmp.sum(axis=1)
+                for generator_id in index:
+                    # TODO: Check whether series multiplication works as
+                    #       expected.
+                    pgs_t['p'].loc[:, generator_id] = (
+                            cluster_t * pnmp.loc[:, generator_id] / psum)
+
+            else:
+                pnmp = pgs.p_nom * pgs.p_max_pu
+                index = pnmp.index
+                psum = pnmp.sum()
+                for generator_id in index:
+                    pgs_t['p'].loc[:, generator_id] = (
+                            cluster_t * pnmp.loc[generator_id] / psum)
 
 
     def transfer_results(self, *args, **kwargs):
