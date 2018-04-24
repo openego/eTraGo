@@ -311,6 +311,8 @@ class MiniSolverDisaggregation(Disaggregation):
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
+        pgs_t = partial_network.generators_t
+        pgs_t['p'].reindex(self.original_network.generators.index, axis=1)
         for carrier in set(partial_network.generators.carrier):
             cgs = (self.clustered_network.generators
                     [self.clustered_network.generators.bus == cluster]
@@ -329,10 +331,6 @@ class UniformDisaggregation(Disaggregation):
                              .loc[:, column(cluster, carrier)])
             pnmp = pgs.p_nom * pgs.p_max_pu
             psum = pnmp.sum()
-            pgs_t = partial_network.generators_t
-            pgs_t.p.reindex_axis(
-                    self.original_network.generators.index,
-                    axis=1)
             for generator_id in pgs.index:
                 pgs_t['p'].loc[:, generator_id] = (
                         cluster_t * pnmp.loc[generator_id] / psum)
