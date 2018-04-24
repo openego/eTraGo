@@ -43,12 +43,12 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 504,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 96,
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -279,12 +279,12 @@ def etrago(args):
         
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        k_mean =[2,5,10]
+        k_mean =[2,5]
 
         for i in k_mean: 
             print('++ Start model with k_mean = ' + str(i))
             network_i = kmean_clustering(network, n_clusters= i)
-            home = os.path.expanduser('C:/eTraGo/etrago/results')
+            home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/')
             resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
             
             # snapshot clustering
@@ -292,7 +292,7 @@ def etrago(args):
                 # the results will be stored under "snapshot-clustering-results"
                 #extra_functionality = daily_bounds
                 x = time.time()
-                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [1,2,3,5,7,9,10])
+                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [2,3])
                 y = time.time()
                 z = (y - x) / 60 # z is time for lopf in minutes
             else:
