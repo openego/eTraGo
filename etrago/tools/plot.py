@@ -493,7 +493,7 @@ def storage_distribution(network, filename=None):
     fig.set_size_inches(6,6)
    
     if sum(storage_distribution) == 0:
-         network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
+         network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
          network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
     
@@ -517,7 +517,7 @@ def storage_expansion(network, filename=None):
         If not given, figure will be show directly
     """
     
-    stores = network.storage_units[network.storage_units.carrier=='extendable storage']   
+    stores = network.storage_units[network.storage_units.carrier=='extendable_storage']   
     storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(network.storage_units.bus).sum().reindex(network.buses.index,fill_value=0.)
 
     fig,ax = plt.subplots(1,1)
@@ -526,7 +526,7 @@ def storage_expansion(network, filename=None):
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
+         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage expansion distribution")
     
     if filename is None:
         plt.show()
