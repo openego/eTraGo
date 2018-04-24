@@ -219,9 +219,10 @@ class Disaggregation:
 
         # profile.print_stats(sort='cumtime')
 
-    def transfer_results(self, partial_network, externals):
-        for bustype in ['loads', 'generators', 'stores', 'storage_units',
-                        'shunt_impedances']:
+    def transfer_results(self, partial_network, externals,
+                         bustypes=['loads', 'generators', 'stores',
+                                   'storage_units', 'shunt_impedances']):
+        for bustype in bustypes:
             orig_buses = getattr(self.original_network, bustype + '_t')
             part_buses = getattr(partial_network, bustype + '_t')
             for key in orig_buses.keys():
@@ -335,6 +336,11 @@ class UniformDisaggregation(Disaggregation):
             for generator_id in pgs.index:
                 pgs_t['p'].loc[:, generator_id] = (
                         cluster_t * pnmp.loc[generator_id] / psum)
+
+
+    def transfer_results(self, *args, **kwargs):
+        kwargs['bustypes'] = ['generators', 'storage_units']
+        return super().transfer_results(*args, **kwargs)
 
 
 def swap_series(s):
