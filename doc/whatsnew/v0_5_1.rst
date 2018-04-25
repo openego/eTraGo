@@ -1,0 +1,18 @@
+Release 0.5.1 (February 01, 2018)
+++++++++++++++++++++++++++++++++
+eTraGo works with ego.io 0.3.0
+
+
+Added features
+--------------
+* Result export to oedb functionality was improved. Now, a safe tag can be set in order to state that the result set shall be versioned and moved to the schema 'grid'.
+* the new database sessionmaker of ego.io 0.3.0 is enabled which gets rid of dependency to oemof.db.
+* it is possible to skip snapshots in order to ingenuously simplify the problem.
+
+
+Other news
+-------------
+* eTraGo will be available on PyPI
+* eTraGo 0.5.1 will be used for eGo 0.0.1
+
+

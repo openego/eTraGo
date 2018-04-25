@@ -21,43 +21,13 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 import pandas as pd
 import numpy as np
 import os
 import time
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
-def oedb_session(section='oedb'):
-    """Get SQLAlchemy session object with valid connection to OEDB"""
 
-    # get session object by oemof.db tools (requires .oemof/config.ini
-    try:
-        from oemof import db
-        conn = db.connection(section=section)
-
-    except:
-        print('Please provide connection parameters to database:')
-
-        host = input('host (default 127.0.0.1): ') or '127.0.0.1'
-        port = input('port (default 5432): ') or '5432'
-        user = input('user (default postgres): ') or 'postgres'
-        database = input('database name: ')
-        password = input('password: ')
-
-        conn = create_engine(
-            'postgresql://' + '%s:%s@%s:%s/%s' % (user,
-                                                  password,
-                                                  host,
-                                                  port,
-                                                  database))
-
-    Session = sessionmaker(bind=conn)
-    session = Session()
-    return session
-
-  
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
 
@@ -322,10 +292,9 @@ def data_manipulation_sh (network):
     from geoalchemy2.shape import from_shape, to_shape
     
     #add connection from Luebeck to Siems
-
-    new_bus = str(int(network.buses.index.max())+1)
-    new_trafo = str(int(network.transformers.index.max())+1)
-    new_line = str(int(network.lines.index.max())+1)
+    new_bus = str(network.buses.index.astype(np.int64).max()+1)
+    new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
+    new_line = str(network.lines.index.astype(np.int64).max()+1)
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
