@@ -48,12 +48,12 @@ if not 'READTHEDOCS' in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
-        'db': 'local', # db session
+        'db': 'oedb', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'start_snapshot': 2005, 
+        'end_snapshot' : 2006,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
