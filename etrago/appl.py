@@ -38,7 +38,7 @@ if not 'READTHEDOCS' in os.environ:
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, extension_overlay_network)
 
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh, convert_capital_costs,
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.tools.extendable import extendable
@@ -54,20 +54,17 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
         'end_snapshot' : 2,
-        'start_snapshot': 2005,
-        'end_snapshot' : 2006,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
-            'scn_extension': 'nep2035_b2', # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
-            'scn_decommissioning': 'nep2035_b2', # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
-            'add_Belgium_Norway': True,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
+            'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
+            'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
+            'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-
         'extendable':['network'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
