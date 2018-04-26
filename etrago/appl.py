@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 """
-This is the application file for the tool eTraGo. 
+This is the application file for the tool eTraGo.
 
 Define your connection parameters and power flow settings before executing the function etrago.
 
@@ -30,42 +31,45 @@ import os
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
-    # Do not import internal packages directly  
+    # Do not import internal packages directly
     from etrago.tools.io import NetworkScenario, results_to_oedb
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
+                                     storage_distribution)
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
+                                    results_to_csv, parallelisation, pf_post_lopf,
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    from egoio.tools import db
+    from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 504,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot' : 96,
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
-        # Settings:        
+        # Settings:
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise 
+        'generator_noise':False, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
         'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
+        'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -74,138 +78,142 @@ args = {# Setup and Configuration:
 
 def etrago(args):
     """The etrago function works with following arguments:
-    
-    
+
+
     Parameters
     ----------
-           
-    db (str): 
-    	'oedb', 
-        Name of Database session setting stored in config.ini of oemof.db
-        
-    gridversion (str):
-        'v0.2.11', 
-        Name of the data version number of oedb: state 'None' for 
-        model_draft (sand-box) or an explicit version number 
+
+    db : str
+        ``'oedb'``,
+        Name of Database session setting stored in *config.ini* of *.egoio*
+
+    gridversion : str
+        ``'v0.2.11'``,
+        Name of the data version number of oedb: state ``'None'`` for
+        model_draft (sand-box) or an explicit version number
         (e.g. 'v0.2.10') for the grid schema.
-         
-    method (str):
-        'lopf', 
+
+    method : str
+        ``'lopf'``,
         Choose between a non-linear power flow ('pf') or
         a linear optimal power flow ('lopf').
-        
-    pf_post_lopf (bool): 
-        False, 
-        Option to run a non-linear power flow (pf) directly after the 
+
+    pf_post_lopf : bool
+        False,
+        Option to run a non-linear power flow (pf) directly after the
         linear optimal power flow (and thus the dispatch) has finished.
-                
-    start_snapshot (int):
-    	1, 
+
+    start_snapshot : int
+        1,
         Start hour of the scenario year to be calculated.
-        
-    end_snapshot (int) : 
-    	2,
+
+    end_snapshot : int
+        2,
         End hour of the scenario year to be calculated.
-        
-    scn_name (str): 
-    	'Status Quo',
-	Choose your scenario. Currently, there are three different 
-	scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not 
-	want to use the full German dataset, you can use the excerpt of 
-	Schleswig-Holstein by adding the acronym SH to the scenario 
-	name (e.g. 'SH Status Quo').
-        
-    solver (str): 
-        'glpk', 
-        Choose your preferred solver. Current options: 'glpk' (open-source),
-        'cplex' or 'gurobi'.
-                
-    lpfile (obj): 
-        False, 
+
+    scn_name : str
+        ``'Status Quo'``,
+        choose your scenario. Currently, there are three different
+        scenarios: ``'Status Quo'``, ``'NEP 2035'``, ``'eGo100'``. If you do not
+        want to use the full German dataset, you can use the excerpt of
+        Schleswig-Holstein by adding the acronym SH to the scenario
+        name (e.g. ``'SH Status Quo'``).
+
+    solver : str
+        ``'glpk'``,
+        Choose your preferred solver. Current options: ``'glpk'`` (open-source),
+        ``'cplex'`` or ``'gurobi'``.
+
+    lpfile : obj
+        False,
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.
-        
-    results (obj): 
-        False, 
-        State if and where you want to save results as csv files.Options: 
-        False or '/path/tofolder'.
-        
-    export (bool): 
-        False, 
-        State if you want to export the results of your calculation 
+        False or ``'/path/tofolder'``.
+
+    results : obj
+        False,
+        State if and where you want to save results as csv files.Options:
+        False or ``'/path/tofolder'``.
+
+    export : bool
+        False,
+        State if you want to export the results of your calculation
         back to the database.
-        
-    storage_extendable (bool):
+
+    storage_extendable : bool
         True,
-        Choose if you want to allow to install extendable storages 
-        (unlimited in size) at each grid node in order to meet the flexibility demand. 
-        
-    generator_noise (bool):
+        Choose if you want to allow to install extendable storages
+        (unlimited in size) at each grid node in order to meet the flexibility demand.
+
+    generator_noise  bool
         True,
-        Choose if you want to apply a small random noise to the marginal 
+        Choose if you want to apply a small random noise to the marginal
         costs of each generator in order to prevent an optima plateau.
-        
-    reproduce_noise (obj): 
-        False, 
-        State if you want to use a predefined set of random noise for 
+
+    reproduce_noise : obj
+        False,
+        State if you want to use a predefined set of random noise for
         the given scenario. If so, provide path to the csv file,
-        e.g. 'noise_values.csv'.
-        
-    minimize_loading (bool):
+        e.g. ``'noise_values.csv'``.
+
+    minimize_loading : bool
         False,
-        
-    k_mean_clustering (bool): 
+        ...
+
+    k_mean_clustering : bool
         False,
-        State if you want to apply a clustering of all network buses down to 
-        only 'k' buses. The weighting takes place considering generation and load
-        at each node. If so, state the number of k you want to apply. Otherwise 
-        put False. This function doesn't work together with 'line_grouping = True'
-	    or 'network_clustering = True'.
-    
-    network_clustering (bool):
-        False, 
-        Choose if you want to cluster the full HV/EHV dataset down to only the EHV 
-        buses. In that case, all HV buses are assigned to their closest EHV sub-station, 
+        State if you want to apply a clustering of all network buses down to
+        only ``'k'`` buses. The weighting takes place considering generation and load
+        at each node. If so, state the number of k you want to apply. Otherwise
+        put False. This function doesn't work together with
+        ``'line_grouping = True'`` or ``'network_clustering = True'``.
+
+    network_clustering : bool
+        False,
+        Choose if you want to cluster the full HV/EHV dataset down to only the EHV
+        buses. In that case, all HV buses are assigned to their closest EHV sub-station,
         taking into account the shortest distance on power lines.
-        
-    parallelisation (bool):
+
+    parallelisation : bool
         False,
         Choose if you want to calculate a certain number of snapshots in parallel. If
-        yes, define the respective amount in the if-clause execution below. Otherwise 
+        yes, define the respective amount in the if-clause execution below. Otherwise
         state False here.
-        
-    line_grouping (bool): 
+
+    line_grouping : bool
         True,
         State if you want to group lines that connect the same two buses into one system.
-   
-    branch_capacity_factor (numeric): 
-        1, 
+
+    branch_capacity_factor : numeric
+        1,
         Add a factor here if you want to globally change line capacities (e.g. to "consider"
         an (n-1) criterion or for debugging purposes.
-           
-    load_shedding (bool):
+
+    load_shedding : bool
         False,
         State here if you want to make use of the load shedding function which is helpful when
         debugging: a very expensive generator is set to each bus and meets the demand when regular
         generators cannot do so.
-        
-    comments (str): 
+
+    comments : str
         None
-        
-    Result:
+
+    Returns
     -------
-        
+    network : `pandas.DataFrame<dataframe>`
+        eTraGo result network based on `PyPSA network <https://www.pypsa.org/doc/components.html#network>`_
+
 
     """
-
-    session = oedb_session(args['db'])
+    conn = db.connection(section=args['db'])
+    Session = sessionmaker(bind=conn)
+    session = Session()
 
     # additional arguments cfgpath, version, prefix
     if args['gridversion'] == None:
         args['ormcls_prefix'] = 'EgoGridPfHv'
     else:
         args['ormcls_prefix'] = 'EgoPfHv'
-        
+
     scenario = NetworkScenario(session,
                                version=args['gridversion'],
                                prefix=args['ormcls_prefix'],
@@ -218,18 +226,21 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    network.transformers.x=network.transformers.x*0.0001
 
+    # set SOC at the beginning and end of the period to equal values
+    network.storage_units.cyclic_state_of_charge = True
+
+    # TEMPORARY vague adjustment due to transformer bug in data processing
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
     if args['generator_noise']:
-        # create or reproduce generator noise 
-        if not args['reproduce_noise'] == False:    
+        # create or reproduce generator noise
+        if not args['reproduce_noise'] == False:
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
@@ -239,8 +250,8 @@ def etrago(args):
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
-      
-      
+
+
     if args['storage_extendable']:
         # set virtual storages to be extendable
         if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
@@ -252,39 +263,44 @@ def etrago(args):
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
-        
+
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
 
     #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
-    	load_shedding(network)
+        load_shedding(network)
 
     # network clustering
     if args['network_clustering']:
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-    
+
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
         network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
-        
+
     # Branch loading minimization
     if args['minimize_loading']:
         extra_functionality = loading_minimization
     else:
         extra_functionality = None
-        
+    
+
+    if args['skip_snapshots']:
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
+
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        k_mean =[2,5,10]
+        k_mean =[2,5]
 
         for i in k_mean: 
             print('++ Start model with k_mean = ' + str(i))
             network_i = kmean_clustering(network, n_clusters= i)
-            home = os.path.expanduser('C:/eTraGo/etrago/results')
+            home = os.path.expanduser('/home/ulf/pf_results/snapshot_clustering/')
             resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
             
             # snapshot clustering
@@ -292,7 +308,7 @@ def etrago(args):
                 # the results will be stored under "snapshot-clustering-results"
                 #extra_functionality = daily_bounds
                 x = time.time()
-                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [1,2,3,5,7,9,10])
+                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [2,3])
                 y = time.time()
                 z = (y - x) / 60 # z is time for lopf in minutes
             else:
@@ -314,7 +330,7 @@ def etrago(args):
                     pf_post_lopf(network_i, scenario)
                     calc_line_losses(network_i)
         
-               # provide storage installation costs
+            # provide storage installation costs
             if sum(network_i.storage_units.p_nom_opt) != 0:
                 installed_storages = network_i.storage_units[ network_i.storage_units.p_nom_opt!=0]
                 storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
@@ -327,8 +343,14 @@ def etrago(args):
         
             # write PyPSA results back to database
             if args['export']:
-                results_to_oedb(session, network_i, args, 'hv')  
-                
+                username = str(conn.url).split('//')[1].split(':')[0]
+                args['user_name'] = username
+                safe_results=False #default is False. If it is set to 'True' the result set will be safed
+                                   #to the versioned grid schema eventually apart from
+                                   #being saved to the model_draft.
+                                   #ONLY set to True if you know what you are doing.
+                results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)
+
             # write PyPSA results to csv to path
             if not args['results'] == False:
                 results_to_csv(network_i, args['results'])
