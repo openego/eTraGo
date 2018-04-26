@@ -64,7 +64,7 @@ args = {# Setup and Configuration:
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
-        'clean_snom':True, #state if you want to create a csv file to avoid load shedding in future calculations
+        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
         'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
