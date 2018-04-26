@@ -327,8 +327,9 @@ class UniformDisaggregation(Disaggregation):
                       for key in groupings[bustype]])
             for group in groups:
                 clb = cl_buses[cl_buses.bus == cluster]
-                for axis in group:
-                    clb = clb[getattr(cl_buses, axis['key']) == axis['value']]
+                query = " & ".join(["({key} == {value!r})".format(**axis)
+                                    for axis in group])
+                clb = clb.query(query)
                 if len(clb) == 0:
                     break
                 assert len(clb) == 1, (
@@ -337,8 +338,7 @@ class UniformDisaggregation(Disaggregation):
                     "Should be exactly one.")
                 # Remove "cluster_id carrier" buses
                 pnb = pn_buses.select(lambda ix: " " not in ix)
-                for axis in group:
-                    pnb = pnb[getattr(pn_buses, axis['key']) == axis['value']]
+                pnb = pnb.query(query)
                 column = (" ".join([cluster] +
                                    [axis['value'] for axis in group])
                           if bustype == 'generators'
