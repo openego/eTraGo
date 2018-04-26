@@ -342,11 +342,7 @@ class UniformDisaggregation(Disaggregation):
                         [r[0] for r in enumerate(pn_buses.iterrows())
                               if r[1][0] not in cluster_bus_names]]
                 pnb = pnb.query(query)
-                column = (" ".join([cluster] +
-                                   [axis['value'] for axis in group])
-                          if bustype == 'generators'
-                          else cluster)
-                clt = cl_t['p'].loc[:, column]
+                clt = cl_t['p'].loc[:, list(clb.iterrows())[0][0]]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
                     pnmp = pnb.p_nom * p_max_pu_t.loc[:, timed]
