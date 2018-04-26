@@ -323,7 +323,7 @@ class UniformDisaggregation(Disaggregation):
             cl_buses = getattr(self.clustered_network, bustype)
             groups = product(*
                     [ [ {'key': key, 'value': value}
-                        for value in set(getattr(pn_buses, key))]
+                        for value in set(pn_buses.loc[:, key])]
                       for key in groupings[bustype]])
             for group in groups:
                 clb = cl_buses[cl_buses.bus == cluster]
