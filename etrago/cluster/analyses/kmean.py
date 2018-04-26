@@ -22,16 +22,6 @@ ks=[]
 
 home = os.path.expanduser('C:/eTraGo/etrago/results')
 
-#set the time of the highest kmean(without snapshots) as the benchmark 
-max_k= int(max(kmean))
-resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(max_k))
-original_path = path.join(resultspath, 'original')
-network = pd.read_csv(path.join(original_path, 'network.csv'))
-time_benchmark =float(network['time'])
-print(time_benchmark)
-#set the ojective function of the highest kmean(without snapshots) as the benchmark
-ojective_benchmark = network['objective'].values[0]
-
 #receive information from the results of the calculation 
 for i in kmean:
     i =int(i)
@@ -51,8 +41,8 @@ for i in kmean:
             abs_err[str(c)] = network_c['objective'].values[0]
             rel_err[str(c)] = (abserr/ network['objective'].values[0]*100)
             abs_time[str(c)] = float(network_c['time'])
-            rel_time[str(c)] = ((float(time_benchmark)-float(network_c['time'])) /
-                                time_benchmark * 100)
+            rel_time[str(c)] = ((float(network['time'])-float(network_c['time'])) /
+                                float(network['time']) * 100)
         
     #create a dataframe with the needed results for each kmean        
     results = pd.DataFrame({
