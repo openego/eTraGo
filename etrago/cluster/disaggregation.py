@@ -336,8 +336,11 @@ class UniformDisaggregation(Disaggregation):
                     "Cluster {} has {} buses for group {}.\n"
                     .format(cluster, len(clb), group) +
                     "Should be exactly one.")
-                # Remove "cluster_id carrier" buses
-                pnb = pn_buses.select(lambda ix: " " not in ix)
+                # Remove cluster buses from partial network
+                cluster_bus_names = [r[0] for r in cl_buses.iterrows()]
+                pnb = pn_buses.iloc[
+                        [r[0] for r in enumerate(pn_buses.iterrows())
+                              if r[1][0] not in cluster_bus_names]]
                 pnb = pnb.query(query)
                 column = (" ".join([cluster] +
                                    [axis['value'] for axis in group])
