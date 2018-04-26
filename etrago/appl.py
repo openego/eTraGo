@@ -66,7 +66,7 @@ args = {# Setup and Configuration:
         'k_mean_clustering':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
-        'snapshot_clustering': True, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering': 2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -293,42 +293,29 @@ def etrago(args):
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
 
-    # k-mean clustering
-    if not args['k_mean_clustering'] == False:
-        k_mean =[2,5]
-
-        for i in k_mean: 
-            print('++ Start model with k_mean = ' + str(i))
-            network_i = kmean_clustering(network, n_clusters= i)
-            home = os.path.expanduser('/home/ulf/pf_results/snapshot_clustering/')
-            resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
-            
-            # snapshot clustering
-            if args['snapshot_clustering']:
-                # the results will be stored under "snapshot-clustering-results"
-                #extra_functionality = daily_bounds
-                x = time.time()
-                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [2,3])
-                y = time.time()
-                z = (y - x) / 60 # z is time for lopf in minutes
-            else:
-                # parallisation
-                if args['parallelisation']:
-                    parallelisation(network_i, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
-                # start linear optimal powerflow calculations
-                elif args['method'] == 'lopf':
-                    x = time.time()
-                    network_i.lopf(scenario.timeindex, solver_name=args['solver'], extra_functionality=extra_functionality)
-                    y = time.time()
-                    z = (y - x) / 60 # z is time for lopf in minutes
-                # start non-linear powerflow simulation
-                elif args['method'] == 'pf':
-                    network_i.pf(scenario.timeindex)
-                   # calc_line_losses(network)
-                    
-                if args['pf_post_lopf']:
-                    pf_post_lopf(network_i, scenario)
-                    calc_line_losses(network_i)
+    if not args['snapshot_clustering']== False:
+        x = time.time()
+        network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+    
+    # parallisation
+    if args['parallelisation']:
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+    # start linear optimal powerflow calculations
+    elif args['method'] == 'lopf':
+        x = time.time()
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        y = time.time()
+        z = (y - x) / 60 # z is time for lopf in minutes
+    # start non-linear powerflow simulation
+    elif args['method'] == 'pf':
+        network.pf(network.snapshots)
+       # calc_line_losses(network)
+        
+    if args['pf_post_lopf']:
+        pf_post_lopf(network, scenario)
+        calc_line_losses(network)
         
             # provide storage installation costs
             if sum(network_i.storage_units.p_nom_opt) != 0:

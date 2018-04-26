@@ -18,28 +18,13 @@ __copyright__ = "tba"
 __license__ = "tba"
 __author__ = "Simon Hilpert"
 
-import os
 import pandas as pd
 import pyomo.environ as po
-from pypsa.opf import network_lopf
-from etrago.tools.utilities import results_to_csv
 import tsam.timeseriesaggregation as tsam
 
-write_results = True
-#home = os.path.expanduser('C:/eTraGo/etrago')
-#resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
+def snapshot_clustering(network, how='daily', clusters=10):
 
-def snapshot_clustering(network, resultspath, how='daily', clusters= []):
-
-    # This will calculate the original problem
-    run(network=network.copy(), path=resultspath,
-    write_results=write_results, n_clusters=None)
-
-    for c in clusters:
-        path = os.path.join(resultspath, how)
-
-        run(network=network.copy(), path=path,
-            write_results=write_results, n_clusters=c,
+    network = run(network=network.copy(), n_clusters=clusters,
             how=how, normed=False)
 
     return network
@@ -98,40 +83,20 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     return timeseries, cluster_weights, dates, hours
 
 
-def run(network, path, write_results=False, n_clusters=None, how='daily',
+def run(network, n_clusters=None, how='daily',
         normed=False):
     """
     """
     # reduce storage costs due to clusters
+    network.cluster = True
 
-    if n_clusters is not None:
-        path = os.path.join(path, str(n_clusters))
-
-        network.cluster = True
-
-        # calculate clusters
-        tsam_ts, cluster_weights,dates,hours = tsam_cluster(prepare_pypsa_timeseries(network),
-                               typical_periods=n_clusters,
-                               how='daily')       
-               
-        update_data_frames(network, cluster_weights, dates, hours)                 
-        
-        
-    else:
-        network.cluster = False
-        path = os.path.join(path, 'original')
-
-    snapshots = network.snapshots
-    
-    # start powerflow calculations
-    network_lopf(network, snapshots, extra_functionality = daily_bounds,
-                 solver_name='gurobi')
-    
-    # write results to csv
-    if write_results:
-        results_to_csv(network, path)
-        write_lpfile(network, path=os.path.join(path, "file.lp"))
-
+    # calculate clusters
+    tsam_ts, cluster_weights,dates,hours = tsam_cluster(prepare_pypsa_timeseries(network),
+                           typical_periods=n_clusters,
+                           how='daily')       
+           
+    update_data_frames(network, cluster_weights, dates, hours)                 
+            
     return network
 
 def prepare_pypsa_timeseries(network, normed=False):
