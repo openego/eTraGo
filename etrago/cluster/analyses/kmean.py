@@ -12,12 +12,14 @@ import pandas as pd
 from numpy import genfromtxt
 
 #prepare the data 
-kmean = genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
+kmean = [2,5,10] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
 
 abs_err = {}
 rel_err = {}
 abs_time = {}
 rel_time = {}
+benchmark_time={}
+benchmark_objective={}
 ks=[]
 
 home = os.path.expanduser('C:/eTraGo/etrago/results')
@@ -33,7 +35,7 @@ for i in kmean:
 
     network = pd.read_csv(path.join(original_path, 'network.csv'))
     
-    for c in listdir(clustered_path): # go through the snapsot_parameters
+    for c in listdir(clustered_path): # go through the snapshot_parameters
         if c != 'Z.csv': 
             network_c = pd.read_csv(path.join(clustered_path, c, 'network.csv'))
             abserr=(abs(network_c['objective'].values[0] -
@@ -41,15 +43,19 @@ for i in kmean:
             abs_err[str(c)] = network_c['objective'].values[0]
             rel_err[str(c)] = (abserr/ network['objective'].values[0]*100)
             abs_time[str(c)] = float(network_c['time'])
-            rel_time[str(c)] = ((float(network['time'])-float(network_c['time'])) /
+            rel_time[str(c)] = (abs(float(network['time'])-float(network_c['time'])) /
                                 float(network['time']) * 100)
-        
+            benchmark_time[str(c)] = float(network['time'])
+            benchmark_objective[str(c)] = network['objective'].values[0]
+    
     #create a dataframe with the needed results for each kmean        
     results = pd.DataFrame({
-                        'abs_err': abs_err,
-                        'rel_err': rel_err,
-                        'abs_time': abs_time,
-                        'rel_time': rel_time})
+                        '1_obj_abs': abs_err,
+                        '2_obj_rel': rel_err,
+                        '3_obj_benchmark': benchmark_objective,
+                        '4_time_abs': abs_time,
+                        '5_time_rel': rel_time,
+                        '6_time_benchmark':benchmark_time})
     results.index = [int(i) for i in results.index]
     results.sort_index(inplace=True)
     #save the dataframe for each kmean
@@ -73,8 +79,8 @@ def plot_2d(variable, name):
     fig.savefig(path.join(home, 'Analysis_2d,'+ name + '.png'))
 
  #plotting time and objective function
-plot_2d('abs_time',name='Absolute time in s')
-plot_2d('rel_time',name='Relative time deviation in %')
+plot_2d('4_time_abs',name='Absolute time in s')
+plot_2d('5_time_rel',name='Relative time deviation in %')
 
-plot_2d('abs_err',name='Absolute objective function')
-plot_2d('rel_err',name='Relative objective function deviation in %')
+plot_2d('1_obj_abs',name='Absolute objective function')
+plot_2d('2_obj_rel',name='Relative objective function deviation in %')
