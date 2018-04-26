@@ -331,7 +331,7 @@ class UniformDisaggregation(Disaggregation):
                                     for axis in group])
                 clb = clb.query(query)
                 if len(clb) == 0:
-                    break
+                    continue
                 assert len(clb) == 1, (
                     "Cluster {} has {} buses for group {}.\n"
                     .format(cluster, len(clb), group) +
