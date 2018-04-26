@@ -23,6 +23,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 
 import numpy as np
+import pandas as pd
 from numpy import genfromtxt
 np.random.seed()
 import time
@@ -42,31 +43,35 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    
+x = time.time()
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1, 
-        'end_snapshot' : 12,
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'start_snapshot': 1000, 
+        'end_snapshot' : 1001,
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\skip_snapshots_shedded', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
+        'clean_snom':True, #state if you want to create a csv file to avoid load shedding in future calculations
+        'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':4,
+        'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -227,7 +232,22 @@ def etrago(args):
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
-
+        
+    if args['use_cleaned_snom']:
+        try:
+            new_snom_lines = pd.Series.from_csv('lines_opt.csv')
+            index = [str(x) for x in new_snom_lines.index]
+            network.lines['s_nom'].loc[index] = new_snom_lines.values
+        except:
+            print('No corrected line values found.')
+            
+        try:
+            new_snom_transformers = pd.Series.from_csv('transformers_opt.csv')
+            index = [str(x) for x in new_snom_transformers.index]
+            network.transformers['s_nom'].loc[index] = new_snom_transformers.values
+        except:
+            print('No corrected transformer values found.')
+        
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
         network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
@@ -244,8 +264,7 @@ def etrago(args):
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
-      
-      
+        
     if args['storage_extendable']:
         # set virtual storages to be extendable
         if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
@@ -271,6 +290,16 @@ def etrago(args):
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+        
+    if args['clean_snom']:
+        network.lines['s_nom_min'] = network.lines['s_nom']
+        network.lines['s_nom_extendable'] = True
+        network.lines['s_nom_max'] = float('Inf')
+        network.lines['capital_cost'] = 1800000
+        network.transformers['s_nom_min'] = network.transformers['s_nom']
+        network.transformers['s_nom_extendable'] = True
+        network.transformers['s_nom_max'] = float('Inf')
+        network.transformers['capital_cost'] = 1800000
     
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
@@ -292,9 +321,10 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, formulation='angles')
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
+        print(z)
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
@@ -327,7 +357,19 @@ def etrago(args):
     # write PyPSA results to csv to path
     if not args['results'] == False:
         results_to_csv(network, args['results'])
-
+    
+    if args['clean_snom']:
+        #lines
+        diff_lines = round((network.lines['s_nom_opt']-network.lines['s_nom']), 0)
+        index_lines = diff_lines.iloc[list(diff_lines.nonzero()[0])].index
+        round(network.lines['s_nom_opt'].loc[index_lines]/
+              args['branch_capacity_factor']+0.5, 0).to_csv('lines_opt.csv')
+        #transformers
+        diff_transformers = round((network.transformers['s_nom_opt']-network.transformers['s_nom']), 0)
+        index_transformers = diff_transformers.iloc[list(diff_transformers.nonzero()[0])].index
+        round(network.transformers['s_nom_opt'].loc[index_transformers]/
+              args['branch_capacity_factor']+0.5, 0).to_csv('transformers_opt.csv')
+            
     # close session
     session.close()
 
@@ -337,10 +379,13 @@ def etrago(args):
 if __name__ == '__main__':
     # execute etrago function
     network = etrago(args)
+    y = time.time()
+    print('time: ')
+    print((y-x)/60)
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+    #plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
+    #storage_distribution(network)

@@ -312,7 +312,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
               'solar':'yellow',
               'uranium':'lime',
               'waste':'sienna',
-              'wind':'skyblue',
+              'wind_onshore':'skyblue',
+              'wind_offshore':'dodgerblue',
               'slack':'pink',
               'load shedding': 'red',
               'nan':'m',
@@ -387,7 +388,8 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
           'solar':'yellow',
           'uranium':'lime',
           'waste':'sienna',
-          'wind':'skyblue',
+          'wind_onshore':'skyblue',
+          'wind_offshore':'dodgerblue',
           'slack':'pink',
           'load shedding': 'red',
           'nan':'m'}
@@ -395,7 +397,7 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     colors = [colors[col] for col in diff.columns]
     
     plot = diff.plot(kind='line', color=colors, use_index=False)
-    plot.legend(loc='upper left', ncol=5, prop={'size': 8})
+    plot.legend(loc='upper left', ncol=5, prop={'size': 12})
     x = []
     for i in range(0, len(diff)):
         x.append(i)
