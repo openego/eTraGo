@@ -11,7 +11,6 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from numpy import genfromtxt
 
-#prepare the data 
 kmean = [2,5,10] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
 
 abs_err = {}
@@ -31,17 +30,17 @@ for i in kmean:
     resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i))
     clustered_path = path.join(resultspath, 'daily')
     original_path = path.join(resultspath, 'original')
-    plot_path = resultspath
 
     network = pd.read_csv(path.join(original_path, 'network.csv'))
     
     for c in listdir(clustered_path): # go through the snapshot_parameters
         if c != 'Z.csv': 
             network_c = pd.read_csv(path.join(clustered_path, c, 'network.csv'))
-            abserr=(abs(network_c['objective'].values[0] -
-                                   network['objective'].values[0]))
+    
             abs_err[str(c)] = network_c['objective'].values[0]
-            rel_err[str(c)] = (abserr/ network['objective'].values[0]*100)
+            rel_err[str(c)] = ((abs(network_c['objective'].values[0] -
+                                network['objective'].values[0])) / 
+                                network['objective'].values[0] * 100)
             abs_time[str(c)] = float(network_c['time'])
             rel_time[str(c)] = (abs(float(network['time'])-float(network_c['time'])) /
                                 float(network['time']) * 100)
@@ -58,6 +57,7 @@ for i in kmean:
                         '6_time_benchmark':benchmark_time})
     results.index = [int(i) for i in results.index]
     results.sort_index(inplace=True)
+    
     #save the dataframe for each kmean
     results.to_csv('kmean'+str(i)+'.csv')
             
