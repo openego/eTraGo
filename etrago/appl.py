@@ -288,7 +288,6 @@ def etrago(args):
     else:
         extra_functionality = None
     
-
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
@@ -317,32 +316,30 @@ def etrago(args):
         pf_post_lopf(network, scenario)
         calc_line_losses(network)
         
-            # provide storage installation costs
-            if sum(network_i.storage_units.p_nom_opt) != 0:
-                installed_storages = network_i.storage_units[ network_i.storage_units.p_nom_opt!=0]
-                storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
-                print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
-                
-            # write lpfile to path
-            if not args['lpfile'] == False:
-                network_i.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
-                                                            True})
+    # provide storage installation costs
+    if sum(network.storage_units.p_nom_opt) != 0:
+        installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
+        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
+        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
         
-            # write PyPSA results back to database
-            if args['export']:
-                username = str(conn.url).split('//')[1].split(':')[0]
-                args['user_name'] = username
-                safe_results=False #default is False. If it is set to 'True' the result set will be safed
-                                   #to the versioned grid schema eventually apart from
-                                   #being saved to the model_draft.
-                                   #ONLY set to True if you know what you are doing.
-                results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)
+    # write lpfile to path
+    if not args['lpfile'] == False:
+        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
+                                                    True})
 
-            # write PyPSA results to csv to path
-            if not args['results'] == False:
-                results_to_csv(network_i, args['results'])
-        
-        np.savetxt("k_mean_parameter.csv", k_mean)
+    # write PyPSA results back to database
+    if args['export']:
+        username = str(conn.url).split('//')[1].split(':')[0]
+        args['user_name'] = username
+        safe_results=False #default is False. If it is set to 'True' the result set will be safed
+                           #to the versioned grid schema eventually apart from
+                           #being saved to the model_draft.
+                           #ONLY set to True if you know what you are doing.
+        results_to_oedb(session, network, args, grid='hv', safe_results = safe_results)
+
+    # write PyPSA results to csv to path
+    if not args['results'] == False:
+        results_to_csv(network, args['results'])
         
     # close session
     session.close()
