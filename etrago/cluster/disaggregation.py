@@ -345,7 +345,7 @@ class UniformDisaggregation(Disaggregation):
                 clt = cl_t['p'].loc[:, list(clb.iterrows())[0][0]]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
-                    pnmp = pnb.p_nom * p_max_pu_t.loc[:, timed]
+                    pnmp = pnb.loc[:, 'p_nom'] * p_max_pu_t.loc[:, timed]
                     index = timed
                     psum = pnmp.sum(axis=1)
                     for bus_id in index:
@@ -355,7 +355,7 @@ class UniformDisaggregation(Disaggregation):
                                 clt * pnmp.loc[:, bus_id] / psum)
 
                 else:
-                    pnmp = pnb.p_nom * pnb.p_max_pu
+                    pnmp = pnb['p_nom'] * pnb['p_max_pu']
                     index = pnmp.index
                     psum = pnmp.sum()
                     for bus_id in index:
