@@ -367,11 +367,11 @@ class UniformDisaggregation(Disaggregation):
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
-                    index = timed
                     p_nom_times_p_max_pu = (
                             pnb.loc[:, 'p_nom'] *
-                            p_max_pu_t.loc[:, timed])
+                            pn_t['p_max_pu'].loc[:, pnb.index])
                     psum = p_nom_times_p_max_pu.sum(axis='columns')
+                    index = pnb.index
                     for bus_id in index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
