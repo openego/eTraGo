@@ -317,7 +317,6 @@ class UniformDisaggregation(Disaggregation):
                      'storage_units': ('carrier', 'max_hours')}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
-            p_max_pu_t = pn_t['p_max_pu']
             cl_t = getattr(self.clustered_network, bustype + '_t')
             pn_buses = getattr(partial_network, bustype)
             cl_buses = getattr(self.clustered_network, bustype)
@@ -365,8 +364,13 @@ class UniformDisaggregation(Disaggregation):
                             "it has on the buses of it's partial network.")
 
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
-                timed = p_max_pu_t.columns.intersection(pnb.index)
-                if not timed.empty:
+                series = [s
+                        for s in cl_t
+                        if not cl_t[k].empty
+                        if not pn_t[k].columns.intersection(pnb.index).empty]
+
+                if 'p_max_pu' in series:
+                    series.remove('p_max_pu')
                     p_nom_times_p_max_pu = (
                             pnb.loc[:, 'p_nom'] *
                             pn_t['p_max_pu'].loc[:, pnb.index])
