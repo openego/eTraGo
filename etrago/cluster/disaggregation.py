@@ -363,6 +363,20 @@ class UniformDisaggregation(Disaggregation):
                             "cluster's bus does not have the same value " +
                             "it has on the buses of it's partial network.")
 
+                if clb.iloc[0].at['p_nom_extendable']:
+                    # That means, `p_nom` got computed via optimization and we
+                    # have to distribute it into the subnetwork first.
+                    pnb_p_nom_max = pnb.loc[:, 'p_nom_max']
+                    p_nom_max_global = pnb_p_nom_max.sum(axis='index')
+                    pnb.loc[:,'p_nom_opt'] = (
+                            clb.iloc[0].at['p_nom_opt'] *
+                            pnb_p_nom_max /
+                            p_nom_max_global)
+                    # Also save a vie of the `p_nom_opt` values under `p_nom`,
+                    # so that the remaining code can always use `p_nom`.
+                    pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
+
+
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 series = [s
                         for s in cl_t
