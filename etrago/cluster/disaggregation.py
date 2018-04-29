@@ -341,7 +341,7 @@ class UniformDisaggregation(Disaggregation):
                         [i for i, row in enumerate(pn_buses.itertuples())
                            if not row.bus.startswith(self.idx_prefix) ]]
                 pnb = pnb.query(query)
-                clt = cl_t['p'].loc[:, list(clb.iterrows())[0][0]]
+                clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
                     pnmp = pnb.loc[:, 'p_nom'] * p_max_pu_t.loc[:, timed]
