@@ -397,7 +397,8 @@ class UniformDisaggregation(Disaggregation):
                     loc = ()
                     index = p_nom_times_p_max_pu.index
 
-                for s in series:
+                # for s in series:
+                for s in ['p']:
                     for bus_id in index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
