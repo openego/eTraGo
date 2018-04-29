@@ -336,11 +336,10 @@ class UniformDisaggregation(Disaggregation):
                     "Cluster {} has {} buses for group {}.\n"
                     .format(cluster, len(clb), group) +
                     "Should be exactly one.")
-                # Remove cluster buses from partial network
-                cluster_bus_names = [r[0] for r in cl_buses.iterrows()]
+                # Remove buses not belonging to the partial network
                 pnb = pn_buses.iloc[
-                        [r[0] for r in enumerate(pn_buses.iterrows())
-                              if r[1][0] not in cluster_bus_names]]
+                        [i for i, row in enumerate(pn_buses.itertuples())
+                           if not row.bus.startswith(self.idx_prefix) ]]
                 pnb = pnb.query(query)
                 clt = cl_t['p'].loc[:, list(clb.iterrows())[0][0]]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
