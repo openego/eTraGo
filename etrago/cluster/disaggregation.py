@@ -367,22 +367,27 @@ class UniformDisaggregation(Disaggregation):
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
-                    pnmp = pnb.loc[:, 'p_nom'] * p_max_pu_t.loc[:, timed]
                     index = timed
-                    psum = pnmp.sum(axis=1)
+                    p_nom_times_p_max_pu = (
+                            pnb.loc[:, 'p_nom'] *
+                            p_max_pu_t.loc[:, timed])
+                    psum = p_nom_times_p_max_pu.sum(axis='columns')
                     for bus_id in index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
                         pn_t['p'].loc[:, bus_id] = (
-                                clt * pnmp.loc[:, bus_id] / psum)
+                                clt *
+                                p_nom_times_p_max_pu.loc[:, bus_id] / psum)
 
                 else:
-                    pnmp = pnb['p_nom'] * pnb['p_max_pu']
-                    index = pnmp.index
-                    psum = pnmp.sum()
+                    p_nom_times_p_max_pu = pnb['p_nom'] * pnb['p_max_pu']
+                    psum = p_nom_times_p_max_pu.sum(axis='index')
+                    index = p_nom_times_p_max_pu.index
                     for bus_id in index:
                         pn_t['p'].loc[:, bus_id] = (
-                                clt * pnmp.loc[bus_id] / psum)
+                                clt *
+                                p_nom_times_p_max_pu.loc[bus_id] /
+                                psum)
 
 
     def transfer_results(self, *args, **kwargs):
