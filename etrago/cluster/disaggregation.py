@@ -380,8 +380,8 @@ class UniformDisaggregation(Disaggregation):
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 series = [s
                         for s in cl_t
-                        if not cl_t[k].empty
-                        if not pn_t[k].columns.intersection(pnb.index).empty]
+                        if not cl_t[s].empty
+                        if not pn_t[s].columns.intersection(pnb.index).empty]
 
                 if 'p_max_pu' in series:
                     series.remove('p_max_pu')
