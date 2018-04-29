@@ -341,6 +341,29 @@ class UniformDisaggregation(Disaggregation):
                         [i for i, row in enumerate(pn_buses.itertuples())
                            if not row.bus.startswith(self.idx_prefix) ]]
                 pnb = pnb.query(query)
+                assert not pnb.empty, (
+                        "Cluster has a bus for:" +
+                        "\n    ".join(["{key}: {value!r}".format(**axis)
+                                       for axis in group]) +
+                        "\nbut no matching buses in its corresponding " +
+                        "partial network.")
+
+                if not (pnb.loc[:, 'p_nom_extendable'].all() or
+                        not pnb.loc[:, 'p_nom_extendable'].any()):
+                    raise NotImplemented(
+                            "The `'p_nom_extendable'` flag for buses in the" +
+                            " partial network with:" +
+                            "\n    ".join(["{key}: {value!r}".format(**axis)
+                                           for axis in group]) +
+                            "\ndoesn't have the same value." +
+                            "\nThis is not supported.")
+                else:
+                    assert (pnb.loc[:, 'p_nom_extendable'] ==
+                            clb.iloc[0].at['p_nom_extendable']).all(), (
+                            "The `'p_nom_extendable'` flag for the current " +
+                            "cluster's bus does not have the same value " +
+                            "it has on the buses of it's partial network.")
+
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 timed = p_max_pu_t.columns.intersection(pnb.index)
                 if not timed.empty:
