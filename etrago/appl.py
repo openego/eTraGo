@@ -65,13 +65,13 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['network'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':['storage'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
         'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -197,15 +197,15 @@ def etrago(args):
         False,
         ...
 
-    k_mean_clustering : bool
+    network_clustering_kmeans : bool
         False,
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
         put False. This function doesn't work together with
-        ``'line_grouping = True'`` or ``'network_clustering = True'``.
+        ``'line_grouping = True'``.
 
-    network_clustering : bool
+    network_clustering_ehv : bool
         False,
         Choose if you want to cluster the full HV/EHV dataset down to only the EHV
         buses. In that case, all HV buses are assigned to their closest EHV sub-station,
@@ -294,15 +294,15 @@ def etrago(args):
         group_parallel_lines(network)
 
     # network clustering
-    if args['network_clustering']:
+    if args['network_clustering_ehv']:
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
 
     # k-mean clustering
-    if not args['k_mean_clustering'] == False:
-        network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
+    if not args['network_clustering_kmeans'] == False:
+        network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'])
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -315,13 +315,13 @@ def etrago(args):
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
         
     if args ['scn_extension'] != None:
-         network = extension(network, session, scn_extension = args ['scn_extension'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['k_mean_clustering'])
+         network = extension(network, session, scn_extension = args ['scn_extension'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['network_clustering_kmeans'])
     
     if args ['scn_decommissioning'] != None:
-         network = decommissioning(network, session, scn_decommissioning = args ['scn_decommissioning'],k_mean_clustering = args['k_mean_clustering'])
+         network = decommissioning(network, session, scn_decommissioning = args ['scn_decommissioning'],k_mean_clustering = args['network_clustering_kmeans'])
 
     if args ['add_Belgium_Norway']:
-         network = extension(network, session, scn_extension = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['k_mean_clustering'])
+         network = extension(network, session, scn_extension = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['network_clustering_kmeans'])
         
     if args ['extendable'] != None:
         network = extendable(network, args['extendable'], args ['scn_extension'])
