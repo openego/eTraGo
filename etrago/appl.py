@@ -295,7 +295,7 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        k_mean =[2,5,10,20,30,40,50,100,200,300]
+        k_mean =[100,200,300]
 
         for i in k_mean: 
             print('++ Start model with k_mean = ' + str(i))
