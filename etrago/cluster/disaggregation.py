@@ -1,4 +1,6 @@
+from functools import reduce
 from itertools import product
+from operator import mul as multiply
 import cProfile
 import time
 
@@ -326,8 +328,15 @@ class MiniSolverDisaggregation(Disaggregation):
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
-        bustypes = {'generators': {'group_by': ('carrier',)},
-                    'storage_units': {'group_by': ('carrier', 'max_hours')}}
+        bustypes = {
+                'generators': {
+                    'group_by': ('carrier',),
+                    'series': ('p',)},
+                'storage_units': {
+                    'group_by': ('carrier', 'max_hours'),
+                    'series': ('p', 'state_of_charge')}}
+        weights = {'p': ('p_nom', 'p_max_pu'),
+                   'state_of_charge': ('p_nom',)}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
             cl_t = getattr(self.clustered_network, bustype + '_t')
@@ -399,28 +408,23 @@ class UniformDisaggregation(Disaggregation):
                         if not pn_t[s].columns.intersection(pnb.index).empty
                         ): key in series
 
-                if timed('p_max_pu'):
-                    p_nom_times_p_max_pu = (
-                            pnb.loc[:, 'p_nom'] *
-                            pn_t['p_max_pu'].loc[:, pnb.index])
-                    psum = p_nom_times_p_max_pu.sum(axis='columns')
-                    loc = (slice(None, None),)
-                else:
-                    p_nom_times_p_max_pu = (
-                            pnb.loc[:, 'p_nom'] *
-                            pnb.loc[:, 'p_max_pu'])
-                    psum = p_nom_times_p_max_pu.sum(axis='index')
-                    loc = ()
-
-                for s in ['p']:
+                for s in bustypes[bustype]['series']:
                     clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
+                    weight = reduce(multiply,
+                            (pnb.loc[:, key]
+                                if not timed(key)
+                                else pn_t[key].loc[:, pnb.index]
+                                for key in weights[s]),
+                            1)
+                    loc = ((slice(None),)
+                           if any(timed(w) for w in weights[s])
+                           else ())
+                    ws = weight.sum(axis=len(loc))
                     for bus_id in pnb.index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
                         pn_t[s].loc[:, bus_id] = (
-                                clt *
-                                p_nom_times_p_max_pu.loc[loc + (bus_id,)] /
-                                psum)
+                                clt * weight.loc[loc + (bus_id,)] / ws)
 
 
     def transfer_results(self, *args, **kwargs):
