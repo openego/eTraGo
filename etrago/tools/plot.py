@@ -491,10 +491,8 @@ def storage_distribution(network, filename=None):
         If not given, figure will be show directly
     """
     
-    stores = network.storage_units   
     storage_distribution = (network
-            .storage_units
-            .p_nom_opt[stores.index]
+            .storage_units.loc[:, 'p_nom_opt']
             .groupby(network.storage_units.bus)
             .sum().reindex(network.buses.index,fill_value=0.))
 
