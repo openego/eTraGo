@@ -382,10 +382,9 @@ class UniformDisaggregation(Disaggregation):
                             clb.iloc[0].at['p_nom_opt'] *
                             pnb_p_nom_max /
                             p_nom_max_global)
-                    # Also save a vie of the `p_nom_opt` values under `p_nom`,
+                    # Also save a view of the `p_nom_opt` values under `p_nom`,
                     # so that the remaining code can always use `p_nom`.
                     pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
-
 
                 clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 series = [s
