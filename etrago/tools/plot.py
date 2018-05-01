@@ -492,7 +492,11 @@ def storage_distribution(network, filename=None):
     """
     
     stores = network.storage_units   
-    storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(network.storage_units.bus).sum().reindex(network.buses.index,fill_value=0.)
+    storage_distribution = (network
+            .storage_units
+            .p_nom_opt[stores.index]
+            .groupby(network.storage_units.bus)
+            .sum().reindex(network.buses.index,fill_value=0.))
 
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
