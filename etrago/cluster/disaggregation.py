@@ -389,7 +389,6 @@ class UniformDisaggregation(Disaggregation):
                     # so that the remaining code can always use `p_nom`.
                     pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
 
-                clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
                 series = [s
                         for s in cl_t
                         if not cl_t[s].empty
@@ -413,6 +412,7 @@ class UniformDisaggregation(Disaggregation):
 
                 # for s in series:
                 for s in ['p']:
+                    clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
                     for bus_id in index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
