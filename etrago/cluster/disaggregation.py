@@ -223,11 +223,16 @@ class Disaggregation:
         profile.enable()
         t = time.time()
         print('---')
-        print("Cummulative 'p' for generators, Clustered - Disaggregated:")
-        print("    ",
-              self.clustered_network.generators_t['p'].sum().sum() -
-              self.original_network.generators_t['p'].sum().sum())
-        print('Check computed in ', (time.time() - t))
+        for bt, ts in (
+                ('generators', ('p',)),
+                ('storage_units', ('p', 'state_of_charge'))):
+            print("Series sums, {}, clustered - disaggregated:" .format(bt))
+            for s in ts:
+                print("{:>{}}: {}".format(s, 4 + len('state_of_charge'),
+                    getattr(self.clustered_network, bt + '_t')[s].sum().sum()
+                    -
+                    getattr(self.original_network, bt + '_t')[s].sum().sum()))
+        print('Checks computed in ', (time.time() - t))
         profile.disable()
 
         # profile.print_stats(sort='cumtime')
