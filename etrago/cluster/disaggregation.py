@@ -385,6 +385,10 @@ class UniformDisaggregation(Disaggregation):
                             clb.iloc[0].at['p_nom_opt'] *
                             pnb_p_nom_max /
                             p_nom_max_global)
+                    getattr(self.original_network,
+                            bustype).loc[
+                                    pnb.index,
+                                    'p_nom_opt'] = pnb.loc[:, 'p_nom_opt']
                     # Also save a view of the `p_nom_opt` values under `p_nom`,
                     # so that the remaining code can always use `p_nom`.
                     pnb.loc[:, 'p_nom'] = pnb.loc[:, 'p_nom_opt']
