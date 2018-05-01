@@ -325,9 +325,8 @@ class MiniSolverDisaggregation(Disaggregation):
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
-        bustypes = ('generators', 'storage_units')
-        groupings = {'generators': ('carrier',),
-                     'storage_units': ('carrier', 'max_hours')}
+        bustypes = {'generators': {'group_by': ('carrier',)},
+                    'storage_units': {'group_by': ('carrier', 'max_hours')}}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
             cl_t = getattr(self.clustered_network, bustype + '_t')
@@ -336,7 +335,7 @@ class UniformDisaggregation(Disaggregation):
             groups = product(*
                     [ [ {'key': key, 'value': value}
                         for value in set(pn_buses.loc[:, key])]
-                      for key in groupings[bustype]])
+                      for key in bustypes[bustype]['group_by']])
             for group in groups:
                 clb = cl_buses[cl_buses.bus == cluster]
                 query = " & ".join(["({key} == {value!r})".format(**axis)
