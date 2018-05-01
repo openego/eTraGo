@@ -389,13 +389,13 @@ class UniformDisaggregation(Disaggregation):
                     # so that the remaining code can always use `p_nom`.
                     pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
 
-                series = [s
+                timed = lambda key, series=set(s
                         for s in cl_t
                         if not cl_t[s].empty
-                        if not pn_t[s].columns.intersection(pnb.index).empty]
+                        if not pn_t[s].columns.intersection(pnb.index).empty
+                        ): key in series
 
-                if 'p_max_pu' in series:
-                    series.remove('p_max_pu')
+                if timed('p_max_pu'):
                     p_nom_times_p_max_pu = (
                             pnb.loc[:, 'p_nom'] *
                             pn_t['p_max_pu'].loc[:, pnb.index])
@@ -408,7 +408,6 @@ class UniformDisaggregation(Disaggregation):
                     psum = p_nom_times_p_max_pu.sum(axis='index')
                     loc = ()
 
-                # for s in series:
                 for s in ['p']:
                     clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
                     for bus_id in pnb.index:
