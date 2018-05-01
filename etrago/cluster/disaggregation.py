@@ -404,7 +404,9 @@ class UniformDisaggregation(Disaggregation):
                     loc = (slice(None, None),)
                     index = pnb.index
                 else:
-                    p_nom_times_p_max_pu = pnb['p_nom'] * pnb['p_max_pu']
+                    p_nom_times_p_max_pu = (
+                            pnb.loc[:, 'p_nom'] *
+                            pnb.loc[:, 'p_max_pu'])
                     psum = p_nom_times_p_max_pu.sum(axis='index')
                     loc = ()
                     index = p_nom_times_p_max_pu.index
