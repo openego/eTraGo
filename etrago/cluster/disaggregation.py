@@ -218,6 +218,16 @@ class Disaggregation:
             profile.disable()
             print('Results transferred in ', (time.time() - t))
 
+        profile.enable()
+        t = time.time()
+        print('---')
+        print("Cummulative 'p' for generators, Clustered - Disaggregated:")
+        print("    ",
+              self.clustered_network.generators_t['p'].sum().sum() -
+              self.original_network.generators_t['p'].sum().sum())
+        print('Check computed in ', (time.time() - t))
+        profile.disable()
+
         # profile.print_stats(sort='cumtime')
 
     def transfer_results(self, partial_network, externals,
