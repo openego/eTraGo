@@ -401,19 +401,17 @@ class UniformDisaggregation(Disaggregation):
                             pn_t['p_max_pu'].loc[:, pnb.index])
                     psum = p_nom_times_p_max_pu.sum(axis='columns')
                     loc = (slice(None, None),)
-                    index = pnb.index
                 else:
                     p_nom_times_p_max_pu = (
                             pnb.loc[:, 'p_nom'] *
                             pnb.loc[:, 'p_max_pu'])
                     psum = p_nom_times_p_max_pu.sum(axis='index')
                     loc = ()
-                    index = p_nom_times_p_max_pu.index
 
                 # for s in series:
                 for s in ['p']:
                     clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
-                    for bus_id in index:
+                    for bus_id in pnb.index:
                         # TODO: Check whether series multiplication works as
                         #       expected.
                         pn_t[s].loc[:, bus_id] = (
