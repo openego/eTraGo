@@ -381,13 +381,13 @@ class UniformDisaggregation(Disaggregation):
                     # have to distribute it into the subnetwork first.
                     pnb_p_nom_max = pnb.loc[:, 'p_nom_max']
                     p_nom_max_global = pnb_p_nom_max.sum(axis='index')
-                    pnb.loc[:,'p_nom_opt'] = (
+                    pnb.loc[:, 'p_nom_opt'] = (
                             clb.iloc[0].at['p_nom_opt'] *
                             pnb_p_nom_max /
                             p_nom_max_global)
                     # Also save a view of the `p_nom_opt` values under `p_nom`,
                     # so that the remaining code can always use `p_nom`.
-                    pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
+                    pnb.loc[:, 'p_nom'] = pnb.loc[:, 'p_nom_opt']
 
                 timed = lambda key, series=set(s
                         for s in cl_t
