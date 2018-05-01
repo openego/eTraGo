@@ -490,7 +490,7 @@ def storage_distribution(network, filename=None):
         Specify filename
         If not given, figure will be show directly
     """
-    
+
     storage_distribution = (network
             .storage_units.loc[:, 'p_nom_opt']
             .groupby(network.storage_units.bus)
@@ -498,7 +498,7 @@ def storage_distribution(network, filename=None):
 
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
-   
+
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
@@ -507,7 +507,7 @@ def storage_distribution(network, filename=None):
                  ax=ax,
                  line_widths=0.3,
                  title="Storage distribution")
-    
+
     if filename is None:
         plt.show()
     else:
