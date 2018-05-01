@@ -426,8 +426,6 @@ class UniformDisaggregation(Disaggregation):
                            else ())
                     ws = weight.sum(axis=len(loc))
                     for bus_id in pnb.index:
-                        # TODO: Check whether series multiplication works as
-                        #       expected.
                         pn_t[s].loc[:, bus_id] = (
                                 clt * weight.loc[loc + (bus_id,)] / ws)
 
