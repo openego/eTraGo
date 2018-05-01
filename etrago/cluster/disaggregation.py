@@ -239,7 +239,8 @@ class Disaggregation:
             part_buses = getattr(partial_network, bustype + '_t')
             for key in (orig_buses.keys()
                     if series is None
-                    else (k for k in orig_buses.keys() if k in series)):
+                    else (k for k in orig_buses.keys()
+                            if k in series.get(bustype, {}))):
                 for snap in partial_network.snapshots:
                     orig_buses[key].loc[snap].update(part_buses[key].loc[snap])
 
@@ -423,7 +424,8 @@ class UniformDisaggregation(Disaggregation):
 
     def transfer_results(self, *args, **kwargs):
         kwargs['bustypes'] = ['generators', 'storage_units']
-        kwargs['series'] = {'p'}
+        kwargs['series'] = {'generators': {'p'},
+                            'storage_units': {'p', 'state_of_charge'}}
         return super().transfer_results(*args, **kwargs)
 
 
