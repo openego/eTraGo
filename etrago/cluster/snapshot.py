@@ -26,7 +26,7 @@ from etrago.tools.utilities import results_to_csv
 import tsam.timeseriesaggregation as tsam
 
 write_results = True
-#home = os.path.expanduser('C:/eTraGo/etrago')
+#home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/run2')
 #resultspath = os.path.join(home, 'snapshot-clustering-results-k10-cyclic-tsam',) # args['scn_name'])
 
 def snapshot_clustering(network, resultspath, how='daily', clusters= []):
@@ -125,7 +125,7 @@ def run(network, path, write_results=False, n_clusters=None, how='daily',
     
     # start powerflow calculations
     network_lopf(network, snapshots, extra_functionality = daily_bounds,
-                 solver_name='gurobi')
+                 solver_name='gurobi', solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5})
     
     # write results to csv
     if write_results:

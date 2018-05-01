@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from numpy import genfromtxt
 
-kmean = [2,5,10,20,30,40,50,100] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
+kmean = [20,40,60,80,100] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
 
 abs_err = {}
 rel_err = {}
@@ -21,7 +21,7 @@ benchmark_time={}
 benchmark_objective={}
 ks=[]
 
-home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering')
+home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/run2')
 
 #receive information from the results of the calculation 
 for i in kmean:
