@@ -77,6 +77,8 @@ for k in df.index.get_level_values('k').unique():
 import seaborn as sns
 sns.set_style("darkgrid")
 ax = sns.pointplot(x="s", y="RE-objective", hue='k',
-                   data=df.reset_index())
+                   data=df.drop(0).reset_index())
 ax = sns.pointplot(x="s", y="RE-time", hue='k',
                    data=df.drop(0).reset_index())
+
+df.to_csv('/tmp/data.csv')
