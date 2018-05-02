@@ -4,6 +4,7 @@ Created on Tue Apr 10 10:37:49 2018
 
 @author: Kim
 """
+from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
