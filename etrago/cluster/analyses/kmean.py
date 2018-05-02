@@ -11,7 +11,7 @@ from matplotlib import pyplot as plt
 import pandas as pd
 from numpy import genfromtxt
 
-kmean = [2,5,10] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
+kmean = [20,40,60,80,100] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
 
 abs_err = {}
 rel_err = {}
@@ -21,7 +21,7 @@ benchmark_time={}
 benchmark_objective={}
 ks=[]
 
-home = os.path.expanduser('C:/eTraGo/etrago/results')
+home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/run2')
 
 #receive information from the results of the calculation 
 for i in kmean:
@@ -38,11 +38,11 @@ for i in kmean:
             network_c = pd.read_csv(path.join(clustered_path, c, 'network.csv'))
     
             abs_err[str(c)] = network_c['objective'].values[0]
-            rel_err[str(c)] = ((abs(network_c['objective'].values[0] -
-                                network['objective'].values[0])) / 
+            rel_err[str(c)] = ((abs(network['objective'].values[0] -
+                                network_c['objective'].values[0])) / 
                                 network['objective'].values[0] * 100)
             abs_time[str(c)] = float(network_c['time'])
-            rel_time[str(c)] = (abs(float(network['time'])-float(network_c['time'])) /
+            rel_time[str(c)] = (float(network_c['time']) /
                                 float(network['time']) * 100)
             benchmark_time[str(c)] = float(network['time'])
             benchmark_objective[str(c)] = network['objective'].values[0]

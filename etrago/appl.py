@@ -51,7 +51,7 @@ args = {# Setup and Configuration:
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
         'end_snapshot' : 8760,
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'eGo 100', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
@@ -59,7 +59,7 @@ args = {# Setup and Configuration:
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
+        'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
@@ -295,12 +295,12 @@ def etrago(args):
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
-        k_mean =[2,5,10,20,30,40,50,100,200,300]
+        k_mean =[20,40,60,80,100]
 
         for i in k_mean: 
             print('++ Start model with k_mean = ' + str(i))
             network_i = kmean_clustering(network, n_clusters= i)
-            home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/')
+            home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/eGo100')
             resultspath = os.path.join(home, 'snapshot-clustering-results-cyclic-tsam-k'+str(i)) # args['scn_name'])
             
             # snapshot clustering
@@ -308,7 +308,7 @@ def etrago(args):
                 # the results will be stored under "snapshot-clustering-results"
                 #extra_functionality = daily_bounds
                 x = time.time()
-                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [2,5,10,20,30,40,50,100])
+                network_i = snapshot_clustering(network_i,resultspath, how='daily', clusters= [2,5,10,20,30,40,50,60,70,80,90,100])
                 y = time.time()
                 z = (y - x) / 60 # z is time for lopf in minutes
             else:

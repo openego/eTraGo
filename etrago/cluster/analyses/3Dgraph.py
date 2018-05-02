@@ -12,7 +12,7 @@ from os import path, listdir
 from numpy import genfromtxt
 import os
 
-kmean = [2,5,10] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
+kmean = [20,40,60,80,100] #genfromtxt('C:\eTraGo\etrago\k_mean_parameter.csv')
 
 abs_obj =[]
 rel_obj =[]
@@ -21,7 +21,7 @@ rel_time =[]
 snapshot=[]
 k_parameter=[]
 
-home = os.path.expanduser('C:/eTraGo/etrago/results')
+home = os.path.expanduser('/home/openego/pf_results/snapshot_clustering/run2')
 
 #set the time of the highest kmean(without snapshots) as the benchmark 
 max_k = int(max(kmean))
@@ -48,7 +48,7 @@ for i in kmean:
             rel_obj.append((abs(benchmark_objective - network_c['objective'].values[0])) / 
                            benchmark_objective * 100)
             abs_time.append(float(network_c['time']))
-            rel_time.append((benchmark_time -float(network_c['time'])) /
+            rel_time.append((float(network_c['time'])) /
                             benchmark_time * 100)
             snapshot.append(int(c))
             k_parameter.append(i)
