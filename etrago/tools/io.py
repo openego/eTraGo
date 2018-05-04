@@ -29,7 +29,7 @@ from collections import OrderedDict
 import re
 import json
 import os
-
+from random import randint
 
 packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
@@ -233,7 +233,11 @@ class NetworkScenario(ScenarioBase):
         network = pypsa.Network()
         network.set_snapshots(self.timeindex)
 
-        timevarying_override = False
+# Continuuuuue here......
+#        s_len = len(network.snapshots)
+#        x=[randint(0,s_len-1) for p in range(0,2)]
+#        network.snapshots = network.snapshots[x]
+#        timevarying_override = False
 
         if pypsa.__version__ == '0.11.0':
             old_to_new_name = {'Generator':

@@ -219,7 +219,6 @@ def etrago(args):
                                brnch_fct=args['branch_capacity_factor'])
 
     network = scenario.build_network()
-
     # add coordinates
     network = add_coordinates(network)
 
