@@ -42,6 +42,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    from random import randint
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
@@ -283,13 +284,20 @@ def etrago(args):
     else:
         extra_functionality=None
 
-    if args['skip_snapshots']:
-        network.snapshots=network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
+#    if args['skip_snapshots']:
+#        network.snapshots=network.snapshots[::args['skip_snapshots']]
+#        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
+
+    if args['rand_snapshots']:
+        no_snap = args['rand_snapshots']
+        s_len = len(network.snapshots)
+        x=[randint(0,s_len-1) for p in range(0,no_snap)]
+        network.snapshots = network.snapshots[x]
 
     # parallisation
-    if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+#    if args['parallelisation']:
+#        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
