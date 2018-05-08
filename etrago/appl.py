@@ -67,7 +67,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'disaggregation': None, # or None or mini
+        'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
