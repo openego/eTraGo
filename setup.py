@@ -17,8 +17,9 @@ setup(
       include_package_data=True,
       install_requires=['egoio == 0.3.0',
                         'scikit-learn == 0.19.0',
-		                'pandas >= 0.19.0, <=0.20.3',
+		        'pandas >= 0.19.0, <=0.20.3',
                         'pypsa==0.11.0fork',
+
                         'sqlalchemy >= 1.0.15, <= 1.1.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3',

@@ -102,7 +102,7 @@ def run(network, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
-    
+
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
         normed_renewables = network.generators_t.p_max_pu
@@ -113,7 +113,7 @@ def prepare_pypsa_timeseries(network, normed=False):
         loads = network.loads_t.p_set
         renewables = network.generators_t.p_set
         df = pd.concat([renewables, loads], axis=1)
-    
+
     return df
 
 
@@ -152,7 +152,7 @@ def update_data_frames(network,cluster_weights, dates,hours):
     network.snapshot_weightings.sort_index()
     
     return network
-    
+
 def daily_bounds(network, snapshots):
     """ This will bound the storage level to 0.5 max_level every 24th hour.
     """

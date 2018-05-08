@@ -37,6 +37,7 @@ if not 'READTHEDOCS' in os.environ:
     import pypsa.io as io
     import pypsa.components as components
     from six import iteritems
+    from sqlalchemy import or_, exists
 
 # TODO: Workaround because of agg
 def _leading(busmap, df):
@@ -71,11 +72,15 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     buses = aggregatebuses(network, busmap, {'x':_leading(busmap, network.buses),
                                              'y':_leading(busmap, network.buses)})
-
     # keep attached lines
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask,:]
+    
+    # keep attached links
+    links = network.links.copy()
+    mask = links.bus0.isin(buses.index)
+    links = links.loc[mask,:]
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -84,6 +89,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     io.import_components_from_dataframe(network_c, buses, "Bus")
     io.import_components_from_dataframe(network_c, lines, "Line")
+    io.import_components_from_dataframe(network_c, links, "Link")
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
 
     if with_time:
@@ -189,7 +195,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
+def busmap_by_shortest_path(network, session, scn_name,  fromlvl, tolvl,
                             cpu_cores=4):
     """ Create busmap between voltage levels based on dijkstra shortest path.
     The result is written to the `model_draft` on the OpenEnergy - Platform. The
@@ -230,6 +236,8 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
 
     """
 
+    
+    
     # cpu_cores = mp.cpu_count()
 
     # data preperation
@@ -292,7 +300,11 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
+   
+    print(scn_name)
     df['scn_name'] = scn_name
+    print(df)
+            
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
@@ -325,12 +337,13 @@ def busmap_from_psql(network, session, scn_name):
     """
 
     def fetch():
-
+        
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name)
-
+                filter(EgoGridPfHvBusmap.scn_name == scn_name)
+      
         return dict(query.all())
-
+       
+    
     busmap = fetch()
 
     # TODO: Or better try/except/finally
@@ -342,8 +355,11 @@ def busmap_from_psql(network, session, scn_name):
         busmap_by_shortest_path(network, session, scn_name,
                                 fromlvl=[110], tolvl=[220, 380],
                                 cpu_cores=int(cpu_cores))
+
         busmap = fetch()
 
+
+        
     return busmap
 
 def kmean_clustering(network, n_clusters=10):
@@ -424,6 +440,5 @@ def kmean_clustering(network, n_clusters=10):
     clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
     network = clustering.network
     #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-
     return network
     
