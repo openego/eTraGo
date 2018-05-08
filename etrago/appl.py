@@ -52,8 +52,8 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2005, 
-        'end_snapshot' : 2006,
+        'start_snapshot': 1, 
+        'end_snapshot' : 192,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -72,7 +72,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':3, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -332,31 +332,30 @@ def etrago(args):
         load_shedding(network)
         
     # snapshot clustering
-        if not args['snapshot_clustering']== False:
+    if not args['snapshot_clustering']== False:
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
         extra_functionality = daily_bounds # daily_bounds or other constraint
 
     # parallisation
-    else:
-        if args['parallelisation']:
-            parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'],  extra_functionality=extra_functionality)
+    if args['parallelisation']:
+        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'],  extra_functionality=extra_functionality)
     
     # start linear optimal powerflow calculations
-        elif args['method'] == 'lopf':
-            x = time.time()
-            network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
-            y = time.time()
-            z = (y - x) / 60 
-            print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
+    elif args['method'] == 'lopf':
+        x = time.time()
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        y = time.time()
+        z = (y - x) / 60 
+        print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
 
             # start non-linear powerflow simulation
-        elif args['method'] == 'pf':
-                network.pf(scenario.timeindex)
+    elif args['method'] == 'pf':
+            network.pf(scenario.timeindex)
             # calc_line_losses(network)
         
-        if args['pf_post_lopf']:
-            pf_post_lopf(network, scenario)
-            calc_line_losses(network)
+    if args['pf_post_lopf']:
+        pf_post_lopf(network, scenario)
+        calc_line_losses(network)
     
 
        # provide storage installation costs
