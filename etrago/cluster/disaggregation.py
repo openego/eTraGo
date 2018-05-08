@@ -1,4 +1,6 @@
+from functools import reduce
 from itertools import product
+from operator import mul as multiply
 import cProfile
 import time
 
@@ -221,11 +223,16 @@ class Disaggregation:
         profile.enable()
         t = time.time()
         print('---')
-        print("Cummulative 'p' for generators, Clustered - Disaggregated:")
-        print("    ",
-              self.clustered_network.generators_t['p'].sum().sum() -
-              self.original_network.generators_t['p'].sum().sum())
-        print('Check computed in ', (time.time() - t))
+        for bt, ts in (
+                ('generators', ('p',)),
+                ('storage_units', ('p', 'state_of_charge'))):
+            print("Series sums, {}, clustered - disaggregated:" .format(bt))
+            for s in ts:
+                print("{:>{}}: {}".format(s, 4 + len('state_of_charge'),
+                    getattr(self.clustered_network, bt + '_t')[s].sum().sum()
+                    -
+                    getattr(self.original_network, bt + '_t')[s].sum().sum()))
+        print('Checks computed in ', (time.time() - t))
         profile.disable()
 
         # profile.print_stats(sort='cumtime')
@@ -239,7 +246,8 @@ class Disaggregation:
             part_buses = getattr(partial_network, bustype + '_t')
             for key in (orig_buses.keys()
                     if series is None
-                    else (k for k in orig_buses.keys() if k in series)):
+                    else (k for k in orig_buses.keys()
+                            if k in series.get(bustype, {}))):
                 for snap in partial_network.snapshots:
                     orig_buses[key].loc[snap].update(part_buses[key].loc[snap])
 
@@ -325,9 +333,15 @@ class MiniSolverDisaggregation(Disaggregation):
 class UniformDisaggregation(Disaggregation):
     def solve_partial_network(self, cluster, partial_network, scenario,
                               solver=None):
-        bustypes = ('generators', 'storage_units')
-        groupings = {'generators': ('carrier',),
-                     'storage_units': ('carrier', 'max_hours')}
+        bustypes = {
+                'generators': {
+                    'group_by': ('carrier',),
+                    'series': ('p',)},
+                'storage_units': {
+                    'group_by': ('carrier', 'max_hours'),
+                    'series': ('p', 'state_of_charge')}}
+        weights = {'p': ('p_nom', 'p_max_pu'),
+                   'state_of_charge': ('p_nom',)}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
             cl_t = getattr(self.clustered_network, bustype + '_t')
@@ -336,7 +350,7 @@ class UniformDisaggregation(Disaggregation):
             groups = product(*
                     [ [ {'key': key, 'value': value}
                         for value in set(pn_buses.loc[:, key])]
-                      for key in groupings[bustype]])
+                      for key in bustypes[bustype]['group_by']])
             for group in groups:
                 clb = cl_buses[cl_buses.bus == cluster]
                 query = " & ".join(["({key} == {value!r})".format(**axis)
@@ -381,50 +395,45 @@ class UniformDisaggregation(Disaggregation):
                     # have to distribute it into the subnetwork first.
                     pnb_p_nom_max = pnb.loc[:, 'p_nom_max']
                     p_nom_max_global = pnb_p_nom_max.sum(axis='index')
-                    pnb.loc[:,'p_nom_opt'] = (
+                    pnb.loc[:, 'p_nom_opt'] = (
                             clb.iloc[0].at['p_nom_opt'] *
                             pnb_p_nom_max /
                             p_nom_max_global)
+                    getattr(self.original_network,
+                            bustype).loc[
+                                    pnb.index,
+                                    'p_nom_opt'] = pnb.loc[:, 'p_nom_opt']
                     # Also save a view of the `p_nom_opt` values under `p_nom`,
                     # so that the remaining code can always use `p_nom`.
-                    pnb.loc[:,'p_nom'] = pnb.loc[:,'p_nom_opt']
+                    pnb.loc[:, 'p_nom'] = pnb.loc[:, 'p_nom_opt']
 
-                clt = cl_t['p'].loc[:, next(clb.itertuples()).Index]
-                series = [s
+                timed = lambda key, series=set(s
                         for s in cl_t
                         if not cl_t[s].empty
-                        if not pn_t[s].columns.intersection(pnb.index).empty]
+                        if not pn_t[s].columns.intersection(pnb.index).empty
+                        ): key in series
 
-                if 'p_max_pu' in series:
-                    series.remove('p_max_pu')
-                    p_nom_times_p_max_pu = (
-                            pnb.loc[:, 'p_nom'] *
-                            pn_t['p_max_pu'].loc[:, pnb.index])
-                    psum = p_nom_times_p_max_pu.sum(axis='columns')
-                    loc = (slice(None, None),)
-                    index = pnb.index
-                else:
-                    p_nom_times_p_max_pu = (
-                            pnb.loc[:, 'p_nom'] *
-                            pnb.loc[:, 'p_max_pu'])
-                    psum = p_nom_times_p_max_pu.sum(axis='index')
-                    loc = ()
-                    index = p_nom_times_p_max_pu.index
-
-                # for s in series:
-                for s in ['p']:
-                    for bus_id in index:
-                        # TODO: Check whether series multiplication works as
-                        #       expected.
+                for s in bustypes[bustype]['series']:
+                    clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
+                    weight = reduce(multiply,
+                            (pnb.loc[:, key]
+                                if not timed(key)
+                                else pn_t[key].loc[:, pnb.index]
+                                for key in weights[s]),
+                            1)
+                    loc = ((slice(None),)
+                           if any(timed(w) for w in weights[s])
+                           else ())
+                    ws = weight.sum(axis=len(loc))
+                    for bus_id in pnb.index:
                         pn_t[s].loc[:, bus_id] = (
-                                clt *
-                                p_nom_times_p_max_pu.loc[loc + (bus_id,)] /
-                                psum)
+                                clt * weight.loc[loc + (bus_id,)] / ws)
 
 
     def transfer_results(self, *args, **kwargs):
         kwargs['bustypes'] = ['generators', 'storage_units']
-        kwargs['series'] = {'p'}
+        kwargs['series'] = {'generators': {'p'},
+                            'storage_units': {'p', 'state_of_charge'}}
         return super().transfer_results(*args, **kwargs)
 
 
