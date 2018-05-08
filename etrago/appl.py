@@ -39,7 +39,8 @@ if not 'READTHEDOCS' in os.environ:
                                      storage_distribution)
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
+                                    loading_minimization, calc_line_losses, 
+                                    group_parallel_lines, market_simulation)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -57,7 +58,7 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\skip_snapshots_shedded', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\test_market', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
@@ -66,14 +67,15 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
         'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
+        'market_simulation':True,
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 5, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
+        'branch_capacity_factor': 1, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -313,7 +315,10 @@ def etrago(args):
     
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots'] 
+    
+    if args['market_simulation']:
+        market_simulation(network)
         
     # parallisation
     if args['parallelisation']:

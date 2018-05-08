@@ -353,6 +353,33 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     z = (y - x) / 60
     return
 
+def market_simulation(network):
+    
+    network.import_components_from_dataframe(pd.DataFrame({'bus0' : network.lines['bus0'].values,
+                                                           'bus1' : network.lines['bus1'].values,
+                                                           'p_nom' : 1000000,
+                                                           'p_min_pu' : -1},
+                                                            index=network.lines.index+'Link'),
+                                                            'Link')
+    neighbours = (
+    '1025', '2625', '7230', '8035', '9271', '11353', '11601', '12093', '12127', '12128',
+    '12205', '12402', '12436', '12653', '12733', '13182', '13339', '15182', '25533',
+    '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
+    '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
+    )
+    mask = network.links['p_nom'].loc[(network.links['bus0'].isin(neighbours) == True) |
+            (network.links['bus1'].isin(neighbours) == True)].index
+    network.links['p_nom'].loc[mask] = network.lines['s_nom'].loc[[a[:-4] for a in mask]].values
+    network.import_components_from_dataframe(pd.DataFrame({'bus0' : network.transformers['bus0'].values,
+                                                           'bus1' : network.transformers['bus1'].values,
+                                                           'p_nom' : 1000000,
+                                                           'p_min_pu' : -1},
+                                                            index=network.transformers.index+'TrafoLink'),
+                                                            'Link')
+    network.lines.drop(network.lines.index, inplace=True)
+    network.transformers.drop(network.transformers.index, inplace=True)
+    return
+
 def pf_post_lopf(network, scenario):
     
     network_pf = network    
