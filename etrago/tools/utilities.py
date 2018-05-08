@@ -367,8 +367,10 @@ def muenchen(network):
 
     def add_110kv_line(bus0, bus1, overhead=False):
         new_line = str(network.lines.index.astype(int).max()+1)
-        network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
-
+        if not overhead:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
+        else:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=260)
         network.lines.loc[new_line, "scn_name"] = "Status Quo"
         network.lines.loc[new_line, "v_nom"] = 110
         network.lines.loc[new_line, "version"] = "added_manually"
