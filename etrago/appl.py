@@ -72,7 +72,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # False or the number of 'periods' you want cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
