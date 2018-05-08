@@ -50,7 +50,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 96,
+        'end_snapshot' : 192,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
@@ -65,8 +65,8 @@ args = {# Setup and Configuration:
         # Clustering:
         'k_mean_clustering':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'extra_functionality':False,
-        'snapshot_clustering': 2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'extra_functionality':daily_bounds,
+        'snapshot_clustering': 4, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -285,8 +285,6 @@ def etrago(args):
     # Branch loading minimization
     if args['minimize_loading']:
         extra_functionality = loading_minimization
-    else:
-        extra_functionality = None
     
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
@@ -295,6 +293,7 @@ def etrago(args):
     if not args['snapshot_clustering']== False:
         x = time.time()
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
+        extra_functionality = daily_bounds
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     
