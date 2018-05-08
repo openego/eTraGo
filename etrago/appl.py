@@ -72,7 +72,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':3, # False or the number of 'periods' you want cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -93,7 +93,7 @@ def etrago(args):
         ``'oedb'``,
         Name of Database session setting stored in *config.ini* of *.egoio*
 
-    gridversion : str
+    gridversion : NoneType or str
         ``'v0.2.11'``,
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -117,12 +117,12 @@ def etrago(args):
         2,
         End hour of the scenario year to be calculated.
         
-    solver (str): 
+    solver : str
         'glpk', 
         Choose your preferred solver. Current options: 'glpk' (open-source),
         'cplex' or 'gurobi'.
                 
-    scn_name (str): 
+    scn_name : str
     	'Status Quo',
 	Choose your scenario. Currently, there are three different 
 	scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not 
@@ -130,7 +130,7 @@ def etrago(args):
 	Schleswig-Holstein by adding the acronym SH to the scenario 
 	name (e.g. 'SH Status Quo').
         
-   scn_extension (str):
+   scn_extension : str
        None,
        Choose an extension-scenario which will be added to the existing
        network container. Data of the extension scenarios are located in extension-tables
@@ -139,7 +139,7 @@ def etrago(args):
            'nep2035_confirmed' includes all planed new lines confirmed by the Bundesnetzagentur
            'nep2035_b2' includes alles new lines planned by the Netzentwicklungsplan 2025 in scenario 2035 B2
            
-    scn_decommissioning (str):
+    scn_decommissioning : str
         None, 
         Choose an extra scenario which includes lines you want to decommise from the 
         existing network. Data of the decommissioning scenarios are located in extension-tables 
@@ -148,28 +148,28 @@ def etrago(args):
             'nep2035_confirmed' includes all lines that will be replaced in confirmed projects
             'nep2035_b2' includes all lines that will be replaced in NEP-scenario 2035 B2
             
-    add_Belgium_Norway (bool):
+    add_Belgium_Norway : bool
         False, 
         State if you want to add Belgium and Norway as electrical neighbours.
         Currently, generation and load always refer to scenario 'NEP 2035'.
             
-    lpfile (obj): 
+    lpfile : obj
         False, 
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofolder'.import numpy as np
         
-    results (obj): 
+    results : obj
         False, 
         State if and where you want to save results as csv files.Options: 
         False or '/path/tofolder'.
         
-    export (bool): 
+    export : bool
         False, 
         State if you want to export the results of your calculation 
         back to the database.
         
-    extendable (None or array of strings):
-        ['network'],
+    extendable : NoneType or list
+        ['network', 'storages'],
         Choose None or which components you want to optimize.
         Settings can be added in /tools/extendable.py. 
         The most important possibilities:
@@ -180,12 +180,12 @@ def etrago(args):
                         at each grid node in order to meet the flexibility demand. 
       
         
-    generator_noise (bool):
+    generator_noise : bool
         True,
         Choose if you want to apply a small random noise to the marginal
         costs of each generator in order to prevent an optima plateau.
 
-    reproduce_noise : obj
+    reproduce_noise : bool or obj
         False,
         State if you want to use a predefined set of random noise for
         the given scenario. If so, provide path to the csv file,
@@ -195,7 +195,7 @@ def etrago(args):
         False,
         ...
 
-    network_clustering_kmeans : bool
+    network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation and load
@@ -208,6 +208,12 @@ def etrago(args):
         Choose if you want to cluster the full HV/EHV dataset down to only the EHV
         buses. In that case, all HV buses are assigned to their closest EHV sub-station,
         taking into account the shortest distance on power lines.
+	
+    snapshot_clustering : bool or int
+    	False,
+	State if you want to cluster the snapshots and run the optimization only on a
+	subset of snapshot periods. The int value defines the number of periods (i.e. days)
+	wich will be clustered to. 
 
     parallelisation : bool
         False,
