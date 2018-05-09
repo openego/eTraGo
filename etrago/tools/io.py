@@ -438,6 +438,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
     sources = pd.read_sql(session.query(Source).statement,session.bind)
     print(sources)
     sources = sources.loc[sources['version'] == args['gridversion']]
+    sources = sources.drop(['version'], axis=1)
 
     for gen in network.generators.index:
         if network.generators.carrier[gen] not in sources.name.values:
