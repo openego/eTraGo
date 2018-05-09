@@ -163,7 +163,7 @@ class NetworkScenario(ScenarioBase):
     def fetch_by_relname(self, name):
         """
         """
-
+        print(name)
         ormclass = self._mapped[name]
         query = self.session.query(ormclass)
 
@@ -186,18 +186,25 @@ class NetworkScenario(ScenarioBase):
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
 
+        ## Additional Hacking
+#        if name == 'Generator':
+#            print(df.loc[df['source'] == 'wind'])
+
         if name == 'Line':
 
-            print('got it line')
+            print('Changing s_nom on lines')
 
             for index, row in df.iterrows():
                 if not index in self.cntry_links:
                     df.at[index, 's_nom'] = 100000 #df.at[index, 's_nom'] * self.brnch_fct
             print(df)
+
         if name == 'Trafo':
-            print('got it Trafo')
+            print('Changing s_nom on trafos')
 #            df = df.drop(['s_nom'], axis=1)
             df['s_nom'] = 100000 #df['s_nom'] * self.brnch_fct
+
+
         return df
 
     def series_fetch_by_relname(self, name, column):
@@ -391,8 +398,9 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                                                 EgoGridPfHvResultLoadT as LoadTResult,\
                                                 EgoGridPfHvResultTransformer as TransformerResult,\
                                                 EgoGridPfHvResultTransformerT as TransformerTResult,\
-                                                EgoGridPfHvResultMeta as ResultMeta,\
-                                                EgoGridPfHvSource as Source
+                                                EgoGridPfHvResultMeta as ResultMeta#,\
+                                                #EgoGridPfHvSource as Source
+        from  egoio.db_tables.grid import EgoPfHvSource as Source
     else:
         print('Please enter mv or hv!')
 
@@ -428,6 +436,9 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
 
     #get source_id
     sources = pd.read_sql(session.query(Source).statement,session.bind)
+    print(sources)
+    sources = sources.loc[sources['version'] == args['gridversion']]
+
     for gen in network.generators.index:
         if network.generators.carrier[gen] not in sources.name.values:
             new_source = Source()
