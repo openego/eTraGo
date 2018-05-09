@@ -77,11 +77,11 @@ def extendable (network, extendable, overlay_scn_name = None):
 def clean_snom(network):
         network.lines['s_nom_min'] = network.lines['s_nom']
         network.lines['s_nom_extendable'] = True
-        network.lines['s_nom_max'] = float('Inf')
+        network.lines['s_nom_max'] = 1000000
         network.lines['capital_cost'] = 1800000
         network.transformers['s_nom_min'] = network.transformers['s_nom']
         network.transformers['s_nom_extendable'] = True
-        network.transformers['s_nom_max'] = float('Inf')
+        network.transformers['s_nom_max'] = 1000000
         network.transformers['capital_cost'] = 1800000
         
 def cleaned_snom_to_csv(network, capacity_factor):
