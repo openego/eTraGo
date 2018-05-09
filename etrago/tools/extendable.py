@@ -73,3 +73,25 @@ def extendable (network, extendable, overlay_scn_name = None):
         network.lines.loc[network.lines.scn_name == ('extension_' + overlay_scn_name), 'capital_cost'] = network.lines.capital_cost +( 2 * 14166 )
     
     return network
+
+def clean_snom(network):
+        network.lines['s_nom_min'] = network.lines['s_nom']
+        network.lines['s_nom_extendable'] = True
+        network.lines['s_nom_max'] = float('Inf')
+        network.lines['capital_cost'] = 1800000
+        network.transformers['s_nom_min'] = network.transformers['s_nom']
+        network.transformers['s_nom_extendable'] = True
+        network.transformers['s_nom_max'] = float('Inf')
+        network.transformers['capital_cost'] = 1800000
+        
+def cleaned_snom_to_csv(network, capacity_factor):
+    #lines
+    diff_lines = round((network.lines['s_nom_opt']-network.lines['s_nom']), 0)
+    index_lines = diff_lines.iloc[list(diff_lines.nonzero()[0])].index
+    round(network.lines['s_nom_opt'].loc[index_lines]/
+          capacity_factor+0.5, 0).to_csv('lines_opt.csv')
+    #transformers
+    diff_transformers = round((network.transformers['s_nom_opt']-network.transformers['s_nom']), 0)
+    index_transformers = diff_transformers.iloc[list(diff_transformers.nonzero()[0])].index
+    round(network.transformers['s_nom_opt'].loc[index_transformers]/
+          capacity_factor+0.5, 0).to_csv('transformers_opt.csv')

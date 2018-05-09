@@ -42,7 +42,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
-    from etrago.tools.extendable import extendable
+    from etrago.tools.extendable import extendable, clean_snom, cleaned_snom_to_csv
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
@@ -70,6 +70,8 @@ args = {# Setup and Configuration:
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
+        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
+        'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
         # Clustering:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
@@ -271,6 +273,21 @@ def etrago(args):
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
+        
+    if args['use_cleaned_snom']:
+        try:
+            new_snom_lines = pd.Series.from_csv('lines_opt.csv')
+            index = [str(x) for x in new_snom_lines.index]
+            network.lines['s_nom'].loc[index] = new_snom_lines.values
+        except:
+            print('No corrected line values found.')
+            
+        try:
+            new_snom_transformers = pd.Series.from_csv('transformers_opt.csv')
+            index = [str(x) for x in new_snom_transformers.index]
+            network.transformers['s_nom'].loc[index] = new_snom_transformers.values
+        except:
+            print('No corrected transformer values found.')
 
     if args['generator_noise']:
         # create or reproduce generator noise
@@ -305,6 +322,9 @@ def etrago(args):
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'])
 
+    if args['clean_snom']:
+        clean_snom(network)
+        
     # Branch loading minimization
     if args['minimize_loading']:
         extra_functionality = loading_minimization
@@ -392,6 +412,9 @@ def etrago(args):
     # write PyPSA results to csv to path
     if not args['results'] == False:
         results_to_csv(network, args['results'])
+    
+    if args['clean_snom']:
+        cleaned_snom_to_csv(network, args['branch_capacity_factor'])
 
     # close session
     session.close()
