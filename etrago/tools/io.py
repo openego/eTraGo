@@ -607,7 +607,7 @@ def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_
     '''
     ### Adding overlay-network to existing network                    
     scenario = NetworkScenario(session,
-                               version=None,
+                               version=kwargs.get('gridversion'),
                                prefix='EgoGridPfHvExtension',
                                method=kwargs.get('method', 'lopf'),
                                start_snapshot=start_snapshot,
@@ -637,7 +637,7 @@ def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_
             
     return network
 
-def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
+def decommissioning(network, session, scn_decommissioning, k_mean_clustering, **kwargs):
     '''
         Function that removes components in a decommissioning-scenario from the existing network container. 
         Currently, only lines can be decommissioned.
@@ -661,10 +661,18 @@ def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
     '''  
     if not k_mean_clustering:
         
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+        if kwargs.get('gridversion') == None:
+        
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+        
+        else: 
+             ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoGridPfHvExtensionLine')
     
         query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
+        
+        if kwargs.get('gridversion') != None:
+            query = query.filter(ormclass.version == kwargs.get('gridversion'))
     
         df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
