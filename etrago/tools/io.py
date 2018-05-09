@@ -399,8 +399,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                                                 EgoGridPfHvResultTransformer as TransformerResult,\
                                                 EgoGridPfHvResultTransformerT as TransformerTResult,\
                                                 EgoGridPfHvResultMeta as ResultMeta#,\
-                                                #EgoGridPfHvSource as Source
-        from  egoio.db_tables.grid import EgoPfHvSource as Source
+                                                EgoGridPfHvSource as Source
+
     else:
         print('Please enter mv or hv!')
 
@@ -436,9 +436,6 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
 
     #get source_id
     sources = pd.read_sql(session.query(Source).statement,session.bind)
-    print(sources)
-    sources = sources.loc[sources['version'] == args['gridversion']]
-    sources = sources.drop(['version'], axis=1)
 
     for gen in network.generators.index:
         if network.generators.carrier[gen] not in sources.name.values:
