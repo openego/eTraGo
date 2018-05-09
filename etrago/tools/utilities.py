@@ -347,6 +347,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
             network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[network.snapshots[group_size*i-1]]
         network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
+        network.lines.s_nom_min = network.lines.s_nom_opt
 
     y = time.time()
     z = (y - x) / 60
