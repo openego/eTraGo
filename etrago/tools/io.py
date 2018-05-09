@@ -29,6 +29,7 @@ from collections import OrderedDict
 import re
 import json
 import os
+from random import randint
 
 packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
@@ -100,6 +101,10 @@ class NetworkScenario(ScenarioBase):
         self.network  = None
         self.cntry_links = kwargs.get('cntry_links', [])
         self.brnch_fct = kwargs.get('brnch_fct', 1.)
+        self.rand_snaps = kwargs.get('rand_snapshots')
+
+        print('Number of random snaps:')
+        print(self.rand_snaps)
 
         self.configure_timeindex()
 
@@ -134,6 +139,18 @@ class NetworkScenario(ScenarioBase):
                                      freq=tr.resolution)
 
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
+
+        if self.rand_snaps:
+            print('Random snapshots are chosen.')
+            s_len = len(self.timeindex)
+            chosen_idx = []
+            for p in range(0,self.rand_snaps):
+                choice = randint(0,s_len-1)
+                while choice in chosen_idx:
+                    print(str(choice) + ' has been chosen before - sample again...')
+                    choice = randint(0,s_len-1)
+                chosen_idx.append(choice)
+            self.timeindex = self.timeindex[chosen_idx]
 
     def id_to_source(self):
 

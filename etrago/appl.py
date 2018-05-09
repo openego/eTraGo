@@ -217,7 +217,8 @@ def etrago(args):
                                end_snapshot=args['end_snapshot'],
                                scn_name=args['scn_name'],
                                cntry_links=args['cntry_links'],
-                               brnch_fct=args['branch_capacity_factor'])
+                               brnch_fct=args['branch_capacity_factor'],
+                               rand_snapshots=args['rand_snapshots'])
 
     network = scenario.build_network()
     # add coordinates
@@ -288,18 +289,18 @@ def etrago(args):
 #        network.snapshots=network.snapshots[::args['skip_snapshots']]
 #        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
 
-    if args['rand_snapshots']:
-        no_snap = args['rand_snapshots']
-        s_len = len(network.snapshots)
-        x=[randint(0,s_len-1) for p in range(0,no_snap)]
-        network.snapshots = network.snapshots[x]
+#    if args['rand_snapshots']:
+#        no_snap = args['rand_snapshots']
+#        s_len = len(network.snapshots)
+#        x=[randint(0,s_len-1) for p in range(0,no_snap)]
+#        network.snapshots = network.snapshots[x]
 
     # parallisation
 #    if args['parallelisation']:
 #        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality)
 
     # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
+    if args['method'] == 'lopf':
         x = time.time()
         network.lopf(
                 network.snapshots,
