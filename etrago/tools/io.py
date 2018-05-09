@@ -150,7 +150,17 @@ class NetworkScenario(ScenarioBase):
                     print(str(choice) + ' has been chosen before - sample again...')
                     choice = randint(0,s_len-1)
                 chosen_idx.append(choice)
+
+                import pickle
+                with open('rand_choice', 'wb') as fp:
+                    pickle.dump(chosen_idx, fp)
+
+#                with open ('rand_choice', 'rb') as fp:
+#                    test_list = pickle.load(fp)
+
             self.timeindex = self.timeindex[chosen_idx]
+            print('Timeindex:')
+            print(self.timeindex)
 
     def id_to_source(self):
 
