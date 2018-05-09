@@ -398,7 +398,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results = False):
                                                 EgoGridPfHvResultLoadT as LoadTResult,\
                                                 EgoGridPfHvResultTransformer as TransformerResult,\
                                                 EgoGridPfHvResultTransformerT as TransformerTResult,\
-                                                EgoGridPfHvResultMeta as ResultMeta#,\
+                                                EgoGridPfHvResultMeta as ResultMeta,\
                                                 EgoGridPfHvSource as Source
 
     else:
