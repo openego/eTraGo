@@ -157,8 +157,8 @@ class NetworkScenario(ScenarioBase):
 
 #                with open ('rand_choice', 'rb') as fp:
 #                    test_list = pickle.load(fp)
-
-            self.timeindex = self.timeindex[chosen_idx]
+            self.chosen_idx = chosen_idx
+            self.timeindex = self.timeindex[self.chosen_idx]
             print('Timeindex:')
             print(self.timeindex)
 
@@ -249,6 +249,7 @@ class NetworkScenario(ScenarioBase):
 
         try:
             assert not df.empty
+            df = df.loc[self.chosen_idx]
             df.index = self.timeindex
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
