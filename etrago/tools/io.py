@@ -30,6 +30,7 @@ import re
 import json
 import os
 from random import randint
+import pickle
 
 packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
@@ -102,6 +103,7 @@ class NetworkScenario(ScenarioBase):
         self.cntry_links = kwargs.get('cntry_links', [])
         self.brnch_fct = kwargs.get('brnch_fct', 1.)
         self.rand_snaps = kwargs.get('rand_snapshots')
+        self.reproduce_snapshots = kwargs.get('reproduce_snapshots')
 
         print('Number of random snaps:')
         print(self.rand_snaps)
@@ -141,23 +143,27 @@ class NetworkScenario(ScenarioBase):
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
 
         if self.rand_snaps:
-            print('Random snapshots are chosen.')
-            s_len = len(self.timeindex)
-            chosen_idx = []
-            for p in range(0,self.rand_snaps):
-                choice = randint(0,s_len-1)
-                while choice in chosen_idx:
-                    print(str(choice) + ' has been chosen before - sample again...')
+            if self.reproduce_snapshots:
+                print('random snapshots are reproduced.')
+                with open (self.reproduce_snapshots, 'rb') as fp:
+                    self.chosen_idx = pickle.load(fp)
+            else:
+                print('New random snapshots are chosen.')
+                s_len = len(self.timeindex)
+                chosen_idx = []
+                for p in range(0,self.rand_snaps):
                     choice = randint(0,s_len-1)
-                chosen_idx.append(choice)
+                    while choice in chosen_idx:
+                        print(str(choice) + ' has been chosen before - sample again...')
+                        choice = randint(0,s_len-1)
+                    chosen_idx.append(choice)
 
-                import pickle
-                with open('rand_choice', 'wb') as fp:
-                    pickle.dump(chosen_idx, fp)
+                    with open('rand_snaps', 'wb') as fp:
+                        pickle.dump(chosen_idx, fp)
 
-#                with open ('rand_choice', 'rb') as fp:
-#                    test_list = pickle.load(fp)
-            self.chosen_idx = chosen_idx
+                    self.chosen_idx = chosen_idx
+
+
             self.timeindex = self.timeindex[self.chosen_idx]
             print('Timeindex:')
             print(self.timeindex)

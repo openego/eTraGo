@@ -218,7 +218,8 @@ def etrago(args):
                                scn_name=args['scn_name'],
                                cntry_links=args['cntry_links'],
                                brnch_fct=args['branch_capacity_factor'],
-                               rand_snapshots=args['rand_snapshots'])
+                               rand_snapshots=args['rand_snapshots'],
+                               reproduce_snapshots=args['reproduce_snapshots'])
 
     network = scenario.build_network()
     # add coordinates
