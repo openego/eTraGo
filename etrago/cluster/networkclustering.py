@@ -429,7 +429,12 @@ def kmean_clustering(network, n_clusters=10):
     # k-mean clustering
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+    #weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+    #weight.to_csv("bus_weighting.csv")
+    weight = pd.Series.from_csv('bus_weighting.csv')
+    weight.index = weight.index.astype(str)
+    #import pdb
+    #pdb.set_trace()
     busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
 
 
