@@ -207,19 +207,23 @@ class NetworkScenario(ScenarioBase):
 #            print(df.loc[df['source'] == 'wind'])
 
         if name == 'Line':
-
             print('Changing s_nom on lines')
 
             for index, row in df.iterrows():
                 if not index in self.cntry_links:
                     df.at[index, 's_nom'] = 100000 #df.at[index, 's_nom'] * self.brnch_fct
-            print(df)
 
         if name == 'Trafo':
             print('Changing s_nom on trafos')
 #            df = df.drop(['s_nom'], axis=1)
             df['s_nom'] = 100000 #df['s_nom'] * self.brnch_fct
 
+        if name == 'Storage':
+            if self.rand_snaps:
+                print('Storage is excluded because of random snapshots')
+                print('Changing p_nom on Storage')
+
+                df['p_nom'] = 0
 
         return df
 
