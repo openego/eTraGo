@@ -1,4 +1,4 @@
-
+﻿
 """
 This is the application file for the tool eTraGo.
 
@@ -53,10 +53,10 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2005, 
-        'end_snapshot' : 2006,
+        'start_snapshot': 2000, 
+        'end_snapshot' : 2100,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -66,19 +66,19 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['storage'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':None, # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv',# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
-        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
+        'clean_snom':True, #state if you want to create a csv file to avoid load shedding in future calculations
         'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'extra_functionality':False,
         'snapshot_clustering':False, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
-        'parallelisation':False, # state if you want to run snapshots parallely.
+        'parallelisation':True, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
