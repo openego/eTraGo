@@ -103,8 +103,11 @@ class Disaggregation:
 
             if not left_external_connectors.empty:
                 f = lambda x: self.idx_prefix + self.clustering.busmap.loc[x]
+                ca_option = pd.get_option('mode.chained_assignment')
+                pd.set_option('mode.chained_assignment', None)
                 left_external_connectors.loc[:, 'bus0'] = (
                         left_external_connectors.loc[:, 'bus0'].apply(f))
+                pd.set_option('mode.chained_assignment', ca_option)
                 external_buses = pd.concat((external_buses,
                                             left_external_connectors.bus0))
 
@@ -114,8 +117,11 @@ class Disaggregation:
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
                 f = lambda x: self.idx_prefix + self.clustering.busmap.loc[x]
+                ca_option = pd.get_option('mode.chained_assignment')
+                pd.set_option('mode.chained_assignment', None)
                 right_external_connectors.loc[:, 'bus1'] = (
                         right_external_connectors.loc[:, 'bus1'].apply(f))
+                pd.set_option('mode.chained_assignment', ca_option)
                 external_buses = pd.concat((external_buses,
                                             right_external_connectors.bus1))
 
