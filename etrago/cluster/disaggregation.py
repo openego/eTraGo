@@ -194,13 +194,10 @@ class Disaggregation:
         """
         clusters = set(self.clustering.busmap.values)
         n = len(clusters)
-        i = 0
         profile = cProfile.Profile()
-        for cluster in clusters:
-            i += 1
-
+        for i, cluster in enumerate(sorted(clusters)):
             print('---')
-            print('Decompose cluster %s (%d/%d)' % (cluster, i, n))
+            print('Decompose cluster %s (%d/%d)' % (cluster, i+1, n))
             profile.enable()
             t = time.time()
             partial_network, externals = self.construct_partial_network(
