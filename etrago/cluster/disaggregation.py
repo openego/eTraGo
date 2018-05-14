@@ -348,8 +348,8 @@ class UniformDisaggregation(Disaggregation):
                 'storage_units': {
                     'group_by': ('carrier', 'max_hours'),
                     'series': ('p', 'state_of_charge')}}
-        weights = {'p': ('p_nom', 'p_max_pu'),
-                   'state_of_charge': ('p_nom',)}
+        weights = {'p': ('p_nom_opt', 'p_max_pu'),
+                   'state_of_charge': ('p_nom_opt',)}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
             cl_t = getattr(self.clustered_network, bustype + '_t')
@@ -411,9 +411,13 @@ class UniformDisaggregation(Disaggregation):
                             bustype).loc[
                                     pnb.index,
                                     'p_nom_opt'] = pnb.loc[:, 'p_nom_opt']
-                    # Also save a view of the `p_nom_opt` values under `p_nom`,
-                    # so that the remaining code can always use `p_nom`.
                     pnb.loc[:, 'p_nom'] = pnb.loc[:, 'p_nom_opt']
+                else:
+                    # That means 'p_nom_opt' didn't get computed and is
+                    # potentially not present in the dataframe. But we want to
+                    # always use 'p_nom_opt' in the remaining code, so save a
+                    # view of the computed 'p_nom' values under 'p_nom_opt'.
+                    pnb.loc[:, 'p_nom_opt'] = pnb.loc[:, 'p_nom']
 
                 timed = lambda key, series=set(s
                         for s in cl_t
