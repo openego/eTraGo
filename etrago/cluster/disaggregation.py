@@ -419,6 +419,12 @@ class UniformDisaggregation(Disaggregation):
                     # view of the computed 'p_nom' values under 'p_nom_opt'.
                     pnb.loc[:, 'p_nom_opt'] = pnb.loc[:, 'p_nom']
 
+                # This probably shouldn't be here, but rather in
+                # `transfer_results`, but it's easier to do it this way right
+                # now.
+                getattr(self.original_network, bustype).loc[
+                        pnb.index,
+                        'p_nom_opt'] = pnb.loc[:, 'p_nom_opt']
                 timed = lambda key, series=set(s
                         for s in cl_t
                         if not cl_t[s].empty
