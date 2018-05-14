@@ -165,8 +165,8 @@ class NetworkScenario(ScenarioBase):
 
 
             self.timeindex = self.timeindex[self.chosen_idx]
-            print('Timeindex:')
-            print(self.timeindex)
+        print('Timeindex:')
+        print(self.timeindex)
 
     def id_to_source(self):
 
@@ -259,7 +259,8 @@ class NetworkScenario(ScenarioBase):
 
         try:
             assert not df.empty
-            df = df.loc[self.chosen_idx]
+            if self.rand_snaps:
+                df = df.loc[self.chosen_idx]
             df.index = self.timeindex
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
