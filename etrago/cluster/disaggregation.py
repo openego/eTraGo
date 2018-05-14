@@ -194,6 +194,9 @@ class Disaggregation:
         """
         clusters = set(self.clustering.busmap.values)
         n = len(clusters)
+        self.stats = {'clusters': pd.DataFrame(
+            index=sorted(clusters),
+            columns=["decompose", "spread", "transfer"])}
         profile = cProfile.Profile()
         for i, cluster in enumerate(sorted(clusters)):
             print('---')
@@ -204,18 +207,24 @@ class Disaggregation:
                     cluster,
                     scenario)
             profile.disable()
-            print('Decomposed in ', (time.time() - t))
+            self.stats['clusters'].loc[cluster, 'decompose'] = time.time() - t
+            print('Decomposed in ',
+                  self.stats['clusters'].loc[cluster, 'decompose'])
             t = time.time()
             profile.enable()
             self.solve_partial_network(cluster, partial_network, scenario,
                                        solver)
             profile.disable()
-            print('Partial network solved in ', (time.time() - t))
+            self.stats['clusters'].loc[cluster, 'spread'] = time.time() - t
+            print('Result distributed in ',
+                  self.stats['clusters'].loc[cluster, 'spread'])
             profile.enable()
             t = time.time()
             self.transfer_results(partial_network, externals)
             profile.disable()
-            print('Results transferred in ', (time.time() - t))
+            self.stats['clusters'].loc[cluster, 'transfer'] = time.time() - t
+            print('Results transferred in ',
+                  self.stats['clusters'].loc[cluster, 'transfer'])
 
         profile.enable()
         t = time.time()
@@ -240,8 +249,9 @@ class Disaggregation:
                     reduce(lambda x, f: f(x), ts[s], cnb[s])
                     -
                     reduce(lambda x, f: f(x), ts[s], onb[s])))
-        print('Checks computed in ', (time.time() - t))
         profile.disable()
+        self.stats['check'] = time.time() - t
+        print('Checks computed in ', self.stats['check'])
 
         # profile.print_stats(sort='cumtime')
 
