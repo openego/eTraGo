@@ -102,10 +102,9 @@ class Disaggregation:
                 is_bus_in_cluster)
 
             if not left_external_connectors.empty:
-                f = lambda x: self.idx_prefix + self.clustering.busmap[x]
-                left_external_connectors.bus0 = (left_external_connectors
-                                                 .bus0
-                                                 .apply(f))
+                f = lambda x: self.idx_prefix + self.clustering.busmap.loc[x]
+                left_external_connectors.loc[:, 'bus0'] = (
+                        left_external_connectors.loc[:, 'bus0'].apply(f))
                 external_buses = pd.concat((external_buses,
                                             left_external_connectors.bus0))
 
@@ -114,10 +113,9 @@ class Disaggregation:
                 getattr(self.original_network, line_type),
                 is_bus_in_cluster)
             if not right_external_connectors.empty:
-                f = lambda x: self.idx_prefix + self.clustering.busmap[x]
-                right_external_connectors.bus1 = (right_external_connectors
-                                                  .bus1
-                                                  .apply(f))
+                f = lambda x: self.idx_prefix + self.clustering.busmap.loc[x]
+                right_external_connectors.loc[:, 'bus1'] = (
+                        right_external_connectors.loc[:, 'bus1'].apply(f))
                 external_buses = pd.concat((external_buses,
                                             right_external_connectors.bus1))
 
@@ -162,7 +160,9 @@ class Disaggregation:
                     external_buses.values))
 
             # Prefix their external bindings
-            buses_to_insert.bus = self.idx_prefix + buses_to_insert.bus
+            buses_to_insert.loc[:, 'bus'] = (
+                    self.idx_prefix +
+                    buses_to_insert.loc[:, 'bus'])
 
             setattr(partial_network, bustype,
                     getattr(partial_network, bustype).append(buses_to_insert))
@@ -475,8 +475,8 @@ def filter_internal_connector(conn, is_bus_in_cluster):
 
 
 def filter_left_external_connector(conn, is_bus_in_cluster):
-    return conn[~ conn.bus0.apply(is_bus_in_cluster)
-                & conn.bus1.apply(is_bus_in_cluster)]
+    return conn[~ conn.loc[:, 'bus0'].apply(is_bus_in_cluster)
+                & conn.loc[:, 'bus1'].apply(is_bus_in_cluster)]
 
 
 def filter_right_external_connector(conn, is_bus_in_cluster):
