@@ -45,7 +45,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0', #0c1? None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
@@ -54,20 +54,20 @@ args = {# Setup and Configuration:
         'solver': 'cplex', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/jbartels/projekte/open-ego/eTraGo/load_k', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':False, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
+        'generator_noise':True, # state if you want to apply a small generator noise 
+        'reproduce_noise': True, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 2, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'load_cluster': True,
+        'k_mean_clustering': 10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': False,
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':False,
+        'skip_snapshots':3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
@@ -236,7 +236,7 @@ def etrago(args):
     if args['generator_noise']:
         # create or reproduce generator noise 
         if not args['reproduce_noise'] == False:    
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            noise_values = genfromtxt('noise_values_LW.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
         else:
@@ -293,7 +293,10 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6})
+        #network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':0, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
+        #CPLEX network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
+        #Gurobi
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation

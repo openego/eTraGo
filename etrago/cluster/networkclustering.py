@@ -420,14 +420,20 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False):
         #print(str(busmap_file[:,1]))
         #print(busmap_file[0])
         #busmap = pd.Series(data=busmap_file[:,1], index=busmap_file[:,0]).astype(str)
-        busmap = pd.Series.from_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', index_col=0).astype(str)
+        #busmap = pd.Series.from_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', index_col=0)
+        busmap = pd.read_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', header=0, index_col=0, dtype=str, squeeze=True).apply(str)
+        #pd.to_numeric(busmap)
+        print("index = ", busmap.index)
+        print(busmap.dtypes)
 #        print("busmap = ", busmap)
         #np.savetxt("k_cluster_%i_busmap_loaded" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
         #print("busmap.data = ", busmap[0])
         #noise_values = genfromtxt('noise_values.csv', delimiter=',')
     else:
         busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)#, n_jobs=-1)
-        #print(busmap)
+        #busmap.to_csv(path='/home/jbartels/projekte/open-ego/eTraGo/k_cluster_10_busmap', sep=',')
+        #print("index = ", busmap.index)
+        #print(busmap.dtypes)
         np.savetxt("k_cluster_%i_busmap" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
 
 
