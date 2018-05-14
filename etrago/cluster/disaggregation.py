@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import product
-from operator import mul as multiply
+from operator import methodcaller as mc, mul as multiply
 import cProfile
 import time
 
@@ -223,15 +223,26 @@ class Disaggregation:
         profile.enable()
         t = time.time()
         print('---')
+        fs = (mc("sum"), mc("sum"))
         for bt, ts in (
-                ('generators', ('p',)),
-                ('storage_units', ('p', 'state_of_charge'))):
+                ('generators', {'p': fs}),
+                ('storage_units', {'p': fs, 'state_of_charge': fs})):
+            print("Attribute sums, {}, clustered - disaggregated:" .format(bt))
+            cnb = getattr(self.clustered_network, bt)
+            onb = getattr(self.original_network, bt)
+            print("{:>{}}: {}".format('p_nom_opt', 4 + len('state_of_charge'),
+                reduce(lambda x, f: f(x), fs[:-1], cnb['p_nom_opt'])
+                    -
+                    reduce(lambda x, f: f(x), fs[:-1], onb['p_nom_opt'])))
+
             print("Series sums, {}, clustered - disaggregated:" .format(bt))
+            cnb = getattr(self.clustered_network, bt + '_t')
+            onb = getattr(self.original_network, bt + '_t')
             for s in ts:
                 print("{:>{}}: {}".format(s, 4 + len('state_of_charge'),
-                    getattr(self.clustered_network, bt + '_t')[s].sum().sum()
+                    reduce(lambda x, f: f(x), ts[s], cnb[s])
                     -
-                    getattr(self.original_network, bt + '_t')[s].sum().sum()))
+                    reduce(lambda x, f: f(x), ts[s], onb[s])))
         print('Checks computed in ', (time.time() - t))
         profile.disable()
 
