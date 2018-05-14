@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 This is the application file for the tool eTraGo. 
 
@@ -34,9 +34,7 @@ if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly  
     from etrago.tools.io import NetworkScenario, results_to_oedb
-    from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
-                                     add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
+    from etrago.tools.plot import add_coordinates
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, 
@@ -49,7 +47,7 @@ x = time.time()
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1000, 
@@ -57,25 +55,25 @@ args = {# Setup and Configuration:
         'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\test_market', # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\test_market', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
-        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
+        'clean_snom':True, #state if you want to create a csv file to avoid load shedding in future calculations
         'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
-        'market_simulation':True,
+        'market_simulation':False,
         # Clustering:
-        'k_mean_clustering': 5, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
-        'parallelisation':False, # state if you want to run snapshots parallely.
+        'parallelisation':True, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -387,10 +385,3 @@ if __name__ == '__main__':
     y = time.time()
     print('time: ')
     print((y-x)/60)
-    # plots
-    # make a line loading plot
-    #plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    #plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    #storage_distribution(network)
