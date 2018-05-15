@@ -296,7 +296,7 @@ def data_manipulation_sh (network):
     new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
     new_line = str(network.lines.index.astype(np.int64).max()+1)
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
-    network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
+    network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=(0.135/1600), tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
     network.lines.loc[new_line,'cables']=3.0
 
@@ -314,7 +314,12 @@ def data_manipulation_sh (network):
 
     return
 
-def muenchen(network):
+
+def add_missing_components(network):
+    from shapely import wkb
+    from shapely.geometry import Point, LineString, MultiLineString
+    from geoalchemy2.shape import from_shape, to_shape
+    # Munich
     '''
     add missing transformer at Heizkraftwerk Nord in Munich:
     https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
@@ -349,7 +354,8 @@ def muenchen(network):
     https://www.swm-infrastruktur.de/strom/netzstrukturdaten/strukturmerkmale.html
     """
     new_trafo = str(network.transformers.index.astype(int).max()+1)
-    network.add("Transformer", new_trafo, bus0="23648", bus1="16573", x=0.0002,
+    network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
+                x=0.135/(2750/2),
                 r=0.0, tap_ratio=1, s_nom=2750/2)
 
     # trafo geom/topo
@@ -388,7 +394,7 @@ def muenchen(network):
                                                 loc[new_line, "length"]*0.3e-3)
             network.lines.loc[new_line, "b"] = (network.lines.
                                                 loc[new_line, "length"]*250e-9)
-        else:
+        elif overhead:
             network.lines.loc[new_line, "r"] = (network.lines.
                                                 loc[new_line, "length"] *
                                                 0.05475)
@@ -426,7 +432,110 @@ def muenchen(network):
     add_110kv_line("28335", "28294")
     add_110kv_line("28335", "28139")
     add_110kv_line("16573", "24182", overhead=True)
-    return
+
+    # Stuttgart
+    """
+    Stuttgart:
+    Missing transformer, because 110-kV-bus is situated outside
+    Heizkraftwerk Heilbronn:
+    """
+    new_trafo = str(network.transformers.index.astype(int).max()+1)
+    network.add("Transformer", new_trafo, bus0="25766", bus1="18967",
+                x=0.135/300, r=0.0, tap_ratio=1, s_nom=300)
+
+    # trafo geom/topo
+    (network.transformers.loc[new_trafo, 'geom']
+     ) = (from_shape(MultiLineString
+                     ([LineString([wkb.loads(network.buses.geom['25766'],
+                                             hex=True),
+                                   wkb.loads(network.buses.geom['18967'],
+                                             hex=True)])]), 4326))
+    (network.transformers.loc[new_trafo, 'topo']
+     ) = (from_shape(LineString([wkb.loads(network.buses.geom['25766'],
+                                           hex=True),
+                                 wkb.loads(network.buses.geom['18967'],
+                                           hex=True)]), 4326))
+    """
+    According to:
+    https://assets.ctfassets.net/xytfb1vrn7of/NZO8x4rKesAcYGGcG4SQg/b780d6a3ca4c2600ab51a30b70950bb1/netzschemaplan-110-kv.pdf
+    the following lines are missing:
+    """
+    add_110kv_line("18967", "22449", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("21165", "24068", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("23782", "24089", overhead=True)  # visible in DSO map & OSM till 1 km from bus1
+    """
+    Umspannwerk Möhringen (bus 23697)
+    https://de.wikipedia.org/wiki/Umspannwerk_M%C3%B6hringen
+    there should be two connections:
+    to Sindelfingen (2*110kV)
+    to Wendingen (former 220kV, now 2*110kV)
+    the line to Sindelfingen is connected, but the connection of Sindelfingen
+    itself to 380kV is missing:
+    """
+    add_110kv_line("19962", "27671", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("19962", "27671", overhead=True)
+    """
+    line to Wendingen is missing, probably because it ends shortly before the
+    way of the substation and is connected via cables:
+    """
+    add_110kv_line("23697", "24090", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("23697", "24090", overhead=True)
+
+    # Lehrte
+    """
+    Lehrte: 220kV Bus located outsinde way of Betriebszentrtum Lehrte and
+    therefore not connected:
+    """
+
+    def add_220kv_line(bus0, bus1, overhead=False):
+        new_line = str(network.lines.index.astype(int).max()+1)
+        if not overhead:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=550)
+        else:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=520)
+        network.lines.loc[new_line, "scn_name"] = "Status Quo"
+        network.lines.loc[new_line, "v_nom"] = 220
+        network.lines.loc[new_line, "version"] = "added_manually"
+        network.lines.loc[new_line, "frequency"] = 50
+        network.lines.loc[new_line, "cables"] = 3.0
+        network.lines.loc[new_line, "length"] = (
+            pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
+                                network.buses.loc[bus1, ["x", "y"]])[0][0]*1.2)
+        if not overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"]*0.0176)
+            network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*67e-9)
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"]*0.3e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"]*210-9)
+        elif overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.05475)
+            network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*30e-9)
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"]*1e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"]*11e-9)
+
+        # line geom/topo
+        (network.lines.loc[new_line, 'geom']
+         ) = from_shape(MultiLineString
+                        ([LineString([wkb.loads(network.buses.geom[bus0],
+                                                hex=True),
+                                      wkb.loads(network.buses.geom[bus1],
+                                                hex=True)])]), 4326)
+        (network.lines.loc[new_line, 'topo']
+         ) = from_shape(LineString
+                        ([wkb.loads(network.buses.geom[bus0], hex=True),
+                          wkb.loads(network.buses.geom[bus1], hex=True)]),
+                        4326)
+
+    add_220kv_line("266", "24633", overhead=True)
+
 
 def results_to_csv(network, path):
     """
