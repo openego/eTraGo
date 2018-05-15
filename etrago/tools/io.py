@@ -102,11 +102,9 @@ class NetworkScenario(ScenarioBase):
         self.network  = None
         self.cntry_links = kwargs.get('cntry_links', [])
         self.brnch_fct = kwargs.get('brnch_fct', 1.)
-        self.rand_snaps = kwargs.get('rand_snapshots')
-        self.reproduce_snapshots = kwargs.get('reproduce_snapshots')
+        self.rand_snaps = kwargs.get('rand_snapshots', False)
+        self.reproduce_snapshots = kwargs.get('reproduce_snapshots', False)
 
-        print('Number of random snaps:')
-        print(self.rand_snaps)
 
         self.configure_timeindex()
 
