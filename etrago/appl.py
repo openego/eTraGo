@@ -50,22 +50,22 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1000, 
-        'end_snapshot' : 1001,
+        'start_snapshot': 2000, 
+        'end_snapshot' : 2005,
         'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\test_market', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/student/Marlon/market_fbmc_5hours', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
-        'clean_snom':True, #state if you want to create a csv file to avoid load shedding in future calculations
+        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
         'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
-        'market_simulation':False,
+        'market_simulation':'fbmc',
         # Clustering:
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
@@ -73,7 +73,7 @@ args = {# Setup and Configuration:
         'parallelisation':True, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
+        'branch_capacity_factor': 1, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -316,7 +316,7 @@ def etrago(args):
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots'] 
     
     if args['market_simulation']:
-        market_simulation(network)
+        market_simulation(network, args['market_simulation'])
         
     # parallisation
     if args['parallelisation']:
