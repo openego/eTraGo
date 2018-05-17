@@ -53,9 +53,9 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 6,
+        'end_snapshot' : 2,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -302,7 +302,9 @@ def etrago(args):
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
-        network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'])
+        network = kmean_clustering(network, 
+                                   n_clusters=args['network_clustering_kmeans'], 
+                                   bus_weight_tocsv=None, bus_weight_fromcsv=None)
 
     # Branch loading minimization
     if args['minimize_loading']:

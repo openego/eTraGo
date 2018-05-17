@@ -362,7 +362,7 @@ def busmap_from_psql(network, session, scn_name):
         
     return busmap
 
-def kmean_clustering(network, n_clusters=10):
+def kmean_clustering(network, n_clusters=10, bus_weight_tocsv=None, bus_weight_fromcsv=None):
     """ 
     Implement k-mean clustering in existing network
    
@@ -371,6 +371,14 @@ def kmean_clustering(network, n_clusters=10):
     
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    n_clusters : int
+        the number of n buses of your clustered grid
+    bus_weight_tocsv : str
+        to create a bus weighting based on conventional generation and load 
+        and save it to a csv file
+    bus_weight_fromcsv : str
+        to load a bus weighting from a csv file to apply it to the clustering
+        algorithm
         
     Returns
     -------
@@ -378,13 +386,19 @@ def kmean_clustering(network, n_clusters=10):
         Container for all network components.
         
     """
-    def weighting_for_scenario(x):
+    def weighting_for_scenario(x, save=None):
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
       
         w= g + l
-        return (w * (100000. / w.max())).astype(int)
+        weight = ((w * (100000. / w.max())).astype(int)).reindex(network.buses.index, fill_value=1)
+        
+
+        if save:
+            weight.to_csv(save)
+
+        return weight
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
@@ -429,12 +443,15 @@ def kmean_clustering(network, n_clusters=10):
     # k-mean clustering
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    #weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    #weight.to_csv("bus_weighting.csv")
-    weight = pd.Series.from_csv('bus_weighting.csv')
-    weight.index = weight.index.astype(str)
-    #import pdb
-    #pdb.set_trace()
+    # State whether to create a bus weighting and save it, create or not save it, or use a bus weighting from a csv file
+    if bus_weight_tocsv is not None:
+        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
+    elif bus_weight_fromcsv is not None:
+        weight = pd.Series.from_csv(bus_weight_fromcsv)
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network.buses, save=False)
+    
     busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
 
 
