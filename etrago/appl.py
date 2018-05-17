@@ -53,16 +53,16 @@ args = {# Setup and Configuration:
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/openego/pf_results/storage_paper/NEP2035_k300_t3_gurobi_noise', # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': '/home/lukas_wienholt/results/no/NEP2035_k400_t3_gurobi_no.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results': '/home/lukas_wienholt/results/no/NEP2035_k400_t3_gurobi_no', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': '/home/openego/noise_values_lukastorage.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 400, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -272,6 +272,23 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
     
+    # set numbers for storage in norway
+    # Büttel
+    network.add("StorageUnit",
+		"no1",
+		bus='26435',
+		carrier='pumped_storage',
+		control="PV",
+		cyclic_state_of_charge=True,
+		efficiency_dispatch=0.9,
+		efficiency_store=0.9,
+		marginal_cost=0,
+		max_hours=168,
+		p_min_pu=-1,
+		p_nom=1400, # variieren!
+		p_nom_extendable=False,
+		standing_loss=0)
+
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
         network = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
@@ -307,8 +324,10 @@ def etrago(args):
        # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
         installed_storages = network.storage_units[ network.storage_units.p_nom_opt!=0]
-        storage_costs = sum(installed_storages.capital_cost * installed_storages.p_nom_opt)
-        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2))   
+        storage_costs = sum(installed_storages[ installed_storages.carrier=='extendable_storage'].capital_cost * installed_storages[ installed_storages.carrier=='extendable_storage'].p_nom_opt)
+        print("Investment costs for all storages in selected snapshots [EUR]:",round(storage_costs,2)) 
+        storage_capacities = sum(installed_storages[ installed_storages.carrier=='extendable_storage'].p_nom_opt)
+        print("Total capacities for new storage in selected snapshots [MW]:",round(storage_capacities,2))  
         
     # write lpfile to path
     if not args['lpfile'] == False:
