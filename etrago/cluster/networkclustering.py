@@ -44,6 +44,7 @@ if not 'READTHEDOCS' in os.environ:
     import pypsa.io as io
     import pypsa.components as components
     from six import iteritems
+    from sqlalchemy import or_, exists
 
 # TODO: Workaround because of agg
 def _leading(busmap, df):
@@ -65,7 +66,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     busmap : dict
         Maps old bus_ids to new bus_ids.
         
-    with_time : boolean
+    with_time : bool
         If true time-varying data will also be aggregated.
 
     Returns
@@ -83,6 +84,11 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask,:]
+    
+    # keep attached links
+    links = network.links.copy()
+    mask = links.bus0.isin(buses.index)
+    links = links.loc[mask,:]
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -91,6 +97,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     io.import_components_from_dataframe(network_c, buses, "Bus")
     io.import_components_from_dataframe(network_c, lines, "Line")
+    io.import_components_from_dataframe(network_c, links, "Link")
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
 
     if with_time:
@@ -299,7 +306,11 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
+   
+    print(scn_name)
     df['scn_name'] = scn_name
+    print(df)
+            
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
@@ -459,9 +470,7 @@ def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25,
     network.generators['weight'] = 1
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, 
-                                            aggregate_one_ports=aggregate_one_ports, 
-                                            line_length_factor=line_length_factor)
+    clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
     network = clustering.network
 
     return network
