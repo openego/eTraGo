@@ -277,6 +277,9 @@ def etrago(args):
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
+    # set extra_functionality to default
+    extra_functionality=None
+
     if args['generator_noise']:
         # create or reproduce generator noise
         if not args['reproduce_noise'] == False:
