@@ -25,8 +25,24 @@ import pandas as pd
 import numpy as np
 import os
 import time
+from shapely.geometry import MultiPoint
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
+def german_geom(section='oedb'):
+    from egoio.tools import db
+    from egoio.db_tables.boundaries import BkgVg2501Sta
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy import and_
+    from geoalchemy2.shape import to_shape
+    
+    conn = db.connection(section=section)
+    Session = sessionmaker(bind=conn)
+    session = Session()
+    query = session.query(BkgVg2501Sta.geom.ST_Transform(4326)).\
+            filter(and_(BkgVg2501Sta.reference_date == '2015-01-01', BkgVg2501Sta.id == 9))
+    geom = [geom for geom in query.all()]
+    wkt_geom = to_shape(geom[0][0])
+    return wkt_geom
 
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
@@ -353,16 +369,27 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     z = (y - x) / 60
     return
 
-def get_transborder_flows(network):
+def get_transborder_flows(network, wkt_geom):
     #positive = imports
-    neighbours = (
-    '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
-    '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
-    )
-    transborder_lines = network.lines[network.lines['bus1'].isin(neighbours)].index
-    network.foreign_trade = network.lines_t.p1[transborder_lines].sum(axis=1)
+    coords = network.buses[['x', 'y']]
+    coords = [tuple(x) for x in coords.values]
+    buses = MultiPoint(coords)
 
-def market_simulation(network, method):
+    index_foreign_buses = []
+    for i, pt in enumerate(buses):
+        if pt.within(wkt_geom) == False:
+             index_foreign_buses.append(i)
+    foreign_buses = network.buses.reset_index().loc[index_foreign_buses].name.values
+
+    transborder_lines_0 = network.lines[network.lines['bus0'].isin(foreign_buses)].index
+    transborder_lines_1 = network.lines[network.lines['bus1'].isin(foreign_buses)].index
+    
+    network.foreign_trade = network.lines_t.p0[transborder_lines_0].sum(axis=1) +\
+        network.lines_t.p1[transborder_lines_1].sum(axis=1)
+    
+    return network.foreign_trade
+        
+def market_simulation(network, method, geom):
     
     network.import_components_from_dataframe(pd.DataFrame({'bus0' : network.lines['bus0'].values,
                                                            'bus1' : network.lines['bus1'].values,
@@ -370,12 +397,24 @@ def market_simulation(network, method):
                                                            'p_min_pu' : -1},
                                                             index=network.lines.index+'Link'),
                                                             'Link')
-    neighbours = (
-    '1025', '2625', '7230', '8035', '9271', '11353', '11601', '12093', '12127', '12128',
-    '12205', '12402', '12436', '12653', '12733', '13182', '13339', '15182', '25533',
-    '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
-    '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
-    )
+# =============================================================================
+#     neighbours = (
+#     '1025', '2625', '7230', '8035', '9271', '11353', '11601', '12093', '12127', '12128',
+#     '12205', '12402', '12436', '12653', '12733', '13182', '13339', '15182', '25533',
+#     '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
+#     '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
+#     )
+# =============================================================================
+    coords = network.buses[['x', 'y']]
+    coords = [tuple(x) for x in coords.values]
+    buses = MultiPoint(coords)
+
+    index_foreign_buses = []
+    for i, pt in enumerate(buses):
+        if pt.within(geom) == False:
+             index_foreign_buses.append(i)
+    neighbours = network.buses.reset_index().loc[index_foreign_buses].name.values
+    
     mask = network.links['p_nom'].loc[(network.links['bus0'].isin(neighbours) == True) |
             (network.links['bus1'].isin(neighbours) == True)].index
             

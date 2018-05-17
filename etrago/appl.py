@@ -38,7 +38,8 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, 
-                                    group_parallel_lines, market_simulation)
+                                    group_parallel_lines, market_simulation,
+                                    german_geom)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -56,24 +57,23 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/student/Marlon/market_fbmc_5hours', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/student/Marlon/market_kmean_100', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
-        'clean_snom':False, #state if you want to create a csv file to avoid load shedding in future calculations
-        'use_cleaned_snom':False, #state if you want to use cleaned s_noms to avoid load shedding
-        'market_simulation':'fbmc',
+        'use_cleaned_snom':True, #state if you want to use cleaned s_noms to avoid load shedding
+        'market_simulation':'ntc',
         # Clustering:
-        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
-        'parallelisation':True, # state if you want to run snapshots parallely.
+        'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
-        'branch_capacity_factor': 1, # globally extend or lower branch capacities
+        'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
@@ -290,16 +290,6 @@ def etrago(args):
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
-        
-    if args['clean_snom']:
-        network.lines['s_nom_min'] = network.lines['s_nom']
-        network.lines['s_nom_extendable'] = True
-        network.lines['s_nom_max'] = float('Inf')
-        network.lines['capital_cost'] = 1800000
-        network.transformers['s_nom_min'] = network.transformers['s_nom']
-        network.transformers['s_nom_extendable'] = True
-        network.transformers['s_nom_max'] = float('Inf')
-        network.transformers['capital_cost'] = 1800000
     
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
@@ -316,7 +306,8 @@ def etrago(args):
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots'] 
     
     if args['market_simulation']:
-        market_simulation(network, args['market_simulation'])
+        geom = german_geom(args['db'])
+        market_simulation(network, args['market_simulation'], geom)
         
     # parallisation
     if args['parallelisation']:
@@ -360,18 +351,6 @@ def etrago(args):
     # write PyPSA results to csv to path
     if not args['results'] == False:
         results_to_csv(network, args['results'])
-    
-    if args['clean_snom']:
-        #lines
-        diff_lines = round((network.lines['s_nom_opt']-network.lines['s_nom']), 0)
-        index_lines = diff_lines.iloc[list(diff_lines.nonzero()[0])].index
-        round(network.lines['s_nom_opt'].loc[index_lines]/
-              args['branch_capacity_factor']+0.5, 0).to_csv('lines_opt.csv')
-        #transformers
-        diff_transformers = round((network.transformers['s_nom_opt']-network.transformers['s_nom']), 0)
-        index_transformers = diff_transformers.iloc[list(diff_transformers.nonzero()[0])].index
-        round(network.transformers['s_nom_opt'].loc[index_transformers]/
-              args['branch_capacity_factor']+0.5, 0).to_csv('transformers_opt.csv')
             
     # close session
     session.close()
