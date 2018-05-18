@@ -49,13 +49,14 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
+                                     #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2005, 
+        'pf_post_lopf': False, # True to perform a pf after a lopf simulation
+        'start_snapshot': 2005,
         'end_snapshot' : 2006,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -276,6 +277,9 @@ def etrago(args):
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
+    # set extra_functionality to default
+    extra_functionality=None
+
     if args['generator_noise']:
         # create or reproduce generator noise
         if not args['reproduce_noise'] == False:
@@ -306,9 +310,10 @@ def etrago(args):
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
-        network = kmean_clustering(network, 
-                                   n_clusters=args['network_clustering_kmeans'], 
-                                   bus_weight_tocsv=None, bus_weight_fromcsv=None)
+        network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
+                                   line_length_factor= 1.25, remove_stubs=True, 
+                                   use_reduced_coordinates=False, bus_weight_tocsv=None, 
+                                   bus_weight_fromcsv=None)
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -346,12 +351,15 @@ def etrago(args):
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'],  extra_functionality=extra_functionality)
-    
+        parallelisation(network, start_snapshot=args['start_snapshot'], 
+                        end_snapshot=args['end_snapshot'],group_size=1, 
+                        solver_name=args['solver'], 
+                        extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], 
+                     extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
@@ -374,8 +382,8 @@ def etrago(args):
 
     # write lpfile to path
     if not args['lpfile'] == False:
-        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':True})
-        
+        network.model.write(args['lpfile'], io_options={'symbolic_solver_labels':
+                                                     True})
     # write PyPSA results back to database
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
