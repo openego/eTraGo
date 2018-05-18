@@ -651,7 +651,7 @@ def line_extendableBM(network, args, scenario):
     
 
     x = time.time()
-    network.lopf(network.snapshots, solver_name=args['solver'])  
+    network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )  
     y = time.time()
     z = y-x
     
