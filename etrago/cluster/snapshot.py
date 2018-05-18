@@ -26,7 +26,7 @@ def snapshot_clustering(network, how='daily', clusters=10):
 
     network = run(network=network.copy(), n_clusters=clusters,
             how=how, normed=False)
-
+    
     return network
 
 
@@ -57,18 +57,14 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
-    
-    # get the medoids/ the clusterCenterIndices
+    clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices 
     
     # get all index for every hour of that day of the clusterCenterIndices
-    start=[]
-    # get the first hour of the clusterCenterIndices (days start with 0)
+    start=[]  # get the first hour of the clusterCenterIndices (days start with 0)
     for i in clusterCenterIndices:
         start.append(i*hours)
-    
-    # get a list with all hours belonging to the clusterCenterIndices
-    nrhours=[]
+    nrhours=[]  # get a list with all hours belonging to the clusterCenterIndices
     for j in start:
         nrhours.append(j)
         x=1
@@ -79,8 +75,26 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
             
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index 
-        
-    return timeseries, cluster_weights, dates, hours
+    
+    #get list of representative days   
+    representative_day=[]
+    dic_clusterCenterIndices = dict(enumerate(clusterCenterIndices)) #cluster:medoid des jeweiligen Clusters
+    for i in clusterOrder: 
+        representative_day.append(dic_clusterCenterIndices[i])
+    #get list of last hour of representative days
+    last_hour_datetime=[]
+    for i in representative_day:
+        last_hour = i*hours+hours-1
+        last_hour_datetime.append(timeseries_df.index[last_hour])
+    #create a dataframe (index=nr. of day in a year/candidate)
+    df_cluster =  pd.DataFrame({
+                        'Cluster': clusterOrder, #Cluster of the day
+                        'RepresentativeDay': representative_day, #representative day of the cluster
+                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster                
+    df_cluster.index = df_cluster.index + 1
+    df_cluster.index.name = 'Candidate'
+    
+    return df_cluster, cluster_weights, dates, hours
 
 
 def run(network, n_clusters=None, how='daily',
@@ -91,12 +105,12 @@ def run(network, n_clusters=None, how='daily',
     network.cluster = True
 
     # calculate clusters
-    tsam_ts, cluster_weights,dates,hours = tsam_cluster(prepare_pypsa_timeseries(network),
+    df_cluster, cluster_weights, dates, hours = tsam_cluster(prepare_pypsa_timeseries(network),
                            typical_periods=n_clusters,
                            how='daily')       
-           
+    network.cluster = df_cluster
     update_data_frames(network, cluster_weights, dates, hours)                 
-            
+    
     return network
 
 def prepare_pypsa_timeseries(network, normed=False):
@@ -153,28 +167,93 @@ def update_data_frames(network,cluster_weights, dates,hours):
     
     return network
 
-def daily_bounds(network, snapshots):
-    """ This will bound the storage level to 0.5 max_level every 24th hour.
+def snapshot_cluster_constraints(network, snapshots):
+    """  
+    Notes
+    ------
+    Adding arrays etc. to `network.model` as attribute is not required but has
+    been done as it belongs to the model as sets for constraints and variables
+
     """
-    if network.cluster:
 
-        sus = network.storage_units
-        # take every first hour of the clustered days
-        network.model.period_starts = network.snapshot_weightings.index[0::24]
+    #if network.cluster:
 
-        network.model.storages = sus.index
+    sus = network.storage_units
+    # take every first hour of the clustered days
+    network.model.period_starts = network.snapshot_weightings.index[0::24]
 
-        def day_rule(m, s, p):
+    network.model.storages = sus.index
+    
+    if True:
+    # TODO: replace condition by somthing like:
+    # if network.cluster['intertemporal']: ?
+        # somewhere get 1...365, e.g in network.cluster['candidates']
+        # should be array-like DONE
+        candidates = network.cluster.index.get_values()
+
+        # mapper for finding representative period (from clusterd data) for
+        # every candidate - DONE: can be find in under network.cluster["last_hour_RepresentativeDay"][i]]
+
+        # create set for inter-temp contraints and variables
+        network.model.candidates = po.Set(initialize=candidates,
+                                          ordered=True)
+
+        # create inter soc variable for each storage and each candidate
+        # (e.g. day of year for daily clustering) 
+        network.model.state_of_charge_inter = po.Var(
+            network.model.storages, network.model.candidates,
+            within=po.NonNegativeReals)
+
+        def inter_storage_soc_rule(m, s, i):
             """
-            Sets the soc of the every first hour to the soc of the last hour
-            of the day (i.e. + 23 hours)
+            """
+            if i == network.model.canadidates[-1]:
+                # if last candidate: build 'cyclic' constraint instead normal
+                # normal one (would cause error anyway as t+1 does not exist for
+                # last timestep)
+                (m.state_of_charge_inter[s, i] ==
+                 m.state_of_charge_inter[s, network.model.canadidates[0]])
+            else:
+                expr = (
+                    m.state_of_charge_inter[s, i + 1] ==
+                    m.state_of_charge_inter[s, i] *
+                    (1 - network.storage_units[s].standing_loss)^24 +
+                    # TODO: DONE
+                    # candidate_period_mapper needs to map to last timestep of
+                    # representative period for candidate i. which shoul match
+                   # the snapshot index of course
+                   m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]])
+            return expr
+        network.model.inter_storage_soc_constraint = po.Constraint(
+            network.model.storages, network.model.candidates,
+            rule=inter_storage_soc_rule)
+
+        def inter_storage_capacity_rule(m, s, i):
+            """
             """
             return (
-                m.state_of_charge[s, p] ==
-                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+               m.state_of_charge_inter[s, i] *
+                (1 - network.storage_units[s].standing_loss)^24 +
+                m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]] <=
+                m.storage_p_nom[s] * network.storage_units.at[s, 'max_hours'])
+        network.model.inter_storage_capacity_constraint = po.Constraint(
+            network.model.storages, network.model.candidates,
+            rule = inter_storage_capacity_rule)
 
-        network.model.period_bound = po.Constraint(
-            network.model.storages, network.model.period_starts, rule=day_rule)
+    # take every first hour of the clustered days
+    network.model.period_starts = network.snapshot_weightings.index[0::24]
+    
+    def day_rule(m, s, p):
+        """
+        Sets the soc of the every first hour to the soc of the last hour
+        of the day (i.e. + 23 hours)
+        """
+        return (
+            m.state_of_charge[s, p] ==
+            m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+
+    network.model.period_bound = po.Constraint(
+        network.model.storages, network.model.period_starts, rule=day_rule)
 
 
 ####################################

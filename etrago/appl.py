@@ -43,19 +43,19 @@ if not 'READTHEDOCS' in os.environ:
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    from etrago.cluster.snapshot import snapshot_clustering, snapshot_cluster_constraints
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 192,
+        'end_snapshot' : 168,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -334,7 +334,7 @@ def etrago(args):
     # snapshot clustering
     if not args['snapshot_clustering']== False:
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
-        extra_functionality = daily_bounds # daily_bounds or other constraint
+        extra_functionality = snapshot_cluster_constraints # daily_bounds or other constraint
 
     # parallisation
     if args['parallelisation']:
