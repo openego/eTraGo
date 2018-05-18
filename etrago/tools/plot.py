@@ -770,7 +770,7 @@ def gen_dist(network, techs=None, snapshot=0, n_cols=3,gen_size=0.2, filename=No
        plt.show()
     else:
        plt.savefig(filename)
-plt.close()
+       plt.close()
 
 def gen_dist_diff(networkA, networkB, techs=None, snapshot=0, n_cols=3,gen_size=0.2, filename=None, buscmap=plt.cm.jet):
 
@@ -844,7 +844,7 @@ def gen_dist_diff(networkA, networkB, techs=None, snapshot=0, n_cols=3,gen_size=
        plt.show()
     else:
        plt.savefig(filename)
-plt.close()
+       plt.close()
 
 def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=None):
 
