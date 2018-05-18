@@ -66,7 +66,7 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['storage'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -312,7 +312,8 @@ def etrago(args):
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
                                    line_length_factor= 1.25, remove_stubs=True, 
-                                   use_reduced_coordinates=False)
+                                   use_reduced_coordinates=False, bus_weight_tocsv=None, 
+                                   bus_weight_fromcsv=None)
 
     # Branch loading minimization
     if args['minimize_loading']:
