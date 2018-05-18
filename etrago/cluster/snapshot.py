@@ -207,7 +207,7 @@ def snapshot_cluster_constraints(network, snapshots):
         def inter_storage_soc_rule(m, s, i):
             """
             """
-            if i == network.model.canadidates[-1]:
+            if i == network.model.candidates[-1]:
                 # if last candidate: build 'cyclic' constraint instead normal
                 # normal one (would cause error anyway as t+1 does not exist for
                 # last timestep)
