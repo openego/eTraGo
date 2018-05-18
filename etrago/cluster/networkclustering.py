@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 """ Networkclustering.py defines the methods to cluster power grid
-networks for application within the tool eTraGo. 
+networks for application within the tool eTraGo. Many of the functions are
+based or taken from 
+https://github.com/PyPSA/PyPSA/blob/master/pypsa/networkclustering.py
+This applies especially for the k-means clustering algorithm. The method is 
+based on Hoersch et al. ( https://arxiv.org/pdf/1705.07617.pdf ).
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU Affero General Public License as
@@ -23,7 +27,10 @@ __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 import os
 if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import *
-    from pypsa.networkclustering import aggregatebuses, aggregateoneport, aggregategenerators, get_clustering_from_busmap, busmap_by_kmeans
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport, 
+                                         aggregategenerators, 
+                                         get_clustering_from_busmap, 
+                                         busmap_by_kmeans, busmap_by_stubs)
     from egoio.db_tables.model_draft import EgoGridPfHvBusmap
     
     from itertools import product
@@ -72,6 +79,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     buses = aggregatebuses(network, busmap, {'x':_leading(busmap, network.buses),
                                              'y':_leading(busmap, network.buses)})
+
     # keep attached lines
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
@@ -195,7 +203,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name,  fromlvl, tolvl,
+def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
                             cpu_cores=4):
     """ Create busmap between voltage levels based on dijkstra shortest path.
     The result is written to the `model_draft` on the OpenEnergy - Platform. The
@@ -236,8 +244,6 @@ def busmap_by_shortest_path(network, session, scn_name,  fromlvl, tolvl,
 
     """
 
-    
-    
     # cpu_cores = mp.cpu_count()
 
     # data preperation
@@ -337,13 +343,12 @@ def busmap_from_psql(network, session, scn_name):
     """
 
     def fetch():
-        
+
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-                filter(EgoGridPfHvBusmap.scn_name == scn_name)
-      
+            filter(EgoGridPfHvBusmap.scn_name == scn_name)
+
         return dict(query.all())
-       
-    
+
     busmap = fetch()
 
     # TODO: Or better try/except/finally
@@ -355,14 +360,13 @@ def busmap_from_psql(network, session, scn_name):
         busmap_by_shortest_path(network, session, scn_name,
                                 fromlvl=[110], tolvl=[220, 380],
                                 cpu_cores=int(cpu_cores))
-
         busmap = fetch()
 
-
-        
     return busmap
 
-def kmean_clustering(network, n_clusters=10):
+def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25, 
+                     remove_stubs=False, use_reduced_coordinates=False, 
+                     bus_weight_tocsv=None, bus_weight_fromcsv=None):
     """ 
     Implement k-mean clustering in existing network
    
@@ -371,6 +375,22 @@ def kmean_clustering(network, n_clusters=10):
     
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    n_clusters : int
+        Final number of clusters desired.
+    line_length_factor : float
+        Factor to multiply the crow-flies distance between new buses in order to get new
+        line lengths.
+    remove_stubs: boolean
+        Cluster network by reducing stubs and stubby trees
+        (i.e. sequentially reducing dead-ends).
+    use_reduced_coordinates: boolean
+        If True, do not average cluster coordinates, but take from busmap.
+    bus_weight_tocsv : str
+        to create a bus weighting based on conventional generation and load 
+        and save it to a csv file
+    bus_weight_fromcsv : str
+        to load a bus weighting from a csv file to apply it to the clustering
+        algorithm
         
     Returns
     -------
@@ -378,13 +398,19 @@ def kmean_clustering(network, n_clusters=10):
         Container for all network components.
         
     """
-    def weighting_for_scenario(x):
+    def weighting_for_scenario(x, save=None):
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
       
         w= g + l
-        return (w * (100000. / w.max())).astype(int)
+        weight = ((w * (100000. / w.max())).astype(int)).reindex(network.buses.index, fill_value=1)
+        
+
+        if save:
+            weight.to_csv(save)
+
+        return weight
 
     def normed(x):
         return (x/x.sum()).fillna(0.)
@@ -403,7 +429,8 @@ def kmean_clustering(network, n_clusters=10):
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
 
     trafo_index = network.transformers.index
-    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+    transformer_voltages = pd.concat([network.transformers.bus0.map(network.buses.v_nom), 
+                                      network.transformers.bus1.map(network.buses.v_nom)], axis=1)
 
 
     network.import_components_from_dataframe(
@@ -415,7 +442,26 @@ def kmean_clustering(network, n_clusters=10):
 
     for attr in network.transformers_t:
       network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
+      
+    #remove stubs
+    if remove_stubs == True:
+        network.determine_network_topology()
+        busmap = busmap_by_stubs(network)
+        network.generators['weight'] = 1
+        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
+        #reset coordinates to the new reduced guys, rather than taking an average (copied from pypsa.networkclustering)
+        if use_reduced_coordinates:
+            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+            # i.e. network is changed in place!!
+            network.buses.loc[busmap.index,['x','y']] = network.buses.loc[busmap,['x','y']].values
 
+        clustering = get_clustering_from_busmap(network, busmap, 
+                                                aggregate_generators_weighted=True, 
+                                                aggregate_one_ports=aggregate_one_ports, 
+                                                line_length_factor=line_length_factor)
+        network = clustering.network
+    
     #define weighting based on conventional 'old' generator spatial distribution
     non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
     # Attention: network.generators.carrier.unique() 
@@ -429,7 +475,15 @@ def kmean_clustering(network, n_clusters=10):
     # k-mean clustering
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
+    # State whether to create a bus weighting and save it, create or not save it, or use a bus weighting from a csv file
+    if bus_weight_tocsv is not None:
+        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
+    elif bus_weight_fromcsv is not None:
+        weight = pd.Series.from_csv(bus_weight_fromcsv)
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network.buses, save=False)
+    
     busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
 
 
@@ -439,6 +493,6 @@ def kmean_clustering(network, n_clusters=10):
     aggregate_one_ports.discard('Generator')
     clustering = get_clustering_from_busmap(network, busmap, aggregate_generators_weighted=True, aggregate_one_ports=aggregate_one_ports)
     network = clustering.network
-    #network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
     return network
     
