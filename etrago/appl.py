@@ -48,22 +48,22 @@ if not 'READTHEDOCS' in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'ssh', # db session
         'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
                                      #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # True to perform a pf after a lopf simulation
-        'start_snapshot': 2005,
-        'end_snapshot' : 2006,
+        'start_snapshot': 1,
+        'end_snapshot' : 8760,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results': "/home/openego/pf_results/110paper/EHVcluster/StatusQuo_k474_t3", # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -71,12 +71,12 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'network_clustering_kmeans':474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_ehv': True, # state if you want to perform a clustering of HV buses to EHV buses.
+        'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':False,
+        'skip_snapshots':3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -201,7 +201,7 @@ def etrago(args):
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
-        put False. This function doesn't work together with
+        put False. This functionhttps://pypsa.org/examples/scigrid-lopf-then-pf.html doesn't work together with
         ``'line_grouping = True'``.
 
     network_clustering_ehv : bool
@@ -288,8 +288,8 @@ def etrago(args):
             network.generators.marginal_cost = noise_values
         else:
             noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-            np.savetxt("noise_values.csv", noise_values, delimiter=",")
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            np.savetxt("noise_values_sq110.csv", noise_values, delimiter=",")
+            noise_values = genfromtxt('noise_values_sq110.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
 
@@ -416,4 +416,4 @@ if __name__ == '__main__':
     #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     #storage_distribution(network)
-    #extension_overlay_network(network)
+    #extension_overlay_network(network)https://pypsa.org/examples/scigrid-lopf-then-pf.html
