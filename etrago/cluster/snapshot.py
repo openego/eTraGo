@@ -204,7 +204,7 @@ def snapshot_cluster_constraints(network, snapshots):
             network.model.storages, network.model.candidates,
             within=po.NonNegativeReals)
     
-        import pdb; pdb.set_trace()          
+                 
         def inter_storage_soc_rule(m, s, i):
             """
             """
@@ -212,49 +212,54 @@ def snapshot_cluster_constraints(network, snapshots):
                 # if last candidate: build 'cyclic' constraint instead normal
                 # normal one (would cause error anyway as t+1 does not exist for
                 # last timestep)
-                (m.state_of_charge_inter[s, i] ==
-                 m.state_of_charge_inter[s, network.model.candidates[0]])
+                expr = (m.state_of_charge_inter[s, i] ==
+                 m.state_of_charge_inter[s, network.model.candidates[1]])
             else:
                 expr = (
                     m.state_of_charge_inter[s, i + 1] ==
-                    m.state_of_charge_inter[s, i] *
-                    (1 - network.storage_units[s].standing_loss)^24 +
+                    m.state_of_charge_inter[s, i] 
+                   # * (1 - network.storage_units[s].standing_loss)^24 +
+                    + m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]])
                     # TODO: DONE
                     # candidate_period_mapper needs to map to last timestep of
                     # representative period for candidate i. which shoul match
                    # the snapshot index of course
-                   m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]])
+               
             return expr
         network.model.inter_storage_soc_constraint = po.Constraint(
             network.model.storages, network.model.candidates,
             rule=inter_storage_soc_rule)
-
-        def inter_storage_capacity_rule(m, s, i):
-            """
-            """
-            return (
-               m.state_of_charge_inter[s, i] *
-                (1 - network.storage_units[s].standing_loss)^24 +
-                m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]] <=
-                m.storage_p_nom[s] * network.storage_units.at[s, 'max_hours'])
-        network.model.inter_storage_capacity_constraint = po.Constraint(
-            network.model.storages, network.model.candidates,
-            rule = inter_storage_capacity_rule)
+        
+# =============================================================================
+#         def inter_storage_capacity_rule(m, s, i):
+#             """
+#             """
+#             return (
+#                m.state_of_charge_inter[s, i] * 
+#                 (1 - network.storage_units[s].standing_loss)^24 +
+#                 m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]] <=
+#                 m.storage_p_nom[s] * network.storage_units.at[s, 'max_hours'])
+#         network.model.inter_storage_capacity_constraint = po.Constraint(
+#             network.model.storages, network.model.candidates,
+#             rule = inter_storage_capacity_rule)
+# =============================================================================
 
     # take every first hour of the clustered days
     network.model.period_starts = network.snapshot_weightings.index[0::24]
     
-    def day_rule(m, s, p):
-        """
-        Sets the soc of the every first hour to the soc of the last hour
-        of the day (i.e. + 23 hours)
-        """
-        return (
-            m.state_of_charge[s, p] ==
-            m.state_of_charge[s, p + pd.Timedelta(hours=23)])
-
-    network.model.period_bound = po.Constraint(
-        network.model.storages, network.model.period_starts, rule=day_rule)
+# =============================================================================
+#     def day_rule(m, s, p):
+#         """
+#         Sets the soc of the every first hour to the soc of the last hour
+#         of the day (i.e. + 23 hours)
+#         """
+#         return (
+#             m.state_of_charge[s, p] ==
+#             m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+# 
+#     network.model.period_bound = po.Constraint(
+#         network.model.storages, network.model.period_starts, rule=day_rule)
+# =============================================================================
 
 
 ####################################
