@@ -782,6 +782,171 @@ def gen_dist_diff(networkA, networkB, techs=None, snapshot='all',
        plt.savefig(filename)
 plt.close()
 
+def plot_redispatch(network, market, foreign_buses, techs=None, snapshot='all', 
+                  n_cols=3,gen_size=0.2, filename=None):
+    """
+    Difference in generation distribution network - market.
+    If first is network and second is market, green means redispatch upwards and red means
+    redispatch downwards.
+    ----------
+    networkA : PyPSA network container
+        Holds topology of grid with switches
+        including results from powerflow analysis
+    networkB : PyPSA network container
+        Holds topology of grid without switches
+        including results from powerflow analysis
+    techs : dict 
+        type of technologies which shall be plotted
+    snapshot : int
+        snapshot
+    n_cols : int 
+        number of columns of the plot
+    gen_size : num 
+        size of generation bubbles at the buses
+    filename : str
+        Specify filename
+        If not given, figure will be show directly
+    """
+    if techs is None:
+        techs = network.generators.carrier.unique()
+    else:
+        techs = techs
+
+    n_graphs = len(techs)
+    n_cols = n_cols
+
+    if n_graphs % n_cols == 0:
+        n_rows = n_graphs // n_cols
+    else:
+        n_rows = n_graphs // n_cols + 1
+
+    
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
+
+    size = 4
+
+    fig.set_size_inches(size*n_cols,size*n_rows)
+    
+    if snapshot == 'all':
+        loading_c = (network.lines_t.p0.mean()/(network.lines.s_nom)) * 100 
+        loading = abs(loading_c)
+    else:
+        loading_c = (network.lines_t.p0.loc[network.snapshots[snapshot]]/ \
+                     (network.lines.s_nom)) * 100 
+        loading = abs(loading_c)
+    
+    network.buses[['x', 'y']] = network.buses[['x', 'y']].round(4)
+    market.buses[['x', 'y']] = market.buses[['x', 'y']].round(4)
+    
+    foreign_network = network.buses.loc[foreign_buses]
+    for index, row in foreign_network.iterrows():
+        ix = np.where((market.buses['x'] == row['x']) & \
+                 (market.buses['y'] == row['y']))
+        for i in ix:
+            market.buses.ix[i, 'corresponding_bus'] = index
+    
+    network.buses.loc[foreign_network.index, 'corresponding_bus'] = foreign_network.index
+    
+    fill_value = network.buses[(round(network.buses['x']) == 10) & \
+                               (round(network.buses['y']) == 51)].iloc[0].name
+    
+    market.buses['corresponding_bus'].fillna(fill_value, inplace=True)
+    network.buses['corresponding_bus'].fillna(fill_value, inplace=True)
+ 
+    for i,tech in enumerate(techs):
+        i_row = i // n_cols
+        i_col = i % n_cols
+        one_plot = False
+        
+        if type(axes) == np.ndarray:
+            try:
+                ax = axes[i_row,i_col]
+            except:
+                ax = axes[i]
+        else:
+            one_plot = True
+            ax = axes
+        
+        if tech == 'all':
+            gensN = network.generators
+            gensM = market.generators
+        else:
+            gensN = network.generators[network.generators.carrier == tech]
+            gensM = market.generators[market.generators.carrier == tech]
+        
+        if snapshot == 'all':
+            gen_distribution = (network.generators_t.p[gensN.index].\
+            sum().groupby(network.generators.bus).sum().\
+            reindex(network.buses.index,fill_value=0.).\
+            groupby(network.buses.corresponding_bus).sum() - \
+            market.generators_t.p[gensM.index].\
+            sum().groupby(market.generators.bus).sum().\
+            reindex(market.buses.index,fill_value=0.).\
+            groupby(market.buses.corresponding_bus).sum()).fillna(0)
+        else:    
+            gen_distribution = (network.generators_t.p[gensN.index].\
+            loc[network.snapshots[snapshot]].groupby(network.generators.bus).\
+            sum().reindex(network.buses.index,fill_value=0.).\
+            groupby(network.buses.corresponding_bus).sum() - \
+            market.generators_t.p[gensM.index].loc[market.snapshots[snapshot]].\
+            groupby(market.generators.bus).sum().\
+            reindex(market.buses.index,fill_value=0.).\
+            groupby(market.buses.corresponding_bus).sum()).fillna(0)
+        
+        if max(gen_distribution) != 0 or min(gen_distribution) != 0:
+            midpoint = 1 - max(gen_distribution)/(max(gen_distribution) 
+            + abs(min(gen_distribution)))  
+        else:
+            midpoint = 0
+            
+        cdict = {'green':  ((0.0, 0.0, 0.0),
+                     (1/6., 0.0, 0.0),
+                     (1/2., 0.8, 1.0),
+                     (5/6., 1.0, 1.0),
+                     (1.0, 0.4, 1.0)),
+    
+                 'red':  ((0.0, 0.0, 0.4),
+                     (1/6., 1.0, 1.0),
+                     (1/2., 1.0, 0.8),
+                     (5/6., 0.0, 0.0),
+                     (1.0, 0.0, 0.0)),
+    
+                 'blue': ((0.0, 0.0, 0.0),
+                     (1/6., 0.0, 0.0),
+                     (1/2., 0.9, 0.9),
+                     (5/6., 0.0, 0.0),
+                     (1.0, 0.0, 0.0))
+            }
+    
+        cmap=LinearSegmentedColormap('rg',cdict, N=256)
+        shifted_cmap=shiftedColorMap(cmap, midpoint=midpoint, name='shifted')
+        
+        if one_plot:
+            ll = network.plot(ax=ax,bus_sizes=gen_size*abs(gen_distribution), 
+              bus_colors=gen_distribution, line_widths=0.55, 
+              bus_cmap=shifted_cmap, line_colors=loading, 
+              line_cmap=plt.cm.jet)
+            cb_bus = plt.colorbar(ll[0], ax=ax)
+            cb_line = plt.colorbar(ll[1], ax=ax)
+            cb_bus.set_label('Redispatch in MWh')
+            cb_line.set_label('Line loading in %')
+        else:
+            ll = network.plot(ax=ax,bus_sizes=gen_size*abs(gen_distribution), 
+              bus_colors=gen_distribution, line_widths=0.1, 
+              bus_cmap=shifted_cmap)
+            cb_bus = plt.colorbar(ll[0], ax=ax)
+        
+        print(tech, gen_distribution)
+        print(fill_value)
+        
+        ax.set_title(tech)
+            
+    if filename is None:
+       plt.show()
+    else:
+       plt.savefig(filename)
+       plt.close()
+    
 def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=None):
 
     """

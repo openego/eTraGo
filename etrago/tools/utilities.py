@@ -380,14 +380,20 @@ def get_transborder_flows(network, wkt_geom):
         if pt.within(wkt_geom) == False:
              index_foreign_buses.append(i)
     foreign_buses = network.buses.reset_index().loc[index_foreign_buses].name.values
-
-    transborder_lines_0 = network.lines[network.lines['bus0'].isin(foreign_buses)].index
-    transborder_lines_1 = network.lines[network.lines['bus1'].isin(foreign_buses)].index
+    if network.lines.empty == False:
+        transborder_lines_0 = network.lines[network.lines['bus0'].isin(foreign_buses)].index
+        transborder_lines_1 = network.lines[network.lines['bus1'].isin(foreign_buses)].index
+        
+        network.foreign_trade = network.lines_t.p0[transborder_lines_0].sum(axis=1) +\
+            network.lines_t.p1[transborder_lines_1].sum(axis=1)
+    else:
+        transborder_lines_0 = network.links[network.links['bus0'].isin(foreign_buses)].index
+        transborder_lines_1 = network.links[network.links['bus1'].isin(foreign_buses)].index
+        
+        network.foreign_trade = network.links_t.p0[transborder_lines_0].sum(axis=1) +\
+            network.links_t.p1[transborder_lines_1].sum(axis=1)
     
-    network.foreign_trade = network.lines_t.p0[transborder_lines_0].sum(axis=1) +\
-        network.lines_t.p1[transborder_lines_1].sum(axis=1)
-    
-    return network.foreign_trade
+    return network.foreign_trade, foreign_buses
         
 def market_simulation(network, method, geom):
     
@@ -397,23 +403,23 @@ def market_simulation(network, method, geom):
                                                            'p_min_pu' : -1},
                                                             index=network.lines.index+'Link'),
                                                             'Link')
+    neighbours = (
+    '1025', '2625', '7230', '8035', '9271', '11353', '11601', '12093', '12127', '12128',
+    '12205', '12402', '12436', '12653', '12733', '13182', '13339', '15182', '25533',
+    '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
+    '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
+    )
 # =============================================================================
-#     neighbours = (
-#     '1025', '2625', '7230', '8035', '9271', '11353', '11601', '12093', '12127', '12128',
-#     '12205', '12402', '12436', '12653', '12733', '13182', '13339', '15182', '25533',
-#     '28405', '28406', '28407', '28408', '28409', '28410', '28413', '28414', '28415', '28416',
-#     '28417', '28418', '28419', '28421', '28422', '28425', '28426', '28427', '28428', '28431'
-#     )
+#     coords = network.buses[['x', 'y']]
+#     coords = [tuple(x) for x in coords.values]
+#     buses = MultiPoint(coords)
+# 
+#     index_foreign_buses = []
+#     for i, pt in enumerate(buses):
+#         if pt.within(geom) == False:
+#              index_foreign_buses.append(i)
+#     neighbours = network.buses.reset_index().loc[index_foreign_buses]['index'].values
 # =============================================================================
-    coords = network.buses[['x', 'y']]
-    coords = [tuple(x) for x in coords.values]
-    buses = MultiPoint(coords)
-
-    index_foreign_buses = []
-    for i, pt in enumerate(buses):
-        if pt.within(geom) == False:
-             index_foreign_buses.append(i)
-    neighbours = network.buses.reset_index().loc[index_foreign_buses].name.values
     
     mask = network.links['p_nom'].loc[(network.links['bus0'].isin(neighbours) == True) |
             (network.links['bus1'].isin(neighbours) == True)].index
