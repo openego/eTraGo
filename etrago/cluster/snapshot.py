@@ -55,7 +55,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
     
-    timeseries = aggregation.createTypicalPeriods()
+    #timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices 
@@ -203,7 +203,8 @@ def snapshot_cluster_constraints(network, snapshots):
         network.model.state_of_charge_inter = po.Var(
             network.model.storages, network.model.candidates,
             within=po.NonNegativeReals)
-
+    
+        import pdb; pdb.set_trace()          
         def inter_storage_soc_rule(m, s, i):
             """
             """
@@ -212,7 +213,7 @@ def snapshot_cluster_constraints(network, snapshots):
                 # normal one (would cause error anyway as t+1 does not exist for
                 # last timestep)
                 (m.state_of_charge_inter[s, i] ==
-                 m.state_of_charge_inter[s, network.model.canadidates[0]])
+                 m.state_of_charge_inter[s, network.model.candidates[0]])
             else:
                 expr = (
                     m.state_of_charge_inter[s, i + 1] ==
