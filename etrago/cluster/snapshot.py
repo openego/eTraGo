@@ -55,7 +55,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
     
-    #timeseries = aggregation.createTypicalPeriods()
+    timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices 
