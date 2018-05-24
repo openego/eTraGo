@@ -28,7 +28,7 @@ import time
 from shapely.geometry import MultiPoint
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
-def german_geom(section='oedb'):
+def german_geom(section='marlon'):
     from egoio.tools import db
     from egoio.db_tables.boundaries import BkgVg2501Sta
     from sqlalchemy.orm import sessionmaker
@@ -378,7 +378,7 @@ def get_foreign_buses(network, geom):
     for i, pt in enumerate(buses):
         if pt.within(geom) == False:
              index_foreign_buses.append(i)
-    network.foreign_buses = network.buses.reset_index().loc[index_foreign_buses].name.values
+    network.foreign_buses = network.buses.iloc[index_foreign_buses].index
 
 def get_transborder_flows(network, foreign_buses):
     #positive = imports

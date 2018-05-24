@@ -52,12 +52,12 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
+        'end_snapshot' : 100,
         'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,#'/home/student/Marlon/kmean100_1year', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/student/Marlon/market_without_kmean_100_100hours', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
@@ -65,9 +65,9 @@ args = {# Setup and Configuration:
         'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         'use_cleaned_snom':True, #state if you want to use cleaned s_noms to avoid load shedding
-        'market_simulation':True,
+        'market_simulation':'ntc',
         # Clustering:
-        'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
