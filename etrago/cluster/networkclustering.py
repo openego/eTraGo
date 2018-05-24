@@ -411,31 +411,11 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False):
     load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
 
     # k-mean clustering
-    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
-    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
+    #apply scenario-specific weighting for buses
     weight = weighting_for_scenario(network.buses).reindex(network.buses.index, fill_value=1)
-    if load_cluster:
-        #busmap_file = np.loadtxt('k_cluster_%i_busmap' % (n_clusters), delimiter=',')
-        #busmap_file = pd.read_csv('k_cluster_%i_busmap' % (n_clusters), delimiter=',', index_col=1)
-        #print(str(busmap_file[:,1]))
-        #print(busmap_file[0])
-        #busmap = pd.Series(data=busmap_file[:,1], index=busmap_file[:,0]).astype(str)
-        #busmap = pd.Series.from_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', index_col=0)
-        busmap = pd.read_csv('/home/jbartels/projekte/open-ego/eTraGo/k_cluster_2_busmap', sep=',', header=0, index_col=0, dtype=str, squeeze=True).apply(str)
-        #pd.to_numeric(busmap)
-        print("index = ", busmap.index)
-        print(busmap.dtypes)
-#        print("busmap = ", busmap)
-        #np.savetxt("k_cluster_%i_busmap_loaded" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
-        #print("busmap.data = ", busmap[0])
-        #noise_values = genfromtxt('noise_values.csv', delimiter=',')
-    else:
-        busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)#, n_jobs=-1)
-        #busmap.to_csv(path='/home/jbartels/projekte/open-ego/eTraGo/k_cluster_10_busmap', sep=',')
-        #print("index = ", busmap.index)
-        #print(busmap.dtypes)
-        np.savetxt("k_cluster_%i_busmap" % (n_clusters), np.c_[busmap.index, busmap], fmt="%s", delimiter=", ")
-
+    
+    #create a parallelized mapping between old and new buses with k-means algorithm
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters, load_cluster=load_cluster, n_jobs=-1)
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = 1

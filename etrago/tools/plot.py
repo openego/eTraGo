@@ -294,7 +294,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     elif bus is not None:
         filtered_gens = network.generators[network.generators['bus'] == bus]
         p_by_carrier = network.generators_t.p.\
-                       groupby(filtered_gens.carrier, axis=1).sum()
+                       groupby(filtered_gens.carrier, axis=1).abs().sum()
         filtered_load = network.loads[network.loads['bus'] == bus]
         load = network.loads_t.p[filtered_load.index]
 
@@ -327,8 +327,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     colors = [colors[col] for col in p_by_carrier.columns]
     if len(colors) == 1:
         colors = colors[0]
-    (p_by_carrier/reso_int).plot(kind="area",ax=ax,linewidth=0,
-                            color=colors)
+    (p_by_carrier/reso_int).plot(kind="area",ax=ax,linewidth=0,color=colors)
     (load/reso_int).plot(ax=ax, legend='load', lw=2, color='darkgrey', style='--')
     ax.legend(ncol=4,loc="upper left")
 
