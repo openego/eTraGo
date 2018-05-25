@@ -49,7 +49,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 2880,
@@ -360,11 +360,7 @@ def etrago(args):
     elif args['method'] == 'lopf':
         x = time.time()
 
-        #network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':0, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
-        #CPLEX 
-        #network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
-        #Gurobi
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
