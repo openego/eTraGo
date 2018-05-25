@@ -51,7 +51,7 @@ args = {# Setup and Configuration:
         'start_snapshot': 2880,
         'end_snapshot' : 2881, #3624,
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
-        'solver': 'cplex', # glpk, cplex or gurobi
+        'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False,# state if and where you want to save results as csv: False or /path/tofolder
@@ -62,8 +62,8 @@ args = {# Setup and Configuration:
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering': 50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'load_cluster': False, # state if and where you want to load and save cluster coordinates: False or /path/tofile
+        'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -295,9 +295,9 @@ def etrago(args):
         x = time.time()
         #network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':0, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
         #CPLEX 
-        network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
+        #network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
         #Gurobi
-        #network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
     # start non-linear powerflow simulation
