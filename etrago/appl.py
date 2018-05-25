@@ -49,12 +49,11 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
-                                     #(e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0', #0c1? None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, # True to perform a pf after a lopf simulation
-        'start_snapshot': 2005,
-        'end_snapshot' : 2006,
+        'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
+        'start_snapshot': 2880,
+        'end_snapshot' : 2881, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -63,7 +62,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -72,6 +71,7 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         # Clustering:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -311,6 +311,7 @@ def etrago(args):
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
+                                   load_cluster=args['load_cluster'],
                                    line_length_factor= 1.25, remove_stubs=True, 
                                    use_reduced_coordinates=False, bus_weight_tocsv=None, 
                                    bus_weight_fromcsv=None)
@@ -358,8 +359,12 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], 
-                     extra_functionality=extra_functionality)
+
+        #network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':0, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
+        #CPLEX 
+        #network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
+        #Gurobi
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
@@ -399,7 +404,7 @@ def etrago(args):
         results_to_csv(network, args['results'])
 
     # close session
-    session.close()
+    #session.close()
 
     return network
 
@@ -417,3 +422,4 @@ if __name__ == '__main__':
     # plot to show extendable storages
     #storage_distribution(network)
     #extension_overlay_network(network)
+

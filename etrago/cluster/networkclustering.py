@@ -364,7 +364,8 @@ def busmap_from_psql(network, session, scn_name):
 
     return busmap
 
-def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25, 
+def kmean_clustering(network, n_clusters=10, , load_cluster=False,
+                     line_length_factor= 1.25, 
                      remove_stubs=False, use_reduced_coordinates=False, 
                      bus_weight_tocsv=None, bus_weight_fromcsv=None):
     """ 
@@ -473,6 +474,7 @@ def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25,
     load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
 
     # k-mean clustering
+
     # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
     #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
     # State whether to create a bus weighting and save it, create or not save it, or use a bus weighting from a csv file
@@ -484,8 +486,7 @@ def kmean_clustering(network, n_clusters=10, line_length_factor= 1.25,
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
     
-    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters)
-
+    busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(weight), n_clusters=n_clusters, load_cluster=load_cluster, n_jobs=-1)
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = 1
