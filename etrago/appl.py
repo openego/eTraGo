@@ -49,11 +49,11 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2880,
-        'end_snapshot' : 2881, #3624,
+        'start_snapshot': 1,
+        'end_snapshot' : 8760, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -62,7 +62,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/lukas_wienholt/results/test',# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -70,13 +70,13 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':False,
+        'skip_snapshots':5,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -292,8 +292,10 @@ def etrago(args):
             noise_values = genfromtxt('noise_values.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
-
-   
+    
+    # dirty implementation of noise for storages:
+    network.storage_units.marginal_cost = network.storage_units.marginal_cost + abs(np.random.normal(0,0.001,len(network.storage_units.marginal_cost)))
+  
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
