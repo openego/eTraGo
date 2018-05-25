@@ -49,7 +49,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.0', #0c1? None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 2880,
