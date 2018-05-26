@@ -70,7 +70,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
@@ -274,8 +274,13 @@ def etrago(args):
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
 
-    # set SOC at the beginning and end of the period to equal values
+    # set SOC at the beginning and end of the period to equal values -- this part can be deleted with dp version 0.4.0
     network.storage_units.cyclic_state_of_charge = True
+    network.storage_units.p_min_pu = -1
+    network.storage_units.standing_loss[ network.storage_units.carrier=='pumped_storage'] = 0.00052
+    network.storage_units.efficiency_dispatch[ network.storage_units.carrier=='pumped_storage'] = 0.89
+    network.storage_units.efficiency_store[ network.storage_units.carrier=='pumped_storage'] = 0.88
+    network.storage_units.marginal_cost = 0
 
     # set extra_functionality to default
     extra_functionality=None
