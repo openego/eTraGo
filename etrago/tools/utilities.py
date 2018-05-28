@@ -25,15 +25,16 @@ import pandas as pd
 import numpy as np
 import os
 import time
+from egoio.tools import db
+from egoio.db_tables.boundaries import BkgVg2501Sta
+from egoio.db_tables.model_draft import EgoGridHvElectricalNeighboursBus as NeighboursBus
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import and_
+from geoalchemy2.shape import to_shape
 from shapely.geometry import MultiPoint
 from pyomo.environ import (Var,Constraint, PositiveReals,ConcreteModel)
 
 def german_geom(section='marlon'):
-    from egoio.tools import db
-    from egoio.db_tables.boundaries import BkgVg2501Sta
-    from sqlalchemy.orm import sessionmaker
-    from sqlalchemy import and_
-    from geoalchemy2.shape import to_shape
     
     conn = db.connection(section=section)
     Session = sessionmaker(bind=conn)
@@ -369,7 +370,9 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     z = (y - x) / 60
     return
 
+
 def get_foreign_buses(network, geom):
+    geom = geom.buffer(0.5)
     coords = network.buses[['x', 'y']]
     coords = [tuple(x) for x in coords.values]
     buses = MultiPoint(coords)
@@ -380,17 +383,21 @@ def get_foreign_buses(network, geom):
              index_foreign_buses.append(i)
     network.foreign_buses = network.buses.iloc[index_foreign_buses].index
 
-def get_transborder_flows(network, foreign_buses):
+def get_transborder_flows(network):
     #positive = imports
     if network.lines.empty == False:
-        transborder_lines_0 = network.lines[network.lines['bus0'].isin(foreign_buses)].index
-        transborder_lines_1 = network.lines[network.lines['bus1'].isin(foreign_buses)].index
+        transborder_lines_0 = network.lines[network.lines['bus0'].\
+                                            isin(network.foreign_buses)].index
+        transborder_lines_1 = network.lines[network.lines['bus1'].\
+                                            isin(network.foreign_buses)].index
         
         network.foreign_trade = network.lines_t.p0[transborder_lines_0].sum(axis=1) +\
             network.lines_t.p1[transborder_lines_1].sum(axis=1)
     else:
-        transborder_lines_0 = network.links[network.links['bus0'].isin(foreign_buses)].index
-        transborder_lines_1 = network.links[network.links['bus1'].isin(foreign_buses)].index
+        transborder_lines_0 = network.links[network.links['bus0'].\
+                                            isin(network.foreign_buses)].index
+        transborder_lines_1 = network.links[network.links['bus1'].\
+                                            isin(network.foreign_buses)].index
         
         network.foreign_trade = network.links_t.p0[transborder_lines_0].sum(axis=1) +\
             network.links_t.p1[transborder_lines_1].sum(axis=1)
@@ -402,7 +409,7 @@ def market_simulation(network, method):
     neighbours = network.foreign_buses
     network.import_components_from_dataframe(pd.DataFrame({'bus0' : network.lines['bus0'].values,
                                                            'bus1' : network.lines['bus1'].values,
-                                                           'p_nom' : 1000000,
+                                                           'p_nom' : float('Inf'),
                                                            'p_min_pu' : -1},
                                                             index=network.lines.index+'Link'),
                                                             'Link')
@@ -419,7 +426,9 @@ def market_simulation(network, method):
             (network.links['bus1'].isin(neighbours) == True)].index
             
     if method == 'ntc':
-        network.links['p_nom'].loc[mask] = network.lines['s_nom'].loc[[a[:-4] for a in mask]].values
+        corr_factor = 0.6
+        network.links['p_nom'].loc[mask] = (network.lines['s_nom'].\
+                     loc[[a[:-4] for a in mask]].values)*corr_factor
         network.lines.drop(network.lines.index, inplace=True)
     if method == 'fbmc':
         network.links.drop(mask, inplace=True)
@@ -431,7 +440,6 @@ def market_simulation(network, method):
                                                            'p_min_pu' : -1},
                                                             index=network.transformers.index+'TrafoLink'),
                                                             'Link')
-    
     network.transformers.drop(network.transformers.index, inplace=True)
     return
 

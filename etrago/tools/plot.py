@@ -782,7 +782,7 @@ def gen_dist_diff(networkA, networkB, techs=None, snapshot='all',
        plt.savefig(filename)
 plt.close()
 
-def plot_redispatch(network, market, foreign_buses, techs=None, snapshot='all', 
+def plot_redispatch(network, market, techs=None, snapshot='all', 
                   n_cols=3,gen_size=0.2, filename=None):
     """
     Difference in generation distribution network - market.
@@ -819,9 +819,11 @@ def plot_redispatch(network, market, foreign_buses, techs=None, snapshot='all',
         n_rows = n_graphs // n_cols
     else:
         n_rows = n_graphs // n_cols + 1
-
-    
+        
     fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
+    fig.suptitle("Difference in Generation", fontsize=20)
+    fig.text(0.94, 0.5, 'Generation in MWh', va='center', 
+             rotation='vertical', fontsize=16)
 
     size = 4
 
@@ -837,8 +839,13 @@ def plot_redispatch(network, market, foreign_buses, techs=None, snapshot='all',
     
     network.buses[['x', 'y']] = network.buses[['x', 'y']].round(4)
     market.buses[['x', 'y']] = market.buses[['x', 'y']].round(4)
+    try:
+        network.buses.drop('corresponding_bus', axis=1, inplace=True)
+        market.buses.drop('corresponding_bus', axis=1, inplace=True)
+    except:
+        pass
     
-    foreign_network = network.buses.loc[foreign_buses]
+    foreign_network = network.buses.loc[network.foreign_buses]
     for index, row in foreign_network.iterrows():
         ix = np.where((market.buses['x'] == row['x']) & \
                  (market.buses['y'] == row['y']))
@@ -939,8 +946,7 @@ def plot_redispatch(network, market, foreign_buses, techs=None, snapshot='all',
         print(tech, gen_distribution)
         print(fill_value)
         
-        ax.set_title(tech)
-            
+        ax.set_title(tech)       
     if filename is None:
        plt.show()
     else:
