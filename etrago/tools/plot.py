@@ -839,27 +839,42 @@ def plot_redispatch(network, market, techs=None, snapshot='all',
     
     network.buses[['x', 'y']] = network.buses[['x', 'y']].round(4)
     market.buses[['x', 'y']] = market.buses[['x', 'y']].round(4)
-    try:
-        network.buses.drop('corresponding_bus', axis=1, inplace=True)
-        market.buses.drop('corresponding_bus', axis=1, inplace=True)
-    except:
-        pass
     
-    foreign_network = network.buses.loc[network.foreign_buses]
-    for index, row in foreign_network.iterrows():
+    # corresponding buses for networks with different number of buses  
+# =============================================================================
+#     try:
+#         network.buses.drop('corresponding_bus', axis=1, inplace=True)
+#         market.buses.drop('corresponding_bus', axis=1, inplace=True)
+#     except:
+#         pass
+# 
+#     foreign_network = network.buses.loc[network.foreign_buses]
+#     for index, row in foreign_network.iterrows():
+#         ix = np.where((market.buses['x'] == row['x']) & \
+#                  (market.buses['y'] == row['y']))
+#         for i in ix:
+#             market.buses.ix[i, 'corresponding_bus'] = index
+#     
+#     network.buses.loc[foreign_network.index, 'corresponding_bus'] = foreign_network.index
+#     
+#     fill_value = network.buses[(round(network.buses['x']) == 10) & \
+#                                (round(network.buses['y']) == 51)].iloc[0].name
+#     
+#     market.buses['corresponding_bus'].fillna(fill_value, inplace=True)
+#     network.buses['corresponding_bus'].fillna(fill_value, inplace=True)
+# =============================================================================
+
+    # corresponding buses for networks with same number of buses  
+    for index, row in network.buses[2:3].iterrows():
+        market.buses[(market.buses['x'] == row['x']) & \
+        (market.buses['y'] == row['y']), 'corresponding_bus'] == index
         ix = np.where((market.buses['x'] == row['x']) & \
-                 (market.buses['y'] == row['y']))
+        (market.buses['y'] == row['y']))
+        network.buses.loc[row.name, 'corresponding_bus'] = index
         for i in ix:
             market.buses.ix[i, 'corresponding_bus'] = index
-    
-    network.buses.loc[foreign_network.index, 'corresponding_bus'] = foreign_network.index
-    
-    fill_value = network.buses[(round(network.buses['x']) == 10) & \
-                               (round(network.buses['y']) == 51)].iloc[0].name
-    
-    market.buses['corresponding_bus'].fillna(fill_value, inplace=True)
-    network.buses['corresponding_bus'].fillna(fill_value, inplace=True)
- 
+            
+        
     for i,tech in enumerate(techs):
         i_row = i // n_cols
         i_col = i % n_cols
@@ -943,8 +958,8 @@ def plot_redispatch(network, market, techs=None, snapshot='all',
               bus_cmap=shifted_cmap)
             cb_bus = plt.colorbar(ll[0], ax=ax)
         
-        print(tech, gen_distribution)
-        print(fill_value)
+        #print(tech, gen_distribution)
+        #print(fill_value)
         
         ax.set_title(tech)       
     if filename is None:

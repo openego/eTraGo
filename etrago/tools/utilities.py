@@ -401,8 +401,6 @@ def get_transborder_flows(network):
         
         network.foreign_trade = network.links_t.p0[transborder_lines_0].sum(axis=1) +\
             network.links_t.p1[transborder_lines_1].sum(axis=1)
-    
-    return network.foreign_trade
         
 def market_simulation(network, method):
     
@@ -442,6 +440,26 @@ def market_simulation(network, method):
                                                             'Link')
     network.transformers.drop(network.transformers.index, inplace=True)
     return
+
+def ramp_limits(network):
+    carrier = ['coal', 'biomass', 'gas', 'oil', 'waste', 'lignite',
+                       'uranium', 'geothermal']
+    data = {'start_up_cost':[75, 57, 42, 57, 57, 75, 50, 57],
+            'min_up_time':[5, 2, 3, 2, 2, 5, 12, 2], #Quelle:WPEN2015-05
+            'min_down_time':[7, 2, 4, 2, 2, 7, 24, 2], #Quelle:WPEN2015-05
+            'ramp_limit_start_up':[0.7, 0.7, 0.7, 0.7, 0.7, 0.8, 0.75, 0.7], #Quelle:WPEN2015-05
+            'ramp_limit_shut_down':[0.7, 0.7, 0.7, 0.7, 0.7, 0.8, 0.75, 0.7] #Quelle:WPEN2015-05
+            #'p_min_pu':[0.33, 0.38, 0.4, 0.38, 0.38, 0.5, 0.45, 0.38]
+            }
+    df = pd.DataFrame(data, index=carrier)
+    for tech in df.index:
+        for limit in df.columns:
+            network.generators.loc[network.generators.carrier == tech, 
+                                   limit] = df.loc[tech, limit]
+    network.generators.start_up_cost = network.generators.start_up_cost\
+                                        *network.generators.p_nom
+    network.generators.commitable = True
+    
 
 def pf_post_lopf(network, scenario):
     

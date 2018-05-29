@@ -39,7 +39,7 @@ if not 'READTHEDOCS' in os.environ:
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, 
                                     group_parallel_lines, market_simulation,
-                                    german_geom, get_foreign_buses)
+                                    german_geom, get_foreign_buses, ramp_limits)
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -57,7 +57,7 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False,#r'C:\Users\marlo\Studium\Masterarbeit\Status Quo\example.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/student/Marlon/market_kmean_100_4500_adjusted_ntc', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/student/Marlon/testkmean2', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable':False, # state if you want storages to be installed at each node if necessary.
@@ -65,7 +65,8 @@ args = {# Setup and Configuration:
         'reproduce_noise': 'noise_values.csv', # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         'use_cleaned_snom':True, #state if you want to use cleaned s_noms to avoid load shedding
-        'market_simulation':'ntc',
+        'market_simulation':False,
+        'ramp_limits':False,
         # Clustering:
         'k_mean_clustering': 100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
@@ -310,6 +311,9 @@ def etrago(args):
     
     if args['market_simulation']:
         market_simulation(network, args['market_simulation'])
+    
+    if args['ramp_limits']:
+        ramp_limits(network)
         
     # parallisation
     if args['parallelisation']:
