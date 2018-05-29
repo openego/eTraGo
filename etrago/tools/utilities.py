@@ -1,19 +1,25 @@
-﻿"""
+# -*- coding: utf-8 -*-
+## Copyright 2016-2018  Flensburg University of Applied Sciences,
+##                      Europa-Universität Flensburg,
+##                      Centre for Sustainable Energy Systems,
+##                      DLR-Institute for Networked Energy Systems
+
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU Affero General Public License as
+## published by the Free Software Foundation; either version 3 of the
+## License, or (at your option) any later version.
+
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU Affero General Public License for more details.
+
+## You should have received a copy of the GNU Affero General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# File description
+"""
 Utilities.py defines functions necessary to apply eTraGo.
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation; either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 """
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
@@ -72,23 +78,23 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
-  
-def clip_foreign(network): 
+
+def clip_foreign(network):
     """
-    Delete all components and timelines located outside of Germany. 
+    Delete all components and timelines located outside of Germany.
     Add transborder flows divided by country of origin as network.foreign_trade.
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    
+
     Returns
     -------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     """
-    
+
     # get foreign buses by country
     poland = pd.Series(index=network.buses[(network.buses['x'] > 17)].index,
                                                   data="Poland")
@@ -155,9 +161,9 @@ def clip_foreign(network):
     foreign_buses = pd.Series()
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden, austria, switzerland,
                           netherlands, luxembourg, france])
-    
-    network.buses = network.buses.drop(network.buses.loc[foreign_buses.index].index)                                        
-    
+
+    network.buses = network.buses.drop(network.buses.loc[foreign_buses.index].index)
+
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
     transborder_lines = pd.DataFrame(index=network.lines[
@@ -182,8 +188,8 @@ def clip_foreign(network):
 
     network.foreign_trade = transborder_flows.\
                        groupby(transborder_lines['country'], axis=1).sum()
-    
-    # drop foreign components     
+
+    # drop foreign components
     network.lines = network.lines.drop(network.lines[
             (network.lines['bus0'].isin(network.buses.index) == False) |
             (network.lines['bus1'].isin(network.buses.index) == False)].index)
@@ -196,7 +202,7 @@ def clip_foreign(network):
             (network.loads['bus'].isin(network.buses.index) == False)].index)
     network.storage_units = network.storage_units.drop(network.storage_units[
             (network.storage_units['bus'].isin(network.buses.index) == False)].index)
-    
+
     components = ['loads', 'generators', 'lines', 'buses', 'transformers']
     for g in components: #loads_t
         h = g + '_t'
@@ -205,7 +211,7 @@ def clip_foreign(network):
             cols = [j for j in getattr(nw, i).columns if j not in getattr(network, g).index]
             for k in cols:
                 del getattr(nw, i)[k]
-    
+
     return network
 
 
@@ -271,7 +277,7 @@ def load_shedding (network, **kwargs):
 
     marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
     p_nom = kwargs.get('p_nom', p_nom_def)
-    
+
     network.add("Carrier", "load")
     start = network.generators.index.to_series().str.rsplit(' ').str[0].astype(int).sort_values().max()+1
     index = list(range(start,start+len(network.buses.index)))
@@ -290,7 +296,7 @@ def load_shedding (network, **kwargs):
 def data_manipulation_sh (network):
     from shapely.geometry import Point, LineString, MultiLineString
     from geoalchemy2.shape import from_shape, to_shape
-    
+
     #add connection from Luebeck to Siems
     new_bus = str(network.buses.index.astype(np.int64).max()+1)
     new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
@@ -313,7 +319,7 @@ def data_manipulation_sh (network):
     network.transformers.set_value(new_trafo, 'topo', from_shape(LineString([to_shape(network.buses.geom['25536']),point_bus1]),4326))
 
     return
-    
+
 def results_to_csv(network, path):
     """
     """
@@ -354,29 +360,29 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     return
 
 def pf_post_lopf(network, scenario):
-    
-    network_pf = network    
+
+    network_pf = network
 
     #For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
-    
+
     old_slack = network.generators.index[network.generators.control == 'Slack'][0]
     old_gens = network.generators
     gens_summed = network.generators_t.p.sum()
-    old_gens['p_summed']= gens_summed  
+    old_gens['p_summed']= gens_summed
     max_gen_buses_index = old_gens.groupby(['bus']).agg({'p_summed': np.sum}).p_summed.sort_values().index
-    
+
     for bus_iter in range(1,len(max_gen_buses_index)-1):
         if old_gens[(network.generators['bus']==max_gen_buses_index[-bus_iter])&(network.generators['control']=='PV')].empty:
             continue
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
-        
+
     network.generators=network.generators.drop('p_summed',1)
-    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].sort_values().index[-1]    
-    
+    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus)&(network.generators['control'] == 'PV')].sort_values().index[-1]
+
     # check if old slack was PV or PQ control:
     if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar','wind'):
         old_control = 'PQ'
@@ -384,13 +390,13 @@ def pf_post_lopf(network, scenario):
         old_control = 'PV'
     elif network.generators.p_nom[old_slack] < 50:
         old_control = 'PQ'
-     
+
     network.generators = network.generators.set_value(old_slack, 'control', old_control)
     network.generators = network.generators.set_value(new_slack_gen, 'control', 'Slack')
-   
+
     #execute non-linear pf
     network_pf.pf(scenario.timeindex, use_seed=True)
-    
+
     return network_pf
 
 def calc_line_losses(network):
@@ -401,36 +407,36 @@ def calc_line_losses(network):
     s0 : series
         apparent power of line
     i0 : series
-        current of line  
+        current of line
     -------
 
     """
-    
+
     #### Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
-        apply(np.sqrt)) 
+        apply(np.sqrt))
     # calculate current I = S / U [in A]
-    i0_lines = np.multiply(s0_lines, 1000000) / np.multiply(network.lines.v_nom, 1000) 
+    i0_lines = np.multiply(s0_lines, 1000000) / np.multiply(network.lines.v_nom, 1000)
     # calculate losses per line and timestep network.lines_t.line_losses = I² * R [in MW]
     network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
     # calculate total losses per line [in MW]
     network.lines = network.lines.assign(losses=np.sum(network.lines_t.losses).values)
-    
-    #### Transformer losses   
+
+    #### Transformer losses
     # https://books.google.de/books?id=0glcCgAAQBAJ&pg=PA151&lpg=PA151&dq=wirkungsgrad+transformator+1000+mva&source=bl&ots=a6TKhNfwrJ&sig=r2HCpHczRRqdgzX_JDdlJo4hj-k&hl=de&sa=X&ved=0ahUKEwib5JTFs6fWAhVJY1AKHa1cAeAQ6AEIXjAI#v=onepage&q=wirkungsgrad%20transformator%201000%20mva&f=false
     # Crastan, Elektrische Energieversorgung, p.151
     # trafo 1000 MVA: 99.8 %
     network.transformers = network.transformers.assign(losses=np.multiply(network.transformers.s_nom,(1-0.998)).values)
-        
+
     # calculate total losses (possibly enhance with adding these values to network container)
     losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
     print("Total lines losses for all snapshots [MW]:",round(losses_total,2))
     losses_costs = losses_total * np.average(network.buses_t.marginal_price)
     print("Total costs for these losses [EUR]:",round(losses_costs,2))
-  
+
     return
-    
+
 def loading_minimization(network,snapshots):
 
     network.model.number1 = Var(network.model.passive_branch_p_index, within = PositiveReals)
@@ -443,65 +449,65 @@ def loading_minimization(network,snapshots):
 
     network.model.objective.expr += 0.00001* sum(network.model.number1[i] + network.model.number2[i] for i in network.model.passive_branch_p_index)
 
-    
+
 def group_parallel_lines(network):
-    
+
     #ordering of buses: (not sure if still necessary, remaining from SQL code)
     old_lines = network.lines
-    
+
     for line in old_lines.index:
         bus0_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).min())
         bus1_new = str(old_lines.loc[line,['bus0','bus1']].astype(int).max())
         old_lines.set_value(line,'bus0',bus0_new)
         old_lines.set_value(line,'bus1',bus1_new)
-        
+
     # saving the old index
     for line in old_lines:
         old_lines['old_index'] = network.lines.index
-    
+
     grouped = old_lines.groupby(['bus0','bus1'])
-    
+
     #calculating electrical properties for parallel lines
     grouped_agg = grouped.agg({ 'b': np.sum,
                                 'b_pu': np.sum,
-                                'cables': np.sum, 
-                                'capital_cost': np.min, 
-                                'frequency': np.mean, 
+                                'cables': np.sum,
+                                'capital_cost': np.min,
+                                'frequency': np.mean,
                                 'g': np.sum,
-                                'g_pu': np.sum, 
+                                'g_pu': np.sum,
                                 'geom': lambda x: x[0],
-                                'length': lambda x: x.min(), 
-                                'num_parallel': np.sum, 
-                                'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))), 
-                                'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))), 
+                                'length': lambda x: x.min(),
+                                'num_parallel': np.sum,
+                                'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+                                'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
                                 's_nom': np.sum,
-                                's_nom_extendable': lambda x: x.min(), 
-                                's_nom_max': np.sum, 
-                                's_nom_min': np.sum, 
-                                's_nom_opt': np.sum, 
-                                'scn_name': lambda x: x.min(),  
-                                'sub_network': lambda x: x.min(), 
-                                'terrain_factor': lambda x: x.min(), 
+                                's_nom_extendable': lambda x: x.min(),
+                                's_nom_max': np.sum,
+                                's_nom_min': np.sum,
+                                's_nom_opt': np.sum,
+                                'scn_name': lambda x: x.min(),
+                                'sub_network': lambda x: x.min(),
+                                'terrain_factor': lambda x: x.min(),
                                 'topo': lambda x: x[0],
-                                'type': lambda x: x.min(),  
-                                'v_ang_max': lambda x: x.min(), 
-                                'v_ang_min': lambda x: x.min(), 
+                                'type': lambda x: x.min(),
+                                'v_ang_max': lambda x: x.min(),
+                                'v_ang_min': lambda x: x.min(),
                                 'x': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
                                 'x_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
                                 'old_index': np.min})
-    
+
     for i in range(0,len(grouped_agg.index)):
         grouped_agg.set_value(grouped_agg.index[i],'bus0',grouped_agg.index[i][0])
         grouped_agg.set_value(grouped_agg.index[i],'bus1',grouped_agg.index[i][1])
-        
+
     new_lines=grouped_agg.set_index(grouped_agg.old_index)
     new_lines=new_lines.drop('old_index',1)
     network.lines = new_lines
-    
+
     return
 
 def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 40):
-    
+
     """ Convert capital_costs to fit to pypsa and caluculated time
     ----------
     network : :class:`pypsa.Network
@@ -513,15 +519,14 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     """
     # Add costs for converter
     network.links.capital_cost = network.links.capital_cost + 400000
-        
+
     # Calculate present value of an annuity (PVA)
     PVA =(1 / p) - (1 / (p*(1 + p) ** T))
-    
+
     #
     network.lines.loc[network.lines.s_nom_extendable == True, 'capital_cost']= network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
     network.links.loc[network.links.p_nom_extendable == True, 'capital_cost'] = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
     network.transformers.loc[network.transformers.s_nom_extendable == True, 'capital_cost'] = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
     network.storage_units.loc[network.storage_units.p_nom_extendable == True, 'capital_cost']= network.storage_units.capital_cost /  (8760//(end_snapshot - start_snapshot +1))
-    
+
     return network
-    
