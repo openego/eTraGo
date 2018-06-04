@@ -21,7 +21,8 @@ setup(name='eTraGo',
                         'sqlalchemy >= 1.0.15, <= 1.1.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3'],
-	  dependency_links=['git+https://git@github.com/openego/PyPSA.git@dev#egg=PyPSA'],
+	  dependency_links=['git+https://git@github.com/openego/PyPSA.git@dev#egg=PyPSA',
+                        'git+https://github.com/openego/oedialect.git@master#egg=oedialect'],
         extras_require={
         'docs': [
             'sphinx >= 1.4',
