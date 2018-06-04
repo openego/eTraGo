@@ -49,7 +49,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'ssh', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
+        'gridversion': 'v0.3.2', # None for model_draft or Version number 
                                      #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # True to perform a pf after a lopf simulation
@@ -63,12 +63,12 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': "/home/openego/pf_results/110paper/EHVcluster/StatusQuo_k474_t3", # state if and where you want to save results as csv: False or /path/tofolder
+        'results': "/home/openego/pf_results/110paper/EHVcluster/StatusQuo_k474_t3_sf_feas-4", # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':None, # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': True,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
         'network_clustering_kmeans':474, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
@@ -79,7 +79,7 @@ args = {# Setup and Configuration:
         'skip_snapshots':3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -276,20 +276,25 @@ def etrago(args):
 
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
-
+    network.storage_units.p_min_pu = -1
+    network.storage_units.standing_loss[ network.storage_units.carrier=='pumped_storage'] = 0.00052
+    network.storage_units.efficiency_dispatch[ network.storage_units.carrier=='pumped_storage'] = 0.89
+    network.storage_units.efficiency_store[ network.storage_units.carrier=='pumped_storage'] = 0.88
+    network.storage_units.marginal_cost = 0
+    
     # set extra_functionality to default
     extra_functionality=None
 
     if args['generator_noise']:
         # create or reproduce generator noise
         if not args['reproduce_noise'] == False:
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            noise_values = genfromtxt('noise_values_sq110.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
         else:
             noise_values = network.generators.marginal_cost + abs(np.random.normal(0,0.001,len(network.generators.marginal_cost)))
-            np.savetxt("noise_values_sq110.csv", noise_values, delimiter=",")
-            noise_values = genfromtxt('noise_values_sq110.csv', delimiter=',')
+            np.savetxt("noise_values_nep110.csv", noise_values, delimiter=",")
+            noise_values = genfromtxt('noise_values_nep110.csv', delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
 
@@ -311,9 +316,9 @@ def etrago(args):
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
-                                   line_length_factor= 1.25, remove_stubs=True, 
+                                   line_length_factor= 1, remove_stubs=False, 
                                    use_reduced_coordinates=False, bus_weight_tocsv=None, 
-                                   bus_weight_fromcsv=None)
+                                   bus_weight_fromcsv='bus_weight_110sq_ehv.csv')
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -359,7 +364,7 @@ def etrago(args):
     elif args['method'] == 'lopf':
         x = time.time()
         network.lopf(network.snapshots, solver_name=args['solver'], 
-                     extra_functionality=extra_functionality)
+                     extra_functionality=extra_functionality,solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-4})
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
