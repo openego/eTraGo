@@ -43,6 +43,8 @@ if not 'READTHEDOCS' in os.environ:
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
+    import oedialect
+
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema

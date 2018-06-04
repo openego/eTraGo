@@ -3,3 +3,4 @@
 
 # eGo PyPSA fork on dev https://github.com/openego/PyPSA/tree/dev
 -e git+https://github.com/openego/PyPSA.git@dev#egg=PyPSA
+-e git+https://github.com/openego/oedialect.git@master#egg=oedialect
