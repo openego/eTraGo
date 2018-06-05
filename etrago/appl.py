@@ -16,58 +16,67 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
+
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
-
+"""
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-
+import datetime
 import os
+
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
     from etrago.cluster.disaggregation import (MiniSolverDisaggregation,
                                                UniformDisaggregation)
-    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.tools.io import NetworkScenario, results_to_oedb
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution)
-    from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
-                                    results_to_csv, parallelisation, pf_post_lopf,
+                                     storage_distribution, storage_expansion, extension_overlay_network)
+
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
+                                    results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
+    from etrago.tools.extendable import extendable
+    from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
-
 
 args = {# Setup and Configuration:
         'db': 'ssh', # db session
         'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 1,
-        'end_snapshot' : 8760,
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'start_snapshot': 2880,
+        'end_snapshot' : 2881, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
+        'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
+            # Scenario variations:
+            'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
+            'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
+            'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'storage_extendable':True, # state if you want storages to be installed at each node if necessary.
-        'generator_noise':True, # state if you want to apply a small generator noise
-        'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'generator_noise':True, # state if you want to apply a small generator noise 
+        'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'k_mean_clustering':500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
+        'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
+	'disaggregation': 'uniform', # or None, 'mini' or 'uniform'        
+	'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':3,
@@ -88,7 +97,7 @@ def etrago(args):
         ``'oedb'``,
         Name of Database session setting stored in *config.ini* of *.egoio*
 
-    gridversion : str
+    gridversion : NoneType or str
         ``'v0.2.11'``,
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -111,46 +120,76 @@ def etrago(args):
     end_snapshot : int
         2,
         End hour of the scenario year to be calculated.
-
-    scn_name : str
-        ``'Status Quo'``,
-        choose your scenario. Currently, there are three different
-        scenarios: ``'Status Quo'``, ``'NEP 2035'``, ``'eGo100'``. If you do not
-        want to use the full German dataset, you can use the excerpt of
-        Schleswig-Holstein by adding the acronym SH to the scenario
-        name (e.g. ``'SH Status Quo'``).
-
+        
     solver : str
-        ``'glpk'``,
-        Choose your preferred solver. Current options: ``'glpk'`` (open-source),
-        ``'cplex'`` or ``'gurobi'``.
-
+        'glpk', 
+        Choose your preferred solver. Current options: 'glpk' (open-source),
+        'cplex' or 'gurobi'.
+                
+    scn_name : str
+    	'Status Quo',
+	Choose your scenario. Currently, there are three different 
+	scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not 
+	want to use the full German dataset, you can use the excerpt of 
+	Schleswig-Holstein by adding the acronym SH to the scenario 
+	name (e.g. 'SH Status Quo').
+        
+   scn_extension : str
+       None,
+       Choose an extension-scenario which will be added to the existing
+       network container. Data of the extension scenarios are located in extension-tables
+       (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix 'extension_'.
+       Currently there are two overlay networks:
+           'nep2035_confirmed' includes all planed new lines confirmed by the Bundesnetzagentur
+           'nep2035_b2' includes alles new lines planned by the Netzentwicklungsplan 2025 in scenario 2035 B2
+           
+    scn_decommissioning : str
+        None, 
+        Choose an extra scenario which includes lines you want to decommise from the 
+        existing network. Data of the decommissioning scenarios are located in extension-tables 
+        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix 'decommissioning_'.
+        Currently, there are two decommissioning_scenarios which are linked to extension-scenarios:   
+            'nep2035_confirmed' includes all lines that will be replaced in confirmed projects
+            'nep2035_b2' includes all lines that will be replaced in NEP-scenario 2035 B2
+            
+    add_Belgium_Norway : bool
+        False, 
+        State if you want to add Belgium and Norway as electrical neighbours.
+        Currently, generation and load always refer to scenario 'NEP 2035'.
+            
     lpfile : obj
-        False,
+        False, 
         State if and where you want to save pyomo's lp file. Options:
-        False or ``'/path/tofolder'``.
-
+        False or '/path/tofolder'.import numpy as np
+        
     results : obj
-        False,
-        State if and where you want to save results as csv files.Options:
-        False or ``'/path/tofolder'``.
-
+        False, 
+        State if and where you want to save results as csv files.Options: 
+        False or '/path/tofolder'.
+        
     export : bool
-        False,
-        State if you want to export the results of your calculation
+        False, 
+        State if you want to export the results of your calculation 
         back to the database.
-
-    storage_extendable : bool
-        True,
-        Choose if you want to allow to install extendable storages
-        (unlimited in size) at each grid node in order to meet the flexibility demand.
-
-    generator_noise  bool
+        
+    extendable : NoneType or list
+        ['network', 'storages'],
+        Choose None or which components you want to optimize.
+        Settings can be added in /tools/extendable.py. 
+        The most important possibilities:
+            'network': set all lines, links and transformers extendable
+            'transformers': set all transformers extendable
+            'overlay_network': set all components of the 'scn_extension' extendable
+            'storages': allow to install extendable storages (unlimited in size) 
+                        at each grid node in order to meet the flexibility demand. 
+      
+        
+    generator_noise : bool
         True,
         Choose if you want to apply a small random noise to the marginal
         costs of each generator in order to prevent an optima plateau.
 
-    reproduce_noise : obj
+    reproduce_noise : bool or obj
         False,
         State if you want to use a predefined set of random noise for
         the given scenario. If so, provide path to the csv file,
@@ -160,19 +199,25 @@ def etrago(args):
         False,
         ...
 
-    k_mean_clustering : bool
+    network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation and load
         at each node. If so, state the number of k you want to apply. Otherwise
         put False. This function doesn't work together with
-        ``'line_grouping = True'`` or ``'network_clustering = True'``.
+        ``'line_grouping = True'``.
 
-    network_clustering : bool
+    network_clustering_ehv : bool
         False,
         Choose if you want to cluster the full HV/EHV dataset down to only the EHV
         buses. In that case, all HV buses are assigned to their closest EHV sub-station,
         taking into account the shortest distance on power lines.
+	
+    snapshot_clustering : bool or int
+    	False,
+	State if you want to cluster the snapshots and run the optimization only on a
+	subset of snapshot periods. The int value defines the number of periods (i.e. days)
+	wich will be clustered to. 
 
     parallelisation : bool
         False,
@@ -227,19 +272,18 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+      
+    # TEMPORARY vague adjustment due to transformer bug in data processing     
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x=network.transformers.x*0.0001
 
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    if args['gridversion'] == 'v0.2.11':
-        network.transformers.x=network.transformers.x*0.0001
+    # set extra_functionality to default
+    extra_functionality=None
 
     clustering = None
-
-    if args['branch_capacity_factor']:
-        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
 
     if args['generator_noise']:
         # create or reproduce generator noise
@@ -254,15 +298,7 @@ def etrago(args):
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
 
-
-    if args['storage_extendable']:
-        # set virtual storages to be extendable
-        if network.storage_units.carrier[network.storage_units.carrier== 'extendable_storage'].any() == 'extendable_storage':
-            network.storage_units.loc[network.storage_units.carrier=='extendable_storage','p_nom_extendable'] = True
-        # set virtual storage costs with regards to snapshot length
-            network.storage_units.capital_cost = (network.storage_units.capital_cost /
-            (8760//(args['end_snapshot']-args['start_snapshot']+1)))
-
+   
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
         data_manipulation_sh(network)
@@ -271,49 +307,78 @@ def etrago(args):
     if args['line_grouping']:
         group_parallel_lines(network)
 
-    #load shedding in order to hunt infeasibilities
-    if args['load_shedding']:
-        load_shedding(network)
-
     # network clustering
-    if args['network_clustering']:
+    if args['network_clustering_ehv']:
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
     # k-mean clustering
-    if not args['k_mean_clustering'] == False:
-        clustering = kmean_clustering(network, n_clusters=args['k_mean_clustering'])
-        original_network = network.copy()
-        network = clustering.network.copy()
+    if not args['network_clustering_kmeans'] == False:
+        network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
+                                   load_cluster=args['load_cluster'],
+                                   line_length_factor= 1.25, remove_stubs=True, 
+                                   use_reduced_coordinates=False, bus_weight_tocsv=None, 
+                                   bus_weight_fromcsv=None)
 
     # Branch loading minimization
     if args['minimize_loading']:
         extra_functionality = loading_minimization
-    else:
-        extra_functionality=None
-
+    
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
+        
+    if args ['scn_extension'] != None:
+         network = extension(network, session, scn_extension = args ['scn_extension'],start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['network_clustering_kmeans'])
+    
+    if args ['scn_decommissioning'] != None:
+         network = decommissioning(network, session, scn_decommissioning = args ['scn_decommissioning'],k_mean_clustering = args['network_clustering_kmeans'])
+
+    if args ['add_Belgium_Norway']:
+         network = extension(network, session, scn_extension = 'BE_NO_NEP 2035', start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'], k_mean_clustering = args['network_clustering_kmeans'])
+        
+    if args ['extendable'] != None:
+        network = extendable(network, args['extendable'], args ['scn_extension'])
+        network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+    
+    if args['branch_capacity_factor']:
+        network.lines.s_nom = network.lines.s_nom*args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom*args['branch_capacity_factor']
+        
+     #load shedding in order to hunt infeasibilities
+    if args['load_shedding']:
+        load_shedding(network)
+        
+    # snapshot clustering
+    if not args['snapshot_clustering']== False:
+        network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
+        extra_functionality = daily_bounds # daily_bounds or other constraint
 
     # parallisation
     if args['parallelisation']:
-        parallelisation(network, start_snapshot=args['start_snapshot'], end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], extra_functionality=extra_functionality,solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-4})
+        parallelisation(network, start_snapshot=args['start_snapshot'], 
+                        end_snapshot=args['end_snapshot'],group_size=1, 
+                        solver_name=args['solver'], 
+                        extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
+
         network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
         y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
-    # start non-linear powerflow simulation
-    elif args['method'] == 'pf':
-        network.pf(scenario.timeindex)
-       # calc_line_losses(network)
+        z = (y - x) / 60 
+        print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
 
+            # start non-linear powerflow simulation
+    elif args['method'] == 'pf':
+            network.pf(scenario.timeindex)
+            # calc_line_losses(network)
+        
     if args['pf_post_lopf']:
         pf_post_lopf(network, scenario)
         calc_line_losses(network)
+    
 
        # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
@@ -363,13 +428,18 @@ def etrago(args):
 
     return network
 
+
 if __name__ == '__main__':
     # execute etrago function
+    print(datetime.datetime.now())
     network = etrago(args)
+    print(datetime.datetime.now())
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+    #plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
+    #storage_distribution(network)
+    #extension_overlay_network(network)
+
