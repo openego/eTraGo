@@ -233,18 +233,19 @@ def snapshot_cluster_constraints(network, snapshots):
         def inter_storage_capacity_rule(m, s, i):
             """
             """
+           
             return (
                m.state_of_charge_inter[s, i] 
                * (1 - network.storage_units.at[s, 'standing_loss'])*24 #* (1 - network.storage_units[s].standing_loss)*24 
                + m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]] <=
-                m.storage_units[s] * network.storage_units.at[s, 'max_hours']
+                network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom'] #* m.storage_units[s] * 
                 )
-            
+            import pdb; pdb.set_trace()
         ext_sus_i = sus.index[sus.p_nom_extendable]        
         network.model.inter_storage_capacity_constraint = po.Constraint(
             ext_sus_i, network.model.candidates,
             rule = inter_storage_capacity_rule)
-        #import pdb; pdb.set_trace() 
+        
     # take every first hour of the clustered days
     network.model.period_starts = network.snapshot_weightings.index[0::24]
     
