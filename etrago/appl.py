@@ -54,7 +54,7 @@ args = {# Setup and Configuration:
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/lukas_wienholt/results/NEP_full_EHVk250_t3',#'/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/lukas_wienholt/results/NEP+_full_EHVk250_t3',#'/home/openego/pf_results/110paper/noEHVcluster/NEP2035_k500_t5', # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
         'storage_extendable': True, # state if you want storages to be installed at each node if necessary.
@@ -297,7 +297,7 @@ def etrago(args):
     # Siedenbrünzow/Sanitz
     #network.generators.p_nom.loc[(network.generators.bus == '27541') & (network.generators.carrier == 'wind')] = 1800 #0
     # Wilhemshaven2
-#    network.generators.p_nom.loc[(network.generators.bus == '26892') & (network.generators.carrier == 'wind')] = 2400 #0
+    network.generators.p_nom.loc[(network.generators.bus == '26892') & (network.generators.carrier == 'wind')] = 2400 #0
     # Segeberg
 #    network.generators.p_nom.loc[(network.generators.bus == '24876') & (network.generators.carrier == 'wind')] = 1800 #0
 
@@ -368,8 +368,8 @@ if __name__ == '__main__':
     network = etrago(args)
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+   # plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+   # plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_expansion(network)
+   # storage_expansion(network)
