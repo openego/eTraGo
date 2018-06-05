@@ -49,7 +49,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
@@ -62,7 +62,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/lukas_wienholt/results/test',# state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/lukas_wienholt/results/test12',# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -70,16 +70,16 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans': 300, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
-        'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'network_clustering_ehv': True, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':5,
+        'skip_snapshots':3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -275,12 +275,13 @@ def etrago(args):
         network.transformers.x=network.transformers.x*0.0001
 
     # set SOC at the beginning and end of the period to equal values -- this part can be deleted with dp version 0.4.0
-    network.storage_units.cyclic_state_of_charge = True
-    network.storage_units.p_min_pu = -1
-    network.storage_units.standing_loss[ network.storage_units.carrier=='pumped_storage'] = 0.00052
-    network.storage_units.efficiency_dispatch[ network.storage_units.carrier=='pumped_storage'] = 0.89
-    network.storage_units.efficiency_store[ network.storage_units.carrier=='pumped_storage'] = 0.88
-    network.storage_units.marginal_cost = 0
+    if not args['gridversion'] == 'v0.4.0':
+        network.storage_units.cyclic_state_of_charge = True
+        network.storage_units.p_min_pu = -1
+        network.storage_units.standing_loss[ network.storage_units.carrier=='pumped_storage'] = 0.00052
+        network.storage_units.efficiency_dispatch[ network.storage_units.carrier=='pumped_storage'] = 0.89
+        network.storage_units.efficiency_store[ network.storage_units.carrier=='pumped_storage'] = 0.88
+        network.storage_units.marginal_cost = 0
 
     # set extra_functionality to default
     extra_functionality=None
@@ -299,7 +300,7 @@ def etrago(args):
             network.generators.marginal_cost = noise_values
     
     # dirty implementation of noise for storages:
-    network.storage_units.marginal_cost = network.storage_units.marginal_cost + abs(np.random.normal(0,0.001,len(network.storage_units.marginal_cost)))
+    #network.storage_units.marginal_cost = network.storage_units.marginal_cost + abs(np.random.normal(0,0.001,len(network.storage_units.marginal_cost)))
   
     # for SH scenario run do data preperation:
     if args['scn_name'] == 'SH Status Quo' or args['scn_name'] == 'SH NEP 2035':
