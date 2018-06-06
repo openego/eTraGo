@@ -299,7 +299,7 @@ def etrago(args):
     # Wilhemshaven2
     network.generators.p_nom.loc[(network.generators.bus == '26892') & (network.generators.carrier == 'wind')] = 2400 #0
     # Segeberg
-#    network.generators.p_nom.loc[(network.generators.bus == '24876') & (network.generators.carrier == 'wind')] = 1800 #0
+    network.generators.p_nom.loc[(network.generators.bus == '24876') & (network.generators.carrier == 'wind')] = 2400 #0
 
     # k-mean clustering
     if not args['k_mean_clustering'] == False:
