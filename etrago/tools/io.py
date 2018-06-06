@@ -201,8 +201,8 @@ class NetworkScenario(ScenarioBase):
             df.source = df.source.map(self.id_to_source())
 
         ## Additional Hacking
-#        if name == 'Generator':
-#            print(df.loc[df['source'] == 'wind'])
+        if name == 'Generator':
+            print(df['source'].unique())
 
         if name == 'Line':
             print('Changing s_nom on lines')
