@@ -37,10 +37,9 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, storage_expansion, extension_overlay_network)
-
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
-                                    results_to_csv, parallelisation, pf_post_lopf, 
-                                    loading_minimization, calc_line_losses, group_parallel_lines)
+                                     results_to_csv, parallelisation, pf_post_lopf, 
+                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -79,8 +78,8 @@ args = {# Setup and Configuration:
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
-        'comments':None }
+        'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
+        'comments': None }
 
 
 def etrago(args):
@@ -269,8 +268,11 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing     
+	
+    # set SOC at the beginning and end of the period to equal values
+    network.storage_units.cyclic_state_of_charge = True
+
+    # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
 
@@ -307,6 +309,35 @@ def etrago(args):
         network.generators.control="PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
+
+    # set numbers for offshore wind to their connection points 
+    # Büttel
+    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind')] = 3000 #1778.4 
+    # Dörpen West
+    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind')] = 2528 #1428
+    # Diele
+    network.generators.p_nom.loc[(network.generators.bus == '27153') & (network.generators.carrier == 'wind')] = 1169
+    # Emden
+    network.generators.p_nom.loc[(network.generators.bus == '24710') & (network.generators.carrier == 'wind')] = 2813 #113
+    network.generators.p_nom.loc[(network.generators.bus == '26135') & (network.generators.carrier == 'wind')] = 0
+    # Hagermarsch
+    network.generators.p_nom.loc[(network.generators.bus == '25427') & (network.generators.carrier == 'wind')] = 60
+    # Inhausen
+    network.generators.p_nom.loc[(network.generators.bus == '24374') & (network.generators.carrier == 'wind')] = 111
+    # Cloppenburg
+    network.generators.p_nom.loc[(network.generators.bus == '25249') & (network.generators.carrier == 'wind')] = 900 #0
+    # Hanekenfähr
+    network.generators.p_nom.loc[(network.generators.bus == '25451') & (network.generators.carrier == 'wind')] = 2300 #0
+    # Bentwisch
+    network.generators.p_nom.loc[(network.generators.bus == '24579') & (network.generators.carrier == 'wind')] = 336.3
+    # Lubmin
+    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind')] = 1761 #0
+    # Siedenbrünzow/Sanitz
+    #network.generators.p_nom.loc[(network.generators.bus == '27541') & (network.generators.carrier == 'wind')] = 1800 #0
+    # Wilhemshaven2
+   # network.generators.p_nom.loc[(network.generators.bus == '26892') & (network.generators.carrier == 'wind')] = 2400 #0
+    # Segeberg
+   # network.generators.p_nom.loc[(network.generators.bus == '24876') & (network.generators.carrier == 'wind')] = 2400 #0
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
@@ -361,6 +392,7 @@ def etrago(args):
         x = time.time()
 
         network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
