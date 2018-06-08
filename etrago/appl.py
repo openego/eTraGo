@@ -62,24 +62,24 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': '/home/lukas_wienholt/results/test12',# state if and where you want to save results as csv: False or /path/tofolder
+        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
-        'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
+        'reproduce_noise': './eTraGo/noise_values_nep.csv',# or for status quo: './eTraGo/noise_values_sq.csv' # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
-        'network_clustering_ehv': True, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'network_clustering_kmeans': 500, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'load_cluster': './eTraGo/cluster_coord_k_500_result', #change to respective k accordingly. set False if no cluster there yet.  # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
+        'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
+        'snapshot_clustering': False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
-        'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':3,
+        'parallelisation': False, # state if you want to run snapshots parallely.
+        'skip_snapshots': 3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -289,7 +289,7 @@ def etrago(args):
     if args['generator_noise']:
         # create or reproduce generator noise
         if not args['reproduce_noise'] == False:
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
+            noise_values = genfromtxt(args['reproduce_noise'], delimiter=',')
             # add random noise to all generator
             network.generators.marginal_cost = noise_values
         else:
@@ -320,9 +320,9 @@ def etrago(args):
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
                                    load_cluster=args['load_cluster'],
-                                   line_length_factor= 1.25, remove_stubs=True, 
-                                   use_reduced_coordinates=False, bus_weight_tocsv=None, 
-                                   bus_weight_fromcsv=None)
+                                   line_length_factor= 1, remove_stubs=False, 
+                                   use_reduced_coordinates=False, bus_weight_tocsv=False, 
+                                   bus_weight_fromcsv='./eTraGo/bus_weight_nep.csv') # in case of status quo change to '.eTraGo/bus_weight_sq.csv'
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -372,7 +372,7 @@ def etrago(args):
         #CPLEX 
         #network.lopf(network.snapshots, solver_name=args['solver'], formulation='kirchhoff', extra_functionality=extra_functionality, solver_options={'threads':4, 'lpmethod':4, 'solutiontype':2, 'barrier convergetol':1.e-5,'network tolerances feasibility':1.e-6}, keep_files=True)
         #Gurobi
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, keep_files=True)
+        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5}, keep_files=True)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
