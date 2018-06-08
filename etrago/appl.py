@@ -36,7 +36,8 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.io import NetworkScenario, results_to_oedb, extension, decommissioning
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion, extension_overlay_network)
+                                     storage_distribution, storage_expansion, 
+                                     extension_overlay_network, nodal_gen_dispatch)
 
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
@@ -49,7 +50,7 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.3.1', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 2880,
@@ -73,7 +74,7 @@ args = {# Setup and Configuration:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
