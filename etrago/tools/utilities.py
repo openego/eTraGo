@@ -1,4 +1,4 @@
-"""
+﻿"""
 Utilities.py defines functions necessary to apply eTraGo.
 
 This program is free software; you can redistribute it and/or
@@ -21,8 +21,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy import create_engine
 import pandas as pd
 import numpy as np
 import os
@@ -69,51 +67,7 @@ def dbconnect(section, cfg):
             db=cfg.get(section, 'db')))
     return conn
 
-def oedb_session(section='oedb'):
-    """Get SQLAlchemy session object with valid connection to OEDB
-    
-    You have to create a configuration file in ~/.open_eGo/config.ini .
-        [oedb]
-        username =
-        password =
-        host =
-        port =
-        db =
-    """
 
-    # get session object by oemof.db tools (requires .oemof/config.ini
-    try:
-        # read configuration file
-        path = os.path.join(os.path.expanduser("~"), '.oemof', 'config.ini')
-        print(path)
-        config = readcfg(path=path)
-        print(config)
-        # establish DB connection
-        section = section
-        conn = dbconnect(section=section, cfg=config)
-
-    except:
-        print('Please provide connection parameters to database:')
-
-        host = '127.0.0.1' #input('host (default 127.0.0.1): ') or '127.0.0.1'
-        port = '5432' #input('port (default 5432): ') or '5432'
-        user = 'clara' #input('user (default postgres): ') or 'postgres'
-        database = 'local_openego' # input('database name: ')
-        password = '3,1415' #input('password: ')
-
-        conn = create_engine(
-            'postgresql://' + '%s:%s@%s:%s/%s' % (user,
-                                                  password,
-                                                  host,
-                                                  port,
-                                                  database))
-
-    Session = sessionmaker(bind=conn)
-    session = Session()
-    return session
-
-
-  
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
 
@@ -359,7 +313,7 @@ def load_shedding (network, **kwargs):
     p_nom = kwargs.get('p_nom', p_nom_def)
     
     network.add("Carrier", "load")
-    start = network.generators.index.astype(int).max()+1
+    start = network.generators.index.to_series().str.rsplit(' ').str[0].astype(int).sort_values().max()+1
     index = list(range(start,start+len(network.buses.index)))
     network.import_components_from_dataframe(
     pd.DataFrame(
@@ -378,10 +332,9 @@ def data_manipulation_sh (network):
     from geoalchemy2.shape import from_shape, to_shape
     
     #add connection from Luebeck to Siems
-
-    new_bus = str(int(network.buses.index.max())+1)
-    new_trafo = str(int(network.transformers.index.max())+1)
-    new_line = str(int(network.lines.index.max())+1)
+    new_bus = str(network.buses.index.astype(np.int64).max()+1)
+    new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
+    new_line = str(network.lines.index.astype(np.int64).max()+1)
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
@@ -437,6 +390,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
 
     y = time.time()
     z = (y - x) / 60
+    print(z)
     return
 
 def pf_post_lopf(network, scenario):
@@ -491,6 +445,7 @@ def calc_line_losses(network):
     -------
 
     """
+    
     #### Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
@@ -594,6 +549,7 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     p : interest rate, default 0.05
     T : number of periods, default 40 years (source: StromNEV Anlage 1)
     -------
+
     """
     # Add costs for converter
     network.links.capital_cost = network.links.capital_cost + 400000
@@ -608,3 +564,4 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 4
     network.storage_units.loc[network.storage_units.p_nom_extendable == True, 'capital_cost']= network.storage_units.capital_cost /  (8760//(end_snapshot - start_snapshot +1))
     
     return network
+
