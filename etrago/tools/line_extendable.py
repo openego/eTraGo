@@ -7,20 +7,20 @@ from math import sqrt
 import os
 import pandas as pd
 if not 'READTHEDOCS' in os.environ:
-    from tools.io import NetworkScenario, results_to_oedb
-    from tools.plot import (plot_line_loading, plot_stacked_gen,add_coordinates,
-                            curtailment, gen_dist, storage_distribution,
-                            plot_max_line_loading, plot_max_opt_line_loading,
-                            plot_max_opt_line_loading_bench,transformers_distribution,
-                            plot_dif_line_MW,plot_dif_line_percent, plot_max_opt_line_loading_SN)
-    from tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+    #from tools.io import NetworkScenario, results_to_oedb
+   # from tools.plot import (plot_line_loading, plot_stacked_gen,add_coordinates,
+                           # curtailment, gen_dist, storage_distribution,
+                          #  plot_max_line_loading, plot_max_opt_line_loading,
+                           # plot_max_opt_line_loading_bench,transformers_distribution,
+                           # plot_dif_line_MW,plot_dif_line_percent, plot_max_opt_line_loading_SN)
+    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
                                  results_to_csv, parallelisation, pf_post_lopf,
                                  loading_minimization, calc_line_losses,
-                                 group_parallel_lines)
-    from cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
+                                 group_parallel_lines, convert_capital_costs)
+    from etrago.cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
-    from cluster.analysis.config import sim_results_path
+    from etrago.cluster.analysis.config import sim_results_path
     #from appl import etrago                                       
 #import csv
 # toDo reduce import
@@ -291,7 +291,7 @@ def overload_trafo(network):
     return max_loading,time_list
 
 
-def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
+def set_line_cost(network,time_list,cost_1,cost_2,cost_3,max_loading=None):
     """
     This function set the capital cost of lines which ar extendable.
     This function set at the same time that the choosen lines are extendable
@@ -332,40 +332,57 @@ def set_line_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
         all_time.append(time_list[len(time_list)-1-i][0])
         
         index = [a for a,u in enumerate(max_loading[2]) if u==lines_time[i]]
+        
+        if max_loading != None:
+            for k in index:
+                if(max_loading[1][k]>100):
+                    network.lines.s_nom_extendable[max_loading[0][k]] = True
+                    network.lines.s_nom_min[max_loading[0][k]] = network.lines.s_nom[max_loading[0][k]]
+                    network.lines.s_nom_max[max_loading[0][k]] = np.inf
 
-        for k in index:
-            if(max_loading[1][k]>100):
-                network.lines.s_nom_extendable[max_loading[0][k]] = True
-                network.lines.s_nom_min[max_loading[0][k]] = network.lines.s_nom[max_loading[0][k]]
-                network.lines.s_nom_max[max_loading[0][k]] = np.inf
+                    name_bus_0 = network.lines.bus0[max_loading[0][k]]
+                    name_bus_1 = network.lines.bus1[max_loading[0][k]]
 
-                name_bus_0 = network.lines.bus0[max_loading[0][k]]
-                name_bus_1 = network.lines.bus1[max_loading[0][k]]
+                    U_bus_0 = network.buses.v_nom[name_bus_0]
+                    U_bus_1 = network.buses.v_nom[name_bus_1]
 
-                U_bus_0 = network.buses.v_nom[name_bus_0]
-                U_bus_1 = network.buses.v_nom[name_bus_1]
-
-                if(U_bus_0 == U_bus_1):
-                    if(U_bus_0 == 110):
-                        cc0 = cost_1
-                    elif(U_bus_0 == 220):
-                        cc0 = cost_2
-                    else:
-                        cc0 = cost_3
+                    if(U_bus_0 == U_bus_1):
+                        if(U_bus_0 == 110):
+                            cc0 = cost_1
+                        elif(U_bus_0 == 220):
+                            cc0 = cost_2
+                        else:
+                            cc0 = cost_3
                         #network.lines.capital_cost[max_loading[0][k]] = \
                         #    (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
                         #    (90*8760)
-                    cc1 = (cc0*network.lines.length[max_loading[0][k]])
-                    maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
-                    cc = cc1/maxload1
-                    network.lines.capital_cost[max_loading[0][k]] = annualized_costs(cc,40,0.05)
+                        cc1 = (cc0*network.lines.length[max_loading[0][k]])
+                        maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
+                        cc = cc1/maxload1
+                        network.lines.capital_cost[max_loading[0][k]] = annualized_costs(cc,40,0.05)
                 
-                else:
-                    print('Error')
+                    else:
+                        print('Error')
                     
-        i+=1
+                    i+=1
+            else:
+                name_bus_0 = network.lines.bus0
+                name_bus_1 = network.lines.bus1
+                    
 
-    return network,lines_time,all_time
+                U_bus_0 = network.buses.v_nom[name_bus_0]
+                
+                U_bus_1 = network.buses.v_nom[name_bus_1]
+
+                if(U_bus_0 == U_bus_1):
+                        if(U_bus_0 == 110):
+                            cc0 = cost_1
+                        elif(U_bus_0 == 220):
+                            cc0 = cost_2
+                        else:
+                            cc0 = cost_3
+
+    return network#,lines_time,all_time
 
 
 def set_line_cost_BM(network,cost_1,cost_2,cost_3):
@@ -397,7 +414,40 @@ def set_line_cost_BM(network,cost_1,cost_2,cost_3):
             
     return network
 
+def set_costs_v_nom(network, cost110 = 230/100, cost220=290/100 , cost380= 85):## zahlen als line_extension_cost Tabelle
+    i = 0
+    while(i<len(network.lines)):
+        bus = network.lines.bus0[i]
+        if bus in (network.buses.index[network.buses.v_nom == 110]) : 
+            network.lines.capital_cost[i] = cost110*network.lines.length[i]
+            
+        elif bus in(network.buses.index[network.buses.v_nom == 220]) :           
+            network.lines.capital_cost[i] = cost220*network.lines.length[i]
+            
+        elif bus in(network.buses.index[network.buses.v_nom == 380]) :           
+            network.lines.capital_cost[i] = cost380*network.lines.length[i]
+            
+            
+        i = i+1
+    """i=0
+    while(i<len(network.lines)):
+        name_bus_0 = network.lines.bus0[i]
+        name_bus_1 = network.lines.bus1[i]
 
+        U_bus_0 = network.buses.v_nom[name_bus_0]
+        U_bus_1 = network.buses.v_nom[name_bus_1]
+
+        if(U_bus_0 == U_bus_1):
+            if(U_bus_0 == 110):
+                network.lines.capital_costs = cost110
+            elif(U_bus_0 == 220):
+                network.lines.capital_costs = cost220
+            else:
+               network.lines.capital_costs = cost380"""
+    return network
+            
+       
+    
 def set_trafo_cost(network,time_list,max_loading,cost_1,cost_2,cost_3):
 
     """
@@ -661,4 +711,93 @@ def line_extendableBM(network, args, scenario):
     export_results(args, z1st, z, ts)
 
     
+    return network
+def find_snapshots (network, carrier, maximum= True, minimum = True, n =3):
+    if carrier == 'residual load':
+        power_plants = network.generators[network.generators.former_dispatch == 'variable']
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]                     
+        load = network.loads_t.p_set.sum(axis=1)
+        all_renew = power_plants_t.sum(axis=1)
+        all_carrier = load - all_renew 
+             
+    if carrier in ('solar', 'wind', 'biomass'):
+        power_plants = network.generators[network.generators.carrier == carrier]
+        
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        all_carrier =  power_plants_t.sum(axis=1)
+        
+                        
+    if maximum and not minimum:
+       times = all_carrier.sort_values().head(n=n)
+       
+    if minimum and not maximum:
+       times = all_carrier.sort_values().tail(n=n)
+       
+    if maximum and minimum:
+        times = all_carrier.sort_values().head(n=n)
+        times= times.append(all_carrier.sort_values().tail(n=n))
+        
+    calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
+    
+    return calc_snapshots
+      
+
+def remarkable_snapshots(network, args, scenario):
+    
+    network_new = network.copy()
+    snapshots = find_snapshots(network_new, 'residual load')    
+    snapshots = snapshots.append(find_snapshots(network_new, 'wind'))
+    snapshots = snapshots.append(find_snapshots(network_new, 'solar'))
+    snapshots = snapshots.drop_duplicates()
+    snapshots = snapshots.sort_values()
+    print(snapshots)
+    n = snapshots.value_counts().sum()
+    #### Set all lines and trafos extendable in new_network
+    network_new.lines.s_nom_extendable = True
+    network_new.lines.s_nom_min= network_new.lines.s_nom
+    network_new.lines.s_nom_max= np.inf
+    network_new.transformers.s_nom_extendable = True
+    network_new.transformers.s_nom_min = network_new.transformers.s_nom
+    network_new.transformers.s_nom_max = np.inf
+    
+    network_new = set_line_costs_v_nom(network_new)
+    
+    network_new = convert_capital_costs(network_new, 1, n)
+    x = time.time()    
+    
+    network_new.lopf(snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} ) 
+    extended_lines = network_new.lines[network_new.lines.s_nom_opt >network_new.lines.s_nom]
+    #extended_trafos = network_new.transformers[network_new.transformers.s_nom_opt >network_new.transformers.s_nom]
+    print("Anzahl ausgebauter Leitungen")
+    print(len(extended_lines))
+    network.lines.s_nom_extendable[network.lines.index.isin(extended_lines.index)]= True
+    network.lines.s_nom_min[network.lines.s_nom_extendable== True]= network.lines.s_nom
+    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf
+    
+    network.transformers.s_nom_extendable= True #[network.transformers.index.isin(extended_trafos.index)]= True
+    network.transformers.s_nom_min[network.transformers.s_nom_extendable== True]= network.transformers.s_nom
+    network.transformers.s_nom_max[network.transformers.s_nom_extendable== True]= np.inf
+    
+    network = set_line_costs_v_nom(network)
+    network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
+
+    network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )
+    y = time.time()
+    z = (y - x) / 60
+    
+    print (z)
+    
+    return network, network_new
+
+def set_line_costs_v_nom(network, cost110 = 230/100, cost220=290/100 , cost380= 85):## zahlen als line_extension_cost Tabelle
+    
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+    
+    network.lines.capital_cost[network.lines.v_nom == 110] = cost110 * network.lines.length
+    network.lines.capital_cost[network.lines.v_nom == 220] = cost220 * network.lines.length
+    network.lines.capital_cost[network.lines.v_nom == 380]= cost380 * network.lines.length
+   
+   
     return network

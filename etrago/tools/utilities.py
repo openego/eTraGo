@@ -85,8 +85,9 @@ def oedb_session(section='oedb'):
     try:
         # read configuration file
         path = os.path.join(os.path.expanduser("~"), '.oemof', 'config.ini')
+        print(path)
         config = readcfg(path=path)
-
+        print(config)
         # establish DB connection
         section = section
         conn = dbconnect(section=section, cfg=config)
@@ -94,11 +95,11 @@ def oedb_session(section='oedb'):
     except:
         print('Please provide connection parameters to database:')
 
-        host = input('host (default 127.0.0.1): ') or '127.0.0.1'
-        port = input('port (default 5432): ') or '5432'
-        user = input('user (default postgres): ') or 'postgres'
-        database = input('database name: ')
-        password = input('password: ')
+        host = '127.0.0.1' #input('host (default 127.0.0.1): ') or '127.0.0.1'
+        port = '5432' #input('port (default 5432): ') or '5432'
+        user = 'clara' #input('user (default postgres): ') or 'postgres'
+        database = 'local_openego' # input('database name: ')
+        password = '3,1415' #input('password: ')
 
         conn = create_engine(
             'postgresql://' + '%s:%s@%s:%s/%s' % (user,
@@ -583,3 +584,27 @@ def group_parallel_lines(network):
     network.lines = new_lines
     
     return
+
+def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 40):
+    
+    """ Convert capital_costs to fit to pypsa and caluculated time
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    p : interest rate, default 0.05
+    T : number of periods, default 40 years (source: StromNEV Anlage 1)
+    -------
+    """
+    # Add costs for converter
+    network.links.capital_cost = network.links.capital_cost + 400000
+        
+    # Calculate present value of an annuity (PVA)
+    PVA =(1 / p) - (1 / (p*(1 + p) ** T))
+    
+    #
+    network.lines.loc[network.lines.s_nom_extendable == True, 'capital_cost']= network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.links.loc[network.links.p_nom_extendable == True, 'capital_cost'] = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.transformers.loc[network.transformers.s_nom_extendable == True, 'capital_cost'] = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.storage_units.loc[network.storage_units.p_nom_extendable == True, 'capital_cost']= network.storage_units.capital_cost /  (8760//(end_snapshot - start_snapshot +1))
+    
+    return network

@@ -39,46 +39,47 @@ if not 'READTHEDOCS' in os.environ:
                                      add_coordinates, curtailment, gen_dist,
                                      storage_distribution, storage_expansion, plot_max_line_loading, 
                                      plot_max_opt_line_loading)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+    from etrago.tools.utilities import (convert_capital_costs, oedb_session, load_shedding, data_manipulation_sh,
                                     results_to_csv, parallelisation, pf_post_lopf, 
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
     
-    from etrago.tools.line_extendable import (capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable, line_extendableBM)
+    from etrago.tools.line_extendable import (set_line_costs_v_nom, remarkable_snapshots, capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable, line_extendableBM)
 
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'local', # db session
         'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 2,
-        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'end_snapshot': 150,
+        'scn_name': 'SH Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
         'solver': 'gurobi', # glpk, cplex or gurobi
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:        
-        'storage_extendable': True, # state if you want reshape([4.2,3.95,3.85,3.7,3.45,4.2,3.75,3.65,3.5,3.3,4.2,3.65,3.5,3.35,3.2,4.2,3.5,3.4,3.2,3.1,4.2,3.3,3.0,2.8,2.8],5,5)storages to be installed at each node if necessary.
+        'storage_extendable': False, # state if you want reshape([4.2,3.95,3.85,3.7,3.45,4.2,3.75,3.65,3.5,3.3,4.2,3.65,3.5,3.35,3.2,4.2,3.5,3.4,3.2,3.1,4.2,3.3,3.0,2.8,2.8],5,5)storages to be installed at each node if necessary.
         'generator_noise': True, # state if you want to apply a small generator noise 
         'reproduce_noise': False, # state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         #Line Extendable Function
         'line_extendable': False,
+        'remarkable_snapshots':True,
         'line_extendableBM': False,
         # Clustering:        
         'k_mean_clustering': False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
-        'network_clustering': True, # state if you want to perform a clustering of HV buses to EHV buses.
+        'network_clustering': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering': False,# state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots': 0,
+        'skip_snapshots': False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.2, # globally extend or lower branch capacities
-        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -228,6 +229,17 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
+    
+    """network.transformers.s_nom_extendable= True #[network.transformers.index.isin(extended_trafos.index)]= True
+    network.transformers.s_nom_min[network.transformers.s_nom_extendable== True]= network.transformers.s_nom
+    network.transformers.s_nom_max[network.transformers.s_nom_extendable== True]= np.inf
+    
+    network.lines.s_nom_extendable =  True
+    network.lines.s_nom_min[network.lines.s_nom_extendable== True]= network.lines.s_nom
+    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf
+    
+    network = set_line_costs_v_nom(network)
+    network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])"""
 
     # add coordinates
     network = add_coordinates(network)
@@ -272,7 +284,7 @@ def etrago(args):
 
     #load shedding in order to hunt infeasibilities
     if args['load_shedding']:
-    	load_shedding(network)
+        	load_shedding(network)
 
     # network clustering
     if args['network_clustering']:
@@ -294,7 +306,7 @@ def etrago(args):
     if not args['snapshot_clustering']==False:
         extra_functionality = daily_bounds
         x = time.time()
-        network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
+       # network = snapshot_clustering(network, how='daily', clusters=args['snapshot_clustering'])
         y = time.time()
         z = (y - x) / 60 # z is time for lopf in minutes
 
@@ -306,7 +318,9 @@ def etrago(args):
     if args['line_extendableBM']:
         line_extendableBM(network,args,scenario) 
     	
-
+    if args['remarkable_snapshots']:
+        remarkable_snapshots(network,args,scenario) 
+    	
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
@@ -318,9 +332,10 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], solver_options ={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},extra_functionality=extra_functionality)
         y = time.time()
-        z = (y - x) / 60 # z is time for lopf in minutes
+        z = (y - x) / 60
+        print(z)# z is time for lopf in minutes
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
@@ -359,8 +374,8 @@ if __name__ == '__main__':
     network = etrago(args)
     # plots
     # make a line loading plot
-    plot_line_loading(network)
+   # plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
+    #plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
-    storage_distribution(network)
+    #storage_distribution(network)
