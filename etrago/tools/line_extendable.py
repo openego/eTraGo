@@ -13,7 +13,7 @@ if not 'READTHEDOCS' in os.environ:
                           #  plot_max_line_loading, plot_max_opt_line_loading,
                            # plot_max_opt_line_loading_bench,transformers_distribution,
                            # plot_dif_line_MW,plot_dif_line_percent, plot_max_opt_line_loading_SN)
-    from etrago.tools.utilities import (oedb_session, load_shedding, data_manipulation_sh,
+    from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                  results_to_csv, parallelisation, pf_post_lopf,
                                  loading_minimization, calc_line_losses,
                                  group_parallel_lines, convert_capital_costs)
@@ -755,14 +755,14 @@ def remarkable_snapshots(network, args, scenario):
     print(snapshots)
     n = snapshots.value_counts().sum()
     #### Set all lines and trafos extendable in new_network
-    network_new.lines.s_nom_extendable = True
-    network_new.lines.s_nom_min= network_new.lines.s_nom
-    network_new.lines.s_nom_max= np.inf
-    network_new.transformers.s_nom_extendable = True
-    network_new.transformers.s_nom_min = network_new.transformers.s_nom
-    network_new.transformers.s_nom_max = np.inf
+    network_new.lines.loc[:, 's_nom_extendable'] = True
+    network_new.lines.loc[:,'s_nom_min']= network_new.lines.s_nom
+    network_new.lines.loc[:,'s_nom_max']= np.inf
+    network_new.transformers.loc[:,'s_nom_extendable'] = True
+    network_new.transformers.loc[:,'s_nom_min'] = network_new.transformers.s_nom
+    network_new.transformers.loc[:,'s_nom_max'] = np.inf
     
-    network_new = set_line_costs_v_nom(network_new)
+    #network_new = set_line_costs_v_nom(network_new)
     
     network_new = convert_capital_costs(network_new, 1, n)
     x = time.time()    
@@ -772,15 +772,22 @@ def remarkable_snapshots(network, args, scenario):
     #extended_trafos = network_new.transformers[network_new.transformers.s_nom_opt >network_new.transformers.s_nom]
     print("Anzahl ausgebauter Leitungen")
     print(len(extended_lines))
-    network.lines.s_nom_extendable[network.lines.index.isin(extended_lines.index)]= True
+    network.lines.loc[network.lines.index.isin(extended_lines.index), 's_nom_extendable'] =True
+    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min'] = network.lines.s_nom
+    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max'] = np.inf
+   
+    
+    """network.lines.s_nom_extendable[network.lines.index.isin(extended_lines.index)]= True
     network.lines.s_nom_min[network.lines.s_nom_extendable== True]= network.lines.s_nom
-    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf
+    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf"""
     
-    network.transformers.s_nom_extendable= True #[network.transformers.index.isin(extended_trafos.index)]= True
-    network.transformers.s_nom_min[network.transformers.s_nom_extendable== True]= network.transformers.s_nom
-    network.transformers.s_nom_max[network.transformers.s_nom_extendable== True]= np.inf
+    #network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_min'] = 0
     
-    network = set_line_costs_v_nom(network)
+    network.transformers.loc[:,'s_nom_extendable']= True #[network.transformers.index.isin(extended_trafos.index)]= True
+    network.transformers.loc[network.transformers.s_nom_extendable== True, 's_nom_min']= network.transformers.s_nom
+    network.transformers.loc[network.transformers.s_nom_extendable== True, 's_nom_max']= np.inf
+    
+    #network = set_line_costs_v_nom(network)
     network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )
@@ -795,9 +802,9 @@ def set_line_costs_v_nom(network, cost110 = 230/100, cost220=290/100 , cost380= 
     
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
     
-    network.lines.capital_cost[network.lines.v_nom == 110] = cost110 * network.lines.length
-    network.lines.capital_cost[network.lines.v_nom == 220] = cost220 * network.lines.length
-    network.lines.capital_cost[network.lines.v_nom == 380]= cost380 * network.lines.length
+    network.lines.loc[network.lines.v_nom == 110, 'capital_cost'] = cost110 * network.lines.length
+    network.lines.loc[network.lines.v_nom == 220, 'capital_cost'] = cost220 * network.lines.length
+    network.lines.loc[network.lines.v_nom == 380, 'capital_cost']= cost380 * network.lines.length
    
    
     return network

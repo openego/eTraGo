@@ -15,25 +15,17 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+along with this program.  If not, see <http://www.gnu.org/licenses/>."""
 
-<<<<<<< HEAD
-"""
-=======
->>>>>>> dev
 
 __copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
-"""
+
 import numpy as np
 from numpy import genfromtxt
 np.random.seed()
 import time
-<<<<<<< HEAD
-import pandas as pd
-from math import sqrt
-=======
 import datetime
 import os
 
@@ -61,13 +53,13 @@ if not 'READTHEDOCS' in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
-        'gridversion': 'v0.3.0pre1', # None for model_draft or Version number 
+        'db': 'local', # db session
+        'gridversion': None, # None for model_draft or Version number 
                                      #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # True to perform a pf after a lopf simulation
-        'start_snapshot': 2005,
-        'end_snapshot' : 2006,
+        'start_snapshot': 1,
+        'end_snapshot' : 72,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -79,7 +71,7 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':None, #['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -88,9 +80,9 @@ args = {# Setup and Configuration:
         'remarkable_snapshots':True,
         'line_extendableBM': False,
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -284,17 +276,9 @@ def etrago(args):
 
     network = scenario.build_network()
     
-    """network.transformers.s_nom_extendable= True #[network.transformers.index.isin(extended_trafos.index)]= True
-    network.transformers.s_nom_min[network.transformers.s_nom_extendable== True]= network.transformers.s_nom
-    network.transformers.s_nom_max[network.transformers.s_nom_extendable== True]= np.inf
-    
-    network.lines.s_nom_extendable =  True
-    network.lines.s_nom_min[network.lines.s_nom_extendable== True]= network.lines.s_nom
-    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf
-    
+    # Set costs for line extension
     network = set_line_costs_v_nom(network)
-    network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])"""
-
+    
     # add coordinates
     network = add_coordinates(network)
       
@@ -349,19 +333,7 @@ def etrago(args):
 
     else:
         extra_functionality = None
-        
-    
-    # line extendable in order of a grid extension
-    if args['line_extendable']:
-        line_extendable(network,args,scenario) 
-    
-    # TEMPORAL line extendable just 2nd LOPF
-    if args['line_extendableBM']:
-        line_extendableBM(network,args,scenario) 
-    	
-    if args['remarkable_snapshots']:
-        remarkable_snapshots(network,args,scenario) 
-    	
+   	
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots']   
@@ -387,6 +359,17 @@ def etrago(args):
     if args['load_shedding']:
         load_shedding(network)
         
+            # line extendable in order of a grid extension
+    if args['line_extendable']:
+        line_extendable(network,args,scenario) 
+    
+    # TEMPORAL line extendable just 2nd LOPF
+    if args['line_extendableBM']:
+        line_extendableBM(network,args,scenario) 
+    	
+    if args['remarkable_snapshots']:
+        remarkable_snapshots(network,args,scenario) 
+        
      # snapshot clustering
     if not args['snapshot_clustering']==False:
         extra_functionality = daily_bounds
@@ -404,13 +387,13 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(network.snapshots, solver_name=args['solver'], 
-                     extra_functionality=extra_functionality)
+       # network.lopf(network.snapshots, solver_name=args['solver'], 
+         #            extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
 
-            # start non-linear powerflow simulation
+    # start non-linear powerflow simulation
 
     elif args['method'] == 'pf':
             network.pf(scenario.timeindex)

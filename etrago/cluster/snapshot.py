@@ -20,7 +20,7 @@ __author__ = "Simon Hilpert"
 
 import pandas as pd
 import pyomo.environ as po
-import tsam.timeseriesaggregation as tsam
+#import tsam.timeseriesaggregation as tsam
 
 def snapshot_clustering(network, how='daily', clusters=10):
 
