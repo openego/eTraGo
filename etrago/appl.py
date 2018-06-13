@@ -53,8 +53,8 @@ args = {# Setup and Configuration:
         'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
-        'start_snapshot': 2880,
-        'end_snapshot' : 2881, #3624,
+        'start_snapshot': 1,
+        'end_snapshot' : 2, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -71,7 +71,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
@@ -80,8 +80,8 @@ args = {# Setup and Configuration:
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
-        'comments':None }
+        'load_shedding': False, # meet the demand at very high cost; for debugging purposes.
+        'comments': None }
 
 
 def etrago(args):
@@ -270,8 +270,8 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-      
-    # TEMPORARY vague adjustment due to transformer bug in data processing     
+
+    # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
 
