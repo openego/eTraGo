@@ -52,7 +52,7 @@ def add_coordinates(network):
 
     return network
     
-def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
+def plot_line_loading(network, timesteps=range(1,2), filename=None, boundaries=[],
                       arrows= False ):
     """
     Plot line loading as color on lines
@@ -76,20 +76,26 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     if network.lines_t.q0.empty:
         array_line = [['Line'] * len(network.lines), network.lines.index]
     
-        loading_lines = pd.Series(abs((network.lines_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.lines.s_nom)) * 100).data, index = array_line)
+        loading_lines = pd.Series((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.lines.s_nom)).data, index = array_line)
+                  
+        load_lines_rel = (loading_lines/network.snapshots[timesteps].size)*100
+
     
         array_link = [['Link'] * len(network.links), network.links.index]
     
-        loading_links = pd.Series(abs((network.links_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.links.p_nom)) * 100).data, index = array_link)
+        loading_links = pd.Series((network.links_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.links.p_nom)).data, index = array_link)
+
+        load_links_rel = (loading_links/network.snapshots[timesteps].size)*100
+
     
-        loading = loading_lines.append(loading_links)
+        loading = load_lines_rel.append(load_links_rel)
         
     else:
-         loading = ((network.lines_t.p0.loc[network.snapshots[timestep]] ** 2 +
-                   network.lines_t.q0.loc[network.snapshots[timestep]] ** 2).\
-                   apply(sqrt) / (network.lines.s_nom)) * 100 
+         loading = ((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum() ** 2 +
+                   network.lines_t.q0.loc[network.snapshots[timesteps]].abs().sum() ** 2).\
+                   apply(sqrt) / ((network.lines.s_nom)*network.snapshots[timesteps].size)) * 100 
 
     # do the plotting
 
