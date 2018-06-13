@@ -975,7 +975,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
 def nodal_gen_dispatch(network,scaling=False, techs= ['wind_onshore', 'solar'], filename=None):
     
     gens = network.generators[network.generators.carrier.isin(techs)]
-    dispatch =network.generators_t.p[gens.index].sum().groupby([network.generators.bus, network.generators.carrier]).sum() * network.snapshot_weightings[1]
+    dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum() * network.snapshot_weightings[1]
     colors = {'biomass':'green',
               'coal':'k',
               'gas':'orange',
