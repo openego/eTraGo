@@ -71,7 +71,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':20, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering

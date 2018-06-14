@@ -51,6 +51,31 @@ def add_coordinates(network):
         network.buses.loc[idx, 'y'] = wkt_geom.y
 
     return network
+
+def coloring():
+    colors = {'biomass':'green',
+              'coal':'k',
+              'gas':'orange',
+              'eeg_gas':'olive',
+              'geothermal':'purple',
+              'lignite':'brown',
+              'oil':'darkgrey',
+              'other_non_renewable':'pink',
+              'reservoir':'navy',
+              'run_of_river':'aqua',
+              'pumped_storage':'steelblue',
+              'solar':'yellow',
+              'uranium':'lime',
+              'waste':'sienna',
+              'wind':'blue',
+              'wind_onshore':'skyblue',
+              'wind_offshore':'brightblue',
+              'slack':'pink',
+              'load shedding': 'red',
+              'nan':'m',
+              'imports':'salmon',
+              '':'m'}
+    return colors
     
 def plot_line_loading(network, timesteps=range(1,2), filename=None, boundaries=[],
                       arrows= False ):
@@ -481,27 +506,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
         filtered_load = network.loads[network.loads['bus'] == bus]
         load = network.loads_t.p[filtered_load.index]
 
-    colors = {'biomass':'green',
-              'coal':'k',
-              'gas':'orange',
-              'eeg_gas':'olive',
-              'geothermal':'purple',
-              'lignite':'brown',
-              'oil':'darkgrey',
-              'other_non_renewable':'pink',
-              'reservoir':'navy',
-              'run_of_river':'aqua',
-              'pumped_storage':'steelblue',
-              'solar':'yellow',
-              'uranium':'lime',
-              'waste':'sienna',
-              'wind':'skyblue',
-              'slack':'pink',
-              'load shedding': 'red',
-              'nan':'m',
-              'imports':'salmon',
-              '':'m'}
-
+    colors = coloring()
 #    TODO: column reordering based on available columns
 
     fig,ax = plt.subplots(1,1)
@@ -555,24 +560,7 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     gen_switches = gen_by_c(networkA)
     diff = gen_switches-gen
     
-    colors = {'biomass':'green',
-          'coal':'k',
-          'gas':'orange',
-          'eeg_gas':'olive',
-          'geothermal':'purple',
-          'lignite':'brown',
-          'oil':'darkgrey',
-          'other_non_renewable':'pink',
-          'reservoir':'navy',
-          'run_of_river':'aqua',
-          'pumped_storage':'steelblue',
-          'solar':'yellow',
-          'uranium':'lime',
-          'waste':'sienna',
-          'wind':'skyblue',
-          'slack':'pink',
-          'load shedding': 'red',
-          'nan':'m'}
+    colors = coloring()
     diff.drop(leave_out_carriers, axis=1, inplace=True)
     colors = [colors[col] for col in diff.columns]
     
@@ -976,24 +964,7 @@ def nodal_gen_dispatch(network,scaling=False, techs= ['wind_onshore', 'solar'], 
     
     gens = network.generators[network.generators.carrier.isin(techs)]
     dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum() * network.snapshot_weightings[1]
-    colors = {'biomass':'green',
-              'coal':'k',
-              'gas':'orange',
-              'eeg_gas':'olive',
-              'geothermal':'purple',
-              'lignite':'brown',
-              'oil':'darkgrey',
-              'other_non_renewable':'pink',
-              'reservoir':'navy',
-              'run_of_river':'aqua',
-              'pumped_storage':'steelblue',
-              'solar':'yellow',
-              'uranium':'lime',
-              'waste':'sienna',
-              'wind_onshore':'skyblue',
-              'slack':'pink',
-              'load shedding': 'red',
-              'nan':'m'}
+    colors = coloring()
               
     subcolors={a:colors[a] for a in techs}#network.generators.carrier.unique()}
     
