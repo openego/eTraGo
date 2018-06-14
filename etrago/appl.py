@@ -36,10 +36,12 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.io import NetworkScenario, results_to_oedb, extension, decommissioning
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion, extension_overlay_network)
+                                     storage_distribution, storage_expansion, 
+                                     extension_overlay_network, nodal_gen_dispatch)
+
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
-                                     results_to_csv, parallelisation, pf_post_lopf, 
-                                     loading_minimization, calc_line_losses, group_parallel_lines)
+                                    results_to_csv, parallelisation, pf_post_lopf, 
+                                    loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -69,7 +71,7 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':20, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
@@ -268,9 +270,6 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
-	
-    # set SOC at the beginning and end of the period to equal values
-    network.storage_units.cyclic_state_of_charge = True
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -363,7 +362,6 @@ def etrago(args):
         x = time.time()
 
         network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
-
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
