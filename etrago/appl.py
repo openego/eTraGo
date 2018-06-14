@@ -59,7 +59,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # True to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 72,
+        'end_snapshot' : 2,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -77,10 +77,10 @@ args = {# Setup and Configuration:
         'minimize_loading':False,
         #Line Extendable Function
         'line_extendable': False,
-        'remarkable_snapshots':True,
+        'remarkable_snapshots':False,
         'line_extendableBM': False,
         # Clustering:
-        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:

@@ -746,65 +746,54 @@ def find_snapshots (network, carrier, maximum= True, minimum = True, n =3):
 
 def remarkable_snapshots(network, args, scenario):
     
-    network_new = network.copy()
-    snapshots = find_snapshots(network_new, 'residual load')    
-    snapshots = snapshots.append(find_snapshots(network_new, 'wind'))
-    snapshots = snapshots.append(find_snapshots(network_new, 'solar'))
+   # network_new = network.copy()
+    snapshots = find_snapshots(network, 'residual load')    
+    snapshots = snapshots.append(find_snapshots(network, 'wind'))
+    snapshots = snapshots.append(find_snapshots(network, 'solar'))
     snapshots = snapshots.drop_duplicates()
     snapshots = snapshots.sort_values()
     print(snapshots)
-    n = snapshots.value_counts().sum()
-    #### Set all lines and trafos extendable in new_network
-    network_new.lines.loc[:, 's_nom_extendable'] = True
-    network_new.lines.loc[:,'s_nom_min']= network_new.lines.s_nom
-    network_new.lines.loc[:,'s_nom_max']= np.inf
-    network_new.transformers.loc[:,'s_nom_extendable'] = True
-    network_new.transformers.loc[:,'s_nom_min'] = network_new.transformers.s_nom
-    network_new.transformers.loc[:,'s_nom_max'] = np.inf
+    #### Set all lines and trafos extendable in network
+    network.lines.loc[:,'s_nom_extendable'] = True
+    network.lines.loc[:,'s_nom_min']= network.lines.s_nom
+    network.lines.loc[:,'s_nom_max']= np.inf
     
-    #network_new = set_line_costs_v_nom(network_new)
+    network.transformers.loc[:,'s_nom_extendable'] = True
+    network.transformers.loc[:,'s_nom_min'] = network.transformers.s_nom
+    network.transformers.loc[:,'s_nom_max'] = np.inf
     
-    network_new = convert_capital_costs(network_new, 1, n)
+    network = set_line_costs_v_nom(network)
+    network = convert_capital_costs(network, 1, snapshots.value_counts().sum())
+    
     x = time.time()    
     
-    network_new.lopf(snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} ) 
-    extended_lines = network_new.lines[network_new.lines.s_nom_opt >network_new.lines.s_nom]
+    network.lopf(snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, formulation="kirchhoff" ) 
+    extended_lines = network.lines[network.lines.s_nom_opt > network.lines.s_nom]
     #extended_trafos = network_new.transformers[network_new.transformers.s_nom_opt >network_new.transformers.s_nom]
     print("Anzahl ausgebauter Leitungen")
     print(len(extended_lines))
-    network.lines.loc[network.lines.index.isin(extended_lines.index), 's_nom_extendable'] =True
+    network.lines.loc[~network.lines.index.isin(extended_lines.index), 's_nom_extendable'] =False
     network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min'] = network.lines.s_nom
     network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max'] = np.inf
-   
-    
-    """network.lines.s_nom_extendable[network.lines.index.isin(extended_lines.index)]= True
-    network.lines.s_nom_min[network.lines.s_nom_extendable== True]= network.lines.s_nom
-    network.lines.s_nom_max[network.lines.s_nom_extendable== True]= np.inf"""
-    
-    #network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_min'] = 0
-    
-    network.transformers.loc[:,'s_nom_extendable']= True #[network.transformers.index.isin(extended_trafos.index)]= True
-    network.transformers.loc[network.transformers.s_nom_extendable== True, 's_nom_min']= network.transformers.s_nom
-    network.transformers.loc[network.transformers.s_nom_extendable== True, 's_nom_max']= np.inf
-    
-    #network = set_line_costs_v_nom(network)
+
+    network = set_line_costs_v_nom(network)
     network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
-    network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )
+    network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, formulation="kirchhoff")
     y = time.time()
     z = (y - x) / 60
     
     print (z)
     
-    return network, network_new
+    return network
 
-def set_line_costs_v_nom(network, cost110 = 230/100, cost220=290/100 , cost380= 85):## zahlen als line_extension_cost Tabelle
+def set_line_costs_v_nom(network, cost110 = 230, cost220=290 , cost380= 85):## zahlen als line_extension_cost Tabelle
     
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
     
     network.lines.loc[network.lines.v_nom == 110, 'capital_cost'] = cost110 * network.lines.length
     network.lines.loc[network.lines.v_nom == 220, 'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[network.lines.v_nom == 380, 'capital_cost']= cost380 * network.lines.length
+    network.lines.loc[network.lines.v_nom == 380, 'capital_cost'] = cost380 * network.lines.length
    
    
     return network
