@@ -56,6 +56,7 @@ args = {# Setup and Configuration:
         'start_snapshot': 1,
         'end_snapshot' : 2, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
+        'solver_options': {}, # {} for default settings or dict of solver options
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -355,13 +356,12 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], 
                         end_snapshot=args['end_snapshot'],group_size=1, 
-                        solver_name=args['solver'], 
+                        solver_name=args['solver'], solver_options = args['solver_options'], 
                         extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], solver_options = args['solver_options'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
