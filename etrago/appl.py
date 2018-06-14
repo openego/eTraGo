@@ -361,7 +361,6 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        print(args['solver_options'])
         network.lopf(network.snapshots, solver_name=args['solver'], solver_options = args['solver_options'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
