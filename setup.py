@@ -23,6 +23,7 @@ setup(
                         'sqlalchemy >= 1.0.15, <= 1.1.4',
                         'geoalchemy2 >= 0.3.0, <=0.4.0',
                         'matplotlib >= 1.5.3, <=1.5.3',
+                        'tsam==0.9.9',
                         'shapely'],
        dependency_links=['git+https://github.com/openego/PyPSA.git@75b81175576e7b3472a6fc95c8842dd42d16954c#egg=pypsa-0.11.0fork'],
        extras_require={

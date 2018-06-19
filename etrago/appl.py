@@ -32,13 +32,14 @@ import os
 
 if not 'READTHEDOCS' in os.environ:
     # Sphinx does not run this code.
-    # Do not import internal packages directly
+    # Do not import internal packages directly 
     from etrago.cluster.disaggregation import (MiniSolverDisaggregation,
-                                               UniformDisaggregation)
-    from etrago.tools.io import NetworkScenario, results_to_oedb
+                                               UniformDisaggregation) 
+    from etrago.tools.io import NetworkScenario, results_to_oedb, extension, decommissioning
     from etrago.tools.plot import (plot_line_loading, plot_stacked_gen,
                                      add_coordinates, curtailment, gen_dist,
-                                     storage_distribution, storage_expansion, extension_overlay_network)
+                                     storage_distribution, storage_expansion, 
+                                     extension_overlay_network, nodal_gen_dispatch)
 
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh, convert_capital_costs,
                                     results_to_csv, parallelisation, pf_post_lopf, 
@@ -57,6 +58,7 @@ args = {# Setup and Configuration:
         'start_snapshot': 1,
         'end_snapshot' : 24, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
+        'solver_options': {}, # {} for default settings or dict of solver options
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -359,13 +361,12 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(network, start_snapshot=args['start_snapshot'], 
                         end_snapshot=args['end_snapshot'],group_size=1, 
-                        solver_name=args['solver'], 
+                        solver_name=args['solver'], solver_options = args['solver_options'], 
                         extra_functionality=extra_functionality)
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-
-        network.lopf(network.snapshots, solver_name=args['solver'], extra_functionality=extra_functionality, solver_options={'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6})
+        network.lopf(network.snapshots, solver_name=args['solver'], solver_options = args['solver_options'], extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
