@@ -21,6 +21,7 @@ __author__ = "Simon Hilpert"
 import pandas as pd
 import pyomo.environ as po
 import tsam.timeseriesaggregation as tsam
+from datetime import timedelta 
 
 def snapshot_clustering(network, how='daily', clusters=10):
 
@@ -72,6 +73,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
             j=j+1
             nrhours.append(j)
             x=x+1
+     
             
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index 
@@ -131,7 +133,7 @@ def prepare_pypsa_timeseries(network, normed=False):
     return df
 
 
-def update_data_frames(network,cluster_weights, dates,hours):
+def update_data_frames(network, cluster_weights, dates,hours):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -190,9 +192,6 @@ def snapshot_cluster_constraints(network, snapshots):
         # should be array-like DONE
         candidates = network.cluster.index.get_values()
 
-        # mapper for finding representative period (from clusterd data) for
-        # every candidate - DONE: can be find in under network.cluster["last_hour_RepresentativeDay"][i]]
-
         # create set for inter-temp contraints and variables
         network.model.candidates = po.Set(initialize=candidates,
                                           ordered=True)
@@ -200,13 +199,15 @@ def snapshot_cluster_constraints(network, snapshots):
         # create inter soc variable for each storage and each candidate
         # (e.g. day of year for daily clustering) 
         network.model.state_of_charge_inter = po.Var(
-            network.model.storages, network.model.candidates,
+            sus.index, network.model.candidates, #network.model.storages, network.model.candidates,
             within=po.NonNegativeReals)
     
-                 
         def inter_storage_soc_rule(m, s, i):
             """
+            Define the state_of_charge_inter as the state_of_charge_inter of the day before minus the storage losses 
+            plus the state_of_charge (intra) of the last hour of the representative day
             """
+    
             if i == network.model.candidates[-1]:
                 # if last candidate: build 'cyclic' constraint instead normal
                 # normal one (would cause error anyway as t+1 does not exist for
@@ -217,51 +218,32 @@ def snapshot_cluster_constraints(network, snapshots):
                 expr = (
                     m.state_of_charge_inter[s, i + 1] ==
                     m.state_of_charge_inter[s, i] 
-                    * (1 - network.storage_units.at[s, 'standing_loss'])*24  #* (1 - network.storage_units[s].standing_loss)*24 
+                    * (1 - network.storage_units.at[s, 'standing_loss'])**24
                     + m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]])
-                    # TODO: DONE
-                    # candidate_period_mapper needs to map to last timestep of
-                    # representative period for candidate i. which shoul match
-                   # the snapshot index of course
-               
             return expr
         network.model.inter_storage_soc_constraint = po.Constraint(
             sus.index, network.model.candidates,
             rule=inter_storage_soc_rule)
         
-        
         def inter_storage_capacity_rule(m, s, i):
             """
+            Limit the capacity of the storage for every hour of the candidate day
             """
-           
-            return (
-               m.state_of_charge_inter[s, i] 
-               * (1 - network.storage_units.at[s, 'standing_loss'])*24 #* (1 - network.storage_units[s].standing_loss)*24 
-               + m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]] <=
-                network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom'] #* m.storage_units[s] * 
-                )
-            import pdb; pdb.set_trace()
-        ext_sus_i = sus.index[sus.p_nom_extendable]        
+            # get every hour of the representative day for the candidate day
+            for h in list(reversed(range(24))): 
+                hour = network.cluster['last_hour_RepresentativeDay'][i] + timedelta(hours=-h)    
+               
+                return (
+                   m.state_of_charge_inter[s, i] 
+                   * (1 - network.storage_units.at[s, 'standing_loss'])**24  
+                   + m.state_of_charge[s, hour] <=
+                    network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom_max']
+                    ) 
+                           
         network.model.inter_storage_capacity_constraint = po.Constraint(
-            ext_sus_i, network.model.candidates,
+            sus.index, network.model.candidates, 
             rule = inter_storage_capacity_rule)
-        
-    # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.index[0::24]
-    
-    def day_rule(m, s, p):
-        """
-        Sets the soc of the every first hour to the soc of the last hour
-        of the day (i.e. + 23 hours)
-        """
-        return (
-            m.state_of_charge[s, p] ==
-            m.state_of_charge[s, p + pd.Timedelta(hours=23)])
-
-    network.model.period_bound = po.Constraint(
-        network.model.storages, network.model.period_starts, rule=day_rule)
-
-
+       
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
     # default: 4500 € / MW, high 300 €/MW
