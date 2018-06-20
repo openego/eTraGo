@@ -317,11 +317,16 @@ def etrago(args):
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
-        network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
-                                   load_cluster=args['load_cluster'],
-                                   line_length_factor= 1, remove_stubs=False, 
-                                   use_reduced_coordinates=False, bus_weight_tocsv=None, 
-                                   bus_weight_fromcsv=None)
+        clustering = kmean_clustering(network,
+                n_clusters=args['network_clustering_kmeans'],
+                load_cluster=args['load_cluster'],
+                line_length_factor= 1,
+                remove_stubs=False,
+                use_reduced_coordinates=False,
+                bus_weight_tocsv=None,
+                bus_weight_fromcsv=None)
+        original_network = network.copy()
+        network = clustering.network.copy()
 
     # Branch loading minimization
     if args['minimize_loading']:
