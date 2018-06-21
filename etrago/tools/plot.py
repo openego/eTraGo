@@ -23,10 +23,10 @@ __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
 import os
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
 import time
-import matplotlib
 from math import sqrt, log10
 if not 'READTHEDOCS' in os.environ:
     from geoalchemy2.shape import to_shape
@@ -963,7 +963,7 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
 def nodal_gen_dispatch(network,scaling=False, techs= ['wind_onshore', 'solar'], filename=None):
     
     gens = network.generators[network.generators.carrier.isin(techs)]
-    dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum() * network.snapshot_weightings[1]
+    dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum()
     colors = coloring()
               
     subcolors={a:colors[a] for a in techs}#network.generators.carrier.unique()}
