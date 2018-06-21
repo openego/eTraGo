@@ -31,11 +31,7 @@ from math import sqrt, log10
 if not 'READTHEDOCS' in os.environ:
     from geoalchemy2.shape import to_shape
 
-basemap_present = True
-try:
-    from mpl_toolkits.basemap import Basemap
-except:
-    basemap_present = False
+
 
 def add_coordinates(network):
     """
@@ -647,7 +643,7 @@ def curtailment(network, carrier='wind', filename=None):
         plt.savefig(filename)
         plt.close()
         
-def storage_distribution(network, basemap=True, scaling=1, filename=None):
+def storage_distribution(network, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -691,19 +687,7 @@ def storage_distribution(network, basemap=True, scaling=1, filename=None):
     else:
          network.plot(bus_sizes=storage_distribution*scaling,ax=ax,line_widths=0.3,title="Storage distribution")
          
-    if basemap and basemap_present:
-        x = network.buses["x"]
-        y = network.buses["y"]
-        x1 = min(x)
-        x2 = max(x)
-        y1 = min(y)
-        y2 = max(y)
 
-        bmap = Basemap(resolution='l', epsg=network.srid,
-                       llcrnrlat=y1, urcrnrlat=y2, llcrnrlon=x1,
-                       urcrnrlon=x2, ax=ax)
-        bmap.drawcountries()
-        bmap.drawcoastlines()
      
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
