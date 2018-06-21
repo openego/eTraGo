@@ -69,7 +69,7 @@ def coloring():
               'waste':'sienna',
               'wind':'blue',
               'wind_onshore':'skyblue',
-              'wind_offshore':'brightblue',
+              'wind_offshore':'cornflowerblue',
               'slack':'pink',
               'load shedding': 'red',
               'nan':'m',
