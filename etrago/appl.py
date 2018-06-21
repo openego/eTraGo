@@ -314,7 +314,7 @@ def etrago(args):
     if not args['network_clustering_kmeans'] == False:
         network = kmean_clustering(network, n_clusters=args['network_clustering_kmeans'],
                                    load_cluster=args['load_cluster'],
-                                   line_length_factor= 1.25, remove_stubs=True, 
+                                   line_length_factor= 1, remove_stubs=False, 
                                    use_reduced_coordinates=False, bus_weight_tocsv=None, 
                                    bus_weight_fromcsv=None)
 
