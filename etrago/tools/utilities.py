@@ -1,4 +1,4 @@
-"""
+﻿"""
 Utilities.py defines functions necessary to apply eTraGo.
 
 This program is free software; you can redistribute it and/or
@@ -273,7 +273,7 @@ def load_shedding (network, **kwargs):
     p_nom = kwargs.get('p_nom', p_nom_def)
     
     network.add("Carrier", "load")
-    start = network.generators.index.astype(int).max()+1
+    start = network.generators.index.to_series().str.rsplit(' ').str[0].astype(int).sort_values().max()+1
     index = list(range(start,start+len(network.buses.index)))
     network.import_components_from_dataframe(
     pd.DataFrame(
@@ -292,10 +292,9 @@ def data_manipulation_sh (network):
     from geoalchemy2.shape import from_shape, to_shape
     
     #add connection from Luebeck to Siems
-
-    new_bus = str(int(network.buses.index.max())+1)
-    new_trafo = str(int(network.transformers.index.max())+1)
-    new_line = str(int(network.lines.index.max())+1)
+    new_bus = str(network.buses.index.astype(np.int64).max()+1)
+    new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
+    new_line = str(network.lines.index.astype(np.int64).max()+1)
     network.add("Bus", new_bus,carrier='AC', v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
     network.add("Line",new_line, bus0="26387",bus1=new_bus, x=0.0001, s_nom=1600)
@@ -338,7 +337,7 @@ def results_to_csv(network, path):
 
     return
 
-def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_name, extra_functionality=None):
+def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_name, solver_options, extra_functionality=None):
 
     print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
     x = time.time()
@@ -346,11 +345,12 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_na
     for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
         if i>0:
             network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[network.snapshots[group_size*i-1]]
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, extra_functionality=extra_functionality)
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name, solver_options = solver_options, extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
 
     y = time.time()
     z = (y - x) / 60
+    print(z)
     return
 
 def pf_post_lopf(network, scenario):
@@ -405,6 +405,7 @@ def calc_line_losses(network):
     -------
 
     """
+    
     #### Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).\
@@ -498,3 +499,76 @@ def group_parallel_lines(network):
     network.lines = new_lines
     
     return
+
+def set_line_costs(network, cost110 = 230, cost220=290 , cost380= 85):
+    
+    """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    cost110 : capital costs per km for 110kV lines and cables
+                default: 230€/MVA/km, source: costs for extra circuit in dena Verteilnetzstudie, p. 146)
+    cost220 : capital costs per km for 220kV lines and cables 
+                default: 280€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 220 kV lines in model
+    cost380 : capital costs per km for 380kV lines and cables 
+                default: 85€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 380 kV lines in NEP
+    -------
+
+    """
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+    
+    network.lines.loc[(network.lines.v_nom == 110) & network.lines.s_nom_extendable, 'capital_cost'] = cost110 * network.lines.length
+    network.lines.loc[(network.lines.v_nom == 220) & network.lines.s_nom_extendable, 'capital_cost'] = cost220 * network.lines.length
+    network.lines.loc[(network.lines.v_nom == 380) & network.lines.s_nom_extendable, 'capital_cost'] = cost380 * network.lines.length
+   
+    return network
+
+def set_trafo_costs(network, cost110_220 = 7500, cost110_380=17333 , cost220_380= 14166):
+    
+    """ Set capital costs for extendable transformers in respect to PyPSA [€/MVA]
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    cost110_220 : capital costs for 110/220kV transformer
+                    default: 7500€/MVA, source: costs for extra trafo in dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
+    cost110_380 : capital costs for 110/380kV transformer
+                default: 17333€/MVA, source: NEP 2025
+    cost220_380 : capital costs for 220/380kV transformer
+                default: 14166€/MVA, source: NEP 2025
+
+    """
+    network.transformers["v_nom0"] = network.transformers.bus0.map(network.buses.v_nom)
+    network.transformers["v_nom1"] = network.transformers.bus1.map(network.buses.v_nom)
+    
+    network.transformers.loc[(network.transformers.v_nom0 == 110) & (network.transformers.v_nom1 == 220) & network.transformers.s_nom_extendable , 'capital_cost'] = cost110_220
+    network.transformers.loc[(network.transformers.v_nom0 == 110) & (network.transformers.v_nom1 == 380) & network.transformers.s_nom_extendable , 'capital_cost'] = cost110_380
+    network.transformers.loc[(network.transformers.v_nom0 == 220 )& (network.transformers.v_nom1 == 380) & network.transformers.s_nom_extendable , 'capital_cost'] = cost220_380
+    
+   
+    return network
+
+def convert_capital_costs(network, start_snapshot, end_snapshot, p = 0.05, T = 40):
+    
+    """ Convert capital_costs to fit to pypsa and caluculated time
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    p : interest rate, default 0.05
+    T : number of periods, default 40 years (source: StromNEV Anlage 1)
+    -------
+
+    """
+    # Add costs for converter
+    network.links.capital_cost = network.links.capital_cost + 400000
+        
+    # Calculate present value of an annuity (PVA)
+    PVA =(1 / p) - (1 / (p*(1 + p) ** T))
+    
+    #
+    network.lines.loc[network.lines.s_nom_extendable == True, 'capital_cost']= network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.links.loc[network.links.p_nom_extendable == True, 'capital_cost'] = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.transformers.loc[network.transformers.s_nom_extendable == True, 'capital_cost'] = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot +1)))
+    network.storage_units.loc[network.storage_units.p_nom_extendable == True, 'capital_cost']= network.storage_units.capital_cost /  (8760//(end_snapshot - start_snapshot +1))
+    
+    return network
+    

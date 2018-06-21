@@ -1,4 +1,4 @@
-"""
+﻿"""
 Plot.py defines functions necessary to plot results of eTraGo.
 
 This program is free software; you can redistribute it and/or
@@ -23,11 +23,11 @@ __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
 import os
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 import pandas as pd
 import numpy as np
 import time
-import matplotlib
-from math import sqrt
+from math import sqrt, log10
 if not 'READTHEDOCS' in os.environ:
     from geoalchemy2.shape import to_shape
 
@@ -51,9 +51,34 @@ def add_coordinates(network):
         network.buses.loc[idx, 'y'] = wkt_geom.y
 
     return network
+
+def coloring():
+    colors = {'biomass':'green',
+              'coal':'k',
+              'gas':'orange',
+              'eeg_gas':'olive',
+              'geothermal':'purple',
+              'lignite':'brown',
+              'oil':'darkgrey',
+              'other_non_renewable':'pink',
+              'reservoir':'navy',
+              'run_of_river':'aqua',
+              'pumped_storage':'steelblue',
+              'solar':'yellow',
+              'uranium':'lime',
+              'waste':'sienna',
+              'wind':'blue',
+              'wind_onshore':'skyblue',
+              'wind_offshore':'cornflowerblue',
+              'slack':'pink',
+              'load shedding': 'red',
+              'nan':'m',
+              'imports':'salmon',
+              '':'m'}
+    return colors
     
-def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
-                      arrows=False):
+def plot_line_loading(network, timesteps=range(1,2), filename=None, boundaries=[],
+                      arrows= False ):
     """
     Plot line loading as color on lines
 
@@ -74,18 +99,33 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     x = time.time()
     cmap = plt.cm.jet
     if network.lines_t.q0.empty:
-        loading_c = (network.lines_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.lines.s_nom)) * 100 
-        loading = abs(loading_c)
+        array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+        loading_lines = pd.Series((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.lines.s_nom)).data, index = array_line)
+                  
+        load_lines_rel = (loading_lines/network.snapshots[timesteps].size)*100
+
+    
+        array_link = [['Link'] * len(network.links), network.links.index]
+    
+        loading_links = pd.Series((network.links_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.links.p_nom)).data, index = array_link)
+
+        load_links_rel = (loading_links/network.snapshots[timesteps].size)*100
+
+    
+        loading = load_lines_rel.append(load_links_rel)
+        
     else:
-         loading = ((network.lines_t.p0.loc[network.snapshots[timestep]] ** 2 +
-                   network.lines_t.q0.loc[network.snapshots[timestep]] ** 2).\
-                   apply(sqrt) / (network.lines.s_nom)) * 100 
+         loading = ((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum() ** 2 +
+                   network.lines_t.q0.loc[network.snapshots[timesteps]].abs().sum() ** 2).\
+                   apply(sqrt) / ((network.lines.s_nom)*network.snapshots[timesteps].size)) * 100 
 
     # do the plotting
+
     ll = network.plot(line_colors=loading, line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
-    
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
@@ -229,6 +269,174 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
 
+def extension_overlay_network(network, filename=None, boundaries=[0,100]):
+   
+    cmap = plt.cm.jet
+    
+    overlay_network = network.copy()
+    overlay_network.lines = overlay_network.lines[overlay_network.lines.s_nom_extendable == True]
+    overlay_network.links = overlay_network.links[overlay_network.links.p_nom_extendable == True]
+     
+    array_line = [['Line'] * len(overlay_network.lines), overlay_network.lines.index]
+    
+    extension_lines = pd.Series((100*(overlay_network.lines.s_nom_opt - overlay_network.lines.s_nom_min) / overlay_network.lines.s_nom).data, index = array_line)
+
+    array_link = [['Link'] * len(overlay_network.links), overlay_network.links.index]
+    
+    extension_links = pd.Series((100*overlay_network.links.p_nom_opt / (overlay_network.links.p_nom)).data, index = array_link)
+    
+    extension = extension_lines.append(extension_links)
+    
+    network.plot(line_colors = "grey",  bus_sizes = 0, line_widths = 0.55 )
+    
+    ll = overlay_network.plot(line_colors=extension, line_cmap=cmap, bus_sizes = 0, 
+                      title="Optimized AC- and DC-line extension", line_widths=2)
+    
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+    cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+    cb_Link = plt.colorbar(ll[2], boundaries=v,
+                          ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb_Link.remove()
+    cb.set_label('line extension relative to s_nom in %')
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+        
+def full_load_hours(network, boundaries=[0,4830], filename = None, two_cb = False):
+    cmap = plt.cm.jet
+    
+    array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+    load_lines = pd.Series(abs((network.lines_t.p0.sum()/ \
+                   (network.lines.s_nom))).data, index = array_line)
+    
+    array_link = [['Link'] * len(network.links), network.links.index]
+    
+    load_links = pd.Series(abs((network.links_t.p0.sum()/ \
+                   (network.links.p_nom))).data , index = array_link)
+    
+    load_hours = load_lines.append(load_links)
+    
+    
+    ll = network.plot(line_colors=load_hours, line_cmap=cmap, bus_sizes = 0,
+                      title="Full load-hours of lines", line_widths=2)
+  
+    if not boundaries:
+        cb = plt.colorbar(ll[1])
+        cb_Link = plt.colorbar(ll[2])
+    elif boundaries:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                          ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    
+    if two_cb:
+        cb_Link.set_label('Number of full-load hours of DC-lines')
+        cb.set_label('Number of full-load hours of AC-lines')
+        
+    else:
+        cb.set_label('Number of full-load hours')
+    
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+    
+def max_load(network, boundaries=[0,100], filename = None, two_cb = False):
+    cmap_line = plt.cm.jet
+    cmap_link = plt.cm.jet
+    array_line = [['Line'] * len(network.lines), network.lines.index]
+    
+    
+    load_lines = pd.Series((abs(network.lines_t.p0).max()/ \
+                   (network.lines.s_nom)*100).data , index = array_line)
+    
+    array_link = [['Link'] * len(network.links), network.links.index]
+    
+    load_links = pd.Series((abs(network.links_t.p0.max()/ \
+                   (network.links.p_nom)) *100).data , index = array_link)
+    
+    load_hours = load_lines.append(load_links)
+    
+    
+    ll = network.plot(line_colors=load_hours,  line_cmap={'Line': cmap_line, 'Link':cmap_link}, bus_sizes =0,
+                      title="Maximum of line loading", line_widths=2)
+    
+    if not boundaries:
+        cb = plt.colorbar(ll[1])
+        cb_Link = plt.colorbar(ll[2])
+    elif boundaries:
+        v1 = np.linspace(boundaries[0], boundaries[1], 101)
+        v= np.linspace(boundaries[0], boundaries[1], 101)
+        cb_Link = plt.colorbar(ll[2], boundaries=v1,
+                          ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    if two_cb:
+        #cb_Link.set_label('Maximum load of DC-lines %')
+        cb.set_label('Maximum load of AC-lines %')
+        
+    else:
+        cb.set_label('Maximum load in %')
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+        
+def load_hours(network, min_load = 0.9, max_load = 1, boundaries = [0,8760]):
+    cmap_line = plt.cm.jet
+    cmap_link = plt.cm.jet
+    array_line = [['Line'] * len(network.lines), network.lines.index]
+     
+    load_lines = pd.Series((
+                    (abs(network.lines_t.p0[(abs(network.lines_t.p0)/network.lines.s_nom_opt >= min_load) &(abs(network.lines_t.p0)/network.lines.s_nom_opt <= max_load) ])\
+                              / abs(network.lines_t.p0[(abs(network.lines_t.p0)/network.lines.s_nom_opt >= min_load) &(abs(network.lines_t.p0)/network.lines.s_nom_opt <= max_load)])).sum()
+                    ).data, index = array_line)
+    
+    array_link = [['Link'] * len(network.links), network.links.index]
+    
+    load_links = pd.Series((
+                    (abs(network.links_t.p0[(abs(network.links_t.p0)/network.links.p_nom_opt >= min_load) &(abs(network.links_t.p0)/network.links.p_nom_opt <= max_load) ])\
+                              / abs(network.links_t.p0[(abs(network.links_t.p0)/network.links.p_nom_opt >= min_load) &(abs(network.links_t.p0)/network.links.p_nom_opt <= max_load)])).sum()
+                    ).data, index = array_link)
+                    
+    load_hours = load_lines.append(load_links)
+    
+    
+    ll = network.plot(line_colors=load_hours,  line_cmap={'Line': cmap_line, 'Link':cmap_link}, bus_sizes =0,
+                      title="Number of hours with more then 90% load", line_widths=2)
+  
+    v1 = np.linspace(boundaries[0], boundaries[1], 101)
+    v= np.linspace(boundaries[0], boundaries[1], 101)
+    cb_Link = plt.colorbar(ll[2], boundaries=v1,
+                          ticks=v[0:101:10])
+    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    cb.set_label('Number of hours')
+    
+
+ 
 
 def plot_residual_load(network):
     """ Plots residual load summed of all exisiting buses.
@@ -239,7 +447,7 @@ def plot_residual_load(network):
     """
 
     renewables = network.generators[
-                    network.generators.dispatch == 'variable']
+                    network.generators.former_dispatch == 'variable']
     renewables_t = network.generators.p_nom[renewables.index] * \
                         network.generators_t.p_max_pu[renewables.index]
     load = network.loads_t.p_set.sum(axis=1)
@@ -294,31 +502,11 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     elif bus is not None:
         filtered_gens = network.generators[network.generators['bus'] == bus]
         p_by_carrier = network.generators_t.p.\
-                       groupby(filtered_gens.carrier, axis=1).sum()
+                       groupby(filtered_gens.carrier, axis=1).abs().sum()
         filtered_load = network.loads[network.loads['bus'] == bus]
         load = network.loads_t.p[filtered_load.index]
 
-    colors = {'biomass':'green',
-              'coal':'k',
-              'gas':'orange',
-              'eeg_gas':'olive',
-              'geothermal':'purple',
-              'lignite':'brown',
-              'oil':'darkgrey',
-              'other_non_renewable':'pink',
-              'reservoir':'navy',
-              'run_of_river':'aqua',
-              'pumped_storage':'steelblue',
-              'solar':'yellow',
-              'uranium':'lime',
-              'waste':'sienna',
-              'wind':'skyblue',
-              'slack':'pink',
-              'load shedding': 'red',
-              'nan':'m',
-              'imports':'salmon',
-              '':'m'}
-
+    colors = coloring()
 #    TODO: column reordering based on available columns
 
     fig,ax = plt.subplots(1,1)
@@ -327,8 +515,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     colors = [colors[col] for col in p_by_carrier.columns]
     if len(colors) == 1:
         colors = colors[0]
-    (p_by_carrier/reso_int).plot(kind="area",ax=ax,linewidth=0,
-                            color=colors)
+    (p_by_carrier/reso_int).plot(kind="area",ax=ax,linewidth=0,color=colors)
     (load/reso_int).plot(ax=ax, legend='load', lw=2, color='darkgrey', style='--')
     ax.legend(ncol=4,loc="upper left")
 
@@ -373,24 +560,7 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     gen_switches = gen_by_c(networkA)
     diff = gen_switches-gen
     
-    colors = {'biomass':'green',
-          'coal':'k',
-          'gas':'orange',
-          'eeg_gas':'olive',
-          'geothermal':'purple',
-          'lignite':'brown',
-          'oil':'darkgrey',
-          'other_non_renewable':'pink',
-          'reservoir':'navy',
-          'run_of_river':'aqua',
-          'pumped_storage':'steelblue',
-          'solar':'yellow',
-          'uranium':'lime',
-          'waste':'sienna',
-          'wind':'skyblue',
-          'slack':'pink',
-          'load shedding': 'red',
-          'nan':'m'}
+    colors = coloring()
     diff.drop(leave_out_carriers, axis=1, inplace=True)
     colors = [colors[col] for col in diff.columns]
     
@@ -449,6 +619,7 @@ def curtailment(network, carrier='wind', filename=None):
     p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
     p_available_by_carrier =p_available.groupby(network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
+    print(p_curtailed_by_carrier.sum())
     p_df = pd.DataFrame({carrier + " available" : p_available_by_carrier[carrier],
                          carrier + " dispatched" : p_by_carrier[carrier],
                          carrier + " curtailed" : p_curtailed_by_carrier[carrier]})
@@ -472,7 +643,7 @@ def curtailment(network, carrier='wind', filename=None):
         plt.savefig(filename)
         plt.close()
         
-def storage_distribution(network, filename=None):
+def storage_distribution(network, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -491,11 +662,40 @@ def storage_distribution(network, filename=None):
 
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
-   
+    
+    msd_max = storage_distribution.max()
+    msd_median = storage_distribution[storage_distribution!=0].median()
+    msd_min = storage_distribution[storage_distribution > 1].min() 
+    
+    if msd_max != 0:
+        LabelVal = int(log10(msd_max))
+    else:
+        LabelVal = 0        
+    if LabelVal <0:
+        LabelUnit = 'kW'
+        msd_max, msd_median, msd_min = msd_max*1000, msd_median*1000, msd_min *1000
+        storage_distribution = storage_distribution*1000
+    elif LabelVal <3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        msd_max, msd_median, msd_min = msd_max/1000, msd_median/1000, msd_min /1000
+        storage_distribution = storage_distribution/1000
+
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
+         network.plot(bus_sizes=storage_distribution*scaling,ax=ax,line_widths=0.3,title="Storage distribution")
+         
+
+     
+    # Here we create a legend:
+    # we'll plot empty lists with the desired size and label
+    for area in [msd_max, msd_median, msd_min]:
+        plt.scatter([], [], c='white', s=area*scaling,
+                    label='= ' +str(round(area,0)) + LabelUnit +' ')
+    plt.legend(scatterpoints=1,  labelspacing=1, title='Storage size')
+
     
     if filename is None:
         plt.show()
@@ -503,7 +703,7 @@ def storage_distribution(network, filename=None):
         plt.savefig(filename)
         plt.close()
 
-def storage_expansion(network, filename=None):
+def storage_expansion(network, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -523,10 +723,39 @@ def storage_expansion(network, filename=None):
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
    
+    msd_max = storage_distribution.max()
+    msd_median = storage_distribution[storage_distribution!=0].median()
+    msd_min = storage_distribution[storage_distribution > 1].min() 
+    
+    if msd_max != 0:
+        LabelVal = int(log10(msd_max))
+    else:
+        LabelVal = 0        
+    if LabelVal <0:
+        LabelUnit = 'kW'
+        msd_max, msd_median, msd_min = msd_max*1000, msd_median*1000, msd_min *1000
+        storage_distribution = storage_distribution*1000
+    elif LabelVal <3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        msd_max, msd_median, msd_min = msd_max/1000, msd_median/1000, msd_min /1000
+        storage_distribution = storage_distribution/1000
+        
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage expansion distribution")
+         network.plot(bus_sizes=storage_distribution*scaling,ax=ax,line_widths=0.3,title="Storage expansion distribution")
+    
+   
+     
+    # Here we create a legend:
+    # we'll plot empty lists with the desired size and label
+    for area in [msd_max, msd_median, msd_min]:
+        plt.scatter([], [], c='white', s=area*scaling,
+                    label='= ' +str(round(area,0)) + LabelUnit +' ')
+    plt.legend(scatterpoints=1,  labelspacing=1, title='Storage size')
+    
     
     if filename is None:
         plt.show()
@@ -592,7 +821,7 @@ def gen_dist(network, techs=None, snapshot=0, n_cols=3,gen_size=0.2, filename=No
        plt.show()
     else:
        plt.savefig(filename)
-plt.close()
+       plt.close()
 
 def gen_dist_diff(networkA, networkB, techs=None, snapshot=0, n_cols=3,gen_size=0.2, filename=None, buscmap=plt.cm.jet):
 
@@ -666,7 +895,7 @@ def gen_dist_diff(networkA, networkB, techs=None, snapshot=0, n_cols=3,gen_size=
        plt.show()
     else:
        plt.savefig(filename)
-plt.close()
+       plt.close()
 
 def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=None):
 
@@ -730,6 +959,39 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
        plt.savefig(filename)
        plt.close()
         
+
+def nodal_gen_dispatch(network,scaling=False, techs= ['wind_onshore', 'solar'], filename=None):
+    
+    gens = network.generators[network.generators.carrier.isin(techs)]
+    dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum()
+    colors = coloring()
+              
+    subcolors={a:colors[a] for a in techs}#network.generators.carrier.unique()}
+    
+    if scaling is False:
+        scaling=(1/dispatch.max())
+    
+    fig,ax = plt.subplots(1,1)
+    network.plot(bus_sizes=dispatch*scaling, bus_colors=colors, line_widths=0.2, margin=0.01, ax=ax)
+      
+    fig.subplots_adjust(right=0.8)
+    plt.subplots_adjust(wspace=0, hspace=0.001) 
+
+    patchList = []
+    for key in subcolors:
+            data_key = mpatches.Patch(color=subcolors[key], label=key)
+            patchList.append(data_key)
+        
+    ax.legend(handles=patchList, loc='upper left')  
+    
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+    
+    return
+
         
 if __name__ == '__main__':
     pass
