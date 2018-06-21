@@ -62,7 +62,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/lukas_wienholt/results/nep-3-500+',# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -273,6 +273,11 @@ def etrago(args):
     # TEMPORARY vague adjustment due to transformer bug in data processing     
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x=network.transformers.x*0.0001
+
+    # add storages to AT and LU
+    if args['gridversion'] == 'v0.3.2':   
+        network.add("StorageUnit", bus=28407, name=300001,capital_cost=0.0, carrier='pumped_storage', control='PV', cyclic_state_of_charge=True, efficiency_dispatch=0.89, efficiency_store=0.88, max_hours=6, p_nom=6330, p_nom_extendable=False, standing_loss=0.00052)
+        network.add("StorageUnit", bus=28422, name=300002,capital_cost=0.0, carrier='pumped_storage', control='PV', cyclic_state_of_charge=True, efficiency_dispatch=0.89, efficiency_store=0.88, max_hours=6, p_nom=1320, p_nom_extendable=False, standing_loss=0.00052)
 
     # set SOC at the beginning and end of the period to equal values -- this part can be deleted with dp version 0.4.0
     if not args['gridversion'] == 'v0.4.0':
