@@ -419,10 +419,10 @@ def plot_residual_load(network):
     network : PyPSA network containter
     """
 
-    renewables = network.generators[
-                    network.generators.former_dispatch == 'variable']
-    renewables_t = network.generators.p_nom[renewables.index] * \
-                        network.generators_t.p_max_pu[renewables.index]
+        renewables = network.generators[
+                        network.generators.former_dispatch == 'variable']
+        renewables_t = network.generators.p_nom[renewables.index] * \
+                            network.generators_t.p_max_pu[renewables.index]
     load = network.loads_t.p_set.sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
