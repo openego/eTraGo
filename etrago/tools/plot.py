@@ -27,7 +27,7 @@ import pandas as pd
 import numpy as np
 import time
 import matplotlib
-from math import sqrt
+from math import sqrt, log10
 if not 'READTHEDOCS' in os.environ:
     from geoalchemy2.shape import to_shape
 
@@ -51,8 +51,33 @@ def add_coordinates(network):
         network.buses.loc[idx, 'y'] = wkt_geom.y
 
     return network
+
+def coloring():
+    colors = {'biomass':'green',
+              'coal':'k',
+              'gas':'orange',
+              'eeg_gas':'olive',
+              'geothermal':'purple',
+              'lignite':'brown',
+              'oil':'darkgrey',
+              'other_non_renewable':'pink',
+              'reservoir':'navy',
+              'run_of_river':'aqua',
+              'pumped_storage':'steelblue',
+              'solar':'yellow',
+              'uranium':'lime',
+              'waste':'sienna',
+              'wind':'blue',
+              'wind_onshore':'skyblue',
+              'wind_offshore':'brightblue',
+              'slack':'pink',
+              'load shedding': 'red',
+              'nan':'m',
+              'imports':'salmon',
+              '':'m'}
+    return colors
     
-def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
+def plot_line_loading(network, timesteps=range(1,2), filename=None, boundaries=[],
                       arrows= False ):
     """
     Plot line loading as color on lines
@@ -76,20 +101,26 @@ def plot_line_loading(network, timestep=0, filename=None, boundaries=[],
     if network.lines_t.q0.empty:
         array_line = [['Line'] * len(network.lines), network.lines.index]
     
-        loading_lines = pd.Series(abs((network.lines_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.lines.s_nom)) * 100).data, index = array_line)
+        loading_lines = pd.Series((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.lines.s_nom)).data, index = array_line)
+                  
+        load_lines_rel = (loading_lines/network.snapshots[timesteps].size)*100
+
     
         array_link = [['Link'] * len(network.links), network.links.index]
     
-        loading_links = pd.Series(abs((network.links_t.p0.loc[network.snapshots[timestep]]/ \
-                   (network.links.p_nom)) * 100).data, index = array_link)
+        loading_links = pd.Series((network.links_t.p0.loc[network.snapshots[timesteps]].abs().sum()/ \
+                   (network.links.p_nom)).data, index = array_link)
+
+        load_links_rel = (loading_links/network.snapshots[timesteps].size)*100
+
     
-        loading = loading_lines.append(loading_links)
+        loading = load_lines_rel.append(load_links_rel)
         
     else:
-         loading = ((network.lines_t.p0.loc[network.snapshots[timestep]] ** 2 +
-                   network.lines_t.q0.loc[network.snapshots[timestep]] ** 2).\
-                   apply(sqrt) / (network.lines.s_nom)) * 100 
+         loading = ((network.lines_t.p0.loc[network.snapshots[timesteps]].abs().sum() ** 2 +
+                   network.lines_t.q0.loc[network.snapshots[timesteps]].abs().sum() ** 2).\
+                   apply(sqrt) / ((network.lines.s_nom)*network.snapshots[timesteps].size)) * 100 
 
     # do the plotting
 
@@ -415,10 +446,10 @@ def plot_residual_load(network):
     network : PyPSA network containter
     """
 
-        renewables = network.generators[
-                        network.generators.former_dispatch == 'variable']
-        renewables_t = network.generators.p_nom[renewables.index] * \
-                            network.generators_t.p_max_pu[renewables.index]
+    renewables = network.generators[
+                    network.generators.former_dispatch == 'variable']
+    renewables_t = network.generators.p_nom[renewables.index] * \
+                        network.generators_t.p_max_pu[renewables.index]
     load = network.loads_t.p_set.sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
@@ -475,27 +506,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
         filtered_load = network.loads[network.loads['bus'] == bus]
         load = network.loads_t.p[filtered_load.index]
 
-    colors = {'biomass':'green',
-              'coal':'k',
-              'gas':'orange',
-              'eeg_gas':'olive',
-              'geothermal':'purple',
-              'lignite':'brown',
-              'oil':'darkgrey',
-              'other_non_renewable':'pink',
-              'reservoir':'navy',
-              'run_of_river':'aqua',
-              'pumped_storage':'steelblue',
-              'solar':'yellow',
-              'uranium':'lime',
-              'waste':'sienna',
-              'wind':'skyblue',
-              'slack':'pink',
-              'load shedding': 'red',
-              'nan':'m',
-              'imports':'salmon',
-              '':'m'}
-
+    colors = coloring()
 #    TODO: column reordering based on available columns
 
     fig,ax = plt.subplots(1,1)
@@ -549,24 +560,7 @@ def plot_gen_diff(networkA, networkB, leave_out_carriers=['geothermal', 'oil',
     gen_switches = gen_by_c(networkA)
     diff = gen_switches-gen
     
-    colors = {'biomass':'green',
-          'coal':'k',
-          'gas':'orange',
-          'eeg_gas':'olive',
-          'geothermal':'purple',
-          'lignite':'brown',
-          'oil':'darkgrey',
-          'other_non_renewable':'pink',
-          'reservoir':'navy',
-          'run_of_river':'aqua',
-          'pumped_storage':'steelblue',
-          'solar':'yellow',
-          'uranium':'lime',
-          'waste':'sienna',
-          'wind':'skyblue',
-          'slack':'pink',
-          'load shedding': 'red',
-          'nan':'m'}
+    colors = coloring()
     diff.drop(leave_out_carriers, axis=1, inplace=True)
     colors = [colors[col] for col in diff.columns]
     
@@ -649,7 +643,7 @@ def curtailment(network, carrier='wind', filename=None):
         plt.savefig(filename)
         plt.close()
         
-def storage_distribution(network, filename=None):
+def storage_distribution(network, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -668,11 +662,40 @@ def storage_distribution(network, filename=None):
 
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
-   
+    
+    msd_max = storage_distribution.max()
+    msd_median = storage_distribution[storage_distribution!=0].median()
+    msd_min = storage_distribution[storage_distribution > 1].min() 
+    
+    if msd_max != 0:
+        LabelVal = int(log10(msd_max))
+    else:
+        LabelVal = 0        
+    if LabelVal <0:
+        LabelUnit = 'kW'
+        msd_max, msd_median, msd_min = msd_max*1000, msd_median*1000, msd_min *1000
+        storage_distribution = storage_distribution*1000
+    elif LabelVal <3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        msd_max, msd_median, msd_min = msd_max/1000, msd_median/1000, msd_min /1000
+        storage_distribution = storage_distribution/1000
+
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No storages")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage distribution")
+         network.plot(bus_sizes=storage_distribution*scaling,ax=ax,line_widths=0.3,title="Storage distribution")
+         
+
+     
+    # Here we create a legend:
+    # we'll plot empty lists with the desired size and label
+    for area in [msd_max, msd_median, msd_min]:
+        plt.scatter([], [], c='white', s=area*scaling,
+                    label='= ' +str(round(area,0)) + LabelUnit +' ')
+    plt.legend(scatterpoints=1,  labelspacing=1, title='Storage size')
+
     
     if filename is None:
         plt.show()
@@ -680,7 +703,7 @@ def storage_distribution(network, filename=None):
         plt.savefig(filename)
         plt.close()
 
-def storage_expansion(network, filename=None):
+def storage_expansion(network, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -700,10 +723,39 @@ def storage_expansion(network, filename=None):
     fig,ax = plt.subplots(1,1)
     fig.set_size_inches(6,6)
    
+    msd_max = storage_distribution.max()
+    msd_median = storage_distribution[storage_distribution!=0].median()
+    msd_min = storage_distribution[storage_distribution > 1].min() 
+    
+    if msd_max != 0:
+        LabelVal = int(log10(msd_max))
+    else:
+        LabelVal = 0        
+    if LabelVal <0:
+        LabelUnit = 'kW'
+        msd_max, msd_median, msd_min = msd_max*1000, msd_median*1000, msd_min *1000
+        storage_distribution = storage_distribution*1000
+    elif LabelVal <3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        msd_max, msd_median, msd_min = msd_max/1000, msd_median/1000, msd_min /1000
+        storage_distribution = storage_distribution/1000
+        
     if sum(storage_distribution) == 0:
          network.plot(bus_sizes=0,ax=ax,title="No extendable storage")
     else:
-         network.plot(bus_sizes=storage_distribution,ax=ax,line_widths=0.3,title="Storage expansion distribution")
+         network.plot(bus_sizes=storage_distribution*scaling,ax=ax,line_widths=0.3,title="Storage expansion distribution")
+    
+   
+     
+    # Here we create a legend:
+    # we'll plot empty lists with the desired size and label
+    for area in [msd_max, msd_median, msd_min]:
+        plt.scatter([], [], c='white', s=area*scaling,
+                    label='= ' +str(round(area,0)) + LabelUnit +' ')
+    plt.legend(scatterpoints=1,  labelspacing=1, title='Storage size')
+    
     
     if filename is None:
         plt.show()
@@ -907,6 +959,39 @@ def gen_dist(network, techs=None, snapshot=1, n_cols=3,gen_size=0.2, filename=No
        plt.savefig(filename)
        plt.close()
         
+
+def nodal_gen_dispatch(network,scaling=False, techs= ['wind_onshore', 'solar'], filename=None):
+    
+    gens = network.generators[network.generators.carrier.isin(techs)]
+    dispatch =network.generators_t.p[gens.index].mul(network.snapshot_weightings, axis=0).sum().groupby([network.generators.bus, network.generators.carrier]).sum() * network.snapshot_weightings[1]
+    colors = coloring()
+              
+    subcolors={a:colors[a] for a in techs}#network.generators.carrier.unique()}
+    
+    if scaling is False:
+        scaling=(1/dispatch.max())
+    
+    fig,ax = plt.subplots(1,1)
+    network.plot(bus_sizes=dispatch*scaling, bus_colors=colors, line_widths=0.2, margin=0.01, ax=ax)
+      
+    fig.subplots_adjust(right=0.8)
+    plt.subplots_adjust(wspace=0, hspace=0.001) 
+
+    patchList = []
+    for key in subcolors:
+            data_key = mpatches.Patch(color=subcolors[key], label=key)
+            patchList.append(data_key)
+        
+    ax.legend(handles=patchList, loc='upper left')  
+    
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+    
+    return
+
         
 if __name__ == '__main__':
     pass
