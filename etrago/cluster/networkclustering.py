@@ -472,7 +472,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network = clustering.network
     
     #define weighting based on conventional 'old' generator spatial distribution
-    non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
+    non_conv_types= {'biomass', 'wind_onshore', 'wind_offshore', 'solar', 
+                     'geothermal', 'load shedding', 'extendable_storage'}
     # Attention: network.generators.carrier.unique() 
     gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
         ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
