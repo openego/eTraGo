@@ -180,10 +180,10 @@ def clip_foreign(network):
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
     transborder_lines = pd.DataFrame(index=network.lines[
-        ((network.lines['bus0'].isin(network.buses.index) is False) &
-         (network.lines['bus1'].isin(network.buses.index) is True)) |
-        ((network.lines['bus0'].isin(network.buses.index) is True) &
-         (network.lines['bus1'].isin(network.buses.index) is False))].index)
+        ((network.lines['bus0'].isin(network.buses.index) == False) &
+         (network.lines['bus1'].isin(network.buses.index) == True)) |
+        ((network.lines['bus0'].isin(network.buses.index) == True) &
+         (network.lines['bus1'].isin(network.buses.index) == False))].index)
     transborder_lines['bus0'] = network.lines['bus0']
     transborder_lines['bus1'] = network.lines['bus1']
     transborder_lines['country'] = ""
@@ -207,19 +207,19 @@ def clip_foreign(network):
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
-        (network.lines['bus0'].isin(network.buses.index) is False) |
-        (network.lines['bus1'].isin(network.buses.index) is False)].index)
+        (network.lines['bus0'].isin(network.buses.index) == False) |
+        (network.lines['bus1'].isin(network.buses.index) == False)].index)
     network.transformers = network.transformers.drop(network.transformers[
-        (network.transformers['bus0'].isin(network.buses.index) is False) |
+        (network.transformers['bus0'].isin(network.buses.index) == False) |
         (network.transformers['bus1'].isin(network.
-                                           buses.index) is False)].index)
+                                           buses.index) == False)].index)
     network.generators = network.generators.drop(network.generators[
-        (network.generators['bus'].isin(network.buses.index) is False)].index)
+        (network.generators['bus'].isin(network.buses.index) == False)].index)
     network.loads = network.loads.drop(network.loads[
-        (network.loads['bus'].isin(network.buses.index) is False)].index)
+        (network.loads['bus'].isin(network.buses.index) == False)].index)
     network.storage_units = network.storage_units.drop(network.storage_units[
         (network.storage_units['bus'].isin(network.
-                                           buses.index) is False)].index)
+                                           buses.index) == False)].index)
 
     components = ['loads', 'generators', 'lines', 'buses', 'transformers']
     for g in components:  # loads_t
@@ -357,7 +357,7 @@ def data_manipulation_sh(network):
 def results_to_csv(network, path):
     """
     """
-    if path is False:
+    if path == False:
         return None
 
     if not os.path.exists(path):
@@ -665,20 +665,20 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     PVA = (1 / p) - (1 / (p*(1 + p) ** T))
 
     #
-    network.lines.loc[network.lines.s_nom_extendable is True,
+    network.lines.loc[network.lines.s_nom_extendable == True,
                       'capital_cost'] = (network.lines.capital_cost /
                                          (PVA * (8760/(end_snapshot -
                                                        start_snapshot + 1))))
-    network.links.loc[network.links.p_nom_extendable is True,
+    network.links.loc[network.links.p_nom_extendable == True,
                       'capital_cost'] = network.\
         links.capital_cost / (PVA * (8760//(end_snapshot -
                                             start_snapshot + 1)))
-    network.transformers.loc[network.transformers.s_nom_extendable is True,
+    network.transformers.loc[network.transformers.s_nom_extendable == True,
                              'capital_cost'] = network.\
         transformers.capital_cost / \
         (PVA * (8760//(end_snapshot - start_snapshot + 1)))
     network.storage_units.loc[network.storage_units.
-                              p_nom_extendable is True,
+                              p_nom_extendable == True,
                               'capital_cost'] = network.\
         storage_units.capital_cost / (8760//(end_snapshot -
                                              start_snapshot + 1))
