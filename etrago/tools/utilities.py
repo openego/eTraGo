@@ -180,10 +180,10 @@ def clip_foreign(network):
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
     transborder_lines = pd.DataFrame(index=network.lines[
-        ((network.lines['bus0'].isin(network.buses.index) == False) &
-         (network.lines['bus1'].isin(network.buses.index) == True)) |
-        ((network.lines['bus0'].isin(network.buses.index) == True) &
-         (network.lines['bus1'].isin(network.buses.index) == False))].index)
+        ((network.lines['bus0'].isin(network.buses.index) is False) &
+         (network.lines['bus1'].isin(network.buses.index) is True)) |
+        ((network.lines['bus0'].isin(network.buses.index) is True) &
+         (network.lines['bus1'].isin(network.buses.index) is False))].index)
     transborder_lines['bus0'] = network.lines['bus0']
     transborder_lines['bus1'] = network.lines['bus1']
     transborder_lines['country'] = ""
@@ -207,19 +207,19 @@ def clip_foreign(network):
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
-        (network.lines['bus0'].isin(network.buses.index) == False) |
-        (network.lines['bus1'].isin(network.buses.index) == False)].index)
+        (network.lines['bus0'].isin(network.buses.index) is False) |
+        (network.lines['bus1'].isin(network.buses.index) is False)].index)
     network.transformers = network.transformers.drop(network.transformers[
-        (network.transformers['bus0'].isin(network.buses.index) == False) |
+        (network.transformers['bus0'].isin(network.buses.index) is False) |
         (network.transformers['bus1'].isin(network.
-                                           buses.index) == False)].index)
+                                           buses.index) is False)].index)
     network.generators = network.generators.drop(network.generators[
-        (network.generators['bus'].isin(network.buses.index) == False)].index)
+        (network.generators['bus'].isin(network.buses.index) is False)].index)
     network.loads = network.loads.drop(network.loads[
-        (network.loads['bus'].isin(network.buses.index) == False)].index)
+        (network.loads['bus'].isin(network.buses.index) is False)].index)
     network.storage_units = network.storage_units.drop(network.storage_units[
         (network.storage_units['bus'].isin(network.
-                                           buses.index) == False)].index)
+                                           buses.index) is False)].index)
 
     components = ['loads', 'generators', 'lines', 'buses', 'transformers']
     for g in components:  # loads_t
@@ -357,7 +357,7 @@ def data_manipulation_sh(network):
 def results_to_csv(network, path):
     """
     """
-    if path == False:
+    if path is False:
         return None
 
     if not os.path.exists(path):
@@ -511,7 +511,8 @@ def loading_minimization(network, snapshots):
         network.model.passive_branch_p_index, within=PositiveReals)
 
     def cRule(model, c, l, t):
-        return (model.number1[c, l, t] - model.number2[c, l, t] == model.passive_branch_p[c, l, t])
+        return (model.number1[c, l, t] - model.number2[c, l, t] == model.
+                passive_branch_p[c, l, t])
 
     network.model.cRule = Constraint(
         network.model.passive_branch_p_index, rule=cRule)
@@ -539,33 +540,34 @@ def group_parallel_lines(network):
     grouped = old_lines.groupby(['bus0', 'bus1'])
 
     # calculating electrical properties for parallel lines
-    grouped_agg = grouped.agg({'b': np.sum,
-                               'b_pu': np.sum,
-                               'cables': np.sum,
-                               'capital_cost': np.min,
-                               'frequency': np.mean,
-                               'g': np.sum,
-                               'g_pu': np.sum,
-                               'geom': lambda x: x[0],
-                               'length': lambda x: x.min(),
-                               'num_parallel': np.sum,
-                               'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-                               'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-                               's_nom': np.sum,
-                               's_nom_extendable': lambda x: x.min(),
-                               's_nom_max': np.sum,
-                               's_nom_min': np.sum,
-                               's_nom_opt': np.sum,
-                               'scn_name': lambda x: x.min(),
-                               'sub_network': lambda x: x.min(),
-                               'terrain_factor': lambda x: x.min(),
-                               'topo': lambda x: x[0],
-                               'type': lambda x: x.min(),
-                               'v_ang_max': lambda x: x.min(),
-                               'v_ang_min': lambda x: x.min(),
-                               'x': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-                               'x_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-                               'old_index': np.min})
+    grouped_agg = grouped.\
+        agg({'b': np.sum,
+             'b_pu': np.sum,
+             'cables': np.sum,
+             'capital_cost': np.min,
+             'frequency': np.mean,
+             'g': np.sum,
+             'g_pu': np.sum,
+             'geom': lambda x: x[0],
+             'length': lambda x: x.min(),
+             'num_parallel': np.sum,
+             'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+             'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+             's_nom': np.sum,
+             's_nom_extendable': lambda x: x.min(),
+             's_nom_max': np.sum,
+             's_nom_min': np.sum,
+             's_nom_opt': np.sum,
+             'scn_name': lambda x: x.min(),
+             'sub_network': lambda x: x.min(),
+             'terrain_factor': lambda x: x.min(),
+             'topo': lambda x: x[0],
+             'type': lambda x: x.min(),
+             'v_ang_max': lambda x: x.min(),
+             'v_ang_min': lambda x: x.min(),
+             'x': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+             'x_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
+             'old_index': np.min})
 
     for i in range(0, len(grouped_agg.index)):
         grouped_agg.set_value(
@@ -586,33 +588,42 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     network : :class:`pypsa.Network
         Overall container of PyPSA
     cost110 : capital costs per km for 110kV lines and cables
-                default: 230€/MVA/km, source: costs for extra circuit in dena Verteilnetzstudie, p. 146)
+                default: 230€/MVA/km, source: costs for extra circuit in
+                dena Verteilnetzstudie, p. 146)
     cost220 : capital costs per km for 220kV lines and cables
-                default: 280€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 220 kV lines in model
+                default: 280€/MVA/km, source: costs for extra circuit in
+                NEP 2025, capactity from most used 220 kV lines in model
     cost380 : capital costs per km for 380kV lines and cables
-                default: 85€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 380 kV lines in NEP
+                default: 85€/MVA/km, source: costs for extra circuit in
+                NEP 2025, capactity from most used 380 kV lines in NEP
     -------
 
     """
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    network.lines.loc[(network.lines.v_nom == 110) & network.lines.s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 110) & network.lines.
+                      s_nom_extendable,
                       'capital_cost'] = cost110 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 220) & network.lines.s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 220) & network.lines.
+                      s_nom_extendable,
                       'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 380) & network.lines.s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 380) & network.lines.
+                      s_nom_extendable,
                       'capital_cost'] = cost380 * network.lines.length
 
     return network
 
 
-def set_trafo_costs(network, cost110_220=7500, cost110_380=17333, cost220_380=14166):
-    """ Set capital costs for extendable transformers in respect to PyPSA [€/MVA]
+def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
+                    cost220_380=14166):
+    """ Set capital costs for extendable transformers in respect
+    to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     cost110_220 : capital costs for 110/220kV transformer
-                    default: 7500€/MVA, source: costs for extra trafo in dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
+                    default: 7500€/MVA, source: costs for extra trafo in
+                    dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
     cost110_380 : capital costs for 110/380kV transformer
                 default: 17333€/MVA, source: NEP 2025
     cost220_380 : capital costs for 220/380kV transformer
@@ -625,11 +636,14 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333, cost220_380=14
         network.buses.v_nom)
 
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 220) & network.transformers.s_nom_extendable, 'capital_cost'] = cost110_220
+        network.transformers.v_nom1 == 220) & network.transformers.
+        s_nom_extendable, 'capital_cost'] = cost110_220
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 380) & network.transformers.s_nom_extendable, 'capital_cost'] = cost110_380
+        network.transformers.v_nom1 == 380) & network.transformers.
+        s_nom_extendable, 'capital_cost'] = cost110_380
     network.transformers.loc[(network.transformers.v_nom0 == 220) & (
-        network.transformers.v_nom1 == 380) & network.transformers.s_nom_extendable, 'capital_cost'] = cost220_380
+        network.transformers.v_nom1 == 380) & network.transformers.
+        s_nom_extendable, 'capital_cost'] = cost220_380
 
     return network
 
@@ -651,13 +665,22 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     PVA = (1 / p) - (1 / (p*(1 + p) ** T))
 
     #
-    network.lines.loc[network.lines.s_nom_extendable == True,
-                      'capital_cost'] = network.lines.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot + 1)))
-    network.links.loc[network.links.p_nom_extendable == True,
-                      'capital_cost'] = network.links.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot + 1)))
-    network.transformers.loc[network.transformers.s_nom_extendable == True,
-                             'capital_cost'] = network.transformers.capital_cost / (PVA * (8760//(end_snapshot - start_snapshot + 1)))
-    network.storage_units.loc[network.storage_units.p_nom_extendable == True,
-                              'capital_cost'] = network.storage_units.capital_cost / (8760//(end_snapshot - start_snapshot + 1))
+    network.lines.loc[if network.lines.s_nom_extendable is True,
+                      'capital_cost'] = (network.lines.capital_cost /
+                                         (PVA * (8760/(end_snapshot -
+                                                       start_snapshot + 1))))
+    network.links.loc[if network.links.p_nom_extendable is True,
+                      'capital_cost'] = network.\
+        links.capital_cost / (PVA * (8760//(end_snapshot -
+                                            start_snapshot + 1)))
+    network.transformers.loc[if network.transformers.s_nom_extendable is True,
+                             'capital_cost'] = network.\
+        transformers.capital_cost / \
+        (PVA * (8760//(end_snapshot - start_snapshot + 1)))
+    network.storage_units.loc[if network.storage_units.
+                              p_nom_extendable is True,
+                              'capital_cost'] = network.\
+        storage_units.capital_cost / (8760//(end_snapshot -
+                                             start_snapshot + 1))
 
     return network
