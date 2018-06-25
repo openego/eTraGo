@@ -463,7 +463,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
-        network.transformers_t[attr] = network.transformers_t[attr]
+        network.transformers_t[attr] = network.transformers_t[attr]\
         .reindex(columns=[])
 
     # remove stubs
@@ -499,13 +499,13 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         'load shedding',
         'extendable_storage'}
     # Attention: network.generators.carrier.unique()
-    gen = (network.generators.loc[(if network.generators.carrier
-                                   .isin(non_conv_types) is False)]
-                             .groupby('bus').p_nom.sum()
-                             .reindex(network.buses.index, fill_value=0.) +
-           network.storage_units.loc[(if network.storage_units.carrier
-                                                .isin(non_conv_types)
-                                      is False)]
+    gen = (network.generators.loc[(network.generators.carrier\
+                                .isin(non_conv_types) == False)]\
+                                .groupby('bus').p_nom.sum()\
+                                .reindex(network.buses.index, fill_value=0.) +
+                                network.storage_units\
+                                .loc[(network.storage_units.carrier\
+                                .isin(non_conv_types) == False)]
                   .groupby('bus').p_nom.sum()
                   .reindex(network.buses.index, fill_value=0.))
 
