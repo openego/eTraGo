@@ -98,71 +98,80 @@ def clip_foreign(network):
     """
 
     # get foreign buses by country
-    poland = pd.Series(index=network.buses[(network.buses['x'] > 17)].index,
+    poland = pd.Series(index=network.
+                       buses[(network.buses['x'] > 17)].index,
                        data="Poland")
-    czech = pd.Series(index=network.buses[(network.buses['x'] < 17) &
-                                          (network.buses['x'] > 15.1)].index,
+    czech = pd.Series(index=network.
+                      buses[(network.buses['x'] < 17) &
+                            (network.buses['x'] > 15.1)].index,
                       data="Czech")
-    denmark = pd.Series(index=network.buses[((network.buses['y'] < 60) &
-                                             (network.buses['y'] > 55.2)) |
-                                            ((network.buses['x'] > 11.95) &
-                                             (network.buses['x'] < 11.97) &
-                                             (network.buses['y'] > 54.5))].
+    denmark = pd.Series(index=network.
+                        buses[((network.buses['y'] < 60) &
+                               (network.buses['y'] > 55.2)) |
+                              ((network.buses['x'] > 11.95) &
+                               (network.buses['x'] < 11.97) &
+                               (network.buses['y'] > 54.5))].
                         index,
                         data="Denmark")
     sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
                        data="Sweden")
-    austria = pd.Series(index=network.buses[(network.buses['y'] < 47.33) &
-                                            (network.buses['x'] > 9) |
-                                            ((network.buses['x'] > 9.65) &
-                                             (network.buses['x'] < 9.9) &
-                                             (network.buses['y'] < 47.5) &
-                                             (network.buses['y'] > 47.3)) |
-                                            ((network.buses['x'] > 12.14) &
-                                             (network.buses['x'] < 12.15) &
-                                             (network.buses['y'] > 47.57) &
-                                             (network.buses['y'] < 47.58)) |
-                                            (network.buses['y'] < 47.6) &
-                                            (network.buses['x'] > 14.1)].index,
+    austria = pd.Series(index=network.
+                        buses[(network.buses['y'] < 47.33) &
+                              (network.buses['x'] > 9) |
+                              ((network.buses['x'] > 9.65) &
+                               (network.buses['x'] < 9.9) &
+                               (network.buses['y'] < 47.5) &
+                               (network.buses['y'] > 47.3)) |
+                              ((network.buses['x'] > 12.14) &
+                               (network.buses['x'] < 12.15) &
+                               (network.buses['y'] > 47.57) &
+                               (network.buses['y'] < 47.58)) |
+                              (network.buses['y'] < 47.6) &
+                              (network.buses['x'] > 14.1)].index,
                         data="Austria")
-    switzerland = pd.Series(index=network.buses[((network.buses['x'] > 8.1) &
-                                                 (network.buses['x'] < 8.3) &
-                                                 (network.buses['y'] < 46.8)) |
-                                                ((network.buses['x'] > 7.82) &
-                                                 (network.buses['x'] < 7.88) &
-                                                 (network.buses['y'] > 47.54) &
-                                                 (network.buses['y'] < 47.57)) |
-                                                ((network.buses['x'] > 10.91) &
-                                                 (network.buses['x'] < 10.92) &
-                                                 (network.buses['y'] > 49.91) &
-                                                 (network.buses['y'] < 49.92))].index,
+    switzerland = pd.Series(index=network.
+                            buses[((network.buses['x'] > 8.1) &
+                                   (network.buses['x'] < 8.3) &
+                                   (network.buses['y'] < 46.8)) |
+                                  ((network.buses['x'] > 7.82) &
+                                   (network.buses['x'] < 7.88) &
+                                   (network.buses['y'] > 47.54) &
+                                   (network.buses['y'] < 47.57)) |
+                                  ((network.buses['x'] > 10.91) &
+                                   (network.buses['x'] < 10.92) &
+                                   (network.buses['y'] > 49.91) &
+                                   (network.buses['y'] < 49.92))].index,
                             data="Switzerland")
-    netherlands = pd.Series(index=network.buses[((network.buses['x'] < 6.96) &
-                                                 (network.buses['y'] < 53.15) &
-                                                 (network.buses['y'] > 53.1)) |
-                                                ((network.buses['x'] < 5.4) &
-                                                 (network.buses['y'] > 52.1))].index,
+    netherlands = pd.Series(index=network.
+                            buses[((network.buses['x'] < 6.96) &
+                                   (network.buses['y'] < 53.15) &
+                                   (network.buses['y'] > 53.1)) |
+                                  ((network.buses['x'] < 5.4) &
+                                   (network.buses['y'] > 52.1))].index,
                             data="Netherlands")
-    luxembourg = pd.Series(index=network.buses[((network.buses['x'] < 6.15) &
-                                                (network.buses['y'] < 49.91) &
-                                                (network.buses['y'] > 49.65))].index,
+    luxembourg = pd.Series(index=network.
+                           buses[((network.buses['x'] < 6.15) &
+                                  (network.buses['y'] < 49.91) &
+                                  (network.buses['y'] > 49.65))].index,
                            data="Luxembourg")
-    france = pd.Series(index=network.buses[(network.buses['x'] < 4.5) |
-                                           ((network.buses['x'] > 7.507) &
-                                            (network.buses['x'] < 7.508) &
-                                            (network.buses['y'] > 47.64) &
-                                            (network.buses['y'] < 47.65)) |
-                                           ((network.buses['x'] > 6.2) &
-                                            (network.buses['x'] < 6.3) &
-                                            (network.buses['y'] > 49.1) &
-                                            (network.buses['y'] < 49.2)) |
-                                           ((network.buses['x'] > 6.7) &
-                                            (network.buses['x'] < 6.76) &
-                                            (network.buses['y'] > 49.13) &
-                                            (network.buses['y'] < 49.16))].index,
+    france = pd.Series(index=network.
+                       buses[(network.buses['x'] < 4.5) |
+                             ((network.buses['x'] > 7.507) &
+                              (network.buses['x'] < 7.508) &
+                              (network.buses['y'] > 47.64) &
+                              (network.buses['y'] < 47.65)) |
+                             ((network.buses['x'] > 6.2) &
+                              (network.buses['x'] < 6.3) &
+                              (network.buses['y'] > 49.1) &
+                              (network.buses['y'] < 49.2)) |
+                             ((network.buses['x'] > 6.7) &
+                              (network.buses['x'] < 6.76) &
+                              (network.buses['y'] > 49.13) &
+                              (network.buses['y'] < 49.16))].index,
                        data="France")
     foreign_buses = pd.Series()
-    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden, austria, switzerland,
+    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
+                                          austria, switzerland,
                                           netherlands, luxembourg, france])
 
     network.buses = network.buses.drop(
@@ -202,13 +211,15 @@ def clip_foreign(network):
         (network.lines['bus1'].isin(network.buses.index) == False)].index)
     network.transformers = network.transformers.drop(network.transformers[
         (network.transformers['bus0'].isin(network.buses.index) == False) |
-        (network.transformers['bus1'].isin(network.buses.index) == False)].index)
+        (network.transformers['bus1'].isin(network.
+                                           buses.index) == False)].index)
     network.generators = network.generators.drop(network.generators[
         (network.generators['bus'].isin(network.buses.index) == False)].index)
     network.loads = network.loads.drop(network.loads[
         (network.loads['bus'].isin(network.buses.index) == False)].index)
     network.storage_units = network.storage_units.drop(network.storage_units[
-        (network.storage_units['bus'].isin(network.buses.index) == False)].index)
+        (network.storage_units['bus'].isin(network.
+                                           buses.index) == False)].index)
 
     components = ['loads', 'generators', 'lines', 'buses', 'transformers']
     for g in components:  # loads_t
@@ -267,7 +278,8 @@ def connected_transformer(network, busids):
 
 
 def load_shedding(network, **kwargs):
-    """ Implement load shedding in existing network to identify feasibility problems
+    """ Implement load shedding in existing network to identify
+    feasibility problems
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -324,13 +336,18 @@ def data_manipulation_sh(network):
 
     # line geom/topo
     network.lines.set_value(new_line, 'geom', from_shape(MultiLineString(
-        [LineString([to_shape(network.buses.geom['26387']), point_bus1])]), 4326))
+        [LineString([to_shape(network.
+                              buses.geom['26387']), point_bus1])]), 4326))
     network.lines.set_value(new_line, 'topo', from_shape(LineString(
         [to_shape(network.buses.geom['26387']), point_bus1]), 4326))
 
     # trafo geom/topo
-    network.transformers.set_value(new_trafo, 'geom', from_shape(MultiLineString(
-        [LineString([to_shape(network.buses.geom['25536']), point_bus1])]), 4326))
+    network.transformers.set_value(new_trafo,
+                                   'geom', from_shape(MultiLineString(
+                                       [LineString(
+                                           [to_shape(network
+                                                     .buses.geom['25536']),
+                                            point_bus1])]), 4326))
     network.transformers.set_value(new_trafo, 'topo', from_shape(
         LineString([to_shape(network.buses.geom['25536']), point_bus1]), 4326))
 
@@ -362,17 +379,22 @@ def results_to_csv(network, path):
     return
 
 
-def parallelisation(network, start_snapshot, end_snapshot, group_size, solver_name, solver_options, extra_functionality=None):
+def parallelisation(network, start_snapshot, end_snapshot, group_size,
+                    solver_name, solver_options, extra_functionality=None):
 
-    print("Performing linear OPF, {} snapshot(s) at a time:".format(group_size))
+    print("Performing linear OPF, {} snapshot(s) at a time:".
+          format(group_size))
     x = time.time()
 
     for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
         if i > 0:
-            network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[
-                network.snapshots[group_size*i-1]]
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size], solver_name=solver_name,
-                     solver_options=solver_options, extra_functionality=extra_functionality)
+            network.storage_units.state_of_charge_initial = network.\
+                storage_units_t.state_of_charge.loc[
+                    network.snapshots[group_size*i-1]]
+        network.lopf(network.snapshots[group_size*i:group_size*i+group_size],
+                     solver_name=solver_name,
+                     solver_options=solver_options,
+                     extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
 
     y = time.time()
@@ -390,7 +412,8 @@ def pf_post_lopf(network, scenario):
         columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
 
-    old_slack = network.generators.index[network.generators.control == 'Slack'][0]
+    old_slack = network.generators.index[network.
+                                         generators.control == 'Slack'][0]
     old_gens = network.generators
     gens_summed = network.generators_t.p.sum()
     old_gens['p_summed'] = gens_summed
@@ -398,20 +421,25 @@ def pf_post_lopf(network, scenario):
         {'p_summed': np.sum}).p_summed.sort_values().index
 
     for bus_iter in range(1, len(max_gen_buses_index)-1):
-        if old_gens[(network.generators['bus'] == max_gen_buses_index[-bus_iter]) & (network.generators['control'] == 'PV')].empty:
+        if old_gens[(network.
+                     generators['bus'] == max_gen_buses_index[-bus_iter]) &
+                    (network.generators['control'] == 'PV')].empty:
             continue
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
 
     network.generators = network.generators.drop('p_summed', 1)
-    new_slack_gen = network.generators.p_nom[(network.generators['bus'] == new_slack_bus) & (
-        network.generators['control'] == 'PV')].sort_values().index[-1]
+    new_slack_gen = network.generators.\
+        p_nom[(network.generators['bus'] == new_slack_bus) & (
+            network.generators['control'] == 'PV')].sort_values().index[-1]
 
     # check if old slack was PV or PQ control:
-    if network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] in ('solar', 'wind'):
+    if network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] in ('solar', 'wind'):
         old_control = 'PQ'
-    elif network.generators.p_nom[old_slack] > 50 and network.generators.carrier[old_slack] not in ('solar', 'wind'):
+    elif network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] not in ('solar', 'wind'):
         old_control = 'PV'
     elif network.generators.p_nom[old_slack] < 50:
         old_control = 'PQ'
@@ -447,20 +475,26 @@ def calc_line_losses(network):
     # calculate current I = S / U [in A]
     i0_lines = np.multiply(s0_lines, 1000000) / \
         np.multiply(network.lines.v_nom, 1000)
-    # calculate losses per line and timestep network.lines_t.line_losses = I² * R [in MW]
+    # calculate losses per line and timestep network.\
+    # lines_t.line_losses = I² * R [in MW]
     network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
     # calculate total losses per line [in MW]
     network.lines = network.lines.assign(
         losses=np.sum(network.lines_t.losses).values)
 
     # Transformer losses
-    # https://books.google.de/books?id=0glcCgAAQBAJ&pg=PA151&lpg=PA151&dq=wirkungsgrad+transformator+1000+mva&source=bl&ots=a6TKhNfwrJ&sig=r2HCpHczRRqdgzX_JDdlJo4hj-k&hl=de&sa=X&ved=0ahUKEwib5JTFs6fWAhVJY1AKHa1cAeAQ6AEIXjAI#v=onepage&q=wirkungsgrad%20transformator%201000%20mva&f=false
+    # https://books.google.de/books?id=0glcCgAAQBAJ&pg=PA151&lpg=PA151&dq=
+    # wirkungsgrad+transformator+1000+mva&source=bl&ots=a6TKhNfwrJ&sig=
+    # r2HCpHczRRqdgzX_JDdlJo4hj-k&hl=de&sa=X&ved=
+    # 0ahUKEwib5JTFs6fWAhVJY1AKHa1cAeAQ6AEIXjAI#v=onepage&q=
+    # wirkungsgrad%20transformator%201000%20mva&f=false
     # Crastan, Elektrische Energieversorgung, p.151
     # trafo 1000 MVA: 99.8 %
     network.transformers = network.transformers.assign(
         losses=np.multiply(network.transformers.s_nom, (1-0.998)).values)
 
-    # calculate total losses (possibly enhance with adding these values to network container)
+    # calculate total losses (possibly enhance with adding these values
+    # to network container)
     losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
     print("Total lines losses for all snapshots [MW]:", round(losses_total, 2))
     losses_costs = losses_total * np.average(network.buses_t.marginal_price)
