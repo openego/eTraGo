@@ -107,7 +107,8 @@ def clip_foreign(network):
                                              (network.buses['y'] > 55.2)) |
                                             ((network.buses['x'] > 11.95) &
                                              (network.buses['x'] < 11.97) &
-                                             (network.buses['y'] > 54.5))].index,
+                                             (network.buses['y'] > 54.5))].
+                        index,
                         data="Denmark")
     sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
                        data="Sweden")
