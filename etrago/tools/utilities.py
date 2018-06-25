@@ -19,7 +19,7 @@
 
 # File description
 """
-Utilities.py defines functions necessary to apply eTraGo.
+Utilities.py includes a wide range of useful functions.
 """
 import pandas as pd
 import numpy as np
