@@ -493,7 +493,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     # distribution
     non_conv_types = {
         'biomass',
-        'wind',
+        'wind_onshore',
+	'wind_offshore',
         'solar',
         'geothermal',
         'load shedding',
