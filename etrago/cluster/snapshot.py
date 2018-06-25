@@ -20,12 +20,9 @@
 # File description for read-the-docs
 """ This module contains functions for calculating representative days/weeks
 based on a pyPSA network object. It is designed to be used for the `lopf`
-method.
-
-Use:
-    clusters = cluster(network, n_clusters=10)
-    medoids = medoids(clusters)
-    update_data_frames(network, medoids)
+method. Essentially the tsam package
+( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by 
+Leander Kotzur is used.
 
 Remaining questions/tasks:
 
