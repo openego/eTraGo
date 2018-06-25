@@ -768,10 +768,9 @@ def storage_distribution(network, scaling=1, filename=None):
     """
 
     stores = network.storage_units
-    storage_distribution =
-    network.storage_units.p_nom_opt[stores.index].groupby(
-            network.storage_units.bus).sum().reindex(network.buses.index,
-                                                     fill_value=0.)
+    storage_distribution = network.storage_units.p_nom_opt[stores.index]\
+            .groupby(network.storage_units.bus)\
+            .sum().reindex(network.buses.index, fill_value=0.)
 
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(6, 6)
@@ -837,8 +836,8 @@ def storage_expansion(network, scaling=1, filename=None):
 
     stores = network.storage_units[network.storage_units.carrier ==
                                    'extendable_storage']
-    storage_distribution =
-    network.storage_units.p_nom_opt[stores.index].groupby(
+    storage_distribution =\
+            network.storage_units.p_nom_opt[stores.index].groupby(
             network.storage_units.bus).sum().reindex(network.buses.index,
                                                      fill_value=0.)
 
@@ -1021,15 +1020,15 @@ def gen_dist_diff(
         gensA = networkA.generators[networkA.generators.carrier == tech]
         gensB = networkB.generators[networkB.generators.carrier == tech]
 
-        gen_distribution =
-        networkA.generators_t.p[gensA.index].loc[
-             networkA.snapshots[snapshot]].groupby(
-                     networkA.generators.bus).sum().reindex(
-                             networkA.buses.index, fill_value=0.) -
-        networkB.generators_t.p[gensB.index].loc[
-             networkB.snapshots[snapshot]].groupby(
-                     networkB.generators.bus).sum().reindex(
-                             networkB.buses.index, fill_value=0.)
+        gen_distribution =\
+            networkA.generators_t.p[gensA.index].loc[
+            networkA.snapshots[snapshot]].groupby(
+            networkA.generators.bus).sum().reindex(
+            networkA.buses.index, fill_value=0.) -\
+            networkB.generators_t.p[gensB.index].loc[
+            networkB.snapshots[snapshot]].groupby(
+            networkB.generators.bus).sum().reindex(
+            networkB.buses.index, fill_value=0.)
 
         networkA.plot(
             ax=ax,
@@ -1127,10 +1126,10 @@ def nodal_gen_dispatch(
         filename=None):
 
     gens = network.generators[network.generators.carrier.isin(techs)]
-    dispatch =
-    network.generators_t.p[gens.index].mul(
+    dispatch =\
+            network.generators_t.p[gens.index].mul(
             network.snapshot_weightings, axis=0).sum().groupby(
-                    [network.generators.bus, network.generators.carrier]).sum()
+            [network.generators.bus, network.generators.carrier]).sum()
     colors = coloring()
 
     # network.generators.carrier.unique()}
