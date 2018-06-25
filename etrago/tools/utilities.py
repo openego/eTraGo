@@ -665,19 +665,19 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     PVA = (1 / p) - (1 / (p*(1 + p) ** T))
 
     #
-    network.lines.loc[if network.lines.s_nom_extendable is True,
+    network.lines.loc[network.lines.s_nom_extendable is True,
                       'capital_cost'] = (network.lines.capital_cost /
                                          (PVA * (8760/(end_snapshot -
                                                        start_snapshot + 1))))
-    network.links.loc[if network.links.p_nom_extendable is True,
+    network.links.loc[network.links.p_nom_extendable is True,
                       'capital_cost'] = network.\
         links.capital_cost / (PVA * (8760//(end_snapshot -
                                             start_snapshot + 1)))
-    network.transformers.loc[if network.transformers.s_nom_extendable is True,
+    network.transformers.loc[network.transformers.s_nom_extendable is True,
                              'capital_cost'] = network.\
         transformers.capital_cost / \
         (PVA * (8760//(end_snapshot - start_snapshot + 1)))
-    network.storage_units.loc[if network.storage_units.
+    network.storage_units.loc[network.storage_units.
                               p_nom_extendable is True,
                               'capital_cost'] = network.\
         storage_units.capital_cost / (8760//(end_snapshot -
