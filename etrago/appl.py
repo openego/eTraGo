@@ -56,9 +56,9 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1,
-        'end_snapshot' : 2, #3624,
+        'end_snapshot' : 8760, #3624,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'solver_options': {}, # {} for default settings or dict of solver options
+        'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5}, # {} for default settings or dict of solver options
         'scn_name': 'NEP 2035', # # choose a scenario: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -66,7 +66,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False,# state if and where you want to save results as csv: False or /path/tofolder
+        'results': '/home/openego/pf_results/desagg/nepk100t3',# state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -74,14 +74,14 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':100, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'load_cluster': False, # state if you want to load cluster coordinates from a previous run: False or /path/tofile (filename similar to ./cluster_coord_k_n_result)
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'disaggregation': 'uniform', # or None, 'mini' or 'uniform'        
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
-        'skip_snapshots':False,
+        'skip_snapshots':3,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.7, # globally extend or lower branch capacities
         'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
@@ -315,18 +315,7 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(network, busmap, with_time=True)
 
-    # k-mean clustering
-    if not args['network_clustering_kmeans'] == False:
-        clustering = kmean_clustering(network,
-                n_clusters=args['network_clustering_kmeans'],
-                load_cluster=args['load_cluster'],
-                line_length_factor= 1,
-                remove_stubs=False,
-                use_reduced_coordinates=False,
-                bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
-        original_network = network.copy()
-        network = clustering.network.copy()
+
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -361,6 +350,19 @@ def etrago(args):
     if not args['snapshot_clustering']== False:
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
         extra_functionality = daily_bounds # daily_bounds or other constraint
+
+    # k-mean clustering
+    if not args['network_clustering_kmeans'] == False:
+        clustering = kmean_clustering(network,
+                n_clusters=args['network_clustering_kmeans'],
+                load_cluster=args['load_cluster'],
+                line_length_factor= 1,
+                remove_stubs=False,
+                use_reduced_coordinates=False,
+                bus_weight_tocsv=None,
+                bus_weight_fromcsv=None)
+        original_network = network.copy()
+        network = clustering.network.copy()
 
     # parallisation
     if args['parallelisation']:
