@@ -23,10 +23,10 @@ Extendable.py defines function to set PyPSA-components extendable.
 """
 from etrago.tools.utilities import set_line_costs, set_trafo_costs
 
-__copyright__ = ("Flensburg University of Applied Sciences,
-                 Europa-Universität Flensburg,
-                 Centre for Sustainable Energy Systems,
-                 DLR-Institute for Networked Energy Systems")
+__copyright__ = ("Flensburg University of Applied Sciences, "
+                 "Europa-Universität Flensburg, "
+                 "Centre for Sustainable Energy Systems, "
+                 "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
