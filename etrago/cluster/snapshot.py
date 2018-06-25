@@ -19,7 +19,7 @@
 
 # File description for read-the-docs
 """ This module contains functions for calculating representative days/weeks
-based on a pyPSA network object. It is designed to be used the the `lopf`
+based on a pyPSA network object. It is designed to be used for the `lopf`
 method.
 
 Use:
