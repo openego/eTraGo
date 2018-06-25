@@ -671,8 +671,10 @@ def extension(network, session, scn_extension, start_snapshot, end_snapshot,
         network.buses.loc[idx, 'x'] = wkt_geom.x
         network.buses.loc[idx, 'y'] = wkt_geom.y
 
-    network.transformers = network.transformers[network.transformers.bus1.astype(
-        str).isin(network.buses.index)]
+    network.transformers = network.transformers[network.
+                                                transformers.bus1.astype(
+                                                    str).isin(network.
+                                                              buses.index)]
 
    # Reconnect trafos without buses due to kmean_clustering to existing buses
    # and set s_nom_min and s_nom_max so decomissioning is not needed
