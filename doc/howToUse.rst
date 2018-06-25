@@ -1,7 +1,9 @@
 How to use eTraGo?
-~~~~~~~~~~~~~~~~~~
+==================
 
-After you installed eTraGo you can run eTraGo via terminal with ``$ cd../<your path>/eTrago/etrago/`` and ``python3 appl.py``. The program will execute following functions:
+After you installed eTraGo you can run eTraGo via terminal with
+``$ cd../<your path>/eTrago/etrago/`` and ``python3 appl.py``.
+The program will execute following functions:
 
 .. code-block:: python
 
@@ -16,7 +18,14 @@ After you installed eTraGo you can run eTraGo via terminal with ``$ cd../<your p
     storage_distribution(network)
 
 
-Overview of setting arguments 
+Overview of setting arguments
 =============================
 
 The tool eTraGo is using a main python script ‘appl.py’ in which your parameters, calculation methods and scenario settings are set in a python dictionary called args. The documentation of the program settings can you find here: :meth:`etrago.appl.etrago`.
+
+
+Notebook Tutorials
+------------------
+
+* OpenMod
+* EUM Fachtagung 
