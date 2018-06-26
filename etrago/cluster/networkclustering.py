@@ -1,26 +1,34 @@
 # -*- coding: utf-8 -*-
+## Copyright 2016-2018  Flensburg University of Applied Sciences,
+##                      Europa-Universität Flensburg,
+##                      Centre for Sustainable Energy Systems,
+##                      DLR-Institute for Networked Energy Systems
+
+## This program is free software; you can redistribute it and/or
+## modify it under the terms of the GNU Affero General Public License as
+## published by the Free Software Foundation; either version 3 of the
+## License, or (at your option) any later version.
+ 
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU Affero General Public License for more details.
+ 
+## You should have received a copy of the GNU General Public License
+## along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# File description for read-the-docs
 """ Networkclustering.py defines the methods to cluster power grid
 networks for application within the tool eTraGo. Many of the functions are
 based or taken from 
 https://github.com/PyPSA/PyPSA/blob/master/pypsa/networkclustering.py
 This applies especially for the k-means clustering algorithm. The method is 
 based on Hoersch et al. ( https://arxiv.org/pdf/1705.07617.pdf ).
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation; either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__copyright__ = "Flensburg University of Applied Sciences, \
+                 Europa-Universität Flensburg, Centre for Sustainable Energy Systems,\
+                 DLR-Institute for Networked Energy Systems"
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
@@ -464,7 +472,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network = clustering.network
     
     #define weighting based on conventional 'old' generator spatial distribution
-    non_conv_types= {'biomass', 'wind', 'solar', 'geothermal', 'load shedding', 'extendable_storage'}
+    non_conv_types= {'biomass', 'wind_onshore', 'wind_offshore', 'solar', 
+                     'geothermal', 'load shedding', 'extendable_storage'}
     # Attention: network.generators.carrier.unique() 
     gen = (network.generators.loc[(network.generators.carrier.isin(non_conv_types)==False)
         ].groupby('bus').p_nom.sum().reindex(network.buses.index, 
