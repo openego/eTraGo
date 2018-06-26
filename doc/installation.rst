@@ -7,7 +7,7 @@ installation.
 
 Step 1) Create a virtualenvironment (where you like it) and activate it:
 
-.. code-block::
+.. code-block:: bash
 
    $ virtualenv venv_etrago --clear -p python3.5
    $ source venv_etrago/bin/activate
