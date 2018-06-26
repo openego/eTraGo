@@ -30,10 +30,11 @@ calculate a registration on the platform is needed. For more see
 LICENSE
 =======
 
-© Copyright 2015-2018 Flensburg University of Applied Sciences,
-                      Europa-Universität Flensburg,
-                      Centre for Sustainable Energy Systems,
-                      DLR-Institute for Networked Energy Systems
+© Copyright 2015-2018
+Flensburg University of Applied Sciences,
+Europa-Universität Flensburg,
+Centre for Sustainable Energy Systems and
+DLR-Institute for Networked Energy Systems
 
 
 
