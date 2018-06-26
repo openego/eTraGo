@@ -88,9 +88,7 @@ def coloring():
 
 def plot_line_loading(
         network,
-        timesteps=range(
-            1,
-            2),
+        timesteps=range(1,2),
         filename=None,
         boundaries=[],
         arrows=False):
