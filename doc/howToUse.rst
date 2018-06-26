@@ -1,3 +1,5 @@
+.. _HowToUse:
+==================
 How to use eTraGo?
 ==================
 
@@ -19,13 +21,16 @@ The program will execute following functions:
 
 
 Overview of setting arguments
------------------------------
+=============================
 
-The tool eTraGo is using a main python script ‘appl.py’ in which your parameters, calculation methods and scenario settings are set in a python dictionary called args. The documentation of the program settings can you find here: :meth:`etrago.appl.etrago`.
+The tool eTraGo is using a main python script ‘appl.py’ in which your
+parameters, calculation methods and scenario settings are set in a python
+dictionary called args. The documentation of the program settings can you
+find here: :meth:`etrago.appl.etrago`.
 
 
 Notebook Tutorials
-------------------
+==================
 
 * OpenMod
 * EUM Fachtagung
