@@ -25,6 +25,7 @@ Plot.py defines functions necessary to plot results of eTraGo.
 import os
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib
 import pandas as pd
 import numpy as np
 import time
@@ -279,8 +280,8 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     diff_network = loading_switches.join(loading_noswitches)
     diff_network['noswitch'] = diff_network['noswitch'].fillna(
         diff_network['switch'])
-    diff_network[networkA.snapshots[timestep]
-                 ] = diff_network['switch'] - diff_network['noswitch']
+    diff_network[networkA.snapshots[timestep]] \
+        = diff_network['switch'] - diff_network['noswitch']
 
     # get switches
     new_buses = pd.Series(index=networkA.buses.index.values)
@@ -359,9 +360,7 @@ def extension_overlay_network(network, filename=None, boundaries=[0, 100]):
 
 def full_load_hours(
         network,
-        boundaries=[
-            0,
-            4830],
+        boundaries=[0, 4830],
         filename=None,
         two_cb=False):
     cmap = plt.cm.jet
@@ -566,16 +565,13 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
 
     # sum for all buses
     if bus is None:
-        p_by_carrier = pd.concat(
-                        [network.generators_t.p
-                         [network.generators
-                          [network.generators.control != 'Slack'].index],
-                         network.generators_t.p
-                         [network.generators
-                          [network.generators.control == 'Slack'].index]
+        p_by_carrier = pd.concat([network.generators_t.p[network.generators
+                         [network.generators.control != 'Slack'].index],
+                         network.generators_t.p[network.generators
+                         [network.generators.control == 'Slack'].index]
                          .iloc[:, 0].apply(lambda x: x if x > 0 else 0)],
-                        axis=1).groupby(network.generators.carrier,
-                                        axis=1).sum()
+                         axis=1)\
+                         .groupby(network.generators.carrier, axis=1).sum()
         load = network.loads_t.p.sum(axis=1)
         if hasattr(network, 'foreign_trade'):
             trade_sum = network.foreign_trade.sum(axis=1)
@@ -639,15 +635,13 @@ def plot_gen_diff(
     Plot
     """
     def gen_by_c(network):
-        gen = pd.concat([network.generators_t.p
-                         [network.generators
-                          [network.generators.control != 'Slack'].index],
-                         network.generators_t.p
-                         [network.generators
-                          [network. generators.control == 'Slack'].index]
-                        .iloc[:, 0].apply(lambda x: x if x > 0 else 0)],
-                        axis=1).groupby(network.generators.carrier,
-                                        axis=1).sum()
+        gen = pd.concat([network.generators_t.p[network.generators
+                         [network.generators.control != 'Slack'].index],
+                         network.generators_t.p[network.generators
+                         [network. generators.control == 'Slack'].index]
+                         .iloc[:, 0].apply(lambda x: x if x > 0 else 0)],
+                         axis=1)\
+                         .groupby(network.generators.carrier,axis=1).sum()
         return gen
 
     gen = gen_by_c(networkB)
@@ -705,11 +699,7 @@ def plot_voltage(network, boundaries=[]):
     cb.set_label('Voltage Magnitude per unit of v_nom')
 
     network.plot(
-        ax=ax,
-        line_widths=pd.Series(
-            0.5,
-            network.lines.index),
-        bus_sizes=0)
+        ax=ax, line_widths=pd.Series(0.5, network.lines.index), bus_sizes=0)
     plt.show()
 
 
@@ -798,8 +788,7 @@ def storage_distribution(network, scaling=1, filename=None):
         network.plot(bus_sizes=0, ax=ax, title="No storages")
     else:
         network.plot(
-            bus_sizes=storage_distribution *
-            scaling,
+            bus_sizes=storage_distribution * scaling,
             ax=ax,
             line_widths=0.3,
             title="Storage distribution")
@@ -867,8 +856,7 @@ def storage_expansion(network, scaling=1, filename=None):
         network.plot(bus_sizes=0, ax=ax, title="No extendable storage")
     else:
         network.plot(
-            bus_sizes=storage_distribution *
-            scaling,
+            bus_sizes=storage_distribution * scaling,
             ax=ax,
             line_widths=0.3,
             title="Storage expansion distribution")
@@ -1030,8 +1018,7 @@ def gen_dist_diff(
 
         networkA.plot(
             ax=ax,
-            bus_sizes=gen_size *
-            abs(gen_distribution),
+            bus_sizes=gen_size * abs(gen_distribution),
             bus_colors=gen_distribution,
             line_widths=0.1,
             bus_cmap=buscmap)
@@ -1103,8 +1090,7 @@ def gen_dist(
 
         network.plot(
             ax=ax,
-            bus_sizes=gen_size *
-            gen_distribution,
+            bus_sizes=gen_size * gen_distribution,
             line_widths=0.1)
 
         ax.set_title(tech)
@@ -1118,9 +1104,7 @@ def gen_dist(
 def nodal_gen_dispatch(
         network,
         scaling=False,
-        techs=[
-            'wind_onshore',
-            'solar'],
+        techs=['wind_onshore', 'solar'],
         filename=None):
 
     gens = network.generators[network.generators.carrier.isin(techs)]
