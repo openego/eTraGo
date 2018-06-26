@@ -73,8 +73,7 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
             j=j+1
             nrhours.append(j)
             x=x+1
-     
-            
+                
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index 
     
@@ -207,7 +206,9 @@ def snapshot_cluster_constraints(network, snapshots):
             Define the state_of_charge_inter as the state_of_charge_inter of the day before minus the storage losses 
             plus the state_of_charge (intra) of the last hour of the representative day
             """
-    
+            #network.model.state_of_charge[s,first hour].value = 0
+            #network.model.state_of_charge[s,first hour].fix()
+            
             if i == network.model.candidates[-1]:
                 # if last candidate: build 'cyclic' constraint instead normal
                 # normal one (would cause error anyway as t+1 does not exist for
@@ -225,23 +226,23 @@ def snapshot_cluster_constraints(network, snapshots):
             sus.index, network.model.candidates,
             rule=inter_storage_soc_rule)
         
-        def inter_storage_capacity_rule(m, s, i):
+        hour = list(reversed(range(24)))
+        
+        def inter_storage_capacity_rule(m, s, i, h):
             """
             Limit the capacity of the storage for every hour of the candidate day
             """
-            # get every hour of the representative day for the candidate day
-            for h in list(reversed(range(24))): 
-                hour = network.cluster['last_hour_RepresentativeDay'][i] + timedelta(hours=-h)    
-               
-                return (
+            
+            return (
                    m.state_of_charge_inter[s, i] 
-                   * (1 - network.storage_units.at[s, 'standing_loss'])**24  
-                   + m.state_of_charge[s, hour] <=
-                    network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom_max']
+                   * (1 - network.storage_units.at[s,'standing_loss'])**24  
+                   + m.state_of_charge[s, network.cluster['last_hour_RepresentativeDay'][i] + timedelta(hours=-h)] <=
+                    network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom']
                     ) 
-                           
+             
+        
         network.model.inter_storage_capacity_constraint = po.Constraint(
-            sus.index, network.model.candidates, 
+            sus.index, network.model.candidates, hour,
             rule = inter_storage_capacity_rule)
        
 ####################################
@@ -260,4 +261,3 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugefÃ
     network.storage_units.p_nom_max = values
     network.storage_units.p_nom_min = values
     resultspath = 'compare-'+resultspath
-
