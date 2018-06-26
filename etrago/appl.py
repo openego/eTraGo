@@ -482,8 +482,8 @@ def etrago(args):
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
-        # default is False. If it is set to 'True' the result set will be safed
-        safe_results = False
+        safe_results = False  # default is False. 
+        # If it is set to 'True' the result set will be safed
         # to the versioned grid schema eventually apart from
         # being saved to the model_draft.
         # ONLY set to True if you know what you are doing.
