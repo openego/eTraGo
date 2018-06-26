@@ -1,30 +1,66 @@
+============
 Installation
 ============
 
+We highly recommend you to use a virtual environment and pip for your
+installation.
 
-Run:
+Step 1) Create a virtualenvironment (where you like it) and activate it:
 
-    ```
-    git clone https://github.com/openego/eTraGo
-    ```
+.. code-block:: bash
 
-Create a virtualenvironment (where you like it) and activate it:
+   $ virtualenv venv_etrago --clear -p python3.5
+   $ source venv_etrago/bin/activate
+   $ cd venv_etrago
 
-   ```
-   virtualenv -p python3 venv
-   source venv/bin/activate
-   ```
+
+Step 2) Use pip in order to install eTraGo
+
+.. code-block::
+
+   $ pip3 install eTraGo --process-dependency-links
+
+
+
+Installation for Developers
+---------------------------
+
+Step 1) see above
+
+Step 2) Clone the source code from github
+
+.. code-block::
+
+   $ git clone https://github.com/openego/eTraGo
+   $ git checkout dev
 
 With your activated environment `cd` to the cloned directory and run:
 
-    ```
-    pip install -e eTraGo
-    ```
+.. code-block::
 
-This will install all needed packages into your environment. Now you should be ready to go.
+   $ pip3 install -e eTraGo/ --process-dependency-links
 
-Installation for windows users
------------------------------------
+This will install all needed packages into your environment.
+Now you should be ready to go.
+
+
+On Ubuntu
+=========
+
+The Package eTraGo is tested with Ubuntu 16.04 and 18.04 in the virtual
+environments of *virtualenv* and *Anaconda*. See full installation is shown
+above.
+
+
+
+Windows or Mac OSX users
+========================
+
+For Windows and/or Mac OSX user we highly recommend to install and use Anaconda
+as your...
+
+
+
 
 - install anaconda inclusing python 3 (https://www.anaconda.com/download/)
 
@@ -62,6 +98,10 @@ Installation for windows users
    pip freeze
    ```
 
+Using the ego.io
+================
+
+
 For using the session maker in eTraGo you need oemof.db:
 
 - open an anaconda prompt as administrator and run:
@@ -78,7 +118,9 @@ For using the session maker in eTraGo you need oemof.db:
    md .oemof
    ```
 
-- open the new folder .oemof and use the editor to create a file „config.ini“ and insert the following lines, when you just calculate local or on the oedb you just need this section:
+- open the new folder .oemof and use the editor to create a file „config.ini“
+  and insert the following lines, when you just calculate local or on the oedb
+  you just need this section:
 
 ::
 

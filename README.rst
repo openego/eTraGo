@@ -7,42 +7,50 @@ eTraGo
 
 Optimization of flexibility options for transmission grids based on PyPSA
 
-A speciality in this context is that transmission grids are described by the 380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the distribution grid. The integration of the transmission and 'upper' distribution grid is part of eTraGo.
+A speciality in this context is that transmission grids are described by the
+380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the
+distribution grid. The integration of the transmission and 'upper' distribution
+grid is part of eTraGo.
 
-The focus of optimization are flexibility options with a special focus on energy storages. Grid expansion measures are not part of this tool and will be instead part of 'eGo' https://github.com/openego/eGo
+The focus of optimization are flexibility options with a special focus on
+energy storages. Grid expansion measures are not part of this tool and will be
+instead part of 'eGo' https://github.com/openego/eGo
 
 
-Setup 
+Setup
 =========================
 
 
-Create a virtualenvironment (where you like it) and activate it: 
+Create a virtualenvironment (where you like it) and activate it:
 
 .. code-block::
 
    $ virtualenv venv --clear -p python3.5
    $ source venv/bin/activate
-   $ cd venv 
+   $ cd venv
 
 Clone the source code from github
- 
+
 .. code-block::
 
    $ git clone https://github.com/openego/eTraGo
 
 
-With your activated environment `cd` to the cloned directory and run:  
+With your activated environment `cd` to the cloned directory and run:
 
 .. code-block::
 
    $ pip3 install -e eTraGo --process-dependency-links
 
 
-This will install all needed packages into your environment. Now you should be ready to go. 
+This will install all needed packages into your environment. Now you should be
+ready to go.
 
 Copyleft
 =========================
 
 Code licensed under "GNU Affero General Public License Version 3 (AGPL-3.0)"
 It is a collaborative work with several copyright owners:
-Cite as "eTraGo" © Flensburg University of Applied Sciences, Centre for Sustainable Energy Systems © Europa-Universität Flensburg, Centre for Sustainable Energy Systems © DLR Institute for Networked Energy Systems"
+Cite as "eTraGo" © Flensburg University of Applied Sciences, Centre for
+Sustainable Energy Systems © Europa-Universität Flensburg, Centre for
+Sustainable Energy Systems © DLR Institute for Networked Energy Systems"
