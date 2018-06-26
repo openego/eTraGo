@@ -51,7 +51,9 @@ References
 ==========
 
 .. [NEP2015] Übertragungsnetzbetreiber Deutschland. (2015).:
-    *Netzentwicklungsplan Strom 2025*, Version 2015, 1. Entwurf, 2015. https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/NEP_2025_1_Entwurf_Teil1_0_0.pdf
+    *Netzentwicklungsplan Strom 2025*, Version 2015, 1. Entwurf, 2015. (https://
+    www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/NEP_2025_
+    1_Entwurf_Teil1_0_0.pdf)
 
 .. [coastdat-2] coastDat-2 (2017).:
      Hindcast model http://www.coastdat.de/data/index.php.en
