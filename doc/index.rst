@@ -16,6 +16,7 @@ Welcome to eTraGo's documentation!
 
 .. toctree::
    :maxdepth: 7
+   
    about
    installation
    howToUse
