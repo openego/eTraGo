@@ -1,12 +1,5 @@
-============
 Installation
 ============
-
-
-
-
-On Ubuntu
-=========
 
 
 Run:
@@ -28,16 +21,10 @@ With your activated environment `cd` to the cloned directory and run:
     pip install -e eTraGo
     ```
 
-This will install all needed packages into your environment. Now you should be
-ready to go.
-
-
-
-
-
+This will install all needed packages into your environment. Now you should be ready to go.
 
 Installation for windows users
-==============================
+-----------------------------------
 
 - install anaconda inclusing python 3 (https://www.anaconda.com/download/)
 
@@ -75,10 +62,6 @@ Installation for windows users
    pip freeze
    ```
 
-Using the ego.io
-================
-
-
 For using the session maker in eTraGo you need oemof.db:
 
 - open an anaconda prompt as administrator and run:
@@ -95,9 +78,7 @@ For using the session maker in eTraGo you need oemof.db:
    md .oemof
    ```
 
-- open the new folder .oemof and use the editor to create a file „config.ini“
-  and insert the following lines, when you just calculate local or on the oedb
-  you just need this section:
+- open the new folder .oemof and use the editor to create a file „config.ini“ and insert the following lines, when you just calculate local or on the oedb you just need this section:
 
 ::
 
