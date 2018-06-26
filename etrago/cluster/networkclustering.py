@@ -18,13 +18,8 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" Networkclustering.py defines the methods to cluster power grid
-networks for application within the tool eTraGo. Many of the functions are
-based or taken from
-https://github.com/PyPSA/PyPSA/blob/master/pypsa/networkclustering.py
-This applies especially for the k-means clustering algorithm. The method is
-based on Hoersch et al. ( https://arxiv.org/pdf/1705.07617.pdf ).
-"""
+""" Networkclustering.py defines the methods to cluster power grid networks 
+spatially for applications within the tool eTraGo."""
 
 import os
 if 'READTHEDOCS' not in os.environ:
@@ -66,8 +61,9 @@ def _leading(busmap, df):
 
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
-    """ Create a new clustered pypsa.Network given a busmap mapping all busids
-    to other busids of the same set.
+    """ Main function of the EHV-Clustering approach. Creates a new clustered
+    pypsa.Network given a busmap mapping all bus_ids to other bus_ids of the
+    same network.
 
     Parameters
     ----------
@@ -83,7 +79,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     Returns
     -------
     network : pypsa.Network
-        Container for all network components.
+        Container for all network components of the clustered network.
     """
 
     network_c = Network()
@@ -143,22 +139,17 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
 
 def graph_from_edges(edges):
-    """
-    Construct an undirected multigraph from a list containing data on
+    """ Constructs an undirected multigraph from a list containing data on
     weighted edges.
-
 
     Parameters
     ----------
-
     edges : list
         List of tuples each containing first node, second node, weight, key.
 
     Returns
     -------
-
     M : :class:`networkx.classes.multigraph.MultiGraph
-
     """
 
     M = nx.MultiGraph()
@@ -176,6 +167,21 @@ def gen(nodes, n, graph):
     # TODO There could be a more convenient way of doing this. This generators
     # single purpose is to prepare data for multiprocessing's starmap function.
     """ Generator for applying multiprocessing.
+
+    Parameters
+    ----------
+    nodes : list
+        List of nodes in the system.
+
+    n : int
+        Number of desired multiprocessing units.
+
+    graph : :class:`networkx.classes.multigraph.MultiGraph
+        Graph representation of an electrical grid.
+
+    Returns
+    -------
+    None
     """
 
     g = graph.copy()
@@ -185,13 +191,13 @@ def gen(nodes, n, graph):
 
 
 def shortest_path(paths, graph):
-    """ Finding minimum path lengths between sources and targets pairs defined
-    in paths.
+    """ Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
     ----------
-    ways : list
-        List of tuples containing a source and target node
+    paths : list
+        List of pairs containing a source and a target node
+
     graph : :class:`networkx.classes.multigraph.MultiGraph
         Graph representation of an electrical grid.
 
@@ -199,7 +205,6 @@ def shortest_path(paths, graph):
     -------
     df : pd.DataFrame
         DataFrame holding source and target node and the minimum path length.
-
     """
 
     idxnames = ['source', 'target']
@@ -221,44 +226,38 @@ def shortest_path(paths, graph):
 
 def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
                             cpu_cores=4):
-    """ Create busmap between voltage levels based on dijkstra shortest path.
-    The result is written to the `model_draft` on the OpenEnergy - Platform.
-    The relation name is `ego_grid_pf_hv_busmap`.
+    """ Creates a busmap for the EHV-Clustering between voltage levels based
+    on dijkstra shortest path. The result is automatically written to the
+    `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
+    database with the name `ego_grid_pf_hv_busmap` and the attributes scn_name
+    (scenario name), bus0 (node before clustering), bus1 (node after
+    clustering) and path_length (path length).
+    An AssertionError occurs if buses with a voltage level are not covered by
+    the input lists 'fromlvl' or 'tolvl'.
 
     Parameters
     ----------
     network : pypsa.Network object
         Container for all network components.
+
     session : sqlalchemy.orm.session.Session object
-        Establishes conversations with the database.
+        Establishes interactions with the database.
+
     scn_name : str
         Name of the scenario.
+
     fromlvl : list
         List of voltage-levels to cluster.
+
     tolvl : list
         List of voltage-levels to remain.
+
     cpu_cores : int
         Number of CPU-cores.
-
-    Raises
-    ------
-    AssertionError
-        If there are buses with a voltage-level
-        not covered by fromlvl or tolvl.
 
     Returns
     -------
     None
-
-    Notes
-    -----
-
-        Relation `ego_grid_pf_hv_busmap` has the following attributes:
-            * scn_name
-            * bus0
-            * bus1,
-            * path_length.
-
     """
 
     # cpu_cores = mp.cpu_count()
@@ -340,16 +339,18 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
 
 
 def busmap_from_psql(network, session, scn_name):
-    """ Retrieve busmap from OEP-relation `model_draft.ego_grid_pf_hv_busmap`
-    by a given scenario name. If not present the busmap is created with default
-    values to cluster on the EHV-level (110 --> 220, 380 kV)
+    """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
+    <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
+    name. If this busmap does not exist, it is created with default values.
 
     Parameters
     ----------
     network : pypsa.Network object
         Container for all network components.
+
     session : sqlalchemy.orm.session.Session object
-        Establishes conversations with the database.
+        Establishes interactions with the database.
+
     scn_name : str
         Name of the scenario.
 
@@ -386,36 +387,42 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                      line_length_factor=1.25,
                      remove_stubs=False, use_reduced_coordinates=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None):
-    """
-    Implement k-mean clustering in existing network
+    """ Main function of the k-mean clustering approach. Maps an original
+    network to a new one with adjustable number of nodes and new coordinates.
 
     Parameters
     ----------
-
     network : :class:`pypsa.Network
-        Overall container of PyPSA
+        Container for all network components.
+
     n_clusters : int
-        Final number of clusters desired.
+        Desired number of clusters.
+
+    load_cluster : boolean
+        Loads cluster coordinates from a former calculation.
+    
     line_length_factor : float
-        Factor to multiply the crow-flies distance between new buses
-        in order to get new line lengths.
+        Factor to multiply the crow-flies distance between new buses in order
+        to get new line lengths.
+
     remove_stubs: boolean
-        Cluster network by reducing stubs and stubby trees
-        (i.e. sequentially reducing dead-ends).
+        Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
+
     use_reduced_coordinates: boolean
         If True, do not average cluster coordinates, but take from busmap.
+
     bus_weight_tocsv : str
-        to create a bus weighting based on conventional generation and load
-        and save it to a csv file
+        Creates a bus weighting based on conventional generation and load
+        and save it to a csv file.
+
     bus_weight_fromcsv : str
-        to load a bus weighting from a csv file to apply it to the clustering
-        algorithm
+        Loads a bus weighting from a csv file to apply it to the clustering
+        algorithm.
 
     Returns
     -------
     network : pypsa.Network object
         Container for all network components.
-
     """
     def weighting_for_scenario(x, save=None):
         b_i = x.index
