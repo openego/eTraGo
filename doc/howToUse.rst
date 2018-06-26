@@ -33,5 +33,9 @@ find here: :meth:`etrago.appl.etrago`.
 Examples and tutorial notebooks
 ===============================
 
-* OpenMod
-* EUM Fachtagung
+
+
+.. toctree::
+   :maxdepth: 7
+
+   OpenMod  <https://raw.githubusercontent.com/openego/eGo/features/tutorial/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>
