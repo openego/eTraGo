@@ -29,8 +29,9 @@ dictionary called args. The documentation of the program settings can you
 find here: :meth:`etrago.appl.etrago`.
 
 
-Notebook Tutorials
-==================
+.. _Examples:
+Examples and tutorial notebooks
+===============================
 
 * OpenMod
 * EUM Fachtagung
