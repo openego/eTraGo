@@ -78,9 +78,8 @@ def extendable(network, extendable, overlay_scn_name=None):
             network.lines.scn_name == 'extension_' + overlay_scn_name),
             's_nom_extendable'] = True
         network.transformers.loc[(network.transformers.project != 'EnLAG') & (
-            network.transformers.scn_name == ('extension_'
-                                              + overlay_scn_name)),
-                                 's_nom_extendable'] = True
+            network.transformers.scn_name == ('extension_'+ overlay_scn_name)),
+            's_nom_extendable'] = True
         network.links.loc[network.links.scn_name == (
             'extension_' + overlay_scn_name), 'p_nom_extendable'] = True
 
