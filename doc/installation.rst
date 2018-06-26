@@ -2,42 +2,65 @@
 Installation
 ============
 
+We highly recommend you to use a virtual environment and pip for your
+installation.
 
+Step 1) Create a virtualenvironment (where you like it) and activate it:
+
+.. code-block::
+
+   $ virtualenv venv_etrago --clear -p python3.5
+   $ source venv_etrago/bin/activate
+   $ cd venv_etrago
+
+
+Step 2) Use pip in order to install eTraGo
+
+.. code-block::
+
+   $ pip3 install eTraGo --process-dependency-links
+
+
+
+Installation for Developers
+---------------------------
+
+Step 1) see above
+
+Step 2) Clone the source code from github
+
+.. code-block::
+
+   $ git clone https://github.com/openego/eTraGo
+   $ git checkout dev
+
+With your activated environment `cd` to the cloned directory and run:
+
+.. code-block::
+
+   $ pip3 install -e eTraGo/ --process-dependency-links
+
+This will install all needed packages into your environment.
+Now you should be ready to go.
 
 
 On Ubuntu
 =========
 
-
-Run:
-
-    ```
-    git clone https://github.com/openego/eTraGo
-    ```
-
-Create a virtualenvironment (where you like it) and activate it:
-
-   ```
-   virtualenv -p python3 venv
-   source venv/bin/activate
-   ```
-
-With your activated environment `cd` to the cloned directory and run:
-
-    ```
-    pip install -e eTraGo
-    ```
-
-This will install all needed packages into your environment. Now you should be
-ready to go.
+The Package eTraGo is tested with Ubuntu 16.04 and 18.04 in the virtual
+environments of *virtualenv* and *Anaconda*. See full installation is shown
+above.
 
 
 
+Windows or Mac OSX users
+========================
+
+For Windows and/or Mac OSX user we highly recommend to install and use Anaconda
+as your...
 
 
 
-Installation for windows users
-==============================
 
 - install anaconda inclusing python 3 (https://www.anaconda.com/download/)
 
