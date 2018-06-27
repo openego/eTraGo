@@ -30,8 +30,8 @@ setup(
                       'tsam==0.9.9',
                       'shapely'],
     dependency_links=[
-        ("git+https://github.com/openego/PyPSA."
-         "git@75b81175576e7b3472a6fc95c8842dd42d16954c#egg=pypsa-0.11.0fork")],
+        ('git+https://git@github.com/openego/PyPSA.git'
+         '@dev#egg=pypsa-0.11.0fork')],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
