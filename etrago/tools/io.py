@@ -1,4 +1,25 @@
-""" io.py
+# -*- coding: utf-8 -*-
+# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Europa-Universität Flensburg,
+# Centre for Sustainable Energy Systems,
+# DLR-Institute for Networked Energy Systems
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File description
+"""
+io.py
 
 Input/output operations between powerflow schema in the oedb and PyPSA.
 Additionally oedb wrapper classes to instantiate PyPSA network objects.
@@ -14,9 +35,16 @@ temp_ormclass: str
 carr_ormclass: str
     Orm class name of table with carrier id to carrier name datasets
 
+Notes
+-----
+A configuration file connecting the chosen optimization method with
+components to be queried is needed for NetworkScenario class.
 """
 
-__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__copyright__ = ("Flensburg University of Applied Sciences, "
+                 "Europa-Universität Flensburg, "
+                 "Centre for Sustainable Energy Systems, "
+                 "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves"
 
@@ -24,45 +52,65 @@ import pypsa
 from importlib import import_module
 import pandas as pd
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from collections import OrderedDict
 import re
 import json
 import os
+from geoalchemy2.shape import to_shape
 
+#from etrago.tools.nep import add_by_scenario, add_series_by_scenario
+import numpy as np
 
 packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
 carr_ormclass = 'Source'
 
-def loadcfg(path=''):
-    if path == '':
-        dirname = os.path.dirname(__file__)
-        path = os.path.join(dirname, 'config.json')
+
+def load_config_file(filename='config.json'):
+    dirname = os.path.dirname(__file__)
+    path = os.path.join(dirname, filename)
     return json.load(open(path), object_pairs_hook=OrderedDict)
 
 
 class ScenarioBase():
-    """ Base class to hide package/db handling
+    """ Base class to address the dynamic provision of orm classes representing
+    powerflow components from egoio based on a configuration file
+
+
+    Parameters
+    ----------
+
+    config : OrderedDict
+        Dictionary with orm class names that should be accessable via _mapped.
+    session : sqla.orm.session.Session
+        Handles conversations with the database.
+    version : str
+        Version number of data version control in grid schema of the oedb.
+    prefix : str
+        Common prefix of component orm classnames in egoio.
     """
 
-    def __init__(self, session, method, version=None, *args, **kwargs):
+    def __init__(
+        self, session, method='lopf', configpath='config.json', version=None,
+            prefix='EgoGridPfHv'):
 
+        global packagename
         global temp_ormclass
         global carr_ormclass
 
-        schema = 'model_draft' if version is None else 'grid'
+        schema = 'grid' if version else 'model_draft'
 
-        cfgpath = kwargs.get('cfgpath', '')
-        self.config = loadcfg(cfgpath)[method]
-
+        self.config = load_config_file(configpath)[method]
         self.session = session
         self.version = version
-        self._prefix = kwargs.get('prefix', 'EgoGridPfHv')
+        self._prefix = prefix
+        #: module: Providing orm class definitions to oedb
         self._pkg = import_module(packagename + '.' + schema)
+        #: dict: Container for orm classes corresponding to configuration file
         self._mapped = {}
 
-        # map static and timevarying classes
+        # Populate _mapped with orm classes according to config
         for k, v in self.config.items():
             self.map_ormclass(k)
             if isinstance(v, dict):
@@ -76,8 +124,13 @@ class ScenarioBase():
         self.map_ormclass(carr_ormclass)
 
     def map_ormclass(self, name):
+        """ Populate _mapped attribute with orm class
 
-        global packagename
+        Parameters
+        ----------
+        name : str
+            Component part of orm class name. Concatenated with _prefix.
+        """
 
         try:
             self._mapped[name] = getattr(self._pkg, self._prefix + name)
@@ -87,18 +140,37 @@ class ScenarioBase():
 
 
 class NetworkScenario(ScenarioBase):
-    """
+    """ Adapter class between oedb powerflow data and PyPSA. Provides the
+    method build_network to generate a pypsa.Network.
+
+    Parameters
+    ----------
+    scn_name : str
+        Scenario name.
+    method : str
+        Objective function.
+    start_snapshot : int
+        First snapshot or timestep.
+    end_snapshot : int
+        Last timestep.
+    temp_id : int
+        Nummer of temporal resolution.
     """
 
-    def __init__(self, session, *args, **kwargs):
-        super().__init__(session, *args, **kwargs)
+    def __init__(
+        self, session, scn_name='Status Quo', method='lopf',
+            start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
 
-        self.scn_name = kwargs.get('scn_name', 'Status Quo')
-        self.method   = kwargs.get('method', 'lopf')
-        self.start_snapshot  = kwargs.get('start_snapshot', 1)
-        self.end_snapshot    = kwargs.get('end_snapshot', 20)
-        self.temp_id  = kwargs.get('temp_id', 1)
-        self.network  = None
+        self.scn_name = scn_name
+        self.method = method
+        self.start_snapshot = start_snapshot
+        self.end_snapshot = end_snapshot
+        self.temp_id = temp_id
+
+        super().__init__(session, **kwargs)
+
+        # network: pypsa.Network
+        self.network = None
 
         self.configure_timeindex()
 
@@ -111,19 +183,19 @@ class NetworkScenario(ScenarioBase):
         return r
 
     def configure_timeindex(self):
-        """
-        """
+        """ Construct a DateTimeIndex with the queried temporal resolution,
+        start- and end_snapshot. """
 
         try:
 
             ormclass = self._mapped['TempResolution']
             if self.version:
                 tr = self.session.query(ormclass).filter(
-                ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
-                
+                    ormclass.temp_id == self.temp_id).filter(
+                        ormclass.version == self.version).one()
             else:
                 tr = self.session.query(ormclass).filter(
-                ormclass.temp_id == self.temp_id).one()
+                    ormclass.temp_id == self.temp_id).one()
 
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
@@ -133,6 +205,8 @@ class NetworkScenario(ScenarioBase):
                                      freq=tr.resolution)
 
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
+        """ pandas.tseries.index.DateTimeIndex :
+                Index of snapshots or timesteps. """
 
     def id_to_source(self):
 
@@ -143,7 +217,17 @@ class NetworkScenario(ScenarioBase):
         return {k.source_id: k.name for k in query.all()}
 
     def fetch_by_relname(self, name):
-        """
+        """ Construct DataFrame with component data from filtered table data.
+
+        Parameters
+        ----------
+        name : str
+            Component name.
+
+        Returns
+        -------
+        pd.DataFrame
+            Component data.
         """
 
         ormclass = self._mapped[name]
@@ -157,26 +241,43 @@ class NetworkScenario(ScenarioBase):
         if self.version:
             query = query.filter(ormclass.version == self.version)
 
-        # TODO: Better handled in db
+        # TODO: Naming is not consistent. Change in database required.
         if name == 'Transformer':
             name = 'Trafo'
 
         df = pd.read_sql(query.statement,
                          self.session.bind,
                          index_col=name.lower() + '_id')
-
+        if name == 'Link':
+            df['bus0'] = df.bus0.astype(int)
+            df['bus1'] = df.bus1.astype(int)
+        
+            
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
 
         return df
 
     def series_fetch_by_relname(self, name, column):
-        """
+        """ Construct DataFrame with component timeseries data from filtered
+        table data.
+
+        Parameters
+        ----------
+        name : str
+            Component name.
+        column : str
+            Component field with timevarying data.
+
+        Returns
+        -------
+        pd.DataFrame
+            Component data.
         """
 
         ormclass = self._mapped[name]
 
-        # TODO: pls make more robust
+        # TODO: This is implemented in a not very robust way.
         id_column = re.findall(r'[A-Z][^A-Z]*', name)[0] + '_' + 'id'
         id_column = id_column.lower()
 
@@ -208,19 +309,24 @@ class NetworkScenario(ScenarioBase):
 
         return df
 
-    def build_network(self, *args, **kwargs):
-        """
+    def build_network(self, network = None, *args, **kwargs):
+        """  Core method to construct PyPSA Network object.
         """
         # TODO: build_network takes care of divergences in database design and
         # future PyPSA changes from PyPSA's v0.6 on. This concept should be
         # replaced, when the oedb has a revision system in place, because
         # sometime this will break!!!
-
-        network = pypsa.Network()
-        network.set_snapshots(self.timeindex)
+        
+        if network != None :
+            network = network 
+            
+        else:
+            network = pypsa.Network()
+            network.set_snapshots(self.timeindex)
 
         timevarying_override = False
-       
+
+
         if pypsa.__version__ == '0.11.0':
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
@@ -268,8 +374,8 @@ class NetworkScenario(ScenarioBase):
 
                         df_series = self.series_fetch_by_relname(comp_t, col)
 
-                        # TODO: VMagPuSet?
-                        if timevarying_override and comp == 'Generator':
+                        # TODO: VMagPuSet is not implemented.
+                        if timevarying_override and comp == 'Generator' and not df_series.empty:
                             idx = df[df.former_dispatch == 'flexible'].index
                             idx = [i for i in idx if i in df_series.columns]
                             df_series.drop(idx, axis=1, inplace=True)
@@ -534,6 +640,181 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
     
     return
     
+
+
+
+def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_mean_clustering, **kwargs):
+    '''
+        Function that adds an additional network to the existing network container. 
+        The new network can include every PyPSA-component (e.g. buses, lines, links). 
+        To connect it to the existing network, transformers are needed. 
+        
+        All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+        The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
+        
+        Until now, the tables include three additional scenarios:
+            'nep2035_confirmed':    all new lines and needed transformers planed in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the Bundesnetzagentur (BNetzA)
+           
+            'nep2035_b2':           all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
+            
+            'BE_NO_NEP 2035':       DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway 
+                                    Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
+
+    
+        Input
+        -----
+          network : The existing network container (e.g. scenario 'NEP 2035')
+          session : session-data
+          overlay_scn_name : Name of the additional scenario (WITHOUT 'extension_')
+          start_snapshot, end_snapshot: Simulation time 
+          
+        Output
+        ------
+          network : Network container including existing and additional network
+          
+    '''
+    ### Adding overlay-network to existing network                    
+    scenario = NetworkScenario(session,
+                               version=None,
+                               prefix='EgoGridPfHvExtension',
+                               method=kwargs.get('method', 'lopf'),
+                               start_snapshot=start_snapshot,
+                               end_snapshot=end_snapshot,
+                               scn_name='extension_' + scn_extension )
+
+    network = scenario.build_network(network)
+    
+    ### Allow lossless links to conduct bidirectional 
+    network.links.loc[network.links.efficiency == 1.0, 'p_min_pu'] = -1
+    
+    ### Set coordinates for new buses   
+    extension_buses = network.buses[network.buses.scn_name =='extension_' + scn_extension ]
+    for idx, row in extension_buses.iterrows():
+            wkt_geom = to_shape(row['geom'])
+            network.buses.loc[idx, 'x'] = wkt_geom.x
+            network.buses.loc[idx, 'y'] = wkt_geom.y
+        
+    network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
+
+   ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
+    if not k_mean_clustering == False:
+            network.transformers.loc[~network.transformers.bus0.isin(network.buses.index), 'bus0'] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
+            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_max'] = network.lines.s_nom_max - network.lines.s_nom_min
+            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom'] = network.lines.s_nom_max
+            network.lines.loc[network.lines.scn_name == ('extension_' +  scn_extension), 's_nom_min'] = 0
+            
+    return network
+
+def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
+    '''
+        Function that removes components in a decommissioning-scenario from the existing network container. 
+        Currently, only lines can be decommissioned.
+        In future release, every PyPSA-component (e.g. buses, lines, links) can be decommissioned. 
+        
+        All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+        The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
+        
+    
+        Input
+        -----
+          network : The existing network container (e.g. scenario 'NEP 2035')
+          session : session-data
+          overlay_scn_name : Name of the decommissioning scenario (WITHOUT 'decommissioning_')
+          
+          
+        Output
+        ------
+          network : Network container including decommissioning
+          
+    '''  
+    if not k_mean_clustering:
+        
+        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+    
+        query = session.query(ormclass).filter(
+                        ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
+    
+        df_decommisionning = pd.read_sql(query.statement,
+                         session.bind,
+                         index_col='line_id')
+        df_decommisionning.index = df_decommisionning.index.astype(str)
+    
+    ### Drop lines from existing network, if they will be decommisioned      
+        network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+
+    return network
+
+       
+
+def distance (x0, x1, y0, y1):
+    '''
+        Function that calculates the square of the distance between two points. 
+        
+    
+        Input
+        -----
+          x0:  x - coordinate of point 0
+          x1:  x - coordinate of point 1
+          y0:  y - coordinate of point 0
+          y1:  y - coordinate of point 1
+          
+          
+        Output
+        ------
+          distance : square of distance
+          
+    '''    
+    ### Calculate square of the distance between two points (Pythagoras)
+    distance = (x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+    return distance
+
+def calc_nearest_point(bus1, network):
+    '''
+        Function that finds the geographical nearest point in a network from a given bus. 
+        
+    
+        Input
+        -----
+          bus1:  id of bus 
+          network: network container including the comparable buses
+          
+          
+        Output
+        ------
+          bus0 : bus_id of nearest point
+          
+    ''' 
+
+    bus1_index = network.buses.index[network.buses.index == bus1]
+    
+    forbidden_buses = np.append(bus1_index.values, network.lines.bus1[network.lines.bus0 == bus1].values)
+      
+    forbidden_buses = np.append(forbidden_buses, network.lines.bus0[network.lines.bus1 == bus1].values)
+    
+    forbidden_buses = np.append(forbidden_buses, network.links.bus0[network.links.bus1 == bus1].values)
+    
+    forbidden_buses = np.append(forbidden_buses, network.links.bus1[network.links.bus0 == bus1].values)
+   
+    x0 = network.buses.x[network.buses.index.isin(bus1_index)]
+    
+    y0 = network.buses.y[network.buses.index.isin(bus1_index)]
+    
+    comparable_buses = network.buses[~network.buses.index.isin(forbidden_buses)]
+
+    x1 = comparable_buses.x
+
+    y1 = comparable_buses.y
+    
+    distance = (x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+    
+    min_distance = distance.min()
+        
+    bus0 = comparable_buses[(((x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)) == min_distance)  ]
+    bus0 = bus0.index[bus0.index == bus0.index.max()]
+    bus0 = ''.join(bus0.values)
+
+    return bus0
+
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.11.0']:
         print('Pypsa version %s not supported.' % pypsa.__version__)
