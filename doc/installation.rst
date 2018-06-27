@@ -1,13 +1,15 @@
 ============
 Installation
 ============
+If you have a working Python3 environment, use pypi to install the latest 
+eTraGo version. We highly recommend you to use a virtual environment. 
+Use following pip command in order to install eTraGo:
 
-We highly recommend you to use a virtual environment and pip for your
-installation. Use pip in order to install eTraGo with following command:
-
-.. code-block::
+.. code-block:: bash
 
   $ pip3 install eTraGo --process-dependency-links
+
+
 
 
 Using virtual environment
@@ -26,9 +28,8 @@ Inside your virtual environment you can install eTraGo with the pip command.
 Linux and Ubuntu
 ================
 
-The Package eTraGo is tested with Ubuntu 16.04 and 18.04 in the virtual
-environments of *virtualenv*. See full installation is shown
-above.
+The Package eTraGo is tested with Ubuntu 16.04 and 18.04 inside the virtual
+environments of *virtualenv*. The installation is shown above.
 
 
 
