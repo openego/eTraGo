@@ -55,46 +55,63 @@ Clustering approaches
 EHV-Clustering
 ^^^^^^^^^^^^^^
 
-This method maps an input network to an output network with the nodes of
-the extra-high voltage level. All nodes with a voltage level below the
-extra-high voltage level are mapped to their nearest neighboring node in
-the extra-high voltage level with the
+This method maps an input network to an output network with the nodes of the
+extra-high voltage level. All nodes with a voltage level below the extra-high
+voltage level are mapped to their nearest neighboring node in the extra-high
+voltage level with the
 `dijkstra algorithm <https://en.wikipedia.org/wiki/Dijkstra's_algorithm>`
 (110 kV ---> 220,380 kV).
 
 K-Means Clustering
 ^^^^^^^^^^^^^^^^^^
 
-This `method<https://en.wikipedia.org/wiki/K-means_clustering>` maps an
-input network to a new output network with an adjustable number of nodes
-and new coordinates. The algorithm sets these coordinates randomly and
-minimizes a certain parameter like for example the distances between old
-coordinates and their nearest neighbor in the set of new coordinates.
-The method was implemented by 
-`Hoersch et al. <https://arxiv.org/pdf/1705.07617.pdf>` within PyPSA.
+This `method<https://en.wikipedia.org/wiki/K-means_clustering>` maps an input
+network to a new output network with an adjustable number of nodes and new
+coordinates. The algorithm sets these coordinates randomly and minimizes a
+certain parameter like for example the distances between old coordinates and
+their nearest neighbor in the set of new coordinates. The method was
+implemented by `Hoersch et al. <https://arxiv.org/pdf/1705.07617.pdf>` within
+PyPSA.
 
 Snapshot skipping
 ^^^^^^^^^^^^^^^^^
-tbd
+This method simplifies the simulation temporally by considering every n-th
+snapshot of a given time series. The regarded snapshots are weighted by the
+number of neglected snapshots to ensure a comparable calculation of costs.
+This method assumes the chosen snapshots to be represenative for the next n-th
+snapshots in the time series.
 
 Snapshot-Clustering
 ^^^^^^^^^^^^^^^^^^^
-tbd
+This method aggregate given time series for various time intervals like i.e.
+days using the `tsam <https://pypi.org/project/tsam>` package. Contrary to
+snapshot skipping, this approach averages a certain period of snapshots
+instead of choosing a representative snapshot.
 
 
 Storage expansion
 -----------------
-tbd (Redmine method)
+To evaluate the amount of storage units in future energy systems, the possible
+installation of new storage units at every node in the network is allowed. The
+size and operation of these storages are part of the optimization problem. 
+
+Two types of storage technologies are considered - batteries and hydrogen in
+underground caverns. Li-Ion battery storages as representatives for short-term
+(several hours) technologies, which can be installed at every node.
+Underground hydrogen storages represent long-term or seasonal (weeks)
+technologies and can be build at every node with appropriate salt formations
+in the underground. The storage parameters for both types are reached by
+[Acatech2015]_, the information about salt formations are given by [BGR]_.
 
 
 Grid expansion
 --------------
-tbd
+tbd line_grouping? branch_capacity factor?
 
 
 Features
 --------
-tbd (Load shedding and further opportunities)
+tbd (solver options, generator_noise, load_cluster, line_grouping, branch_capacity factor, load shedding)
 
 
 
@@ -125,4 +142,8 @@ References
 .. [christ2017] Christ, M. (2017).:
      Integration sozial-ökologischer Faktoren in die Energiesystemmodellierung am Beispiel von Entwicklungspfaden für den Windenergieausbau in Deutschland (PhD Thesis). Europa-Universität Flensburg.
 
-.. [BMWi]  text ...
+.. [BMWi]  tbd
+
+.. [Acatech2015] tbd
+
+.. [BGR] tbd
