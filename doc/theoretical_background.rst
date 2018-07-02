@@ -33,6 +33,16 @@ follows assumptions for the year 2035 by [NEP2015]_ and eGo100 assumes to
 operate the future energy system completely by renewables [ehighway2050]_.
 
 
+Model overview
+--------------
+
+
+
+.. figure:: images/eTraGo_model.png
+   :align: center
+   :scale: 80%
+
+
 
 Methodology
 ===========
