@@ -57,11 +57,11 @@ args = {# Setup and Configuration:
         'gridversion': None, # None for model_draft or Version number 
                                      #(e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
-        'pf_post_lopf': False, # True to perform a pf after a lopf simulation
+        'pf_post_lopf': True, # True to perform a pf after a lopf simulation
         'start_snapshot': 1,
         'end_snapshot' : 2,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'Status Quo', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, #'nep2035_b2', # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
@@ -71,7 +71,7 @@ args = {# Setup and Configuration:
         'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':None, #['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':None, #['network'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -80,7 +80,7 @@ args = {# Setup and Configuration:
         'remarkable_snapshots':False,
         'line_extendableBM': False,
         # Clustering:
-        'network_clustering_kmeans':50, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':False, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':False, # False or the number of 'periods' you want to cluster to. Move to PyPSA branch:features/snapshot_clustering
         # Simplifications:
@@ -88,7 +88,7 @@ args = {# Setup and Configuration:
         'skip_snapshots':False,
         'line_grouping': False, # state if you want to group lines running between the same buses.
         'branch_capacity_factor': 0.2, # globally extend or lower branch capacities
-        'load_shedding':False, # meet the demand at very high cost; for debugging purposes.
+        'load_shedding':True, # meet the demand at very high cost; for debugging purposes.
         'comments':None }
 
 
@@ -387,8 +387,8 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-       # network.lopf(network.snapshots, solver_name=args['solver'], 
-         #            extra_functionality=extra_functionality)
+        network.lopf(network.snapshots, solver_name=args['solver'], 
+                     extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60 
         print("Time for LOPF [min]:",round(z,2))# z is time for lopf in minutes
