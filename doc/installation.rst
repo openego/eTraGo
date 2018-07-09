@@ -64,7 +64,8 @@ the _OpenEnergy-Database_  (oedb)and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_ a SQL-Alchemy binding
 Python package for the REST-API used by the OpenEnergy Platform (OEP). Your API
 access / login data will be saved in the folder ``.egoio`` in the file
-``config.ini``.
+``config.ini``. You can create a new account on
+`openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
 
 
 oedialect connection
@@ -79,6 +80,7 @@ oedialect connection
   host     = openenergy-platform.org
   port     = 80
   password = <token>
+
 
 Local database connection
 -------------------------
