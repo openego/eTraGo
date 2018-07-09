@@ -48,12 +48,14 @@ prompt as administrator and run:
   $ conda install pip
   $ conda config --add channels conda-forge
   $ conda install shapely
+  $ pip3 install eTraGo --process-dependency-links
 
 The full Documentation can be found
-`on this page.<https://docs.anaconda.com/anaconda/install/>`_. We use Anaconda
+`on this page <https://docs.anaconda.com/anaconda/install/>`_ . We use Anaconda
 with an own environment in order to reduze problems with Packages and different
-versions on our system. Learn more about  (`Anacona environments
- <https://conda.io/docs/user-guide/tasks/manage-environments.html>`_).
+versions on our system. Learn more about
+`Anacona <https://conda.io/docs/user-guide/tasks/manage-environments.html>`_
+environments.
 
 
 
