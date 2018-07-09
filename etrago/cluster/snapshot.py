@@ -31,6 +31,7 @@ Remaining questions/tasks:
 """
 
 import pandas as pd
+import os
 if 'READTHEDOCS' not in os.environ:
     import pyomo.environ as po
     import tsam.timeseriesaggregation as tsam
