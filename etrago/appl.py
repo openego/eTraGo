@@ -76,12 +76,12 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.3.2',  # None for model_draft or Version number
+    'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
-    'solver': 'cplex',  # glpk, cplex or gurobi
+    'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
@@ -94,7 +94,7 @@ args = {  # Setup and Configuration:
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': None,  # None or array of components to optimize
-    'generator_noise': False,  # apply generator noise, False or seed number
+    'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': False,  # False or the value k for clustering
