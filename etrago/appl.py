@@ -76,7 +76,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.3.2',  # None for model_draft or Version number
+    'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -93,12 +93,11 @@ args = {  # Setup and Configuration:
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storages'],  # None or array of components to optimize
-    'generator_noise': True,  # small generator noise
-    'reproduce_noise': False,  # predefined set of random noise
+    'extendable': None,  # None or array of components to optimize
+    'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 20,  # False or the value k for clustering
+    'network_clustering_kmeans': False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -219,16 +218,10 @@ def etrago(args):
                         the flexibility demand.
 
 
-    generator_noise : bool
-        True,
-        Choose if you want to apply a small random noise to the marginal
-        costs of each generator in order to prevent an optima plateau.
-
-    reproduce_noise : bool or obj
-        False,
-        State if you want to use a predefined set of random noise for
-        the given scenario. If so, provide path to the csv file,
-        e.g. ``'noise_values.csv'``.
+    generator_noise : bool or int
+        State if you want to apply a small random noise to the marginal costs
+        of each generator in order to prevent an optima plateau. To reproduce
+        a noise, choose the same integer (seed number).
 
     minimize_loading : bool
         False,
@@ -327,20 +320,11 @@ def etrago(args):
     # set extra_functionality to default
     extra_functionality = None
 
-    if args['generator_noise']:
-        # create or reproduce generator noise
-        if not args['reproduce_noise'] is False:
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
-            # add random noise to all generator
-            network.generators.marginal_cost = noise_values
-        else:
-            noise_values = network.generators.marginal_cost + \
-                abs(np.random.normal(0, 0.001,
-                                     len(network.generators.marginal_cost)))
-            np.savetxt("noise_values.csv", noise_values, delimiter=",")
-            noise_values = genfromtxt('noise_values.csv', delimiter=',')
-            # add random noise to all generator
-            network.generators.marginal_cost = noise_values
+    if args['generator_noise'] is not False:
+        # add random noise to all generators
+        s = np.random.RandomState(args['generator_noise'])
+        network.generators.marginal_cost += \
+            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
 
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
@@ -482,7 +466,7 @@ def etrago(args):
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
-        safe_results = False  # default is False. 
+        safe_results = False  # default is False.
         # If it is set to 'True' the result set will be safed
         # to the versioned grid schema eventually apart from
         # being saved to the model_draft.
