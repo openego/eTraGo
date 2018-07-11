@@ -75,30 +75,30 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'marlon',  # database session
     'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
+    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
     'scn_decommissioning': None,  # None or decommissioning scenario
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,  # save results as csv: False or /path/tofolder
+    'results': '/home/student/Marlon/network_newkmeans',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': None,  # None or array of components to optimize
-    'generator_noise': 789456,  # apply generator noise, False or seed number
+    'generator_noise': True,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': False,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
