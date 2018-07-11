@@ -1,6 +1,4 @@
-
-# use pip install -r requirements.txt to setup your virtualenv 
-
+# use pip install -r requirements.txt to setup your virtualenv
 
 # PyPSA fork on featurs/clustering branch
 -e git+https://github.com/openego/PyPSA.git@features/snapshot_clustering#egg=PyPSA

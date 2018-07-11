@@ -1,4 +1,25 @@
-﻿""" io.py
+# -*- coding: utf-8 -*-
+# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Europa-Universität Flensburg,
+# Centre for Sustainable Energy Systems,
+# DLR-Institute for Networked Energy Systems
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+# File description
+"""
+io.py
 
 Input/output operations between powerflow schema in the oedb and PyPSA.
 Additionally oedb wrapper classes to instantiate PyPSA network objects.
@@ -14,9 +35,16 @@ temp_ormclass: str
 carr_ormclass: str
     Orm class name of table with carrier id to carrier name datasets
 
+Notes
+-----
+A configuration file connecting the chosen optimization method with
+components to be queried is needed for NetworkScenario class.
 """
 
-__copyright__ = "Flensburg University of Applied Sciences, Europa-Universität Flensburg, Centre for Sustainable Energy Systems, DLR-Institute for Networked Energy Systems"
+__copyright__ = ("Flensburg University of Applied Sciences, "
+                 "Europa-Universität Flensburg, "
+                 "Centre for Sustainable Energy Systems, "
+                 "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves"
 
@@ -38,34 +66,51 @@ packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
 carr_ormclass = 'Source'
 
-def loadcfg(path=''):
-    if path == '':
-        dirname = os.path.dirname(__file__)
-        path = os.path.join(dirname, 'config.json')
+
+def load_config_file(filename='config.json'):
+    dirname = os.path.dirname(__file__)
+    path = os.path.join(dirname, filename)
     return json.load(open(path), object_pairs_hook=OrderedDict)
 
 
 class ScenarioBase():
-    """ Base class to hide package/db handling
+    """ Base class to address the dynamic provision of orm classes representing
+    powerflow components from egoio based on a configuration file
+
+
+    Parameters
+    ----------
+
+    config : OrderedDict
+        Dictionary with orm class names that should be accessable via _mapped.
+    session : sqla.orm.session.Session
+        Handles conversations with the database.
+    version : str
+        Version number of data version control in grid schema of the oedb.
+    prefix : str
+        Common prefix of component orm classnames in egoio.
     """
 
-    def __init__(self, session, method, version=None, *args, **kwargs):
+    def __init__(
+        self, session, method='lopf', configpath='config.json', version=None,
+            prefix='EgoGridPfHv'):
 
+        global packagename
         global temp_ormclass
         global carr_ormclass
 
-        schema = 'model_draft' if version is None else 'grid'
+        schema = 'grid' if version else 'model_draft'
 
-        cfgpath = kwargs.get('cfgpath', '')
-        self.config = loadcfg(cfgpath)[method]
+        self.config = load_config_file(configpath)[method]
         self.session = session
         self.version = version
-        self._prefix = kwargs.get('prefix', 'EgoGridPfHv')
+        self._prefix = prefix
+        #: module: Providing orm class definitions to oedb
         self._pkg = import_module(packagename + '.' + schema)
+        #: dict: Container for orm classes corresponding to configuration file
         self._mapped = {}
-       
 
-        # map static and timevarying classes
+        # Populate _mapped with orm classes according to config
         for k, v in self.config.items():
             self.map_ormclass(k)
             if isinstance(v, dict):
@@ -79,8 +124,13 @@ class ScenarioBase():
         self.map_ormclass(carr_ormclass)
 
     def map_ormclass(self, name):
+        """ Populate _mapped attribute with orm class
 
-        global packagename
+        Parameters
+        ----------
+        name : str
+            Component part of orm class name. Concatenated with _prefix.
+        """
 
         try:
             self._mapped[name] = getattr(self._pkg, self._prefix + name)
@@ -90,18 +140,38 @@ class ScenarioBase():
 
 
 class NetworkScenario(ScenarioBase):
-    """
+    """ Adapter class between oedb powerflow data and PyPSA. Provides the
+    method build_network to generate a pypsa.Network.
+
+    Parameters
+    ----------
+    scn_name : str
+        Scenario name.
+    method : str
+        Objective function.
+    start_snapshot : int
+        First snapshot or timestep.
+    end_snapshot : int
+        Last timestep.
+    temp_id : int
+        Nummer of temporal resolution.
     """
 
-    def __init__(self, session, *args, **kwargs):
-        super().__init__(session, *args, **kwargs)
+    def __init__(
+        self, session, scn_name='Status Quo', method='lopf',
+            start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
 
-        self.scn_name = kwargs.get('scn_name', 'Status Quo')
-        self.method   = kwargs.get('method', 'lopf')
-        self.start_snapshot  = kwargs.get('start_snapshot', 1)
-        self.end_snapshot    = kwargs.get('end_snapshot', 20)
-        self.temp_id  = kwargs.get('temp_id', 1)
-        self.network  = None
+        self.scn_name = scn_name
+        self.method = method
+        self.start_snapshot = start_snapshot
+        self.end_snapshot = end_snapshot
+        self.temp_id = temp_id
+
+        super().__init__(session, **kwargs)
+
+        # network: pypsa.Network
+        self.network = None
+
         self.configure_timeindex()
 
     def __repr__(self):
@@ -113,32 +183,30 @@ class NetworkScenario(ScenarioBase):
         return r
 
     def configure_timeindex(self):
-        """
-        """
-        global timeindex
-        global tr
-        
+        """ Construct a DateTimeIndex with the queried temporal resolution,
+        start- and end_snapshot. """
+
         try:
 
             ormclass = self._mapped['TempResolution']
             if self.version:
                 tr = self.session.query(ormclass).filter(
-                ormclass.temp_id == self.temp_id).filter(ormclass.version == self.version).one()
-                
+                    ormclass.temp_id == self.temp_id).filter(
+                        ormclass.version == self.version).one()
             else:
                 tr = self.session.query(ormclass).filter(
-                ormclass.temp_id == self.temp_id).one()
-            
-       
+                    ormclass.temp_id == self.temp_id).one()
+
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
-       
-            
+
         timeindex = pd.DatetimeIndex(start=tr.start_time,
                                      periods=tr.timesteps,
                                      freq=tr.resolution)
-        
+
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
+        """ pandas.tseries.index.DateTimeIndex :
+                Index of snapshots or timesteps. """
 
     def id_to_source(self):
 
@@ -149,11 +217,20 @@ class NetworkScenario(ScenarioBase):
         return {k.source_id: k.name for k in query.all()}
 
     def fetch_by_relname(self, name):
-        """
+        """ Construct DataFrame with component data from filtered table data.
+
+        Parameters
+        ----------
+        name : str
+            Component name.
+
+        Returns
+        -------
+        pd.DataFrame
+            Component data.
         """
 
         ormclass = self._mapped[name]
-
         query = self.session.query(ormclass)
 
         if name != carr_ormclass:
@@ -164,7 +241,7 @@ class NetworkScenario(ScenarioBase):
         if self.version:
             query = query.filter(ormclass.version == self.version)
 
-        # TODO: Better handled in db
+        # TODO: Naming is not consistent. Change in database required.
         if name == 'Transformer':
             name = 'Trafo'
 
@@ -178,23 +255,29 @@ class NetworkScenario(ScenarioBase):
             
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
-        
-        
 
-            #print(df)
         return df
 
-    
-
-
     def series_fetch_by_relname(self, name, column):
+        """ Construct DataFrame with component timeseries data from filtered
+        table data.
 
-        """
+        Parameters
+        ----------
+        name : str
+            Component name.
+        column : str
+            Component field with timevarying data.
+
+        Returns
+        -------
+        pd.DataFrame
+            Component data.
         """
 
         ormclass = self._mapped[name]
 
-        # TODO: pls make more robust
+        # TODO: This is implemented in a not very robust way.
         id_column = re.findall(r'[A-Z][^A-Z]*', name)[0] + '_' + 'id'
         id_column = id_column.lower()
 
@@ -212,28 +295,22 @@ class NetworkScenario(ScenarioBase):
                                 self.session.bind,
                                 columns=[column],
                                 index_col=id_column)
-        
-           
+
         df.index = df.index.astype(str)
-       
-           
+
         # change of format to fit pypsa
         df = df[column].apply(pd.Series).transpose()
-       
-        
-           
+
         try:
             assert not df.empty
             df.index = self.timeindex
         except AssertionError:
             print("No data for %s in column %s." % (name, column))
-        
-       
-            
+
         return df
 
     def build_network(self, network = None, *args, **kwargs):
-        """
+        """  Core method to construct PyPSA Network object.
         """
         # TODO: build_network takes care of divergences in database design and
         # future PyPSA changes from PyPSA's v0.6 on. This concept should be
@@ -251,9 +328,6 @@ class NetworkScenario(ScenarioBase):
 
 
         if pypsa.__version__ == '0.11.0':
-
-
-
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
@@ -283,15 +357,12 @@ class NetworkScenario(ScenarioBase):
             # TODO: This is confusing, should be fixed in db
             pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
 
-
             df = self.fetch_by_relname(comp)
 
             if comp in old_to_new_name:
 
                 tmp = old_to_new_name[comp]
                 df.rename(columns=tmp, inplace=True)
-                
-               
 
             network.import_components_from_dataframe(df, pypsa_comp_name)
 
@@ -302,9 +373,8 @@ class NetworkScenario(ScenarioBase):
                     for col in columns:
 
                         df_series = self.series_fetch_by_relname(comp_t, col)
-                        
 
-                        # TODO: VMagPuSet?
+                        # TODO: VMagPuSet is not implemented.
                         if timevarying_override and comp == 'Generator' and not df_series.empty:
                             idx = df[df.former_dispatch == 'flexible'].index
                             idx = [i for i in idx if i in df_series.columns]
@@ -330,7 +400,6 @@ class NetworkScenario(ScenarioBase):
 
         return network
     
-
 def clear_results_db(session):
     '''Used to clear the result tables in the OEDB. Caution!
         This deletes EVERY RESULT SET!'''
@@ -378,7 +447,6 @@ def clear_results_db(session):
     else:
             print('Deleting aborted!')
     
-
 
 def results_to_oedb(session, network, args, grid='hv', safe_results = False):
     """Return results obtained from PyPSA to oedb"""

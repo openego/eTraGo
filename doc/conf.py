@@ -57,7 +57,8 @@ extensions = [
     'sphinx.ext.napoleon', #enable Napoleon Sphinx v>1.3
 #    'sphinx_paramlinks',#to have links to the types of the parameters of the functions
      'numpydoc',
-     'sphinx.ext.extlinks' # enables external links with a key
+     'sphinx.ext.extlinks', # enables external links with a key
+     'nbsphinx' # incluede notebooks 
 ]
 
 # Napoleon settings
