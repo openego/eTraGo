@@ -167,7 +167,7 @@ def etrago(args):
        Currently there are two overlay networks:
            'nep2035_confirmed' includes all planed new lines confirmed by the
            Bundesnetzagentur
-           'nep2035_b2' includes alles new lines planned by the
+           'nep2035_b2' includes all new lines planned by the
            Netzentwicklungsplan 2025 in scenario 2035 B2
 
     scn_decommissioning : str
