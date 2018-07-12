@@ -333,6 +333,15 @@ def etrago(args):
         of the arguments to the specified function.
         The functions are then executed in the order specified, with arguments
         supplied as above.
+        To give an example, the entry
+
+            `('f', {'locals': ['x', 'y'], 'dynamic': {'k': 'v'}})`
+
+        results in the call
+
+            `f(x=x, y=y, k=args['v'])`
+
+        later.
 
     comments : str
         None
