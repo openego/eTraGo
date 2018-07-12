@@ -97,7 +97,7 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': False,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -335,7 +335,71 @@ def etrago(args):
     if args['line_grouping']:
         group_parallel_lines(network)
 
-    # network clustering
+    # Branch loading minimization
+    if args['minimize_loading']:
+        extra_functionality = loading_minimization
+    
+    # scenario extensions 
+    if args['scn_extension'] is not None:
+        network = extension(
+            network,
+            session,
+            scn_extension=args['scn_extension'],
+            start_snapshot=args['start_snapshot'],
+            end_snapshot=args['end_snapshot'],
+            k_mean_clustering=args['network_clustering_kmeans'])
+            
+    # scenario decommissioning
+    if args['scn_decommissioning'] is not None:
+        network = decommissioning(
+            network,
+            session,
+            scn_decommissioning=args['scn_decommissioning'],
+            k_mean_clustering=args['network_clustering_kmeans'])
+            
+    # specific scenario extension to add Belgium and Norwa
+    if args['add_Belgium_Norway']:
+        network = extension(
+            network,
+            session,
+            scn_extension='BE_NO_NEP 2035',
+            start_snapshot=args['start_snapshot'],
+            end_snapshot=args['end_snapshot'],
+            k_mean_clustering=args['network_clustering_kmeans'])
+            
+    # investive optimization strategies 
+    if args['extendable'] is not None:
+        network = extendable(
+            network,
+            args['extendable'],
+            args['scn_extension'])
+        network = convert_capital_costs(
+            network, args['start_snapshot'], args['end_snapshot'])
+    
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
+            
+    # snapshot clustering
+    if not args['snapshot_clustering'] is False:
+        network = snapshot_clustering(
+            network, how='daily', clusters=args['snapshot_clustering'])
+        extra_functionality = daily_bounds  # daily_bounds or other constraint
+        
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        network.lines.s_nom = network.lines.s_nom * \
+            args['branch_capacity_factor']
+        network.transformers.s_nom = network.transformers.s_nom * \
+            args['branch_capacity_factor']
+
+    # load shedding in order to hunt infeasibilities
+    if args['load_shedding']:
+        load_shedding(network)
+
+    # ehv network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
@@ -353,64 +417,6 @@ def etrago(args):
             use_reduced_coordinates=False,
             bus_weight_tocsv=None,
             bus_weight_fromcsv=None)
-
-    # Branch loading minimization
-    if args['minimize_loading']:
-        extra_functionality = loading_minimization
-
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
-
-    if args['scn_extension'] is not None:
-        network = extension(
-            network,
-            session,
-            scn_extension=args['scn_extension'],
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
-            k_mean_clustering=args['network_clustering_kmeans'])
-
-    if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            scn_decommissioning=args['scn_decommissioning'],
-            k_mean_clustering=args['network_clustering_kmeans'])
-
-    if args['add_Belgium_Norway']:
-        network = extension(
-            network,
-            session,
-            scn_extension='BE_NO_NEP 2035',
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
-            k_mean_clustering=args['network_clustering_kmeans'])
-
-    if args['extendable'] is not None:
-        network = extendable(
-            network,
-            args['extendable'],
-            args['scn_extension'])
-        network = convert_capital_costs(
-            network, args['start_snapshot'], args['end_snapshot'])
-
-    if args['branch_capacity_factor']:
-        network.lines.s_nom = network.lines.s_nom * \
-            args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom * \
-            args['branch_capacity_factor']
-
-    # load shedding in order to hunt infeasibilities
-    if args['load_shedding']:
-        load_shedding(network)
-
-    # snapshot clustering
-    if not args['snapshot_clustering'] is False:
-        network = snapshot_clustering(
-            network, how='daily', clusters=args['snapshot_clustering'])
-        extra_functionality = daily_bounds  # daily_bounds or other constraint
 
     # parallisation
     if args['parallelisation']:
