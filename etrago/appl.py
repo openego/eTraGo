@@ -114,7 +114,28 @@ args = {  # Setup and Configuration:
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False,  # meet the demand at very high cost
+    'ordered': [
+        ('do_kmeans', {
+            'locals': ['network'],
+            'dynamic': {
+                'n_clusters': 'network_clustering_kmeans',
+                'load_cluster': 'load_cluster'}})],
     'comments': None}
+
+
+def do_kmeans(**kwargs):
+    if bool(kwargs['n_clusters']):
+        clustering = kmean_clustering(
+                line_length_factor= 1,
+                remove_stubs=False,
+                use_reduced_coordinates=False,
+                bus_weight_tocsv=None,
+                bus_weight_fromcsv=None,
+                **kwargs)
+        return {'original_network': kwargs['network'].copy,
+                'network': clustering.network.copy(),
+                'clustering': clustering}
+    return {}
 
 
 def etrago(args):
@@ -410,18 +431,15 @@ def etrago(args):
             network, how='daily', clusters=args['snapshot_clustering'])
         extra_functionality = daily_bounds  # daily_bounds or other constraint
 
-    # k-mean clustering
-    if not args['network_clustering_kmeans'] == False:
-        clustering = kmean_clustering(network,
-                n_clusters=args['network_clustering_kmeans'],
-                load_cluster=args['load_cluster'],
-                line_length_factor= 1,
-                remove_stubs=False,
-                use_reduced_coordinates=False,
-                bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
-        original_network = network.copy()
-        network = clustering.network.copy()
+    variables = locals()
+    for function, arguments in args['ordered']:
+        variables.update(
+                globals()[function](
+                    **{ argument: args[arguments['dynamic'][argument]]
+                        for argument in arguments['dynamic']},
+                    **{ variable: variables[variable]
+                        for variable in arguments['locals']}))
+    del variables
 
     # parallisation
     if args['parallelisation']:
