@@ -147,7 +147,6 @@ def do_kmeans(**kwargs):
 
 def extend(**kwargs):
     if kwargs['scn_extension'] is not None:
-        print('Extending')
         network = extension(**kwargs)
         return {'network': network}
     return {}
@@ -318,6 +317,22 @@ def etrago(args):
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
         generators cannot do so.
+
+    ordered: list of pairs
+        Each pair in the list should have the name of a function as the first
+        component and a nested dictionary specifying the functions arguments as
+        the second. This dictionary should contain two entries, one under the
+        `'locals'` key und one under `'dynamic'`. The first one is a list.
+        This is list of names which serve as both, the names of the local
+        variables passed as arguments to the specified function as well as
+        argument names.
+        The `'dynamic'` dictionary is used in a bit of a more complicated way.
+        The keys in this dictionary are used as argument names, i.e. as the
+        keys as the keyword arguments. The values of the dictionary are used as
+        keys by which values are pulled out of `args` to be used as the values
+        of the arguments to the specified function.
+        The functions are then executed in the order specified, with arguments
+        supplied as above.
 
     comments : str
         None
