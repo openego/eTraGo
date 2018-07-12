@@ -115,6 +115,13 @@ args = {  # Setup and Configuration:
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False,  # meet the demand at very high cost
     'ordered': [
+        ('extend', {
+            'locals': ['network', 'session'],
+            'dynamic': {
+                'scn_extension': 'scn_extension',
+                'start_snapshot': 'start_snapshot',
+                'end_snapshot': 'end_snapshot',
+                'k_mean_clustering': 'network_clustering_kmeans'}}),
         ('do_kmeans', {
             'locals': ['network'],
             'dynamic': {
@@ -135,6 +142,14 @@ def do_kmeans(**kwargs):
         return {'original_network': kwargs['network'].copy,
                 'network': clustering.network.copy(),
                 'clustering': clustering}
+    return {}
+
+
+def extend(**kwargs):
+    if kwargs['scn_extension'] is not None:
+        print('Extending')
+        network = extension(**kwargs)
+        return {'network': network}
     return {}
 
 
@@ -381,15 +396,6 @@ def etrago(args):
         network.snapshots = network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings = network.snapshot_weightings[
             ::args['skip_snapshots']] * args['skip_snapshots']
-
-    if args['scn_extension'] is not None:
-        network = extension(
-            network,
-            session,
-            scn_extension=args['scn_extension'],
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
-            k_mean_clustering=args['network_clustering_kmeans'])
 
     if args['scn_decommissioning'] is not None:
         network = decommissioning(
