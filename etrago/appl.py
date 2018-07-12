@@ -115,22 +115,15 @@ args = {  # Setup and Configuration:
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False,  # meet the demand at very high cost
     'ordered': [
-        ('extend', {
-            'locals': ['network', 'session'],
-            'dynamic': {
-                'scn_extension': 'scn_extension',
-                'start_snapshot': 'start_snapshot',
-                'end_snapshot': 'end_snapshot',
-                'k_mean_clustering': 'network_clustering_kmeans'}}),
-        ('do_kmeans', {
-            'locals': ['network'],
-            'dynamic': {
-                'n_clusters': 'network_clustering_kmeans',
-                'load_cluster': 'load_cluster'}})],
+        ('extend',  ['network', 'session']}),
+        ('do_kmeans', ['network'])],
     'comments': None}
 
 
-def do_kmeans(**kwargs):
+def do_kmeans(args, **kwargs):
+    kwargs.update({
+        'n_clusters': 'network_clustering_kmeans',
+        'load_cluster': 'load_cluster'})
     if bool(kwargs['n_clusters']):
         clustering = kmean_clustering(
                 line_length_factor= 1,
@@ -145,9 +138,14 @@ def do_kmeans(**kwargs):
     return {}
 
 
-def extend(**kwargs):
+def extend(args, **kwargs):
     if kwargs['scn_extension'] is not None:
-        network = extension(**kwargs)
+        network = extension(
+        scn_extension=args['scn_extension'],
+        start_snapshot=args['start_snapshot'],
+        end_snapshot=args['end_snapshot'],
+        k_mean_clustering=args['network_clustering_kmeans'],
+        **kwargs)
         return {'network': network}
     return {}
 
@@ -319,27 +317,21 @@ def etrago(args):
         generators cannot do so.
 
     ordered: list of pairs
+        Executes the functions in the list in the order specified.
         Each pair in the list should have the name of a function as the first
-        component and a nested dictionary specifying the functions arguments as
-        the second. This dictionary should contain two entries, one under the
-        `'locals'` key und one under `'dynamic'`. The first one is a list.
-        This is list of names which serve as both, the names of the local
-        variables passed as arguments to the specified function as well as
-        argument names.
-        The `'dynamic'` dictionary is used in a bit of a more complicated way.
-        The keys in this dictionary are used as argument names, i.e. as the
-        keys as the keyword arguments. The values of the dictionary are used as
-        keys by which values are pulled out of `args` to be used as the values
-        of the arguments to the specified function.
-        The functions are then executed in the order specified, with arguments
-        supplied as above.
+        component and a list of variable names as the second. These variable
+        names simultaneously serve as the names of the local variables passed
+        as arguments to the specified function and as then names for those
+        arguments.
+        The global `args` dictionary is always passed to the function.
+
         To give an example, the entry
 
-            `('f', {'locals': ['x', 'y'], 'dynamic': {'k': 'v'}})`
+            `('f', ['x', 'y'])`
 
         results in the call
 
-            `f(x=x, y=y, k=args['v'])`
+            `f(args=args, x=x, y=y)`
 
         later.
 
@@ -464,11 +456,9 @@ def etrago(args):
     variables = locals()
     for function, arguments in args['ordered']:
         variables.update(
-                globals()[function](
-                    **{ argument: args[arguments['dynamic'][argument]]
-                        for argument in arguments['dynamic']},
+                globals()[function](args=args,
                     **{ variable: variables[variable]
-                        for variable in arguments['locals']}))
+                        for variable in arguments}))
     del variables
 
     # parallisation
