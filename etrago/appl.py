@@ -484,6 +484,7 @@ def etrago(args):
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
             disaggregation.execute(scenario, solver=args['solver'])
+            original_network.results = network.results
             network = original_network
 
 
