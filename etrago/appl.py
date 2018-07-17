@@ -43,29 +43,29 @@ if not 'READTHEDOCS' in os.environ:
                                     loading_minimization, calc_line_losses, group_parallel_lines)
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering
-    from etrago.cluster.snapshot import snapshot_clustering, snapshot_cluster_constraints
+    from etrago.cluster.snapshot import snapshot_clustering, snapshot_cluster_constraints, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
         'db': 'oedb', # db session
-        'gridversion': 'v0.2.11', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 168,
+        'end_snapshot' : 366,
         'solver': 'gurobi', # glpk, cplex or gurobi
-        'scn_name': 'SH NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
+        'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
             'scn_extension': None, # None or name of additional scenario (in extension_tables) e.g. 'nep2035_b2'
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
-        'lpfile': False, # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': '/home/kim/Dokumente/open_ego/file_mit.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results':"/home/kim/Dokumente/open_ego/", # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
-        'extendable':['storage'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
+        'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
         'generator_noise':True, # state if you want to apply a small generator noise 
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
@@ -73,6 +73,7 @@ args = {# Setup and Configuration:
         'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
         'snapshot_clustering':3, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'extra_functionality_storage': snapshot_cluster_constraints,
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -334,7 +335,7 @@ def etrago(args):
     # snapshot clustering
     if not args['snapshot_clustering']== False:
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
-        extra_functionality = snapshot_cluster_constraints # daily_bounds or other constraint
+        extra_functionality = args ['extra_functionality_storage']  # daily_bounds
 
     # parallisation
     if args['parallelisation']:

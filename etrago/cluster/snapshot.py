@@ -59,8 +59,9 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
+    global clusterCenterIndices
     clusterCenterIndices= aggregation.clusterCenterIndices 
-    
+   
     # get all index for every hour of that day of the clusterCenterIndices
     start=[]  # get the first hour of the clusterCenterIndices (days start with 0)
     for i in clusterCenterIndices:
@@ -199,7 +200,8 @@ def snapshot_cluster_constraints(network, snapshots):
         # (e.g. day of year for daily clustering) 
         network.model.state_of_charge_inter = po.Var(
             sus.index, network.model.candidates, #network.model.storages, network.model.candidates,
-            within=po.NonNegativeReals)
+            within=po.NonNegativeReals) 
+        
     
         def inter_storage_soc_rule(m, s, i):
             """
@@ -208,6 +210,7 @@ def snapshot_cluster_constraints(network, snapshots):
             """
             #network.model.state_of_charge[s,first hour].value = 0
             #network.model.state_of_charge[s,first hour].fix()
+           
             
             if i == network.model.candidates[-1]:
                 # if last candidate: build 'cyclic' constraint instead normal
@@ -226,9 +229,8 @@ def snapshot_cluster_constraints(network, snapshots):
             sus.index, network.model.candidates,
             rule=inter_storage_soc_rule)
         
-        hour = list(reversed(range(24)))
         
-        def inter_storage_capacity_rule(m, s, i, h):
+        def inter_storage_capacity_rule(m, s, i):
             """
             Limit the capacity of the storage for every hour of the candidate day
             """
@@ -236,14 +238,37 @@ def snapshot_cluster_constraints(network, snapshots):
             return (
                    m.state_of_charge_inter[s, i] 
                    * (1 - network.storage_units.at[s,'standing_loss'])**24  
-                   + m.state_of_charge[s, network.cluster['last_hour_RepresentativeDay'][i] + timedelta(hours=-h)] <=
+                   + m.state_of_charge[s, network.cluster['last_hour_RepresentativeDay'][i]] <=
                     network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom']
                     ) 
              
         
         network.model.inter_storage_capacity_constraint = po.Constraint(
-            sus.index, network.model.candidates, hour,
+            sus.index, network.model.candidates,
             rule = inter_storage_capacity_rule)
+        
+def daily_bounds(network, snapshots):
+    """ This will bound the storage level to 0.5 max_level every 24th hour.
+    """
+    
+    sus = network.storage_units
+    # take every first hour of the clustered days
+    network.model.period_starts = network.snapshot_weightings.index[0::24]
+
+    network.model.storages = sus.index
+
+    def day_rule(m, s, p):
+        """
+        Sets the soc of the every first hour to the soc of the last hour
+        of the day (i.e. + 23 hours)
+        """
+        return (
+            m.state_of_charge[s, p] ==
+            m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+
+    network.model.period_bound = po.Constraint(
+        network.model.storages, network.model.period_starts, rule=day_rule)
+
        
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
@@ -259,5 +284,5 @@ def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugefÃ
     path = resultspath.strip('daily')
     values = pd.read_csv(path + 'storage_capacity.csv')[n_clusters].values
     network.storage_units.p_nom_max = values
-    network.storage_units.p_nom_min = values
+    network.storage_units.p_nom_min = valu
     resultspath = 'compare-'+resultspath
