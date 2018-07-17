@@ -24,11 +24,11 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
-import numpy as np
-from numpy import genfromtxt
-import time
 import datetime
 import os
+import time
+
+import numpy as np
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
