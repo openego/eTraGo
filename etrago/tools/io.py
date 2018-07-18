@@ -212,7 +212,10 @@ class NetworkScenario(ScenarioBase):
 
         ormclass = self._mapped['Source']
         query = self.session.query(ormclass)
-
+        
+        if self.version:
+            query = query.filter(ormclass.version == self.version)
+            
         # TODO column naming in database
         return {k.source_id: k.name for k in query.all()}
 
