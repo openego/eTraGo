@@ -121,7 +121,8 @@ def plot_line_loading(
             index=array_line)
 
         load_lines_rel = (
-            loading_lines / network.snapshots[timesteps].size) * 100
+            loading_lines / network.snapshot_weightings\
+                            [network.snapshots[timesteps]].sum()) * 100
 
         array_link = [['Link'] * len(network.links), network.links.index]
 
@@ -131,7 +132,8 @@ def plot_line_loading(
             index=array_link)
 
         load_links_rel = (
-            loading_links / network.snapshots[timesteps].size) * 100
+            loading_links /  network.snapshot_weightings\
+                            [network.snapshots[timesteps]].sum())* 100
 
         loading = load_lines_rel.append(load_links_rel)
 
