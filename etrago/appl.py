@@ -66,7 +66,13 @@ if 'READTHEDOCS' not in os.environ:
         pf_post_lopf,
         loading_minimization,
         calc_line_losses,
-        group_parallel_lines)
+        group_parallel_lines,
+        add_missing_components,
+        set_line_costs,
+        set_trafo_costs,
+        clip_foreign,
+        reduce_s_nom_foreign_lines,
+        add_single_country)
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import (
         busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
@@ -76,29 +82,29 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.3.2',  # None for model_draft or Version number
+    'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf':True,  # perform a pf after a lopf simulation
+    'start_snapshot': 15,
+    'end_snapshot': 16,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
+    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
     'scn_decommissioning': None,  # None or decommissioning scenario
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,  # save results as csv: False or /path/tofolder
+    'results': False, # '/home/clara/Dokumente/open_ego/results/PFohneSeFrReduktion',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storages'],  # None or array of components to optimize
+    'extendable': None, # ['network'],  # None or array of components to optimize
     'generator_noise': True,  # small generator noise
     'reproduce_noise': False,  # predefined set of random noise
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 20,  # False or the value k for clustering
+    'network_clustering_kmeans':False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -107,7 +113,7 @@ args = {  # Setup and Configuration:
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': False,  # meet the demand at very high cost
+    'load_shedding': True,  # meet the demand at very high cost
     'comments': None}
 
 
@@ -313,10 +319,14 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-
+    
     # add coordinates
     network = add_coordinates(network)
-
+    network = add_single_country(network)
+    network = reduce_s_nom_foreign_lines(network)
+   #network.generators.control= 'PV'
+    #add_missing_components(network)
+   # network =foregin_gen_control(network)
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -350,6 +360,7 @@ def etrago(args):
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
+        
 
     # network clustering
     if args['network_clustering_ehv']:
@@ -358,17 +369,7 @@ def etrago(args):
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
 
-    # k-mean clustering
-    if not args['network_clustering_kmeans'] is False:
-        network = kmean_clustering(
-            network,
-            n_clusters=args['network_clustering_kmeans'],
-            load_cluster=args['load_cluster'],
-            line_length_factor=1,
-            remove_stubs=False,
-            use_reduced_coordinates=False,
-            bus_weight_tocsv=None,
-            bus_weight_fromcsv=None)
+
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -411,6 +412,18 @@ def etrago(args):
             args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
+       
+            # k-mean clustering
+    if not args['network_clustering_kmeans'] is False:
+        network = kmean_clustering(
+            network,
+            n_clusters=args['network_clustering_kmeans'],
+            load_cluster=args['load_cluster'],
+            line_length_factor=1,
+            remove_stubs=False,
+            use_reduced_coordinates=False,
+            bus_weight_tocsv=None,
+            bus_weight_fromcsv=None)
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom * \
@@ -421,7 +434,10 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
+        
+    #network.generators.control[network.generators.control == 'PQ']= 'PV'
 
+    
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -438,6 +454,9 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
+    
+
+    
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
@@ -457,8 +476,13 @@ def etrago(args):
         # calc_line_losses(network)
 
     if args['pf_post_lopf']:
+    
         pf_post_lopf(network, scenario)
         calc_line_losses(network)
+        network.lines['angle_diff']= (network.buses_t.v_ang.\
+                     loc[network.snapshots[0], network.lines.bus0].values - 
+                     network.buses_t.v_ang.loc[network.snapshots[0],\
+                    network.lines.bus1].values)*180/3.1415
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:

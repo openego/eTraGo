@@ -32,7 +32,10 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def extendable(network, extendable, overlay_scn_name=None):
-
+    
+    # Set s_nom_min to s_nom in order to set s_nom_min in k_means_clustering
+    network.lines.s_nom_min = network.lines.s_nom
+        
     if 'network' in extendable:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
