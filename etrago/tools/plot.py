@@ -151,6 +151,7 @@ def plot_line_loading(
 
     if not boundaries:
         v = np.linspace(min(loading), max(loading), 101)
+        boundaries = [min(loading), max(loading)]
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
