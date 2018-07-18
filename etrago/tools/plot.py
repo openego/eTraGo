@@ -150,12 +150,15 @@ def plot_line_loading(
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
-        cb = plt.colorbar(ll[1])
-    elif boundaries:
+        v = np.linspace(min(loading), max(loading), 101)
+        
+    else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
-        cb = plt.colorbar(ll[1], boundaries=v,
-                          ticks=v[0:101:10])
-        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10])
+   
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
     cb.set_label('Line loading in %')
 
