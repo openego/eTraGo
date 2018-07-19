@@ -86,9 +86,9 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot':24 ,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -96,17 +96,17 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,  # save results as csv: False or /path/tofolder
+    'results': '/home/openego/pf_results/desagg/nep_24h_storagrid',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None,  # None or array of components to optimize
+    'extendable': ['network','storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -470,6 +470,7 @@ def etrago(args):
 
     if clustering:
         disagg = args.get('disaggregation')
+        a = time.time()
         if disagg:
             if disagg == 'mini':
                 disaggregation = MiniSolverDisaggregation(original_network,
@@ -486,7 +487,10 @@ def etrago(args):
             disaggregation.execute(scenario, solver=args['solver'])
             original_network.results = network.results
             network = original_network
-
+        b = time.time()
+        c = (b - a) / 60
+        # z is time for desaggregation in minutes
+        print("Time for overall desaggregation [min]:", round(c, 2))
 
     # write lpfile to path
     if not args['lpfile'] is False:
