@@ -63,9 +63,7 @@ class Disaggregation:
         """
 
         #Create an empty network        
-        stopwatch = time.time()
         partial_network = Network()
-        print('Scenario built in ', time.time() - stopwatch)
 
         # find all lines that have at least one bus inside the cluster
         busflags = (self.buses['cluster'] == cluster)
