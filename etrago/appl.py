@@ -66,15 +66,21 @@ if 'READTHEDOCS' not in os.environ:
         extension_overlay_network,
         nodal_gen_dispatch)
     from etrago.tools.utilities import (
-        load_shedding,
-        data_manipulation_sh,
+        add_missing_components,
+        add_single_country,
+        calc_line_losses,
+        clip_foreign,
         convert_capital_costs,
-        results_to_csv,
+        data_manipulation_sh,
+        fix_bugs_for_pf,
+        group_parallel_lines,
+        load_shedding,
+        loading_minimization,
         parallelisation,
         pf_post_lopf,
-        loading_minimization,
-        calc_line_losses,
-        group_parallel_lines)
+        results_to_csv,
+        set_line_costs,
+        set_trafo_costs)
 
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -84,11 +90,12 @@ args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf':True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot':8760 ,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5},  # {} for default or dict of solver options
+    'solver_options': {'threads':4,
+                       'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -101,6 +108,7 @@ args = {  # Setup and Configuration:
     # Settings:
     'extendable': ['network','storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
+    'reproduce_noise': False,  # predefined set of random noise
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 100,  # False or the value k for clustering
@@ -113,7 +121,7 @@ args = {  # Setup and Configuration:
     'skip_snapshots': 3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': False,  # meet the demand at very high cost
+    'load_shedding': True,  # meet the demand at very high cost
     'comments': None}
 
 
@@ -316,6 +324,9 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+    #network.generators.control = "PV"
+    #network = add_single_country(network)
+    network = fix_bugs_for_pf(network)
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -404,6 +415,8 @@ def etrago(args):
     if args['load_shedding']:
         load_shedding(network)
 
+    #network.generators.control[network.generators.control == 'PQ'] = 'PV'
+
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -433,18 +446,16 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        x = time.time()
+        t = time.time()
         network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-        y = time.time()
-        z = (y - x) / 60
-        # z is time for lopf in minutes
-        print("Time for LOPF [min]:", round(z, 2))
+        print("Time for LOPF [min]:", round((time.time() - t) / 60, 2))
 
         # start non-linear powerflow simulation
     elif args['method'] is 'pf':
@@ -452,8 +463,17 @@ def etrago(args):
         # calc_line_losses(network)
 
     if args['pf_post_lopf']:
+        t = time.time()
         pf_post_lopf(network, scenario)
+        print("Time for PF [min]:", round((time.time() - t) / 60, 2))
         calc_line_losses(network)
+        network.lines['angle_diff'] = (
+                network.buses_t.v_ang.loc[
+                    network.snapshots[0], network.lines.bus0]
+                .values -
+                network.buses_t.v_ang.loc[
+                    network.snapshots[0], network.lines.bus1]
+                .values) * 180/3.1415
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:

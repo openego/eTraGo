@@ -538,7 +538,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         bus_weightings=pd.Series(weight),
         n_clusters=n_clusters,
         load_cluster=load_cluster,
-        n_jobs=-1)
+        n_jobs=1)
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']

@@ -25,6 +25,7 @@ import pandas as pd
 import numpy as np
 import os
 import time
+import pypsa
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
@@ -78,7 +79,6 @@ def buses_grid_linked(network, voltage_level):
     df = network.buses[mask]
 
     return df.index
-
 
 def clip_foreign(network):
     """
@@ -179,7 +179,7 @@ def clip_foreign(network):
 
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
-    transborder_lines = pd.DataFrame(index=network.lines[
+    """transborder_lines = pd.DataFrame(index=network.lines[
         ((network.lines['bus0'].isin(network.buses.index) == False) &
          (network.lines['bus1'].isin(network.buses.index) == True)) |
         ((network.lines['bus0'].isin(network.buses.index) == True) &
@@ -203,12 +203,18 @@ def clip_foreign(network):
                 i)] = transborder_flows.loc[:, str(i)]*-1
 
     network.foreign_trade = transborder_flows.\
-        groupby(transborder_lines['country'], axis=1).sum()
+        groupby(transborder_lines['country'], axis=1).sum()"""
+                
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
         (network.lines['bus0'].isin(network.buses.index) == False) |
         (network.lines['bus1'].isin(network.buses.index) == False)].index)
+                            
+    network.links = network.links.drop(network.links[
+        (network.links['bus0'].isin(network.buses.index) == False) |
+        (network.links['bus1'].isin(network.buses.index) == False)].index)
+                            
     network.transformers = network.transformers.drop(network.transformers[
         (network.transformers['bus0'].isin(network.buses.index) == False) |
         (network.transformers['bus1'].isin(network.
@@ -221,7 +227,7 @@ def clip_foreign(network):
         (network.storage_units['bus'].isin(network.
                                            buses.index) == False)].index)
 
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers']
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
     for g in components:  # loads_t
         h = g + '_t'
         nw = getattr(network, h)  # network.loads_t
@@ -233,6 +239,170 @@ def clip_foreign(network):
 
     return network
 
+
+def add_single_country(network):
+    # get foreign buses by country
+
+    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
+                       data="Sweden")
+
+            
+    france = pd.Series(index=network.
+                       buses[(network.buses['x'] < 4.5) |
+                             ((network.buses['x'] > 7.507) &
+                              (network.buses['x'] < 7.508) &
+                              (network.buses['y'] > 47.64) &
+                              (network.buses['y'] < 47.65)) |
+                             ((network.buses['x'] > 6.2) &
+                              (network.buses['x'] < 6.3) &
+                              (network.buses['y'] > 49.1) &
+                              (network.buses['y'] < 49.2)) |
+                             ((network.buses['x'] > 6.7) &
+                              (network.buses['x'] < 6.76) &
+                              (network.buses['y'] > 49.13) &
+                              (network.buses['y'] < 49.16))].index,
+                       data="France")
+    foreign_buses = pd.Series()
+    foreign_buses = foreign_buses.append([france])
+
+    network.buses = network.buses.drop(
+        network.buses.loc[foreign_buses.index].index)
+
+    # drop foreign components
+    network.lines = network.lines.drop(network.lines[
+        (network.lines['bus0'].isin(network.buses.index) == False) |
+        (network.lines['bus1'].isin(network.buses.index) == False)].index)
+                            
+    network.links = network.links.drop(network.links[
+        (network.links['bus0'].isin(network.buses.index) == False) |
+        (network.links['bus1'].isin(network.buses.index) == False)].index)
+                            
+    network.transformers = network.transformers.drop(network.transformers[
+        (network.transformers['bus0'].isin(network.buses.index) == False) |
+        (network.transformers['bus1'].isin(network.
+                                           buses.index) == False)].index)
+    network.generators = network.generators.drop(network.generators[
+        (network.generators['bus'].isin(network.buses.index) == False)].index)
+    network.loads = network.loads.drop(network.loads[
+        (network.loads['bus'].isin(network.buses.index) == False)].index)
+    network.storage_units = network.storage_units.drop(network.storage_units[
+        (network.storage_units['bus'].isin(network.
+                                           buses.index) == False)].index)
+    
+
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
+    for g in components:  # loads_t
+        h = g + '_t'
+        nw = getattr(network, h)  # network.loads_t
+        for i in nw.keys():  # network.loads_t.p
+            cols = [j for j in getattr(
+                nw, i).columns if j not in getattr(network, g).index]
+            for k in cols:
+                del getattr(nw, i)[k]
+
+    return network
+
+
+def fix_bugs_for_pf(network):
+
+
+    # get foreign buses by country
+    poland = pd.Series(index=network.
+                       buses[(network.buses['x'] > 17)].index,
+                       data="Poland")
+    czech = pd.Series(index=network.
+                      buses[(network.buses['x'] < 17) &
+                            (network.buses['x'] > 15.1)].index,
+                      data="Czech")
+    denmark = pd.Series(index=network.
+                        buses[((network.buses['y'] < 60) &
+                               (network.buses['y'] > 55.2)) |
+                              ((network.buses['x'] > 11.95) &
+                               (network.buses['x'] < 11.97) &
+                               (network.buses['y'] > 54.5))].
+                        index,
+                        data="Denmark")
+    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
+                       data="Sweden")
+    austria = pd.Series(index=network.
+                        buses[(network.buses['y'] < 47.33) &
+                              (network.buses['x'] > 9) |
+                              ((network.buses['x'] > 9.65) &
+                               (network.buses['x'] < 9.9) &
+                               (network.buses['y'] < 47.5) &
+                               (network.buses['y'] > 47.3)) |
+                              ((network.buses['x'] > 12.14) &
+                               (network.buses['x'] < 12.15) &
+                               (network.buses['y'] > 47.57) &
+                               (network.buses['y'] < 47.58)) |
+                              (network.buses['y'] < 47.6) &
+                              (network.buses['x'] > 14.1)].index,
+                        data="Austria")
+    switzerland = pd.Series(index=network.
+                            buses[((network.buses['x'] > 8.1) &
+                                   (network.buses['x'] < 8.3) &
+                                   (network.buses['y'] < 46.8)) |
+                                  ((network.buses['x'] > 7.82) &
+                                   (network.buses['x'] < 7.88) &
+                                   (network.buses['y'] > 47.54) &
+                                   (network.buses['y'] < 47.57)) |
+                                  ((network.buses['x'] > 10.91) &
+                                   (network.buses['x'] < 10.92) &
+                                   (network.buses['y'] > 49.91) &
+                                   (network.buses['y'] < 49.92))].index,
+                            data="Switzerland")
+    netherlands = pd.Series(index=network.
+                            buses[((network.buses['x'] < 6.96) &
+                                   (network.buses['y'] < 53.15) &
+                                   (network.buses['y'] > 53.1)) |
+                                  ((network.buses['x'] < 5.4) &
+                                   (network.buses['y'] > 52.1))].index,
+                            data="Netherlands")
+    luxembourg = pd.Series(index=network.
+                           buses[((network.buses['x'] < 6.15) &
+                                  (network.buses['y'] < 49.91) &
+                                  (network.buses['y'] > 49.65))].index,
+                           data="Luxembourg")
+    france = pd.Series(index=network.
+                       buses[(network.buses['x'] < 4.5) |
+                             ((network.buses['x'] > 7.507) &
+                              (network.buses['x'] < 7.508) &
+                              (network.buses['y'] > 47.64) &
+                              (network.buses['y'] < 47.65)) |
+                             ((network.buses['x'] > 6.2) &
+                              (network.buses['x'] < 6.3) &
+                              (network.buses['y'] > 49.1) &
+                              (network.buses['y'] < 49.2)) |
+                             ((network.buses['x'] > 6.7) &
+                              (network.buses['x'] < 6.76) &
+                              (network.buses['y'] > 49.13) &
+                              (network.buses['y'] < 49.16))].index,
+                       data="France")
+    foreign_buses = pd.Series()
+    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
+                                          austria, switzerland,
+                                          netherlands, luxembourg, france])
+
+    network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
+    
+    #network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
+    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
+    network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
+    network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
+    
+    network.loads_t['q_set']['28405'] = 0
+    #network.loads_t['q_set']['28406'] = 0
+    network.loads_t['q_set']['28409'] = 0
+    network.loads_t['q_set']['28410'] = 0
+    network.loads_t['q_set']['28412'] = 0
+    network.loads_t['q_set']['28413'] = 0
+    network.loads_t['q_set']['28416'] = 0
+    network.loads_t['q_set']['28418'] = 0
+    network.loads_t['q_set']['28419'] = 0
+    network.loads_t['q_set']['28420'] = 0
+    network.loads_t['q_set']['28424'] = 0
+  
+    return network
 
 def connected_grid_lines(network, busids):
     """ Get grid lines connected to given buses.
@@ -406,12 +576,16 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
 def pf_post_lopf(network, scenario):
 
     network_pf = network
-
+    
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
-
+    
+    network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
+    columns=network_pf.links.index)
+    network_pf.links_t.p_set = network_pf.links_t.p0
+    
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
     old_gens = network.generators
@@ -428,7 +602,7 @@ def pf_post_lopf(network, scenario):
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
-
+   
     network.generators = network.generators.drop('p_summed', 1)
     new_slack_gen = network.generators.\
         p_nom[(network.generators['bus'] == new_slack_bus) & (
@@ -448,10 +622,10 @@ def pf_post_lopf(network, scenario):
         old_slack, 'control', old_control)
     network.generators = network.generators.set_value(
         new_slack_gen, 'control', 'Slack')
-
+    
     # execute non-linear pf
     network_pf.pf(scenario.timeindex, use_seed=True)
-
+   
     return network_pf
 
 
@@ -647,6 +821,223 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
 
     return network
 
+def add_missing_components(network):
+    from shapely import wkb
+    from shapely.geometry import Point, LineString, MultiLineString
+    from geoalchemy2.shape import from_shape, to_shape
+    # Munich
+    '''
+     add missing transformer at Heizkraftwerk Nord in Munich:
+     https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
+@@ -329,27 +334,28 @@
+     to bus 25096:
+     25369 (86)
+     28232 (24)
+     25353 to 25356 (79)
+     to bus 23822: (110kV bus  of 380/110-kV-transformer)
+     25355 (90)
+     28212 (98)
+ 
+     25357 to 665 (85)
+     25354 to 27414 (30)
+     27414 to 28212 (33)
+     25354 to 28294 (32/63)
+     28335 to 28294 (64)
+     28335 to 28139 (28)
+     Overhead lines:
+     16573 to 24182 (part of 4)
+     '''
+    """
+     Installierte Leistung der Umspannungsebene Höchst- zu Hochspannung
+     (380 kV / 110 kV): 2.750.000 kVA
+     https://www.swm-infrastruktur.de/strom/netzstrukturdaten/strukturmerkmale.html
+    """
+    new_trafo = str(network.transformers.index.astype(int).max()+1)
+
+    network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
+                x=0.135/(2750/2),
+                 r=0.0, tap_ratio=1, s_nom=2750/2)
+ 
+     # trafo geom/topo
+    """(network.transformers.loc[new_trafo, 'geom']
+     ) = (from_shape(MultiLineString
+                      ([LineString([wkb.loads(network.buses.geom['23648'],
+                                              hex=True),
+                                    wkb.loads(network.buses.geom['16573'],
+                                              hex=True)])]), 4326))
+    (network.transformers.loc[new_trafo, 'topo']
+     ) = (from_shape(LineString([wkb.loads(network.buses.geom['23648'],
+                                            hex=True),
+                                  wkb.loads(network.buses.geom['16573'],
+                                            hex=True)]), 4326))"""
+ 
+    def add_110kv_line(bus0, bus1, overhead=False):
+         new_line = str(network.lines.index.astype(int).max()+1)
+         if not overhead:
+             network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
+         else:
+             network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=260)
+         network.lines.loc[new_line, "scn_name"] = "Status Quo"
+         network.lines.loc[new_line, "v_nom"] = 110
+         network.lines.loc[new_line, "version"] = "added_manually"
+         network.lines.loc[new_line, "frequency"] = 50
+         network.lines.loc[new_line, "cables"] = 3.0
+         network.lines.loc[new_line, "length"] = (
+             pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
+                                 network.buses.loc[bus1, ["x", "y"]])[0][0]*1.2)
+         if not overhead:
+             network.lines.loc[new_line, "r"] = (network.lines.
+                                                 loc[new_line, "length"]*0.0177)
+             network.lines.loc[new_line, "g"] = 0
+             # or: (network.lines.loc[new_line, "length"]*78e-9)
+             network.lines.loc[new_line, "x"] = (network.lines.
+                                                 loc[new_line, "length"]*0.3e-3)
+             network.lines.loc[new_line, "b"] = (network.lines.
+                                                 loc[new_line, "length"]*250e-9)
+
+         elif overhead:
+             network.lines.loc[new_line, "r"] = (network.lines.
+                                                 loc[new_line, "length"] *
+                                                 0.05475)
+             network.lines.loc[new_line, "g"] = 0
+             # or: (network.lines.loc[new_line, "length"]*40e-9)
+             network.lines.loc[new_line, "x"] = (network.lines.
+                                                 loc[new_line, "length"]*1.2e-3)
+             network.lines.loc[new_line, "b"] = (network.lines.
+                                                 loc[new_line, "length"]*9.5e-9)
+ 
+         # line geom/topo
+         """(network.lines.loc[new_line, 'geom']
+          ) = from_shape(MultiLineString
+                         ([LineString([wkb.loads(network.buses.geom[bus0],
+                                                 hex=True),
+                                       wkb.loads(network.buses.geom[bus1],
+                                                 hex=True)])]), 4326)
+         (network.lines.loc[new_line, 'topo']
+          ) = from_shape(LineString
+                         ([wkb.loads(network.buses.geom[bus0], hex=True),
+                           wkb.loads(network.buses.geom[bus1], hex=True)]),
+                         4326)"""
+ 
+    add_110kv_line("16573", "28353")
+    add_110kv_line("16573", "28092")
+    add_110kv_line("25096", "25369")
+    add_110kv_line("25096", "28232")
+    add_110kv_line("25353", "25356")
+    add_110kv_line("23822", "25355")
+    add_110kv_line("23822", "28212")
+    add_110kv_line("25357", "665")
+    add_110kv_line("25354", "27414")
+    add_110kv_line("27414", "28212")
+    add_110kv_line("25354", "28294")
+    add_110kv_line("28335", "28294")
+    add_110kv_line("28335", "28139")
+    add_110kv_line("16573", "24182", overhead=True)
+
+
+        # Stuttgart
+    """
+         Stuttgart:
+         Missing transformer, because 110-kV-bus is situated outside
+         Heizkraftwerk Heilbronn:
+    """
+        # new_trafo = str(network.transformers.index.astype(int).max()1)
+    network.add("Transformer", '99999', bus0="25766", bus1="18967",
+                x=0.135/300, r=0.0, tap_ratio=1, s_nom=300)
+
+    # trafo geom/topo
+    """(network.transformers.loc[new_trafo, 'geom']
+         ) = (from_shape(MultiLineString
+                     ([LineString([wkb.loads(network.buses.geom['25766'],
+                                             hex=True),
+                                   wkb.loads(network.buses.geom['18967'],
+                                             hex=True)])]), 4326))
+         (network.transformers.loc[new_trafo, 'topo']
+         ) = (from_shape(LineString([wkb.loads(network.buses.geom['25766'],
+                                           hex=True),
+                                 wkb.loads(network.buses.geom['18967'],
+                                           hex=True)]), 4326))"""
+    """
+    According to:
+    https://assets.ctfassets.net/xytfb1vrn7of/NZO8x4rKesAcYGGcG4SQg/b780d6a3ca4c2600ab51a30b70950bb1/netzschemaplan-110-kv.pdf
+    the following lines are missing:
+    """
+    add_110kv_line("18967", "22449", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("21165", "24068", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("23782", "24089", overhead=True)  # visible in DSO map & OSM till 1 km from bus1
+    """
+    Umspannwerk Möhringen (bus 23697)
+    https://de.wikipedia.org/wiki/Umspannwerk_M%C3%B6hringen
+    there should be two connections:
+    to Sindelfingen (2*110kV)
+    to Wendingen (former 220kV, now 2*110kV)
+    the line to Sindelfingen is connected, but the connection of Sindelfingen
+    itself to 380kV is missing:
+    """
+    add_110kv_line("19962", "27671", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("19962", "27671", overhead=True)
+    """
+    line to Wendingen is missing, probably because it ends shortly before the
+    way of the substation and is connected via cables:
+    """
+    add_110kv_line("23697", "24090", overhead=True)  # visible in OSM & DSO map
+    add_110kv_line("23697", "24090", overhead=True)
+
+    # Lehrte
+    """
+    Lehrte: 220kV Bus located outsinde way of Betriebszentrtum Lehrte and
+    therefore not connected:
+    """
+
+    def add_220kv_line(bus0, bus1, overhead=False):
+            new_line = str(network.lines.index.astype(int).max()+1)
+            if not overhead:
+                 network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=550)
+            else:
+                network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=520)
+            network.lines.loc[new_line, "scn_name"] = "Status Quo"
+            network.lines.loc[new_line, "v_nom"] = 220
+            network.lines.loc[new_line, "version"] = "added_manually"
+            network.lines.loc[new_line, "frequency"] = 50
+            network.lines.loc[new_line, "cables"] = 3.0
+            network.lines.loc[new_line, "length"] = (
+            pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
+                                network.buses.loc[bus1, ["x", "y"]])[0][0]*1.2)
+            if not overhead:
+                network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"]*0.0176)
+                network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*67e-9)
+                network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"]*0.3e-3)
+                network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"]*210-9)
+            elif overhead:
+                    network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.05475)
+                    network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*30e-9)
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"]*1e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"]*11e-9)
+
+        # line geom/topo
+            """(network.lines.loc[new_line, 'geom']
+            ) = from_shape(MultiLineString
+                        ([LineString([wkb.loads(network.buses.geom[bus0],
+                                                hex=True),
+                                      wkb.loads(network.buses.geom[bus1],
+                                                hex=True)])]), 4326)
+            (network.lines.loc[new_line, 'topo']
+            ) = from_shape(LineString
+                        ([wkb.loads(network.buses.geom[bus0], hex=True),
+                          wkb.loads(network.buses.geom[bus1], hex=True)]),
+                        4326)"""
+
+    add_220kv_line("266", "24633", overhead=True)
+    return network
 
 def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     """ Convert capital_costs to fit to pypsa and caluculated time
