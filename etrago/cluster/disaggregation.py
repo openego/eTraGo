@@ -63,7 +63,7 @@ class Disaggregation:
         """
 
         #Create an empty network
-        partial_network = scenario.build_network()
+        partial_network = Network()
 
         # find all lines that have at least one bus inside the cluster
         busflags = (self.buses['cluster'] == cluster)
