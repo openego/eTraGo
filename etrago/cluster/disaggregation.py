@@ -62,7 +62,7 @@ class Disaggregation:
         be influenced by calculations done on the partial network.
         """
 
-        #Create an empty network        
+        #Create an empty network
         partial_network = Network()
 
         # find all lines that have at least one bus inside the cluster
