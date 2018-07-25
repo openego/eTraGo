@@ -728,11 +728,10 @@ def plot_voltage(network, boundaries=[]):
 
 def curtailment(network, carrier='solar', filename=None):
 
-    p_by_carrier = network.generators_t.p.mul(network.snapshot_weightings,
-    axis=0).groupby(network.generators.carrier, axis=1).sum()
+    p_by_carrier = network.generators_t.p.groupby\
+        (network.generators.carrier, axis=1).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
-    p_available = network.generators_t.p_max_pu.mul(
-    network.snapshot_weightings, axis=0).multiply(network.generators["p_nom"])
+    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
     p_available_by_carrier = p_available.groupby(
         network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
