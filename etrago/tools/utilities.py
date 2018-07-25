@@ -366,7 +366,7 @@ def results_to_csv(network, path):
     network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
-    data.to_csv(os.path.join(path, 'network2.csv'), index=False)
+    data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
