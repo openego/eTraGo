@@ -554,13 +554,13 @@ def etrago(args):
     # close session
     session.close()
 
-    return network
+    return network, disaggregated_network
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network = etrago(args)
+    network, disaggregated_network = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
