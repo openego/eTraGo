@@ -353,6 +353,9 @@ def data_manipulation_sh(network):
 
     return
 
+def _enumerate_row(row):
+    row['name'] = row.name
+    return row
 
 def results_to_csv(network, path):
     """
@@ -366,6 +369,7 @@ def results_to_csv(network, path):
     network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
+    data = data.apply(_enumerate_row,  axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
     if hasattr(network, 'Z'):
