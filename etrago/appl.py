@@ -26,6 +26,7 @@ the function etrago.
 
 import datetime
 import os
+import os.path
 import time
 
 import numpy as np
@@ -433,7 +434,8 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None)
-        original_network = network.copy()
+        disaggregated_network = (
+                network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
 
     # parallisation
@@ -493,11 +495,12 @@ def etrago(args):
         a = time.time()
         if disagg:
             if disagg == 'mini':
-                disaggregation = MiniSolverDisaggregation(original_network,
-                                                          network,
-                                                          clustering)
+                disaggregation = MiniSolverDisaggregation(
+                        disaggregated_network,
+                        network,
+                        clustering)
             elif disagg == 'uniform':
-                disaggregation = UniformDisaggregation(original_network,
+                disaggregation = UniformDisaggregation(disaggregated_network,
                                                        network,
                                                        clustering)
 
@@ -505,8 +508,7 @@ def etrago(args):
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
             disaggregation.execute(scenario, solver=args['solver'])
-            original_network.results = network.results
-            network = original_network
+            disaggregated_network.results = network.results
         b = time.time()
         c = (b - a) / 60
         # z is time for desaggregation in minutes
@@ -529,13 +531,24 @@ def etrago(args):
         results_to_oedb(
             session,
             network,
-            args,
+            dict([("disaggregated_results", False)] + list(args.items())),
             grid='hv',
             safe_results=safe_results)
+        if disaggregated_network:
+            results_to_oedb(
+                session,
+                disaggregated_network,
+                dict([("disaggregated_results", True)] + list(args.items())),
+                grid='hv',
+                safe_results=safe_results)
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
         results_to_csv(network, args['results'])
+        if disaggregated_network:
+            results_to_csv(
+                    disaggregated_network,
+                    os.path.join(args['results'],'disaggregated'))
 
     # close session
     session.close()
