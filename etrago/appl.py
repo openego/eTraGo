@@ -519,12 +519,13 @@ def etrago(args):
         network.model.write(
             args['lpfile'], io_options={
                 'symbolic_solver_labels': True})
+
     # write PyPSA results back to database
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
         safe_results = False  # default is False.
-        # If it is set to 'True' the result set will be safed
+        # If it is set to 'True' the result set will be saved
         # to the versioned grid schema eventually apart from
         # being saved to the model_draft.
         # ONLY set to True if you know what you are doing.
