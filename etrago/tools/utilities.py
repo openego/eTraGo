@@ -624,7 +624,7 @@ def pf_post_lopf(network, scenario):
         new_slack_gen, 'control', 'Slack')
     
     # execute non-linear pf
-    network_pf.pf(scenario.timeindex, use_seed=True)
+    network_pf.pf(network.snapshots, use_seed=True)
    
     return network_pf
 
