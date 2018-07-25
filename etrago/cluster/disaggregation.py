@@ -360,12 +360,14 @@ class UniformDisaggregation(Disaggregation):
         bustypes = {
                 'generators': {
                     'group_by': ('carrier',),
-                    'series': ('p',)},
+                    'series': ('p', 'q')},
                 'storage_units': {
                     'group_by': ('carrier', 'max_hours'),
-                    'series': ('p', 'state_of_charge')}}
+                    'series': ('p', 'state_of_charge', 'q')}}
         weights = {'p': ('p_nom_opt', 'p_max_pu'),
+                   'q': ('p_nom_opt', 'p_max_pu'),
                    'state_of_charge': ('p_nom_opt',)}
+        filters = {'q': lambda o: o.control == "PV"}
         for bustype in bustypes:
             pn_t = getattr(partial_network, bustype + '_t')
             cl_t = getattr(self.clustered_network, bustype + '_t')
@@ -448,18 +450,19 @@ class UniformDisaggregation(Disaggregation):
                         ): key in series
 
                 for s in bustypes[bustype]['series']:
+                    filtered = pnb.loc[filters.get(s, slice(None))]
                     clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
                     weight = reduce(multiply,
-                            (pnb.loc[:, key]
+                            (filtered.loc[:, key]
                                 if not timed(key)
-                                else pn_t[key].loc[:, pnb.index]
+                                else pn_t[key].loc[:, filtered.index]
                                 for key in weights[s]),
                             1)
                     loc = ((slice(None),)
                            if any(timed(w) for w in weights[s])
                            else ())
                     ws = weight.sum(axis=len(loc))
-                    for bus_id in pnb.index:
+                    for bus_id in filtered.index:
                         pn_t[s].loc[:, bus_id] = (
                                 clt * weight.loc[loc + (bus_id,)] / ws)
 
