@@ -237,8 +237,8 @@ class Disaggregation:
         print('---')
         fs = (mc("sum"), mc("sum"))
         for bt, ts in (
-                ('generators', {'p': fs}),
-                ('storage_units', {'p': fs, 'state_of_charge': fs})):
+                ('generators', {'p': fs, 'q': fs}),
+                ('storage_units', {'p': fs, 'state_of_charge': fs, 'q': fs})):
             print("Attribute sums, {}, clustered - disaggregated:" .format(bt))
             cnb = getattr(self.clustered_network, bt)
             onb = getattr(self.original_network, bt)
