@@ -492,17 +492,20 @@ def etrago(args):
 
     if clustering:
         disagg = args.get('disaggregation')
+        skip = () if args['pf_post_lopf'] else ('q',)
         a = time.time()
         if disagg:
             if disagg == 'mini':
                 disaggregation = MiniSolverDisaggregation(
                         disaggregated_network,
                         network,
-                        clustering)
+                        clustering,
+                        skip=skip)
             elif disagg == 'uniform':
                 disaggregation = UniformDisaggregation(disaggregated_network,
                                                        network,
-                                                       clustering)
+                                                       clustering,
+                                                       skip=skip)
 
             else:
                 raise Exception('Invalid disaggregation command: ' + disagg)

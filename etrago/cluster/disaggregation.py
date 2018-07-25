@@ -10,7 +10,8 @@ from pypsa import Network
 
 
 class Disaggregation:
-    def __init__(self, original_network, clustered_network, clustering):
+    def __init__(self, original_network, clustered_network, clustering,
+                 skip=()):
         """
         :param original_network: Initial (unclustered) network structure
         :param clustered_network: Clustered network used for the optimization
@@ -24,6 +25,8 @@ class Disaggregation:
         self.buses = pd.merge(original_network.buses,
                               clustering.busmap.to_frame(name='cluster'),
                               left_index=True, right_index=True)
+
+        self.skip = skip
 
         self.idx_prefix = '_'
 
@@ -450,6 +453,8 @@ class UniformDisaggregation(Disaggregation):
                         ): key in series
 
                 for s in bustypes[bustype]['series']:
+                    if s in self.skip:
+                        continue
                     filtered = pnb.loc[filters.get(s, slice(None))]
                     clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
                     weight = reduce(multiply,
