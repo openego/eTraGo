@@ -468,8 +468,8 @@ class UniformDisaggregation(Disaggregation):
                            else ())
                     ws = weight.sum(axis=len(loc))
                     for bus_id in filtered.index:
-                        pn_t[s].loc[:, bus_id] = (
-                                clt * weight.loc[loc + (bus_id,)] / ws)
+                        values = clt * weight.loc[loc + (bus_id,)] / ws
+                        pn_t[s].loc[:, bus_id] = values
 
 
     def transfer_results(self, *args, **kwargs):
