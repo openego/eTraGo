@@ -457,7 +457,7 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-        print("Time for LOPF [min]:", round((time.time() - t) / 60, 2))
+        print("Time for LOPF [min]: {:.2}".format((time.time() - t) / 60))
 
         # start non-linear powerflow simulation
     elif args['method'] is 'pf':
@@ -467,7 +467,7 @@ def etrago(args):
     if args['pf_post_lopf']:
         t = time.time()
         pf_post_lopf(network, scenario)
-        print("Time for PF [min]:", round((time.time() - t) / 60, 2))
+        print("Time for PF [min]: {:.2}".format((time.time() - t) / 60))
         calc_line_losses(network)
         network.lines['angle_diff'] = (
                 network.buses_t.v_ang.loc[
