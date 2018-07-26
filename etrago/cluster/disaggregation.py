@@ -1,7 +1,9 @@
 from functools import reduce
-from itertools import product
+from itertools import count, product
 from operator import methodcaller as mc, mul as multiply
 import cProfile
+import random
+import string
 import time
 
 import pandas as pd
@@ -486,7 +488,20 @@ class UniformDisaggregation(Disaggregation):
                     ws = weight.sum(axis=len(loc))
                     for bus_id in filtered.index:
                         values = clt * weight.loc[loc + (bus_id,)] / ws
-                        pn_t[s].loc[:, bus_id] = values
+                        # Ok. The stuff below looks complicated, but there's a
+                        # reason for it and it is weird.
+                        # Use git blame and see the accompanying commit message
+                        # for an explanation.
+                        for size in count(3):
+                            column = ''.join(
+                                    random.choice(string.ascii_uppercase)
+                                    for _ in range(size))
+                            if column not in pn_t[s].columns:
+                                break
+                        pn_t[s].loc[:, column] = values
+                        pn_t[s].rename(
+                                columns={column: bus_id},
+                                inplace=True)
 
 
     def transfer_results(self, *args, **kwargs):
