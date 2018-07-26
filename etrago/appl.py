@@ -513,7 +513,7 @@ def etrago(args):
             disaggregation.execute(scenario, solver=args['solver'])
             disaggregated_network.results = network.results
         print("Time for overall desaggregation [min]: {:.2}"
-                .format(time.time() - t / 60))
+                .format((time.time() - t) / 60))
 
     # write lpfile to path
     if not args['lpfile'] is False:
