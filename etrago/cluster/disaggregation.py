@@ -180,6 +180,23 @@ class Disaggregation:
             setattr(partial_network,
                     bustype + '_t',
                     getattr(self.original_network, bustype + '_t'))
+            # Note: The code above copies more than necessary, because it
+            #       copies every time series for `bustype` from the original
+            #       network and not only the subset belonging to the partial
+            #       network. The commented code below tries to filter the time
+            #       series accordingly, but there must be bug somewhere because
+            #       using it, the time series in the clusters and sums of the
+            #       time series after disaggregation don't match up.
+            """
+            series = getattr(self.original_network, bustype + '_t')
+            partial_series = type(series)()
+            for s in series:
+                partial_series[s] = series[s].loc[
+                        :,
+                        getattr(partial_network, bustype)
+                        .index.intersection(series[s].columns)]
+            setattr(partial_network, bustype + '_t', partial_series)
+            """
 
         # Just a simple sanity check
         # TODO: Remove when sure that disaggregation will not go insane anymore
