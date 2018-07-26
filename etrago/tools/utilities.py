@@ -388,6 +388,7 @@ def fix_bugs_for_pf(network):
     network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
     
     network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
+    network.lines.x[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.x/10
     #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
     network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
     network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
@@ -585,18 +586,53 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
     return
 
 
-def pf_post_lopf(network, scenario):
+def pf_post_lopf(network, **kwargs):
 
     network_pf = network
+
+    # Update x of extended lines and transformers
+    if network_pf.lines.s_nom_extendable.any() or \
+        network_pf.transformers.s_nom_extendable.any():
+        network_pf.lines.x[network.lines.s_nom_extendable] = \
+        network_pf.lines.x * network.lines.s_nom /\
+        network_pf.lines.s_nom_opt  
+        
+        network_pf.lines.r[network.lines.s_nom_extendable] = \
+        network_pf.lines.r * network.lines.s_nom /\
+        network_pf.lines.s_nom_opt  
     
-    # For the PF, set the P to the optimised P
+        network_pf.lines.b[network.lines.s_nom_extendable] = \
+        network_pf.lines.b * network.lines.s_nom_opt /\
+        network_pf.lines.s_nom 
+        
+        network_pf.lines.g[network.lines.s_nom_extendable] = \
+        network_pf.lines.g * network.lines.s_nom_opt /\
+        network_pf.lines.s_nom 
+        
+        network_pf.transformers.x[network.transformers.s_nom_extendable] = \
+        network_pf.transformers.x * network.transformers.s_nom / \
+        network_pf.transformers.s_nom_opt
+        
+        network_pf.lines.s_nom_extendable = False
+        network_pf.transformers.s_nom_extendable = False
+        network_pf.lines.s_nom = network.lines.s_nom_opt
+        network_pf.transformers.s_nom =network.transformers.s_nom_opt
+        
+        network_pf.lopf(solver_name = 'gurobi')
+    
+        # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
     
+    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p_set.reindex(
+            columns=network_pf.storage_units.index)
+    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p
+    
     network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
-    columns=network_pf.links.index)
+            columns=network_pf.links.index)
     network_pf.links_t.p_set = network_pf.links_t.p0
+    
     
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]

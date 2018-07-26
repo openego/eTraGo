@@ -83,12 +83,12 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.2',  # None for model_draft or Version number
+    'db': 'local',  # database session
+    'gridversion': None, #'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 4379,
-    'end_snapshot': 4379,
+    'start_snapshot': 4378,
+    'end_snapshot': 4378,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':2,
                        'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
@@ -102,11 +102,11 @@ args = {  # Setup and Configuration:
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None,  # None or array of components to optimize
+    'extendable':None, #['network', 'storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'network_clustering_kmeans':False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -315,11 +315,10 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-    network.lines.r[network.lines.r == 0] = 0.0000001
+    
     # add coordinates
     network = add_coordinates(network)
-    #network.generators.control = "PV"
-    #network = add_single_country(network)
+    
     network =fix_bugs_for_pf(network)
    
     # TEMPORARY vague adjustment due to transformer bug in data processing
@@ -429,7 +428,9 @@ def etrago(args):
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
         extra_functionality = daily_bounds  # daily_bounds or other constraint
-
+        
+    network.generators.control[network.generators.control == 'PQ'] = 'PV'
+    
     # parallisation
     if args['parallelisation']:
         parallelisation(
@@ -441,7 +442,7 @@ def etrago(args):
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
     
-
+    
     
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
@@ -460,10 +461,11 @@ def etrago(args):
     elif args['method'] is 'pf':
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
-
+        
     if args['pf_post_lopf']:
+     
         x = time.time()
-        pf_post_lopf(network, scenario)
+        pf_post_lopf(network)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
@@ -473,6 +475,7 @@ def etrago(args):
                      network.buses_t.v_ang.loc[network.snapshots[0],\
                     network.lines.bus1].values)*180/3.1415
         network = distribute_q(network, allocation = 'p_nom')
+        #pf_post_lopf(network)
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
