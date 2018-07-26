@@ -99,14 +99,14 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': 'results',  # save results as csv: False or /path/tofolder
+    'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': None,  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -472,7 +472,7 @@ def etrago(args):
                      loc[network.snapshots[0], network.lines.bus0].values - 
                      network.buses_t.v_ang.loc[network.snapshots[0],\
                     network.lines.bus1].values)*180/3.1415
-       # network = distribute_q(network)
+        network = distribute_q(network, allocation = 'p_nom')
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:

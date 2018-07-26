@@ -181,7 +181,7 @@ def clip_foreign(network):
 
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
-    """transborder_lines = pd.DataFrame(index=network.lines[
+    transborder_lines = pd.DataFrame(index=network.lines[
         ((network.lines['bus0'].isin(network.buses.index) == False) &
          (network.lines['bus1'].isin(network.buses.index) == True)) |
         ((network.lines['bus0'].isin(network.buses.index) == True) &
@@ -205,7 +205,7 @@ def clip_foreign(network):
                 i)] = transborder_flows.loc[:, str(i)]*-1
 
     network.foreign_trade = transborder_flows.\
-        groupby(transborder_lines['country'], axis=1).sum()"""
+        groupby(transborder_lines['country'], axis=1).sum()
                 
 
     # drop foreign components
@@ -640,27 +640,6 @@ def pf_post_lopf(network, scenario):
    
     return network_pf
 
-def distribute_q_alt(network):
-    p_sum_at_bus =  network.generators_t['p'].groupby(network.generators.bus, axis = 1).sum()
-    network.buses_t['p_sum'] = network.generators_t['p'].groupby(network.generators.bus, axis = 1).sum()
-
-# gesamte Blindleistung am Knoten
-    q_sum_at_bus = network.generators_t['q'].groupby(network.generators.bus, axis = 1).sum()
-
-    network.buses_t['q_sum'] = network.generators_t['q'].groupby(network.generators.bus, axis = 1).sum()
-
-    network.generators_t['p_sum'] = network.buses_t['p_sum'][network.generators.bus.sort_index()]
-    network.generators_t['q_sum'] = network.buses_t['q_sum'][network.generators.bus.sort_index()]
-
-    network.generators_t['p_sum'].columns = network.generators_t['p'].columns
-    network.generators_t['q_sum'].columns = network.generators_t['p'].columns
-# bus je q_neu 
-    q_neu = network.generators_t.p / network.generators_t['p_sum'].values *  network.generators_t['q_sum'].values
-    q_neu[q_neu.isnull()] = 0
-    q_neu[q_neu.abs() == np.inf] = 0
-    network.generators_t.q = q_neu
-    
-    return network
 
 def distribute_q(network, allocation = 'p_nom'):
    
@@ -692,7 +671,8 @@ def distribute_q(network, allocation = 'p_nom'):
         q_distributed =network.generators_t['q'].\
             groupby(network.generators.bus, axis = 1).sum()\
             [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/ \
-            network.generators.p_nom[network.generators.carrier != 'load shedding'].groupby(network.generators.bus).sum()\
+            network.generators.p_nom[network.generators.carrier !=\
+            'load shedding'].groupby(network.generators.bus).sum()\
             [network.generators.bus.sort_index()].values 
             
         q_distributed.columns =  network.generators.bus.sort_index().index
