@@ -493,7 +493,7 @@ def etrago(args):
     if clustering:
         disagg = args.get('disaggregation')
         skip = () if args['pf_post_lopf'] else ('q',)
-        a = time.time()
+        t = time.time()
         if disagg:
             if disagg == 'mini':
                 disaggregation = MiniSolverDisaggregation(
@@ -512,10 +512,8 @@ def etrago(args):
 
             disaggregation.execute(scenario, solver=args['solver'])
             disaggregated_network.results = network.results
-        b = time.time()
-        c = (b - a) / 60
-        # z is time for desaggregation in minutes
-        print("Time for overall desaggregation [min]:", round(c, 2))
+        print("Time for overall desaggregation [min]: {:.2}"
+                .format(time.time() - t / 60))
 
     # write lpfile to path
     if not args['lpfile'] is False:

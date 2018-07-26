@@ -554,7 +554,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
 
     print("Performing linear OPF, {} snapshot(s) at a time:".
           format(group_size))
-    x = time.time()
+    t = time.time()
 
     for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
         if i > 0:
@@ -567,9 +567,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
                      extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
 
-    y = time.time()
-    z = (y - x) / 60
-    print(z)
+    print(time.time() - t / 60)
     return
 
 
