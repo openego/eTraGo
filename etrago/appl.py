@@ -72,7 +72,9 @@ if 'READTHEDOCS' not in os.environ:
         set_trafo_costs,
         clip_foreign,
         fix_bugs_for_pf,
-        add_single_country)
+        add_single_country,
+        distribute_q)
+    
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import (
         busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
@@ -81,14 +83,14 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
-    'db': 'oedb_clara',  # database session
+    'db': 'oedb',  # database session
     'gridversion': 'v0.4.2',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'start_snapshot': 4379,
+    'end_snapshot': 4379,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4,
+    'solver_options': {'threads':2,
                        'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
     'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
@@ -111,7 +113,7 @@ args = {  # Setup and Configuration:
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots':False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': True,  # meet the demand at very high cost
@@ -320,7 +322,7 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-    
+    network.lines.r[network.lines.r == 0] = 0.0000001
     # add coordinates
     network = add_coordinates(network)
     #network.generators.control = "PV"
@@ -435,7 +437,7 @@ def etrago(args):
     if args['load_shedding']:
         load_shedding(network)
         
-    #network.generators.control[network.generators.control == 'PQ']= 'PV'
+   # network.generators.control[network.generators.control == 'PQ']= 'PV'
 
     
     # snapshot clustering
@@ -486,6 +488,7 @@ def etrago(args):
                      loc[network.snapshots[0], network.lines.bus0].values - 
                      network.buses_t.v_ang.loc[network.snapshots[0],\
                     network.lines.bus1].values)*180/3.1415
+       # network = distribute_q(network)
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:

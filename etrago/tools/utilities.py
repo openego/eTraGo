@@ -385,7 +385,7 @@ def fix_bugs_for_pf(network):
 
     network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
     
-    #network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
+    network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
     #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
     network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
     network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
@@ -624,9 +624,73 @@ def pf_post_lopf(network, scenario):
         new_slack_gen, 'control', 'Slack')
     
     # execute non-linear pf
-    network_pf.pf(scenario.timeindex, use_seed=True)
+    network_pf.pf(network.snapshots, use_seed=True)
    
     return network_pf
+
+def distribute_q_alt(network):
+    p_sum_at_bus =  network.generators_t['p'].groupby(network.generators.bus, axis = 1).sum()
+    network.buses_t['p_sum'] = network.generators_t['p'].groupby(network.generators.bus, axis = 1).sum()
+
+# gesamte Blindleistung am Knoten
+    q_sum_at_bus = network.generators_t['q'].groupby(network.generators.bus, axis = 1).sum()
+
+    network.buses_t['q_sum'] = network.generators_t['q'].groupby(network.generators.bus, axis = 1).sum()
+
+    network.generators_t['p_sum'] = network.buses_t['p_sum'][network.generators.bus.sort_index()]
+    network.generators_t['q_sum'] = network.buses_t['q_sum'][network.generators.bus.sort_index()]
+
+    network.generators_t['p_sum'].columns = network.generators_t['p'].columns
+    network.generators_t['q_sum'].columns = network.generators_t['p'].columns
+# bus je q_neu 
+    q_neu = network.generators_t.p / network.generators_t['p_sum'].values *  network.generators_t['q_sum'].values
+    q_neu[q_neu.isnull()] = 0
+    q_neu[q_neu.abs() == np.inf] = 0
+    network.generators_t.q = q_neu
+    
+    return network
+
+def distribute_q(network, allocation = 'p_nom'):
+   
+    if allocation == 'p':
+        network.generators_t['p_sum'] = network.generators_t['p'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()]
+        
+        network.generators_t['q_sum'] = network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()]
+
+        network.generators_t['p_sum'].columns = \
+            network.generators_t['p'].columns
+        network.generators_t['q_sum'].columns =\
+            network.generators_t['p'].columns
+        
+        q_distributed = network.generators_t.p / \
+            network.generators_t['p_sum'].values*\
+            network.generators_t['q_sum'].values
+            
+            
+    if allocation == 'p_nom':
+        
+        p_nom_dist= network.generators.p_nom.sort_index()
+        p_nom_dist[p_nom_dist.index.isin(network.generators.index\
+            [network.generators.carrier == 'load shedding'])] = 0  
+            
+        q_distributed =network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/ \
+            network.generators.p_nom[network.generators.carrier != 'load shedding'].groupby(network.generators.bus).sum()\
+            [network.generators.bus.sort_index()].values 
+            
+        q_distributed.columns =  network.generators.bus.sort_index().index
+    
+
+    q_distributed[q_distributed.isnull()] = 0
+    q_distributed[q_distributed.abs() == np.inf] = 0
+    network.generators_t.q =  q_distributed
+    
+    return network
 
 
 def calc_line_losses(network):
