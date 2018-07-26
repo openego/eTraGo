@@ -26,6 +26,8 @@ import numpy as np
 import os
 import time
 import pypsa
+import json
+
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
@@ -523,10 +525,16 @@ def data_manipulation_sh(network):
 
     return
 
+def _enumerate_row(row):
+    row['name'] = row.name
+    return row
 
-def results_to_csv(network, path):
+def results_to_csv(network, args):
     """
     """
+
+    path = args['results']
+
     if path == False:
         return None
 
@@ -536,7 +544,11 @@ def results_to_csv(network, path):
     network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
-    data.to_csv(os.path.join(path, 'network.csv'))
+    data = data.apply(_enumerate_row,  axis=1)
+    data.to_csv(os.path.join(path, 'network.csv'), index=False)
+
+    with open(os.path.join(path, 'args.json'), 'w') as fp:
+        json.dump(args, fp)
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(

@@ -477,7 +477,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     if remove_stubs:
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
-        network.generators['weight'] = 1
+        network.generators['weight'] = network.generators['p_nom']
         aggregate_one_ports = components.one_port_components.copy()
         aggregate_one_ports.discard('Generator')
         # reset coordinates to the new reduced guys, rather than taking an
@@ -541,7 +541,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         n_jobs=1)
 
     # ToDo change function in order to use bus_strategies or similar
-    network.generators['weight'] = 1
+    network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
     clustering = get_clustering_from_busmap(
