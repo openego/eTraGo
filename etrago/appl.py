@@ -314,9 +314,10 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
+
     # add coordinates
     network = add_coordinates(network)
-    
+
     network =fix_bugs_for_pf(network)
    
     # TEMPORARY vague adjustment due to transformer bug in data processing
@@ -351,8 +352,6 @@ def etrago(args):
         busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
-
-
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -418,8 +417,6 @@ def etrago(args):
     if args['load_shedding']:
         load_shedding(network)
         
-   # network.generators.control[network.generators.control == 'PQ']= 'PV'
-
     
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
