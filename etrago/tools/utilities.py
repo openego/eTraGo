@@ -27,6 +27,7 @@ import os
 import time
 import pypsa
 import json
+import csv
 
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 
@@ -390,7 +391,7 @@ def _enumerate_row(row):
     row['name'] = row.name
     return row
 
-def results_to_csv(network, args):
+def results_to_csv(network,pf_solution, args):
     """
     """
 
@@ -410,6 +411,15 @@ def results_to_csv(network, args):
 
     with open(os.path.join(path, 'args.json'), 'w') as fp:
         json.dump(args, fp)
+        
+    pf_solve = pd.DataFrame()
+    pf_solve['converged'] = pf_solution['converged']
+    pf_solve['converged'] = pf_solution['converged'].values
+    pf_solve['error'] = pf_solution['error'].values
+    pf_solve.index = pf_solution['converged'].index
+    pf_solve['n_iter'] = pf_solution['n_iter'].values
+    pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
@@ -533,9 +543,9 @@ def pf_post_lopf(network, **kwargs):
         new_slack_gen, 'control', 'Slack')
     
     # execute non-linear pf
-    network_pf.pf(network.snapshots, use_seed=True)
+    pf_solution = network_pf.pf(network.snapshots, use_seed=True)
    
-    return network_pf
+    return pf_solution
 
 
 def distribute_q(network, allocation = 'p_nom'):

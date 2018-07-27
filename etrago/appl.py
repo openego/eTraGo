@@ -72,7 +72,6 @@ if 'READTHEDOCS' not in os.environ:
         set_trafo_costs,
         clip_foreign,
         fix_bugs_for_pf,
-        add_single_country,
         distribute_q)
     
     from etrago.tools.extendable import extendable
@@ -98,7 +97,7 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,  # save results as csv: False or /path/tofolder
+    'results':'results_PF',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storages'],  # None or array of components to optimize
@@ -460,7 +459,7 @@ def etrago(args):
     if args['pf_post_lopf']:
      
         x = time.time()
-        pf_post_lopf(network)
+        pf_solution = pf_post_lopf(network)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
@@ -508,7 +507,7 @@ def etrago(args):
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
-        results_to_csv(network, args)
+        results_to_csv(network, pf_solution, args)
 
     # close session
     # session.close()
