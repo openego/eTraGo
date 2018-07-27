@@ -83,15 +83,14 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
-    'db': 'local',  # database session
-    'gridversion': None, #'v0.4.3',  # None for model_draft or Version number
+    'db': 'oedb',  # database session
+    'gridversion':  'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 4378,
-    'end_snapshot': 4378,
+    'start_snapshot': 1,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':2,
-                       'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
+    'solver_options': {'threads':4,'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
     'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -102,17 +101,17 @@ args = {  # Setup and Configuration:
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable':None, #['network', 'storages'],  # None or array of components to optimize
+    'extendable': ['storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans':False,  # False or the value k for clustering
+    'network_clustering_kmeans':500,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots':False,
+    'skip_snapshots':3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': True,  # meet the demand at very high cost
@@ -315,7 +314,6 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-    
     # add coordinates
     network = add_coordinates(network)
     

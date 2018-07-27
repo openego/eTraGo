@@ -242,158 +242,18 @@ def clip_foreign(network):
     return network
 
 
-def add_single_country(network):
-    # get foreign buses by country
-
-    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
-                       data="Sweden")
-
-            
-    france = pd.Series(index=network.
-                       buses[(network.buses['x'] < 4.5) |
-                             ((network.buses['x'] > 7.507) &
-                              (network.buses['x'] < 7.508) &
-                              (network.buses['y'] > 47.64) &
-                              (network.buses['y'] < 47.65)) |
-                             ((network.buses['x'] > 6.2) &
-                              (network.buses['x'] < 6.3) &
-                              (network.buses['y'] > 49.1) &
-                              (network.buses['y'] < 49.2)) |
-                             ((network.buses['x'] > 6.7) &
-                              (network.buses['x'] < 6.76) &
-                              (network.buses['y'] > 49.13) &
-                              (network.buses['y'] < 49.16))].index,
-                       data="France")
-    foreign_buses = pd.Series()
-    foreign_buses = foreign_buses.append([france])
-
-    network.buses = network.buses.drop(
-        network.buses.loc[foreign_buses.index].index)
-
-    # drop foreign components
-    network.lines = network.lines.drop(network.lines[
-        (network.lines['bus0'].isin(network.buses.index) == False) |
-        (network.lines['bus1'].isin(network.buses.index) == False)].index)
-                            
-    network.links = network.links.drop(network.links[
-        (network.links['bus0'].isin(network.buses.index) == False) |
-        (network.links['bus1'].isin(network.buses.index) == False)].index)
-                            
-    network.transformers = network.transformers.drop(network.transformers[
-        (network.transformers['bus0'].isin(network.buses.index) == False) |
-        (network.transformers['bus1'].isin(network.
-                                           buses.index) == False)].index)
-    network.generators = network.generators.drop(network.generators[
-        (network.generators['bus'].isin(network.buses.index) == False)].index)
-    network.loads = network.loads.drop(network.loads[
-        (network.loads['bus'].isin(network.buses.index) == False)].index)
-    network.storage_units = network.storage_units.drop(network.storage_units[
-        (network.storage_units['bus'].isin(network.
-                                           buses.index) == False)].index)
-    
-
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
-    for g in components:  # loads_t
-        h = g + '_t'
-        nw = getattr(network, h)  # network.loads_t
-        for i in nw.keys():  # network.loads_t.p
-            cols = [j for j in getattr(
-                nw, i).columns if j not in getattr(network, g).index]
-            for k in cols:
-                del getattr(nw, i)[k]
-
-    return network
-
-
 def fix_bugs_for_pf(network):
 
 
-    # get foreign buses by country
-    poland = pd.Series(index=network.
-                       buses[(network.buses['x'] > 17)].index,
-                       data="Poland")
-    czech = pd.Series(index=network.
-                      buses[(network.buses['x'] < 17) &
-                            (network.buses['x'] > 15.1)].index,
-                      data="Czech")
-    denmark = pd.Series(index=network.
-                        buses[((network.buses['y'] < 60) &
-                               (network.buses['y'] > 55.2)) |
-                              ((network.buses['x'] > 11.95) &
-                               (network.buses['x'] < 11.97) &
-                               (network.buses['y'] > 54.5))].
-                        index,
-                        data="Denmark")
-    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
-                       data="Sweden")
-    austria = pd.Series(index=network.
-                        buses[(network.buses['y'] < 47.33) &
-                              (network.buses['x'] > 9) |
-                              ((network.buses['x'] > 9.65) &
-                               (network.buses['x'] < 9.9) &
-                               (network.buses['y'] < 47.5) &
-                               (network.buses['y'] > 47.3)) |
-                              ((network.buses['x'] > 12.14) &
-                               (network.buses['x'] < 12.15) &
-                               (network.buses['y'] > 47.57) &
-                               (network.buses['y'] < 47.58)) |
-                              (network.buses['y'] < 47.6) &
-                              (network.buses['x'] > 14.1)].index,
-                        data="Austria")
-    switzerland = pd.Series(index=network.
-                            buses[((network.buses['x'] > 8.1) &
-                                   (network.buses['x'] < 8.3) &
-                                   (network.buses['y'] < 46.8)) |
-                                  ((network.buses['x'] > 7.82) &
-                                   (network.buses['x'] < 7.88) &
-                                   (network.buses['y'] > 47.54) &
-                                   (network.buses['y'] < 47.57)) |
-                                  ((network.buses['x'] > 10.91) &
-                                   (network.buses['x'] < 10.92) &
-                                   (network.buses['y'] > 49.91) &
-                                   (network.buses['y'] < 49.92))].index,
-                            data="Switzerland")
-    netherlands = pd.Series(index=network.
-                            buses[((network.buses['x'] < 6.96) &
-                                   (network.buses['y'] < 53.15) &
-                                   (network.buses['y'] > 53.1)) |
-                                  ((network.buses['x'] < 5.4) &
-                                   (network.buses['y'] > 52.1))].index,
-                            data="Netherlands")
-    luxembourg = pd.Series(index=network.
-                           buses[((network.buses['x'] < 6.15) &
-                                  (network.buses['y'] < 49.91) &
-                                  (network.buses['y'] > 49.65))].index,
-                           data="Luxembourg")
-    france = pd.Series(index=network.
-                       buses[(network.buses['x'] < 4.5) |
-                             ((network.buses['x'] > 7.507) &
-                              (network.buses['x'] < 7.508) &
-                              (network.buses['y'] > 47.64) &
-                              (network.buses['y'] < 47.65)) |
-                             ((network.buses['x'] > 6.2) &
-                              (network.buses['x'] < 6.3) &
-                              (network.buses['y'] > 49.1) &
-                              (network.buses['y'] < 49.2)) |
-                             ((network.buses['x'] > 6.7) &
-                              (network.buses['x'] < 6.76) &
-                              (network.buses['y'] > 49.13) &
-                              (network.buses['y'] < 49.16))].index,
-                       data="France")
-    foreign_buses = pd.Series()
-    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
-                                          austria, switzerland,
-                                          netherlands, luxembourg, france])
-
     network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
     
-    network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
-    network.lines.x[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.x/10
+    #network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
+    #network.lines.x[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.x/10
     #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
-    network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
-    network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
+    #network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
+    #network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
     
-    network.loads_t['q_set']['28405'] = 0
+    """network.loads_t['q_set']['28405'] = 0
     #network.loads_t['q_set']['28406'] = 0
     network.loads_t['q_set']['28409'] = 0
     network.loads_t['q_set']['28410'] = 0
@@ -403,7 +263,7 @@ def fix_bugs_for_pf(network):
     network.loads_t['q_set']['28418'] = 0
     network.loads_t['q_set']['28419'] = 0
     network.loads_t['q_set']['28420'] = 0
-    network.loads_t['q_set']['28424'] = 0
+    network.loads_t['q_set']['28424'] = 0"""
   
     return network
 
@@ -593,6 +453,7 @@ def pf_post_lopf(network, **kwargs):
     # Update x of extended lines and transformers
     if network_pf.lines.s_nom_extendable.any() or \
         network_pf.transformers.s_nom_extendable.any():
+            
         network_pf.lines.x[network.lines.s_nom_extendable] = \
         network_pf.lines.x * network.lines.s_nom /\
         network_pf.lines.s_nom_opt  
