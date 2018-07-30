@@ -27,7 +27,8 @@ import os
 import time
 import pypsa
 import json
-import csv
+import logging
+logger = logging.getLogger(__name__)
 
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 
@@ -412,13 +413,7 @@ def results_to_csv(network,pf_solution, args):
     with open(os.path.join(path, 'args.json'), 'w') as fp:
         json.dump(args, fp)
         
-    pf_solve = pd.DataFrame()
-    pf_solve['converged'] = pf_solution['converged']
-    pf_solve['converged'] = pf_solution['converged'].values
-    pf_solve['error'] = pf_solution['error'].values
-    pf_solve.index = pf_solution['converged'].index
-    pf_solve['n_iter'] = pf_solution['n_iter'].values
-    pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
     
 
     if hasattr(network, 'Z'):
@@ -544,8 +539,19 @@ def pf_post_lopf(network, **kwargs):
     
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
+    
+    pf_solve = pd.DataFrame()
+    pf_solve['converged'] = pf_solution['converged']
+    pf_solve['converged'] = pf_solution['converged'].values
+    pf_solve['error'] = pf_solution['error'].values
+    pf_solve.index = pf_solution['converged'].index
+    pf_solve['n_iter'] = pf_solution['n_iter'].values
+    
+    if not pf_solve[pf_solve.converged == False].count().max() == 0:
+        logger.warning("PF of  %d snapshots not converged.",\
+                pf_solve[pf_solve.converged == False].count().max())
    
-    return pf_solution
+    return pf_solve
 
 
 def distribute_q(network, allocation = 'p_nom'):
