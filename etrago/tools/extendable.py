@@ -32,7 +32,9 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def extendable(network, extendable, overlay_scn_name=None):
+    
 
+    
     if 'network' in extendable:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
@@ -99,6 +101,18 @@ def extendable(network, extendable, overlay_scn_name=None):
         network.lines.loc[network.lines.scn_name == (
             'extension_' + overlay_scn_name),
             'capital_cost'] = network.lines.capital_cost + (2 * 14166)
+        
+    network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_min[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
+                                   
+    network.lines.s_nom_max[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
 
     return network
 

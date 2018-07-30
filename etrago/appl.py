@@ -85,15 +85,15 @@ args = {  # Setup and Configuration:
     'solver_options': {},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
-    'scn_extension': None,  # None or extension scenario
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension': 'nep2035_b2',  # None or extension scenario
+    'scn_decommissioning':'nep2035_b2',  # None or decommissioning scenario
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None,  # None or array of components to optimize
+    'extendable': ['overlay_network'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -344,6 +344,7 @@ def etrago(args):
         network = extension(
             network,
             session,
+            version = args['gridversion'],
             scn_extension=args['scn_extension'],
             start_snapshot=args['start_snapshot'],
             end_snapshot=args['end_snapshot'],
@@ -354,6 +355,7 @@ def etrago(args):
         network = decommissioning(
             network,
             session,
+            version = args['gridversion'],
             scn_decommissioning=args['scn_decommissioning'],
             k_mean_clustering=args['network_clustering_kmeans'])
             
