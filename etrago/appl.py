@@ -85,9 +85,8 @@ args = {  # Setup and Configuration:
     'solver_options': {},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
-    'scn_extension': 'nep2035_b2',  # None or extension scenario
+    'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
     'scn_decommissioning':'nep2035_b2',  # None or decommissioning scenario
-    'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'results': False,  # save results as csv: False or /path/tofolder
@@ -97,7 +96,7 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -106,7 +105,7 @@ args = {  # Setup and Configuration:
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': False,  # meet the demand at very high cost
+    'load_shedding': True,  # meet the demand at very high cost
     'comments': None}
 
 
@@ -158,17 +157,19 @@ def etrago(args):
         Schleswig-Holstein by adding the acronym SH to the scenario
         name (e.g. 'SH Status Quo').
 
-   scn_extension : str
+   scn_extension : NoneType or list
        None,
-       Choose an extension-scenario which will be added to the existing
+       Choose extension-scenarios which will be added to the existing
        network container. Data of the extension scenarios are located in
        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
        with the prefix 'extension_'.
-       Currently there are two overlay networks:
+       Currently there are three overlay networks:
            'nep2035_confirmed' includes all planed new lines confirmed by the
            Bundesnetzagentur
            'nep2035_b2' includes all new lines planned by the
            Netzentwicklungsplan 2025 in scenario 2035 B2
+           'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and adds
+                           BE and NO as electrical neighbours
 
     scn_decommissioning : str
         None,
@@ -184,10 +185,7 @@ def etrago(args):
             'nep2035_b2' includes all lines that will be replaced in
             NEP-scenario 2035 B2
 
-    add_Belgium_Norway : bool
-        False,
-        State if you want to add Belgium and Norway as electrical neighbours.
-        Currently, generation and load always refer to scenario 'NEP 2035'.
+
 
     lpfile : obj
         False,
@@ -341,14 +339,15 @@ def etrago(args):
     
     # scenario extensions 
     if args['scn_extension'] is not None:
-        network = extension(
-            network,
-            session,
-            version = args['gridversion'],
-            scn_extension=args['scn_extension'],
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
-            k_mean_clustering=args['network_clustering_kmeans'])
+        for i in range(len(args['scn_extension'])):
+            network = extension(
+                    network,
+                    session,
+                    version = args['gridversion'],
+                    scn_extension=args['scn_extension'][i],
+                    start_snapshot=args['start_snapshot'],
+                    end_snapshot=args['end_snapshot'],
+                    k_mean_clustering=args['network_clustering_kmeans'])
             
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
@@ -358,23 +357,13 @@ def etrago(args):
             version = args['gridversion'],
             scn_decommissioning=args['scn_decommissioning'],
             k_mean_clustering=args['network_clustering_kmeans'])
-            
-    # specific scenario extension to add Belgium and Norwa
-    if args['add_Belgium_Norway']:
-        network = extension(
-            network,
-            session,
-            scn_extension='BE_NO_NEP 2035',
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
-            k_mean_clustering=args['network_clustering_kmeans'])
-            
+                        
     # investive optimization strategies 
     if args['extendable'] is not None:
         network = extendable(
-            network,
-            args['extendable'],
-            args['scn_extension'])
+                    network,
+                    args['extendable'],
+                    args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
     
