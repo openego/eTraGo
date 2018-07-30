@@ -53,7 +53,7 @@ args = {# Setup and Configuration:
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 366,
+        'end_snapshot' : 672,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -61,8 +61,8 @@ args = {# Setup and Configuration:
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
-        'lpfile': '/home/kim/Dokumente/open_ego/file_mit.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':"/home/kim/Dokumente/open_ego/", # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': '/home/kim/Dokumente/open_ego/yy/file_mit.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results':"/home/kim/Dokumente/open_ego/yy", # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -70,10 +70,10 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':10, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':5, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':3, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
-        'extra_functionality_storage': snapshot_cluster_constraints,
+        'snapshot_clustering':15, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'extra_functionality_storage':snapshot_cluster_constraints,
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
         'skip_snapshots':False,
@@ -334,6 +334,8 @@ def etrago(args):
         
     # snapshot clustering
     if not args['snapshot_clustering']== False:
+        network.storage_units.state_of_charge_initial=5
+        network.storage_units.cyclic_state_of_charge = False
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
         extra_functionality = args ['extra_functionality_storage']  # daily_bounds
 

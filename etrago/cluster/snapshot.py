@@ -92,12 +92,26 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     df_cluster =  pd.DataFrame({
                         'Cluster': clusterOrder, #Cluster of the day
                         'RepresentativeDay': representative_day, #representative day of the cluster
-                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster                
+                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster  
     df_cluster.index = df_cluster.index + 1
     df_cluster.index.name = 'Candidate'
     
+    #create a dataframe each timeseries (h) and its candiddate day (i) df_i_h
+    nr_day = []
+    x = len(timeseries_df.index)/hours+1
+    
+    for i in range(1,int(x)):
+        j=1
+        while j <= hours: 
+            nr_day.append(i)
+            j=j+1     
+   
+    global df_i_h
+    df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index, 
+                        'Candidate_day': nr_day}) 
+    df_i_h.set_index('Timeseries',inplace=True)
+             
     return df_cluster, cluster_weights, dates, hours
-
 
 def run(network, n_clusters=None, how='daily',
         normed=False):
@@ -196,10 +210,24 @@ def snapshot_cluster_constraints(network, snapshots):
         network.model.candidates = po.Set(initialize=candidates,
                                           ordered=True)
 
+        # create intra soc variable for each storage and each hour
+        network.model.state_of_charge_intra = po.Var(
+            sus.index, network.snapshots,
+            within=po.NonNegativeReals) 
+        
+        def intra_soc_rule(m, s, p):
+            """
+            Sets the soc_intra of the every first hour to zero
+            """
+            return (m.state_of_charge_intra[s, p] == 0)
+    
+        network.model.period_bound = po.Constraint(
+            network.model.storages, network.model.period_starts, rule = intra_soc_rule)       
+        
         # create inter soc variable for each storage and each candidate
         # (e.g. day of year for daily clustering) 
         network.model.state_of_charge_inter = po.Var(
-            sus.index, network.model.candidates, #network.model.storages, network.model.candidates,
+            sus.index, network.model.candidates, 
             within=po.NonNegativeReals) 
         
     
@@ -208,44 +236,55 @@ def snapshot_cluster_constraints(network, snapshots):
             Define the state_of_charge_inter as the state_of_charge_inter of the day before minus the storage losses 
             plus the state_of_charge (intra) of the last hour of the representative day
             """
-            #network.model.state_of_charge[s,first hour].value = 0
-            #network.model.state_of_charge[s,first hour].fix()
-           
+                       
             
             if i == network.model.candidates[-1]:
-                # if last candidate: build 'cyclic' constraint instead normal
-                # normal one (would cause error anyway as t+1 does not exist for
-                # last timestep)
                 expr = (m.state_of_charge_inter[s, i] ==
                  m.state_of_charge_inter[s, network.model.candidates[1]])
             else:
                 expr = (
                     m.state_of_charge_inter[s, i + 1] ==
                     m.state_of_charge_inter[s, i] 
-                    * (1 - network.storage_units.at[s, 'standing_loss'])**24
-                    + m.state_of_charge[s, network.cluster["last_hour_RepresentativeDay"][i]])
+                    * (1 - network.storage_units.at[s, 'standing_loss'])*24
+                    + m.state_of_charge_intra[s, network.cluster["last_hour_RepresentativeDay"][i]])
             return expr
         network.model.inter_storage_soc_constraint = po.Constraint(
             sus.index, network.model.candidates,
             rule=inter_storage_soc_rule)
         
         
-        def inter_storage_capacity_rule(m, s, i):
-            """
-            Limit the capacity of the storage for every hour of the candidate day
-            """
-            
-            return (
-                   m.state_of_charge_inter[s, i] 
-                   * (1 - network.storage_units.at[s,'standing_loss'])**24  
-                   + m.state_of_charge[s, network.cluster['last_hour_RepresentativeDay'][i]] <=
-                    network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom']
-                    ) 
+# =============================================================================
+#         def inter_storage_capacity_rule(m, s, i):
+#             """
+#             Limit the capacity of the storage for every hour of the candidate day
+#             """
+#             
+#             return (
+#                    m.state_of_charge_inter[s, i] 
+#                    * (1 - network.storage_units.at[s,'standing_loss'])**24  
+#                    + m.state_of_charge_intra[s, network.cluster['last_hour_RepresentativeDay'][i]] <=
+#                     network.storage_units.at[s, 'max_hours'] * network.storage_units.at[s,'p_nom']
+#                     ) 
+#              
+#         
+#         network.model.inter_storage_capacity_constraint = po.Constraint(
+# =============================================================================
+# =============================================================================
+#             sus.index, network.model.candidates,
+#             rule = inter_storage_capacity_rule)
+# =============================================================================
              
         
-        network.model.inter_storage_capacity_constraint = po.Constraint(
-            sus.index, network.model.candidates,
-            rule = inter_storage_capacity_rule)
+        #new definition of the state_of_charge used in pypsa
+        def total_state_of_charge(m,s,h):
+            
+            return( m.state_of_charge[s,h] == m.state_of_charge_intra[s,h] + network.model.state_of_charge_inter[s,df_i_h['Candidate_day'][h]])                
+            
+            
+        network.model.total_storage_constraint = po.Constraint(
+                sus.index, network.snapshots, rule = total_state_of_charge)
+        
+              
         
 def daily_bounds(network, snapshots):
     """ This will bound the storage level to 0.5 max_level every 24th hour.
