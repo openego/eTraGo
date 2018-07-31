@@ -104,7 +104,7 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/openego/pf_results/desagg/nep_k100skip3_storagrid',  # save results as csv: False or /path/tofolder
+    'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network','storages'],  # None or array of components to optimize
@@ -112,7 +112,7 @@ args = {  # Setup and Configuration:
     'reproduce_noise': False,  # predefined set of random noise
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
@@ -546,11 +546,13 @@ def etrago(args):
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
-        results_to_csv(network, args['results'])
+        results_to_csv(network, args)
         if disaggregated_network:
             results_to_csv(
                     disaggregated_network,
-                    os.path.join(args['results'],'disaggregated'))
+                    {k: os.path.join(v, 'disaggregated')
+                        if k == 'results' else v
+                        for k, v in args.items()})
 
     # close session
     session.close()

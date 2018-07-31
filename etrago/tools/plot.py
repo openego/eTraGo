@@ -122,7 +122,8 @@ def plot_line_loading(
             index=array_line)
 
         load_lines_rel = (
-            loading_lines / network.snapshots[timesteps].size) * 100
+            loading_lines / network.snapshot_weightings\
+                            [network.snapshots[timesteps]].sum()) * 100
 
         array_link = [['Link'] * len(network.links), network.links.index]
 
@@ -132,7 +133,8 @@ def plot_line_loading(
             index=array_link)
 
         load_links_rel = (
-            loading_links / network.snapshots[timesteps].size) * 100
+            loading_links /  network.snapshot_weightings\
+                            [network.snapshots[timesteps]].sum())* 100
 
         loading = load_lines_rel.append(load_links_rel)
 
@@ -156,16 +158,12 @@ def plot_line_loading(
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
-        
+
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
-    #cb_Link = plt.colorbar(ll[2], boundaries=v,
-                           #ticks=v[0:101:10])
+
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-   # cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-   # cb_Link.remove()
-    
- 
+
     cb.set_label('Line loading in %')
 
     if arrows:
