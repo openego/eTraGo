@@ -540,11 +540,9 @@ def pf_post_lopf(network, **kwargs):
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
     
-    pf_solve = pd.DataFrame()
-    pf_solve['converged'] = pf_solution['converged']
+    pf_solve = pd.DataFrame(index =pf_solution['converged'].index)
     pf_solve['converged'] = pf_solution['converged'].values
     pf_solve['error'] = pf_solution['error'].values
-    pf_solve.index = pf_solution['converged'].index
     pf_solve['n_iter'] = pf_solution['n_iter'].values
     
     if not pf_solve[pf_solve.converged == False].count().max() == 0:

@@ -86,8 +86,8 @@ args = {  # Setup and Configuration:
     'gridversion':  'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'start_snapshot': 4379,
+    'end_snapshot': 4379,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4,'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
     'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
@@ -104,7 +104,7 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans':500,  # False or the value k for clustering
+    'network_clustering_kmeans':100,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
