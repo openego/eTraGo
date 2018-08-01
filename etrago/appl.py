@@ -72,7 +72,8 @@ if 'READTHEDOCS' not in os.environ:
         set_trafo_costs,
         clip_foreign,
         fix_bugs_for_pf,
-        distribute_q)
+        distribute_q,
+        set_q_foreign_loads)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.networkclustering import (
@@ -100,11 +101,11 @@ args = {  # Setup and Configuration:
     'results':'results_PF',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storages'],  # None or array of components to optimize
+    'extendable': None, #['storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans':100,  # False or the value k for clustering
+    'network_clustering_kmeans':False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -317,7 +318,7 @@ def etrago(args):
     # add coordinates
     network = add_coordinates(network)
 
-    network =fix_bugs_for_pf(network)
+    network =  set_q_foreign_loads(network, cos_phi = 0.95)
    
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -423,8 +424,7 @@ def etrago(args):
             network, how='daily', clusters=args['snapshot_clustering'])
         extra_functionality = daily_bounds  # daily_bounds or other constraint
         
-    network.generators.control[network.generators.control == 'PQ'] = 'PV'
-    
+
     # parallisation
     if args['parallelisation']:
         parallelisation(
