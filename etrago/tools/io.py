@@ -703,16 +703,7 @@ def extension (network, session, version, scn_extension, start_snapshot, end_sna
             wkt_geom = to_shape(row['geom'])
             network.buses.loc[idx, 'x'] = wkt_geom.x
             network.buses.loc[idx, 'y'] = wkt_geom.y
-        
-    network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
-
-   ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
-    """if not k_mean_clustering == False:
-            network.transformers.loc[~network.transformers.bus0.isin(network.buses.index), 'bus0'] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_max'] = network.lines.s_nom_max - network.lines.s_nom_min
-            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom'] = network.lines.s_nom_max
-            network.lines.loc[network.lines.scn_name == ('extension_' +  scn_extension), 's_nom_min'] = 0"""
-            
+               
     return network
 
 def decommissioning(network, session, version,  scn_decommissioning, **kwargs):
