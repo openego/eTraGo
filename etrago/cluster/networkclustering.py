@@ -462,17 +462,18 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                    network.transformers.bus1.map(network.buses.v_nom)], axis=1)
 
     network.import_components_from_dataframe(
-        network.transformers.loc[:, ['bus0', 'bus1', 'x', 's_nom']]
+        network.transformers.loc[:, ['bus0', 'bus1', 'x', 's_nom', 'capital_cost']]
         .assign(x=network.transformers.x * (380. /
-                transformer_voltages.max(axis=1))**2)
+                transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),
         'Line')
+    
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr]\
         .reindex(columns=[])
-
+        
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -538,7 +539,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         bus_weightings=pd.Series(weight),
         n_clusters=n_clusters,
         load_cluster=load_cluster,
-        n_jobs=-1)
+        n_jobs=1)
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']

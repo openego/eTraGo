@@ -80,9 +80,9 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 1,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
@@ -92,11 +92,11 @@ args = {  # Setup and Configuration:
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['overlay_network'],  # None or array of components to optimize
+    'extendable': ['network'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'network_clustering_kmeans': 200,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -346,8 +346,7 @@ def etrago(args):
                     version = args['gridversion'],
                     scn_extension=args['scn_extension'][i],
                     start_snapshot=args['start_snapshot'],
-                    end_snapshot=args['end_snapshot'],
-                    k_mean_clustering=args['network_clustering_kmeans'])
+                    end_snapshot=args['end_snapshot'])
             
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
@@ -355,8 +354,7 @@ def etrago(args):
             network,
             session,
             version = args['gridversion'],
-            scn_decommissioning=args['scn_decommissioning'],
-            k_mean_clustering=args['network_clustering_kmeans'])
+            scn_decommissioning=args['scn_decommissioning'])
                         
     # investive optimization strategies 
     if args['extendable'] is not None:

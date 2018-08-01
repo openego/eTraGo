@@ -647,7 +647,7 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, version, scn_extension, start_snapshot, end_snapshot, k_mean_clustering, **kwargs):
+def extension (network, session, version, scn_extension, start_snapshot, end_snapshot, **kwargs):
     '''
         Function that adds an additional network to the existing network container. 
         The new network can include every PyPSA-component (e.g. buses, lines, links). 
@@ -715,7 +715,7 @@ def extension (network, session, version, scn_extension, start_snapshot, end_sna
             
     return network
 
-def decommissioning(network, session, scn_decommissioning, k_mean_clustering, **kwargs):
+def decommissioning(network, session, version,  scn_decommissioning, **kwargs):
     '''
         Function that removes components in a decommissioning-scenario from the existing network container. 
         Currently, only lines can be decommissioned.
@@ -736,13 +736,35 @@ def decommissioning(network, session, scn_decommissioning, k_mean_clustering, **
           network : Network container including decommissioning
           
     '''  
-    if kwargs.get('version') == None:   
+    """components = ['Line', 'Link']
+    for comp in components:
+        if version  == None:   
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'), ('EgoGridPfHvExtension' + comp))
+        else:
+            ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtension' + comp) 
+            
+        query = session.query(ormclass).filter(ormclass.scn_name ==\
+                             'decommissioning_' + scn_decommissioning)
+        
+        df_decommisionning = pd.read_sql(query.statement,
+                         session.bind,
+                         index_col=comp.lower() + '_id'))
+        
+        df_decommisionning.index = df_decommisionning.index.astype(str)
+        
+        Wie kann network.lines, network.links in Schleife geschrieben werden? 
+        
+        """
+        
+    if version == None:   
         ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
     else:
         ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtensionLine')
+       
     
     query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
+    
     
     df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
@@ -775,7 +797,8 @@ def distance (x0, x1, y0, y1):
           
     '''    
     ### Calculate square of the distance between two points (Pythagoras)
-    distance = (x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+    distance = (x1.values- x0.values)*(x1.values- x0.values)\
+        + (y1.values- y0.values)*(y1.values- y0.values)
     return distance
 
 def calc_nearest_point(bus1, network):
