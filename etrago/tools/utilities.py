@@ -21,16 +21,19 @@
 """
 Utilities.py includes a wide range of useful functions.
 """
-import json
+
 import os
 import time
-
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 import numpy as np
 import pandas as pd
 import pypsa
+import json
+import logging
+import math
+logger = logging.getLogger(__name__)
 
-
+el)
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
                  "Centre for Sustainable Energy Systems, "
@@ -182,7 +185,7 @@ def clip_foreign(network):
 
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
-    """transborder_lines = pd.DataFrame(index=network.lines[
+    transborder_lines = pd.DataFrame(index=network.lines[
         ((network.lines['bus0'].isin(network.buses.index) == False) &
          (network.lines['bus1'].isin(network.buses.index) == True)) |
         ((network.lines['bus0'].isin(network.buses.index) == True) &
@@ -206,7 +209,7 @@ def clip_foreign(network):
                 i)] = transborder_flows.loc[:, str(i)]*-1
 
     network.foreign_trade = transborder_flows.\
-        groupby(transborder_lines['country'], axis=1).sum()"""
+        groupby(transborder_lines['country'], axis=1).sum()
                 
 
     # drop foreign components
@@ -242,73 +245,7 @@ def clip_foreign(network):
 
     return network
 
-
-def add_single_country(network):
-    # get foreign buses by country
-
-    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
-                       data="Sweden")
-
-            
-    france = pd.Series(index=network.
-                       buses[(network.buses['x'] < 4.5) |
-                             ((network.buses['x'] > 7.507) &
-                              (network.buses['x'] < 7.508) &
-                              (network.buses['y'] > 47.64) &
-                              (network.buses['y'] < 47.65)) |
-                             ((network.buses['x'] > 6.2) &
-                              (network.buses['x'] < 6.3) &
-                              (network.buses['y'] > 49.1) &
-                              (network.buses['y'] < 49.2)) |
-                             ((network.buses['x'] > 6.7) &
-                              (network.buses['x'] < 6.76) &
-                              (network.buses['y'] > 49.13) &
-                              (network.buses['y'] < 49.16))].index,
-                       data="France")
-    foreign_buses = pd.Series()
-    foreign_buses = foreign_buses.append([france])
-
-    network.buses = network.buses.drop(
-        network.buses.loc[foreign_buses.index].index)
-
-    # drop foreign components
-    network.lines = network.lines.drop(network.lines[
-        (network.lines['bus0'].isin(network.buses.index) == False) |
-        (network.lines['bus1'].isin(network.buses.index) == False)].index)
-                            
-    network.links = network.links.drop(network.links[
-        (network.links['bus0'].isin(network.buses.index) == False) |
-        (network.links['bus1'].isin(network.buses.index) == False)].index)
-                            
-    network.transformers = network.transformers.drop(network.transformers[
-        (network.transformers['bus0'].isin(network.buses.index) == False) |
-        (network.transformers['bus1'].isin(network.
-                                           buses.index) == False)].index)
-    network.generators = network.generators.drop(network.generators[
-        (network.generators['bus'].isin(network.buses.index) == False)].index)
-    network.loads = network.loads.drop(network.loads[
-        (network.loads['bus'].isin(network.buses.index) == False)].index)
-    network.storage_units = network.storage_units.drop(network.storage_units[
-        (network.storage_units['bus'].isin(network.
-                                           buses.index) == False)].index)
-    
-
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
-    for g in components:  # loads_t
-        h = g + '_t'
-        nw = getattr(network, h)  # network.loads_t
-        for i in nw.keys():  # network.loads_t.p
-            cols = [j for j in getattr(
-                nw, i).columns if j not in getattr(network, g).index]
-            for k in cols:
-                del getattr(nw, i)[k]
-
-    return network
-
-
-def fix_bugs_for_pf(network):
-
-
+def set_q_foreign_loads(network, cos_phi = 1):
     # get foreign buses by country
     poland = pd.Series(index=network.
                        buses[(network.buses['x'] > 17)].index,
@@ -385,25 +322,33 @@ def fix_bugs_for_pf(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
+                        
+    network.loads_t['q_set'][network.loads.index[network.loads.bus.astype(str)\
+     .isin(foreign_buses.index)]]  =  network.loads_t['p_set'][network.loads.\
+     index[network.loads.bus.astype(str).isin (foreign_buses.index)]] \
+     * math.tan(math.acos(cos_phi))
+     
+    # temporary change x of some lines to avoid infeasibilities
+    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom * 0.7
+   # network.lines.s_nom[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.7
+    
+    # for future scenarios set all generators to PV
+    #network.generators.control[network.generators.control == 'PQ'] = 'PV'
+    
+    return network
+    
+def fix_bugs_for_pf(network):
+
 
     network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
     
     #network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
+    #network.lines.x[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.x/10
     #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
-    network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
-    network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
+    #network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
+    #network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
     
-    network.loads_t['q_set']['28405'] = 0
-    #network.loads_t['q_set']['28406'] = 0
-    network.loads_t['q_set']['28409'] = 0
-    network.loads_t['q_set']['28410'] = 0
-    network.loads_t['q_set']['28412'] = 0
-    network.loads_t['q_set']['28413'] = 0
-    network.loads_t['q_set']['28416'] = 0
-    network.loads_t['q_set']['28418'] = 0
-    network.loads_t['q_set']['28419'] = 0
-    network.loads_t['q_set']['28420'] = 0
-    network.loads_t['q_set']['28424'] = 0
+   
   
     return network
 
@@ -530,7 +475,7 @@ def _enumerate_row(row):
     row['name'] = row.name
     return row
 
-def results_to_csv(network, args):
+def results_to_csv(network, args, pf_solution = None):
     """
     """
 
@@ -550,6 +495,10 @@ def results_to_csv(network, args):
 
     with open(os.path.join(path, 'args.json'), 'w') as fp:
         json.dump(args, fp)
+    
+    if pf_solution != None:    
+    	pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
@@ -584,18 +533,54 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
     return
 
 
-def pf_post_lopf(network, scenario):
+def pf_post_lopf(network, **kwargs):
 
     network_pf = network
+
+    # Update x of extended lines and transformers
+    if network_pf.lines.s_nom_extendable.any() or \
+        network_pf.transformers.s_nom_extendable.any():
+            
+        network_pf.lines.x[network.lines.s_nom_extendable] = \
+        network_pf.lines.x * network.lines.s_nom /\
+        network_pf.lines.s_nom_opt  
+        
+        network_pf.lines.r[network.lines.s_nom_extendable] = \
+        network_pf.lines.r * network.lines.s_nom /\
+        network_pf.lines.s_nom_opt  
     
-    # For the PF, set the P to the optimised P
+        network_pf.lines.b[network.lines.s_nom_extendable] = \
+        network_pf.lines.b * network.lines.s_nom_opt /\
+        network_pf.lines.s_nom 
+        
+        network_pf.lines.g[network.lines.s_nom_extendable] = \
+        network_pf.lines.g * network.lines.s_nom_opt /\
+        network_pf.lines.s_nom 
+        
+        network_pf.transformers.x[network.transformers.s_nom_extendable] = \
+        network_pf.transformers.x * network.transformers.s_nom / \
+        network_pf.transformers.s_nom_opt
+        
+        network_pf.lines.s_nom_extendable = False
+        network_pf.transformers.s_nom_extendable = False
+        network_pf.lines.s_nom = network.lines.s_nom_opt
+        network_pf.transformers.s_nom =network.transformers.s_nom_opt
+        
+        network_pf.lopf(solver_name = 'gurobi')
+    
+        # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
     
+    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p_set.reindex(
+            columns=network_pf.storage_units.index)
+    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p
+    
     network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
-    columns=network_pf.links.index)
+            columns=network_pf.links.index)
     network_pf.links_t.p_set = network_pf.links_t.p0
+    
     
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
@@ -635,9 +620,62 @@ def pf_post_lopf(network, scenario):
         new_slack_gen, 'control', 'Slack')
     
     # execute non-linear pf
-    network_pf.pf(network.snapshots, use_seed=True)
+    pf_solution = network_pf.pf(network.snapshots, use_seed=True)
+    
+    pf_solve = pd.DataFrame(index =pf_solution['converged'].index)
+    pf_solve['converged'] = pf_solution['converged'].values
+    pf_solve['error'] = pf_solution['error'].values
+    pf_solve['n_iter'] = pf_solution['n_iter'].values
+    
+    if not pf_solve[pf_solve.converged == False].count().max() == 0:
+        logger.warning("PF of  %d snapshots not converged.",\
+                pf_solve[pf_solve.converged == False].count().max())
    
-    return network_pf
+    return pf_solve
+
+
+def distribute_q(network, allocation = 'p_nom'):
+   
+    if allocation == 'p':
+        network.generators_t['p_sum'] = network.generators_t['p'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()]
+        
+        network.generators_t['q_sum'] = network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()]
+
+        network.generators_t['p_sum'].columns = \
+            network.generators_t['p'].columns
+        network.generators_t['q_sum'].columns =\
+            network.generators_t['p'].columns
+        
+        q_distributed = network.generators_t.p / \
+            network.generators_t['p_sum'].values*\
+            network.generators_t['q_sum'].values
+            
+            
+    if allocation == 'p_nom':
+        
+        p_nom_dist= network.generators.p_nom.sort_index()
+        p_nom_dist[p_nom_dist.index.isin(network.generators.index\
+            [network.generators.carrier == 'load shedding'])] = 0  
+            
+        q_distributed =network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/ \
+            network.generators.p_nom[network.generators.carrier !=\
+            'load shedding'].groupby(network.generators.bus).sum()\
+            [network.generators.bus.sort_index()].values 
+            
+        q_distributed.columns =  network.generators.bus.sort_index().index
+    
+
+    q_distributed[q_distributed.isnull()] = 0
+    q_distributed[q_distributed.abs() == np.inf] = 0
+    network.generators_t.q =  q_distributed
+    
+    return network
 
 
 def calc_line_losses(network):

@@ -158,11 +158,11 @@ def plot_line_loading(
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
-
+        
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
 
-    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+      cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
     cb.set_label('Line loading in %')
 

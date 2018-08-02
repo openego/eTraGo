@@ -24,6 +24,9 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
+
+from numpy import genfromtxt
+
 import datetime
 import os
 import os.path
@@ -49,8 +52,8 @@ if 'READTHEDOCS' not in os.environ:
         busmap_from_psql,
         cluster_on_extra_high_voltage,
         kmean_clustering)
-    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
-    from etrago.tools.extendable import extendable
+   
+    
     from etrago.tools.io import (
         NetworkScenario,
         results_to_oedb,
@@ -66,37 +69,42 @@ if 'READTHEDOCS' not in os.environ:
         storage_expansion,
         extension_overlay_network,
         nodal_gen_dispatch)
+
     from etrago.tools.utilities import (
-        add_missing_components,
-        add_single_country,
-        calc_line_losses,
-        clip_foreign,
-        convert_capital_costs,
-        data_manipulation_sh,
-        fix_bugs_for_pf,
-        group_parallel_lines,
         load_shedding,
-        loading_minimization,
+        data_manipulation_sh,
+        convert_capital_costs,
+        results_to_csv,
         parallelisation,
         pf_post_lopf,
-        results_to_csv,
+        loading_minimization,
+        calc_line_losses,
+        group_parallel_lines,
+        add_missing_components,
         set_line_costs,
-        set_trafo_costs)
-
+        set_trafo_costs,
+        clip_foreign,
+        fix_bugs_for_pf,
+        distribute_q,
+        set_q_foreign_loads)
+    
+    from etrago.tools.extendable import extendable
+    from etrago.cluster.networkclustering import (
+        busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
+    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.2',  # None for model_draft or Version number
+    'gridversion':  'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot':8760 ,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4,
-                       'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1,'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -109,7 +117,6 @@ args = {  # Setup and Configuration:
     # Settings:
     'extendable': ['network','storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
-    'reproduce_noise': False,  # predefined set of random noise
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
@@ -322,13 +329,12 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-
+    
     # add coordinates
     network = add_coordinates(network)
-    #network.generators.control = "PV"
-    #network = add_single_country(network)
-    network = fix_bugs_for_pf(network)
 
+    network =  set_q_foreign_loads(network, cos_phi = 1)
+    network = add_missing_components(network)
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -355,7 +361,7 @@ def etrago(args):
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
-
+   
     # network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
@@ -405,6 +411,7 @@ def etrago(args):
             args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
+    
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom * \
@@ -415,9 +422,8 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-
-    #network.generators.control[network.generators.control == 'PQ'] = 'PV'
-
+        
+    
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -448,16 +454,19 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-
+    
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        t = time.time()
+        x = time.time()
         network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-        print("Time for LOPF [min]: {:.2}".format((time.time() - t) / 60))
+        y = time.time()
+        z = (y - x) / 60
+        # z is time for lopf in minutes
+        print("Time for LOPF [min]:", round(z, 2))
 
         # start non-linear powerflow simulation
     elif args['method'] is 'pf':
@@ -465,17 +474,18 @@ def etrago(args):
         # calc_line_losses(network)
 
     if args['pf_post_lopf']:
-        t = time.time()
-        pf_post_lopf(network, scenario)
-        print("Time for PF [min]: {:.2}".format((time.time() - t) / 60))
+        x = time.time()
+        pf_solution = pf_post_lopf(network)
+        y = time.time()
+        z = (y - x) / 60
+        print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
-        network.lines['angle_diff'] = (
-                network.buses_t.v_ang.loc[
-                    network.snapshots[0], network.lines.bus0]
-                .values -
-                network.buses_t.v_ang.loc[
-                    network.snapshots[0], network.lines.bus1]
-                .values) * 180/3.1415
+        network.lines['angle_diff']= (network.buses_t.v_ang.\
+                     loc[network.snapshots[0], network.lines.bus0].values - 
+                     network.buses_t.v_ang.loc[network.snapshots[0],\
+                    network.lines.bus1].values)*180/3.1415
+        network = distribute_q(network, allocation = 'p_nom')
+        
 
     # provide storage installation costs
     if sum(network.storage_units.p_nom_opt) != 0:
@@ -546,7 +556,7 @@ def etrago(args):
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
-        results_to_csv(network, args)
+        results_to_csv(network, pf_solution, args)
         if disaggregated_network:
             results_to_csv(
                     disaggregated_network,
