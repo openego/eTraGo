@@ -328,8 +328,8 @@ def set_q_foreign_loads(network, cos_phi = 1):
      * math.tan(math.acos(cos_phi))
      
     # temporary change x of some lines to avoid infeasibilities
-    network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom * 0.5
-    network.lines.s_nom[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.5
+    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom * 0.7
+   # network.lines.s_nom[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.7
     
     # for future scenarios set all generators to PV
     #network.generators.control[network.generators.control == 'PQ'] = 'PV'

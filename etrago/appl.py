@@ -87,11 +87,11 @@ args = {  # Setup and Configuration:
     'gridversion':  'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 4379,
-    'end_snapshot': 4379,
+    'start_snapshot': 1,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4,'BarConvTol':1.e-5,'FeasibilityTol':1.e-6},  # {} for default or dict of solver options
-    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo100
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1,'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi.log'},  # {} for default or dict of solver options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -101,7 +101,7 @@ args = {  # Setup and Configuration:
     'results':'results_PF',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None, #['storages'],  # None or array of components to optimize
+    'extendable': ['storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -111,7 +111,7 @@ args = {  # Setup and Configuration:
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots':3,
+    'skip_snapshots':False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': True,  # meet the demand at very high cost
@@ -314,12 +314,13 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
+    network.generators.control[network.generators.control =='PQ'] = 'PV'
 
     # add coordinates
     network = add_coordinates(network)
 
-    network =  set_q_foreign_loads(network, cos_phi = 0.95)
-   
+    network =  set_q_foreign_loads(network, cos_phi = 1)
+    network = add_missing_components(network)
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -334,7 +335,7 @@ def etrago(args):
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
         network.generators.marginal_cost += \
-            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
+            abs(s.normal(0, 0.1, len(network.generators.marginal_cost)))
 
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
