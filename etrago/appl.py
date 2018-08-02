@@ -556,7 +556,11 @@ def etrago(args):
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
-        results_to_csv(network, pf_solution, args)
+	if not args['pf_post_lopf']:
+        	results_to_csv(network, args)
+	else:
+		results_to_csv(network, args, pf_solution)
+
         if disaggregated_network:
             results_to_csv(
                     disaggregated_network,
