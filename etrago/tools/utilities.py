@@ -33,7 +33,7 @@ import logging
 import math
 logger = logging.getLogger(__name__)
 
-el)
+
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
                  "Centre for Sustainable Energy Systems, "
@@ -496,8 +496,8 @@ def results_to_csv(network, args, pf_solution = None):
     with open(os.path.join(path, 'args.json'), 'w') as fp:
         json.dump(args, fp)
     
-    if pf_solution != None:    
-    	pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    if type(pf_solution) != type(None):    
+        pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
     
 
     if hasattr(network, 'Z'):

@@ -102,9 +102,10 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf':True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot':8760 ,
+    'end_snapshot': 8760 ,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1,'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi.log'},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1,
+         'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -346,7 +347,7 @@ def etrago(args):
     extra_functionality = None
 
     clustering = None
-
+    
     if args['generator_noise'] is not False:
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
@@ -556,10 +557,10 @@ def etrago(args):
 
     # write PyPSA results to csv to path
     if not args['results'] is False:
-	if not args['pf_post_lopf']:
-        	results_to_csv(network, args)
-	else:
-		results_to_csv(network, args, pf_solution)
+        if not args['pf_post_lopf']:
+            results_to_csv(network, args)
+        else:
+            results_to_csv(network, args,pf_solution = pf_solution)
 
         if disaggregated_network:
             results_to_csv(
