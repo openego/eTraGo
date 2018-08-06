@@ -32,10 +32,7 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def extendable(network, extendable, overlay_scn_name=None):
-    
-    # Set s_nom_min to s_nom in order to set s_nom_min in k_means_clustering
-    network.lines.s_nom_min = network.lines.s_nom
-        
+
     if 'network' in extendable:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
@@ -77,31 +74,55 @@ def extendable(network, extendable, overlay_scn_name=None):
 # Extension settings for extension-NEP 2305 scenarios
 
     if 'NEP Zubaunetz' in extendable:
-        network.lines.loc[(network.lines.project != 'EnLAG') & (
-            network.lines.scn_name == 'extension_' + overlay_scn_name),
+        
+        for i in range(len(overlay_scn_name)):
+            network.lines.loc[(network.lines.project != 'EnLAG') & (
+            network.lines.scn_name == 'extension_' + overlay_scn_name[i]),
             's_nom_extendable'] = True
-        network.transformers.loc[(network.transformers.project != 'EnLAG') & (
-            network.transformers.scn_name == ('extension_'+ overlay_scn_name)),
+                    
+            network.transformers.loc[(network.transformers.project != 'EnLAG') & (
+            network.transformers.scn_name == ('extension_'+ overlay_scn_name[i])),
             's_nom_extendable'] = True
-        network.links.loc[network.links.scn_name == (
-            'extension_' + overlay_scn_name), 'p_nom_extendable'] = True
+                    
+            network.links.loc[network.links.scn_name == (
+            'extension_' + overlay_scn_name[i]), 'p_nom_extendable'] = True
 
     if 'overlay_network' in extendable:
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + overlay_scn_name), 's_nom_extendable'] = True
-        network.links.loc[network.links.scn_name == (
-            'extension_' + overlay_scn_name), 'p_nom_extendable'] = True
-        network.transformers.loc[network.transformers.scn_name == (
-            'extension_' + overlay_scn_name), 's_nom_extendable'] = True
+        
+        for i in range(len(overlay_scn_name)):
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + overlay_scn_name[i]), 's_nom_extendable'] = True
+                
+            network.links.loc[network.links.scn_name == (
+            'extension_' + overlay_scn_name[i]), 'p_nom_extendable'] = True
+                
+            network.transformers.loc[network.transformers.scn_name == (
+            'extension_' + overlay_scn_name[i]), 's_nom_extendable'] = True
 
     if 'overlay_lines' in extendable:
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + overlay_scn_name), 's_nom_extendable'] = True
-        network.links.loc[network.links.scn_name == (
-            'extension_' + overlay_scn_name), 'p_nom_extendable'] = True
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + overlay_scn_name),
+        for i in range(len(overlay_scn_name)):
+            
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + overlay_scn_name[i]), 's_nom_extendable'] = True
+                
+            network.links.loc[network.links.scn_name == (
+            'extension_' + overlay_scn_name[i]), 'p_nom_extendable'] = True
+                
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + overlay_scn_name[i]),
             'capital_cost'] = network.lines.capital_cost + (2 * 14166)
+        
+    network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_min[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
+                                   
+    network.lines.s_nom_max[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
 
     return network
 

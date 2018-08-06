@@ -235,7 +235,7 @@ class NetworkScenario(ScenarioBase):
 
         ormclass = self._mapped[name]
         query = self.session.query(ormclass)
-
+        
         if name != carr_ormclass:
 
             query = query.filter(
@@ -251,6 +251,7 @@ class NetworkScenario(ScenarioBase):
         df = pd.read_sql(query.statement,
                          self.session.bind,
                          index_col=name.lower() + '_id')
+        
         if name == 'Link':
             df['bus0'] = df.bus0.astype(int)
             df['bus1'] = df.bus1.astype(int)
@@ -646,7 +647,7 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_mean_clustering, **kwargs):
+def extension (network, session, version, scn_extension, start_snapshot, end_snapshot, **kwargs):
     '''
         Function that adds an additional network to the existing network container. 
         The new network can include every PyPSA-component (e.g. buses, lines, links). 
@@ -676,10 +677,16 @@ def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_
           network : Network container including existing and additional network
           
     '''
+    
+    if version is None:
+       ormcls_prefix = 'EgoGridPfHvExtension'
+    else:
+        ormcls_prefix = 'EgoPfHvExtension'
+               
     ### Adding overlay-network to existing network                    
     scenario = NetworkScenario(session,
-                               version=None,
-                               prefix='EgoGridPfHvExtension',
+                               version = version,
+                               prefix=ormcls_prefix,
                                method=kwargs.get('method', 'lopf'),
                                start_snapshot=start_snapshot,
                                end_snapshot=end_snapshot,
@@ -696,24 +703,14 @@ def extension (network, session, scn_extension, start_snapshot, end_snapshot, k_
             wkt_geom = to_shape(row['geom'])
             network.buses.loc[idx, 'x'] = wkt_geom.x
             network.buses.loc[idx, 'y'] = wkt_geom.y
-        
-    network.transformers = network.transformers[network.transformers.bus1.astype(str).isin(network.buses.index)]
-
-   ### Reconnect trafos without buses due to kmean_clustering to existing buses and set s_nom_min and s_nom_max so decomissioning is not needed
-    if not k_mean_clustering == False:
-            network.transformers.loc[~network.transformers.bus0.isin(network.buses.index), 'bus0'] = (network.transformers.bus1[~network.transformers.bus0.isin(network.buses.index)]).apply(calc_nearest_point, network = network) 
-            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom_max'] = network.lines.s_nom_max - network.lines.s_nom_min
-            network.lines.loc[network.lines.scn_name == ('extension_' + scn_extension), 's_nom'] = network.lines.s_nom_max
-            network.lines.loc[network.lines.scn_name == ('extension_' +  scn_extension), 's_nom_min'] = 0
-            
+               
     return network
 
-def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
+def decommissioning(network, session, version,  scn_decommissioning, **kwargs):
     '''
         Function that removes components in a decommissioning-scenario from the existing network container. 
         Currently, only lines can be decommissioned.
-        In future release, every PyPSA-component (e.g. buses, lines, links) can be decommissioned. 
-        
+               
         All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
         The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
         
@@ -730,20 +727,43 @@ def decommissioning(network, session, scn_decommissioning, k_mean_clustering):
           network : Network container including decommissioning
           
     '''  
-    if not k_mean_clustering:
+    """components = ['Line', 'Link']
+    for comp in components:
+        if version  == None:   
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'), ('EgoGridPfHvExtension' + comp))
+        else:
+            ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtension' + comp) 
+            
+        query = session.query(ormclass).filter(ormclass.scn_name ==\
+                             'decommissioning_' + scn_decommissioning)
         
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
-    
-        query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
-    
         df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
-                         index_col='line_id')
+                         index_col=comp.lower() + '_id'))
+        
         df_decommisionning.index = df_decommisionning.index.astype(str)
+        
+        Wie kann network.lines, network.links in Schleife geschrieben werden? 
+        
+        """
+        
+    if version == None:   
+        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+    else:
+        ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtensionLine')
+       
     
-    ### Drop lines from existing network, if they will be decommisioned      
-        network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+    query = session.query(ormclass).filter(
+                        ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
+    
+    
+    df_decommisionning = pd.read_sql(query.statement,
+                         session.bind,
+                         index_col='line_id')
+    df_decommisionning.index = df_decommisionning.index.astype(str)
+    
+    ### Drop decommissioning-lines from existing network
+    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
 
     return network
 
@@ -768,7 +788,8 @@ def distance (x0, x1, y0, y1):
           
     '''    
     ### Calculate square of the distance between two points (Pythagoras)
-    distance = (x1.values- x0.values)*(x1.values- x0.values) + (y1.values- y0.values)*(y1.values- y0.values)
+    distance = (x1.values- x0.values)*(x1.values- x0.values)\
+        + (y1.values- y0.values)*(y1.values- y0.values)
     return distance
 
 def calc_nearest_point(bus1, network):
