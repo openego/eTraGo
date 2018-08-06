@@ -93,7 +93,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 8760 ,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1,
          'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -106,7 +106,7 @@ args = {  # Setup and Configuration:
     'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network','storages'],  # None or array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -378,7 +378,7 @@ def etrago(args):
             scn_decommissioning=args['scn_decommissioning'])
                         
     # investive optimization strategies 
-    if args['extendable'] is not None:
+    if args['extendable'] != []:
         network = extendable(
                     network,
                     args['extendable'],
