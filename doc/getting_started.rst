@@ -1,5 +1,5 @@
-Installation 
-=========================
+Installation
+============
 
 
 Run:
@@ -8,20 +8,20 @@ Run:
     git clone https://github.com/openego/eTraGo
     ```
 
-Create a virtualenvironment (where you like it) and activate it: 
+Create a virtualenvironment (where you like it) and activate it:
 
    ```
    virtualenv -p python3 venv
-   source venv/bin/activate 
+   source venv/bin/activate
    ```
 
-With your activated environment `cd` to the cloned directory and run: 
+With your activated environment `cd` to the cloned directory and run:
 
     ```
     pip install -e eTraGo
     ```
 
-This will install all needed packages into your environment. Now you should be ready to go. 
+This will install all needed packages into your environment. Now you should be ready to go.
 
 Installation for windows users
 -----------------------------------
@@ -33,29 +33,29 @@ Installation for windows users
    ```
    conda install pip
    ```
-   
+
    ```
    conda config --add channels conda-forge
    ```
-   
+
    ```
-   conda install shapely 
+   conda install shapely
    ```
-   
-- download and install github (https://desktop.github.com) 
+
+- download and install github (https://desktop.github.com)
 
 - open GitHubDesktop and clone eTraGo from open_eGo
 
 - open an anaconda prompt as administrator and run:
-   
+
    ```
    pip install -e path/to/Github/Folder/eTraGo
    ```
-   
+
    ```
    pip install pandas == 0.20.3 (version 0.21 is not working!)
    ```
-   
+
 - to check if everything is installed run:
 
    ```
@@ -69,13 +69,13 @@ For using the session maker in eTraGo you need oemof.db:
    ```
    pip install oemof.db
    ```
-   
+
    ```
-   cd C:/Users/YourUserName 
+   cd C:/Users/YourUserName
    ```
-   
+
    ```
-   md .oemof 
+   md .oemof
    ```
 
 - open the new folder .oemof and use the editor to create a file „config.ini“ and insert the following lines, when you just calculate local or on the oedb you just need this section:
@@ -83,29 +83,29 @@ For using the session maker in eTraGo you need oemof.db:
 ::
 
  [oedb]
- 
+
  username = YourOEDBUserName
- 
+
  database = oedb
- 
+
  host = oe2.iws.cs.ovgu.de
- 
+
  port = 5432
- 
+
  pw = YourOEDBPassword
 
  [local]
- 
- username = YourLocalUserName 
- 
+
+ username = YourLocalUserName
+
  database = YourLocalDatabaseName
- 
+
  host = 127.0.0.1
- 
+
  port = 5432
- 
+
  pw = YourLocalPassword
 
 
 
-when you just calculate local or on the oedb you just need this section 
+when you just calculate local or on the oedb you just need this section
