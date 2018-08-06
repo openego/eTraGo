@@ -668,12 +668,35 @@ def export_results(args, z1st, z, ts):
     
     # Export CSV file with simulation times
     
-    km = args ['k_mean_clustering']
-    sc = args ['snapshot_clustering']
-    st = args ['storage_extendable']
-
-    data = [(z1st, z, km, st, ts )]
-    zd = pd.DataFrame(data, index = [sc], columns = ['1st LOPF', '2nd LOPF', 'k-mean','Storage', 'TypeSim'])
+    km = args['network_clustering_kmeans']
+    sc = args['snapshot_clustering']
+    st =False
+    start_snapshot = args['start_snapshot']
+    end_snapshot = args['end_snapshot']
+    
+    data = [(start_snapshot,end_snapshot,  z1st, z, km, st, ts )]
+    zd = pd.DataFrame(data, index = [sc], columns = ['start_snapshot','end_snapshot',  '1st LOPF', '2nd LOPF', 'k-mean','Storage', 'TypeSim'])
+    
+    zd.to_csv(sim_results_path + 'ResultsExpansions' + nfiles +'.csv')
+    
+def export_results_clara(args, z1st, z, ts, num):
+    
+    #Number of files in Path
+    files1 = os.listdir(sim_results_path)
+    nfiles = str(len(files1)+1)
+    
+    # Export CSV file with simulation times
+    
+    km = args['network_clustering_kmeans']
+    sc = args['snapshot_clustering']
+    st =False
+    start_snapshot = args['start_snapshot']
+    end_snapshot = args['end_snapshot']
+    scn =  args['scn_name']
+    
+    data = [(scn, start_snapshot,end_snapshot,  z1st, z, km, st, ts, num )]
+    zd = pd.DataFrame(data, index = [sc], columns = ['Scenario', 'start_snapshot','end_snapshot', \
+                      '1st LOPF', '2nd LOPF', 'k-mean','Storage', 'TypeSim', 'Num of extendable lines'])
     
     zd.to_csv(sim_results_path + 'ResultsExpansions' + nfiles +'.csv')
     
@@ -701,9 +724,12 @@ def line_extendableBM(network, args, scenario):
     
 
     x = time.time()
-    network.lopf(network.snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )  
+    network.lopf(network.snapshots, solver_name=args['solver'],\
+                 solver_options={'threads':2, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6} )  
     y = time.time()
     z = y-x
+    print("Time for BM:")
+    print(z)
     
     # Export CSV file with simulation times
     z1st = 0 
@@ -786,9 +812,18 @@ def remarkable_snapshots(network, args, scenario):
     network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     y = time.time()
-    z = (y - x) / 60
+    z1st = (y - x) / 60
     
-    print ("Time for first LOPF [min]:",round(z,2))
+    x1 = time.time()  
+    network.lopf(snapshots, solver_name=args['solver'], solver_options=\
+                 {'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,\
+                  'BarHomogeneous':1, 'NumericFocus': 3, 'FeasibilityTol':1.e-6}) 
+    y1 = time.time()
+    z = (y1 - x1) / 60
+    
+    print ("Time for first LOPF [min]:",round(z1st,2))
+    
+    export_results_clara(args, z1st, z, "Remarkable Snapshots", len(extended_lines))
     
     return network
 

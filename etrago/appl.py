@@ -97,7 +97,7 @@ args = {  # Setup and Configuration:
     'results': 'results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None,  # None or array of components to optimize
+    'extendable':None,  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     #Line Extendable Function
@@ -105,7 +105,7 @@ args = {  # Setup and Configuration:
     'remarkable_snapshots':True,
     'line_extendableBM': False,
     # Clustering:
-    'network_clustering_kmeans': False,   # False or the value k for clustering
+    'network_clustering_kmeans': 50,   # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -449,11 +449,11 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        network.lopf(
+        """network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=extra_functionality)"""
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

@@ -34,10 +34,6 @@ results.to_csv(total_results_path + 'TotalResults.csv')
 for i in range(len(kmean)):
     value = int(kmean[i])
     RS = results.loc[results ['k-mean'] == value]
-    R2LOPFST = RS.loc[(RS['TypeSim'] == '2LOPF') & (RS['Storage'] == True)]
-    R2LOPFST = R2LOPFST.sort_values(['Snapshots'], ascending = [1]) 
-    R2LOPFnoST = RS.loc[(RS['TypeSim'] == '2LOPF') & (RS['Storage'] == False)]
-    R2LOPFnoST = R2LOPFnoST.sort_values(['Snapshots'], ascending = [1]) 
     RBMST = RS.loc[(RS['TypeSim'] == 'BM') & (RS['Storage'] == True)]
     RBMST = RBMST.sort_values(['Snapshots'], ascending = [1]) 
     RBMnoST = RS.loc[(RS['TypeSim'] == 'BM') & (RS['Storage'] == False)]
@@ -46,7 +42,7 @@ for i in range(len(kmean)):
 
     ##Plot graphs with storage
     
-    if not (R2LOPFST.empty or RBMST.empty):
+    """if not (R2LOPFST.empty or RBMST.empty):
         fig, ax = plt.subplots()
         ax2 = ax 
         if not R2LOPFST.empty:
@@ -77,5 +73,5 @@ for i in range(len(kmean)):
         plt.show()
         
         fig = ax.get_figure()
-        fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +' without Storage.eps'))
+        fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +' without Storage.eps'))"""
         
