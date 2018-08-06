@@ -215,9 +215,9 @@ def etrago(args):
         State if you want to export the results of your calculation
         back to the database.
 
-    extendable : NoneType or list
+    extendable : list
         ['network', 'storages'],
-        Choose None or which components you want to optimize.
+        Choose components you want to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
