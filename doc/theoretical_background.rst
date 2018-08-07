@@ -105,31 +105,37 @@ in the underground. The storage parameters for both types are reached by
 
 Grid expansion
 --------------
-The grid expansion is realized by extending the capacities of existing voltage
-lines and substations. The transmitted capacity of the operating supplies is
+The grid expansion is realized by extending the capacities of existing
+lines and substations. The transmitted capacity of the operation is
 regarded as part of the optimization problem starting from the actual
-capacities. The extension of line and substation capacities are unlimited but
-used with respect to their appropriate costs. Besides, the planned grid
-expansion scenarios from the grid development plan can be chosen.
+capacities. The possible extension of line and substation capacities are unlimited. 
+With respect to the different voltage levels and lengths MVA-specific costs are 
+considered in the lopf. Besides, several planned grid
+expansion scenarios from the German grid development plan can be considered as
+possible additional power lines.
 
 
-Features
+Miscellaneous Features
 --------
 Several features were developed to enhance the functionality of eTraGo. As
 appropriate computer setting, the 'solver_options' and a 'generator_noise' are
-possible arguments. The latter adds a reproducable small random noise to the
+possible arguments. The latter adds a reproducible small random noise to the
 marginal costs of each generator in order to prevent an optima plateau. The
 specific solver options depend on the applied solver like for example Gurobi,
-CPLEX or GLPK. Considering reproducability, the 'load_cluster' argument
+CPLEX or GLPK. Considering reproducibility, the 'load_cluster' argument
 enables to load a former calculated clustered network. Besides,
 'line_grouping' provides a grouping of lines which connect the same buses and
 the 'branch_capacity_factor' adds a factor to adapt all line capacities. The
-'load_shedding' argument is deprecated, but introduces a very expensive
-generator at each bus to meet the demand. Since the storage units and the grid
-can be extended without limit, this situation will not arise. The
+'load_shedding' argument is used for debugging complex grids in order to avoid
+infeasibilities. It introduces a very expensive generator at each bus to meet 
+the demand. When optimizing storage units and grid expansion without limiting
+constraints, the need for load shedding should not be existent. The
 'minimize_loading' argument forces to minimize the loading of the lines next
-to the costs. 'Parallelization' provides the opportunity to execute eTraGo in
-parallel by dividing the optimization problem. This option can not be used
+to the costs. 'Parallelization' provides the opportunity to devide the 
+optimization problem into a given number of sub-problems. For a group of
+snapshots the problem will be solved separately. This functionality can 
+only be used for problems which do not have dependencies from one snapshot 
+to another. Therefore this option can not be used
 with the optimization of storage units due to their state of charge.
 
 
