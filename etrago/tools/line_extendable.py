@@ -16,7 +16,7 @@ if not 'READTHEDOCS' in os.environ:
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                  results_to_csv, parallelisation, pf_post_lopf,
                                  loading_minimization, calc_line_losses,
-                                 group_parallel_lines, convert_capital_costs)
+                                 group_parallel_lines, convert_capital_costs, set_line_costs, set_trafo_costs)
     from etrago.cluster.networkclustering import (busmap_from_psql, cluster_on_extra_high_voltage,
                                            kmean_clustering)
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -788,7 +788,8 @@ def remarkable_snapshots(network, args, scenario):
     network.transformers.loc[:,'s_nom_min'] = network.transformers.s_nom
     network.transformers.loc[:,'s_nom_max'] = np.inf
     
-    network = set_line_costs_v_nom(network)
+    network = set_line_costs(network)
+    network = set_trafo_costs(network)
     network = convert_capital_costs(network, 1, 1)
     extended_lines = network.lines.index[network.lines.s_nom_opt > network.lines.s_nom]
     x = time.time()    
@@ -799,31 +800,29 @@ def remarkable_snapshots(network, args, scenario):
            extended_lines = extended_lines.append(network.lines.index[network.lines.s_nom_opt > network.lines.s_nom])
            extended_lines = extended_lines.drop_duplicates()
     
-    #network.lopf(snapshots, solver_name=args['solver'], solver_options={'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6}, formulation="kirchhoff" ) 
-   # extended_lines = network.lines[network.lines.s_nom_opt > network.lines.s_nom]
-    #extended_trafos = network_new.transformers[network_new.transformers.s_nom_opt >network_new.transformers.s_nom]
     print("Anzahl ausgebauter Leitungen")
     print(len(extended_lines))
     network.lines.loc[~network.lines.index.isin(extended_lines), 's_nom_extendable'] =False
     network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min'] = network.lines.s_nom
     network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max'] = np.inf
 
-    network = set_line_costs_v_nom(network)
+    network = set_line_costs(network)
+    network = set_trafo_costs(network)
     network = convert_capital_costs(network, args['start_snapshot'], args['end_snapshot'])
 
     y = time.time()
     z1st = (y - x) / 60
     
-    x1 = time.time()  
+    """x1 = time.time()  
     network.lopf(snapshots, solver_name=args['solver'], solver_options=\
                  {'threads':2, 'method':2, 'crossover':1, 'BarConvTol':1.e-5,\
                   'BarHomogeneous':1, 'NumericFocus': 3, 'FeasibilityTol':1.e-6}) 
     y1 = time.time()
     z = (y1 - x1) / 60
-    
+    print(network.results['Solver'].Time)"""
     print ("Time for first LOPF [min]:",round(z1st,2))
     
-    export_results_clara(args, z1st, z, "Remarkable Snapshots", len(extended_lines))
+    #export_results_clara(args, z1st, z, "Remarkable Snapshots", len(extended_lines))
     
     return network
 

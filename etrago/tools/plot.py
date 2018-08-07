@@ -367,7 +367,68 @@ def extension_overlay_network(network, filename=None, boundaries=[0, 100]):
         plt.savefig(filename)
         plt.close()
 
+def network_extension_diff (networkA, networkB, filename=None, boundaries=[-100, 100]):
 
+    cmap = plt.cm.jet
+
+    overlay_networkA = networkA.copy()
+
+
+
+    overlay_networkB = networkB.copy()
+
+    
+    array_line = [['Line'] * len(overlay_networkA.lines),
+                  overlay_networkA.lines.index]
+
+    extension_lines = pd.Series(100 *\
+                                 (((overlay_networkA.lines.s_nom_opt -
+                                  overlay_networkA.lines.s_nom_min) /\
+                                overlay_networkA.lines.s_nom)\
+        
+                                -((overlay_networkB.lines.s_nom_opt -
+                                  overlay_networkB.lines.s_nom_min) /\
+                                overlay_networkB.lines.s_nom) ).values,\
+                                index=array_line)
+
+    array_link = [['Link'] * len(overlay_networkA.links),
+                  overlay_networkA.links.index]
+
+    extension_links = pd.Series(100 *
+                                 ((overlay_networkA.links.p_nom_opt /
+                                 (overlay_networkA.links.p_nom)) -\
+        
+                                (overlay_networkB.links.p_nom_opt /\
+                                 (overlay_networkB.links.p_nom))).values,\
+                                index=array_link)
+
+    extension = extension_lines.append(extension_links)
+
+    
+
+    ll = overlay_networkA.plot(
+        line_colors=extension,
+        line_cmap=cmap,
+        bus_sizes=0,
+        title="Optimized AC- and DC-line extension",
+        line_widths=2)
+
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10])
+    cb_Link = plt.colorbar(ll[2], boundaries=v,
+                           ticks=v[0:101:10])
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    #cb_Link.remove()
+    cb.set_label('line extension relative to s_nom in %')
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+        
 def full_load_hours(
         network,
         boundaries=[0, 4830],

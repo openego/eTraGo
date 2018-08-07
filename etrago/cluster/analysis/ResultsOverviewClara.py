@@ -40,26 +40,31 @@ for i in range(len(kmean)):
     RBMnoST = RBMnoST.sort_values(['Snapshots'], ascending = [1])
     RRemSnapshots = RS.loc[(RS['TypeSim'] == 'Remarkable Snapshots')]
 
-    ##Plot graphs with storage
+    RRemSnapshots =  RRemSnapshots[RRemSnapshots.end_snapshot > 20]
+    RRemSnapshots['timesteps'] = RRemSnapshots.end_snapshot - RRemSnapshots.start_snapshot
+    RRemSnapshots['Simulation_time'] = RRemSnapshots['1st LOPF'] + RRemSnapshots['2nd LOPF']
     
-    """if not (R2LOPFST.empty or RBMST.empty):
+    RBMnoST =  RBMnoST[RBMnoST.end_snapshot > 20]
+    RBMnoST['timesteps'] = RBMnoST.end_snapshot - RBMnoST.start_snapshot
+    RBMnoST['Simulation_time'] = RBMnoST['1st LOPF'] + RBMnoST['2nd LOPF']
+    
+    if not (RRemSnapshots.empty or RBMnoST.empty):
         fig, ax = plt.subplots()
-        ax2 = ax 
-        if not R2LOPFST.empty:
-            R2LOPFST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax=ax, label="2 LOPFs")
-        if not RBMST.empty:
-            RBMST.plot(x='Snapshots', y='2nd LOPF', title = 'simulation time for k-mean= '+ str(value) + ' with Storage', ax = ax2, label = "Benchmark", ls = "--")
-    
-        ax.set_ylabel('Simulation Time 2nd LOPF (s)')
-        ax.set_xlabel('Number of Snapshots')
+        ax2 = ax
+        RRemSnapshots.plot(x='timesteps', y='Simulation_time',\
+                           title = 'simulation time for k-mean= '+ str(value),  label="2 LOPFs")
+           
+        RBMnoST.plot(x='timesteps', y='Simulation_time',\
+                           title = 'simulation time for k-mean= '+ str(value),  label="BM")
         
         plt.show()
         
+        
         fig = ax.get_figure()
-        fig.savefig(path.join(plot_path, 'simulation time for k-mean= '+ str(value) +'.eps'))
+        
         
     ##Plot graphs without storage
-    if not (R2LOPFnoST.empty or RBMnoST.empty):
+    """ if not (R2LOPFnoST.empty or RBMnoST.empty):
         fig, ax = plt.subplots()
         ax2 = ax 
         if not R2LOPFnoST.empty:

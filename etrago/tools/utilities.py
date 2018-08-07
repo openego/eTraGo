@@ -653,8 +653,7 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     network.lines.loc[(network.lines.v_nom == 220) & network.lines.
                       s_nom_extendable,
                       'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 380) & network.lines.
-                      s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 380) ,
                       'capital_cost'] = cost380 * network.lines.length
 
     return network

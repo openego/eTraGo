@@ -82,7 +82,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 25,
+    'end_snapshot': 100,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 
                        'BarHomogeneous':1, 'NumericFocus': 3, 'BarConvTol':1.e-5,
@@ -94,10 +94,10 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': 'results',  # save results as csv: False or /path/tofolder
+    'results': '/home/clara/pf_results/RemSnapshots/RemSnapshots/10',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable':None,  # None or array of components to optimize
+    'extendable':['network'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     #Line Extendable Function
@@ -105,8 +105,8 @@ args = {  # Setup and Configuration:
     'remarkable_snapshots':True,
     'line_extendableBM': False,
     # Clustering:
-    'network_clustering_kmeans': 50,   # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 10,   # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -114,7 +114,7 @@ args = {  # Setup and Configuration:
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True,  # meet the demand at very high cost
+    'load_shedding': False,  # meet the demand at very high cost
     'comments': None}
 
 
@@ -372,10 +372,7 @@ def etrago(args):
         extra_functionality = loading_minimization
 
      	
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
+
 
     if args['scn_extension'] is not None:
         network = extension(
@@ -429,7 +426,11 @@ def etrago(args):
     	
     if args['remarkable_snapshots']:
         remarkable_snapshots(network,args,scenario)     
-
+        
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -449,11 +450,11 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
-        """network.lopf(
+        network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)"""
+            extra_functionality=extra_functionality)
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
