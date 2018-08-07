@@ -15,7 +15,7 @@ setup(
     author_email='',
     description=("electrical Transmission Grid Optimization of flexibility "
                  "options for transmission grids based on PyPSA"),
-    version='0.6',
+    version='0.6.1',
     url='https://github.com/openego/eTraGo',
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),

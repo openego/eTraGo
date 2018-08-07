@@ -7,9 +7,19 @@ Developer notes
 Installation for Developers
 ===========================
 
-The best way is to use a virtual environment. see:
 
-Step 2) Clone the source code from github
+.. note::
+      Installation is primarly tested on (Ubuntu like) linux OS.
+
+1. If you like, create a virtual environment (where you like it) and activate it (if you do not use venv start with 2.):
+
+.. code-block:: bash
+
+   $ virtualenv --clear -p python3.5  etrago``
+   $ cd etrago/
+   $ source bin/activate
+
+2. Clone the source code from github
 
 .. code-block::
 
@@ -25,28 +35,3 @@ With your activated environment `cd` to the cloned directory and run:
 This will install all needed packages into your environment.
 Now you should be ready to go.
 
-
-Windows or Mac OSX users
-************************
-
-
-
-- download and install github (https://desktop.github.com)
-
-- open GitHubDesktop and clone eTraGo from open_eGo
-
-- open an anaconda prompt as administrator and run:
-
-   ```
-   pip install -e path/to/Github/Folder/eTraGo
-   ```
-
-   ```
-   pip install pandas == 0.20.3 (version 0.21 is not working!)
-   ```
-
-- to check if everything is installed run:
-
-   ```
-   pip freeze
-   ```

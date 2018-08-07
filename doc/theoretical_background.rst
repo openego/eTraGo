@@ -33,8 +33,7 @@ follows assumptions for the year 2035 by [NEP2015]_ and eGo100 assumes to
 operate the future energy system completely by renewables [ehighway2050]_.
 
 
-
-Methodology
+Methods
 ===========
 
 PyPSA
@@ -92,7 +91,7 @@ Storage expansion
 -----------------
 To evaluate the amount of storage units in future energy systems, the possible
 installation of new storage units at every node in the network is allowed. The
-size and operation of these storages are part of the optimization problem. 
+size and operation of these storages are part of the optimization problem.
 
 Two types of storage technologies are considered - batteries and hydrogen in
 underground caverns. Li-Ion battery storages as representatives for short-term
