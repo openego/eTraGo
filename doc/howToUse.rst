@@ -11,8 +11,8 @@ The ‘appl.py’ is used as a simple user interface. Here
 parameters, calculation methods and scenario settings are set in a python
 dictionary called 'args'. It is crucial to understand these parameters.
 For example some of them contradict the usage of others. 
-The documentation of all parameters being defined within the 'args' you
-find here: :meth:`etrago.appl.etrago`.
+You find the documentation of all defined parameters from the 'args' here:
+:meth:`etrago.appl.etrago`.
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
