@@ -82,7 +82,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 100,
+    'end_snapshot': 30,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 
                        'BarHomogeneous':1, 'NumericFocus': 3, 'BarConvTol':1.e-5,
@@ -94,19 +94,19 @@ args = {  # Setup and Configuration:
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/clara/pf_results/RemSnapshots/RemSnapshots/10',  # save results as csv: False or /path/tofolder
+    'results': '/home/clara/pf_results/RemSnapshots/original/20',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable':['network'],  # None or array of components to optimize
+    'extendable':['network',  'storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     #Line Extendable Function
     'line_extendable': False,
-    'remarkable_snapshots':True,
+    'remarkable_snapshots':False,
     'line_extendableBM': False,
     # Clustering:
-    'network_clustering_kmeans': 10,   # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 20,   # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_20_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -399,13 +399,7 @@ def etrago(args):
             end_snapshot=args['end_snapshot'],
             k_mean_clustering=args['network_clustering_kmeans'])
 
-    if args['extendable'] is not None:
-        network = extendable(
-            network,
-            args['extendable'],
-            args['scn_extension'])
-        network = convert_capital_costs(
-            network, args['start_snapshot'], args['end_snapshot'])
+
 
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom * \
@@ -426,6 +420,14 @@ def etrago(args):
     	
     if args['remarkable_snapshots']:
         remarkable_snapshots(network,args,scenario)     
+        
+    if args['extendable'] is not None:
+        network = extendable(
+            network,
+            args['extendable'],
+            args['scn_extension'])
+        network = convert_capital_costs(
+            network, args['start_snapshot'], args['end_snapshot'])
         
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]

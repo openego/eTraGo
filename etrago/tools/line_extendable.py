@@ -797,14 +797,17 @@ def remarkable_snapshots(network, args, scenario):
         if i>0:
            # network.storage_units.state_of_charge_initial = network.storage_units_t.state_of_charge.loc[network.snapshots[group_size*i-1]]
            network.lopf(snapshots[i], solver_name=args['solver'])
-           extended_lines = extended_lines.append(network.lines.index[network.lines.s_nom_opt > network.lines.s_nom])
+           extended_lines = extended_lines.append(network.lines.index\
+                            [network.lines.s_nom_opt > network.lines.s_nom])
            extended_lines = extended_lines.drop_duplicates()
     
     print("Anzahl ausgebauter Leitungen")
     print(len(extended_lines))
     network.lines.loc[~network.lines.index.isin(extended_lines), 's_nom_extendable'] =False
-    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min'] = network.lines.s_nom
-    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max'] = np.inf
+    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min']\
+        = network.lines.s_nom
+    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max']\
+        = np.inf
 
     network = set_line_costs(network)
     network = set_trafo_costs(network)

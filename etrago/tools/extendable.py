@@ -22,7 +22,7 @@
 Extendable.py defines function to set PyPSA-components extendable.
 """
 from etrago.tools.utilities import set_line_costs, set_trafo_costs
-
+from etrago.tools.line_extendable import (remarkable_snapshots)
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
                  "Centre for Sustainable Energy Systems, "
