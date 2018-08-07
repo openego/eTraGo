@@ -94,16 +94,24 @@ def plot_line_loading(
         boundaries=[],
         arrows=False):
     """
-    Plot line loading as color on lines
+    Plots line loading as a colored heatmap.
 
-    Displays line loading relative to nominal capacity
+    Line loading is displayed as relative to nominal capacity in %.
     Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
+    timesteps : range 
+        Defines which timesteps are considered. If more than one, an 
+        average line loading is calculated.
     filename : str
         Specify filename
         If not given, figure will be show directly
+    boundaries : list
+        If given, the colorbar is fixed to a given min and max value
+    arrows : bool
+        If True, the direction of the power flows is displayed as 
+        arrows.
     """
     # TODO: replace p0 by max(p0,p1) and analogously for q0
     # TODO: implement for all given snapshots
