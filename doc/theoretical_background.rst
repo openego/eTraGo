@@ -106,11 +106,10 @@ in the underground. The storage parameters for both types are reached by
 Grid expansion
 --------------
 The grid expansion is realized by extending the capacities of existing
-lines and substations. The transmitted capacity of the operation is
-regarded as part of the optimization problem starting from the actual
-capacities. The possible extension of line and substation capacities are unlimited. 
-With respect to the different voltage levels and lengths MVA-specific costs are 
-considered in the lopf. Besides, several planned grid
+lines and substations. These capacities are regarded as part of the
+optimization problem, whereby the possible extension is unlimited. With respect
+to the different voltage levels and lengths MVA-specific costs are considered
+in the linear optimization of the power flow. Besides, several planned grid
 expansion scenarios from the German grid development plan can be considered as
 possible additional power lines.
 
