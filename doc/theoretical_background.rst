@@ -18,10 +18,10 @@ Assumptions on Data
 
 eTraGo fetches its necessary input data from the OpenEnergy Platform including
 load, generation, grid and scenario-related data. More details can be found in
-the Data-Processing <https://data-processing.readthedocs.io/en/latest>.
+the `Data-Processing <https://data-processing.readthedocs.io/en/latest>`_.
 
 As overview, the Open Source grid structure is developed by processing data 
-from OpenStreetMap <https://www.openstreetmap.de> (OSM) to obtain 
+from `OpenStreetMap (OSM) <https://www.openstreetmap.de>`_ to obtain 
 geo-referenced locations of substations and links equal or above the 110 kV
 voltage level. OSM also provides information about residential, retail,
 industrial and agricultural areas which is used with standardized profiles to
@@ -39,7 +39,7 @@ Methods
 PyPSA
 -----
 The power flow simulations are performed by the Open Source tool
-PyPSA <https://pypsa.org/doc/index.html> with a linear approximation for the
+`PyPSA <https://pypsa.org/doc/index.html>`_ with a linear approximation for the
 optimization of power flows in general. Expecting that eTraGo fulfills the 
 assumptions to perfom a LOPF (small voltage angle differences, branch 
 resistances negligible to their reactances, voltage magnitudes can be kept at
@@ -57,18 +57,18 @@ This method maps an input network to an output network with the nodes of the
 extra-high voltage level. All nodes with a voltage level below the extra-high
 voltage level are mapped to their nearest neighboring node in the extra-high
 voltage level with the
-dijkstra algorithm <https://en.wikipedia.org/wiki/Dijkstra's_algorithm>
+`dijkstra algorithm <https://en.wikipedia.org/wiki/Dijkstra's_algorithm>`_
 (110 kV ---> 220,380 kV).
 
 K-Means Clustering
 ^^^^^^^^^^^^^^^^^^
 
-This method <https://en.wikipedia.org/wiki/K-means_clustering> maps an input
+This `method <https://en.wikipedia.org/wiki/K-means_clustering>`_ maps an input
 network to a new output network with an adjustable number of nodes and new
 coordinates. The algorithm sets these coordinates randomly and minimizes a
 certain parameter like for example the distances between old coordinates and
 their nearest neighbor in the set of new coordinates. The method was
-implemented by Hoersch et al. <https://arxiv.org/pdf/1705.07617.pdf> within
+implemented by `Hoersch et al. <https://arxiv.org/pdf/1705.07617.pdf>`_ within
 PyPSA.
 
 Snapshot skipping
@@ -82,7 +82,7 @@ snapshots in the time series.
 Snapshot-Clustering
 ^^^^^^^^^^^^^^^^^^^
 This method aggregate given time series for various time intervals like i.e.
-days using the tsam <https://pypi.org/project/tsam> package. Contrary to
+days using the `tsam <https://pypi.org/project/tsam>`_ package. Contrary to
 snapshot skipping, this approach averages a certain period of snapshots
 instead of choosing a representative snapshot.
 
