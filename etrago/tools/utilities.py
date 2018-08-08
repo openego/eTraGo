@@ -34,6 +34,8 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
                  "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+
+
 def readcfg(path):
     """ Reads the configuration file
     Parameters
@@ -49,6 +51,7 @@ def readcfg(path):
     cfg = cp.ConfigParser()
     cfg.read(path)
     return cfg
+
 
 def dbconnect(section, cfg):
     """ Uses db connection parameters to establish a connection.
@@ -391,9 +394,11 @@ def data_manipulation_sh(network):
 
     return
 
+
 def _enumerate_row(row):
     row['name'] = row.name
     return row
+
 
 def results_to_csv(network, args):
     """
@@ -653,7 +658,8 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     network.lines.loc[(network.lines.v_nom == 220) & network.lines.
                       s_nom_extendable,
                       'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 380) ,
+    network.lines.loc[(network.lines.v_nom == 380 & network.lines.
+                      s_nom_extendable),
                       'capital_cost'] = cost380 * network.lines.length
 
     return network
@@ -729,50 +735,3 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
                                              start_snapshot + 1))
 
     return network
-    
-"""def set_line_costs(network, cost110 = 230, cost220=290 , cost380= 85):
-     Set capital costs for extendable lines in respect to PyPSA [€/MVA]
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    cost110 : capital costs per km for 110kV lines and cables
-                default: 230€/MVA/km, source: costs for extra circuit in dena Verteilnetzstudie, p. 146)
-    cost220 : capital costs per km for 220kV lines and cables 
-                default: 280€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 220 kV lines in model
-    cost380 : capital costs per km for 380kV lines and cables 
-                default: 85€/MVA/km, source: costs for extra circuit in NEP 2025, capactity from most used 380 kV lines in NEP
-    -------
-
-    
-    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
-    
-    network.lines.loc[network.lines.v_nom == 110 & network.lines.s_nom_extendable == True, 'capital_cost'] = cost110 * network.lines.length
-    network.lines.loc[network.lines.v_nom == 220 & network.lines.s_nom_extendable == True, 'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[network.lines.v_nom == 380 & network.lines.s_nom_extendable == True, 'capital_cost'] = cost380 * network.lines.length
-   
-   
-    return network
-
-def set_trafo_costs(network, cost110_220 = 7500, cost110_380=17333 , cost220_380= 14166):
-    
-     Set capital costs for extendable transformers in respect to PyPSA [€/MVA]
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    cost110_220 : capital costs for 110/220kV transformer
-                    default: 7500€/MVA, source: costs for extra trafo in dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
-    cost110_380 : capital costs for 110/380kV transformer
-                default: 17333€/MVA, source: NEP 2025
-    cost220_380 : capital costs for 220/380kV transformer
-                default: 14166€/MVA, source: NEP 2025
-
-    
-    network.transformers["v_nom0"] = network.transformers.bus0.map(network.buses.v_nom)
-    network.transformers["v_nom1"] = network.transformers.bus1.map(network.buses.v_nom)
-    
-    network.transformers.loc[network.transformers.v_nom0 == 110 & network.transformers.v_nom1 == 220 & network.transformers.s_nom_extendable == True, 'capital_cost'] = cost110_220
-    network.transformers.loc[network.transformers.v_nom0 == 110 & network.transformers.v_nom1 == 380 & network.transformers.s_nom_extendable == True, 'capital_cost'] = cost110_380
-    network.transformers.loc[network.transformers.v_nom0 == 220 & network.transformers.v_nom1 == 380 & network.transformers.s_nom_extendable == True, 'capital_cost'] = cost220_380
-    
-   
-    return network"""

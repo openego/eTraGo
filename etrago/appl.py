@@ -25,11 +25,11 @@ the function etrago.
 """
 
 import numpy as np
-from numpy import genfromtxt
-np.random.seed()
 import time
 import datetime
 import os
+from numpy import genfromtxt
+np.random.seed()
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -73,7 +73,16 @@ if 'READTHEDOCS' not in os.environ:
         busmap_from_psql, cluster_on_extra_high_voltage, kmean_clustering)
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
-    from etrago.tools.line_extendable import (set_line_costs_v_nom, remarkable_snapshots, capacity_factor,overload_lines, overload_trafo,set_line_cost,set_trafo_cost, line_extendable, line_extendableBM)
+    from etrago.tools.line_extendable import (
+            set_line_costs_v_nom,
+            remarkable_snapshots,
+            capacity_factor,
+            overload_lines,
+            overload_trafo,
+            set_line_cost,
+            set_trafo_cost,
+            line_extendable,
+            line_extendableBM)
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
@@ -84,9 +93,9 @@ args = {  # Setup and Configuration:
     'start_snapshot': 1,
     'end_snapshot': 30,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'crossover':0, 
-                       'BarHomogeneous':1, 'NumericFocus': 3, 'BarConvTol':1.e-5,
-                       'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'solver_options': {'threads': 4, 'method': 2, 'crossover': 0,
+                       'BarHomogeneous': 1, 'NumericFocus': 3,
+                       'logFile': 'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or extension scenario
@@ -97,12 +106,12 @@ args = {  # Setup and Configuration:
     'results': '/home/clara/pf_results/RemSnapshots/original/20',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable':['network',  'storages'],  # None or array of components to optimize
+    'extendable': ['network',  'storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
-    #Line Extendable Function
+    # Line Extendable Function
     'line_extendable': False,
-    'remarkable_snapshots':False,
+    'remarkable_snapshots': False,
     'line_extendableBM': False,
     # Clustering:
     'network_clustering_kmeans': 20,   # False or the value k for clustering
@@ -315,10 +324,10 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-    
+
     # Set costs for line extension
     network = set_line_costs_v_nom(network)
-    
+
     # add coordinates
     network = add_coordinates(network)
 
@@ -338,7 +347,6 @@ def etrago(args):
         network.generators.marginal_cost += \
             abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
 
-   
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
@@ -371,9 +379,6 @@ def etrago(args):
     if args['minimize_loading']:
         extra_functionality = loading_minimization
 
-     	
-
-
     if args['scn_extension'] is not None:
         network = extension(
             network,
@@ -399,8 +404,6 @@ def etrago(args):
             end_snapshot=args['end_snapshot'],
             k_mean_clustering=args['network_clustering_kmeans'])
 
-
-
     if args['branch_capacity_factor']:
         network.lines.s_nom = network.lines.s_nom * \
             args['branch_capacity_factor']
@@ -410,17 +413,17 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-    
+
     if args['line_extendable']:
-        line_extendable(network,args,scenario) 
-    
+        line_extendable(network, args, scenario)
+
     # TEMPORAL line extendable just 2nd LOPF
     if args['line_extendableBM']:
-        line_extendableBM(network,args,scenario) 
-    	
+        line_extendableBM(network, args, scenario)
+
     if args['remarkable_snapshots']:
-        remarkable_snapshots(network,args,scenario)     
-        
+        remarkable_snapshots(network, args, scenario)
+
     if args['extendable'] is not None:
         network = extendable(
             network,
@@ -428,11 +431,12 @@ def etrago(args):
             args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-        
+
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings = network.snapshot_weightings[
             ::args['skip_snapshots']] * args['skip_snapshots']
+
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -449,6 +453,7 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
@@ -489,6 +494,7 @@ def etrago(args):
         network.model.write(
             args['lpfile'], io_options={
                 'symbolic_solver_labels': True})
+
     # write PyPSA results back to database
     if args['export']:
         username = str(conn.url).split('//')[1].split(':')[0]
@@ -513,7 +519,6 @@ def etrago(args):
     # session.close()
 
     return network
-
 
 if __name__ == '__main__':
     # execute etrago function

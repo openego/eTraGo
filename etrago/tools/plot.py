@@ -367,51 +367,48 @@ def extension_overlay_network(network, filename=None, boundaries=[0, 100]):
         plt.savefig(filename)
         plt.close()
 
-def network_extension_diff (networkA, networkB, filename=None, boundaries=[-100, 100]):
+def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
 
     cmap = plt.cm.jet
-
-    overlay_networkA = networkA.copy()
-
-    overlay_networkB = networkB.copy()
     
-    array_line = [['Line'] * len(overlay_networkA.lines),
-                  overlay_networkA.lines.index]
+    array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
 
     extension_lines = pd.Series(100 *\
-                                 ((overlay_networkA.lines.s_nom_opt - \
-                                    overlay_networkB.lines.s_nom_opt)/\
-                                    overlay_networkA.lines.s_nom_opt  ).values,\
+                                 ((networkA.lines.s_nom_opt - \
+                                    networkB.lines.s_nom_opt)/\
+                                    networkA.lines.s_nom_opt  ).values,\
                                 index=array_line)
 
-    array_link = [['Link'] * len(overlay_networkA.links),
-                  overlay_networkA.links.index]
+    array_link = [['Link'] * len(networkA.links), networkA.links.index]
 
     extension_links = pd.Series(100 *
-                                 ((overlay_networkA.links.p_nom_opt -\
-                                    overlay_networkB.links.p_nom_opt)/\
-                                    overlay_networkA.links.p_nom_opt).values,\
+                                 ((networkA.links.p_nom_opt -\
+                                    networkB.links.p_nom_opt)/\
+                                    networkA.links.p_nom_opt).values,\
                                 index=array_link)
 
     extension = extension_lines.append(extension_links)
 
-    
-
-    ll = overlay_networkA.plot(
+    ll = networkA.plot(
         line_colors=extension,
         line_cmap=cmap,
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
         line_widths=2)
-
-    v = np.linspace(boundaries[0], boundaries[1], 101)
+    
+    if not  boundaries:
+            v = np.linspace(min(extension).round(0), max(extension).round(0), 101)
+    
+    else:
+            v = np.linspace(boundaries[0], boundaries[1], 101)
+    
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
     cb_Link = plt.colorbar(ll[2], boundaries=v,
                            ticks=v[0:101:10])
-    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-    #cb_Link.remove()
+
+    cb_Link.set_clim(vmin=min(v), vmax=max(v))
+    cb_Link.remove()
     cb.set_label('line extension derivation  in %')
 
     if filename is None:
@@ -419,7 +416,8 @@ def network_extension_diff (networkA, networkB, filename=None, boundaries=[-100,
     else:
         plt.savefig(filename)
         plt.close()
-        
+
+
 def full_load_hours(
         network,
         boundaries=[0, 4830],
@@ -447,6 +445,7 @@ def full_load_hours(
     if not boundaries:
         cb = plt.colorbar(ll[1])
         cb_Link = plt.colorbar(ll[2])
+        p
     elif boundaries:
         v = np.linspace(boundaries[0], boundaries[1], 101)
 

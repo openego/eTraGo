@@ -8,6 +8,7 @@ from os import path, listdir
 import matplotlib
 from matplotlib import pyplot as plt
 import pandas as pd
+import numpy as np
 
 abs_err = {}
 rel_err = {}
@@ -18,11 +19,12 @@ k = [10,20,30,50]
 for i in k:
     network = pd.read_csv(path.join(original_path, str(i), 'network.csv'))
     network_c = pd.read_csv(path.join(clustered_path, str(i), 'network.csv'))
-    abs_err[str(i)] = (abs(network_c['objective'].values[0] -\
+    abs_err[str(i)] = ((network_c['objective'].values[0] -\
                                network['objective'].values[0])) 
     rel_err[str(i)]= abs_err[str(i)] / network['objective'].values[0]* 100
     abs_time[str(i)] = float(network_c['time'])
-    rel_time[str(i)] = (float(network_c['time']) / float(network['time']) * 100)
+    rel_time[str(i)] = (float(network_c['time']) / \
+            float(network['time']) * 100)
 
 results = pd.DataFrame({
     'abs_err': abs_err,
@@ -33,12 +35,16 @@ results.index = [int(i) for i in results.index]
 results.sort_index(inplace=True)
 
 # plotting 2 axis plot
-ax = results['rel_err'].plot(style='--*', label = 'error')
+ax = results['rel_err'].plot(label = 'error')
 ax2 = ax.twinx()
-ax.set_title('Comparison')
+ax.set_title('Comparison (BM - Method)')
 ax.set_ylabel('Relative objective function deviation in %')
 ax.set_xlabel('Number of buses')
-results['rel_time'].plot(ax=ax2, style='*--', color='red', label = 'time')
+plot2 = results['rel_time'].plot(ax=ax2, color='red')
+ax.plot(np.nan, '-r', label = 'runtime')
 ax2.set_ylabel('Relative run-time deviation in %')
+
+ax.legend(loc=0)
 fig = ax.get_figure()
+
 fig.savefig(path.join(plot_path, 'comparison_obj_time.eps'))
