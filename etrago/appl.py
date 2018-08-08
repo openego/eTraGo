@@ -513,6 +513,8 @@ def etrago(args):
             # temporal bug fix for solar generator which ar during night time
             # nan instead of 0            
             disaggregated_network.generators_t.p.fillna(0, inplace=True)
+            disaggregated_network.generators_t.q.fillna(0, inplace=True)
+            
             disaggregated_network.results = network.results
         print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
