@@ -142,20 +142,20 @@ References
 
 .. [NEP2015] Übertragungsnetzbetreiber Deutschland. (2015).:
     *Netzentwicklungsplan Strom 2025*, Version 2015, 1. Entwurf, 2015.
-    ("https://www.netzentwicklungsplan.de/sites/default/files"
-    "/paragraphs-files/NEP_2025_1_Entwurf_Teil1_0_0.pdf")
+    (`<https://www.netzentwicklungsplan.de/sites/default/files
+    /paragraphs-files/NEP_2025_1_Entwurf_Teil1_0_0.pdf>`_)
 
 .. [coastdat-2] coastDat-2 (2017).:
-    Hindcast model http://www.coastdat.de/data/index.php.en
+    Hindcast model `<http://www.coastdat.de/data/index.php.en>`_
 
 .. [ehighway2050] e-Highway2050. (2015).:
     e-HIGHWAY 2050 Modular Development Plan of the Pan-European Transmission
     System 2050 - database per country.  Retrieved from 
-    ("http://www.e-highway2050.eu/fileadmin/documents/Results"
-    "/e-Highway_database_per_country-08022016.xlsx")
+    (`<http://www.e-highway2050.eu/fileadmin/documents/Results
+    /e-Highway_database_per_country-08022016.xlsx>`_)
 
 .. [Acatech2015] 'Flexibilitätskonzepte für die Stromversorgung 2050 
-    <www.acatech.de/fileadmin/user_upload/Baumstruktur_nach_Website/Acatech>'
+    `<www.acatech.de/fileadmin/user_upload/Baumstruktur_nach_Website/Acatech>`_'
 
 .. [BGR] 'Salzstruktur in Norddeutschland <>'_. 2015.:
          Data provided by the Federal Institute for Geosciences and Natural
