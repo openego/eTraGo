@@ -93,7 +93,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
          'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -113,7 +113,7 @@ args = {  # Setup and Configuration:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, # or None, 'mini' or 'uniform'
+    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -510,6 +510,9 @@ def etrago(args):
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
             disaggregation.execute(scenario, solver=args['solver'])
+            # temporal bug fix for solar generator which ar during night time
+            # nan instead of 0            
+            disaggregated_network.generators_t.p.fillna(0, inplace=True)
             disaggregated_network.results = network.results
         print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
