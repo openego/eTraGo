@@ -87,26 +87,27 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.3',  # None for model_draft or Version number
+    'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 30,
+    'end_snapshot':50,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads': 4, 'method': 2, 'crossover': 0,
                        'BarHomogeneous': 1, 'NumericFocus': 3,
+                       'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,
                        'logFile': 'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
-    'scn_extension': None,  # None or extension scenario
+    'scn_extension': ['nep2035_b2'],  # None or extension scenario
     'scn_decommissioning': None,  # None or decommissioning scenario
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/clara/pf_results/RemSnapshots/original/20',  # save results as csv: False or /path/tofolder
+    'results': False, #'/home/clara/pf_results/RemSnapshots/original/20',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network',  'storages'],  # None or array of components to optimize
+    'extendable': None, # ['network',  'storages'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Line Extendable Function
@@ -114,13 +115,13 @@ args = {  # Setup and Configuration:
     'remarkable_snapshots': False,
     'line_extendableBM': False,
     # Clustering:
-    'network_clustering_kmeans': 20,   # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_20_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 50,   # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': False,
+    'skip_snapshots':3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False,  # meet the demand at very high cost

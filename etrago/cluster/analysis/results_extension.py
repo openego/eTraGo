@@ -71,12 +71,13 @@ def plot_heatmap(buses, difference, minmax=(None,None)):
     cmap = plt.cm.jet
 
     plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=20, vmin=minmax[0],
-               vmax=minmax[1])
+        vmax=minmax[1])
 
     cb = plt.colorbar()
 
     # plt.clim(-100, 100) normalized colors
     cb.set_label('Absolute difference of Installed Storage Capacities in MW')
+    
     return(fig)
 
 
