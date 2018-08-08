@@ -323,10 +323,7 @@ def etrago(args):
     
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
-    
-    # Add missing lines in Munich and Stuttgart
-    network =  add_missing_components(network)
-    
+
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -380,7 +377,10 @@ def etrago(args):
             session,
             version = args['gridversion'],
             scn_decommissioning=args['scn_decommissioning'])
-                        
+
+    # Add missing lines in Munich and Stuttgart
+    network =  add_missing_components(network)
+
     # investive optimization strategies 
     if args['extendable'] != []:
         network = extendable(
