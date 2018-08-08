@@ -9,7 +9,7 @@ Definitions and Units
 
 eTraGo executes the Open Source software PyPSA to perform power flow 
 simulations and uses its definitions and
-`units <https://pypsa.org/doc/conventions.html#unit-conventions>`.
+`units <https://pypsa.org/doc/conventions.html#unit-conventions>`_.
 
 
 
