@@ -30,6 +30,7 @@ import pandas as pd
 import numpy as np
 import time
 from math import sqrt, log10
+
 if 'READTHEDOCS' not in os.environ:
     from geoalchemy2.shape import to_shape
 
@@ -158,7 +159,7 @@ def plot_line_loading(
     ll = network.plot(line_colors=loading, line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
-
+    
     if not boundaries:
         v = np.linspace(min(loading), max(loading), 101)
         boundaries = [min(loading), max(loading)]
@@ -168,7 +169,7 @@ def plot_line_loading(
         
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
-   
+
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
     cb.set_label('Line loading in %')
