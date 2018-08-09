@@ -454,10 +454,13 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    # adjust the x of the lines which are not 380.
+    # adjust the x and r of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
     network.lines.loc[lines_v_nom_b, 'x'] *= \
         (380. / network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+    network.lines.loc[lines_v_nom_b, 'r'] *= \
+        (380. / network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+        
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
 
     trafo_index = network.transformers.index

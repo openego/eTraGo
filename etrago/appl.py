@@ -89,11 +89,11 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.3',  # None for model_draft or Version number
+    'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf':True,  # perform a pf after a lopf simulation
+    'start_snapshot': 4379,
+    'end_snapshot':  4379,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
          'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -111,15 +111,15 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': 0.7,  # factor to change branch capacities
+    'branch_capacity_factor': 1,  # factor to change branch capacities
     'load_shedding': True,  # meet the demand at very high cost
     'comments': None}
 
