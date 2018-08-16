@@ -329,8 +329,12 @@ def set_q_foreign_loads(network, cos_phi = 1):
      * math.tan(math.acos(cos_phi))
      
     # temporary change x of some lines to avoid infeasibilities
-    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom * 0.7
-   # network.lines.s_nom[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.7
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+    """network.lines.s_nom[#(network.lines.v_nom == 110) &\
+                         (network.lines.bus0.astype(str).isin(france.index))] = network.lines.s_nom * 0.1
+    network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x *0.1
+    network.lines.s_nom[(network.lines.v_nom == 110) & \
+                        network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.1"""
     
     # for future scenarios set all generators to PV
     #network.generators.control[network.generators.control == 'PQ'] = 'PV'
@@ -637,7 +641,20 @@ def pf_post_lopf(network, **kwargs):
 def distribute_q(network, allocation = 'p_nom'):
    
     if allocation == 'p':
-        network.generators_t['p_sum'] = network.generators_t['p'].\
+        p_sum= network.generators_t['p'].\
+            groupby(network.generators.bus, axis = 1).sum().add(network.storage_units_t['p'].abs().groupby\
+            (network.storage_units.bus, axis = 1).sum(), fill_value = 0)
+        q_sum=  network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()
+        
+        q_distributed = network.generators_t.p / \
+            p_sum[network.generators.bus.sort_index()].values * \
+            q_sum[network.generators.bus.sort_index()].values
+        
+        q_storages = network.storage_units_t.p / \
+            p_sum[network.storage_units.bus.sort_index()].values *\
+            q_sum[network.storage_units.bus.sort_index()].values 
+        """network.generators_t['p_sum'] = network.generators_t['p'].\
             groupby(network.generators.bus, axis = 1).sum()\
             [network.generators.bus.sort_index()]
         
@@ -652,7 +669,7 @@ def distribute_q(network, allocation = 'p_nom'):
         
         q_distributed = network.generators_t.p / \
             network.generators_t['p_sum'].values*\
-            network.generators_t['q_sum'].values
+            network.generators_t['q_sum'].values"""
             
             
     if allocation == 'p_nom':
@@ -663,17 +680,34 @@ def distribute_q(network, allocation = 'p_nom'):
             
         q_distributed =network.generators_t['q'].\
             groupby(network.generators.bus, axis = 1).sum()\
-            [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/ \
-            network.generators.p_nom[network.generators.carrier !=\
-            'load shedding'].groupby(network.generators.bus).sum()\
+            [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/\
+            (network.generators.p_nom[network.generators.carrier !=\
+            'load shedding'].groupby(network.generators.bus).sum().add(\
+            network.storage_units.p_nom_opt.groupby
+            (network.storage_units.bus).sum(), fill_value = 0))\
             [network.generators.bus.sort_index()].values 
             
         q_distributed.columns =  network.generators.bus.sort_index().index
-    
+        
+        q_storages = network.generators_t['q'].\
+            groupby(network.generators.bus, axis = 1).sum()\
+            [network.storage_units.bus.sort_index()]\
+            .multiply(network.storage_units.p_nom_opt.values)/ \
+            (network.generators.p_nom[network.generators.carrier !=\
+            'load shedding'].groupby(network.generators.bus).sum().add(\
+            network.storage_units.p_nom_opt.\
+            groupby(network.storage_units.bus).sum(), fill_value = 0))\
+            [network.storage_units.bus.sort_index()].values 
+            
+        q_storages.columns =  network.storage_units.index
 
     q_distributed[q_distributed.isnull()] = 0
     q_distributed[q_distributed.abs() == np.inf] = 0
+    q_storages[q_storages.isnull()] = 0
+    q_storages[q_storages.abs() == np.inf] = 0
     network.generators_t.q =  q_distributed
+    network.storage_units_t.q = q_storages
+
     
     return network
 
@@ -871,9 +905,6 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
     return network
 
 def add_missing_components(network):
-    from shapely import wkb
-    from shapely.geometry import Point, LineString, MultiLineString
-    from geoalchemy2.shape import from_shape, to_shape
     # Munich
     '''
      add missing transformer at Heizkraftwerk Nord in Munich:
@@ -906,19 +937,6 @@ def add_missing_components(network):
     network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
                 x=0.135/(2750/2),
                  r=0.0, tap_ratio=1, s_nom=2750/2)
- 
-     # trafo geom/topo
-    """(network.transformers.loc[new_trafo, 'geom']
-     ) = (from_shape(MultiLineString
-                      ([LineString([wkb.loads(network.buses.geom['23648'],
-                                              hex=True),
-                                    wkb.loads(network.buses.geom['16573'],
-                                              hex=True)])]), 4326))
-    (network.transformers.loc[new_trafo, 'topo']
-     ) = (from_shape(LineString([wkb.loads(network.buses.geom['23648'],
-                                            hex=True),
-                                  wkb.loads(network.buses.geom['16573'],
-                                            hex=True)]), 4326))"""
  
     def add_110kv_line(bus0, bus1, overhead=False):
          new_line = str(network.lines.index.astype(int).max()+1)
@@ -954,20 +972,7 @@ def add_missing_components(network):
                                                  loc[new_line, "length"]*1.2e-3)
              network.lines.loc[new_line, "b"] = (network.lines.
                                                  loc[new_line, "length"]*9.5e-9)
- 
-         # line geom/topo
-         """(network.lines.loc[new_line, 'geom']
-          ) = from_shape(MultiLineString
-                         ([LineString([wkb.loads(network.buses.geom[bus0],
-                                                 hex=True),
-                                       wkb.loads(network.buses.geom[bus1],
-                                                 hex=True)])]), 4326)
-         (network.lines.loc[new_line, 'topo']
-          ) = from_shape(LineString
-                         ([wkb.loads(network.buses.geom[bus0], hex=True),
-                           wkb.loads(network.buses.geom[bus1], hex=True)]),
-                         4326)"""
- 
+
     add_110kv_line("16573", "28353")
     add_110kv_line("16573", "28092")
     add_110kv_line("25096", "25369")
@@ -993,19 +998,6 @@ def add_missing_components(network):
         # new_trafo = str(network.transformers.index.astype(int).max()1)
     network.add("Transformer", '99999', bus0="25766", bus1="18967",
                 x=0.135/300, r=0.0, tap_ratio=1, s_nom=300)
-
-    # trafo geom/topo
-    """(network.transformers.loc[new_trafo, 'geom']
-         ) = (from_shape(MultiLineString
-                     ([LineString([wkb.loads(network.buses.geom['25766'],
-                                             hex=True),
-                                   wkb.loads(network.buses.geom['18967'],
-                                             hex=True)])]), 4326))
-         (network.transformers.loc[new_trafo, 'topo']
-         ) = (from_shape(LineString([wkb.loads(network.buses.geom['25766'],
-                                           hex=True),
-                                 wkb.loads(network.buses.geom['18967'],
-                                           hex=True)]), 4326))"""
     """
     According to:
     https://assets.ctfassets.net/xytfb1vrn7of/NZO8x4rKesAcYGGcG4SQg/b780d6a3ca4c2600ab51a30b70950bb1/netzschemaplan-110-kv.pdf
@@ -1071,19 +1063,6 @@ def add_missing_components(network):
                                                 loc[new_line, "length"]*1e-3)
             network.lines.loc[new_line, "b"] = (network.lines.
                                                 loc[new_line, "length"]*11e-9)
-
-        # line geom/topo
-            """(network.lines.loc[new_line, 'geom']
-            ) = from_shape(MultiLineString
-                        ([LineString([wkb.loads(network.buses.geom[bus0],
-                                                hex=True),
-                                      wkb.loads(network.buses.geom[bus1],
-                                                hex=True)])]), 4326)
-            (network.lines.loc[new_line, 'topo']
-            ) = from_shape(LineString
-                        ([wkb.loads(network.buses.geom[bus0], hex=True),
-                          wkb.loads(network.buses.geom[bus1], hex=True)]),
-                        4326)"""
 
     add_220kv_line("266", "24633", overhead=True)
     return network
