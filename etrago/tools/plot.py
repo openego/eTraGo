@@ -1180,6 +1180,97 @@ def nodal_gen_dispatch(
 
     return
 
+def nodal_gen(network,scaling=False,
+                       techs=['wind_onshore', 'solar', 'coal', 'gas', 'run_of_river', 'uranium'], filename=None):
+    gens = network.generators[network.generators.carrier.isin(techs)]
+    generation = network.generators.p_nom[gens.index].groupby(
+        [network.generators.bus, network.generators.carrier]).sum()
+    colors = coloring()
+
+    subcolors = {a: colors[a] for a in techs}  # network.generators.carrier.unique()}
+
+    if scaling is False:
+        scaling=(1/generation.max())
+
+    fig, ax = plt.subplots(1, 1)
+    network.plot(bus_sizes=generation*scaling, bus_colors=colors, line_widths=0.2, margin=0.01, ax=ax)
+
+    fig.subplots_adjust(right=0.8)
+    plt.subplots_adjust(wspace=0, hspace=0.001)
+
+    patchList = []
+    for key in subcolors:
+        data_key = mpatches.Patch(color=subcolors[key], label=key)
+        patchList.append(data_key)
+
+    ax.legend(handles=patchList, loc='upper left')
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+
+    return
+
+def storage_p(network, filename = None):
+
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+
+    cap_batt = (network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]).sum()
+    cap_hydr = (network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]).sum()
+
+    fig, ax = plt.subplots(1, 1)
+
+    (network.storage_units_t.p[sbatt].resample('96H',how='mean').sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery storage")
+    (network.storage_units_t.p[shydr].resample('96H',how='mean').sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen storage")
+    ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+    ((network.storage_units_t.state_of_charge[shydr].resample('96H',how='mean').sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen storage", color='green')
+   # (network.storage_units_t.state_of_charge[sbatt].resample('48H',how='mean').sum(axis=1) / cap_batt).plot(ax=ax, label="Battery storage")
+
+    ax.set_xlabel("")
+    ax.set_ylabel("Storage utilization")
+    ax2.set_ylabel("Storage State of charge [%]")
+    ax2.set_ylim([0, 100])
+    ax.set_ylim([-1,1])
+    ax.legend(loc=2)
+    ax2.legend(loc=1)
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+
+    return
+
+def storage_soc(network, filename = None):
+
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+
+    cap_batt = (network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]).sum()
+    cap_hydr = (network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]).sum()
+
+    fig, ax = plt.subplots(1, 1)
+
+    (network.storage_units_t.state_of_charge[sbatt].resample('48H',how='mean').sum(axis=1) / cap_batt).plot(ax=ax, label="Battery storage")
+    (network.storage_units_t.state_of_charge[shydr].resample('48H',how='mean').sum(axis=1) / cap_hydr).plot(ax=ax, label="Hydrogen storage")
+
+    ax.set_xlabel("")
+    ax.set_ylabel("Storage state of charge")
+    ax.set_ylim([0,1])
+    ax.legend()
+    ax2.legend()
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+
+    return
 
 if __name__ == '__main__':
     pass
