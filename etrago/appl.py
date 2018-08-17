@@ -108,7 +108,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': ' ./results',  # save results as csv: False or /path/tofolder
+    'results': '/home/lukas_wienholt/results/nep-3-500',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -116,7 +116,7 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'load_cluster': './cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -329,34 +329,8 @@ def etrago(args):
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
 
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    if args['gridversion'] == 'v0.2.11':
-        network.transformers.x = network.transformers.x * 0.0001
-
-    # add storages to AT and LU
-    if args['gridversion'] == 'v0.3.2':   
-        network.add("StorageUnit", bus=28407, name=300001,capital_cost=0.0, carrier='pumped_storage', control='PV', cyclic_state_of_charge=True, efficiency_dispatch=0.89, efficiency_store=0.88, max_hours=6, p_nom=6330, p_nom_extendable=False, standing_loss=0.00052)
-        network.add("StorageUnit", bus=28422, name=300002,capital_cost=0.0, carrier='pumped_storage', control='PV', cyclic_state_of_charge=True, efficiency_dispatch=0.89, efficiency_store=0.88, max_hours=6, p_nom=1320, p_nom_extendable=False, standing_loss=0.00052)
-
-    # set SOC at the beginning and end of the period to equal values -- this part can be deleted with dp version 0.4.0
-    if not args['gridversion'] == 'v0.4.1':
-        network.storage_units.cyclic_state_of_charge = True
-        network.storage_units.p_min_pu = -1
-        network.storage_units.standing_loss[ network.storage_units.carrier=='pumped_storage'] = 0.00052
-        network.storage_units.efficiency_dispatch[ network.storage_units.carrier=='pumped_storage'] = 0.89
-        network.storage_units.efficiency_store[ network.storage_units.carrier=='pumped_storage'] = 0.88
-        network.storage_units.marginal_cost = 0
-
     # variation of storage costs
    # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.1
-
-    # set ramping limits
-#    network.generators.ramp_limit_down[ network.generators.carrier == 'coal']=0.7
-#    network.generators.ramp_limit_down[ network.generators.carrier == 'lignite']=0.6
-#    network.generators.ramp_limit_down[ network.generators.carrier == 'uranium']=0.4
-#    network.generators.ramp_limit_up[ network.generators.carrier == 'coal']=0.7
-#    network.generators.ramp_limit_up[ network.generators.carrier == 'lignite']=0.6
-#    network.generators.ramp_limit_up[ network.generators.carrier == 'uranium']=0.4
 
     # set extra_functionality to default
     extra_functionality = None
@@ -458,7 +432,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv='bus_weight.csv')
+                bus_weight_fromcsv='./bus_weight.csv')
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
