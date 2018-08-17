@@ -95,8 +95,8 @@ args = {  # Setup and Configuration:
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
-         'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2,
+          'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
