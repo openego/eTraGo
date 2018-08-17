@@ -838,7 +838,7 @@ def storage_distribution(network, scaling=1, filename=None):
         plt.close()
 
 
-def storage_expansion(network, scaling=1, filename=None):
+def storage_expansion(network, basemap=True, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -852,12 +852,15 @@ def storage_expansion(network, scaling=1, filename=None):
         If not given, figure will be show directly
     """
 
-    stores = network.storage_units[network.storage_units.carrier ==
-                                   'extendable_storage']
-    storage_distribution =\
-            network.storage_units.p_nom_opt[stores.index].groupby(
-            network.storage_units.bus).sum().reindex(network.buses.index,
-                                                     fill_value=0.)
+    stores = network.storage_units[network.storage_units.carrier == 'extendable_storage']
+    batteries = stores[stores.max_hours == 6]
+    hydrogen = stores[stores.max_hours == 168]
+    storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(
+        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
+    battery_distribution = network.storage_units.p_nom_opt[batteries.index].groupby(
+        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
+    hydrogen_distribution = network.storage_units.p_nom_opt[hydrogen.index].groupby(
+        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
 
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(6, 6)
@@ -872,39 +875,49 @@ def storage_expansion(network, scaling=1, filename=None):
         LabelVal = 0
     if LabelVal < 0:
         LabelUnit = 'kW'
-        msd_max, msd_median, msd_min = msd_max * \
-            1000, msd_median * 1000, msd_min * 1000
+        msd_max, msd_median, msd_min = msd_max * 1000, msd_median * 1000, msd_min * 1000
         storage_distribution = storage_distribution * 1000
     elif LabelVal < 3:
         LabelUnit = 'MW'
     else:
         LabelUnit = 'GW'
-        msd_max, msd_median, msd_min = msd_max / \
-            1000, msd_median / 1000, msd_min / 1000
+        msd_max, msd_median, msd_min = msd_max / 1000, msd_median / 1000, msd_min / 1000
         storage_distribution = storage_distribution / 1000
 
     if sum(storage_distribution) == 0:
         network.plot(bus_sizes=0, ax=ax, title="No extendable storage")
     else:
-        network.plot(
-            bus_sizes=storage_distribution * scaling,
-            ax=ax,
-            line_widths=0.3,
-            title="Storage expansion distribution")
+        network.plot(bus_sizes=battery_distribution * scaling, bus_colors='orangered', ax=ax, line_widths=0.3)
+        network.plot(bus_sizes=hydrogen_distribution * scaling, bus_colors='teal', ax=ax, line_widths=0.3)
+
+    if basemap and basemap_present:
+        x = network.buses["x"]
+        y = network.buses["y"]
+        x1 = min(x)
+        x2 = max(x)
+        y1 = min(y)
+        y2 = max(y)
+
+        bmap = Basemap(resolution='l', epsg=network.srid, llcrnrlat=y1, urcrnrlat=y2, llcrnrlon=x1, urcrnrlon=x2, ax=ax)
+        bmap.drawcountries()
+        bmap.drawcoastlines()
 
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
-    for area in [msd_max, msd_median, msd_min]:
-        plt.scatter([], [], c='white', s=area * scaling,
+    for area in [msd_max]:
+        plt.scatter([], [], c='grey', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
+        plt.scatter([], [], c='teal', s=20,
+                    label=' Hydrogen storage')
+        plt.scatter([], [], c='orangered', s=20,
+                    label=' Battery storage')
+    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size', borderpad=1.3, loc=2)
 
     if filename is None:
         plt.show()
     else:
         plt.savefig(filename)
         plt.close()
-
 
 def gen_dist(
         network,
