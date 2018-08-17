@@ -1,0 +1,5 @@
+include README.rst
+include LICENSE
+include MANIFEST.in
+include etrago/tools/*.json
+include *.txt

@@ -1,0 +1,12 @@
+Release 0.6.1 (Juli 18, 2018)
+++++++++++++++++++++++++++++
+eTraGo works with pypi and is suitable for eGo 0.2.0
+
+Added features
+--------------
+* An installation issue when installing from pypi was fixed.
+* The random noise function was improved. Now you set a (reproducible) random seed.
+* snapshot.weightings are used within the plotting functions
+* bug fix for k-means clustering with respect to the aggregation of p_max_pu values of variable generators. They are weighted by their p_nom now. 
+
+

@@ -1,22 +1,40 @@
+.. _HowToUse:
+==================
 How to use eTraGo?
-~~~~~~~~~~~~~~~~~~
+==================
 
-After you installed eTraGo you can run eTraGo via terminal with ``$ cd../<your path>/eTrago/etrago/`` and ``python3 appl.py``. The program will execute following functions:
+After you installed eTraGo you would typically start optimization runs by
+executing the ‘appl.py’ wich is situated in 
+``./eTrago/etrago/`` (e.g by ``python3 appl.py``).
 
-.. code-block:: python
+The ‘appl.py’ is used as a simple user interface. Here
+parameters, calculation methods and scenario settings are set in a python
+dictionary called 'args'. It is crucial to understand these parameters.
+For example some of them contradict the usage of others. 
+You find the documentation of all defined parameters from the 'args' here:
+:meth:`etrago.appl.etrago`.
 
-   # execute etrago function
-    network = etrago(args)
-    # plots
-    # make a line loading plot
-    plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    storage_distribution(network)
+The appl.py contains the etrago(args) function which uses the
+defined 'args' dictionary to start the desired calculation.
+
+Afterwards a PyPSA network will contain all results. You can use
+several plotting functions from the :meth:`etrago.tools.plot` in order
+to visualize the results. For example 
+the :meth:`etrago.tools.plot.plot_line_loading` plots
+the relative line loading in % of all AC lines and DC links of the network.
+
+To save the results you can use an interface to the oedb or write them
+simply to csv files. These functionalites can be specified 
+also in :meth:`etrago.appl.etrago`.
 
 
-Overview of setting arguments 
-=============================
+.. _Examples:
+Examples and tutorial notebooks
+===============================
 
-The tool eTraGo is using a main python script ‘appl.py’ in which your parameters, calculation methods and scenario settings are set in a python dictionary called args. The documentation of the program settings can you find here: :meth:`etrago.appl.etrago`.
+
+
+.. toctree::
+   :maxdepth: 7
+
+   OpenMod  <https://github.com/openego/eGo/blob/master/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>
