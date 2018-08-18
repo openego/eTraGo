@@ -352,8 +352,6 @@ def etrago(args):
             args['scn_name'] == 'SH NEP 2035'):
         data_manipulation_sh(network)
 
-    add_missing_components(network)
-
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
