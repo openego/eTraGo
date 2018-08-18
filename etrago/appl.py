@@ -108,15 +108,15 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/lukas_wienholt/results/nep-3-500',  # save results as csv: False or /path/tofolder
+    'results': '/home/mueller/results/nep-3-600',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storage'],  # Array of components to optimize
+    'extendable': ['storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': './cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 600,  # False or the value k for clustering
+    'load_cluster': False, #'./cluster_coord_k_600_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -432,7 +432,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv='./bus_weight.csv')
+                bus_weight_fromcsv='/home/mueller/eTraGo/bus_weight.csv')
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
