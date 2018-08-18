@@ -352,8 +352,6 @@ def etrago(args):
             args['scn_name'] == 'SH NEP 2035'):
         data_manipulation_sh(network)
 
-    #add_missing_components(network)
-
     # grouping of parallel lines
     if args['line_grouping']:
         group_parallel_lines(network)
@@ -392,13 +390,7 @@ def etrago(args):
                     args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-    
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
-            
+             
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -431,11 +423,17 @@ def etrago(args):
                 line_length_factor= 1,
                 remove_stubs=False,
                 use_reduced_coordinates=False,
-                bus_weight_tocsv=None,
-                bus_weight_fromcsv='/home/lukas_wienholt/eTraGo/bus_weight.csv')
+                bus_weight_tocsv='/home/lukas_wienholt/eTraGo/bus_weight.csv',
+                bus_weight_fromcsv=False)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+    
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
 
     # parallisation
     if args['parallelisation']:
