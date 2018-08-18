@@ -29,6 +29,7 @@ import matplotlib
 import pandas as pd
 import numpy as np
 import time
+import math
 from math import sqrt, log10
 
 if 'READTHEDOCS' not in os.environ:
@@ -887,13 +888,15 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         LabelVal = 0
     if LabelVal < 0:
         LabelUnit = 'kW'
-        msd_max, msd_median, msd_min = msd_max * 1000, msd_median * 1000, msd_min * 1000
+        msd_max, msd_median, msd_min = msd_max * \
+            1000, msd_median * 1000, msd_min * 1000
         storage_distribution = storage_distribution * 1000
     elif LabelVal < 3:
         LabelUnit = 'MW'
     else:
         LabelUnit = 'GW'
-        msd_max, msd_median, msd_min = msd_max / 1000, msd_median / 1000, msd_min / 1000
+        msd_max, msd_median, msd_min = msd_max / \
+            1000, msd_median / 1000, msd_min / 1000
         storage_distribution = storage_distribution / 1000
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
@@ -1167,31 +1170,104 @@ def gen_dist(
 
 def nodal_gen_dispatch(
         network,
-        scaling=False,
+        networkB=None,
         techs=['wind_onshore', 'solar'],
+        item='energy',
+        direction=None,
+        scaling=1,
         filename=None):
-
-    gens = network.generators[network.generators.carrier.isin(techs)]
-    dispatch =\
-            network.generators_t.p[gens.index].mul(network.snapshot_weightings,
-            axis=0).sum().groupby(
-            [network.generators.bus, network.generators.carrier]).sum()
-    colors = coloring()
-
-    # network.generators.carrier.unique()}
-    subcolors = {a: colors[a] for a in techs}
-
-    if scaling is False:
-        scaling = (1 / dispatch.max())
-
-    fig, ax = plt.subplots(1, 1)
+    """
+    Plot nodal dispatch or capacity. If networkB is given, difference in
+    dispatch is plotted.
+    
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    networkB : PyPSA network container
+        If given and item is 'energy', difference in dispatch between network 
+        and networkB is plotted. If item is 'capacity', networkB is ignored.
+        default None
+    techs : None or list, 
+        Techs to plot. If None, all techs are plotted.
+        default ['wind_onshore', 'solar']
+    item : str
+        Specifies the plotted item. Options are 'energy' and 'capacity'.
+        default 'energy'
+    direction : str
+        Only considered if networkB is given and item is 'energy'. Specifies
+        the direction of change in dispatch between network and networkB.
+        If 'positive', generation per tech which is higher in network than in 
+        networkB is plotted.
+        If 'negative', generation per tech whcih is lower in network than 
+        in networkB is plotted.
+        If 'absolute', total change per node is plotted. 
+        Green nodes have higher dispatch in network than in networkB.
+        Red nodes have lower dispatch in network than in networkB.
+        default None
+    scaling : int
+        Scaling to change plot sizes.
+        default 1
+    filename : path to folder
+    """   
+    
+    if techs:
+        gens = network.generators[network.generators.carrier.isin(techs)]
+    elif techs is None:
+        gens = network.generators
+        techs = gens.carrier.unique()
+    if item == 'capacity':
+        dispatch = gens.p_nom.groupby([network.generators.bus, 
+                                            network.generators.carrier]).sum()
+    elif item == 'energy':
+        if networkB:
+            dispatch_network =\
+                    network.generators_t.p[gens.index].mul(
+                            network.snapshot_weightings, axis=0).groupby(
+                    [network.generators.bus, network.generators.carrier], 
+                    axis=1).sum()
+            dispatch_networkB =\
+                    networkB.generators_t.p[gens.index].mul(
+                            networkB.snapshot_weightings, axis=0).groupby(
+                    [networkB.generators.bus, networkB.generators.carrier], 
+                    axis=1).sum()
+            dispatch = dispatch_network - dispatch_networkB
+            
+            if direction == 'positive':
+                dispatch = dispatch[dispatch > 0].fillna(0)
+            elif direction == 'negative':
+                dispatch = dispatch[dispatch < 0].fillna(0)
+            elif direction == 'absolute':
+                pass
+            else:
+                return('No valid direction given.')
+            dispatch = dispatch.sum()
+            
+        elif networkB is None:
+            dispatch =\
+                    network.generators_t.p[gens.index].mul(
+                            network.snapshot_weightings, axis=0).sum().groupby(
+                    [network.generators.bus, network.generators.carrier]).sum()
+    
+    fig, ax = plt.subplots(1, 1)          
+    scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
+    if direction != 'absolute':
+        colors = coloring()
+        subcolors = {a: colors[a] for a in techs}
+        dispatch = dispatch.abs() + 1e-9
+    else:
+        dispatch = dispatch.sum(level=0)
+        colors = {s[0]: 'green' if s[1] > 0 else 'red' 
+                  for s in dispatch.iteritems()}
+        dispatch = dispatch.abs()
+        subcolors = {'negative': 'red', 'positive': 'green'}
+    
     network.plot(
-        bus_sizes=dispatch *
-        scaling,
-        bus_colors=colors,
-        line_widths=0.2,
-        margin=0.01,
-        ax=ax)
+            bus_sizes=dispatch * scaling,
+            bus_colors=colors,
+            line_widths=0.2,
+            margin=0.01,
+            ax=ax)
 
     fig.subplots_adjust(right=0.8)
     plt.subplots_adjust(wspace=0, hspace=0.001)
@@ -1202,6 +1278,7 @@ def nodal_gen_dispatch(
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc='upper left')
+    ax.autoscale()
 
     if filename is None:
         plt.show()
@@ -1211,34 +1288,56 @@ def nodal_gen_dispatch(
 
     return
 
-def nodal_gen(network,scaling=False,
-                       techs=['wind_onshore', 'solar', 'coal', 'gas', 'run_of_river', 'uranium'], filename=None):
-    gens = network.generators[network.generators.carrier.isin(techs)]
-    generation = network.generators.p_nom[gens.index].groupby(
-        [network.generators.bus, network.generators.carrier]).sum()
-    colors = coloring()
-
-    subcolors = {a: colors[a] for a in techs}  # network.generators.carrier.unique()}
-
-    if scaling is False:
-        scaling=(1/generation.max())
-
+def nodal_production_balance(
+        network, 
+        snapshot='all', 
+        scaling=0.00001, 
+        filename=None):
+    """
+    Plots the nodal difference between generation and consumption.
+    
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    snapshot : int or 'all'
+        Snapshot to plot.
+        default 'all'
+    scaling : int
+        Scaling to change plot sizes.
+        default 0.0001
+    filename : path to folder
+    
+    """
     fig, ax = plt.subplots(1, 1)
-    network.plot(bus_sizes=generation*scaling, bus_colors=colors, line_widths=0.2, margin=0.01, ax=ax)
-
-    fig.subplots_adjust(right=0.8)
-    plt.subplots_adjust(wspace=0, hspace=0.001)
-
+    gen = network.generators_t.p.groupby(network.generators.bus, axis=1).sum()
+    load = network.loads_t.p.groupby(network.loads.bus, axis=1).sum()
+    
+    if snapshot == 'all':
+        diff = (gen - load).sum()
+    else:
+        timestep = network.snapshots[snapshot]
+        diff = (gen - load).loc[timestep]
+    
+    colors = {s[0]: 'green' if s[1] > 0 else 'red' 
+                  for s in diff.iteritems()}
+    subcolors = {'Net Consumer': 'red', 'Net Producer': 'green'}
+    diff = diff.abs()
+    network.plot(
+            bus_sizes=diff * scaling,
+            bus_colors=colors,
+            line_widths=0.2,
+            margin=0.01,
+            ax=ax)
+    
     patchList = []
     for key in subcolors:
         data_key = mpatches.Patch(color=subcolors[key], label=key)
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc='upper left')
-
-    if filename is None:
-        plt.show()
-    else:
+    ax.autoscale()
+    if filename:
         plt.savefig(filename)
         plt.close()
 
