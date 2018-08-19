@@ -80,7 +80,8 @@ if 'READTHEDOCS' not in os.environ:
         group_parallel_lines,
         add_missing_components,
         distribute_q,
-        set_q_foreign_loads)
+        set_q_foreign_loads,
+        min_renewable_share)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -89,7 +90,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.3',  # None for model_draft or Version number
+    'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -110,10 +111,10 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 2,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -392,9 +393,8 @@ def etrago(args):
     
     # skip snapshots
     if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
+        network.snapshots=network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots'] 
             
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
@@ -433,7 +433,11 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-
+        
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']         
+        
     # parallisation
     if args['parallelisation']:
         parallelisation(
@@ -443,8 +447,8 @@ def etrago(args):
             group_size=1,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
-    
+            extra_functionality=min_renewable_share)
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
@@ -452,7 +456,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=min_renewable_share)
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

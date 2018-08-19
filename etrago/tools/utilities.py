@@ -1124,3 +1124,35 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
                                              start_snapshot + 1))
 
     return network
+
+
+import pyomo.environ as po
+
+
+def min_renewable_share(network, share=0.71):
+    """
+    """
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    #import pdb; pdb.set_trace()
+    res = list(network.generators.index[network.generators.carrier.isin(renewables)])
+
+    total = list(network.generators.index)
+    snapshots = network.snapshots
+    share=0.73
+
+    def _rule(m):
+        """
+        """
+        renewable_production = sum(m.generator_p[gen,sn]
+                                  for gen
+                                  in res
+                                  for sn in snapshots)
+        total_production = sum(m.generator_p[gen,sn]
+                               for gen  in total
+                               for sn in snapshots)
+
+        return (renewable_production >= total_production* share)
+    network.model.min_renewable_share = po.Constraint(rule=_rule)
+    network.model.min_renewable_share.pprint()
+
+    #return m
