@@ -899,11 +899,11 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
             1000, msd_median / 1000, msd_min / 1000
         storage_distribution = storage_distribution / 1000
 
-    if network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
-    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         network.plot(bus_sizes=battery_distribution * scaling, bus_colors='orangered', ax=ax, line_widths=0.3)
-    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() > 1:
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() > 1:
         network.plot(bus_sizes=hydrogen_distribution * scaling, bus_colors='teal', ax=ax, line_widths=0.3)
     else:
         network.plot(bus_sizes=battery_distribution * scaling, bus_colors='orangered', ax=ax, line_widths=0.3)
