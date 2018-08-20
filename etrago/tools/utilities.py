@@ -1138,7 +1138,7 @@ def min_renewable_share(network, share=0.71):
 
     total = list(network.generators.index)
     snapshots = network.snapshots
-    share=0.73
+    share=0.65
 
     def _rule(m):
         """
@@ -1151,8 +1151,7 @@ def min_renewable_share(network, share=0.71):
                                for gen  in total
                                for sn in snapshots)
 
-        return (renewable_production >= total_production* share)
+        return (renewable_production == total_production* share)
     network.model.min_renewable_share = po.Constraint(rule=_rule)
-    network.model.min_renewable_share.pprint()
 
     #return m
