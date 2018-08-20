@@ -86,6 +86,17 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
+def re_share(network):
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    res = network.generators[network.generators.carrier.isin(renewables)]
+    res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
+    load = network.loads_t.p_set.sum(axis=1).sum()
+    share=(res_dispatch / load) * 100
+
+    print("Renewable energy share for Network in selected snapshots [%]:", round(share, 2))
+
+    return network
+
 def clip_foreign(network):
     """
     Delete all components and timelines located outside of Germany.

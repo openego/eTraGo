@@ -66,7 +66,9 @@ if 'READTHEDOCS' not in os.environ:
         storage_distribution,
         storage_expansion,
         extension_overlay_network,
-        nodal_gen_dispatch)
+        nodal_gen_dispatch,
+        storage_soc,
+        storage_p)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -81,7 +83,9 @@ if 'READTHEDOCS' not in os.environ:
         add_missing_components,
         distribute_q,
         set_q_foreign_loads,
-        min_renewable_share)
+        min_renewable_share,
+        clip_foreign,
+        re_share)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -94,34 +98,34 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
-         'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'solver_options': {'threads':4, 'method':2,
+          'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': ' ./results',  # save results as csv: False or /path/tofolder
+    'results': '/home/lukas_wienholt/results/nep-3-500',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 2,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 500,  # False or the value k for clustering
+    'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': False,
+    'skip_snapshots': 3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True,  # meet the demand at very high cost
+    'load_shedding': False,  # meet the demand at very high cost
     'comments': None}
 
 
@@ -325,12 +329,8 @@ def etrago(args):
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
 
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    if args['gridversion'] == 'v0.2.11':
-        network.transformers.x = network.transformers.x * 0.0001
-
-    # set SOC at the beginning and end of the period to equal values
-    network.storage_units.cyclic_state_of_charge = True
+    # variation of storage costs
+   # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.1
 
     # set extra_functionality to default
     extra_functionality = None
@@ -390,12 +390,13 @@ def etrago(args):
                     args['scn_extension'])
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-    
+
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots=network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings=network.snapshot_weightings[::args['skip_snapshots']]*args['skip_snapshots'] 
             
+
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -429,15 +430,15 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
+                bus_weight_fromcsv='/home/lukas_wienholt/eTraGo/bus_weight.csv')
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-        
+       
     # skip snapshots
     if args['skip_snapshots']:
-        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']         
-        
+        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+
     # parallisation
     if args['parallelisation']:
         parallelisation(
