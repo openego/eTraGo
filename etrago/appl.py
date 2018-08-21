@@ -520,7 +520,7 @@ def etrago(args):
             disaggregated_network.generators_t.q.fillna(0, inplace=True)
             
             disaggregated_network.results = network.results
-        print("Time for overall desaggregation [min]: {:.2}"
+            print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
 
     # write lpfile to path
