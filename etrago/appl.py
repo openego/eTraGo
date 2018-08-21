@@ -434,6 +434,10 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
 
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+
     # parallisation
     if args['parallelisation']:
         parallelisation(
