@@ -449,11 +449,13 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control = "PV"
+    network.storage_units.control[network.storage_units.carrier == \
+                                  'extendable_storage'] = "PV"
     network.buses['v_nom'] = 380.
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
-
+    
     # adjust the x of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
     network.lines.loc[lines_v_nom_b, 'x'] *= \

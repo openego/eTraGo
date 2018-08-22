@@ -86,6 +86,7 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
+
 def clip_foreign(network):
     """
     Delete all components and timelines located outside of Germany.
@@ -210,17 +211,16 @@ def clip_foreign(network):
 
     network.foreign_trade = transborder_flows.\
         groupby(transborder_lines['country'], axis=1).sum()
-                
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
         (network.lines['bus0'].isin(network.buses.index) == False) |
         (network.lines['bus1'].isin(network.buses.index) == False)].index)
-                            
+
     network.links = network.links.drop(network.links[
         (network.links['bus0'].isin(network.buses.index) == False) |
         (network.links['bus1'].isin(network.buses.index) == False)].index)
-                            
+
     network.transformers = network.transformers.drop(network.transformers[
         (network.transformers['bus0'].isin(network.buses.index) == False) |
         (network.transformers['bus1'].isin(network.
@@ -233,7 +233,8 @@ def clip_foreign(network):
         (network.storage_units['bus'].isin(network.
                                            buses.index) == False)].index)
 
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers',
+                  'links']
     for g in components:  # loads_t
         h = g + '_t'
         nw = getattr(network, h)  # network.loads_t
@@ -245,7 +246,8 @@ def clip_foreign(network):
 
     return network
 
-def set_q_foreign_loads(network, cos_phi = 1):
+
+def set_q_foreign_loads(network, cos_phi=1):
     # get foreign buses by country
     poland = pd.Series(index=network.
                        buses[(network.buses['x'] > 17)].index,
@@ -322,35 +324,15 @@ def set_q_foreign_loads(network, cos_phi = 1):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
-                        
-    network.loads_t['q_set'][network.loads.index[network.loads.bus.astype(str)\
-     .isin(foreign_buses.index)]]  =  network.loads_t['p_set'][network.loads.\
-     index[network.loads.bus.astype(str).isin (foreign_buses.index)]] \
-     * math.tan(math.acos(cos_phi))
-     
-    # temporary change x of some lines to avoid infeasibilities
-    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom * 0.7
-   # network.lines.s_nom[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.s_nom * 0.7
-    
-    # for future scenarios set all generators to PV
-    #network.generators.control[network.generators.control == 'PQ'] = 'PV'
-    
-    return network
-    
-def fix_bugs_for_pf(network):
 
+    network.loads_t['q_set'][network.loads.index[
+        network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
+        network.loads_t['p_set'][network.loads.index[
+            network.loads.bus.astype(str).isin(
+                foreign_buses.index)]] * math.tan(math.acos(cos_phi))
 
-    network.loads_t['q_set'][network.loads_t['q_set'].isnull()] = 0
-    
-    #network.lines.x[network.lines.bus0.astype(str).isin(france.index)] = network.lines.x/10
-    #network.lines.x[network.lines.bus0.astype(str).isin(poland.index)] = network.lines.x/10
-    #network.lines.s_nom[network.lines.bus0.astype(str).isin(france.index)] = network.lines.s_nom/10
-    #network.transformers.x[network.transformers.bus0.astype(str).isin(foreign_buses.index)] = network.transformers.x * 0.00001 
-    #network.transformers.x[network.transformers.x>0.5] = network.transformers.x *0.00001
-    
-   
-  
     return network
+
 
 def connected_grid_lines(network, busids):
     """ Get grid lines connected to given buses.
@@ -418,8 +400,8 @@ def load_shedding(network, **kwargs):
 
     network.add("Carrier", "load")
     start = network.generators.index.to_series().str.rsplit(
-        ' ').str[0].astype(int).sort_values().max()+1
-    index = list(range(start, start+len(network.buses.index)))
+        ' ').str[0].astype(int).sort_values().max() + 1
+    index = list(range(start, start + len(network.buses.index)))
     network.import_components_from_dataframe(
         pd.DataFrame(
             dict(marginal_cost=marginal_cost,
@@ -437,9 +419,9 @@ def data_manipulation_sh(network):
     from geoalchemy2.shape import from_shape, to_shape
 
     # add connection from Luebeck to Siems
-    new_bus = str(network.buses.index.astype(np.int64).max()+1)
-    new_trafo = str(network.transformers.index.astype(np.int64).max()+1)
-    new_line = str(network.lines.index.astype(np.int64).max()+1)
+    new_bus = str(network.buses.index.astype(np.int64).max() + 1)
+    new_trafo = str(network.transformers.index.astype(np.int64).max() + 1)
+    new_line = str(network.lines.index.astype(np.int64).max() + 1)
     network.add("Bus", new_bus, carrier='AC',
                 v_nom=220, x=10.760835, y=53.909745)
     network.add("Transformer", new_trafo, bus0="25536",
@@ -471,11 +453,13 @@ def data_manipulation_sh(network):
 
     return
 
+
 def _enumerate_row(row):
     row['name'] = row.name
     return row
 
-def results_to_csv(network, args, pf_solution = None):
+
+def results_to_csv(network, args, pf_solution=None):
     """
     """
 
@@ -490,15 +474,14 @@ def results_to_csv(network, args, pf_solution = None):
     network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
-    data = data.apply(_enumerate_row,  axis=1)
+    data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
     with open(os.path.join(path, 'args.json'), 'w') as fp:
         json.dump(args, fp)
-    
-    if type(pf_solution) != type(None):    
+
+    if not isinstance(pf_solution, type(None)):
         pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
-    
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
@@ -506,7 +489,7 @@ def results_to_csv(network, args, pf_solution = None):
         if file:
             print('Z already calculated')
         else:
-            network.Z.to_csv(path.strip('0123456789')+'/Z.csv', index=False)
+            network.Z.to_csv(path.strip('0123456789') + '/Z.csv', index=False)
 
     return
 
@@ -518,12 +501,13 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
           format(group_size))
     t = time.time()
 
-    for i in range(int((end_snapshot-start_snapshot+1)/group_size)):
+    for i in range(int((end_snapshot - start_snapshot + 1) / group_size)):
         if i > 0:
             network.storage_units.state_of_charge_initial = network.\
                 storage_units_t.state_of_charge.loc[
-                    network.snapshots[group_size*i-1]]
-        network.lopf(network.snapshots[group_size*i:group_size*i+group_size],
+                    network.snapshots[group_size * i - 1]]
+        network.lopf(network.snapshots[
+                     group_size * i:group_size * i + group_size],
                      solver_name=solver_name,
                      solver_options=solver_options,
                      extra_functionality=extra_functionality)
@@ -539,49 +523,48 @@ def pf_post_lopf(network, **kwargs):
 
     # Update x of extended lines and transformers
     if network_pf.lines.s_nom_extendable.any() or \
-        network_pf.transformers.s_nom_extendable.any():
-            
+            network_pf.transformers.s_nom_extendable.any():
+
         network_pf.lines.x[network.lines.s_nom_extendable] = \
-        network_pf.lines.x * network.lines.s_nom /\
-        network_pf.lines.s_nom_opt  
-        
+            network_pf.lines.x * network.lines.s_nom /\
+            network_pf.lines.s_nom_opt
+
         network_pf.lines.r[network.lines.s_nom_extendable] = \
-        network_pf.lines.r * network.lines.s_nom /\
-        network_pf.lines.s_nom_opt  
-    
+            network_pf.lines.r * network.lines.s_nom /\
+            network_pf.lines.s_nom_opt
+
         network_pf.lines.b[network.lines.s_nom_extendable] = \
-        network_pf.lines.b * network.lines.s_nom_opt /\
-        network_pf.lines.s_nom 
-        
+            network_pf.lines.b * network.lines.s_nom_opt /\
+            network_pf.lines.s_nom
+
         network_pf.lines.g[network.lines.s_nom_extendable] = \
-        network_pf.lines.g * network.lines.s_nom_opt /\
-        network_pf.lines.s_nom 
-        
+            network_pf.lines.g * network.lines.s_nom_opt /\
+            network_pf.lines.s_nom
+
         network_pf.transformers.x[network.transformers.s_nom_extendable] = \
-        network_pf.transformers.x * network.transformers.s_nom / \
-        network_pf.transformers.s_nom_opt
-        
+            network_pf.transformers.x * network.transformers.s_nom / \
+            network_pf.transformers.s_nom_opt
+
         network_pf.lines.s_nom_extendable = False
         network_pf.transformers.s_nom_extendable = False
         network_pf.lines.s_nom = network.lines.s_nom_opt
-        network_pf.transformers.s_nom =network.transformers.s_nom_opt
-        
-        network_pf.lopf(solver_name = 'gurobi')
-    
-        # For the PF, set the P to the optimised P
+        network_pf.transformers.s_nom = network.transformers.s_nom_opt
+
+        network_pf.lopf(solver_name='gurobi')
+
+    # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
     network_pf.generators_t.p_set = network_pf.generators_t.p
-    
-    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p_set.reindex(
-            columns=network_pf.storage_units.index)
+
+    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p_set\
+        .reindex(columns=network_pf.storage_units.index)
     network_pf.storage_units_t.p_set = network_pf.storage_units_t.p
-    
+
     network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
-            columns=network_pf.links.index)
+        columns=network_pf.links.index)
     network_pf.links_t.p_set = network_pf.links_t.p0
-    
-    
+
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
     old_gens = network.generators
@@ -590,7 +573,7 @@ def pf_post_lopf(network, **kwargs):
     max_gen_buses_index = old_gens.groupby(['bus']).agg(
         {'p_summed': np.sum}).p_summed.sort_values().index
 
-    for bus_iter in range(1, len(max_gen_buses_index)-1):
+    for bus_iter in range(1, len(max_gen_buses_index) - 1):
         if old_gens[(network.
                      generators['bus'] == max_gen_buses_index[-bus_iter]) &
                     (network.generators['control'] == 'PV')].empty:
@@ -598,7 +581,7 @@ def pf_post_lopf(network, **kwargs):
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
-   
+
     network.generators = network.generators.drop('p_summed', 1)
     new_slack_gen = network.generators.\
         p_nom[(network.generators['bus'] == new_slack_bus) & (
@@ -618,63 +601,79 @@ def pf_post_lopf(network, **kwargs):
         old_slack, 'control', old_control)
     network.generators = network.generators.set_value(
         new_slack_gen, 'control', 'Slack')
-    
+
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
-    
-    pf_solve = pd.DataFrame(index =pf_solution['converged'].index)
+
+    pf_solve = pd.DataFrame(index=pf_solution['converged'].index)
     pf_solve['converged'] = pf_solution['converged'].values
     pf_solve['error'] = pf_solution['error'].values
     pf_solve['n_iter'] = pf_solution['n_iter'].values
-    
-    if not pf_solve[pf_solve.converged == False].count().max() == 0:
-        logger.warning("PF of  %d snapshots not converged.",\
-                pf_solve[pf_solve.converged == False].count().max())
-   
+
+    if not pf_solve[~pf_solve.converged].count().max() == 0:
+        logger.warning("PF of %d snapshots not converged.",
+                       pf_solve[~pf_solve.converged].count().max())
+
     return pf_solve
 
 
-def distribute_q(network, allocation = 'p_nom'):
-   
-    if allocation == 'p':
-        network.generators_t['p_sum'] = network.generators_t['p'].\
-            groupby(network.generators.bus, axis = 1).sum()\
-            [network.generators.bus.sort_index()]
-        
-        network.generators_t['q_sum'] = network.generators_t['q'].\
-            groupby(network.generators.bus, axis = 1).sum()\
-            [network.generators.bus.sort_index()]
+def distribute_q(network, allocation='p_nom'):
 
-        network.generators_t['p_sum'].columns = \
-            network.generators_t['p'].columns
-        network.generators_t['q_sum'].columns =\
-            network.generators_t['p'].columns
-        
+    if allocation == 'p':
+        p_sum = network.generators_t['p'].\
+            groupby(network.generators.bus, axis=1).sum().\
+            add(network.storage_units_t['p'].abs().groupby(
+                network.storage_units.bus, axis=1).sum(), fill_value=0)
+        q_sum = network.generators_t['q'].\
+            groupby(network.generators.bus, axis=1).sum()
+
         q_distributed = network.generators_t.p / \
-            network.generators_t['p_sum'].values*\
-            network.generators_t['q_sum'].values
-            
-            
+            p_sum[network.generators.bus.sort_index()].values * \
+            q_sum[network.generators.bus.sort_index()].values
+
+        q_storages = network.storage_units_t.p / \
+            p_sum[network.storage_units.bus.sort_index()].values *\
+            q_sum[network.storage_units.bus.sort_index()].values
+
     if allocation == 'p_nom':
-        
-        p_nom_dist= network.generators.p_nom.sort_index()
-        p_nom_dist[p_nom_dist.index.isin(network.generators.index\
-            [network.generators.carrier == 'load shedding'])] = 0  
-            
-        q_distributed =network.generators_t['q'].\
-            groupby(network.generators.bus, axis = 1).sum()\
-            [network.generators.bus.sort_index()].multiply(p_nom_dist.values)/ \
-            network.generators.p_nom[network.generators.carrier !=\
-            'load shedding'].groupby(network.generators.bus).sum()\
-            [network.generators.bus.sort_index()].values 
-            
-        q_distributed.columns =  network.generators.bus.sort_index().index
-    
+
+        p_nom_dist = network.generators.p_nom_opt.sort_index()
+        p_nom_dist[p_nom_dist.index.isin(network.generators.index
+                                         [network.generators.carrier ==
+                                          'load shedding'])] = 0
+
+        q_distributed = network.generators_t['q'].\
+            groupby(network.generators.bus, axis=1).sum()[
+            network.generators.bus].multiply(p_nom_dist.values) /\
+            (network.generators.p_nom_opt[network.generators.carrier !=
+                                          'load shedding'].groupby(
+                network.generators.bus).sum().add(
+                network.storage_units.p_nom_opt.groupby
+                (network.storage_units.bus).sum(), fill_value=0))[
+            network.generators.bus.sort_index()].values
+
+        q_distributed.columns = network.generators.index
+
+        q_storages = network.generators_t['q'].\
+            groupby(network.generators.bus, axis=1).sum()[
+            network.storage_units.bus]\
+            .multiply(network.storage_units.p_nom_opt.values) / \
+            ((network.generators.p_nom_opt[network.generators.carrier !=
+                                          'load shedding'].groupby(
+                network.generators.bus).sum().add(
+                network.storage_units.p_nom_opt.
+                groupby(network.storage_units.bus).sum(), fill_value=0))[
+            network.storage_units.bus].values)
+
+        q_storages.columns = network.storage_units.index
 
     q_distributed[q_distributed.isnull()] = 0
     q_distributed[q_distributed.abs() == np.inf] = 0
-    network.generators_t.q =  q_distributed
-    
+    q_storages[q_storages.isnull()] = 0
+    q_storages[q_storages.abs() == np.inf] = 0
+    network.generators_t.q = q_distributed
+    network.storage_units_t.q = q_storages
+
     return network
 
 
@@ -714,7 +713,7 @@ def calc_line_losses(network):
     # Crastan, Elektrische Energieversorgung, p.151
     # trafo 1000 MVA: 99.8 %
     network.transformers = network.transformers.assign(
-        losses=np.multiply(network.transformers.s_nom, (1-0.998)).values)
+        losses=np.multiply(network.transformers.s_nom, (1 - 0.998)).values)
 
     # calculate total losses (possibly enhance with adding these values
     # to network container)
@@ -870,10 +869,8 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
 
     return network
 
+
 def add_missing_components(network):
-    from shapely import wkb
-    from shapely.geometry import Point, LineString, MultiLineString
-    from geoalchemy2.shape import from_shape, to_shape
     # Munich
     '''
      add missing transformer at Heizkraftwerk Nord in Munich:
@@ -886,7 +883,7 @@ def add_missing_components(network):
      to bus 23822: (110kV bus  of 380/110-kV-transformer)
      25355 (90)
      28212 (98)
- 
+
      25357 to 665 (85)
      25354 to 27414 (30)
      27414 to 28212 (33)
@@ -901,73 +898,53 @@ def add_missing_components(network):
      (380 kV / 110 kV): 2.750.000 kVA
      https://www.swm-infrastruktur.de/strom/netzstrukturdaten/strukturmerkmale.html
     """
-    new_trafo = str(network.transformers.index.astype(int).max()+1)
+    new_trafo = str(network.transformers.index.astype(int).max() + 1)
 
     network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
-                x=0.135/(2750/2),
-                 r=0.0, tap_ratio=1, s_nom=2750/2)
- 
-     # trafo geom/topo
-    """(network.transformers.loc[new_trafo, 'geom']
-     ) = (from_shape(MultiLineString
-                      ([LineString([wkb.loads(network.buses.geom['23648'],
-                                              hex=True),
-                                    wkb.loads(network.buses.geom['16573'],
-                                              hex=True)])]), 4326))
-    (network.transformers.loc[new_trafo, 'topo']
-     ) = (from_shape(LineString([wkb.loads(network.buses.geom['23648'],
-                                            hex=True),
-                                  wkb.loads(network.buses.geom['16573'],
-                                            hex=True)]), 4326))"""
- 
-    def add_110kv_line(bus0, bus1, overhead=False):
-         new_line = str(network.lines.index.astype(int).max()+1)
-         if not overhead:
-             network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
-         else:
-             network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=260)
-         network.lines.loc[new_line, "scn_name"] = "Status Quo"
-         network.lines.loc[new_line, "v_nom"] = 110
-         network.lines.loc[new_line, "version"] = "added_manually"
-         network.lines.loc[new_line, "frequency"] = 50
-         network.lines.loc[new_line, "cables"] = 3.0
-         network.lines.loc[new_line, "length"] = (
-             pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
-                                 network.buses.loc[bus1, ["x", "y"]])[0][0]*1.2)
-         if not overhead:
-             network.lines.loc[new_line, "r"] = (network.lines.
-                                                 loc[new_line, "length"]*0.0177)
-             network.lines.loc[new_line, "g"] = 0
-             # or: (network.lines.loc[new_line, "length"]*78e-9)
-             network.lines.loc[new_line, "x"] = (network.lines.
-                                                 loc[new_line, "length"]*0.3e-3)
-             network.lines.loc[new_line, "b"] = (network.lines.
-                                                 loc[new_line, "length"]*250e-9)
+                x=0.135 / (2750 / 2),
+                r=0.0, tap_ratio=1, s_nom=2750 / 2)
 
-         elif overhead:
-             network.lines.loc[new_line, "r"] = (network.lines.
-                                                 loc[new_line, "length"] *
-                                                 0.05475)
-             network.lines.loc[new_line, "g"] = 0
-             # or: (network.lines.loc[new_line, "length"]*40e-9)
-             network.lines.loc[new_line, "x"] = (network.lines.
-                                                 loc[new_line, "length"]*1.2e-3)
-             network.lines.loc[new_line, "b"] = (network.lines.
-                                                 loc[new_line, "length"]*9.5e-9)
- 
-         # line geom/topo
-         """(network.lines.loc[new_line, 'geom']
-          ) = from_shape(MultiLineString
-                         ([LineString([wkb.loads(network.buses.geom[bus0],
-                                                 hex=True),
-                                       wkb.loads(network.buses.geom[bus1],
-                                                 hex=True)])]), 4326)
-         (network.lines.loc[new_line, 'topo']
-          ) = from_shape(LineString
-                         ([wkb.loads(network.buses.geom[bus0], hex=True),
-                           wkb.loads(network.buses.geom[bus1], hex=True)]),
-                         4326)"""
- 
+    def add_110kv_line(bus0, bus1, overhead=False):
+        new_line = str(network.lines.index.astype(int).max() + 1)
+        if not overhead:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=280)
+        else:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=260)
+        network.lines.loc[new_line, "scn_name"] = "Status Quo"
+        network.lines.loc[new_line, "v_nom"] = 110
+        network.lines.loc[new_line, "version"] = "added_manually"
+        network.lines.loc[new_line, "frequency"] = 50
+        network.lines.loc[new_line, "cables"] = 3.0
+        network.lines.loc[new_line, "length"] = (
+            pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
+                                network.buses.loc[bus1, ["x", "y"]])
+            [0][0] * 1.2)
+        if not overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.0177)
+            network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*78e-9)
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.3e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                250e-9)
+
+        elif overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.05475)
+            network.lines.loc[new_line, "g"] = 0
+            # or: (network.lines.loc[new_line, "length"]*40e-9)
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                1.2e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                9.5e-9)
+
     add_110kv_line("16573", "28353")
     add_110kv_line("16573", "28092")
     add_110kv_line("25096", "25369")
@@ -983,29 +960,15 @@ def add_missing_components(network):
     add_110kv_line("28335", "28139")
     add_110kv_line("16573", "24182", overhead=True)
 
-
-        # Stuttgart
+    # Stuttgart
     """
          Stuttgart:
          Missing transformer, because 110-kV-bus is situated outside
          Heizkraftwerk Heilbronn:
     """
-        # new_trafo = str(network.transformers.index.astype(int).max()1)
+    # new_trafo = str(network.transformers.index.astype(int).max()1)
     network.add("Transformer", '99999', bus0="25766", bus1="18967",
-                x=0.135/300, r=0.0, tap_ratio=1, s_nom=300)
-
-    # trafo geom/topo
-    """(network.transformers.loc[new_trafo, 'geom']
-         ) = (from_shape(MultiLineString
-                     ([LineString([wkb.loads(network.buses.geom['25766'],
-                                             hex=True),
-                                   wkb.loads(network.buses.geom['18967'],
-                                             hex=True)])]), 4326))
-         (network.transformers.loc[new_trafo, 'topo']
-         ) = (from_shape(LineString([wkb.loads(network.buses.geom['25766'],
-                                           hex=True),
-                                 wkb.loads(network.buses.geom['18967'],
-                                           hex=True)]), 4326))"""
+                x=0.135 / 300, r=0.0, tap_ratio=1, s_nom=300)
     """
     According to:
     https://assets.ctfassets.net/xytfb1vrn7of/NZO8x4rKesAcYGGcG4SQg/b780d6a3ca4c2600ab51a30b70950bb1/netzschemaplan-110-kv.pdf
@@ -1013,7 +976,8 @@ def add_missing_components(network):
     """
     add_110kv_line("18967", "22449", overhead=True)  # visible in OSM & DSO map
     add_110kv_line("21165", "24068", overhead=True)  # visible in OSM & DSO map
-    add_110kv_line("23782", "24089", overhead=True)  # visible in DSO map & OSM till 1 km from bus1
+    add_110kv_line("23782", "24089", overhead=True)
+    # visible in DSO map & OSM till 1 km from bus1
     """
     Umspannwerk Möhringen (bus 23697)
     https://de.wikipedia.org/wiki/Umspannwerk_M%C3%B6hringen
@@ -1039,54 +1003,48 @@ def add_missing_components(network):
     """
 
     def add_220kv_line(bus0, bus1, overhead=False):
-            new_line = str(network.lines.index.astype(int).max()+1)
-            if not overhead:
-                 network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=550)
-            else:
-                network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=520)
-            network.lines.loc[new_line, "scn_name"] = "Status Quo"
-            network.lines.loc[new_line, "v_nom"] = 220
-            network.lines.loc[new_line, "version"] = "added_manually"
-            network.lines.loc[new_line, "frequency"] = 50
-            network.lines.loc[new_line, "cables"] = 3.0
-            network.lines.loc[new_line, "length"] = (
+        new_line = str(network.lines.index.astype(int).max() + 1)
+        if not overhead:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=550)
+        else:
+            network.add("Line", new_line, bus0=bus0, bus1=bus1, s_nom=520)
+        network.lines.loc[new_line, "scn_name"] = "Status Quo"
+        network.lines.loc[new_line, "v_nom"] = 220
+        network.lines.loc[new_line, "version"] = "added_manually"
+        network.lines.loc[new_line, "frequency"] = 50
+        network.lines.loc[new_line, "cables"] = 3.0
+        network.lines.loc[new_line, "length"] = (
             pypsa.geo.haversine(network.buses.loc[bus0, ["x", "y"]],
-                                network.buses.loc[bus1, ["x", "y"]])[0][0]*1.2)
-            if not overhead:
-                network.lines.loc[new_line, "r"] = (network.lines.
-                                                loc[new_line, "length"]*0.0176)
-                network.lines.loc[new_line, "g"] = 0
+                                network.buses.loc[bus1, ["x", "y"]])[0][0] *
+            1.2)
+        if not overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.0176)
+            network.lines.loc[new_line, "g"] = 0
             # or: (network.lines.loc[new_line, "length"]*67e-9)
-                network.lines.loc[new_line, "x"] = (network.lines.
-                                                loc[new_line, "length"]*0.3e-3)
-                network.lines.loc[new_line, "b"] = (network.lines.
-                                                loc[new_line, "length"]*210-9)
-            elif overhead:
-                    network.lines.loc[new_line, "r"] = (network.lines.
+            network.lines.loc[new_line, "x"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                0.3e-3)
+            network.lines.loc[new_line, "b"] = (network.lines.
+                                                loc[new_line, "length"] *
+                                                210e-9)
+
+        elif overhead:
+            network.lines.loc[new_line, "r"] = (network.lines.
                                                 loc[new_line, "length"] *
                                                 0.05475)
-                    network.lines.loc[new_line, "g"] = 0
+            network.lines.loc[new_line, "g"] = 0
             # or: (network.lines.loc[new_line, "length"]*30e-9)
             network.lines.loc[new_line, "x"] = (network.lines.
-                                                loc[new_line, "length"]*1e-3)
+                                                loc[new_line, "length"] * 1e-3)
             network.lines.loc[new_line, "b"] = (network.lines.
-                                                loc[new_line, "length"]*11e-9)
-
-        # line geom/topo
-            """(network.lines.loc[new_line, 'geom']
-            ) = from_shape(MultiLineString
-                        ([LineString([wkb.loads(network.buses.geom[bus0],
-                                                hex=True),
-                                      wkb.loads(network.buses.geom[bus1],
-                                                hex=True)])]), 4326)
-            (network.lines.loc[new_line, 'topo']
-            ) = from_shape(LineString
-                        ([wkb.loads(network.buses.geom[bus0], hex=True),
-                          wkb.loads(network.buses.geom[bus1], hex=True)]),
-                        4326)"""
+                                                loc[new_line, "length"] * 11e-9
+                                                )
 
     add_220kv_line("266", "24633", overhead=True)
     return network
+
 
 def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     """ Convert capital_costs to fit to pypsa and caluculated time
@@ -1102,25 +1060,25 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     network.links.capital_cost = network.links.capital_cost + 400000
 
     # Calculate present value of an annuity (PVA)
-    PVA = (1 / p) - (1 / (p*(1 + p) ** T))
+    PVA = (1 / p) - (1 / (p * (1 + p) ** T))
 
     #
     network.lines.loc[network.lines.s_nom_extendable == True,
                       'capital_cost'] = (network.lines.capital_cost /
-                                         (PVA * (8760/(end_snapshot -
-                                                       start_snapshot + 1))))
+                                         (PVA * (8760 / (end_snapshot -
+                                                         start_snapshot + 1))))
     network.links.loc[network.links.p_nom_extendable == True,
                       'capital_cost'] = network.\
-        links.capital_cost / (PVA * (8760//(end_snapshot -
-                                            start_snapshot + 1)))
+        links.capital_cost / (PVA * (8760 // (end_snapshot -
+                                              start_snapshot + 1)))
     network.transformers.loc[network.transformers.s_nom_extendable == True,
                              'capital_cost'] = network.\
         transformers.capital_cost / \
-        (PVA * (8760//(end_snapshot - start_snapshot + 1)))
+        (PVA * (8760 // (end_snapshot - start_snapshot + 1)))
     network.storage_units.loc[network.storage_units.
                               p_nom_extendable == True,
                               'capital_cost'] = network.\
-        storage_units.capital_cost / (8760//(end_snapshot -
-                                             start_snapshot + 1))
+        storage_units.capital_cost / (8760 // (end_snapshot -
+                                               start_snapshot + 1))
 
     return network
