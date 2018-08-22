@@ -92,12 +92,10 @@ def clip_foreign(network):
     Delete all components and timelines located outside of Germany.
     Add transborder flows divided by country of origin as
     network.foreign_trade.
-
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-
     Returns
     -------
     network : :class:`pypsa.Network
@@ -187,10 +185,10 @@ def clip_foreign(network):
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
     transborder_lines = pd.DataFrame(index=network.lines[
-        ((network.lines['bus0'].isin(network.buses.index) is False) &
-         (network.lines['bus1'].isin(network.buses.index) is True)) |
-        ((network.lines['bus0'].isin(network.buses.index) is True) &
-         (network.lines['bus1'].isin(network.buses.index) is False))].index)
+        ((network.lines['bus0'].isin(network.buses.index) == False) &
+         (network.lines['bus1'].isin(network.buses.index) == True)) |
+        ((network.lines['bus0'].isin(network.buses.index) == True) &
+         (network.lines['bus1'].isin(network.buses.index) == False))].index)
     transborder_lines['bus0'] = network.lines['bus0']
     transborder_lines['bus1'] = network.lines['bus1']
     transborder_lines['country'] = ""
@@ -207,34 +205,34 @@ def clip_foreign(network):
     for i in transborder_flows.columns:
         if network.lines.loc[str(i)]['bus1'] in foreign_buses.index:
             transborder_flows.loc[:, str(
-                i)] = transborder_flows.loc[:, str(i)] * -1
+                i)] = transborder_flows.loc[:, str(i)]*-1
 
     network.foreign_trade = transborder_flows.\
         groupby(transborder_lines['country'], axis=1).sum()
+                
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
-        (network.lines['bus0'].isin(network.buses.index) is False) |
-        (network.lines['bus1'].isin(network.buses.index) is False)].index)
-
+        (network.lines['bus0'].isin(network.buses.index) == False) |
+        (network.lines['bus1'].isin(network.buses.index) == False)].index)
+                            
     network.links = network.links.drop(network.links[
-        (network.links['bus0'].isin(network.buses.index) is False) |
-        (network.links['bus1'].isin(network.buses.index) is False)].index)
-
+        (network.links['bus0'].isin(network.buses.index) == False) |
+        (network.links['bus1'].isin(network.buses.index) == False)].index)
+                            
     network.transformers = network.transformers.drop(network.transformers[
-        (network.transformers['bus0'].isin(network.buses.index) is False) |
+        (network.transformers['bus0'].isin(network.buses.index) == False) |
         (network.transformers['bus1'].isin(network.
-                                           buses.index) is False)].index)
+                                           buses.index) == False)].index)
     network.generators = network.generators.drop(network.generators[
-        (network.generators['bus'].isin(network.buses.index) is False)].index)
+        (network.generators['bus'].isin(network.buses.index) == False)].index)
     network.loads = network.loads.drop(network.loads[
-        (network.loads['bus'].isin(network.buses.index) is False)].index)
+        (network.loads['bus'].isin(network.buses.index) == False)].index)
     network.storage_units = network.storage_units.drop(network.storage_units[
         (network.storage_units['bus'].isin(network.
-                                           buses.index) is False)].index)
+                                           buses.index) == False)].index)
 
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers',
-                  'links']
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
     for g in components:  # loads_t
         h = g + '_t'
         nw = getattr(network, h)  # network.loads_t
@@ -330,20 +328,6 @@ def set_q_foreign_loads(network, cos_phi=1):
         network.loads_t['p_set'][network.loads.index[
             network.loads.bus.astype(str).isin(
                 foreign_buses.index)]] * math.tan(math.acos(cos_phi))
-
-    # temporary change x of some lines to avoid infeasibilities
-    """network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
-    network.lines.s_nom[#(network.lines.v_nom == 110) &\
-                         (network.lines.bus0.astype(str).isin(france.index))]
-    = network.lines.s_nom * 0.1
-    network.lines.x[network.lines.bus0.astype(str).isin(france.index)] =
-    network.lines.x *0.1
-    network.lines.s_nom[(network.lines.v_nom == 110) & \
-    network.lines.bus0.astype(str).isin(poland.index)] = \
-    network.lines.s_nom * 0.1"""
-
-    # for future scenarios set all generators to PV
-    # network.generators.control[network.generators.control == 'PQ'] = 'PV'
 
     return network
 
@@ -651,7 +635,7 @@ def distribute_q(network, allocation='p_nom'):
 
     if allocation == 'p_nom':
 
-        p_nom_dist = network.generators.p_nom.sort_index()
+        p_nom_dist = network.generators.p_nom_opt.sort_index()
         p_nom_dist[p_nom_dist.index.isin(network.generators.index
                                          [network.generators.carrier ==
                                           'load shedding'])] = 0
@@ -659,8 +643,8 @@ def distribute_q(network, allocation='p_nom'):
         q_distributed = network.generators_t['q'].\
             groupby(network.generators.bus, axis=1).sum()[
             network.generators.bus.sort_index()].multiply(p_nom_dist.values) /\
-            (network.generators.p_nom[network.generators.carrier !=
-                                      'load shedding'].groupby(
+            (network.generators.p_nom_opt[network.generators.carrier !=
+                                          'load shedding'].groupby(
                 network.generators.bus).sum().add(
                 network.storage_units.p_nom_opt.groupby
                 (network.storage_units.bus).sum(), fill_value=0))[
@@ -672,8 +656,8 @@ def distribute_q(network, allocation='p_nom'):
             groupby(network.generators.bus, axis=1).sum()[
             network.storage_units.bus.sort_index()]\
             .multiply(network.storage_units.p_nom_opt.values) / \
-            (network.generators.p_nom[network.generators.carrier !=
-                                      'load shedding'].groupby(
+            (network.generators.p_nom_opt[network.generators.carrier !=
+                                          'load shedding'].groupby(
                 network.generators.bus).sum().add(
                 network.storage_units.p_nom_opt.
                 groupby(network.storage_units.bus).sum(), fill_value=0))[
