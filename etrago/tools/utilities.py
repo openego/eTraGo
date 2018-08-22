@@ -636,14 +636,18 @@ def distribute_q(network, allocation='p_nom'):
             q_sum[network.storage_units.bus.sort_index()].values
 
     if allocation == 'p_nom':
+        
+        q_bus = network.generators_t['q'].\
+            groupby(network.generators.bus, axis=1).sum().add(
+                network.storage_units_t.q.groupby(
+                network.storage_units.bus, axis = 1).sum(), fill_value=0)
 
         p_nom_dist = network.generators.p_nom_opt.sort_index()
         p_nom_dist[p_nom_dist.index.isin(network.generators.index
                                          [network.generators.carrier ==
                                           'load shedding'])] = 0
 
-        q_distributed = network.generators_t['q'].\
-            groupby(network.generators.bus, axis=1).sum()[
+        q_distributed = q_bus[
             network.generators.bus].multiply(p_nom_dist.values) /\
             (network.generators.p_nom_opt[network.generators.carrier !=
                                           'load shedding'].groupby(
@@ -654,9 +658,7 @@ def distribute_q(network, allocation='p_nom'):
 
         q_distributed.columns = network.generators.index
 
-        q_storages = network.generators_t['q'].\
-            groupby(network.generators.bus, axis=1).sum()[
-            network.storage_units.bus]\
+        q_storages = q_bus[network.storage_units.bus]\
             .multiply(network.storage_units.p_nom_opt.values) / \
             ((network.generators.p_nom_opt[network.generators.carrier !=
                                           'load shedding'].groupby(
