@@ -92,10 +92,12 @@ def clip_foreign(network):
     Delete all components and timelines located outside of Germany.
     Add transborder flows divided by country of origin as
     network.foreign_trade.
+
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+
     Returns
     -------
     network : :class:`pypsa.Network
@@ -209,17 +211,16 @@ def clip_foreign(network):
 
     network.foreign_trade = transborder_flows.\
         groupby(transborder_lines['country'], axis=1).sum()
-                
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
         (network.lines['bus0'].isin(network.buses.index) == False) |
         (network.lines['bus1'].isin(network.buses.index) == False)].index)
-                            
+
     network.links = network.links.drop(network.links[
         (network.links['bus0'].isin(network.buses.index) == False) |
         (network.links['bus1'].isin(network.buses.index) == False)].index)
-                            
+
     network.transformers = network.transformers.drop(network.transformers[
         (network.transformers['bus0'].isin(network.buses.index) == False) |
         (network.transformers['bus1'].isin(network.
@@ -232,7 +233,8 @@ def clip_foreign(network):
         (network.storage_units['bus'].isin(network.
                                            buses.index) == False)].index)
 
-    components = ['loads', 'generators', 'lines', 'buses', 'transformers', 'links']
+    components = ['loads', 'generators', 'lines', 'buses', 'transformers',
+                  'links']
     for g in components:  # loads_t
         h = g + '_t'
         nw = getattr(network, h)  # network.loads_t
