@@ -7,12 +7,12 @@ from math import sqrt
 import os
 import pandas as pd
 if not 'READTHEDOCS' in os.environ:
-    #from tools.io import NetworkScenario, results_to_oedb
-   # from tools.plot import (plot_line_loading, plot_stacked_gen,add_coordinates,
-                           # curtailment, gen_dist, storage_distribution,
-                          #  plot_max_line_loading, plot_max_opt_line_loading,
-                           # plot_max_opt_line_loading_bench,transformers_distribution,
-                           # plot_dif_line_MW,plot_dif_line_percent, plot_max_opt_line_loading_SN)
+    from tools.io import NetworkScenario, results_to_oedb
+    from tools.plot import (plot_line_loading, plot_stacked_gen,add_coordinates,
+                            curtailment, gen_dist, storage_distribution,
+                            plot_max_line_loading, plot_max_opt_line_loading,
+                            plot_max_opt_line_loading_bench,transformers_distribution,
+                            plot_dif_line_MW,plot_dif_line_percent)
     from etrago.tools.utilities import (load_shedding, data_manipulation_sh,
                                  results_to_csv, parallelisation, pf_post_lopf,
                                  loading_minimization, calc_line_losses,
@@ -198,6 +198,7 @@ def overload_lines(network):
                 return item[1]
 
     time_list = sorted(time_list,key=getKey)
+    
 
     return max_loading,time_list
 
@@ -356,16 +357,16 @@ def set_line_cost(network,time_list,cost_1,cost_2,cost_3,max_loading=None):
                         #network.lines.capital_cost[max_loading[0][k]] = \
                         #    (cost_3*network.lines.length[max_loading[0][k]]/network.lines.s_nom[max_loading[0][k]])/\
                         #    (90*8760)
-                        cc1 = (cc0*network.lines.length[max_loading[0][k]])
-                        maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
-                        cc = cc1/maxload1
+                        cc = (cc0*network.lines.length[max_loading[0][k]])
+                        #maxload1 = network.lines.s_nom[max_loading[0][k]] * ((max_loading[1][k])/100)
+                        #cc = cc1/maxload1
                         network.lines.capital_cost[max_loading[0][k]] = annualized_costs(cc,40,0.05)
                 
                     else:
                         print('Error')
                     
                     i+=1
-            else:
+        else:
                 name_bus_0 = network.lines.bus0
                 name_bus_1 = network.lines.bus1
                     
@@ -373,8 +374,8 @@ def set_line_cost(network,time_list,cost_1,cost_2,cost_3,max_loading=None):
                 U_bus_0 = network.buses.v_nom[name_bus_0]
                 
                 U_bus_1 = network.buses.v_nom[name_bus_1]
-
-                if(U_bus_0 == U_bus_1):
+                
+                if((U_bus_0.values == U_bus_1.values).all()):
                         if(U_bus_0 == 110):
                             cc0 = cost_1
                         elif(U_bus_0 == 220):
@@ -382,7 +383,7 @@ def set_line_cost(network,time_list,cost_1,cost_2,cost_3,max_loading=None):
                         else:
                             cc0 = cost_3
 
-    return network#,lines_time,all_time
+    return network,lines_time,all_time
 
 
 def set_line_cost_BM(network,cost_1,cost_2,cost_3):
@@ -538,7 +539,7 @@ def line_extendable(network, args, scenario):
     if args['snapshot_clustering']==False:
         x = time.time()
         parallelisation(network, start_snapshot=args['start_snapshot'], \
-            end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'])
+            end_snapshot=args['end_snapshot'],group_size=1, solver_name=args['solver'], solver_options = args['solver_options'])
         y = time.time()
         z1st = y -x
         
@@ -564,34 +565,33 @@ def line_extendable(network, args, scenario):
     maximum_line_loading,line_time_list = overload_lines(network)
          
     # Finding the overload transformers and timestep
-    maximum_trafo_loading,trafo_time_list = overload_trafo(network)
-                     
+    maximum_trafo_loading,trafo_time_list = overload_trafo(network)               
     ####################### Set capital cost ########################
          
     # Set capital cost for extendable lines
-    cost_1 = 60000 # 110kV extendable
-    cost_2 = 1600000/2 # 220kV extendable
-    cost_3 = 200000 # 380kV extendable
+    cost_1 = 230 # 110kV extendable
+    cost_2 = 290 # 220kV extendable
+    cost_3 = 85 # 380kV extendable
         
     network,lines_time,all_time = set_line_cost(network,\
                                                 line_time_list,\
-                                                maximum_line_loading,\
                                                 cost_1,\
                                                 cost_2,\
-                                                cost_3)
+                                                cost_3,\
+                                                maximum_line_loading)
          
-         
+
     # Set capital cost for extendable trafo
-    cost_1 = 5200000/300 # 220/110kV or 380/110kV extendable
-    cost_2 = 8500000/600# 380/220kV extendable
+    cost_1 = 17333 # 220/110kV or 380/110kV extendable
+    cost_2 = 14166# 380/220kV extendable
     cost_3 = 8500000/600 # other extendable
          
     network,trafo_time = set_trafo_cost(network,\
                                         trafo_time_list,\
-                                        maximum_trafo_loading,\
                                         cost_1,\
                                         cost_2,\
-                                        cost_3)
+                                        cost_3,\
+                                        maximum_trafo_loading)
         
          
     ####################### Set all timesteps #######################
@@ -650,8 +650,6 @@ def line_extendable(network, args, scenario):
         ##################### Plotting the Results #####################
         #Plot function for snapshot
         
-        plot_max_opt_line_loading_SN(network,\
-                              filename='maximum_optimal_lines.png')
         
     # Export CSV file with simulation times
     z = y-x
