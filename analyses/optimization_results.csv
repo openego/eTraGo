@@ -1,0 +1,6 @@
+name_of_run,scenario,data_version,solver,k,variation_1,variation_2,objective,solver_time[min],total_re_share,extendable_storage_capacity[MW],total_costs_extendable_storage,hydrogen_capacity,battery_capacity,number_hydrogen_storage_units,number_battery_storage_units
+nep-3-100,NEP 2035,v0.4.4,gurobi,100,None,None,10258149744,33,57.46,4097,267949743,4097,0,1,0
+nep-3-200,NEP 2035,v0.4.4,gurobi,200,None,None,9956026017,128,57.28,647,42357693,531,115,1,1
+nep-3-300,NEP 2035,v0.4.4,gurobi,300,None,None,10406998888,171,56.49,132,8666649,90,41,1,1
+nep-3-400,NEP 2035,v0.4.4,gurobi,400,None,None,10763100911,149,56.67,374,24509533,198,175,2,2
+nep-3-600,NEP 2035,v0.4.4,gurobi,600,None,None,10988154290,509,56.44,1060,69379480,878,181,2,4

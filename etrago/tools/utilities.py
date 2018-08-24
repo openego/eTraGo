@@ -86,14 +86,35 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
-def re_share(network):
+def analyse(network):
+    #objective
+    print("Network objective:", round(network.objective,0))
+
+    #solver time
+    print("Solver time [min]:", round((network.time / 60),0))
+    #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
     res = network.generators[network.generators.carrier.isin(renewables)]
     res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
     load = network.loads_t.p_set.sum(axis=1).sum()
     share=(res_dispatch / load) * 100
+    print("RE-share [%]:", round(share, 2))
 
-    print("Renewable energy share for Network in selected snapshots [%]:", round(share, 2))
+    #storage capacity
+    print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[ network.storage_units.carrier=='extendable_storage'].sum(),0))
+
+    #storage costs
+    print("Ext. storage costs [EUR]:", round((network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum(),0))
+
+    #batteries
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    print("Ext. battery capacity [MW]:", round(network.storage_units.p_nom_opt[ sbatt].sum(),0))
+    print("No. of batteries:",network.storage_units.carrier[ sbatt].count())
+
+    #hydrogen
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+    print("Ext. hydrogen capacity [MW]:", round(network.storage_units.p_nom_opt[ shydr].sum(),0))
+    print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
 
     return network
 
