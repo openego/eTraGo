@@ -87,11 +87,9 @@ def buses_grid_linked(network, voltage_level):
     return df.index
 
 
-def clip_foreign(network):
+def buses_by_country(network):
     """
-    Delete all components and timelines located outside of Germany.
-    Add transborder flows divided by country of origin as
-    network.foreign_trade.
+    Find buses of foreign countries and return them as Pandas Series
 
     Parameters
     ----------
@@ -100,11 +98,9 @@ def clip_foreign(network):
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    foreign_buses: Series containing buses by country
     """
 
-    # get foreign buses by country
     poland = pd.Series(index=network.
                        buses[(network.buses['x'] > 17)].index,
                        data="Poland")
@@ -180,13 +176,36 @@ def clip_foreign(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
+    return foreign_buses
+
+
+def clip_foreign(network):
+    """
+    Delete all components and timelines located outside of Germany.
+    Add transborder flows divided by country of origin as
+    network.foreign_trade.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
+
+    # get foreign buses by country
+
+    foreign_buses = buses_by_country(network)
 
     network.buses = network.buses.drop(
         network.buses.loc[foreign_buses.index].index)
 
     # identify transborder lines (one bus foreign, one bus not) and the country
     # it is coming from
-    transborder_lines = pd.DataFrame(index=network.lines[
+    """transborder_lines = pd.DataFrame(index=network.lines[
         ((network.lines['bus0'].isin(network.buses.index) == False) &
          (network.lines['bus1'].isin(network.buses.index) == True)) |
         ((network.lines['bus0'].isin(network.buses.index) == True) &
@@ -210,7 +229,7 @@ def clip_foreign(network):
                 i)] = transborder_flows.loc[:, str(i)]*-1
 
     network.foreign_trade = transborder_flows.\
-        groupby(transborder_lines['country'], axis=1).sum()
+        groupby(transborder_lines['country'], axis=1).sum()"""
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
@@ -247,89 +266,59 @@ def clip_foreign(network):
     return network
 
 
+def foreign_links(network):
+    """
+    Change transmission technology of foreign lines from AC to DC (links).
+        Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    """
+    foreign_buses = buses_by_country(network)
+
+    foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
+            foreign_buses.index) | network.lines.bus1.astype(str).isin(
+            foreign_buses.index)]
+
+    network.import_components_from_dataframe(
+        foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
+        .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)
+        .set_index('N' + foreign_lines.index),
+        'Link')
+
+    network.lines = network.lines.drop(foreign_lines.index)
+
+    return network
+
+
 def set_q_foreign_loads(network, cos_phi=1):
-    # get foreign buses by country
-    poland = pd.Series(index=network.
-                       buses[(network.buses['x'] > 17)].index,
-                       data="Poland")
-    czech = pd.Series(index=network.
-                      buses[(network.buses['x'] < 17) &
-                            (network.buses['x'] > 15.1)].index,
-                      data="Czech")
-    denmark = pd.Series(index=network.
-                        buses[((network.buses['y'] < 60) &
-                               (network.buses['y'] > 55.2)) |
-                              ((network.buses['x'] > 11.95) &
-                               (network.buses['x'] < 11.97) &
-                               (network.buses['y'] > 54.5))].
-                        index,
-                        data="Denmark")
-    sweden = pd.Series(index=network.buses[(network.buses['y'] > 60)].index,
-                       data="Sweden")
-    austria = pd.Series(index=network.
-                        buses[(network.buses['y'] < 47.33) &
-                              (network.buses['x'] > 9) |
-                              ((network.buses['x'] > 9.65) &
-                               (network.buses['x'] < 9.9) &
-                               (network.buses['y'] < 47.5) &
-                               (network.buses['y'] > 47.3)) |
-                              ((network.buses['x'] > 12.14) &
-                               (network.buses['x'] < 12.15) &
-                               (network.buses['y'] > 47.57) &
-                               (network.buses['y'] < 47.58)) |
-                              (network.buses['y'] < 47.6) &
-                              (network.buses['x'] > 14.1)].index,
-                        data="Austria")
-    switzerland = pd.Series(index=network.
-                            buses[((network.buses['x'] > 8.1) &
-                                   (network.buses['x'] < 8.3) &
-                                   (network.buses['y'] < 46.8)) |
-                                  ((network.buses['x'] > 7.82) &
-                                   (network.buses['x'] < 7.88) &
-                                   (network.buses['y'] > 47.54) &
-                                   (network.buses['y'] < 47.57)) |
-                                  ((network.buses['x'] > 10.91) &
-                                   (network.buses['x'] < 10.92) &
-                                   (network.buses['y'] > 49.91) &
-                                   (network.buses['y'] < 49.92))].index,
-                            data="Switzerland")
-    netherlands = pd.Series(index=network.
-                            buses[((network.buses['x'] < 6.96) &
-                                   (network.buses['y'] < 53.15) &
-                                   (network.buses['y'] > 53.1)) |
-                                  ((network.buses['x'] < 5.4) &
-                                   (network.buses['y'] > 52.1))].index,
-                            data="Netherlands")
-    luxembourg = pd.Series(index=network.
-                           buses[((network.buses['x'] < 6.15) &
-                                  (network.buses['y'] < 49.91) &
-                                  (network.buses['y'] > 49.65))].index,
-                           data="Luxembourg")
-    france = pd.Series(index=network.
-                       buses[(network.buses['x'] < 4.5) |
-                             ((network.buses['x'] > 7.507) &
-                              (network.buses['x'] < 7.508) &
-                              (network.buses['y'] > 47.64) &
-                              (network.buses['y'] < 47.65)) |
-                             ((network.buses['x'] > 6.2) &
-                              (network.buses['x'] < 6.3) &
-                              (network.buses['y'] > 49.1) &
-                              (network.buses['y'] < 49.2)) |
-                             ((network.buses['x'] > 6.7) &
-                              (network.buses['x'] < 6.76) &
-                              (network.buses['y'] > 49.13) &
-                              (network.buses['y'] < 49.16))].index,
-                       data="France")
-    foreign_buses = pd.Series()
-    foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
-                                          austria, switzerland,
-                                          netherlands, luxembourg, france])
+    """
+    Set reative power timeseries of loads in neighbouring countries
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    """
+    foreign_buses = buses_by_country(network)
 
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
         network.loads_t['p_set'][network.loads.index[
             network.loads.bus.astype(str).isin(
                 foreign_buses.index)]] * math.tan(math.acos(cos_phi))
+
+    network.generators.control[network.generators.control == 'PQ'] = 'PV'
 
     return network
 
@@ -517,7 +506,7 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
     return
 
 
-def pf_post_lopf(network, **kwargs):
+def pf_post_lopf(network, foreign_lines, add_foreign_lopf=True):
 
     network_pf = network
 
@@ -567,6 +556,16 @@ def pf_post_lopf(network, **kwargs):
 
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
+    # check if old slack was PV or PQ control:
+    if network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] in ('solar', 'wind'):
+        old_control = 'PQ'
+    elif network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] not in ('solar', 'wind'):
+        old_control = 'PV'
+    elif network.generators.p_nom[old_slack] < 50:
+        old_control = 'PQ'
+
     old_gens = network.generators
     gens_summed = network.generators_t.p.sum()
     old_gens['p_summed'] = gens_summed
@@ -587,23 +586,76 @@ def pf_post_lopf(network, **kwargs):
         p_nom[(network.generators['bus'] == new_slack_bus) & (
             network.generators['control'] == 'PV')].sort_values().index[-1]
 
-    # check if old slack was PV or PQ control:
-    if network.generators.p_nom[old_slack] > 50 and network.generators.\
-            carrier[old_slack] in ('solar', 'wind'):
-        old_control = 'PQ'
-    elif network.generators.p_nom[old_slack] > 50 and network.generators.\
-            carrier[old_slack] not in ('solar', 'wind'):
-        old_control = 'PV'
-    elif network.generators.p_nom[old_slack] < 50:
-        old_control = 'PQ'
-
     network.generators = network.generators.set_value(
         old_slack, 'control', old_control)
     network.generators = network.generators.set_value(
         new_slack_gen, 'control', 'Slack')
 
+    # if foreign lines are DC, execute pf only on sub_network in Germany
+    if foreign_lines == 'DC':
+        n_bus = pd.Series(index=network.sub_networks.index)
+
+        for i in range(0, len(network.sub_networks.index)-1):
+            n_bus[i] = len(network.buses.index[
+                    network.buses.sub_network.astype(int) == i])
+
+        sub_network_DE = n_bus.index[n_bus == n_bus.max()]
+
+        foreign_bus = network.buses[network.buses.sub_network !=
+                                    sub_network_DE.values[0]]
+
+        foreign_comp = {'Bus': network.buses[
+                                    network.buses.sub_network !=
+                                    sub_network_DE.values[0]],
+                        'Generator': network.generators[
+                                network.generators.bus.isin(
+                                        foreign_bus.index)],
+                        'Load': network.loads[
+                                network.loads.bus.isin(foreign_bus.index)],
+                        'Transformer': network.transformers[
+                                network.transformers.bus0.isin(
+                                        foreign_bus.index)]}
+
+        foreign_series = {'Bus': network.buses_t.copy(),
+                          'Generator': network.generators_t.copy(),
+                          'Load': network.loads_t.copy(),
+                          'Transformer':  network.transformers_t.copy()}
+
+        for comp in sorted(foreign_series):
+            attr = sorted(foreign_series[comp])
+            for a in attr:
+                if not foreign_series[comp][a].empty:
+                    if a != 'p_max_pu':
+                        foreign_series[comp][a] = foreign_series[comp][a][
+                               foreign_comp[comp].index]
+
+                    else:
+                        foreign_series[comp][a] = foreign_series[comp][a][
+                               foreign_comp[comp][foreign_comp[
+                                       comp]['carrier'].isin(
+                                                ['solar', 'wind_onshore',
+                                                 'wind_offshore',
+                                                 'run_of_river'])].index]
+
+        network.buses = network.buses.drop(foreign_bus.index)
+        network.generators = network.generators[
+                network.generators.bus.isin(network.buses.index)]
+        network.loads = network.loads[
+                network.loads.bus.isin(network.buses.index)]
+        network.transformers = network.transformers[
+                 network.transformers.bus0.isin(network.buses.index)]
+
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
+
+    # if selected, copy lopf results of neighboring countries to network
+    if (foreign_lines == 'DC') & add_foreign_lopf:
+        for comp in sorted(foreign_series):
+            network.import_components_from_dataframe(foreign_comp[comp], comp)
+
+            for attr in sorted(foreign_series[comp]):
+                network.import_series_from_dataframe(foreign_series
+                                                     [comp][attr], comp, attr)
 
     pf_solve = pd.DataFrame(index=pf_solution['converged'].index)
     pf_solve['converged'] = pf_solution['converged'].values
