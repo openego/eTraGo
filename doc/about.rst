@@ -13,6 +13,20 @@ The focus of optimization are flexibility options with a special focus on
 energy storages and grid expansion measures.
 
 
+
+
+Model overview
+==============
+
+
+
+.. figure:: images/eTraGo_model.png
+   :align: center
+   :scale: 100%
+
+
+
+
 The open_eGo project
 ====================
 This software project is part of the research project

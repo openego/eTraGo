@@ -29,7 +29,9 @@ import matplotlib
 import pandas as pd
 import numpy as np
 import time
+import math
 from math import sqrt, log10
+
 if 'READTHEDOCS' not in os.environ:
     from geoalchemy2.shape import to_shape
 
@@ -94,16 +96,24 @@ def plot_line_loading(
         boundaries=[],
         arrows=False):
     """
-    Plot line loading as color on lines
+    Plots line loading as a colored heatmap.
 
-    Displays line loading relative to nominal capacity
+    Line loading is displayed as relative to nominal capacity in %.
     Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
+    timesteps : range 
+        Defines which timesteps are considered. If more than one, an 
+        average line loading is calculated.
     filename : str
         Specify filename
         If not given, figure will be show directly
+    boundaries : list
+        If given, the colorbar is fixed to a given min and max value
+    arrows : bool
+        If True, the direction of the power flows is displayed as 
+        arrows.
     """
     # TODO: replace p0 by max(p0,p1) and analogously for q0
     # TODO: implement for all given snapshots
@@ -160,7 +170,7 @@ def plot_line_loading(
         
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
-   
+
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
     cb.set_label('Line loading in %')
@@ -445,7 +455,6 @@ def full_load_hours(
     if not boundaries:
         cb = plt.colorbar(ll[1])
         cb_Link = plt.colorbar(ll[2])
-        p
     elif boundaries:
         v = np.linspace(boundaries[0], boundaries[1], 101)
 
@@ -779,11 +788,10 @@ def plot_voltage(network, boundaries=[]):
 
 def curtailment(network, carrier='solar', filename=None):
 
-    p_by_carrier = network.generators_t.p.mul(network.snapshot_weightings,
-    axis=0).groupby(network.generators.carrier, axis=1).sum()
+    p_by_carrier = network.generators_t.p.groupby\
+        (network.generators.carrier, axis=1).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
-    p_available = network.generators_t.p_max_pu.mul(
-    network.snapshot_weightings, axis=0).multiply(network.generators["p_nom"])
+    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
     p_available_by_carrier = p_available.groupby(
         network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
@@ -1168,6 +1176,7 @@ def gen_dist(
             ax=ax,
             bus_sizes=gen_size * gen_distribution,
             line_widths=0.1)
+
         ax.set_title(tech)
     if filename is None:
         plt.show()
@@ -1175,161 +1184,107 @@ def gen_dist(
         plt.savefig(filename)
         plt.close()
 
-            
-def plot_max_line_loading(network,filename=None):
-    """
-    Plot line loading as color on lines
-    Displays line loading relative to nominal capacity
-    Parameters
-    ----------
-    network : PyPSA network container
-    Holds topology of grid including results from powerflow analysis
-    filename : str
-    Specify filename
-    If not given, figure will be show directly"""
-    
-    # with S = sqrt(P^2 + Q^2)
-    
-    loading=[]
-    i=0
-    while(i<len(network.lines)):
-        if network.lines_t.q0.empty:
-            p = max(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]]))
-            s_nom = network.lines.s_nom[network.lines_t.p0.keys()[i]]
-            
-            loading.append(p/s_nom*100)
-        else:
-            p = max(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]]))
-            q = max(abs(network.lines_t.q0[network.lines_t.q0.keys()[i]]))
-            s_nom = network.lines.s_nom[network.lines_t.p0.keys()[i]]
-            
-            loading.append(sqrt(p**2+q**2)/s_nom*100)
-        i+=1
-                
-    # do the plotting
-    ll = network.plot(line_colors=loading, line_cmap=plt.cm.jet,
-                      title="Line maximum loading")
 
-    # add colorbar, note mappable sliced from ll by [1]
-    cb = plt.colorbar(ll[1])
-    cb.set_label('Line loading in %')
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()
-        
-        
-def plot_max_opt_line_loading_bench(network,filename=None):
-    
-    # For Benchmark calculation    
-    
+def nodal_gen_dispatch(
+        network,
+        networkB=None,
+        techs=['wind_onshore', 'solar'],
+        item='energy',
+        direction=None,
+        scaling=1,
+        filename=None):
     """
-    Plot optimal line loading as color on lines
-    Displays line loading relative to nominal capacity
-    Parameters
-    ----------
-    network : PyPSA network container
-    Holds topology of grid including results from powerflow analysis
-    filename : str
-    Specify filename
-    If not given, figure will be show directly"""
+    Plot nodal dispatch or capacity. If networkB is given, difference in
+    dispatch is plotted.
     
-    # with S = sqrt(P^2 + Q^2)
-    
-    loading=[]
-    i=0
-    while(i<len(network.lines)):
-        if network.lines_t.q0.empty:
-            p = max(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]]))
-            s_nom = network.lines.s_nom_opt[network.lines_t.p0.keys()[i]]
-            
-            loading.append(p/s_nom*100)
-        else:
-            p = max(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]]))
-            q = max(abs(network.lines_t.q0[network.lines_t.q0.keys()[i]]))
-            s_nom = network.lines.s_nom_opt[network.lines_t.p0.keys()[i]]
-            
-            loading.append(sqrt(p**2+q**2)/s_nom*100)
-        i+=1
-                
-    # do the plotting
-    ll = network.plot(line_colors=loading, line_cmap=plt.cm.jet,
-                      title="Line maximum loading")
-
-    # add colorbar, note mappable sliced from ll by [1]
-    cb = plt.colorbar(ll[1])
-    cb.set_label('Line loading in %')
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()
-        
-def plot_max_opt_line_loading(network,line_time,filename=None):
-    """
-    Plot optimal line loading as color on lines
-    Displays line loading relative to nominal capacity
     Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-    """
+    networkB : PyPSA network container
+        If given and item is 'energy', difference in dispatch between network 
+        and networkB is plotted. If item is 'capacity', networkB is ignored.
+        default None
+    techs : None or list, 
+        Techs to plot. If None, all techs are plotted.
+        default ['wind_onshore', 'solar']
+    item : str
+        Specifies the plotted item. Options are 'energy' and 'capacity'.
+        default 'energy'
+    direction : str
+        Only considered if networkB is given and item is 'energy'. Specifies
+        the direction of change in dispatch between network and networkB.
+        If 'positive', generation per tech which is higher in network than in 
+        networkB is plotted.
+        If 'negative', generation per tech whcih is lower in network than 
+        in networkB is plotted.
+        If 'absolute', total change per node is plotted. 
+        Green nodes have higher dispatch in network than in networkB.
+        Red nodes have lower dispatch in network than in networkB.
+        default None
+    scaling : int
+        Scaling to change plot sizes.
+        default 1
+    filename : path to folder
+    """   
     
-    # with S = sqrt(P^2 + Q^2)
-    loading=[]
-    i=0
-    while(i<len(network.lines)):
-        p = []
-        q = []
-        x=0
-        while(x<len(line_time)):
-            p.append(abs(network.lines_t.p0[network.lines_t.p0.keys()[i]].loc[network.snapshots[line_time[x]]]))
-            if network.lines_t.q0.empty:
-                q.append(0)
+    if techs:
+        gens = network.generators[network.generators.carrier.isin(techs)]
+    elif techs is None:
+        gens = network.generators
+        techs = gens.carrier.unique()
+    if item == 'capacity':
+        dispatch = gens.p_nom.groupby([network.generators.bus, 
+                                            network.generators.carrier]).sum()
+    elif item == 'energy':
+        if networkB:
+            dispatch_network =\
+                    network.generators_t.p[gens.index].mul(
+                            network.snapshot_weightings, axis=0).groupby(
+                    [network.generators.bus, network.generators.carrier], 
+                    axis=1).sum()
+            dispatch_networkB =\
+                    networkB.generators_t.p[gens.index].mul(
+                            networkB.snapshot_weightings, axis=0).groupby(
+                    [networkB.generators.bus, networkB.generators.carrier], 
+                    axis=1).sum()
+            dispatch = dispatch_network - dispatch_networkB
+            
+            if direction == 'positive':
+                dispatch = dispatch[dispatch > 0].fillna(0)
+            elif direction == 'negative':
+                dispatch = dispatch[dispatch < 0].fillna(0)
+            elif direction == 'absolute':
+                pass
             else:
-                q.append(abs(network.lines_t.q0[network.lines_t.q0.keys()[i]].loc[network.snapshots[line_time[x]]]))
-                
-            x+=1
+                return('No valid direction given.')
+            dispatch = dispatch.sum()
             
-        max_p = max(p)
-        max_q = max(q)
-            
-        s_nom = network.lines.s_nom_opt[network.lines_t.p0.keys()[i]]
-        loading.append(sqrt(max_p**2+max_q**2)/s_nom*100)
-            
-        i+=1
-
-def nodal_gen_dispatch(
-        network,
-        scaling=False,
-        techs=['wind_onshore', 'solar'],
-        filename=None):
-
-    gens = network.generators[network.generators.carrier.isin(techs)]
-    dispatch =\
-            network.generators_t.p[gens.index].mul(network.snapshot_weightings,
-            axis=0).sum().groupby(
-            [network.generators.bus, network.generators.carrier]).sum()
-    colors = coloring()
-
-    # network.generators.carrier.unique()}
-    subcolors = {a: colors[a] for a in techs}
-
-    if scaling is False:
-        scaling = (1 / dispatch.max())
-
-    fig, ax = plt.subplots(1, 1)
+        elif networkB is None:
+            dispatch =\
+                    network.generators_t.p[gens.index].mul(
+                            network.snapshot_weightings, axis=0).sum().groupby(
+                    [network.generators.bus, network.generators.carrier]).sum()
+    
+    fig, ax = plt.subplots(1, 1)          
+    scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
+    if direction != 'absolute':
+        colors = coloring()
+        subcolors = {a: colors[a] for a in techs}
+        dispatch = dispatch.abs() + 1e-9
+    else:
+        dispatch = dispatch.sum(level=0)
+        colors = {s[0]: 'green' if s[1] > 0 else 'red' 
+                  for s in dispatch.iteritems()}
+        dispatch = dispatch.abs()
+        subcolors = {'negative': 'red', 'positive': 'green'}
+    
     network.plot(
-        bus_sizes=dispatch *
-        scaling,
-        bus_colors=colors,
-        line_widths=0.2,
-        margin=0.01,
-        ax=ax)
+            bus_sizes=dispatch * scaling,
+            bus_colors=colors,
+            line_widths=0.2,
+            margin=0.01,
+            ax=ax)
 
     fig.subplots_adjust(right=0.8)
     plt.subplots_adjust(wspace=0, hspace=0.001)
@@ -1340,119 +1295,71 @@ def nodal_gen_dispatch(
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc='upper left')
+    ax.autoscale()
 
     if filename is None:
         plt.show()
     else:
         plt.savefig(filename)
         plt.close()
-
-        
-def transformers_distribution(network, filename=None):
-    """
-    Plot transformers distribution as circles on grid nodes
-    Displays storage size and distribution in network.
-    Parameters
-    ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-    """
-    
-    transformers = network.transformers   
-    transformers_distribution = (network.transformers.s_nom_opt-network.transformers.s_nom)[transformers.index].groupby(network.transformers.bus0).sum().reindex(network.buses.index,fill_value=0.)
-
-    fig,ax = plt.subplots(1,1)
-    fig.set_size_inches(6,6)
-   
-    if sum(transformers_distribution) == 0:
-         network.plot(bus_sizes=0,ax=ax,title="Transformers distribution")
-    else:
-         network.plot(bus_sizes=transformers_distribution,ax=ax,line_widths=0.3,title="Transformers distribution")
-    
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()
-                    
-                    
-def plot_dif_line_MW(network,filename=None):
-    """
-    Plot the addition capacity which are calculated for lines as color on lines
-    Displays addition capacity
-    Parameters
-    ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-    """    
-    
-    
-    dif=[]
-    i=0
-    while(i<len(network.lines)):
-        dif.append(network.lines.s_nom_opt[i]-network.lines.s_nom[i])            
-        i+=1
-
-    # do the plotting
-    ll = network.plot(line_colors=dif, line_cmap=plt.cm.jet,
-                      title="Line_distribution")
-
-    # add colorbar, note mappable sliced from ll by [1]
-    cb = plt.colorbar(ll[1])
-    cb.set_label('Delta S in MW')
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()    
-        
-
-def plot_dif_line_percent(network,filename=None):
-    """
-    Plot the addition capacity which are calculated for lines as color on lines
-    Displays addition capacity in percent
-    Parameters
-    ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-    """    
-    dif=[]
-    i=0
-    while(i<len(network.lines)):
-        dif_ = network.lines.s_nom_opt[i]-network.lines.s_nom[i]
-        if dif_ == 0:
-            dif.append(0)
-        else:
-            dif.append(round(dif_/network.lines.s_nom[i]*100))            
-        i+=1
-
-    # do the plotting
-    ll = network.plot(line_colors=dif, line_cmap=plt.cm.jet,
-                      title="Line_distribution in percent")
-
-    # add colorbar, note mappable sliced from ll by [1]
-    cb = plt.colorbar(ll[1])
-    cb.set_label('Delta S in %')
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()    
 
     return
 
+def nodal_production_balance(
+        network, 
+        snapshot='all', 
+        scaling=0.00001, 
+        filename=None):
+    """
+    Plots the nodal difference between generation and consumption.
+    
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    snapshot : int or 'all'
+        Snapshot to plot.
+        default 'all'
+    scaling : int
+        Scaling to change plot sizes.
+        default 0.0001
+    filename : path to folder
+    
+    """
+    fig, ax = plt.subplots(1, 1)
+    gen = network.generators_t.p.groupby(network.generators.bus, axis=1).sum()
+    load = network.loads_t.p.groupby(network.loads.bus, axis=1).sum()
+    
+    if snapshot == 'all':
+        diff = (gen - load).sum()
+    else:
+        timestep = network.snapshots[snapshot]
+        diff = (gen - load).loc[timestep]
+    
+    colors = {s[0]: 'green' if s[1] > 0 else 'red' 
+                  for s in diff.iteritems()}
+    subcolors = {'Net Consumer': 'red', 'Net Producer': 'green'}
+    diff = diff.abs()
+    network.plot(
+            bus_sizes=diff * scaling,
+            bus_colors=colors,
+            line_widths=0.2,
+            margin=0.01,
+            ax=ax)
+    
+    patchList = []
+    for key in subcolors:
+        data_key = mpatches.Patch(color=subcolors[key], label=key)
+        patchList.append(data_key)
 
-
-
+    ax.legend(handles=patchList, loc='upper left')
+    ax.autoscale()
+    if filename:
+        plt.savefig(filename)
+        plt.close()
+        
+    return 
+    
     
 if __name__ == '__main__':
     pass

@@ -65,9 +65,6 @@ def extendable(network, args):
         network.transformers.s_nom_max = float("inf")
         network = set_trafo_costs(network)
 
-    if 'preselection_network' in args['extendable']:
-        remarkable_snapshots(network, args)
-
     if 'storages' in args['extendable']:
         if network.storage_units.\
             carrier[network.
@@ -84,49 +81,82 @@ def extendable(network, args):
 
     # Extension settings for extension-NEP 2035 scenarios
     if 'NEP Zubaunetz' in args['extendable']:
-        network.lines.loc[(network.lines.project != 'EnLAG') & (
-            network.lines.scn_name == 'extension_' + args['overlay_scn_name']),
+        for i in range(len(args['scn_extension'])):
+            network.lines.loc[(network.lines.project != 'EnLAG') & (
+            network.lines.scn_name == 'extension_' + args['scn_extension'][i]),
             's_nom_extendable'] = True
-
-        network.transformers.loc[(network.transformers.project != 'EnLAG') & (
-            network.transformers.scn_name == (
-                    'extension_' + args['overlay_scn_name']
-                    )), 's_nom_extendable'] = True
-
-        network.links.loc[network.links.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-                'p_nom_extendable'] = True
+                    
+            network.transformers.loc[(
+                    network.transformers.project != 'EnLAG') & (
+                            network.transformers.scn_name == (
+                                    'extension_'+ args['scn_extension'][i])),
+                                        's_nom_extendable'] = True
+                    
+            network.links.loc[network.links.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 'p_nom_extendable'] = True
 
     if 'overlay_network' in args['extendable']:
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-            's_nom_extendable'] = True
-
-        network.links.loc[network.links.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-                'p_nom_extendable'] = True
-
-        network.transformers.loc[network.transformers.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-                's_nom_extendable'] = True
+        for i in range(len(args['scn_extension'])):
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 's_nom_extendable'] = True
+                
+            network.links.loc[network.links.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 'p_nom_extendable'] = True
+                
+            network.transformers.loc[network.transformers.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 's_nom_extendable'] = True
 
     if 'overlay_lines' in args['extendable']:
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-            's_nom_extendable'] = True
-
-        network.links.loc[network.links.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-                'p_nom_extendable'] = True
-
-        network.lines.loc[network.lines.scn_name == (
-            'extension_' + args['overlay_scn_name']),
-            'capital_cost'] = network.lines.capital_cost + (2 * 14166)
+        for i in range(len(args['scn_extension'])):
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 's_nom_extendable'] = True
+                
+            network.links.loc[network.links.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 'p_nom_extendable'] = True
+                
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i]),
+                'capital_cost'] = network.lines.capital_cost + (2 * 14166)
+        
+    network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_min[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
+                                   
+    network.lines.s_nom_max[network.lines.s_nom_extendable == False] =\
+        network.lines.s_nom
+    
+    network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
+        False] = network.transformers.s_nom
 
     return network
 
 
 def remarkable_snapshots(network, args):
+    
+    """
+    Function that preselects lines which are extendend in snapshots leading to 
+    overloading to reduce nubmer of extension variables. 
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args  : dict
+        Arguments set in appl.py
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
 
     snapshots = find_snapshots(network, 'residual load')
     snapshots = snapshots.append(find_snapshots(network, 'wind_onshore'))
@@ -168,6 +198,11 @@ def remarkable_snapshots(network, args):
 
     network = set_line_costs(network)
     network = set_trafo_costs(network)
+    
+    network.storage_units.loc[network.storage_units.p_nom_extendable,
+                              'capital_cost'] = network.\
+                                  storage_units.capital_cost * (8760)
+
     network = convert_capital_costs(network, args['start_snapshot'],
                                     args['end_snapshot'])
 

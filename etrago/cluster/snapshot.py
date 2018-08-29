@@ -21,7 +21,7 @@
 """ This module contains functions for calculating representative days/weeks
 based on a pyPSA network object. It is designed to be used for the `lopf`
 method. Essentially the tsam package
-( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by 
+( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by
 Leander Kotzur is used.
 
 Remaining questions/tasks:
@@ -31,8 +31,10 @@ Remaining questions/tasks:
 """
 
 import pandas as pd
-import pyomo.environ as po
-#import tsam.timeseriesaggregation as tsam
+import os
+if 'READTHEDOCS' not in os.environ:
+    import pyomo.environ as po
+    import tsam.timeseriesaggregation as tsam
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -42,6 +44,8 @@ __author__ = "Simon Hilpert"
 
 
 def snapshot_clustering(network, how='daily', clusters=10):
+    """
+    """
 
     network = run(network=network.copy(), n_clusters=clusters,
                   how=how, normed=False)
@@ -111,8 +115,8 @@ def run(network, n_clusters=None, how='daily',
 
     # calculate clusters
     tsam_ts, cluster_weights, dates, hours = tsam_cluster(
-            prepare_pypsa_timeseries(network), typical_periods=n_clusters,
-            how='daily')
+        prepare_pypsa_timeseries(network), typical_periods=n_clusters,
+        how='daily')
 
     update_data_frames(network, cluster_weights, dates, hours)
 
@@ -193,6 +197,7 @@ def daily_bounds(network, snapshots):
             return (
                 m.state_of_charge[s, p] ==
                 m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+
         network.model.period_bound = po.Constraint(
             network.model.storages, network.model.period_starts, rule=day_rule)
 
