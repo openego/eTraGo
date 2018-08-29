@@ -806,7 +806,7 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230, cost220=290, cost380=85):
+def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
@@ -820,6 +820,9 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     cost380 : capital costs per km for 380kV lines and cables
                 default: 85€/MVA/km, source: costs for extra circuit in
                 NEP 2025, capactity from most used 380 kV lines in NEP
+    costDC : capital costs per km for DC-lines
+                default: 375€/MVA/km, source: costs for DC transmission line 
+                in NEP 2035
     -------
 
     """
@@ -833,6 +836,8 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
                       'capital_cost'] = cost220 * network.lines.length
     network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
+    network.links.loc[network.links.p_nom_extendable,
+                      'capital_cost'] = costDC * network.links.length
 
     return network
 

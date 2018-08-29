@@ -27,6 +27,8 @@ from etrago.tools.utilities import (
         convert_capital_costs,
         find_snapshots)
 
+from etrago.cluster.snapshot import snapshot_clustering
+
 import numpy as np
 
 import time
@@ -139,7 +141,7 @@ def extendable(network, args):
     return network
 
 
-def remarkable_snapshots(network, args):
+def extension_preselection(network, args, method, days = 3):
     
     """
     Function that preselects lines which are extendend in snapshots leading to 
@@ -151,6 +153,13 @@ def remarkable_snapshots(network, args):
         Overall container of PyPSA
     args  : dict
         Arguments set in appl.py
+    method: str
+        Choose method of selection:
+            'extreme_situations' for remarkable timsteps 
+            (e.g. minimal resiudual load)
+            'snapshot_clustering' for snapshot clustering with number of days
+    days: int
+        Number of clustered days, only used when method = 'snapshot_clustering'
 
     Returns
     -------
@@ -158,16 +167,29 @@ def remarkable_snapshots(network, args):
         Overall container of PyPSA
     """
 
-    snapshots = find_snapshots(network, 'residual load')
-    snapshots = snapshots.append(find_snapshots(network, 'wind_onshore'))
-    snapshots = snapshots.append(find_snapshots(network, 'solar'))
-    snapshots = snapshots.drop_duplicates()
-    snapshots = snapshots.sort_values()
+    weighting = network.snapshot_weightings
+
+    if method == 'extreme_situations':
+        snapshots = find_snapshots(network, 'residual load')
+        snapshots = snapshots.append(find_snapshots(network, 'wind_onshore'))
+        snapshots = snapshots.append(find_snapshots(network, 'solar'))
+        snapshots = snapshots.drop_duplicates()
+        snapshots = snapshots.sort_values()
+
+    if method == 'snapshot_clustering':
+        network_cluster = snapshot_clustering(network, how='daily', 
+                                              clusters=days)
+        snapshots = network_cluster.snapshots
+        network.snapshot_weightings = network_cluster.snapshot_weightings
 
     # Set all lines and trafos extendable in network
     network.lines.loc[:, 's_nom_extendable'] = True
     network.lines.loc[:, 's_nom_min'] = network.lines.s_nom
     network.lines.loc[:, 's_nom_max'] = np.inf
+    
+    network.links.loc[:, 'p_nom_extendable'] = True
+    network.links.loc[:, 'p_nom_min'] = network.links.p_nom
+    network.links.loc[:, 'p_nom_max'] = np.inf
 
     network.transformers.loc[:, 's_nom_extendable'] = True
     network.transformers.loc[:, 's_nom_min'] = network.transformers.s_nom
@@ -178,6 +200,9 @@ def remarkable_snapshots(network, args):
     network = convert_capital_costs(network, 1, 1)
     extended_lines = network.lines.index[network.lines.s_nom_opt >
                                          network.lines.s_nom]
+    extended_links = network.links.index[network.links.p_nom_opt >
+                                         network.links.p_nom]
+
     x = time.time()
     for i in range(int(snapshots.value_counts().sum())):
         if i > 0:
@@ -186,6 +211,10 @@ def remarkable_snapshots(network, args):
                     network.lines.index[network.lines.s_nom_opt >
                                         network.lines.s_nom])
             extended_lines = extended_lines.drop_duplicates()
+            extended_links = extended_links.append(
+                    network.links.index[network.links.p_nom_opt >
+                                        network.links.p_nom])
+            extended_links = extended_links.drop_duplicates()
 
     print("Number of preselected lines: ", len(extended_lines))
 
@@ -195,14 +224,17 @@ def remarkable_snapshots(network, args):
         = network.lines.s_nom
     network.lines.loc[network.lines.s_nom_extendable, 's_nom_max']\
         = np.inf
+        
+    network.links.loc[~network.links.index.isin(extended_links),
+                      'p_nom_extendable'] = False
+    network.links.loc[network.links.p_nom_extendable, 'p_nom_min']\
+        = network.links.p_nom
+    network.links.loc[network.links.p_nom_extendable, 'p_nom_max']\
+        = np.inf
 
+    network.snapshot_weightings = weighting
     network = set_line_costs(network)
     network = set_trafo_costs(network)
-    
-    network.storage_units.loc[network.storage_units.p_nom_extendable,
-                              'capital_cost'] = network.\
-                                  storage_units.capital_cost * (8760)
-
     network = convert_capital_costs(network, args['start_snapshot'],
                                     args['end_snapshot'])
 
