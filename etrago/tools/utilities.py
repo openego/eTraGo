@@ -505,8 +505,48 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
     print(time.time() - t / 60)
     return
 
+def set_slack(network):
+    old_slack = network.generators.index[network.
+                                         generators.control == 'Slack'][0]
+    # check if old slack was PV or PQ control:
+    if network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] in ('solar', 'wind'):
+        old_control = 'PQ'
+    elif network.generators.p_nom[old_slack] > 50 and network.generators.\
+            carrier[old_slack] not in ('solar', 'wind'):
+        old_control = 'PV'
+    elif network.generators.p_nom[old_slack] < 50:
+        old_control = 'PQ'
 
-def pf_post_lopf(network, foreign_lines, add_foreign_lopf=True):
+    old_gens = network.generators
+    gens_summed = network.generators_t.p.sum()
+    old_gens['p_summed'] = gens_summed
+    max_gen_buses_index = old_gens.groupby(['bus']).agg(
+        {'p_summed': np.sum}).p_summed.sort_values().index
+
+    for bus_iter in range(1, len(max_gen_buses_index) - 1):
+        if old_gens[(network.
+                     generators['bus'] == max_gen_buses_index[-bus_iter]) &
+                    (network.generators['control'] == 'PV')].empty:
+            continue
+        else:
+            new_slack_bus = max_gen_buses_index[-bus_iter]
+            break
+
+    network.generators = network.generators.drop('p_summed', 1)
+    new_slack_gen = network.generators.\
+        p_nom[(network.generators['bus'] == new_slack_bus) & (
+            network.generators['control'] == 'PV')].sort_values().index[-1]
+
+    network.generators = network.generators.set_value(
+        old_slack, 'control', old_control)
+    network.generators = network.generators.set_value(
+        new_slack_gen, 'control', 'Slack')
+    
+    return network
+
+
+def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
     network_pf = network
 
@@ -553,43 +593,6 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf=True):
     network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
         columns=network_pf.links.index)
     network_pf.links_t.p_set = network_pf.links_t.p0
-
-    old_slack = network.generators.index[network.
-                                         generators.control == 'Slack'][0]
-    # check if old slack was PV or PQ control:
-    if network.generators.p_nom[old_slack] > 50 and network.generators.\
-            carrier[old_slack] in ('solar', 'wind'):
-        old_control = 'PQ'
-    elif network.generators.p_nom[old_slack] > 50 and network.generators.\
-            carrier[old_slack] not in ('solar', 'wind'):
-        old_control = 'PV'
-    elif network.generators.p_nom[old_slack] < 50:
-        old_control = 'PQ'
-
-    old_gens = network.generators
-    gens_summed = network.generators_t.p.sum()
-    old_gens['p_summed'] = gens_summed
-    max_gen_buses_index = old_gens.groupby(['bus']).agg(
-        {'p_summed': np.sum}).p_summed.sort_values().index
-
-    for bus_iter in range(1, len(max_gen_buses_index) - 1):
-        if old_gens[(network.
-                     generators['bus'] == max_gen_buses_index[-bus_iter]) &
-                    (network.generators['control'] == 'PV')].empty:
-            continue
-        else:
-            new_slack_bus = max_gen_buses_index[-bus_iter]
-            break
-
-    network.generators = network.generators.drop('p_summed', 1)
-    new_slack_gen = network.generators.\
-        p_nom[(network.generators['bus'] == new_slack_bus) & (
-            network.generators['control'] == 'PV')].sort_values().index[-1]
-
-    network.generators = network.generators.set_value(
-        old_slack, 'control', old_control)
-    network.generators = network.generators.set_value(
-        new_slack_gen, 'control', 'Slack')
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
     if foreign_lines == 'DC':
@@ -644,6 +647,9 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf=True):
                 network.loads.bus.isin(network.buses.index)]
         network.transformers = network.transformers[
                  network.transformers.bus0.isin(network.buses.index)]
+        
+    # Set slack bus
+    network = set_slack(network)
 
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)

@@ -482,15 +482,13 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network, args['foreign_lines'])
+        pf_solution = pf_post_lopf(network, 
+                                   args['foreign_lines'], 
+                                   add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
-        network.lines['angle_diff']= (network.buses_t.v_ang.\
-                     loc[network.snapshots[0], network.lines.bus0].values - 
-                     network.buses_t.v_ang.loc[network.snapshots[0],\
-                    network.lines.bus1].values)*180/3.1415
         network = distribute_q(network, allocation = 'p_nom')
         
     # provide storage installation costs
