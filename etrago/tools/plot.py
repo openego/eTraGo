@@ -131,24 +131,23 @@ def plot_line_loading(
             timesteps]].abs().sum() / (network.lines.s_nom)).data,
             index=array_line)
 
-        loading_links = pd.Series((network.links_t.p0.mul(
-            network.snapshot_weightings, axis=0).loc[network.snapshots[
-            timesteps]].abs().sum() / (network.links.p_nom)).data,
-            index=array_link)
-
     else:
-        loading_lines = pd.Series(((network.lines_t.p0.mul(network.snapshot_weightings, axis=0)\
+        loading_lines = pd.Series(((network.lines_t.p0.mul(
+                network.snapshot_weightings, axis=0)\
                     .loc[network.snapshots[timesteps]].abs().sum() ** 2 +\
-                    network.lines_t.q0.mul(network.snapshot_weightings, axis=0)\
+                    network.lines_t.q0.mul(
+                            network.snapshot_weightings, axis=0)\
                     .loc[network.snapshots[timesteps]].abs().sum() ** 2).\
-                    apply(sqrt) / (network.lines.s_nom)).data, index = array_line) 
+                    apply(sqrt) / (network.lines.s_nom)).data, index =
+                            array_line) 
             
-        loading_links = pd.Series((network.links_t.p0.mul(
+    loading_links = pd.Series((network.links_t.p0.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
             timesteps]].abs().sum() / (network.links.p_nom)).data,
             index=array_link)
             
-    load_links_rel = ( loading_links /  network.snapshot_weightings\
+    load_links_rel = (loading_links /  
+                      network.snapshot_weightings\
                             [network.snapshots[timesteps]].sum())* 100
         
     load_lines_rel = (loading_lines / network.snapshot_weightings\
