@@ -30,6 +30,7 @@ import os
 import os.path
 import time
 import numpy as np
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -80,7 +81,9 @@ if 'READTHEDOCS' not in os.environ:
         group_parallel_lines,
         add_missing_components,
         distribute_q,
-        set_q_foreign_loads)
+        set_q_foreign_loads,
+        clip_foreign,
+        foreign_links)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -120,7 +123,8 @@ args = {  # Setup and Configuration:
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True,  # meet the demand at very high cost
+    'load_shedding': True, # meet the demand at very high cost
+    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
@@ -286,6 +290,10 @@ def etrago(args):
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
         generators cannot do so.
+    
+    foreign_lines : str
+        'AC'
+        Choose transmission technology of foreign lines: 'AC' or 'DC'
 
     comments : str
         None
@@ -323,6 +331,10 @@ def etrago(args):
     
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
+    
+    # Change transmission technology of foreign lines
+    if args['foreign_lines'] == 'DC':
+        foreign_links(network)
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -412,6 +424,7 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
+    
 
     # ehv network clustering
     if args['network_clustering_ehv']:
@@ -469,15 +482,13 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network)
+        pf_solution = pf_post_lopf(network, 
+                                   args['foreign_lines'], 
+                                   add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
-        network.lines['angle_diff']= (network.buses_t.v_ang.\
-                     loc[network.snapshots[0], network.lines.bus0].values - 
-                     network.buses_t.v_ang.loc[network.snapshots[0],\
-                    network.lines.bus1].values)*180/3.1415
         network = distribute_q(network, allocation = 'p_nom')
         
     # provide storage installation costs
