@@ -617,12 +617,16 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
                                 network.loads.bus.isin(foreign_bus.index)],
                         'Transformer': network.transformers[
                                 network.transformers.bus0.isin(
+                                        foreign_bus.index)],
+                        'Storage_Units': network.storage_units[
+                                network.storage_units.bus.isin(
                                         foreign_bus.index)]}
 
         foreign_series = {'Bus': network.buses_t.copy(),
                           'Generator': network.generators_t.copy(),
                           'Load': network.loads_t.copy(),
-                          'Transformer':  network.transformers_t.copy()}
+                          'Transformer':  network.transformers_t.copy(),
+                          'Storage_Units': network.storage_units_t.copy()}
 
         for comp in sorted(foreign_series):
             attr = sorted(foreign_series[comp])
@@ -647,6 +651,8 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
                 network.loads.bus.isin(network.buses.index)]
         network.transformers = network.transformers[
                  network.transformers.bus0.isin(network.buses.index)]
+        network.storage_units = network.storage_units[
+                network.storage_units.bus.isin(network.buses.index)]
         
     # Set slack bus
     network = set_slack(network)
