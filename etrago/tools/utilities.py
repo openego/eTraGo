@@ -618,7 +618,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
                         'Transformer': network.transformers[
                                 network.transformers.bus0.isin(
                                         foreign_bus.index)],
-                        'Storage_Units': network.storage_units[
+                        'StorageUnit': network.storage_units[
                                 network.storage_units.bus.isin(
                                         foreign_bus.index)]}
 
@@ -626,7 +626,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
                           'Generator': network.generators_t.copy(),
                           'Load': network.loads_t.copy(),
                           'Transformer':  network.transformers_t.copy(),
-                          'Storage_Units': network.storage_units_t.copy()}
+                          'StorageUnit': network.storage_units_t.copy()}
 
         for comp in sorted(foreign_series):
             attr = sorted(foreign_series[comp])
