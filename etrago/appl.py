@@ -99,7 +99,7 @@ args = {  # Setup and Configuration:
                        'logFile': 'gurobi_eTraGo.log'},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
     # Scenario variations:
-    'scn_extension': ['nep2035_b2'],  # None or extension scenario
+    'scn_extension': None,  # None or extension scenario
     'scn_decommissioning': None,  # None or decommissioning scenario
     'add_Belgium_Norway': False,  # add Belgium and Norway
     # Export options:
@@ -107,7 +107,7 @@ args = {  # Setup and Configuration:
     'results': False, #'/home/clara/pf_results/RemSnapshots/original/20',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': None, # ['network',  'storages'],  # None or array of components to optimize
+    'extendable': ['preselection_network'],  # None or array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Line Extendable Function
@@ -428,8 +428,7 @@ def etrago(args):
     if args['extendable'] is not None:
         network = extendable(
             network,
-            args['extendable'],
-            args['scn_extension'])
+            args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 

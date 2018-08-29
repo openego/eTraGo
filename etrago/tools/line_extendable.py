@@ -738,6 +738,7 @@ def line_extendableBM(network, args, scenario):
 
 
 def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
+    
     if carrier == 'residual load':
         power_plants = network.generators[network.generators.carrier.
                                     isin(['solar', 'wind', 'wind_onshore'])]
@@ -819,9 +820,6 @@ def remarkable_snapshots(network, args, scenario):
     z1st = (y - x) / 60
 
     print("Time for first LOPF [min]:", round(z1st, 2))
-
-    # export_results_clara(args, z1st, z, "Remarkable Snapshots",
-    # len(extended_lines))
 
     return network
 

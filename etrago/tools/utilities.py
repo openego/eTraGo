@@ -735,3 +735,37 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
                                              start_snapshot + 1))
 
     return network
+
+
+def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
+    
+    if carrier == 'residual load':
+        power_plants = network.generators[network.generators.carrier.
+                                    isin(['solar', 'wind', 'wind_onshore'])]
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        load = network.loads_t.p_set.sum(axis=1)
+        all_renew = power_plants_t.sum(axis=1)
+        all_carrier = load - all_renew
+
+    if carrier in ('solar', 'wind', 'wind_onshore', 'wind_offshore', 'run_of_river'):
+        power_plants = network.generators[network.generators.carrier
+                                          == carrier]
+
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        all_carrier = power_plants_t.sum(axis=1)
+
+    if maximum and not minimum:
+       times = all_carrier.sort_values().head(n=n)
+
+    if minimum and not maximum:
+       times = all_carrier.sort_values().tail(n=n)
+
+    if maximum and minimum:
+        times = all_carrier.sort_values().head(n=n)
+        times = times.append(all_carrier.sort_values().tail(n=n))
+
+    calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
+
+    return calc_snapshots
