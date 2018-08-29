@@ -80,7 +80,9 @@ if 'READTHEDOCS' not in os.environ:
         group_parallel_lines,
         add_missing_components,
         distribute_q,
-        set_q_foreign_loads)
+        set_q_foreign_loads,
+        clip_foreign,
+        foreign_links)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -89,11 +91,11 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.3',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf':True,  # perform a pf after a lopf simulation
-    'start_snapshot': 4379,
-    'end_snapshot':  4379,
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'start_snapshot': 1,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
          'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -111,16 +113,17 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
+    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, # or None, 'mini' or 'uniform'
+    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': 1,  # factor to change branch capacities
-    'load_shedding': True,  # meet the demand at very high cost
+    'branch_capacity_factor': 0.7,  # factor to change branch capacities
+    'load_shedding': True, # meet the demand at very high cost
+    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
@@ -286,6 +289,10 @@ def etrago(args):
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
         generators cannot do so.
+    
+    foreign_lines : str
+        'AC'
+        Choose transmission technology of foreign lines: 'AC' or 'DC'
 
     comments : str
         None
@@ -323,6 +330,10 @@ def etrago(args):
     
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
+    
+    # Change transmission technology of foreign lines
+    if args['foreign_lines'] == 'DC':
+        foreign_links(network)
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -434,6 +445,10 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
 
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+
     # parallisation
     if args['parallelisation']:
         parallelisation(
@@ -465,15 +480,13 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network)
+        pf_solution = pf_post_lopf(network, 
+                                   args['foreign_lines'], 
+                                   add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
-        network.lines['angle_diff']= (network.buses_t.v_ang.\
-                     loc[network.snapshots[0], network.lines.bus0].values - 
-                     network.buses_t.v_ang.loc[network.snapshots[0],\
-                    network.lines.bus1].values)*180/3.1415
         network = distribute_q(network, allocation = 'p_nom')
         
     # provide storage installation costs
@@ -516,7 +529,7 @@ def etrago(args):
             disaggregated_network.generators_t.q.fillna(0, inplace=True)
             
             disaggregated_network.results = network.results
-        print("Time for overall desaggregation [min]: {:.2}"
+            print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
 
     # write lpfile to path
