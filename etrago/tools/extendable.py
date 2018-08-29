@@ -22,7 +22,7 @@
 Extendable.py defines function to set PyPSA-components extendable.
 """
 from etrago.tools.utilities import (
-        set_line_costs, 
+        set_line_costs,
         set_trafo_costs,
         convert_capital_costs,
         find_snapshots)
@@ -64,7 +64,7 @@ def extendable(network, args):
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
         network = set_trafo_costs(network)
-        
+
     if 'preselection_network' in args['extendable']:
         remarkable_snapshots(network, args)
 
@@ -87,37 +87,38 @@ def extendable(network, args):
         network.lines.loc[(network.lines.project != 'EnLAG') & (
             network.lines.scn_name == 'extension_' + args['overlay_scn_name']),
             's_nom_extendable'] = True
-                
+
         network.transformers.loc[(network.transformers.project != 'EnLAG') & (
-            network.transformers.scn_name == ('extension_' +
-            args['overlay_scn_name'])), 's_nom_extendable'] = True
-                
+            network.transformers.scn_name == (
+                    'extension_' + args['overlay_scn_name']
+                    )), 's_nom_extendable'] = True
+
         network.links.loc[network.links.scn_name == (
-            'extension_' + args['overlay_scn_name']), 
+            'extension_' + args['overlay_scn_name']),
                 'p_nom_extendable'] = True
 
     if 'overlay_network' in args['extendable']:
         network.lines.loc[network.lines.scn_name == (
-            'extension_' + args['overlay_scn_name']), 
+            'extension_' + args['overlay_scn_name']),
             's_nom_extendable'] = True
-                
+
         network.links.loc[network.links.scn_name == (
             'extension_' + args['overlay_scn_name']),
                 'p_nom_extendable'] = True
-                
+
         network.transformers.loc[network.transformers.scn_name == (
-            'extension_' + args['overlay_scn_name']), 
+            'extension_' + args['overlay_scn_name']),
                 's_nom_extendable'] = True
 
     if 'overlay_lines' in args['extendable']:
         network.lines.loc[network.lines.scn_name == (
-            'extension_' + args['overlay_scn_name']), 
+            'extension_' + args['overlay_scn_name']),
             's_nom_extendable'] = True
-                
+
         network.links.loc[network.links.scn_name == (
-            'extension_' + args['overlay_scn_name']), 
+            'extension_' + args['overlay_scn_name']),
                 'p_nom_extendable'] = True
-                
+
         network.lines.loc[network.lines.scn_name == (
             'extension_' + args['overlay_scn_name']),
             'capital_cost'] = network.lines.capital_cost + (2 * 14166)
@@ -150,23 +151,24 @@ def remarkable_snapshots(network, args):
     x = time.time()
     for i in range(int(snapshots.value_counts().sum())):
         if i > 0:
-           network.lopf(snapshots[i], solver_name=args['solver'])
-           extended_lines = extended_lines.append(network.lines.index
-                            [network.lines.s_nom_opt > network.lines.s_nom])
-           extended_lines = extended_lines.drop_duplicates()
+            network.lopf(snapshots[i], solver_name=args['solver'])
+            extended_lines = extended_lines.append(
+                    network.lines.index[network.lines.s_nom_opt >
+                                        network.lines.s_nom])
+            extended_lines = extended_lines.drop_duplicates()
 
     print("Number of preselected lines: ", len(extended_lines))
 
     network.lines.loc[~network.lines.index.isin(extended_lines),
                       's_nom_extendable'] = False
-    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_min']\
+    network.lines.loc[network.lines.s_nom_extendable, 's_nom_min']\
         = network.lines.s_nom
-    network.lines.loc[network.lines.s_nom_extendable == True, 's_nom_max']\
+    network.lines.loc[network.lines.s_nom_extendable, 's_nom_max']\
         = np.inf
 
     network = set_line_costs(network)
     network = set_trafo_costs(network)
-    network = convert_capital_costs(network, args['start_snapshot'],\
+    network = convert_capital_costs(network, args['start_snapshot'],
                                     args['end_snapshot'])
 
     y = time.time()
