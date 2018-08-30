@@ -30,7 +30,6 @@ import os
 import os.path
 import time
 import numpy as np
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -425,7 +424,6 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-    
 
     # ehv network clustering
     if args['network_clustering_ehv']:
