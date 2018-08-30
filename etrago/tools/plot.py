@@ -153,7 +153,7 @@ def plot_line_loading(
                                   (network.links.bus1 == row['bus0']) &
                                   (network.links.length == row['length'])]
 
-            network.links.set_value(i, 'linked_to',l.values.astype(str))
+            network.links.set_value(i, 'linked_to',l.values[0])
 
     network.links.linked_to = network.links.linked_to.astype(str)
     link_load = network.links_t.p0[network.links.index[
