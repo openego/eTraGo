@@ -67,7 +67,7 @@ def extendable(network, args):
         network.transformers.s_nom_max = float("inf")
         network = set_trafo_costs(network)
 
-    if 'storages' in args['extendable']:
+    if 'storages' in args['extendable'] or 'storage' in args['extendable']:
         if network.storage_units.\
             carrier[network.
                     storage_units.carrier ==
