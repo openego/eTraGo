@@ -183,7 +183,7 @@ def plot_line_loading(
     ll = network.plot(line_colors=loading, line_cmap=cmap,
                       title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
-    
+
     if not boundaries:
         v = np.linspace(min(loading), max(loading), 101)
         boundaries = [min(loading), max(loading)]
@@ -396,6 +396,56 @@ def extension_overlay_network(network, filename=None, boundaries=[0, 100]):
     cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb_Link.remove()
     cb.set_label('line extension relative to s_nom in %')
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+
+def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
+
+    cmap = plt.cm.jet
+    
+    array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
+
+    extension_lines = pd.Series(100 *\
+                                 ((networkA.lines.s_nom_opt - \
+                                    networkB.lines.s_nom_opt)/\
+                                    networkA.lines.s_nom_opt  ).values,\
+                                index=array_line)
+
+    array_link = [['Link'] * len(networkA.links), networkA.links.index]
+
+    extension_links = pd.Series(100 *
+                                 ((networkA.links.p_nom_opt -\
+                                    networkB.links.p_nom_opt)/\
+                                    networkA.links.p_nom_opt).values,\
+                                index=array_link)
+
+    extension = extension_lines.append(extension_links)
+
+    ll = networkA.plot(
+        line_colors=extension,
+        line_cmap=cmap,
+        bus_sizes=0,
+        title="Derivation of AC- and DC-line extension",
+        line_widths=2)
+    
+    if not  boundaries:
+            v = np.linspace(min(extension).round(0), max(extension).round(0), 101)
+    
+    else:
+            v = np.linspace(boundaries[0], boundaries[1], 101)
+    
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10])
+    cb_Link = plt.colorbar(ll[2], boundaries=v,
+                           ticks=v[0:101:10])
+
+    cb_Link.set_clim(vmin=min(v), vmax=max(v))
+    cb_Link.remove()
+    cb.set_label('line extension derivation  in %')
 
     if filename is None:
         plt.show()

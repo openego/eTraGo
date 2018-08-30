@@ -84,14 +84,14 @@ if 'READTHEDOCS' not in os.environ:
         clip_foreign,
         foreign_links)
     
-    from etrago.tools.extendable import extendable
+    from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.3',  # None for model_draft or Version number
+    'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -108,7 +108,7 @@ args = {  # Setup and Configuration:
     'results': ' ./results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['network', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -230,6 +230,8 @@ def etrago(args):
             'storages': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'network_preselection': set only preselected lines extendable,
+                                    method is chosen in funcion call
 
 
     generator_noise : bool or int
@@ -396,8 +398,7 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args['extendable'],
-                    args['scn_extension'])
+                    args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
     
@@ -445,6 +446,10 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
 
+    # preselection of extendable lines
+    if 'network_preselection' in args['extendable']:
+        extension_preselection(network, args, 'snapshot_clustering', 2)
+        
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
@@ -459,7 +464,7 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-    
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
