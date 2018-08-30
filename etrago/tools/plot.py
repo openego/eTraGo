@@ -42,6 +42,12 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
+basemap_present = True
+try:
+    from mpl_toolkits.basemap import Basemap
+except:
+    basemap_present = False
+
 
 def add_coordinates(network):
     """
