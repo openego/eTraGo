@@ -874,7 +874,7 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230, cost220=290, cost380=85):
+def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
@@ -888,6 +888,9 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     cost380 : capital costs per km for 380kV lines and cables
                 default: 85€/MVA/km, source: costs for extra circuit in
                 NEP 2025, capactity from most used 380 kV lines in NEP
+    costDC : capital costs per km for DC-lines
+                default: 375€/MVA/km, source: costs for DC transmission line 
+                in NEP 2035
     -------
 
     """
@@ -899,9 +902,10 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     network.lines.loc[(network.lines.v_nom == 220) & network.lines.
                       s_nom_extendable,
                       'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 380) & network.lines.
-                      s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
+    network.links.loc[network.links.p_nom_extendable,
+                      'capital_cost'] = costDC * network.links.length
 
     return network
 
@@ -1152,3 +1156,61 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
                                                start_snapshot + 1))
 
     return network
+
+
+def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
+    
+    """
+    Function that returns snapshots with maximum and/or minimum feed-in of 
+    selected carrier.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    carrier: str
+        Selected carrier of generators
+    maximum: bool
+        Choose if timestep of maximal feed-in is returned.
+    minimum: bool
+        Choose if timestep of minimal feed-in is returned.
+    n: int
+        Number of maximal/minimal snapshots
+
+    Returns
+    -------
+    calc_snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
+        List containing snapshots
+    """
+    
+    if carrier == 'residual load':
+        power_plants = network.generators[network.generators.carrier.
+                                    isin(['solar', 'wind', 'wind_onshore'])]
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        load = network.loads_t.p_set.sum(axis=1)
+        all_renew = power_plants_t.sum(axis=1)
+        all_carrier = load - all_renew
+
+    if carrier in ('solar', 'wind', 'wind_onshore', 
+                   'wind_offshore', 'run_of_river'):
+        power_plants = network.generators[network.generators.carrier
+                                          == carrier]
+
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        all_carrier = power_plants_t.sum(axis=1)
+
+    if maximum and not minimum:
+       times = all_carrier.sort_values().head(n=n)
+
+    if minimum and not maximum:
+       times = all_carrier.sort_values().tail(n=n)
+
+    if maximum and minimum:
+        times = all_carrier.sort_values().head(n=n)
+        times = times.append(all_carrier.sort_values().tail(n=n))
+
+    calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
+
+    return calc_snapshots
