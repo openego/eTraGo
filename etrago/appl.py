@@ -113,18 +113,18 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True, # meet the demand at very high cost
-    'foreign_lines' : 'DC', # carrier of lines to/between foreign countries
+    'load_shedding': False, # meet the demand at very high cost
+    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
@@ -225,6 +225,8 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
+            'german_grid': set lines and transformers in German grid extendable
+            'foreign_grid': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable

@@ -381,15 +381,26 @@ def network_extension(network, method = 'rel', filename=None, boundaries=[]):
         
 
     extension = extension_lines.append(extension_links)
-
-    network.plot(line_colors="grey", bus_sizes=0, line_widths=0.55)
+    
+    # Plot whole network in backgroud of plot
+    network.plot(
+            line_colors=pd.Series("grey", index = [['Line'] * len(
+                    network.lines), network.lines.index]).append(
+            pd.Series("grey", index = [['Link'] * len(network.links),
+                  network.links.index])),
+            bus_sizes=0,
+            line_widths=pd.Series(0.55, index = [['Line'] * len(network.lines),
+                  network.lines.index]).append(
+            pd.Series(0.7, index = [['Link'] * len(network.links),
+                  network.links.index])))
 
     ll = overlay_network.plot(
         line_colors=extension,
         line_cmap=cmap,
         bus_sizes=0,
         title="Optimized AC- and DC-line extension",
-        line_widths=2)
+        line_widths= pd.Series(0.7, index = array_line).append(
+                pd.Series(0.75, index = array_link)))
     
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)

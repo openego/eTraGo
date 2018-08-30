@@ -101,20 +101,26 @@ def extendable(network, args):
     if 'foreign_grid' in args['extendable']:
         buses = network.buses[network.buses.index.isin(
                 buses_by_country(network).index)]
-        network.lines.loc[network.lines.bus0.isin(buses.index),
+        network.lines.loc[network.lines.bus0.isin(buses.index) |
+                          network.lines.bus1.isin(buses.index) ,
                           's_nom_extendable'] = True
-        network.lines.loc[network.lines.bus0.isin(buses.index),
+        network.lines.loc[network.lines.bus0.isin(buses.index) |
+                          network.lines.bus1.isin(buses.index),
                           's_nom_min'] = network.lines.s_nom
-        network.lines.loc[network.lines.bus0.isin(buses.index),
+        network.lines.loc[network.lines.bus0.isin(buses.index) |
+                          network.lines.bus1.isin(buses.index),
                           's_nom_min'] = float("inf")
         
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
-                    buses.index),'s_nom_extendable'] = True
+                    buses.index) | network.transformers.bus1.isin(
+                    buses.index) ,'s_nom_extendable'] = True
             network.transformers.loc[network.transformers.bus0.isin(
-                    buses.index),'s_nom_min'] = network.transformers.s_nom
+                    buses.index) | network.transformers.bus1.isin(
+                    buses.index) ,'s_nom_min'] = network.transformers.s_nom
             network.transformers.loc[network.transformers.bus0.isin(
-                    buses.index),'s_nom_max'] = float("inf")
+                    buses.index) | network.transformers.bus1.isin(
+                    buses.index) ,'s_nom_max'] = float("inf")
 
         if not network.links.empty:
             network.links.loc[(network.links.bus0.isin(buses.index)) |
@@ -125,7 +131,7 @@ def extendable(network, args):
                           'p_nom_min'] = network.links.p_nom
             network.links.loc[(network.links.bus0.isin(buses.index)) |
                               (network.links.bus1.isin(buses.index)),
-                          'p_nom_min'] = float("inf")
+                          'p_nom_max'] = float("inf")
             
         network = set_line_costs(network)
         network = set_trafo_costs(network)
