@@ -66,8 +66,8 @@ if 'READTHEDOCS' not in os.environ:
         gen_dist,
         storage_distribution,
         storage_expansion,
-        extension_overlay_network,
-        nodal_gen_dispatch)
+        nodal_gen_dispatch,
+        network_extension)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -109,14 +109,14 @@ args = {  # Setup and Configuration:
     'results': ' ./results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storages'],  # Array of components to optimize
+    'extendable': ['german_grid', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -124,7 +124,7 @@ args = {  # Setup and Configuration:
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': True, # meet the demand at very high cost
-    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
+    'foreign_lines' : 'DC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
