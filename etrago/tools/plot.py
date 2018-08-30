@@ -157,10 +157,12 @@ def plot_line_loading(
         c = c.append(x)
     links_m.columns = c.index
     links_max = pd.concat([links_max, links_m], axis = 1)
+    links_max = links_max.transpose()
+    links_max = links_max[~links_max.index.duplicated()].transpose()
     
     loading_links = pd.Series((links_max.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
-            timesteps]].abs().sum() / (network.links.p_nom)).data,
+            timesteps]].abs().sum()[network.links.index] / (network.links.p_nom)).data,\
             index=array_link).dropna()
             
     load_links_rel = (loading_links/  
@@ -192,7 +194,7 @@ def plot_line_loading(
     
     cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
-    cb_Link.remove()
+    
     
     cb.set_label('Line loading in %')
 
