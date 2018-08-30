@@ -576,8 +576,12 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
         network_pf.lines.s_nom_extendable = False
         network_pf.transformers.s_nom_extendable = False
+        network_pf.storage_units.p_nom_extendable = False
+        network_pf.links.p_nom_extendable = False
         network_pf.lines.s_nom = network.lines.s_nom_opt
         network_pf.transformers.s_nom = network.transformers.s_nom_opt
+        network_pf.storage_units.p_nom = network_pf.storage_units.p_nom_opt
+        network_pf.links.p_nom = network_pf.links.p_nom_opt
 
         network_pf.lopf(solver_name='gurobi')
 
