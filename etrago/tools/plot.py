@@ -140,38 +140,44 @@ def plot_line_loading(
                     .loc[network.snapshots[timesteps]].abs().sum() ** 2).\
                     apply(sqrt) / (network.lines.s_nom)).data, index =
                             array_line)
-                    
+
     # Aviod covering of bidirectional links
-    links_max = network.links_t.p0.groupby(network.links.length,
-                                              axis = 1).max()
-    col = pd.DataFrame()
-    for i,  column in enumerate(links_max):
-        x = network.links[(network.links.length == column)].tail(1)
-        col = col.append(x)
-    links_max.columns = col.index 
-    links_m = network.links_t.p0.groupby(network.links.length,
-                                              axis = 1).max()
-    c = pd.DataFrame()
-    for i,  column in enumerate(links_m):
-        x = network.links[(network.links.length == column)].head(1)
-        c = c.append(x)
-    links_m.columns = c.index
-    links_max = pd.concat([links_max, links_m], axis = 1)
-    links_max = links_max.transpose()
-    links_max = links_max[~links_max.index.duplicated()].transpose()
-    
-    loading_links = pd.Series((links_max.mul(
+    network.links['linked_to'] = 0
+    for i,  row in network.links.iterrows():
+        if not (network.links.index[(network.links.bus0 == row['bus1']) &
+                                  (network.links.bus1 == row['bus0']) &
+                                  (network.links.length == row['length']
+                                  )]).empty:
+
+            l = network.links.index[(network.links.bus0 == row['bus1']) &
+                                  (network.links.bus1 == row['bus0']) &
+                                  (network.links.length == row['length'])]
+
+            network.links.set_value(i, 'linked_to',l.values.astype(str))
+
+    network.links.linked_to = network.links.linked_to.astype(str)
+    link_load = network.links_t.p0[network.links.index[
+            network.links.linked_to == '0']]
+
+    for i, row in network.links[network.links.linked_to != '0'].iterrows():
+        load = pd.DataFrame(index = network.links_t.p0.index,
+                            columns = ['to', 'from'])
+        load['to'] = network.links_t.p0[row['linked_to']]
+        load['from'] = network.links_t.p0[i]
+        link_load[i] = load.max(axis = 1)
+
+    loading_links = pd.Series((link_load.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
-            timesteps]].abs().sum()[network.links.index] / (network.links.p_nom)).data,\
-            index=array_link).dropna()
-            
+            timesteps]].abs().sum()[network.links.index] / (network.links.p_nom
+            )).data, index=array_link).dropna()
+
     load_links_rel = (loading_links/  
                       network.snapshot_weightings\
                             [network.snapshots[timesteps]].sum())* 100
         
     load_lines_rel = (loading_lines / network.snapshot_weightings\
                             [network.snapshots[timesteps]].sum()) * 100
-                      
+
     loading = load_lines_rel.append(load_links_rel)
 
     ll = network.plot(line_colors=loading, line_cmap=cmap,
@@ -194,7 +200,7 @@ def plot_line_loading(
     
     cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
-    
+    cb_Link.remove()
     
     cb.set_label('Line loading in %')
 
