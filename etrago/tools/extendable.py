@@ -92,7 +92,7 @@ def extendable(network, args):
                           'p_nom_min'] = network.links.p_nom
             network.links.loc[(network.links.bus0.isin(buses.index)) &
                               (network.links.bus1.isin(buses.index)),
-                          'p_nom_min'] = float("inf")
+                          'p_nom_max'] = float("inf")
             
         network = set_line_costs(network)
         network = set_trafo_costs(network)
@@ -109,7 +109,7 @@ def extendable(network, args):
                           's_nom_min'] = network.lines.s_nom
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
-                          's_nom_min'] = float("inf")
+                          's_nom_max'] = float("inf")
         
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
