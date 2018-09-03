@@ -116,7 +116,7 @@ args = {  # Setup and Configuration:
     'extendable': ['german_grid', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
-    'ramp_limits': True,
+    'ramp_limits': False,
     'crossborder_correction': 'ntc', #state if you want to correct interconnector capacities. 'ntc' or 'thermal'
     # Clustering:
     'network_clustering_kmeans': 30,  # False or the value k for clustering
@@ -130,7 +130,7 @@ args = {  # Setup and Configuration:
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : 'DC', # carrier of lines to/between foreign countries
+    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
@@ -436,6 +436,12 @@ def etrago(args):
     if args['load_shedding']:
         load_shedding(network)
     
+    if args['crossborder_correction']:
+        #set_line_country_tags(network)
+        crossborder_correction(network, args['crossborder_correction'],
+                               args['branch_capacity_factor'])
+    
+   
 
     # ehv network clustering
     if args['network_clustering_ehv']:
@@ -457,7 +463,10 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-
+        
+    if args['ramp_limits']:
+        ramp_limits(network)  
+        
     # preselection of extendable lines
     if 'network_preselection' in args['extendable']:
         extension_preselection(network, args, 'snapshot_clustering', 2)
@@ -465,14 +474,7 @@ def etrago(args):
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']
-
-    if args['crossborder_correction']:
-        set_line_country_tags(network)
-        crossborder_correction(network, args['crossborder_correction'],
-                               args['branch_capacity_factor'])
-    
-    if args['ramp_limits']:
-        ramp_limits(network)                 
+ 
 
     # parallisation
     if args['parallelisation']:
