@@ -84,7 +84,10 @@ if 'READTHEDOCS' not in os.environ:
         set_q_foreign_loads,
         clip_foreign,
         foreign_links,
-        geolocation_buses)
+        set_line_country_tags,
+        crossborder_correction,
+        ramp_limits,
+	geolocation_buses)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -93,7 +96,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -113,6 +116,8 @@ args = {  # Setup and Configuration:
     'extendable': ['german_grid', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
+    'ramp_limits': True,
+    'crossborder_correction': 'ntc', #state if you want to correct interconnector capacities. 'ntc' or 'thermal'
     # Clustering:
     'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -459,7 +464,15 @@ def etrago(args):
         
     # skip snapshots
     if args['skip_snapshots']:
-        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']
+
+    if args['crossborder_correction']:
+        set_line_country_tags(network)
+        crossborder_correction(network, args['crossborder_correction'],
+                               args['branch_capacity_factor'])
+    
+    if args['ramp_limits']:
+        ramp_limits(network)                 
 
     # parallisation
     if args['parallelisation']:
