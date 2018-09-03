@@ -22,7 +22,7 @@ Model overview
 
 .. figure:: images/eTraGo_model.png
    :align: center
-   :scale: 100%
+   :scale: 75%
 
 
 
