@@ -83,7 +83,8 @@ if 'READTHEDOCS' not in os.environ:
         distribute_q,
         set_q_foreign_loads,
         clip_foreign,
-        foreign_links)
+        foreign_links,
+        geolocation_buses)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -92,7 +93,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -113,10 +114,10 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -124,7 +125,7 @@ args = {  # Setup and Configuration:
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
+    'foreign_lines' : 'DC', # carrier of lines to/between foreign countries
     'comments': None}
 
 
@@ -332,6 +333,8 @@ def etrago(args):
 
     # add coordinates
     network = add_coordinates(network)
+    
+    network = geolocation_buses(network, session)
     
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)

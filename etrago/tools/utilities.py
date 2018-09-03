@@ -31,6 +31,14 @@ import pypsa
 import json
 import logging
 import math
+
+import geopandas as gpd
+from shapely.geometry import Polygon, Point, MultiPolygon
+from sqlalchemy import MetaData, create_engine,  and_, func
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.automap import automap_base
+import geoalchemy2
+
 logger = logging.getLogger(__name__)
 
 
@@ -86,6 +94,73 @@ def buses_grid_linked(network, voltage_level):
 
     return df.index
 
+
+def geolocation_buses(network, session):
+     """
+     Use Geometries of buses x/y(lon/lat) and Polygons
+     of Countries from RenpassGisParameterRegion
+     in order to locate the buses
+
+     Parameters
+     ----------
+     network_etrago: : class: `etrago.tools.io.NetworkScenario`
+         eTraGo network object compiled by: meth: `etrago.appl.etrago`
+     session: : sqlalchemy: `sqlalchemy.orm.session.Session < orm/session_basics.html >`
+         SQLAlchemy session to the OEDB
+    
+     """
+     # ToDo: check eTrago stack generation plots and other in order of adaptation
+     # Start db connetion
+     # get renpassG!S scenario data
+    
+     meta = MetaData()
+     meta.bind = session.bind
+     conn = meta.bind
+     # get db table
+     meta.reflect(bind=conn, schema='model_draft',
+                  only=['renpass_gis_parameter_region'])
+    
+     # map to classes
+     Base = automap_base(metadata=meta)
+     Base.prepare()
+     RenpassGISRegion = Base.classes.renpass_gis_parameter_region
+    
+     # Define regions
+     region_id = ['DE', 'DK', 'FR', 'BE', 'LU', 'AT',
+                  'NO', 'PL', 'CH', 'CZ', 'SE', 'NL']
+    
+     query = session.query(RenpassGISRegion.gid, RenpassGISRegion.u_region_id,
+                           RenpassGISRegion.stat_level, RenpassGISRegion.geom,
+                           RenpassGISRegion.geom_point)
+    
+     # get regions by query and filter
+     Regions = [(gid, u_region_id, stat_level, geoalchemy2.shape.to_shape(geom),
+                 geoalchemy2.shape.to_shape(geom_point)) 
+                 for gid, u_region_id, stat_level,
+                geom, geom_point in query.filter(RenpassGISRegion.u_region_id.
+                                                 in_(region_id)).all()]
+    
+     crs = {'init': 'epsg:4326'}
+     # transform lon lat to shapely Points and create GeoDataFrame
+     points = [Point(xy) for xy in zip(network.buses.x,  network.buses.y)]
+     bus = gpd.GeoDataFrame(network.buses, crs=crs, geometry=points)
+     # Transform Countries Polygons as Regions
+     region = pd.DataFrame(
+         Regions, columns=['id', 'country', 'stat_level', 'Polygon', 'Point'])
+     re = gpd.GeoDataFrame(region, crs=crs, geometry=region['Polygon'])
+     # join regions and buses by geometry which intersects
+     busC = gpd.sjoin(bus, re, how='inner', op='intersects')
+     # busC
+     # Drop non used columns
+     busC = busC.drop(['index_right', 'Point', 'id', 'Polygon',
+                       'stat_level', 'geometry'], axis=1)
+     # add busC to eTraGo.buses
+     network.buses['country_code'] = busC['country']
+    
+     # close session
+     session.close()
+    
+     return network
 
 def buses_by_country(network):
     """
@@ -198,7 +273,9 @@ def clip_foreign(network):
 
     # get foreign buses by country
 
-    foreign_buses = buses_by_country(network)
+    #foreign_buses = buses_by_country(network)
+    
+    foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     network.buses = network.buses.drop(
         network.buses.loc[foreign_buses.index].index)
@@ -280,7 +357,8 @@ def foreign_links(network):
         Overall container of PyPSA
 
     """
-    foreign_buses = buses_by_country(network)
+    #foreign_buses = buses_by_country(network)
+    foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
             foreign_buses.index) | network.lines.bus1.astype(str).isin(
@@ -327,7 +405,8 @@ def set_q_foreign_loads(network, cos_phi=1):
         Overall container of PyPSA
 
     """
-    foreign_buses = buses_by_country(network)
+    #foreign_buses = buses_by_country(network)
+    foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
@@ -913,11 +992,9 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     """
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    network.lines.loc[(network.lines.v_nom == 110) & network.lines.
-                      s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 110),
                       'capital_cost'] = cost110 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 220) & network.lines.
-                      s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 220),
                       'capital_cost'] = cost220 * network.lines.length
     network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
@@ -949,14 +1026,11 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
         network.buses.v_nom)
 
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 220) & network.transformers.
-        s_nom_extendable, 'capital_cost'] = cost110_220
+        network.transformers.v_nom1 == 220), 'capital_cost'] = cost110_220
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 380) & network.transformers.
-        s_nom_extendable, 'capital_cost'] = cost110_380
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost110_380
     network.transformers.loc[(network.transformers.v_nom0 == 220) & (
-        network.transformers.v_nom1 == 380) & network.transformers.
-        s_nom_extendable, 'capital_cost'] = cost220_380
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost220_380
 
     return network
 
