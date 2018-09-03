@@ -14,7 +14,6 @@ energy storages and grid expansion measures.
 
 
 
-
 The open_eGo project
 ====================
 This software project is part of the research project
@@ -27,6 +26,16 @@ With in this project we developted the OpenEnergy Platform which this software
 is using in order to get and store the in- and output data. Before you start to
 calculate a registration on the platform is needed. For more see
 `openenergy-platform <https://openenergy-platform.org/>`_ and login.
+
+The OpenEnergy platform mainly addresses students, researchers and scientists in 
+the field of energy modelling and analytics as well as interested persons in 
+those fields. The platform provides great tools to make your energy system 
+modelling process transparent. All data of the open_eGo project are stored at
+this platform. 
+`Learn more about the database access <https://oep-data-interface.readthedocs.io>`_.
+
+
+
 
 
 Model overview
@@ -95,17 +104,6 @@ medium and low voltage power distribution grids based on open
 (or at least accessible) data. 
 `Learn more here <https://dingo.readthedocs.io/>`_.
 
-
-OpenEnergy Platform
-===================
-
-OpenEnergy platform mainly addresses students, researchers and scientists in 
-the field of energy modelling and analytics as well as interested persons in 
-those fields. The platform provides great tools to make your energy system 
-modelling process transparent. All data of the open_eGo project are stored at
-this platform.`Learn more about the platform <http://openenergy-platform.org/>`_.
-`Learn more about the database
- access <https://oep-data-interface.readthedocs.io/en/latest/api/how_to.html>`_.
 
 
 
