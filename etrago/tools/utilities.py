@@ -549,11 +549,21 @@ def set_slack(network):
 def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
     network_pf = network
-
+        
     # Update x of extended lines and transformers
     if network_pf.lines.s_nom_extendable.any() or \
             network_pf.transformers.s_nom_extendable.any():
 
+        storages_extendable = network_pf.storage_units.p_nom_extendable.copy()
+        lines_extendable = network_pf.lines.s_nom_extendable.copy()
+        links_extendable = network_pf.links.p_nom_extendable.copy()
+        trafos_extendable = network_pf.transformers.s_nom_extendable.copy()
+        
+        storages_p_nom =  network_pf.storage_units.p_nom.copy()
+        lines_s_nom=  network_pf.lines.s_nom.copy()
+        links_p_nom =  network_pf.links.p_nom.copy()
+        trafos_s_nom =  network_pf.transformers.s_nom.copy()
+        
         network_pf.lines.x[network.lines.s_nom_extendable] = \
             network_pf.lines.x * network.lines.s_nom /\
             network_pf.lines.s_nom_opt
@@ -584,10 +594,15 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
         network_pf.links.p_nom = network_pf.links.p_nom_opt
 
         network_pf.lopf(solver_name='gurobi')
+        network_pf.storage_units.p_nom_extendable = storages_extendable
+        network_pf.lines.s_nom_extendable = lines_extendable 
+        network_pf.links.p_nom_extendable = links_extendable
+        network_pf.transformers.s_nom_extendable = trafos_extendable
         
-        network_pf.storage_units.p_nom_extendable[network.
-                    storage_units.carrier ==
-                    'extendable_storage'] = True
+        network_pf.storage_units.p_nom = storages_p_nom
+        network_pf.lines.s_nom = lines_s_nom
+        network_pf.links.p_nom = links_p_nom
+        network_pf.transformers.s_nom = trafos_s_nom
 
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
