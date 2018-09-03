@@ -584,6 +584,10 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
         network_pf.links.p_nom = network_pf.links.p_nom_opt
 
         network_pf.lopf(solver_name='gurobi')
+        
+        network_pf.storage_units.p_nom_extendable[network.
+                    storage_units.carrier ==
+                    'extendable_storage'] = True
 
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
