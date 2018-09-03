@@ -549,7 +549,11 @@ def set_slack(network):
 def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
     network_pf = network
-
+    
+    storage_extendable = False
+    if network_pf.storage_units.p_nom_extendable.any():
+        storage_extendable = True
+        
     # Update x of extended lines and transformers
     if network_pf.lines.s_nom_extendable.any() or \
             network_pf.transformers.s_nom_extendable.any():
@@ -585,7 +589,8 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
         network_pf.lopf(solver_name='gurobi')
         
-        network_pf.storage_units.p_nom_extendable[network.
+        if storage_extendable:
+            network_pf.storage_units.p_nom_extendable[network.
                     storage_units.carrier ==
                     'extendable_storage'] = True
 
