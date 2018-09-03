@@ -98,7 +98,7 @@ args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.4',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -119,7 +119,7 @@ args = {  # Setup and Configuration:
     'ramp_limits': False,
     'crossborder_correction': 'ntc', #state if you want to correct interconnector capacities. 'ntc' or 'thermal'
     # Clustering:
-    'network_clustering_kmeans': 30,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
@@ -347,6 +347,10 @@ def etrago(args):
     # Change transmission technology of foreign lines
     if args['foreign_lines'] == 'DC':
         foreign_links(network)
+        
+    if args['crossborder_correction']:
+        crossborder_correction(network, args['crossborder_correction'],
+                               args['branch_capacity_factor'])
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -435,13 +439,6 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-    
-    if args['crossborder_correction']:
-        #set_line_country_tags(network)
-        crossborder_correction(network, args['crossborder_correction'],
-                               args['branch_capacity_factor'])
-    
-   
 
     # ehv network clustering
     if args['network_clustering_ehv']:

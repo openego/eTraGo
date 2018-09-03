@@ -189,10 +189,12 @@ def geolocation_buses(network, session):
     for line in doubles:
         c_bus0 = network.buses.loc[network.lines.loc[line, 'bus0'], 'country_code']
         c_bus1 = network.buses.loc[network.lines.loc[line, 'bus1'], 'country_code']
+        network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
+        """
         if c_bus0 != c_bus1:
             network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
         else: 
-            network.lines.loc[line, 'country'] = c_bus0
+            network.lines.loc[line, 'country'] = c_bus0"""
             
     transborder_links_0 = network.links[network.links['bus0'].\
                                             isin(network.buses.index[network.buses['country_code']!= 'DE'])].index
@@ -893,6 +895,7 @@ def distribute_q(network, allocation='p_nom'):
     q_distributed[q_distributed.abs() == np.inf] = 0
     q_storages[q_storages.isnull()] = 0
     q_storages[q_storages.abs() == np.inf] = 0
+    print()
     network.generators_t.q = q_distributed
     network.storage_units_t.q = q_storages
 
@@ -1496,19 +1499,22 @@ def crossborder_correction(network, method, capacity_factor):
                             'DKSE': 3500}
     if not network.lines[network.lines.country != 'DE'].empty:
         weighting = network.lines.loc[network.lines.country!='DE', 's_nom'].\
-                groupby(network.lines.country).sum().add(\
-                network.links.p_nom.groupby(\
-                network.links.country).sum(), fill_value=0).transform(
-                                            lambda x: x/x.sum())
+                groupby(network.lines.country).transform(lambda x: x/x.sum())
+        weighting_links = network.links.loc[network.links.country!='DE', 'p_nom'].\
+                groupby(network.links.country).transform(lambda x: x/x.sum())
+                
         for country in cap_per_country:
+            
             index = network.lines[network.lines.country == country].index
             index_links = network.links[network.links.country == country].index
-            network.lines.loc[index, 's_nom'] = \
+            
+            if not network.lines[network.lines.country == country].empty:
+                network.lines.loc[index, 's_nom'] = \
                                 weighting[index] * cap_per_country[country] *\
                                 capacity_factor
             if not network.links[network.links.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
-                                weighting[index_links] * cap_per_country[country] *\
+                                weighting_links[index_links] * cap_per_country[country] *\
                                 capacity_factor
             if country == 'SE':
                 network.links.loc[network.links.country == country, 'p_nom'] =\
