@@ -82,13 +82,14 @@ if 'READTHEDOCS' not in os.environ:
         distribute_q,
         set_q_foreign_loads,
         clip_foreign,
-        foreign_links)
+        foreign_links,
+        get_args_setting)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
-
+"""
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.4',  # None for model_draft or Version number
@@ -125,6 +126,9 @@ args = {  # Setup and Configuration:
     'load_shedding': True, # meet the demand at very high cost
     'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
+"""
+
+args = get_args_setting(jsonpath='args.json')
 
 
 def etrago(args):
