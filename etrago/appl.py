@@ -82,12 +82,10 @@ if 'READTHEDOCS' not in os.environ:
         add_missing_components,
         distribute_q,
         set_q_foreign_loads,
-        clip_foreign,
         foreign_links,
-        set_line_country_tags,
-        crossborder_correction,
+        crossborder_capacity,
         ramp_limits,
-	geolocation_buses)
+        geolocation_buses)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -96,11 +94,11 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 30,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
          'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -110,27 +108,26 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': ' ./results',  # save results as csv: False or /path/tofolder
+    'results': False, #' ./results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['german_grid', 'storages'],  # Array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
-    'ramp_limits': False,
-    'crossborder_correction': 'ntc', #state if you want to correct interconnector capacities. 'ntc' or 'thermal'
+    'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
+    'load_shedding': True, # meet the demand at very high cost
+    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
     'comments': None}
 
 
@@ -251,6 +248,11 @@ def etrago(args):
     minimize_loading : bool
         False,
         ...
+    ramp_limits : bool
+        False,
+        State if you want to consider ramp limits of generators. 
+        Increases time for solving significantly.
+        Only works when calculating at least 30 snapshots.
 
     network_clustering_kmeans : bool or int
         False,
@@ -301,9 +303,11 @@ def etrago(args):
         bus and meets the demand when regular
         generators cannot do so.
     
-    foreign_lines : str
-        'AC'
-        Choose transmission technology of foreign lines: 'AC' or 'DC'
+    foreign_lines : dict
+        {'carrier':'AC', 'capacity': 'osm_tGmod}'
+        Choose transmission technology and capacity of foreign lines: 
+            'carrier': 'AC' or 'DC'
+            'capacity': 'osm_tGmod', 'ntc_acer' or 'thermal_acer'
 
     comments : str
         None
@@ -339,17 +343,19 @@ def etrago(args):
     # add coordinates
     network = add_coordinates(network)
     
+    # Set countrytags of buses, lines, links and transformers
     network = geolocation_buses(network, session)
     
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
     
-    # Change transmission technology of foreign lines
-    if args['foreign_lines'] == 'DC':
+    # Change transmission technology and/or capacity of foreign lines
+    if args['foreign_lines']['carrier'] == 'DC':
         foreign_links(network)
+        network = geolocation_buses(network, session)
         
-    if args['crossborder_correction']:
-        crossborder_correction(network, args['crossborder_correction'],
+    if args['foreign_lines']['capacity'] != 'osmTGmod':
+        crossborder_capacity(network, args['foreign_lines']['capacity'],
                                args['branch_capacity_factor'])
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
@@ -397,6 +403,7 @@ def etrago(args):
                     scn_extension=args['scn_extension'][i],
                     start_snapshot=args['start_snapshot'],
                     end_snapshot=args['end_snapshot'])
+        network = geolocation_buses(network, session)
             
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
@@ -471,7 +478,6 @@ def etrago(args):
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']
- 
 
     # parallisation
     if args['parallelisation']:
