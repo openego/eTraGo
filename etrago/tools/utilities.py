@@ -1215,7 +1215,7 @@ def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
 
     return calc_snapshots
 
-def get_args_setting(jsonpath='scenario_setting.json'):
+def get_args_setting(args, jsonpath='scenario_setting.json'):
     """
     Get and open json file with scenaio settings of eTraGo ``args``.
     The settings incluedes all eTraGo specific settings of arguments and 
@@ -1233,9 +1233,9 @@ def get_args_setting(jsonpath='scenario_setting.json'):
         Dictionary of json file 
     """
  
-   
-    with open(jsonpath) as f:
-        args = json.load(f)
+    if not jsonpath == None:
+        with open(jsonpath) as f:
+            args = json.load(f)
 
 
     return args
