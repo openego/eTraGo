@@ -723,7 +723,7 @@ def distribute_q(network, allocation='p_nom'):
             q_sum[network.storage_units.bus.sort_index()].values
 
     if allocation == 'p_nom':
-        
+
         q_bus = network.generators_t['q'].\
             groupby(network.generators.bus, axis=1).sum().add(
                 network.storage_units_t.q.groupby(
