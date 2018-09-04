@@ -91,7 +91,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -105,7 +105,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': ' ./results',  # save results as csv: False or /path/tofolder
+    'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storages'],  # Array of components to optimize
