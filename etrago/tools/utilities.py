@@ -706,6 +706,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
 def distribute_q(network, allocation='p_nom'):
 
+    network.allocation = allocation
     if allocation == 'p':
         p_sum = network.generators_t['p'].\
             groupby(network.generators.bus, axis=1).sum().\
