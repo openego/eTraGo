@@ -82,12 +82,14 @@ if 'READTHEDOCS' not in os.environ:
         distribute_q,
         set_q_foreign_loads,
         clip_foreign,
-        foreign_links)
+        foreign_links,
+        get_args_setting)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
@@ -98,8 +100,10 @@ args = {  # Setup and Configuration:
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
-         'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
+                         'NumericFocus': 3, 'BarConvTol':1.e-5,
+                         'FeasibilityTol':1.e-6, 
+                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning':None, # None or decommissioning scenario
@@ -115,7 +119,7 @@ args = {  # Setup and Configuration:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': False, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -125,6 +129,9 @@ args = {  # Setup and Configuration:
     'load_shedding': True, # meet the demand at very high cost
     'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
+
+
+args = get_args_setting(args, jsonpath = None)
 
 
 def etrago(args):
