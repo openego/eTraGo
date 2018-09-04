@@ -1176,7 +1176,6 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
 
     return network
 
-
 def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
     
     """
@@ -1233,3 +1232,143 @@ def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
     calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
 
     return calc_snapshots
+
+def ramp_limits(network):
+    """ Add ramping constraints to thermal power plants.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    
+    """
+    carrier = ['coal', 'biomass', 'gas', 'oil', 'waste', 'lignite',
+                       'uranium', 'geothermal']
+    data = {'start_up_cost':[77, 57, 42, 57, 57, 77, 50, 57], #in €/MW
+            'start_up_fuel':[4.3, 2.8, 1.45, 2.8, 2.8, 4.3, 16.7, 2.8], #in MWh/MW
+            'min_up_time':[5, 2, 3, 2, 2, 5, 12, 2], 
+            'min_down_time':[7, 2, 2, 2, 2, 7, 17, 2], 
+# =============================================================================
+#             'ramp_limit_start_up':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4], 
+#             'ramp_limit_shut_down':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4] 
+# =============================================================================
+            'p_min_pu':[0.33, 0.38, 0.4, 0.38, 0.38, 0.5, 0.45, 0.38]
+            }
+    df = pd.DataFrame(data, index=carrier)
+    fuel_costs = network.generators.marginal_cost.groupby(
+            network.generators.carrier).mean()[carrier]
+    df['start_up_fuel'] = df['start_up_fuel'] * fuel_costs
+    df['start_up_cost'] = df['start_up_cost'] + df['start_up_fuel']
+    df.drop('start_up_fuel', axis=1, inplace=True)
+    for tech in df.index:
+        for limit in df.columns:
+            network.generators.loc[network.generators.carrier == tech, 
+                                   limit] = df.loc[tech, limit]
+    network.generators.start_up_cost = network.generators.start_up_cost\
+                                        *network.generators.p_nom
+    network.generators.committable = True
+
+def set_line_country_tags(network):
+    transborder_lines_0 = network.lines[network.lines['bus0'].\
+                                            isin(network.foreign_buses)].index
+    transborder_lines_1 = network.lines[network.lines['bus1'].\
+                                        isin(network.foreign_buses)].index
+    
+    #set country tag for lines
+    network.lines.loc[transborder_lines_0, 'country'] = \
+        network.buses.loc[network.lines.loc[transborder_lines_0, 'bus0'].values,
+                      'country'].values
+    
+    network.lines.loc[transborder_lines_1, 'country'] = \
+        network.buses.loc[network.lines.loc[transborder_lines_1, 'bus1'].values,
+                      'country'].values
+    network.lines['country'].fillna('DE', inplace=True)
+    doubles = list(set(transborder_lines_0.intersection(transborder_lines_1)))
+    for line in doubles:
+        c_bus0 = network.buses.loc[network.lines.loc[line, 'bus0'], 'country']
+        c_bus1 = network.buses.loc[network.lines.loc[line, 'bus1'], 'country']
+        network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
+    
+    transborder_links_0 = network.links[network.links['bus0'].\
+                                            isin(network.foreign_buses)].index
+    transborder_links_1 = network.links[network.links['bus1'].\
+                                        isin(network.foreign_buses)].index
+    
+    #set country tag for links
+    network.links.loc[transborder_links_0, 'country'] = \
+        network.buses.loc[network.links.loc[transborder_links_0, 'bus0'].values,
+                      'country'].values
+    
+    network.links.loc[transborder_links_1, 'country'] = \
+        network.buses.loc[network.links.loc[transborder_links_1, 'bus1'].values,
+                      'country'].values
+    network.links['country'].fillna('DE', inplace=True)
+    doubles = list(set(transborder_links_0.intersection(transborder_links_1)))
+    for link in doubles:
+        c_bus0 = network.buses.loc[network.links.loc[link, 'bus0'], 'country']
+        c_bus1 = network.buses.loc[network.links.loc[link, 'bus1'], 'country']
+        network.links.loc[link, 'country'] = '{}{}'.format(c_bus0, c_bus1)
+
+def crossborder_correction(network, method, capacity_factor):
+    """
+    Correct interconnector capacties.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    method : string
+        Method of correction. Options are 'ntc' and 'thermal'. 'ntc' corrects
+        all capacities according to values published by the ACER.
+        'thermal' corrects certain capacities where our dataset most likely 
+        overestimates the thermal capacity.
+    capacity_factor : float
+        branch capacity factor. Makes sure that new thermal values are adjusted
+        in the same way as the rest of the network. ntc-values are not adjusted
+        since they already include n-1 security.
+
+    Returns
+    -------
+    foreign_buses: Series containing buses by country
+    """         
+    if method == 'ntc':
+        cap_per_country = {'AT': 4900,
+                           'CH': 2695,
+                           'CZ': 1301,
+                           'DK': 913,
+                           'FR': 3593,
+                           'LU': 2912,
+                           'NL': 2811,
+                           'PL': 280,
+                           'SE': 217,
+                           'CZAT': 574,
+                           'ATCZ': 574,
+                           'CZPL': 312,
+                           'PLCZ': 312,
+                           'ATCH': 979,
+                           'CHAT': 979,
+                           'CHFR': 2087,
+                           'FRCH': 2087,
+                           'FRLU': 364,
+                           'LUFR': 364,
+                           'SEDK': 1928,
+                           'DKSE': 1928}
+        capacity_factor = 1
+    elif method == 'thermal':
+        cap_per_country = {'CH': 12000,
+                            'DK': 4000,
+                            'SEDK': 3500,
+                            'DKSE': 3500}
+    weighting = network.lines.loc[network.lines.country!='DE', 's_nom'].\
+                groupby(network.lines.country).transform(lambda x: x/x.sum())
+    for country in cap_per_country:
+        index = network.lines[network.lines.country == country].index
+        network.lines.loc[index, 's_nom'] = \
+                                weighting[index] * cap_per_country[country] *\
+                                capacity_factor
+        if country == 'SE':
+            network.links.loc[network.links.country == country, 'p_nom'] =\
+                cap_per_country[country]
