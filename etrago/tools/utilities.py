@@ -338,8 +338,6 @@ def clip_foreign(network):
 
     # get foreign buses by country
 
-    #foreign_buses = buses_by_country(network)
-    
     foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     network.buses = network.buses.drop(
@@ -422,7 +420,6 @@ def foreign_links(network):
         Overall container of PyPSA
 
     """
-    #foreign_buses = buses_by_country(network)
     foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
@@ -470,7 +467,6 @@ def set_q_foreign_loads(network, cos_phi=1):
         Overall container of PyPSA
 
     """
-    #foreign_buses = buses_by_country(network)
     foreign_buses = network.buses[network.buses.country_code != 'DE']
 
     network.loads_t['q_set'][network.loads.index[
@@ -707,7 +703,7 @@ def set_slack(network):
     return network
 
 
-def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
+def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
     network_pf = network
 
@@ -715,6 +711,16 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
     if network_pf.lines.s_nom_extendable.any() or \
             network_pf.transformers.s_nom_extendable.any():
 
+        storages_extendable = network_pf.storage_units.p_nom_extendable.copy()
+        lines_extendable = network_pf.lines.s_nom_extendable.copy()
+        links_extendable = network_pf.links.p_nom_extendable.copy()
+        trafos_extendable = network_pf.transformers.s_nom_extendable.copy()
+        
+        storages_p_nom =  network_pf.storage_units.p_nom.copy()
+        lines_s_nom=  network_pf.lines.s_nom.copy()
+        links_p_nom =  network_pf.links.p_nom.copy()
+        trafos_s_nom =  network_pf.transformers.s_nom.copy()
+        
         network_pf.lines.x[network.lines.s_nom_extendable] = \
             network_pf.lines.x * network.lines.s_nom /\
             network_pf.lines.s_nom_opt
@@ -744,7 +750,20 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
         network_pf.storage_units.p_nom = network_pf.storage_units.p_nom_opt
         network_pf.links.p_nom = network_pf.links.p_nom_opt
 
-        network_pf.lopf(solver_name='gurobi')
+        network_pf.lopf(network.snapshots,
+            solver_name=args['solver'],
+            solver_options=args['solver_options'],
+            extra_functionality=extra_functionality)
+        
+        network_pf.storage_units.p_nom_extendable = storages_extendable
+        network_pf.lines.s_nom_extendable = lines_extendable 
+        network_pf.links.p_nom_extendable = links_extendable
+        network_pf.transformers.s_nom_extendable = trafos_extendable
+        
+        network_pf.storage_units.p_nom = storages_p_nom
+        network_pf.lines.s_nom = lines_s_nom
+        network_pf.links.p_nom = links_p_nom
+        network_pf.transformers.s_nom = trafos_s_nom
 
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
@@ -760,7 +779,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
     network_pf.links_t.p_set = network_pf.links_t.p0
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
-    if foreign_lines == 'DC':
+    if args['foreign_lines'] == 'DC':
         n_bus = pd.Series(index=network.sub_networks.index)
 
         for i in range(0, len(network.sub_networks.index)-1):
@@ -826,7 +845,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
 
     # if selected, copy lopf results of neighboring countries to network
-    if (foreign_lines == 'DC') & add_foreign_lopf:
+    if (args['foreign_lines'] == 'DC') & add_foreign_lopf:
         for comp in sorted(foreign_series):
             network.import_components_from_dataframe(foreign_comp[comp], comp)
 
@@ -848,6 +867,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
 def distribute_q(network, allocation='p_nom'):
 
+    network.allocation = allocation
     if allocation == 'p':
         p_sum = network.generators_t['p'].\
             groupby(network.generators.bus, axis=1).sum().\
@@ -865,7 +885,7 @@ def distribute_q(network, allocation='p_nom'):
             q_sum[network.storage_units.bus.sort_index()].values
 
     if allocation == 'p_nom':
-        
+
         q_bus = network.generators_t['q'].\
             groupby(network.generators.bus, axis=1).sum().add(
                 network.storage_units_t.q.groupby(
@@ -902,7 +922,6 @@ def distribute_q(network, allocation='p_nom'):
     q_distributed[q_distributed.abs() == np.inf] = 0
     q_storages[q_storages.isnull()] = 0
     q_storages[q_storages.abs() == np.inf] = 0
-    print()
     network.generators_t.q = q_distributed
     network.storage_units_t.q = q_storages
 
@@ -1316,6 +1335,7 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
 
     return network
 
+
 def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
     
     """
@@ -1411,6 +1431,32 @@ def ramp_limits(network):
     network.generators.start_up_cost = network.generators.start_up_cost\
                                         *network.generators.p_nom
     network.generators.committable = True
+
+
+def get_args_setting(args, jsonpath='scenario_setting.json'):
+    """
+    Get and open json file with scenaio settings of eTraGo ``args``.
+    The settings incluedes all eTraGo specific settings of arguments and 
+    parameters for a reproducible calculation.
+
+    Parameters
+    ----------
+    json_file : str
+        Default: ``scenario_setting.json``
+        Name of scenario setting json file
+
+    Returns
+    -------
+    args : dict
+        Dictionary of json file 
+    """
+ 
+    if not jsonpath == None:
+        with open(jsonpath) as f:
+            args = json.load(f)
+
+
+    return args
 
 
 def set_line_country_tags(network):

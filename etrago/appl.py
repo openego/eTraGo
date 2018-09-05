@@ -82,33 +82,38 @@ if 'READTHEDOCS' not in os.environ:
         add_missing_components,
         distribute_q,
         set_q_foreign_loads,
+        clip_foreign,
         foreign_links,
         crossborder_capacity,
         ramp_limits,
-        geolocation_buses)
+        geolocation_buses
+	get_args_setting)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 30,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
-         'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
+                         'NumericFocus': 3, 'BarConvTol':1.e-5,
+                         'FeasibilityTol':1.e-6, 
+                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False, #' ./results',  # save results as csv: False or /path/tofolder
+    'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': [],  # Array of components to optimize
@@ -119,7 +124,7 @@ args = {  # Setup and Configuration:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -129,6 +134,9 @@ args = {  # Setup and Configuration:
     'load_shedding': True, # meet the demand at very high cost
     'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
     'comments': None}
+
+
+args = get_args_setting(args, jsonpath = None)
 
 
 def etrago(args):
@@ -463,7 +471,11 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
+                bus_weight_fromcsv=None,
+                n_init=100,
+                max_iter=1000,
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -510,8 +522,9 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network, 
-                                   args['foreign_lines'], 
+        pf_solution = pf_post_lopf(network,
+                                   args,
+                                   extra_functionality,
                                    add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60

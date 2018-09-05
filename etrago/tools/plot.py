@@ -134,7 +134,7 @@ def plot_line_loading(
 
         loading_lines = pd.Series((network.lines_t.p0.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
-            timesteps]].abs().sum() / (network.lines.s_nom)).data,
+            timesteps]].abs().sum() / (network.lines.s_nom_opt)).data,
             index=array_line)
 
     else:
@@ -144,7 +144,7 @@ def plot_line_loading(
                     network.lines_t.q0.mul(
                             network.snapshot_weightings, axis=0)\
                     .loc[network.snapshots[timesteps]].abs().sum() ** 2).\
-                    apply(sqrt) / (network.lines.s_nom)).data, index =
+                    apply(sqrt) / (network.lines.s_nom_opt)).data, index =
                             array_line)
 
     # Aviod covering of bidirectional links
@@ -170,12 +170,12 @@ def plot_line_loading(
                             columns = ['to', 'from'])
         load['to'] = network.links_t.p0[row['linked_to']]
         load['from'] = network.links_t.p0[i]
-        link_load[i] = load.max(axis = 1)
+        link_load[i] = load.abs().max(axis = 1)
 
     loading_links = pd.Series((link_load.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
-            timesteps]].abs().sum()[network.links.index] / (network.links.p_nom
-            )).data, index=array_link).dropna()
+            timesteps]].abs().sum()[network.links.index] / (
+        network.links.p_nom_opt)).data, index=array_link).dropna()
 
     load_links_rel = (loading_links/  
                       network.snapshot_weightings\
@@ -1067,13 +1067,12 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
 
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
-    for area in [msd_max]:
-        plt.scatter([], [], c='grey', s=area * scaling,
-                    label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-        plt.scatter([], [], c='teal', s=20,
-                    label=' Hydrogen storage')
-        plt.scatter([], [], c='orangered', s=20,
-                    label=' Battery storage')
+    plt.scatter([], [], c='grey', s=msd_max * scaling,
+                label='= ' + str(round(msd_max, 0)) + LabelUnit + ' ')
+    plt.scatter([], [], c='teal', s=20,
+                label=' Hydrogen storage')
+    plt.scatter([], [], c='orangered', s=20,
+                label=' Battery storage')
     plt.legend(scatterpoints=1, labelspacing=1, title='Storage size', borderpad=1.3, loc=2)
 
     if filename is None:

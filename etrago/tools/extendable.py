@@ -108,7 +108,7 @@ def extendable(network, args):
                           's_nom_min'] = network.lines.s_nom
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
-                          's_nom_min'] = float("inf")
+                          's_nom_max'] = float("inf")
         
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
