@@ -112,14 +112,14 @@ args = {  # Setup and Configuration:
     'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storages'],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': False, # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -455,11 +455,7 @@ def etrago(args):
 
     # preselection of extendable lines
     if 'network_preselection' in args['extendable']:
-        extension_preselection(network, args, 'snapshot_clustering', 2)
-        
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+        extension_preselection(network, args, 'snapshot_clustering', 2)      
 
     # parallisation
     if args['parallelisation']:
