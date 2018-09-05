@@ -65,8 +65,8 @@ if 'READTHEDOCS' not in os.environ:
         gen_dist,
         storage_distribution,
         storage_expansion,
-        extension_overlay_network,
-        nodal_gen_dispatch)
+        nodal_gen_dispatch,
+        network_extension)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -112,7 +112,7 @@ args = {  # Setup and Configuration:
     'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['german_network', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -126,7 +126,7 @@ args = {  # Setup and Configuration:
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True, # meet the demand at very high cost
+    'load_shedding': False, # meet the demand at very high cost
     'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
@@ -231,6 +231,9 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
+            'german_network': set lines and transformers in German grid 
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
@@ -448,7 +451,11 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
+                bus_weight_fromcsv=None,
+                n_init=100,
+                max_iter=1000,
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
