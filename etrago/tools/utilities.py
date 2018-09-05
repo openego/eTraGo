@@ -779,7 +779,7 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     network_pf.links_t.p_set = network_pf.links_t.p0
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
-    if args['foreign_lines'] == 'DC':
+    if args['foreign_lines']['carrier'] == 'DC':
         n_bus = pd.Series(index=network.sub_networks.index)
 
         for i in range(0, len(network.sub_networks.index)-1):
@@ -845,7 +845,7 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
 
     # if selected, copy lopf results of neighboring countries to network
-    if (args['foreign_lines'] == 'DC') & add_foreign_lopf:
+    if (args['foreign_lines']['carrier'] == 'DC') & add_foreign_lopf:
         for comp in sorted(foreign_series):
             network.import_components_from_dataframe(foreign_comp[comp], comp)
 
