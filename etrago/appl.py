@@ -452,8 +452,8 @@ def etrago(args):
                 bus_weight_fromcsv=None,
                 n_init=100,
                 max_iter=1000,
-                tol=1e-9,
-                n_jobs=8)
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
