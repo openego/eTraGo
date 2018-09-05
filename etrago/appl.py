@@ -236,8 +236,9 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
-            'german_grid': set lines and transformers in German grid extendable
-            'foreign_grid': set foreign lines and transformers extendable
+            'german_network': set lines and transformers in German grid 
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
@@ -485,11 +486,7 @@ def etrago(args):
         
     # preselection of extendable lines
     if 'network_preselection' in args['extendable']:
-        extension_preselection(network, args, 'snapshot_clustering', 2)
-        
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']
+        extension_preselection(network, args, 'snapshot_clustering', 2)      
 
     # parallisation
     if args['parallelisation']:

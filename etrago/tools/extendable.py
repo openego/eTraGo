@@ -62,8 +62,9 @@ def extendable(network, args):
         network = set_line_costs(network)
         network = set_trafo_costs(network)
     
-    if 'german_grid' in args['extendable']:
-        buses = network.buses[network.buses.country_code == 'DE']
+    if 'german_network' in args['extendable']:
+        buses = network.buses[~network.buses.index.isin(
+                buses_by_country(network).index)]
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                           (network.lines.bus1.isin(buses.index)),
                           's_nom_extendable'] = True
@@ -97,9 +98,9 @@ def extendable(network, args):
         network = set_trafo_costs(network)
      
         
-    if 'foreign_grid' in args['extendable']:
-        buses = network.buses[~network.buses.index[
-                network.buses.country_code == 'DE']]
+    if 'foreign_network' in args['extendable']:
+        buses = network.buses[network.buses.index.isin(
+                buses_by_country(network).index)]
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index) ,
                           's_nom_extendable'] = True
