@@ -499,8 +499,9 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network, 
-                                   args['foreign_lines'], 
+        pf_solution = pf_post_lopf(network,
+                                   args,
+                                   extra_functionality,
                                    add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60
