@@ -388,7 +388,9 @@ def busmap_from_psql(network, session, scn_name):
 def kmean_clustering(network, n_clusters=10, load_cluster=False,
                      line_length_factor=1.25,
                      remove_stubs=False, use_reduced_coordinates=False,
-                     bus_weight_tocsv=None, bus_weight_fromcsv=None):
+                     bus_weight_tocsv=None, bus_weight_fromcsv=None,
+                     n_init=10, max_iter=300, tol=1e-4,
+                     n_jobs=1):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -544,7 +546,10 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         bus_weightings=pd.Series(weight),
         n_clusters=n_clusters,
         load_cluster=load_cluster,
-        n_jobs=-1)
+        n_init=n_init,
+        max_iter=max_iter,
+        tol=tol,
+        n_jobs=n_jobs)
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']

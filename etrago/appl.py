@@ -30,6 +30,7 @@ import os
 import os.path
 import time
 import numpy as np
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -119,14 +120,14 @@ args = {  # Setup and Configuration:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': False, # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': True, # meet the demand at very high cost
+    'load_shedding': False, # meet the demand at very high cost
     'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
 
@@ -448,7 +449,11 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None)
+                bus_weight_fromcsv=None,
+                n_init=100,
+                max_iter=1000,
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
