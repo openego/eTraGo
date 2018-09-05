@@ -30,7 +30,6 @@ import os
 import os.path
 import time
 import numpy as np
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -113,7 +112,7 @@ args = {  # Setup and Configuration:
     'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['german_grid', 'storages'],  # Array of components to optimize
+    'extendable': ['german_network', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -232,8 +231,9 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
-            'german_grid': set lines and transformers in German grid extendable
-            'foreign_grid': set foreign lines and transformers extendable
+            'german_network': set lines and transformers in German grid 
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
@@ -462,11 +462,7 @@ def etrago(args):
 
     # preselection of extendable lines
     if 'network_preselection' in args['extendable']:
-        extension_preselection(network, args, 'snapshot_clustering', 2)
-        
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
+        extension_preselection(network, args, 'snapshot_clustering', 2)      
 
     # parallisation
     if args['parallelisation']:
