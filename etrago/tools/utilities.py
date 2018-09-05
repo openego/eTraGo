@@ -549,11 +549,21 @@ def set_slack(network):
 def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
     network_pf = network
-
+        
     # Update x of extended lines and transformers
     if network_pf.lines.s_nom_extendable.any() or \
             network_pf.transformers.s_nom_extendable.any():
 
+        storages_extendable = network_pf.storage_units.p_nom_extendable.copy()
+        lines_extendable = network_pf.lines.s_nom_extendable.copy()
+        links_extendable = network_pf.links.p_nom_extendable.copy()
+        trafos_extendable = network_pf.transformers.s_nom_extendable.copy()
+        
+        storages_p_nom =  network_pf.storage_units.p_nom.copy()
+        lines_s_nom=  network_pf.lines.s_nom.copy()
+        links_p_nom =  network_pf.links.p_nom.copy()
+        trafos_s_nom =  network_pf.transformers.s_nom.copy()
+        
         network_pf.lines.x[network.lines.s_nom_extendable] = \
             network_pf.lines.x * network.lines.s_nom /\
             network_pf.lines.s_nom_opt
@@ -576,10 +586,23 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
         network_pf.lines.s_nom_extendable = False
         network_pf.transformers.s_nom_extendable = False
+        network_pf.storage_units.p_nom_extendable = False
+        network_pf.links.p_nom_extendable = False
         network_pf.lines.s_nom = network.lines.s_nom_opt
         network_pf.transformers.s_nom = network.transformers.s_nom_opt
+        network_pf.storage_units.p_nom = network_pf.storage_units.p_nom_opt
+        network_pf.links.p_nom = network_pf.links.p_nom_opt
 
         network_pf.lopf(solver_name='gurobi')
+        network_pf.storage_units.p_nom_extendable = storages_extendable
+        network_pf.lines.s_nom_extendable = lines_extendable 
+        network_pf.links.p_nom_extendable = links_extendable
+        network_pf.transformers.s_nom_extendable = trafos_extendable
+        
+        network_pf.storage_units.p_nom = storages_p_nom
+        network_pf.lines.s_nom = lines_s_nom
+        network_pf.links.p_nom = links_p_nom
+        network_pf.transformers.s_nom = trafos_s_nom
 
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
@@ -683,6 +706,7 @@ def pf_post_lopf(network, foreign_lines, add_foreign_lopf):
 
 def distribute_q(network, allocation='p_nom'):
 
+    network.allocation = allocation
     if allocation == 'p':
         p_sum = network.generators_t['p'].\
             groupby(network.generators.bus, axis=1).sum().\
@@ -700,7 +724,7 @@ def distribute_q(network, allocation='p_nom'):
             q_sum[network.storage_units.bus.sort_index()].values
 
     if allocation == 'p_nom':
-        
+
         q_bus = network.generators_t['q'].\
             groupby(network.generators.bus, axis=1).sum().add(
                 network.storage_units_t.q.groupby(
@@ -870,7 +894,7 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230, cost220=290, cost380=85):
+def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
@@ -884,6 +908,9 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     cost380 : capital costs per km for 380kV lines and cables
                 default: 85€/MVA/km, source: costs for extra circuit in
                 NEP 2025, capactity from most used 380 kV lines in NEP
+    costDC : capital costs per km for DC-lines
+                default: 375€/MVA/km, source: costs for DC transmission line 
+                in NEP 2035
     -------
 
     """
@@ -895,9 +922,10 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85):
     network.lines.loc[(network.lines.v_nom == 220) & network.lines.
                       s_nom_extendable,
                       'capital_cost'] = cost220 * network.lines.length
-    network.lines.loc[(network.lines.v_nom == 380) & network.lines.
-                      s_nom_extendable,
+    network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
+    network.links.loc[network.links.p_nom_extendable,
+                      'capital_cost'] = costDC * network.links.length
 
     return network
 
@@ -1148,3 +1176,87 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
                                                start_snapshot + 1))
 
     return network
+
+
+def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
+    
+    """
+    Function that returns snapshots with maximum and/or minimum feed-in of 
+    selected carrier.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    carrier: str
+        Selected carrier of generators
+    maximum: bool
+        Choose if timestep of maximal feed-in is returned.
+    minimum: bool
+        Choose if timestep of minimal feed-in is returned.
+    n: int
+        Number of maximal/minimal snapshots
+
+    Returns
+    -------
+    calc_snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
+        List containing snapshots
+    """
+    
+    if carrier == 'residual load':
+        power_plants = network.generators[network.generators.carrier.
+                                    isin(['solar', 'wind', 'wind_onshore'])]
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        load = network.loads_t.p_set.sum(axis=1)
+        all_renew = power_plants_t.sum(axis=1)
+        all_carrier = load - all_renew
+
+    if carrier in ('solar', 'wind', 'wind_onshore', 
+                   'wind_offshore', 'run_of_river'):
+        power_plants = network.generators[network.generators.carrier
+                                          == carrier]
+
+        power_plants_t = network.generators.p_nom[power_plants.index] * \
+                        network.generators_t.p_max_pu[power_plants.index]
+        all_carrier = power_plants_t.sum(axis=1)
+
+    if maximum and not minimum:
+       times = all_carrier.sort_values().head(n=n)
+
+    if minimum and not maximum:
+       times = all_carrier.sort_values().tail(n=n)
+
+    if maximum and minimum:
+        times = all_carrier.sort_values().head(n=n)
+        times = times.append(all_carrier.sort_values().tail(n=n))
+
+    calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
+
+    return calc_snapshots
+
+def get_args_setting(args, jsonpath='scenario_setting.json'):
+    """
+    Get and open json file with scenaio settings of eTraGo ``args``.
+    The settings incluedes all eTraGo specific settings of arguments and 
+    parameters for a reproducible calculation.
+
+    Parameters
+    ----------
+    json_file : str
+        Default: ``scenario_setting.json``
+        Name of scenario setting json file
+
+    Returns
+    -------
+    args : dict
+        Dictionary of json file 
+    """
+ 
+    if not jsonpath == None:
+        with open(jsonpath) as f:
+            args = json.load(f)
+
+
+    return args
+

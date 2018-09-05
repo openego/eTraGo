@@ -6,7 +6,9 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Centre for Sustainable Energy Systems, "
                  "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "mariusves"
+__author__ = ("ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, " 
+              "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, " 
+              "mariusves")
 
 
 setup(
@@ -15,7 +17,7 @@ setup(
     author_email='',
     description=("electrical Transmission Grid Optimization of flexibility "
                  "options for transmission grids based on PyPSA"),
-    version='0.6.1',
+    version='0.7.0',
     url='https://github.com/openego/eTraGo',
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),

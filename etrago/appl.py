@@ -83,33 +83,37 @@ if 'READTHEDOCS' not in os.environ:
         distribute_q,
         set_q_foreign_loads,
         clip_foreign,
-        foreign_links)
+        foreign_links,
+        get_args_setting)
     
-    from etrago.tools.extendable import extendable
+    from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
-    'solver': 'cplex',  # glpk, cplex or gurobi
-    'solver_options': {},#'threads':4, 'method':2, 'BarHomogeneous':1,
-         #'NumericFocus': 3, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo100
+    'solver': 'gurobi',  # glpk, cplex or gurobi
+    'solver_options': {'threads':4, 'method':2, 'BarHomogeneous':1,
+                         'NumericFocus': 3, 'BarConvTol':1.e-5,
+                         'FeasibilityTol':1.e-6, 
+                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,#' ./results',  # save results as csv: False or /path/tofolder
+    'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['network', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -126,6 +130,9 @@ args = {  # Setup and Configuration:
     'load_shedding': False, # meet the demand at very high cost
     'foreign_lines' : 'AC', # carrier of lines to/between foreign countries
     'comments': None}
+
+
+args = get_args_setting(args, jsonpath = None)
 
 
 def etrago(args):
@@ -231,6 +238,8 @@ def etrago(args):
             'storages': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'network_preselection': set only preselected lines extendable,
+                                    method is chosen in funcion call
 
 
     generator_noise : bool or int
@@ -397,8 +406,7 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args['extendable'],
-                    args['scn_extension'])
+                    args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
     
@@ -424,7 +432,6 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-    
 
     # ehv network clustering
     if args['network_clustering_ehv']:
@@ -451,6 +458,10 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
 
+    # preselection of extendable lines
+    if 'network_preselection' in args['extendable']:
+        extension_preselection(network, args, 'snapshot_clustering', 2)
+        
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshot_weightings=network.snapshot_weightings*args['skip_snapshots']                 
@@ -465,7 +476,7 @@ def etrago(args):
             solver_name=args['solver'],
             solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
-    
+
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         x = time.time()
