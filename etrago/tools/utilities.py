@@ -285,7 +285,24 @@ def foreign_links(network):
     foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
             foreign_buses.index) | network.lines.bus1.astype(str).isin(
             foreign_buses.index)]
+        
+    foreign_links = network.links[network.links.bus0.astype(str).isin(
+            foreign_buses.index) | network.links.bus1.astype(str).isin(
+            foreign_buses.index)]
+    
+    network.links = network.links.drop(
+            network.links.index[network.links.index.isin(foreign_links.index) 
+            & network.links.bus0.isin(network.links.bus1) & 
+            (network.links.bus0 > network.links.bus1)])
+        
+    foreign_links = network.links[network.links.bus0.astype(str).isin(
+            foreign_buses.index) | network.links.bus1.astype(str).isin(
+            foreign_buses.index)]
+    
+    network.links.loc[foreign_links.index, 'p_min_pu'] = -1
 
+    network.links.loc[foreign_links.index, 'efficiency'] = 1
+        
     network.import_components_from_dataframe(
         foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
         .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)

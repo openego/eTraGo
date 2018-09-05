@@ -66,8 +66,8 @@ if 'READTHEDOCS' not in os.environ:
         gen_dist,
         storage_distribution,
         storage_expansion,
-        extension_overlay_network,
-        nodal_gen_dispatch)
+        nodal_gen_dispatch,
+        network_extension)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -113,7 +113,7 @@ args = {  # Setup and Configuration:
     'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storages'],  # Array of components to optimize
+    'extendable': ['german_grid', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
@@ -232,6 +232,8 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
+            'german_grid': set lines and transformers in German grid extendable
+            'foreign_grid': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
