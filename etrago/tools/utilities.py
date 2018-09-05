@@ -313,8 +313,7 @@ def buses_by_country(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
-    network.buses['country_code'] = foreign_buses[
-            foreign_buses.index == network.buses.index]
+    network.buses['country_code'] = foreign_buses[network.buses.index]
     network.buses['country_code'].fillna('DE', inplace=True)
 
     return foreign_buses
