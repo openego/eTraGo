@@ -34,7 +34,7 @@ setup(
                       'oedialect'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
-         '@dev#egg=pypsa-0.11.0fork')],
+         '@master#egg=pypsa-0.11.0fork')],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
