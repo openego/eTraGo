@@ -30,6 +30,7 @@ import os
 import os.path
 import time
 import numpy as np
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -84,16 +85,22 @@ if 'READTHEDOCS' not in os.environ:
         distribute_q,
         set_q_foreign_loads,
         clip_foreign,
-        re_share)
+        foreign_links,
+        crossborder_capacity,
+        ramp_limits,
+        geolocation_buses,
+        get_args_setting)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    import oedialect
+    
 
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.4',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -113,6 +120,7 @@ args = {  # Setup and Configuration:
     'extendable': ['storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
+    'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
     'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
@@ -124,8 +132,12 @@ args = {  # Setup and Configuration:
     'skip_snapshots': 3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
-    'load_shedding': False,  # meet the demand at very high cost
+    'load_shedding': False, # meet the demand at very high cost
+    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
     'comments': None}
+
+
+args = get_args_setting(args, jsonpath = None)
 
 
 def etrago(args):
@@ -225,12 +237,17 @@ def etrago(args):
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
+            'german_network': set lines and transformers in German grid 
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
             'storages': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'network_preselection': set only preselected lines extendable,
+                                    method is chosen in function call
 
 
     generator_noise : bool or int
@@ -241,6 +258,11 @@ def etrago(args):
     minimize_loading : bool
         False,
         ...
+    ramp_limits : bool
+        False,
+        State if you want to consider ramp limits of generators. 
+        Increases time for solving significantly.
+        Only works when calculating at least 30 snapshots.
 
     network_clustering_kmeans : bool or int
         False,
@@ -290,6 +312,12 @@ def etrago(args):
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
         generators cannot do so.
+    
+    foreign_lines : dict
+        {'carrier':'AC', 'capacity': 'osm_tGmod}'
+        Choose transmission technology and capacity of foreign lines: 
+            'carrier': 'AC' or 'DC'
+            'capacity': 'osm_tGmod', 'ntc_acer' or 'thermal_acer'
 
     comments : str
         None
@@ -325,8 +353,20 @@ def etrago(args):
     # add coordinates
     network = add_coordinates(network)
     
+    # Set countrytags of buses, lines, links and transformers
+    network = geolocation_buses(network, session)
+    
     # Set q_sets of foreign loads
     network =  set_q_foreign_loads(network, cos_phi = 1)
+    
+    # Change transmission technology and/or capacity of foreign lines
+    if args['foreign_lines']['carrier'] == 'DC':
+        foreign_links(network)
+        network = geolocation_buses(network, session)
+        
+    if args['foreign_lines']['capacity'] != 'osmTGmod':
+        crossborder_capacity(network, args['foreign_lines']['capacity'],
+                               args['branch_capacity_factor'])
 
     # variation of storage costs
    # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.1
@@ -369,6 +409,7 @@ def etrago(args):
                     scn_extension=args['scn_extension'][i],
                     start_snapshot=args['start_snapshot'],
                     end_snapshot=args['end_snapshot'])
+        network = geolocation_buses(network, session)
             
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
@@ -385,11 +426,16 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args['extendable'],
-                    args['scn_extension'])
+                    args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-             
+    
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
+            
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
@@ -423,7 +469,11 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv='/home/lukas_wienholt/eTraGo/bus_weight.csv')
+                bus_weight_fromcsv=None,
+                n_init=100,
+                max_iter=1000,
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -465,7 +515,10 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network)
+        pf_solution = pf_post_lopf(network,
+                                   args,
+                                   extra_functionality,
+                                   add_foreign_lopf=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))

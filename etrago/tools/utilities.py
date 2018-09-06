@@ -31,6 +31,18 @@ import pypsa
 import json
 import logging
 import math
+
+
+geopandas = True
+try:
+    import geopandas as gpd
+    from shapely.geometry import Point
+    import geoalchemy2
+    from egoio.db_tables.model_draft import RenpassGisParameterRegion
+
+except:
+    geopandas = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +129,8 @@ def analyse(network):
     print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
 
     return network
+
+
 
 def clip_foreign(network):
     """
