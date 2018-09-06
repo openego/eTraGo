@@ -22,7 +22,7 @@ setup(
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['egoio == 0.4.1',
+    install_requires=['egoio == 0.4.5',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
                       'pypsa==0.11.0fork',
@@ -30,7 +30,8 @@ setup(
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib >= 1.5.3, <=1.5.3',
                       'tsam==0.9.9',
-                      'shapely'],
+                      'shapely',
+                      'oedialect'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
          '@dev#egg=pypsa-0.11.0fork')],
