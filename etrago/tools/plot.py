@@ -1021,10 +1021,10 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
 
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(6, 6)
-
+    
     msd_max = storage_distribution.max()
-    msd_median = storage_distribution[storage_distribution != 0].median()
-    msd_min = storage_distribution[storage_distribution > 1].min()
+    msd_max_bat = battery_distribution.max()
+    msd_max_hyd = hydrogen_distribution.max()
 
     if msd_max != 0:
         LabelVal = int(log10(msd_max))
@@ -1032,16 +1032,18 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         LabelVal = 0
     if LabelVal < 0:
         LabelUnit = 'kW'
-        msd_max, msd_median, msd_min = msd_max * \
-            1000, msd_median * 1000, msd_min * 1000
-        storage_distribution = storage_distribution * 1000
+        msd_max, msd_max_bat, msd_max_hyd = msd_max * \
+            1000, msd_max_bat * 1000, msd_max_hyd * 1000
+        battery_distribution = battery_distribution * 1000
+        hydrogen_distribution = hydrogen_distribution * 1000
     elif LabelVal < 3:
         LabelUnit = 'MW'
     else:
         LabelUnit = 'GW'
-        msd_max, msd_median, msd_min = msd_max / \
-            1000, msd_median / 1000, msd_min / 1000
-        storage_distribution = storage_distribution / 1000
+        msd_max, msd_max_bat, msd_max_hyd = msd_max / \
+            1000, msd_max_bat / 1000, msd_max_hyd / 1000
+        battery_distribution = battery_distribution / 1000
+        hydrogen_distribution = hydrogen_distribution / 1000
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
@@ -1065,15 +1067,13 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         bmap.drawcountries()
         bmap.drawcoastlines()
 
-    # Here we create a legend:
-    # we'll plot empty lists with the desired size and label
-    plt.scatter([], [], c='grey', s=msd_max * scaling,
-                label='= ' + str(round(msd_max, 0)) + LabelUnit + ' ')
-    plt.scatter([], [], c='teal', s=20,
-                label=' Hydrogen storage')
-    plt.scatter([], [], c='orangered', s=20,
-                label=' Battery storage')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size', borderpad=1.3, loc=2)
+    if msd_max_hyd !=0:
+        plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
+                label='= ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
+    if msd_max_bat !=0:
+        plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
+                label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
+    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
 
     if filename is None:
         plt.show()
