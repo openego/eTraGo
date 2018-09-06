@@ -16,6 +16,7 @@
     "extendable":  "['network', 'storages']",
     "generator_noise": 789456,
     "minimize_loading": false,
+    "ramp_limits": false,
     "network_clustering_kmeans": 30,
     "load_cluster": false,
     "network_clustering_ehv": false,
@@ -26,6 +27,6 @@
     "line_grouping": false,
     "branch_capacity_factor": 0.7,
     "load_shedding": false,
-    "foreign_lines" : "AC",
+    "foreign_lines" :{"carrier": "AC", "capacity": "osmTGmod"},
     "comments": ""
   }
