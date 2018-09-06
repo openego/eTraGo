@@ -30,7 +30,8 @@ setup(
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib >= 1.5.3, <=1.5.3',
                       'tsam==0.9.9',
-                      'shapely'],
+                      'shapely',
+                      'oedialect'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
          '@dev#egg=pypsa-0.11.0fork')],
