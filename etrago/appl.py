@@ -31,6 +31,7 @@ import os.path
 import time
 import numpy as np
 import pandas as pd
+import oedialect
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
