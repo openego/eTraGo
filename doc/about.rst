@@ -2,15 +2,16 @@
 About eTraGo
 ============
 
-Optimization of flexibility options for transmission grids based on PyPSA.
+eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization
 
-A speciality in this context is that transmission grids are described by the
-380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the
-distribution grid. The integration of the transmission and 'upper' distribution
-grid is part of eTraGo.
+The python package eTraGo provides optimization strategies of flexibility options 
+for transmission grids based on PyPSA. A peculiarity in this context is that 
+the German transmission grid is described by the 380, 220 and 110 kV voltage levels. 
+Conventionally the 110kV grid is part of the distribution grid. The integration of 
+the transmission and ‘upper’ distribution grid is part of eTraGo.
 
 The focus of optimization are flexibility options with a special focus on
-energy storages and grid expansion measures.
+energy storage and grid expansion measures.
 
 
 
@@ -22,9 +23,9 @@ This software project is part of the research project
 
 The OpenEnergy Platform
 =======================
-With in this project we developted the OpenEnergy Platform which this software
+Within this project we developed the OpenEnergy Platform which this software
 is using in order to get and store the in- and output data. Before you start to
-calculate a registration on the platform is needed. For more see
+calculate a registration on the platform is needed. For more information see
 `openenergy-platform <https://openenergy-platform.org/>`_ and login.
 
 The OpenEnergy platform mainly addresses students, researchers and scientists in 
@@ -48,20 +49,6 @@ Model overview
    :scale: 75%
 
 
-
-eTraGo
-======
-
-The python package eTraGo provides a optimization of flexibility options for
-transmission grids based on PyPSA.A speciality in this context is that transmission
-grids are described by the 380, 220 and 110 kV in Germany. Conventionally the
-110kV grid is part of the distribution grid. The integration of the transmission
-and ‘upper’ distribution grid is part of eTraGo.
-
-The focus of optimization are flexibility options with a special focus on
-energy storages and grid expansion measures.
-
-
 eDisGo
 ======
 The python package eDisGo provides a toolbox for analysis and optimization
@@ -74,8 +61,8 @@ eGo
 ===
 
 The python package eGo is a toolbox and application which connects the tool eTraGo
-with a Optimization of flexibility options for transmission grids based on PyPSA
-and eDisGo which analysis and optimization distribution grids. All those python
+(optimization of flexibility options at transmission grid level)
+and eDisGo (optimization of distribution grids). All those python
 packages are part of the research project 
 `open_eGo <https://openegoproject.wordpress.com>`_. 
 `Learn more here <http://openego.readthedocs.io/>`_.
@@ -84,15 +71,15 @@ packages are part of the research project
 Dataprocessing
 ==============
 
-For the open_eGo project several python packages are developt which are feeded 
+For the open_eGo project several python packages are developed which are feeded 
 by the input data of the data processing. The Dataprocessing is writen in 
 SQL and Python. `Learn more here <https://data-processing.readthedocs.io/>`_.
 
 ego.io
 ======
 
-SQLAlchemy Interface to the OpenEnergy database (oedb).OEDB table ORM objects 
-are defined here and small helpers for io tasks are contained.
+The ego.io serves as a SQLAlchemy Interface to the OpenEnergy database (oedb). The 
+oedb table ORM objects are defined here and small helpers for io tasks are contained.
 `Learn more here <https://github.com/openego/ego.io>`_.
 
 
