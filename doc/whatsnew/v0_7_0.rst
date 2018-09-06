@@ -1,6 +1,6 @@
 Release 0.7.0 (September 6, 2018)
 ++++++++++++++++++++++++++++
-eTraGo is able to produce feasible non-linear power flows based on optimization results and disaggregates clustered results back to original spatial complexities. 
+eTraGo is able to produce feasible non-linear power flows based on optimization results and allows the disaggregation of clustered results to original spatial complexities. 
 
 Added features
 --------------
