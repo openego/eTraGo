@@ -37,8 +37,6 @@ geopandas = True
 try:
     import geopandas as gpd
     from shapely.geometry import Point
-    from sqlalchemy import MetaData
-    from sqlalchemy.ext.automap import automap_base
     import geoalchemy2
     from egoio.db_tables.model_draft import RenpassGisParameterRegion
 
