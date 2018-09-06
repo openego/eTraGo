@@ -37,9 +37,8 @@ geopandas = True
 try:
     import geopandas as gpd
     from shapely.geometry import Point
-    from sqlalchemy import MetaData
-    from sqlalchemy.ext.automap import automap_base
     import geoalchemy2
+    from egoio.db_tables.model_draft import RenpassGisParameterRegion
 
 except:
     geopandas = False
@@ -122,18 +121,8 @@ def geolocation_buses(network, session):
      # ToDo: check eTrago stack generation plots and other in order of adaptation
      # Start db connetion
      # get renpassG!S scenario data
-
-         meta = MetaData()
-         meta.bind = session.bind
-         conn = meta.bind
-         # get db table
-         meta.reflect(bind=conn, schema='model_draft',
-                  only=['renpass_gis_parameter_region'])
-
-         # map to classes
-         Base = automap_base(metadata=meta)
-         Base.prepare()
-         RenpassGISRegion = Base.classes.renpass_gis_parameter_region
+    
+         RenpassGISRegion = RenpassGisParameterRegion
 
          # Define regions
          region_id = ['DE', 'DK', 'FR', 'BE', 'LU', 'AT',
