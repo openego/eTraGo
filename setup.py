@@ -22,7 +22,7 @@ setup(
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['egoio == 0.4.1',
+    install_requires=['egoio == 0.4.5',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
                       'pypsa==0.11.0fork',
