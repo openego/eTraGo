@@ -21,7 +21,7 @@
 """ This module contains functions for calculating representative days/weeks
 based on a pyPSA network object. It is designed to be used for the `lopf`
 method. Essentially the tsam package
-( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by 
+( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by
 Leander Kotzur is used.
 
 Remaining questions/tasks:
@@ -31,8 +31,10 @@ Remaining questions/tasks:
 """
 
 import pandas as pd
-import pyomo.environ as po
-import tsam.timeseriesaggregation as tsam
+import os
+if 'READTHEDOCS' not in os.environ:
+    import pyomo.environ as po
+    import tsam.timeseriesaggregation as tsam
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -42,6 +44,8 @@ __author__ = "Simon Hilpert"
 
 
 def snapshot_clustering(network, how='daily', clusters=10):
+    """
+    """
 
     network = run(network=network.copy(), n_clusters=clusters,
                   how=how, normed=False)
@@ -106,13 +110,11 @@ def run(network, n_clusters=None, how='daily',
         normed=False):
     """
     """
-    # reduce storage costs due to clusters
-    network.cluster = True
 
     # calculate clusters
     tsam_ts, cluster_weights, dates, hours = tsam_cluster(
-            prepare_pypsa_timeseries(network), typical_periods=n_clusters,
-            how='daily')
+        prepare_pypsa_timeseries(network), typical_periods=n_clusters,
+        how='daily')
 
     update_data_frames(network, cluster_weights, dates, hours)
 
@@ -122,16 +124,19 @@ def run(network, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
-
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
+        normed_loads.columns = 'L' + normed_loads.columns
         normed_renewables = network.generators_t.p_max_pu
+        normed_renewables.columns = 'G' + normed_renewables.columns
 
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
         loads = network.loads_t.p_set
+        loads.columns = 'L' + loads.columns
         renewables = network.generators_t.p_set
+        renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
     return df
@@ -177,24 +182,23 @@ def update_data_frames(network, cluster_weights, dates, hours):
 def daily_bounds(network, snapshots):
     """ This will bound the storage level to 0.5 max_level every 24th hour.
     """
-    if network.cluster:
 
-        sus = network.storage_units
-        # take every first hour of the clustered days
-        network.model.period_starts = network.snapshot_weightings.index[0::24]
+    sus = network.storage_units
+    # take every first hour of the clustered days
+    network.model.period_starts = network.snapshot_weightings.index[0::24]
 
-        network.model.storages = sus.index
+    network.model.storages = sus.index
 
-        def day_rule(m, s, p):
-            """
-            Sets the soc of the every first hour to the soc of the last hour
-            of the day (i.e. + 23 hours)
-            """
-            return (
-                m.state_of_charge[s, p] ==
-                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+    def day_rule(m, s, p):
+        """
+        Sets the soc of the every first hour to the soc of the last hour
+        of the day (i.e. + 23 hours)
+        """
+        return (
+              m.state_of_charge[s, p] ==
+               m.state_of_charge[s, p + pd.Timedelta(hours=23)])
 
-        network.model.period_bound = po.Constraint(
+    network.model.period_bound = po.Constraint(
             network.model.storages, network.model.period_starts, rule=day_rule)
 
 

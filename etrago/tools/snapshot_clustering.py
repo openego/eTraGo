@@ -21,12 +21,12 @@
 """
 Please add Header!
 """
-
-import matplotlib.pyplot as plt
-import numpy as np
-from scipy.cluster.hierarchy import dendrogram
 import pandas as pd
 import os
+if 'READTHEDOCS' not in os.environ:
+    import matplotlib.pyplot as plt
+    import numpy as np
+    from scipy.cluster.hierarchy import dendrogram
 
 
 ###############################################################################

@@ -1,0 +1,16 @@
+Release 0.7.0 (September 6, 2018)
+++++++++++++++++++++++++++++
+eTraGo is able to produce feasible non-linear power flows based on optimization results and allows the disaggregation of clustered results to original spatial complexities. 
+
+Added features
+--------------
+
+* The pf_post_lopf function was improved. Due to changes in the data set now the non-linear power flow (pf) creates feasible solutions. If network optimization is turned on, a second lopf which regards the updated reactances and optimizes only dispatch is performed before the pf is executed.
+* The disaggregation method was included. When using a network clustering method to reduce the spatial complexity of the given network, a disaggregation method can be used afterwards to distribute the nodal results (generation and storage timeseries) to the original complexity. The method 'disaggregation': 'uniform' can be used as an interface functionality for distribution grid planning tools like eDisGo. 
+* For the network expansion it is now additionally possible to only optimize the German power lines or only the crossborder lines. Moreover one can choose to optimize only a predefined set of power lines which are identified by a worst-case analysis beforehand.
+* Intertemporal constraints can be applied to certain power plants. For different technologies certain parameters i.e. 'start_up_cost', 'start_up_fuel', 'min_up_time' and 'min_down_time' are defined in the ramp_limits function.
+* Crossborder lines can now easily be modelled as 'DC' links. Moreover the capacities of these lines can be adjusted with respect to a ACER report on thermal as well as net transfer capacities.
+* Thanks to @jankaeh manually the grid topology within the cities Stuttgart, Munich and Hannover was improved. Perspectively this function should be obsolete when openstreetmap and/or osmTGmod get better data coverage.
+* As an alternative to the normal editing of the calcualtion settings (args) within the appl.py it is now possible to load an args.json file.
+
+
