@@ -31,7 +31,6 @@ import os.path
 import time
 import numpy as np
 import pandas as pd
-import oedialect
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -94,6 +93,7 @@ if 'READTHEDOCS' not in os.environ:
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
+    import oedialect
     
 
 args = {  # Setup and Configuration:
