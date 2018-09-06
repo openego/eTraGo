@@ -2,7 +2,7 @@
 About eTraGo
 ============
 
-eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization
+eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization.
 
 The python package eTraGo provides optimization strategies of flexibility options 
 for transmission grids based on PyPSA. A peculiarity in this context is that 
