@@ -246,7 +246,7 @@ def etrago(args):
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
             'network_preselection': set only preselected lines extendable,
-                                    method is chosen in funcion call
+                                    method is chosen in function call
 
 
     generator_noise : bool or int
