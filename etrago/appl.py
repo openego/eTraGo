@@ -66,7 +66,7 @@ if 'READTHEDOCS' not in os.environ:
         gen_dist,
         storage_distribution,
         storage_expansion,
-        extension_overlay_network,
+        network_extension,
         nodal_gen_dispatch,
         storage_soc,
         storage_p)
@@ -89,7 +89,8 @@ if 'READTHEDOCS' not in os.environ:
         crossborder_capacity,
         ramp_limits,
         geolocation_buses,
-        get_args_setting)
+        get_args_setting,
+        analyse)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -114,7 +115,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/lukas_wienholt/results/nep-3-500',  # save results as csv: False or /path/tofolder
+    'results': '/home/lukas_wienholt/results/nep-3-300',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storages'],  # Array of components to optimize
@@ -122,7 +123,7 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
@@ -468,12 +469,12 @@ def etrago(args):
                 line_length_factor= 1,
                 remove_stubs=False,
                 use_reduced_coordinates=False,
-                bus_weight_tocsv=None,
+                bus_weight_tocsv='/home/lukas_wienholt/eTraGo/bus_weight.csv',
                 bus_weight_fromcsv=None,
-                n_init=100,
+                n_init=2500,
                 max_iter=1000,
-                tol=1e-8,
-                n_jobs=-2)
+                tol=1e-20,
+                n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
