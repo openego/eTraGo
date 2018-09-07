@@ -48,6 +48,7 @@ try:
 except:
     basemap_present = False
 
+
 def add_coordinates(network):
     """
     Add coordinates to nodes based on provided geom
@@ -125,13 +126,11 @@ def plot_line_loading(
 
     # calculate relative line loading as S/S_nom
     # with S = sqrt(P^2 + Q^2)
-    x = time.time()
     cmap = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     array_link = [['Link'] * len(network.links), network.links.index]
     
     if network.lines_t.q0.empty:
-        array_line = [['Line'] * len(network.lines), network.lines.index]
 
         loading_lines = pd.Series((network.lines_t.p0.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
@@ -240,9 +239,6 @@ def plot_line_loading(
         plt.savefig(filename)
         plt.close()
 
-    y = time.time()
-    z = (y - x) / 60
-    print(z)
 
 
 def plot_line_loading_diff(networkA, networkB, timestep=0):
@@ -995,7 +991,6 @@ def storage_distribution(network, scaling=1, filename=None):
 def storage_expansion(network, basemap=True, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
-
     Displays storage size and distribution in network.
     Parameters
     ----------
@@ -1489,8 +1484,9 @@ def nodal_production_balance(
     if filename:
         plt.savefig(filename)
         plt.close()
+        
+    return 
 
-    return
 
 def storage_p(network, filename = None):
 
@@ -1566,6 +1562,6 @@ def storage_soc(network, filename = None):
         plt.close()
 
     return
-
+    
 if __name__ == '__main__':
     pass
