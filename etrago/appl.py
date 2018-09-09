@@ -115,7 +115,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/lukas_wienholt/results/nep-3-300',  # save results as csv: False or /path/tofolder
+    'results': '/home/lukas_wienholt/results/nep-3-700',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storages'],  # Array of components to optimize
@@ -123,7 +123,7 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 700,  # False or the value k for clustering
     'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
@@ -370,7 +370,7 @@ def etrago(args):
                                args['branch_capacity_factor'])
 
     # variation of storage costs
-   # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.1
+   # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.05
 
     # set extra_functionality to default
     extra_functionality = None
@@ -478,12 +478,6 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-    
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
 
     # parallisation
     if args['parallelisation']:

@@ -1,6 +1,10 @@
-name_of_run,scenario,data_version,solver,k,variation_1,variation_2,objective,solver_time[min],total_re_share,extendable_storage_capacity[MW],total_costs_extendable_storage,hydrogen_capacity,battery_capacity,number_hydrogen_storage_units,number_battery_storage_units
-nep-3-100,NEP 2035,v0.4.4,gurobi,100,None,None,10258149744,33,57.46,4097,267949743,4097,0,1,0
-nep-3-200,NEP 2035,v0.4.4,gurobi,200,None,None,9956026017,128,57.28,647,42357693,531,115,1,1
-nep-3-300,NEP 2035,v0.4.4,gurobi,300,None,None,10406998888,171,56.49,132,8666649,90,41,1,1
-nep-3-400,NEP 2035,v0.4.4,gurobi,400,None,None,10763100911,149,56.67,374,24509533,198,175,2,2
-nep-3-600,NEP 2035,v0.4.4,gurobi,600,None,None,10988154290,509,56.44,1060,69379480,878,181,2,4
+date,name_of_run,scenario,data_version,solver,k,inertia,variation_1,variation_2,objective,solver_time[min],total_re_share,extendable_storage_capacity[MW],total_costs_extendable_storage,hydrogen_capacity,battery_capacity,number_hydrogen_storage_units,number_battery_storage_units
+2018-09-08,nep-3-200,NEP 2035,V0.4.5,gurobi,200,1499.76272399,None,None,10162989790,28,56.74,215,14074594,215,0,1,0
+2018-09-08,nep-3-300,NEP 2035,V0.4.5,gurobi,300,905.159724538,None,None,10401672624,52,56.33,214,14027979,214,0,1,0
+2018-09-08,nep-3-400,NEP 2035,V0.4.5,gurobi,400,624.001540871,None,None,10789083739,103,56.25,470,30828695,324,143,2,3
+2018-09-08,nep-3-500,NEP 2035,V0.4.5,gurobi,500,453.125649241,None,None,11185655107,142,56.39,1601,104983755,1015,587,1,4
+2018-09-09,nep-3-500-5,NEP 2035,V0.4.5,gurobi,500,453.125649241,-5% storage costs,None,11180251398,153,56.4,1701,105940122,1032,669,1,4
+2018-09-09,nep-3-500+5,NEP 2035,V0.4.5,gurobi,500,453.125649241,+5% storage costs,None,11190807175,153,56.39,1513,104157049,995,517,1,4
+2018-09-09,nep-3-500-10,NEP 2035,V0.4.5,gurobi,500,453.125649241,-10% storage costs,None,11174503149,155,56.41,1809,106741285,1048,761,1,4
+2018-09-09,nep-3-500+10,NEP 2035,V0.4.5,gurobi,500,453.125649241,+10% storage costs,None,11195623687,153,56.38,1430,103060666,973,456,1,2
+2018-09-09,nep-3-600,NEP 2035,V0.4.5,gurobi,600,342.961113408,None,None,11293574149,209,55.96,708,46583519,0,708,0,4
