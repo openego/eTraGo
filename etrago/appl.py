@@ -102,7 +102,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1, 'NumericFocus': 3,'BarConvTol':1.e-5,
                         'FeasibilityTol':1.e-5, 
@@ -113,18 +113,18 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/openego/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext',  # save results as csv: False or /path/tofolder
+    'results': '/home/ulf/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storages'],  # Array of components to optimize
+    'extendable': ['storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -432,11 +432,17 @@ def etrago(args):
                     args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
+            
     network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_extendable'] = True
     network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_extendable'] = True
     network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom']
     network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom']
-
+    
+    network.storage_units.loc[network.storage_units.carrier == 'battery_storage', 'capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'capital_cost'].max()
+    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'capital_cost'].max()
+    
+    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'marginal_cost'].max()
+    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'marginal_cost'].max()
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -477,7 +483,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv="/home/openego/eTraGo/etrago/bus_weighting_sq045.csv",
+                bus_weight_fromcsv=None,
                 n_init=10,
                 max_iter=1000,
                 tol=1e-20,
