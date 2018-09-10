@@ -115,7 +115,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/lukas_wienholt/results/nep-3-700',  # save results as csv: False or /path/tofolder
+    'results': '/home/lukas_wienholt/results/nep-5-full',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storages'],  # Array of components to optimize
@@ -123,14 +123,14 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 700,  # False or the value k for clustering
+    'network_clustering_kmeans': False,#700,  # False or the value k for clustering
     'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': 5,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
