@@ -102,18 +102,18 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2,'BarConvTol':1.e-5,
-                         'FeasibilityTol':1.e-6, 
-                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1, 'NumericFocus': 3,'BarConvTol':1.e-5,
+                        'FeasibilityTol':1.e-5, 
+                        'logFile':'gurobi_eTraGo_300ego.log'},  # {} for default or dict of solver options
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': './results',  # save results as csv: False or /path/tofolder
+    'results': '/home/openego/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storages'],  # Array of components to optimize
@@ -121,14 +121,14 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': False,
+    'skip_snapshots': 5,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
@@ -387,7 +387,7 @@ def etrago(args):
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
         network.generators.marginal_cost += \
-            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
+            abs(s.normal(0, 0.1, len(network.generators.marginal_cost)))
 
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
@@ -432,7 +432,12 @@ def etrago(args):
                     args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-    
+    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_extendable'] = True
+    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_extendable'] = True
+    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom']
+    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom']
+
+
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
@@ -472,11 +477,11 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None,
-                n_init=100,
+                bus_weight_fromcsv="/home/openego/eTraGo/etrago/bus_weighting_sq045.csv",
+                n_init=10,
                 max_iter=1000,
-                tol=1e-8,
-                n_jobs=-2)
+                tol=1e-20,
+                n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
