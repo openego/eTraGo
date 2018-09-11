@@ -1576,3 +1576,40 @@ def crossborder_capacity(network, method, capacity_factor):
             network.links.loc[i_links, 'p_nom'] = \
                                 weighting_links[i_links] * cap_per_country\
                                 [country]*capacity_factor
+
+
+def set_branch_capacity(network, args):
+    
+    """
+    Set branch capacity factor of lines and transformers, different factors for
+    HV (110kV) and eHV (220kV, 380kV). 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Settings in appl.py
+
+    """         
+
+    network.lines["v_nom"] = network.lines.bus0.map(
+        network.buses.v_nom)
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom)
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom)
+
+    network.lines.s_nom[network.lines.v_nom == 110] = network.lines.s_nom * \
+            args['branch_capacity_factor']['HV']
+
+    network.lines.s_nom[network.lines.v_nom > 110] = network.lines.s_nom * \
+            args['branch_capacity_factor']['eHV']
+
+    network.transformers.s_nom[network.transformers.v_nom0 == 110]\
+        = network.transformers.s_nom * \
+            args['branch_capacity_factor']['HV']
+
+    network.transformers.s_nom[network.transformers.v_nom0 > 110]\
+        = network.transformers.s_nom * \
+            args['branch_capacity_factor']['eHV']
