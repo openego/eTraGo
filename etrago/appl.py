@@ -96,6 +96,7 @@ if 'READTHEDOCS' not in os.environ:
     import oedialect
     
 
+
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
@@ -116,7 +117,7 @@ args = {  # Setup and Configuration:
     'results': '/home/ulf/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storages'],  # Array of components to optimize
+    'extendable': ['foreign_storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
@@ -432,17 +433,6 @@ def etrago(args):
                     args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-            
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_extendable'] = True
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_extendable'] = True
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom']
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom']
-    
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage', 'capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'capital_cost'].max()
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'capital_cost'].max()
-    
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'marginal_cost'].max()
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'marginal_cost'].max()
 
     # skip snapshots
     if args['skip_snapshots']:

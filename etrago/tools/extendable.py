@@ -156,6 +156,41 @@ def extendable(network, args):
         network.generators.p_nom_extendable = True
         network.generators.p_nom_min = network.generators.p_nom
         network.generators.p_nom_max = float("inf")
+        
+    if 'foreign_storage' in args['extendable']:
+        network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])) & (
+                network.storage_units.carrier.isin(
+                        ['battery_storage','hydrogen_storage'] ))] = True
+
+        network.storage_units.loc[
+                network.storage_units.p_nom_max.isnull(),'p_nom_max'] = \
+                network.storage_units.p_nom
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'battery_storage'),
+                'capital_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') 
+                & (network.storage_units.max_hours == 6),'capital_cost'].max()
+
+        network.storage_units.loc[ 
+                (network.storage_units.carrier == 'hydrogen_storage'),
+                'capital_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.max_hours == 168),'capital_cost'].max()
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'battery_storage'),
+                'marginal_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') 
+                & (network.storage_units.max_hours == 6),'marginal_cost'].max()
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'hydrogen_storage'),
+                'marginal_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.max_hours == 168),'marginal_cost'].max()
+
 
     # Extension settings for extension-NEP 2035 scenarios
     if 'NEP Zubaunetz' in args['extendable']:
