@@ -1597,8 +1597,6 @@ def set_branch_capacity(network, args):
         network.buses.v_nom)
     network.transformers["v_nom0"] = network.transformers.bus0.map(
         network.buses.v_nom)
-    network.transformers["v_nom1"] = network.transformers.bus1.map(
-        network.buses.v_nom)
 
     network.lines.s_nom[network.lines.v_nom == 110] = network.lines.s_nom * \
             args['branch_capacity_factor']['HV']
