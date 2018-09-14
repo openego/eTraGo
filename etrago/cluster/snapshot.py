@@ -110,6 +110,8 @@ def run(network, n_clusters=None, how='daily',
         normed=False):
     """
     """
+    # reduce storage costs due to clusters
+    network.cluster = True
 
     # calculate clusters
     tsam_ts, cluster_weights, dates, hours = tsam_cluster(
@@ -124,19 +126,16 @@ def run(network, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
+
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
-        normed_loads.columns = 'L' + normed_loads.columns
         normed_renewables = network.generators_t.p_max_pu
-        normed_renewables.columns = 'G' + normed_renewables.columns
 
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
         loads = network.loads_t.p_set
-        loads.columns = 'L' + loads.columns
         renewables = network.generators_t.p_set
-        renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
     return df
@@ -182,23 +181,24 @@ def update_data_frames(network, cluster_weights, dates, hours):
 def daily_bounds(network, snapshots):
     """ This will bound the storage level to 0.5 max_level every 24th hour.
     """
+    if network.cluster:
 
-    sus = network.storage_units
-    # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.index[0::24]
+        sus = network.storage_units
+        # take every first hour of the clustered days
+        network.model.period_starts = network.snapshot_weightings.index[0::24]
 
-    network.model.storages = sus.index
+        network.model.storages = sus.index
 
-    def day_rule(m, s, p):
-        """
-        Sets the soc of the every first hour to the soc of the last hour
-        of the day (i.e. + 23 hours)
-        """
-        return (
-              m.state_of_charge[s, p] ==
-               m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+        def day_rule(m, s, p):
+            """
+            Sets the soc of the every first hour to the soc of the last hour
+            of the day (i.e. + 23 hours)
+            """
+            return (
+                m.state_of_charge[s, p] ==
+                m.state_of_charge[s, p + pd.Timedelta(hours=23)])
 
-    network.model.period_bound = po.Constraint(
+        network.model.period_bound = po.Constraint(
             network.model.storages, network.model.period_starts, rule=day_rule)
 
 

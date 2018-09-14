@@ -387,11 +387,7 @@ class UniformDisaggregation(Disaggregation):
                     'group_by': ('carrier', 'max_hours'),
                     'series': ('p', 'state_of_charge', 'q')}}
         weights = {'p': ('p_nom_opt', 'p_max_pu'),
-                   'q': (('p_nom_opt',)
-                       if (getattr(self.clustered_network, 'allocation', None)
-                           ==
-                           'p_nom')
-                       else ('p_nom_opt', 'p_max_pu')),
+                   'q': ('p_nom_opt', 'p_max_pu'),
                    'state_of_charge': ('p_nom_opt',)}
         filters = {'q': lambda o: o.control == "PV"}
         for bustype in bustypes:

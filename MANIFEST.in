@@ -3,4 +3,3 @@ include LICENSE
 include MANIFEST.in
 include etrago/tools/*.json
 include *.txt
-include etrago/*.json
