@@ -6,21 +6,22 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Centre for Sustainable Energy Systems, "
                  "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "mariusves"
+__author__ = ("ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, " 
+              "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, " 
+              "mariusves")
 
 
 setup(
     name='eTraGo',
     author='DLR VE, ZNES Flensburg',
     author_email='',
-    description=("electrical Transmission Grid Optimization of flexibility "
-                 "options for transmission grids based on PyPSA"),
-    version='0.6.1',
+    description="electric transmission grid optimization",
+    version='0.7.0',
     url='https://github.com/openego/eTraGo',
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=['egoio == 0.4.1',
+    install_requires=['egoio == 0.4.5',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
                       'pypsa==0.11.0fork',
@@ -28,10 +29,11 @@ setup(
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib >= 1.5.3, <=1.5.3',
                       'tsam==0.9.9',
-                      'shapely'],
+                      'shapely',
+                      'oedialect'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
-         '@dev#egg=pypsa-0.11.0fork')],
+         '@master#egg=pypsa-0.11.0fork')],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
