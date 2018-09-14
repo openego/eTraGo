@@ -1166,3 +1166,24 @@ def min_renewable_share(network, share=0.71):
     network.model.min_renewable_share = po.Constraint(rule=_rule)
 
     #return m
+
+def max_line_ext(network, share):
+    
+    share = 1.6
+    #lines = list(network.lines.index)
+    lines_snom = network.lines.s_nom.sum()
+    links_pnom = network.links.p_nom.sum()
+    #import pdb; pdb.set_trace()
+    def _rule(m):
+        
+        lines_opt = sum(m.passive_branch_s_nom[index]
+                        for index
+                        in m.passive_branch_s_nom_index)
+                        
+        links_opt = sum(m.link_p_nom[index]
+                        for index
+                        in m.link_p_nom_index)
+
+    
+        return (lines_opt + links_opt) <= (lines_snom + links_pnom)* share
+    network.model.max_line_ext = po.Constraint(rule=_rule)

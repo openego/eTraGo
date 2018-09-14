@@ -85,7 +85,8 @@ if 'READTHEDOCS' not in os.environ:
         set_q_foreign_loads,
         min_renewable_share,
         clip_foreign,
-        re_share)
+        re_share, 
+        max_line_ext)
     
     from etrago.tools.extendable import extendable
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -98,7 +99,7 @@ args = {  # Setup and Configuration:
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2,
           'crossover':0, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-5, 'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
@@ -108,21 +109,21 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/lukas_wienholt/results/nep-3-500',  # save results as csv: False or /path/tofolder
+    'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storages'],  # Array of components to optimize
+    'extendable': ['network', 'storages'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
+    'network_clustering_kmeans': 20,  # False or the value k for clustering
     'load_cluster': False,#'/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False,  # meet the demand at very high cost
@@ -430,7 +431,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv='/home/lukas_wienholt/eTraGo/bus_weight.csv')
+                bus_weight_fromcsv=None)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -457,7 +458,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=min_renewable_share)
+            extra_functionality=max_line_ext)
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
