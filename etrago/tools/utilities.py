@@ -1412,6 +1412,17 @@ def analyse(network):
     print("Ext. hydrogen capacity [MW]:", round(network.storage_units.p_nom_opt[ shydr].sum(),0))
     print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
 
+    #curtailment
+    p_by_carrier = network.generators_t.p.groupby\
+        (network.generators.carrier, axis=1).sum()
+    capacity = network.generators.p_nom.groupby(network.generators.carrier).sum()
+    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
+    p_available_by_carrier = p_available.groupby(
+        network.generators.carrier, axis=1).sum()
+    p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
+    print("Curtailment by carrier [%]:",round((p_curtailed_by_carrier.sum()/p_available_by_carrier.sum())*100,2))
+    print("Total curtailment rate [%]:",round((p_curtailed_by_carrier.sum().sum() / p_available_by_carrier.sum().sum()) * 100, 2))
+
     return network
 
 

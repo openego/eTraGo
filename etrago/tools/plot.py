@@ -894,6 +894,10 @@ def curtailment(network, carrier='solar', filename=None):
         network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
     print(p_curtailed_by_carrier.sum())
+    print(round((p_curtailed_by_carrier.sum()/p_available_by_carrier.sum())*100),2)
+    print(round((p_by_carrier.sum()/p_available_by_carrier.sum())*100),2)
+    print(round((p_curtailed_by_carrier.sum().sum() / p_available_by_carrier.sum().sum()) * 100), 2)
+
     p_df = pd.DataFrame({carrier +
                          " available": p_available_by_carrier[carrier],
                          carrier +
@@ -988,7 +992,7 @@ def storage_distribution(network, scaling=1, filename=None):
 
 
 
-def storage_expansion(network, basemap=True, scaling=1, filename=None):
+def storage_expansion(network, basemap=True, scaling=1, filename=None, dpi=300):
     """
     Plot storage distribution as circles on grid nodes
     Displays storage size and distribution in network.
@@ -1001,7 +1005,7 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         If not given, figure will be show directly
     """
 
-    stores = network.storage_units[network.storage_units.carrier == 
+    stores = network.storage_units[network.storage_units.carrier ==
                                    'extendable_storage']
     batteries = stores[stores.max_hours == 6]
     hydrogen = stores[stores.max_hours == 168]
@@ -1036,14 +1040,16 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
             1000, msd_max_bat * 1000, msd_max_hyd * 1000
         battery_distribution = battery_distribution * 1000
         hydrogen_distribution = hydrogen_distribution * 1000
-    elif LabelVal < 3:
-        LabelUnit = 'MW'
     else:
-        LabelUnit = 'GW'
-        msd_max, msd_max_bat, msd_max_hyd = msd_max / \
-            1000, msd_max_bat / 1000, msd_max_hyd / 1000
-        battery_distribution = battery_distribution / 1000
-        hydrogen_distribution = hydrogen_distribution / 1000
+        LabelUnit = 'MW'
+   # elif LabelVal < 3:
+   #     LabelUnit = 'MW'
+   # else:
+   #     LabelUnit = 'GW'
+   #     msd_max, msd_max_bat, msd_max_hyd = msd_max / \
+   #         1000, msd_max_bat / 1000, msd_max_hyd / 1000
+   #     battery_distribution = battery_distribution / 1000
+   #     hydrogen_distribution = hydrogen_distribution / 1000
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
@@ -1069,16 +1075,16 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
 
     if msd_max_hyd !=0:
         plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
-                label='= ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
+                label='  = ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
     if msd_max_bat !=0:
         plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
-                label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
+                label='  = ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
+    plt.legend(scatterpoints=1, labelspacing=2, borderpad=1.5, loc=2)
 
     if filename is None:
         plt.show()
     else:
-        plt.savefig(filename)
+        plt.savefig(filename,dpi=dpi,figsize=(3,4),bbox_inches='tight')
         plt.close()
 
     return
@@ -1319,7 +1325,8 @@ def nodal_gen_dispatch(
         item='energy',
         direction=None,
         scaling=1,
-        filename=None):
+        filename=None,
+        dpi=400):
     """
     Plot nodal dispatch or capacity. If networkB is given, difference in
     dispatch is plotted.
@@ -1393,7 +1400,7 @@ def nodal_gen_dispatch(
                             network.snapshot_weightings, axis=0).sum().groupby(
                     [network.generators.bus, network.generators.carrier]).sum()
     
-    fig, ax = plt.subplots(1, 1)          
+    fig, ax = plt.subplots(1, 1)
     scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
     if direction != 'absolute':
         colors = coloring()
@@ -1410,11 +1417,11 @@ def nodal_gen_dispatch(
             bus_sizes=dispatch * scaling,
             bus_colors=colors,
             line_widths=0.2,
-            margin=0.01,
+            margin=0.1,
             ax=ax)
 
-    fig.subplots_adjust(right=0.8)
-    plt.subplots_adjust(wspace=0, hspace=0.001)
+  #  fig.subplots_adjust(right=0.8)
+  #  plt.subplots_adjust(wspace=0, hspace=0.001)
 
     patchList = []
     for key in subcolors:
@@ -1427,7 +1434,7 @@ def nodal_gen_dispatch(
     if filename is None:
         plt.show()
     else:
-        plt.savefig(filename)
+        plt.savefig(filename,dpi=dpi,figsize=(3,4),bbox_inches='tight')
         plt.close()
 
     return
@@ -1435,8 +1442,9 @@ def nodal_gen_dispatch(
 def nodal_production_balance(
         network, 
         snapshot='all', 
-        scaling=0.00001, 
-        filename=None):
+        scaling=0.00005,
+        filename=None,
+        dpi=300):
     """
     Plots the nodal difference between generation and consumption.
     
@@ -1482,7 +1490,7 @@ def nodal_production_balance(
     ax.legend(handles=patchList, loc='upper left')
     ax.autoscale()
     if filename:
-        plt.savefig(filename)
+        plt.savefig(filename,dpi=dpi,figsize=(3,4),bbox_inches='tight')
         plt.close()
         
     return 
@@ -1492,27 +1500,30 @@ def storage_p(network, filename = None):
 
     sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
     shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+    swind = network.generators.index[network.generators.carrier.isin('wind_onshore','wind_offshore')]
 
     cap_batt = (network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]).sum()
     cap_hydr = (network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]).sum()
 
     fig, ax = plt.subplots(1, 1)
 
-    if network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
-    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
-        (network.storage_units_t.p[sbatt].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
+        (network.storage_units_t.p[sbatt].resample('6H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
         ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
-        ((network.storage_units_t.state_of_charge[sbatt].resample('48H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
-    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() > 1:
+        ((network.storage_units_t.state_of_charge[sbatt].resample('168H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() > 1:
         (network.storage_units_t.p[shydr].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen power")
         ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
-        ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
+        ((network.storage_units_t.state_of_charge[shydr].resample('168H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
     else:
-        (network.storage_units_t.p[sbatt].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
-        (network.storage_units_t.p[shydr].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen power")
+ #       (network.storage_units_t.p[sbatt].resample('6H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
+ #       (network.storage_units_t.p[shydr].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen power")
+ (      (network.generators_t.p[swind].resample('84H').mean().sum(axis=1) / network.generators.p_nom[swind].sum()).plot(ax=ax, label="Wind power feed-in")
         ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
-        ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
+        ((network.storage_units_t.state_of_charge[shydr].resample('168H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
+        ((network.storage_units_t.state_of_charge[sbatt].resample('168H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
 
     ax.set_xlabel("")
     ax.set_ylabel("Storage utilization")
@@ -1530,7 +1541,53 @@ def storage_p(network, filename = None):
 
     return
 
-def storage_soc(network, filename = None):
+def storage_stat(network, filename = None, dpi=300):
+
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+ #   swind = network.generators.index[network.generators.carrier.isin('wind_onshore','wind_offshore')]
+
+    cap_batt = (network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]).sum()
+    cap_hydr = (network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]).sum()
+
+    fig, ax = plt.subplots(1, 1)
+
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
+        print("No storage unit to plot")
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
+        (network.storage_units_t.p[sbatt].resample('6H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
+        ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+        ((network.storage_units_t.state_of_charge[sbatt].resample('168H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() > 1:
+        (network.storage_units_t.p[shydr].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen power")
+        ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+        ((network.storage_units_t.state_of_charge[shydr].resample('168H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
+    else:
+ #       (network.storage_units_t.p[sbatt].resample('6H').mean().sum(axis=1) / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery power")
+  #      (network.storage_units_t.p[shydr].resample('48H').mean().sum(axis=1) / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen power", color='orangered')
+ #       (network.generators_t.p[swind].resample('84H').mean().sum(axis=1) / network.generators.p_nom[swind].sum()).plot(ax=ax, label="Wind power feed-in")
+  #     ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+        ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax, label="Hydrogen state of charge", color='teal')
+        ((network.storage_units_t.state_of_charge[sbatt].resample('48H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax, label="Battery state of charge", color='orangered')
+
+    ax.set_xlabel("")
+    #ax.set_ylabel("Storage utilization")
+    ax.set_ylabel("Storage State of charge [%]")
+    ax.set_ylim([0, 100])
+    #ax.set_ylim([-1,1])
+    ax.legend(loc=2)
+   # ax2.legend(loc=1)
+
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename,dpi=dpi,figsize=(3,4),bbox_inches='tight')
+        plt.close()
+
+    return
+
+
+def storage_soc(network, filename = None,dpi=300):
 
     sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
     shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
@@ -1540,25 +1597,34 @@ def storage_soc(network, filename = None):
 
     fig, ax = plt.subplots(1, 1)
 
-    if network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
-    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 & network.storage_units.p_nom_opt[shydr].sum() < 1:
-        ((network.storage_units_t.state_of_charge[sbatt].resample('48H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax, label="Battery state of charge")
-    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 & network.storage_units.p_nom_opt[shydr].sum() > 1:
-        ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax, label="Hydrogen state of charge", color='green')
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
+        (network.storage_units_t.p[sbatt].sum(axis=1).sort_values(ascending=False).reset_index() / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, label="Battery utilization")
+   #     ((network.storage_units_t.state_of_charge[sbatt].resample('48H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax, label="Battery state of charge")
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() > 1:
+        (network.storage_units_t.p[shydr].sum(axis=1).sort_values(ascending=False).reset_index() / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, label="Hydrogen utilization")
+   #     ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax, label="Hydrogen state of charge", color='green')
     else:
-        ((network.storage_units_t.state_of_charge[shydr].resample('48H').mean().sum(axis=1) / cap_hydr)*100).plot(ax=ax, label="Hydrogen state of charge", color='green')
-        ((network.storage_units_t.state_of_charge[sbatt].resample('48H').mean().sum(axis=1) / cap_batt)*100).plot(ax=ax, label="Battery state of charge")
+        (network.storage_units_t.p[sbatt].sum(axis=1).sort_values(ascending=False).reset_index() / network.storage_units.p_nom_opt[sbatt].sum()).plot(ax=ax, legend="Battery storage", color='orangered')
+        (network.storage_units_t.p[shydr].sum(axis=1).sort_values(ascending=False).reset_index() / network.storage_units.p_nom_opt[shydr].sum()).plot(ax=ax, legend="Hydrogen storage", color='teal')
+    #   ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
+    #    ((network.storage_units_t.state_of_charge[shydr].sum(axis=1).sort_values(ascending=False).reset_index() / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
+    #    ((network.storage_units_t.state_of_charge[sbatt].sum(axis=1).sort_values(ascending=False).reset_index() / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
 
     ax.set_xlabel("")
-    ax.set_ylabel("Storage state of charge [%]")
-    ax.set_ylim([0,100])
+    ax.set_ylabel("Storage operation \n <- charge - discharge ->")
+  #  ax.set_ylabel("Storage state of charge [%]")
+  #  ax2.set_ylabel("Storage State of charge [%]")
+  #  ax2.set_ylim([0, 100])
+    ax.set_ylim([-1.05,1.05])
     ax.legend()
+  #  ax2.legend(loc=1)
 
     if filename is None:
         plt.show()
     else:
-        plt.savefig(filename)
+        plt.savefig(filename,dpi=dpi,figsize=(3,4),bbox_inches='tight')
         plt.close()
 
     return
