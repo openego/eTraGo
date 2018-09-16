@@ -1387,7 +1387,7 @@ def analyse(network):
     print("Network objective:", round(network.objective,0))
 
     #solver time
-    print("Solver time [min]:", round((network.time / 60),0))
+   # print("Solver time [min]:", round((network.time / 60),0))
     #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
     res = network.generators[network.generators.carrier.isin(renewables)]
@@ -1779,3 +1779,33 @@ def crossborder_capacity(network, method, capacity_factor):
             network.links.loc[i_links, 'p_nom'] = \
                                 weighting_links[i_links] * cap_per_country\
                                 [country]*capacity_factor
+
+import pyomo.environ as po
+
+
+def min_renewable_share(network, share=0.71):
+    """
+    """
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    #import pdb; pdb.set_trace()
+    res = list(network.generators.index[network.generators.carrier.isin(renewables)])
+
+    total = list(network.generators.index)
+    snapshots = network.snapshots
+    share=0.60
+
+    def _rule(m):
+        """
+        """
+        renewable_production = sum(m.generator_p[gen,sn]
+                                  for gen
+                                  in res
+                                  for sn in snapshots)
+        total_production = sum(m.generator_p[gen,sn]
+                               for gen  in total
+                               for sn in snapshots)
+
+        return (renewable_production == total_production* share)
+    network.model.min_renewable_share = po.Constraint(rule=_rule)
+
+   #return m
