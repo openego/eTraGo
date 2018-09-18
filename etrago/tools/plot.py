@@ -220,7 +220,7 @@ def plot_line_loading(
             x_coords_lines[i] = network.buses.loc[str(
                 network.lines.iloc[i, 2]), 'x']
             color = colors[i]
-            if (x_coords_lines[i] == path[i][0][0] and loading_c[i] >= 0):
+            if (x_coords_lines[i] == path[i][0][0] and load_lines_rel[i] >= 0):
                 arrowprops = dict(arrowstyle="->", color=color)
             else:
                 arrowprops = dict(arrowstyle="<-", color=color)
