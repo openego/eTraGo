@@ -87,7 +87,8 @@ if 'READTHEDOCS' not in os.environ:
         crossborder_capacity,
         ramp_limits,
         geolocation_buses,
-        get_args_setting)
+        get_args_setting,
+        set_branch_capacity)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -130,7 +131,7 @@ args = {  # Setup and Configuration:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': 0.7,  # factor to change branch capacities
+    'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # factors to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
     'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
     'comments': None}
@@ -300,8 +301,8 @@ def etrago(args):
         State if you want to group lines that connect the same two buses
         into one system.
 
-    branch_capacity_factor : numeric
-        1,
+    branch_capacity_factor : dict
+        {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
         (e.g. to "consider" an (n-1) criterion or for debugging purposes).
 
@@ -447,10 +448,7 @@ def etrago(args):
         
     # set Branch capacity factor for lines and transformer
     if args['branch_capacity_factor']:
-        network.lines.s_nom = network.lines.s_nom * \
-            args['branch_capacity_factor']
-        network.transformers.s_nom = network.transformers.s_nom * \
-            args['branch_capacity_factor']
+        set_branch_capacity(network, args)
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
