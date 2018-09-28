@@ -55,7 +55,7 @@ def extendable(network, args):
             network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
-            network.links.loc.p_nom_extendable = True
+            network.links.p_nom_extendable = True
             network.links.p_nom_min = network.links.p_nom
             network.links.p_nom_max = float("inf")
 
