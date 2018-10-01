@@ -114,7 +114,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/openego/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext_ntc_norandom_eachline4x_kirch_noNumericFocus',  # save results as csv: False or /path/tofolder
+    'results': '/home/openego/ego_results/etrago_045_ego100_stogrid_k300_t5_net1.5max_eachline4max_capcosts4_foreignexttrue',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storages'],  # Array of components to optimize
@@ -133,7 +133,7 @@ args = {  # Setup and Configuration:
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': 0.7,  # factor to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : {'carrier': 'AC', 'capacity': 'ntc_acer'}, # dict containing carrier and capacity settings of foreign lines
+    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
     'comments': None}
 
 
@@ -317,7 +317,7 @@ def etrago(args):
         {'carrier':'AC', 'capacity': 'osm_tGmod}'
         Choose transmission technology and capacity of foreign lines: 
             'carrier': 'AC' or 'DC'
-            'capacity': 'osm_tGmod', 'ntc_acer' or 'thermal_acer'
+            'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
 
     comments : str
         None
@@ -446,8 +446,8 @@ def etrago(args):
     
     network.storage_units.loc[network.storage_units.carrier == 'battery_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'marginal_cost'].max()
     network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'marginal_cost'].max()
-    
-    # each line and link is allowed to be extended to a max of line_max
+#    
+#    # each line and link is allowed to be extended to a max of line_max
     line_max = 4
     network.links.p_nom_max = network.links.p_nom * line_max
     network.lines.s_nom_max = network.lines.s_nom * line_max
@@ -525,7 +525,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="kirchhoff")
+            extra_functionality=max_line_ext, formulation="kirchhoff")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

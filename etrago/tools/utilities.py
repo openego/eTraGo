@@ -741,8 +741,8 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
         network_pf.lopf(network.snapshots,
             solver_name=args['solver'],
-            solver_options={'threads':4,'method':2, 'NumericFocus':2, 'BarHomogeneous':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6,'logFile':'gurobi_eTraGo.log'},
-            extra_functionality=extra_functionality)
+            solver_options={'threads':4,'crossover':0,'method':2, 'NumericFocus':2, 'BarHomogeneous':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6,'logFile':'gurobi_eTraGo.log'},
+            extra_functionality=None)
         
         network_pf.storage_units.p_nom_extendable = storages_extendable
         network_pf.lines.s_nom_extendable = lines_extendable 
@@ -1044,7 +1044,7 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
+def set_line_costs(network, cost110=230*4, cost220=290*4, cost380=85*4, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
