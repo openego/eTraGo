@@ -314,10 +314,10 @@ def etrago(args):
         generators cannot do so.
     
     foreign_lines : dict
-        {'carrier':'AC', 'capacity': 'osm_tGmod}'
+        {'carrier':'AC', 'capacity': 'osmTGmod}'
         Choose transmission technology and capacity of foreign lines: 
             'carrier': 'AC' or 'DC'
-            'capacity': 'osm_tGmod', 'ntc_acer' or 'thermal_acer'
+            'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
 
     comments : str
         None
