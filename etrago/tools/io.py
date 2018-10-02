@@ -719,7 +719,7 @@ def extension (network, session, version, scn_extension, start_snapshot, end_sna
                
     return network
 
-def decommissioning(network, session, version,  scn_decommissioning, **kwargs):
+def decommissioning(network, session, args, **kwargs):
     '''
         Function that removes components in a decommissioning-scenario from the existing network container.
         Currently, only lines can be decommissioned.
@@ -740,43 +740,43 @@ def decommissioning(network, session, version,  scn_decommissioning, **kwargs):
           network : Network container including decommissioning
           
     '''  
-    """components = ['Line', 'Link']
-    for comp in components:
-        if version  == None:   
-            ormclass = getattr(import_module('egoio.db_tables.model_draft'), ('EgoGridPfHvExtension' + comp))
-        else:
-            ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtension' + comp) 
-            
-        query = session.query(ormclass).filter(ormclass.scn_name ==\
-                             'decommissioning_' + scn_decommissioning)
-        
-        df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
-                         index_col=comp.lower() + '_id'))
-        
-        df_decommisionning.index = df_decommisionning.index.astype(str)
-        
-        Wie kann network.lines, network.links in Schleife geschrieben werden? 
-        
-        """
-        
-    if version == None:   
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'), 'EgoGridPfHvExtensionLine')
+
+    if args['gridversion'] == None:   
+        ormclass = getattr(import_module('egoio.db_tables.model_draft'),
+                           'EgoGridPfHvExtensionLine')
     else:
-        ormclass = getattr(import_module('egoio.db_tables.grid'), 'EgoPfHvExtensionLine')
-       
-    
+        ormclass = getattr(import_module('egoio.db_tables.grid'),
+                           'EgoPfHvExtensionLine')
+
     query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + scn_decommissioning)
-    
-    
+                        ormclass.scn_name == 'decommissioning_' + 
+                        args['scn_decommissioning'])
+
     df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
                          index_col='line_id')
     df_decommisionning.index = df_decommisionning.index.astype(str)
-    
+
+    for idx, row in network.lines.iterrows():
+        if (row['s_nom_min'] !=0) & (
+            row['scn_name'] =='extension_' + args['scn_decommissioning']):
+                v_nom_dec = df_decommisionning['v_nom'][(
+                 df_decommisionning.project == row['project']) & (
+                         df_decommisionning.project_id == row['project_id'])]
+
+                if (v_nom_dec == 110).any():
+                    network.lines.s_nom_min[network.lines.index == idx]\
+                    = args['branch_capacity_factor']['HV'] *\
+                    network.lines.s_nom_min
+
+                else:
+                    network.lines.s_nom_min[network.lines.index == idx] =\
+                    args['branch_capacity_factor']['eHV'] *\
+                    network.lines.s_nom_min
+
     ### Drop decommissioning-lines from existing network
-    network.lines = network.lines[~network.lines.index.isin(df_decommisionning.index)]
+    network.lines = network.lines[~network.lines.index.isin(
+            df_decommisionning.index)]
 
     return network
 

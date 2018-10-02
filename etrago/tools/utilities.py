@@ -1044,11 +1044,13 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230*4, cost220=290*4, cost380=85*4, costDC=375):
+def set_line_costs(network, args, 
+                   cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    args: dict containing settings from appl.py
     cost110 : capital costs per km for 110kV lines and cables
                 default: 230€/MVA/km, source: costs for extra circuit in
                 dena Verteilnetzstudie, p. 146)
@@ -1067,18 +1069,24 @@ def set_line_costs(network, cost110=230*4, cost220=290*4, cost380=85*4, costDC=3
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
     network.lines.loc[(network.lines.v_nom == 110),
-                      'capital_cost'] = cost110 * network.lines.length
+                      'capital_cost'] = cost110 * network.lines.length /\
+                          args['branch_capacity_factor']['HV']
+                      
     network.lines.loc[(network.lines.v_nom == 220),
-                      'capital_cost'] = cost220 * network.lines.length
+                      'capital_cost'] = cost220 * network.lines.length/\
+                      args['branch_capacity_factor']['eHV']
+                      
     network.lines.loc[(network.lines.v_nom == 380),
-                      'capital_cost'] = cost380 * network.lines.length
+                      'capital_cost'] = cost380 * network.lines.length/\
+                      args['branch_capacity_factor']['eHV']
+                      
     network.links.loc[network.links.p_nom_extendable,
                       'capital_cost'] = costDC * network.links.length
 
     return network
 
 
-def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
+def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
                     cost220_380=14166):
     """ Set capital costs for extendable transformers in respect
     to PyPSA [€/MVA]
@@ -1100,11 +1108,14 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
         network.buses.v_nom)
 
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 220), 'capital_cost'] = cost110_220
+        network.transformers.v_nom1 == 220), 'capital_cost'] = cost110_220/\
+        args['branch_capacity_factor']['HV']
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 380), 'capital_cost'] = cost110_380
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost110_380/\
+        args['branch_capacity_factor']['HV']
     network.transformers.loc[(network.transformers.v_nom0 == 220) & (
-        network.transformers.v_nom1 == 380), 'capital_cost'] = cost220_380
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost220_380/\
+        args['branch_capacity_factor']['eHV']
 
     return network
 
