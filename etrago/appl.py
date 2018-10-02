@@ -89,7 +89,8 @@ if 'READTHEDOCS' not in os.environ:
         geolocation_buses,
         get_args_setting,
         set_branch_capacity,
-	max_line_ext)
+	max_line_ext,
+    min_renewable_share)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -124,9 +125,9 @@ args = {  # Setup and Configuration:
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -436,25 +437,10 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args)
+                    args,
+                    line_max=4)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-            
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_extendable'] = True
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_extendable'] = True
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'battery_storage','p_nom']
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom_max'] = network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','p_nom']
-    
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage', 'capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'capital_cost'].max()
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','capital_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'capital_cost'].max()
-    
-    network.storage_units.loc[network.storage_units.carrier == 'battery_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 6),'marginal_cost'].max()
-    network.storage_units.loc[network.storage_units.carrier == 'hydrogen_storage','marginal_cost'] = network.storage_units.loc[(network.storage_units.carrier == 'extendable_storage') & (network.storage_units.max_hours == 168),'marginal_cost'].max()
-#    
-#    # each line and link is allowed to be extended to a max of line_max
-    line_max = 4
-    network.links.p_nom_max = network.links.p_nom * line_max
-    network.lines.s_nom_max = network.lines.s_nom * line_max
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -522,7 +508,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=max_line_ext, formulation="kirchhoff")
+            extra_functionality=min_renewable_share, formulation="kirchhoff")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

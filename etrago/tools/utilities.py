@@ -1624,6 +1624,15 @@ def set_branch_capacity(network, args):
             args['branch_capacity_factor']['eHV']
 
 def max_line_ext(network,snapshots,share=1.5):
+    """
+    Sets maximal share of overall network extension 
+    as extra functionality in LOPF
+    
+    Parameters
+    ----------
+    share: float
+        Maximal share of network extension in p.u.
+    """
 
     lines_snom = network.lines.s_nom.sum()
     links_pnom = network.links.p_nom.sum()
@@ -1639,6 +1648,39 @@ def max_line_ext(network,snapshots,share=1.5):
                         in m.link_p_nom_index)
 
     
-        return (lines_opt + links_opt) <= (lines_snom + links_pnom)* share
+        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
     network.model.max_line_ext = Constraint(rule=_rule)
 
+
+def min_renewable_share(network,snapshots,share=0.60):
+    """
+    Sets minimal renewable share of generation as extra functionality in LOPF
+    
+    
+    Parameters
+    ----------
+    share: float
+        Minimal share of renewable generation in p.u.
+    """
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'biomass', 'solar', 'run_of_river']
+
+    res = list(network.generators.index[
+            network.generators.carrier.isin(renewables)])
+
+    total = list(network.generators.index)
+    snapshots = network.snapshots
+
+    def _rule(m):
+        """
+        """
+        renewable_production = sum(m.generator_p[gen,sn]
+                                  for gen
+                                  in res
+                                  for sn in snapshots)
+        total_production = sum(m.generator_p[gen,sn]
+                               for gen  in total
+                               for sn in snapshots)
+
+        return (renewable_production == total_production * share)
+    network.model.min_renewable_share = Constraint(rule=_rule)
