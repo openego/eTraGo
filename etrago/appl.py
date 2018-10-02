@@ -115,22 +115,22 @@ args = {  # Setup and Configuration:
     'scn_decommissioning':None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': '/home/ulf/ego_results/etrago_045_ego100_stogrid_k300_t5_foreign_ext',  # save results as csv: False or /path/tofolder
+    'results': './results',  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['foreign_storage'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 30,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, # or None, 'mini' or 'uniform'
+    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 5,
+    'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # factors to change branch capacities
     'load_shedding': False, # meet the demand at very high cost
@@ -389,7 +389,7 @@ def etrago(args):
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
         network.generators.marginal_cost += \
-            abs(s.normal(0, 0.1, len(network.generators.marginal_cost)))
+            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
 
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
@@ -472,10 +472,10 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=10,
+                n_init=100,
                 max_iter=1000,
-                tol=1e-20,
-                n_jobs=-1)
+                tol=1e-8,
+                n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
