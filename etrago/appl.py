@@ -111,8 +111,8 @@ args = {  # Setup and Configuration:
                         'logFile':'gurobi_eTraGo_300ego.log'},  # {} for default or dict of solver options
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning':None, # None or decommissioning scenario
+    'scn_extension': None, # None or array of extension scenarios
+    'scn_decommissioning': None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'results': './results',  # save results as csv: False or /path/tofolder
@@ -415,14 +415,17 @@ def etrago(args):
                     start_snapshot=args['start_snapshot'],
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
+        
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
             
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
         network = decommissioning(
             network,
             session,
-            version = args['gridversion'],
-            scn_decommissioning=args['scn_decommissioning'])
+            args)
 
     # Add missing lines in Munich and Stuttgart
     network =  add_missing_components(network)
@@ -446,10 +449,6 @@ def etrago(args):
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
         extra_functionality = daily_bounds  # daily_bounds or other constraint
-        
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
