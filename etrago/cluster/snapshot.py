@@ -114,7 +114,7 @@ def run(network, n_clusters=None, how='daily',
     # calculate clusters
     tsam_ts, cluster_weights, dates, hours = tsam_cluster(
         prepare_pypsa_timeseries(network), typical_periods=n_clusters,
-        how='daily')
+        how=how)
 
     update_data_frames(network, cluster_weights, dates, hours)
 
