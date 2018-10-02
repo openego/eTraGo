@@ -59,9 +59,9 @@ def extendable(network, args):
             network.links.p_nom_min = network.links.p_nom
             network.links.p_nom_max = float("inf")
 
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
-    
+        network = set_line_costs(network, args)
+        network = set_trafo_costs(network, args)
+
     if 'german_network' in args['extendable']:
         buses = network.buses[~network.buses.index.isin(
                 buses_by_country(network).index)]
@@ -74,7 +74,7 @@ def extendable(network, args):
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                           (network.lines.bus1.isin(buses.index)),
                           's_nom_max'] = float("inf")
-        
+
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
                     buses.index),'s_nom_extendable'] = True
@@ -94,10 +94,9 @@ def extendable(network, args):
                               (network.links.bus1.isin(buses.index)),
                           'p_nom_max'] = float("inf")
             
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
-     
-        
+        network = set_line_costs(network, args)
+        network = set_trafo_costs(network, args)
+
     if 'foreign_network' in args['extendable']:
         buses = network.buses[network.buses.index.isin(
                 buses_by_country(network).index)]
@@ -133,9 +132,8 @@ def extendable(network, args):
                               (network.links.bus1.isin(buses.index)),
                           'p_nom_max'] = float("inf")
             
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
-        
+        network = set_line_costs(network, args)
+        network = set_trafo_costs(network, args)
 
     if 'transformers' in args['extendable']:
         network.transformers.s_nom_extendable = True
@@ -163,13 +161,13 @@ def extendable(network, args):
             network.lines.loc[(network.lines.project != 'EnLAG') & (
             network.lines.scn_name == 'extension_' + args['scn_extension'][i]),
             's_nom_extendable'] = True
-                    
+
             network.transformers.loc[(
                     network.transformers.project != 'EnLAG') & (
                             network.transformers.scn_name == (
                                     'extension_'+ args['scn_extension'][i])),
                                         's_nom_extendable'] = True
-                    
+
             network.links.loc[network.links.scn_name == (
             'extension_' + args['scn_extension'][i]
             ), 'p_nom_extendable'] = True
@@ -180,6 +178,11 @@ def extendable(network, args):
             'extension_' + args['scn_extension'][i]
             ), 's_nom_extendable'] = True
                 
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 's_nom_max'] = network.lines.s_nom[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i])]
+                
             network.links.loc[network.links.scn_name == (
             'extension_' + args['scn_extension'][i]
             ), 'p_nom_extendable'] = True
@@ -187,6 +190,11 @@ def extendable(network, args):
             network.transformers.loc[network.transformers.scn_name == (
             'extension_' + args['scn_extension'][i]
             ), 's_nom_extendable'] = True
+                
+            network.lines.loc[network.lines.scn_name == (
+            'extension_' + args['scn_extension'][i]
+            ), 'capital_cost'] = network.lines.capital_cost/\
+                args['branch_capacity_factor']['eHV']   
 
     if 'overlay_lines' in args['extendable']:
         for i in range(len(args['scn_extension'])):
@@ -201,16 +209,16 @@ def extendable(network, args):
             network.lines.loc[network.lines.scn_name == (
             'extension_' + args['scn_extension'][i]),
                 'capital_cost'] = network.lines.capital_cost + (2 * 14166)
-        
+
     network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
         network.lines.s_nom
-    
+
     network.transformers.s_nom_min[network.transformers.s_nom_extendable == \
         False] = network.transformers.s_nom
-                                   
+                       
     network.lines.s_nom_max[network.lines.s_nom_extendable == False] =\
         network.lines.s_nom
-    
+
     network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
         False] = network.transformers.s_nom
 
