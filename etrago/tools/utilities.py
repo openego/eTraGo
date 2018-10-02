@@ -1623,13 +1623,11 @@ def set_branch_capacity(network, args):
         = network.transformers.s_nom * \
             args['branch_capacity_factor']['eHV']
 
-def max_line_ext(network, share):
-    
-    share = 1.5
-    #lines = list(network.lines.index)
+def max_line_ext(network,snapshots,share=1.5):
+
     lines_snom = network.lines.s_nom.sum()
     links_pnom = network.links.p_nom.sum()
-    #import pdb; pdb.set_trace()
+
     def _rule(m):
         
         lines_opt = sum(m.passive_branch_s_nom[index]
