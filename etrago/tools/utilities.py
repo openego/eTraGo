@@ -1603,7 +1603,11 @@ def set_branch_capacity(network, args):
         Settings in appl.py
 
     """         
-
+    
+    network.lines["s_nom_installed"] = network.lines.s_nom.copy()
+    
+    network.transformers["s_nom_installed"] = network.transformers.s_nom.copy()
+    
     network.lines["v_nom"] = network.lines.bus0.map(
         network.buses.v_nom)
     network.transformers["v_nom0"] = network.transformers.bus0.map(
