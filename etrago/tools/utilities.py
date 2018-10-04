@@ -768,24 +768,33 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     network_pf.links_t.p_set = network_pf.links_t.p0
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
-    if args['foreign_lines']['carrier'] == 'DC':
-        n_bus = pd.Series(index=network.sub_networks.index)
+    if (args['foreign_lines']['carrier'] == 'DC') or (
+            args['pf_post_lopf'] == 'german_network'):
+        
+        if args['foreign_lines']['carrier'] == 'DC':
+            n_bus = pd.Series(index=network.sub_networks.index)
 
-        for i in range(0, len(network.sub_networks.index)-1):
-            n_bus[i] = len(network.buses.index[
+            for i in range(0, len(network.sub_networks.index)-1):
+                n_bus[i] = len(network.buses.index[
                     network.buses.sub_network.astype(int) == i])
 
-        sub_network_DE = n_bus.index[n_bus == n_bus.max()]
+            sub_network_DE = n_bus.index[n_bus == n_bus.max()]
 
-        foreign_bus = network.buses[network.buses.sub_network !=
+            foreign_bus = network.buses[network.buses.sub_network !=
                                     sub_network_DE.values[0]]
+        else:
+            foreign_bus = network.buses[network.buses.country_code != 'DE']
+            network = set_slack(network)
 
         foreign_comp = {'Bus': network.buses[
-                                    network.buses.sub_network !=
-                                    sub_network_DE.values[0]],
+                                network.buses.index.isin(foreign_bus.index)],
                         'Generator': network.generators[
                                 network.generators.bus.isin(
                                         foreign_bus.index)],
+                        'Line': network.lines[
+                                (network.lines.bus0.isin(foreign_bus.index)) | (
+                                        network.lines.bus1.isin(
+                                                foreign_bus.index))],
                         'Load': network.loads[
                                 network.loads.bus.isin(foreign_bus.index)],
                         'Transformer': network.transformers[
@@ -798,6 +807,7 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
         foreign_series = {'Bus': network.buses_t.copy(),
                           'Generator': network.generators_t.copy(),
                           'Load': network.loads_t.copy(),
+                          'Line':network.lines_t.copy(),
                           'Transformer':  network.transformers_t.copy(),
                           'StorageUnit': network.storage_units_t.copy()}
 
@@ -818,6 +828,9 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
                                                  'run_of_river'])].index]
 
         network.buses = network.buses.drop(foreign_bus.index)
+        network.lines = network.lines[
+                network.lines.bus0.isin(network.buses.index) &(
+                        network.lines.bus1.isin(network.buses.index) )]
         network.generators = network.generators[
                 network.generators.bus.isin(network.buses.index)]
         network.loads = network.loads[
@@ -826,15 +839,17 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
                  network.transformers.bus0.isin(network.buses.index)]
         network.storage_units = network.storage_units[
                 network.storage_units.bus.isin(network.buses.index)]
-        
+       
+    if args['pf_post_lopf'] == 'network':
     # Set slack bus
-    network = set_slack(network)
+        network = set_slack(network)
 
     # execute non-linear pf
     pf_solution = network_pf.pf(network.snapshots, use_seed=True)
 
     # if selected, copy lopf results of neighboring countries to network
-    if (args['foreign_lines']['carrier'] == 'DC') & add_foreign_lopf:
+    if ((args['foreign_lines']['carrier'] == 'DC') or (
+            args['pf_post_lopf'] == 'german_network') ) & add_foreign_lopf:
         for comp in sorted(foreign_series):
             network.import_components_from_dataframe(foreign_comp[comp], comp)
 

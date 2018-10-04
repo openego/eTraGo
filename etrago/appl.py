@@ -101,7 +101,7 @@ args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': 'network',  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -162,10 +162,12 @@ def etrago(args):
         Choose between a non-linear power flow ('pf') or
         a linear optimal power flow ('lopf').
 
-    pf_post_lopf : bool
+    pf_post_lopf : bool or string
         False,
         Option to run a non-linear power flow (pf) directly after the
         linear optimal power flow (and thus the dispatch) has finished.
+        Select 'network' to perform on the whole network
+        or 'german_network' to run pf calculation only on the german network
 
     start_snapshot : int
         1,
@@ -477,6 +479,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+        network = geolocation_buses(network, session)
         
     if args['ramp_limits']:
         ramp_limits(network)  
@@ -514,7 +517,7 @@ def etrago(args):
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
 
-    if args['pf_post_lopf']:
+    if args['pf_post_lopf'] != False:
         x = time.time()
         pf_solution = pf_post_lopf(network,
                                    args,
