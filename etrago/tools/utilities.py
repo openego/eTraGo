@@ -791,6 +791,10 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
                         'Generator': network.generators[
                                 network.generators.bus.isin(
                                         foreign_bus.index)],
+                        'Line': network.lines[
+                                (network.lines.bus0.isin(foreign_bus.index)) | (
+                                        network.lines.bus1.isin(
+                                                foreign_bus.index))],
                         'Load': network.loads[
                                 network.loads.bus.isin(foreign_bus.index)],
                         'Transformer': network.transformers[
@@ -803,6 +807,7 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
         foreign_series = {'Bus': network.buses_t.copy(),
                           'Generator': network.generators_t.copy(),
                           'Load': network.loads_t.copy(),
+                          'Line':network.lines_t.copy(),
                           'Transformer':  network.transformers_t.copy(),
                           'StorageUnit': network.storage_units_t.copy()}
 
@@ -823,6 +828,9 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
                                                  'run_of_river'])].index]
 
         network.buses = network.buses.drop(foreign_bus.index)
+        network.lines = network.lines[
+                network.lines.bus0.isin(network.buses.index) &(
+                        network.lines.bus1.isin(network.buses.index) )]
         network.generators = network.generators[
                 network.generators.bus.isin(network.buses.index)]
         network.loads = network.loads[
