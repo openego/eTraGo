@@ -386,12 +386,12 @@ def network_extension(network, method = 'rel', ext_min=0.1,
                             overlay_network.lines.s_nom_extendable & ((
                                     overlay_network.lines.s_nom_opt -
                                   overlay_network.lines.s_nom_min) /
-                                overlay_network.lines.s_nom > ext_min)]
+                                overlay_network.lines.s_nom >= ext_min)]
     overlay_network.links = overlay_network.links[
                             overlay_network.links.p_nom_extendable & ((
                                     overlay_network.links.p_nom_opt -
                                   overlay_network.links.p_nom_min)/
-                                 overlay_network.links.p_nom > ext_min)]
+                                 overlay_network.links.p_nom >= ext_min)]
 
     array_line = [['Line'] * len(overlay_network.lines),
                   overlay_network.lines.index]
@@ -443,7 +443,7 @@ def network_extension(network, method = 'rel', ext_min=0.1,
                 pd.Series(0.8, index = array_link))
         
     else: 
-        line_widths= extension / ext_width
+        line_widths= 0.5 + (extension / ext_width)
         
     ll = overlay_network.plot(
         line_colors=extension,
@@ -462,6 +462,13 @@ def network_extension(network, method = 'rel', ext_min=0.1,
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
     
+    if not extension_links.empty:
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                      ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb_Link.remove()
+        
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
     if method == 'rel':
