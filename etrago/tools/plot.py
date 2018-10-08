@@ -393,6 +393,14 @@ def network_extension(network, method = 'rel', ext_min=0.1,
                                   overlay_network.links.p_nom_min)/
                                  overlay_network.links.p_nom >= ext_min)]
 
+    for i, row in overlay_network.links.iterrows():
+        linked = overlay_network.links[(row['bus1'] ==
+                overlay_network.links.bus0) & (
+                        row['bus0'] == overlay_network.links.bus1)]
+        if not linked.empty:
+            if row['p_nom_opt'] < linked.p_nom_opt.values[0]:
+                overlay_network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
+
     array_line = [['Line'] * len(overlay_network.lines),
                   overlay_network.lines.index]
     
