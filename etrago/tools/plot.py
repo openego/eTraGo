@@ -356,7 +356,8 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     
 
 
-def network_extension(network, method = 'rel', filename=None, boundaries=[]):
+def network_extension(network, method = 'rel', ext_min=0.1,
+                      ext_width=False, filename=None, boundaries=[]):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
     Parameters
@@ -366,6 +367,11 @@ def network_extension(network, method = 'rel', filename=None, boundaries=[]):
     method: str
         Choose 'rel' for extension relative to s_nom and 'abs' for 
         absolute extensions. 
+    ext_min: float
+        Choose minimum relative line extension shown in plot in p.u..
+    ext_width: float or bool
+        Choose if line_width respects line extension. Turn off with 'False' or
+        set linear factor to decremise extension line_width.
     filename: str or None
         Save figure in this direction
     boundaries: array
@@ -377,9 +383,15 @@ def network_extension(network, method = 'rel', filename=None, boundaries=[]):
 
     overlay_network = network.copy()
     overlay_network.lines = overlay_network.lines[
-                            overlay_network.lines.s_nom_extendable]
+                            overlay_network.lines.s_nom_extendable & ((
+                                    overlay_network.lines.s_nom_opt -
+                                  overlay_network.lines.s_nom_min) /
+                                overlay_network.lines.s_nom > ext_min)]
     overlay_network.links = overlay_network.links[
-                            overlay_network.links.p_nom_extendable]
+                            overlay_network.links.p_nom_extendable & ((
+                                    overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min)/
+                                 overlay_network.links.p_nom > ext_min)]
 
     array_line = [['Line'] * len(overlay_network.lines),
                   overlay_network.lines.index]
@@ -421,19 +433,25 @@ def network_extension(network, method = 'rel', filename=None, boundaries=[]):
             pd.Series("grey", index = [['Link'] * len(network.links),
                   network.links.index])),
             bus_sizes=0,
-            line_widths=pd.Series(0.55, index = [['Line'] * len(network.lines),
+            line_widths=pd.Series(0.5, index = [['Line'] * len(network.lines),
                   network.lines.index]).append(
-            pd.Series(0.7, index = [['Link'] * len(network.links),
+            pd.Series(0.55, index = [['Link'] * len(network.links),
                   network.links.index])))
 
+    if not ext_width:
+        line_widths= pd.Series(0.8, index = array_line).append(
+                pd.Series(0.8, index = array_link))
+        
+    else: 
+        line_widths= extension / ext_width
+        
     ll = overlay_network.plot(
         line_colors=extension,
         line_cmap=cmap,
         bus_sizes=0,
         title="Optimized AC- and DC-line extension",
-        line_widths= pd.Series(0.7, index = array_line).append(
-                pd.Series(0.75, index = array_link)))
-    
+        line_widths=line_widths) 
+
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)
         boundaries = [min(extension), max(extension)]
