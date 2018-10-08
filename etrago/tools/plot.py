@@ -467,9 +467,6 @@ def network_extension(network, method = 'rel', ext_min=0.1,
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
         
-    cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
-    
     if not extension_links.empty:
         cb_Link = plt.colorbar(ll[2], boundaries=v,
                       ticks=v[0:101:10])
@@ -477,6 +474,9 @@ def network_extension(network, method = 'rel', ext_min=0.1,
         
         cb_Link.remove()
         
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
     if method == 'rel':
