@@ -44,6 +44,30 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 def extendable(network, args):
 
+    """
+    Function that sets selected components extendable
+
+    'network' for all lines, links and transformers
+    'german_network' for all lines, links and transformers located in Germany
+    'foreign_network' for all foreign lines, links and transformers
+    'transformers' for all transformers
+    'storages' for extendable storages
+    'overlay_network' for lines, links and trafos in extension scenerio(s)
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args  : dict
+        Arguments set in appl.py
+
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
+
     if 'network' in args['extendable']:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
@@ -239,9 +263,9 @@ def extension_preselection(network, args, method, days = 3):
         Arguments set in appl.py
     method: str
         Choose method of selection:
-            'extreme_situations' for remarkable timsteps 
-            (e.g. minimal resiudual load)
-            'snapshot_clustering' for snapshot clustering with number of days
+        'extreme_situations' for remarkable timsteps 
+        (e.g. minimal resiudual load)
+        'snapshot_clustering' for snapshot clustering with number of days
     days: int
         Number of clustered days, only used when method = 'snapshot_clustering'
 
