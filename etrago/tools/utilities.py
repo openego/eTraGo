@@ -620,9 +620,8 @@ def results_to_csv(network, args, pf_solution=None):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
-    pf_solution: pandas.Dataframa or None
-        If pf was calculated, df containing information of convergence
-         else None. 
+    pf_solution: pandas.Dataframe or None
+        If pf was calculated, df containing information of convergence else None. 
 
     """
 
@@ -659,10 +658,11 @@ def results_to_csv(network, args, pf_solution=None):
 
 def parallelisation(network, args, group_size, extra_functionality=None):
 
-    """ Function that splits problem in selected number of 
-        snapshot groups and runs optimization successive for each group. 
+    """
+    Function that splits problem in selected number of 
+    snapshot groups and runs optimization successive for each group. 
         
-        Not useful for calculations with storage untis or extension.  
+    Not useful for calculations with storage untis or extension.  
 
     Parameters
     ----------
@@ -707,10 +707,11 @@ def set_slack(network):
         Overall container of PyPSA
 
     Returns
+    -------
     network : :class:`pypsa.Network
         Overall container of PyPSA
 
-    -------
+
 
     """
     
@@ -955,8 +956,8 @@ def distribute_q(network, allocation='p_nom'):
         Overall container of PyPSA
     allocation: str
         Choose key to distribute reactive power:
-            'p_nom' to dirstribute via p_nom
-            'p' to distribute via p_set
+        'p_nom' to dirstribute via p_nom
+        'p' to distribute via p_set
 
     Returns
     -------
@@ -1588,6 +1589,16 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
 
 def set_line_country_tags(network):
+    """
+    Set country tag for AC- and DC-lines. 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+
+    """ 
 
     transborder_lines_0 = network.lines[network.lines['bus0'].isin(
             network.buses.index[network.buses['country_code'] != 'DE'])].index
@@ -1631,7 +1642,7 @@ def set_line_country_tags(network):
 
 def crossborder_capacity(network, method, capacity_factor):
     """
-    Correct interconnector capacties.
+    Adjust interconnector capacties.
 
     Parameters
     ----------

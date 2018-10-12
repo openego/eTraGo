@@ -879,6 +879,11 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
 
     ax.set_ylabel(resolution)
     ax.set_xlabel("")
+    
+
+    matplotlib.rcParams.update({'font.size': 22})
+
+
 
     if filename is None:
         plt.show()
