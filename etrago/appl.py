@@ -489,11 +489,8 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
+            args,
             group_size=1,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
 
     # start linear optimal powerflow calculations
