@@ -15,7 +15,7 @@ dictionary called 'args'. Alternatively, arguments can be set in a json-file.
 To run the desired calculation, it is crucial to understand these parameters. 
 In addition, some of them contradict the usage of others. 
 You find the documentation of all defined parameters from the 'args' here:
-:meth:`etrago.appl.etrago`.
+:func:`etrago.appl.etrago`.
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
