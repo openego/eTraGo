@@ -143,34 +143,42 @@ args = get_args_setting(args, jsonpath = None)
 
 def etrago(args):
     """The etrago function works with following arguments:
+        
     Parameters
     ----------
     db : str
         ``'oedb'``,
         Name of Database session setting stored in *config.ini* of *.egoio*
+        
     gridversion : NoneType or str
         ``'v0.2.11'``,
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
         (e.g. 'v0.2.10') for the grid schema.
+        
     method : str
         ``'lopf'``,
         Choose between a non-linear power flow ('pf') or
         a linear optimal power flow ('lopf').
+        
     pf_post_lopf : bool
         False,
         Option to run a non-linear power flow (pf) directly after the
         linear optimal power flow (and thus the dispatch) has finished.
+        
     start_snapshot : int
         1,
         Start hour of the scenario year to be calculated.
+        
     end_snapshot : int
         2,
         End hour of the scenario year to be calculated.
+        
     solver : str
         'glpk',
         Choose your preferred solver. Current options: 'glpk' (open-source),
         'cplex' or 'gurobi'.
+        
     scn_name : str
         'Status Quo',
         Choose your scenario. Currently, there are three different
@@ -178,17 +186,21 @@ def etrago(args):
         want to use the full German dataset, you can use the excerpt of
         Schleswig-Holstein by adding the acronym SH to the scenario
         name (e.g. 'SH Status Quo').
-   scn_extension : str
+        
+   scn_extension : NoneType or list
        None,
-       Choose an extension-scenario which will be added to the existing
+       Choose extension-scenarios which will be added to the existing
        network container. Data of the extension scenarios are located in
        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
        with the prefix 'extension_'.
-       Currently there are two overlay networks:
+       Currently there are three overlay networks:
            'nep2035_confirmed' includes all planed new lines confirmed by the
            Bundesnetzagentur
-           'nep2035_b2' includes alles new lines planned by the
+           'nep2035_b2' includes all new lines planned by the
            Netzentwicklungsplan 2025 in scenario 2035 B2
+           'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and adds
+           BE and NO as electrical neighbours
+           
     scn_decommissioning : str
         None,
         Choose an extra scenario which includes lines you want to decommise
@@ -202,46 +214,55 @@ def etrago(args):
             confirmed projects
             'nep2035_b2' includes all lines that will be replaced in
             NEP-scenario 2035 B2
-    add_Belgium_Norway : bool
-        False,
-        State if you want to add Belgium and Norway as electrical neighbours.
-        Currently, generation and load always refer to scenario 'NEP 2035'.
+    
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofolder'.import numpy as np
+        
     results : obj
         False,
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
+        
     export : bool
         False,
         State if you want to export the results of your calculation
         back to the database.
-    extendable : NoneType or list
+        
+    extendable : list
         ['network', 'storages'],
-        Choose None or which components you want to optimize.
+        Choose components you want to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'network': set all lines, links and transformers extendable
+            'german_network': set lines and transformers in German grid 
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
             'storages': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
-    generator_noise : bool
-        True,
-        Choose if you want to apply a small random noise to the marginal
-        costs of each generator in order to prevent an optima plateau.
-    reproduce_noise : bool or obj
-        False,
-        State if you want to use a predefined set of random noise for
-        the given scenario. If so, provide path to the csv file,
-        e.g. ``'noise_values.csv'``.
+            'network_preselection': set only preselected lines extendable,
+                                    method is chosen in function call
+                                    
+    generator_noise : bool or int
+        State if you want to apply a small random noise to the marginal costs
+        of each generator in order to prevent an optima plateau. To reproduce
+        a noise, choose the same integer (seed number).
+        
     minimize_loading : bool
         False,
         ...
+        
+    ramp_limits : bool
+        False,
+        State if you want to consider ramp limits of generators. 
+        Increases time for solving significantly.
+        Only works when calculating at least 30 snapshots.
+        
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
@@ -250,41 +271,56 @@ def etrago(args):
         at each node. If so, state the number of k you want to apply. Otherwise
         put False. This function doesn't work together with
         ``'line_grouping = True'``.
+        
     load_cluster : bool or obj
         state if you want to load cluster coordinates from a previous run:
         False or /path/tofile (filename similar to ./cluster_coord_k_n_result).
+        
     network_clustering_ehv : bool
         False,
         Choose if you want to cluster the full HV/EHV dataset down to only the
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         sub-station, taking into account the shortest distance on power lines.
+        
     snapshot_clustering : bool or int
         False,
         State if you want to cluster the snapshots and run the optimization
         only on a subset of snapshot periods. The int value defines the number
         of periods (i.e. days) which will be clustered to.
         Move to PyPSA branch:features/snapshot_clustering
+        
     parallelisation : bool
         False,
         Choose if you want to calculate a certain number of snapshots in
         parallel. If yes, define the respective amount in the if-clause
         execution below. Otherwise state False here.
+        
     line_grouping : bool
         True,
         State if you want to group lines that connect the same two buses
         into one system.
-    branch_capacity_factor : numeric
-        1,
+        
+    branch_capacity_factor : dict
+        {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
         (e.g. to "consider" an (n-1) criterion or for debugging purposes).
+        
     load_shedding : bool
         False,
         State here if you want to make use of the load shedding function which
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
         generators cannot do so.
+    
+    foreign_lines : dict
+        {'carrier':'AC', 'capacity': 'osmTGmod}'
+        Choose transmission technology and capacity of foreign lines: 
+            'carrier': 'AC' or 'DC'
+            'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
+            
     comments : str
         None
+        
     Returns
     -------
     network : `pandas.DataFrame<dataframe>`
