@@ -25,7 +25,7 @@
     "parallelisation": false,
     "skip_snapshots": false,
     "line_grouping": false,
-    "branch_capacity_factor": 0.7,
+    "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},
     "load_shedding": false,
     "foreign_lines" :{"carrier": "AC", "capacity": "osmTGmod"},
     "comments": ""

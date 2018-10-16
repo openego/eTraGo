@@ -1503,7 +1503,7 @@ def set_line_country_tags(network):
 
 def crossborder_capacity(network, method, capacity_factor):
     """
-    Correct interconnector capacties.
+    Change interconnector capacties.
 
     Parameters
     ----------
@@ -1543,43 +1543,57 @@ def crossborder_capacity(network, method, capacity_factor):
                            'LUFR': 364,
                            'SEDK': 1928,
                            'DKSE': 1928}
-        capacity_factor = 1
+
     elif method == 'thermal_acer':
         cap_per_country = {'CH': 12000,
                             'DK': 4000,
                             'SEDK': 3500,
                             'DKSE': 3500}
+        capacity_factor = {'HV': 1, 'eHV':1}
     if not network.lines[network.lines.country != 'DE'].empty:
         weighting = network.lines.loc[network.lines.country!='DE', 's_nom'].\
                 groupby(network.lines.country).transform(lambda x: x/x.sum())
 
     weighting_links = network.links.loc[network.links.country!='DE', 'p_nom'].\
                 groupby(network.links.country).transform(lambda x: x/x.sum())
-
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
     for country in cap_per_country:
 
-        index = network.lines[network.lines.country == country].index
+        index_HV = network.lines[(network.lines.country == country) &(
+                network.lines.v_nom == 110)].index
+        index_eHV = network.lines[(network.lines.country == country) &(
+                network.lines.v_nom > 110)].index
         index_links = network.links[network.links.country == country].index
 
         if not network.lines[network.lines.country == country].empty:
-                network.lines.loc[index, 's_nom'] = \
-                                weighting[index] * cap_per_country[country] *\
-                                capacity_factor
+                network.lines.loc[index_HV, 's_nom'] = weighting[index_HV] * \
+                    cap_per_country[country] / capacity_factor['HV']
+                    
+                network.lines.loc[index_eHV, 's_nom'] = \
+                    weighting[index_eHV] * cap_per_country[country] /\
+                                capacity_factor['eHV']
 
         if not network.links[network.links.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
                                 weighting_links[index_links] * cap_per_country\
-                                [country] * capacity_factor
+                                [country] 
         if country == 'SE':
                 network.links.loc[network.links.country == country, 'p_nom'] =\
                 cap_per_country[country]
 
         if not network.lines[network.lines.country == (country+country)].empty:
-            i_lines =  network.lines[network.lines.country ==
-                                     country+country].index
-            network.lines.loc[i_lines, 's_nom'] = \
-                                weighting[i_lines] * cap_per_country[country]*\
-                                capacity_factor
+            i_HV =  network.lines[(network.lines.v_nom == 110)&(
+                    network.lines.country ==country+country)].index
+            
+            i_eHV =  network.lines[(network.lines.v_nom == 110)&(
+                    network.lines.country ==country+country)].index
+            
+            network.lines.loc[i_HV, 's_nom'] = \
+                                weighting[i_HV] * cap_per_country[country]/\
+                                capacity_factor['HV']
+            network.lines.loc[i_eHV, 's_nom'] = \
+                                weighting[i_eHV] * cap_per_country[country]/\
+                                capacity_factor['eHV']
 
         if not network.links[network.links.country == (country+country)].empty:
             i_links =  network.links[network.links.country ==
