@@ -97,6 +97,7 @@ if 'READTHEDOCS' not in os.environ:
     import oedialect
     
 
+
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
@@ -105,10 +106,10 @@ args = {  # Setup and Configuration:
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2,'BarConvTol':1.e-5,
-                         'FeasibilityTol':1.e-6, 
-                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1, 'NumericFocus': 3,'BarConvTol':1.e-5,
+                        'FeasibilityTol':1.e-5, 
+                        'logFile':'gurobi_eTraGo_300ego.log'},  # {} for default or dict of solver options
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None, # None or array of extension scenarios
     'scn_decommissioning': None, # None or decommissioning scenario
@@ -436,7 +437,7 @@ def etrago(args):
                     args)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-    
+
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
