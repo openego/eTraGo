@@ -127,7 +127,7 @@ args = {  # Setup and Configuration:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -508,7 +508,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=None, formulation="angles")
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
