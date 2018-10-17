@@ -88,7 +88,9 @@ if 'READTHEDOCS' not in os.environ:
         ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity)
+        set_branch_capacity,
+        max_line_ext,
+        min_renewable_share)
     
     from etrago.tools.extendable import extendable, extension_preselection
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
@@ -97,16 +99,15 @@ if 'READTHEDOCS' not in os.environ:
     import oedialect
     
 
-
 args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'start_snapshot': 48,
+    'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarHomogeneous':1, 'NumericFocus': 3,'BarConvTol':1.e-5,
+    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,
                         'FeasibilityTol':1.e-5, 
                         'logFile':'gurobi_eTraGo_300ego.log'},  # {} for default or dict of solver options
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -115,7 +116,7 @@ args = {  # Setup and Configuration:
     'scn_decommissioning': None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': './results',  # save results as csv: False or /path/tofolder
+    'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
@@ -123,10 +124,10 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -388,9 +389,11 @@ def etrago(args):
     if args['generator_noise'] is not False:
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
-        network.generators.marginal_cost += \
-            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
-
+        network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code == 'DE'])] += \
+            abs(s.normal(0, 0.1, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])])))
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
@@ -434,7 +437,8 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args)
+                    args,
+                    line_max=4)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
@@ -471,10 +475,10 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=100,
-                max_iter=1000,
-                tol=1e-8,
-                n_jobs=-2)
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
+                n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -504,7 +508,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
