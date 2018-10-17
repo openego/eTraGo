@@ -552,6 +552,23 @@ def etrago(args):
                 storage_costs,
                 2))
 
+    if network.lines.s_nom_extendable.any() or \
+        network.links.p_nom_extendable.any():
+
+            installed_lines = network.lines[network.lines.s_nom_extendable]
+            line_costs = sum(installed_lines.capital_cost *
+                        (installed_lines.s_nom_opt-installed_lines.s_nom_min))
+ 
+            installed_links = network.links[network.links.p_nom_extendable]
+            link_costs = sum(installed_links.capital_cost *
+                        (installed_links.p_nom_opt- installed_links.p_nom_min))
+
+            print(
+            "Investment costs for all lines in selected snapshots [EUR]:",
+            round(
+                (line_costs + link_costs),
+                2))
+
     if clustering:
         disagg = args.get('disaggregation')
         skip = () if args['pf_post_lopf'] else ('q',)
