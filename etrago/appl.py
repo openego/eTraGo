@@ -104,8 +104,8 @@ args = {  # Setup and Configuration:
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 48,
-    'end_snapshot': 72,
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,
                         'FeasibilityTol':1.e-5, 
@@ -123,6 +123,7 @@ args = {  # Setup and Configuration:
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
+    'extra_functionality': None, # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -266,6 +267,13 @@ def etrago(args):
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
+    extra_functionality : function or None
+        None, 
+        Choose name of extra functionalitys described in etrago/utilities.py
+        min_renewable_share to set the minimal renwable share of energy or
+        max_line_ext to set overall maximum of line extension
+        This does not work with snapshot-clsuertering. 
+        
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
@@ -377,9 +385,9 @@ def etrago(args):
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
-    # set extra_functionality to default
-    extra_functionality = None
-    
+    # set extra_functionality
+    extra_functionality = args['extra_functionality']
+
     # set disaggregated_network to default
     disaggregated_network = None
 
