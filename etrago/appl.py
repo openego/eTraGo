@@ -89,7 +89,7 @@ if 'READTHEDOCS' not in os.environ:
         geolocation_buses,
         get_args_setting,
         set_branch_capacity,
-	max_line_ext,
+        max_line_ext,
         min_renewable_share)
     
     from etrago.tools.extendable import extendable, extension_preselection
