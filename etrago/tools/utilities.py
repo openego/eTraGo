@@ -1623,7 +1623,7 @@ def set_branch_capacity(network, args):
         = network.transformers.s_nom * \
             args['branch_capacity_factor']['eHV']
 
-def max_line_ext(network,snapshots,share=1.5):
+def max_line_ext(network,snapshots,share=1.01):
     """
     Sets maximal share of overall network extension 
     as extra functionality in LOPF
@@ -1652,7 +1652,7 @@ def max_line_ext(network,snapshots,share=1.5):
     network.model.max_line_ext = Constraint(rule=_rule)
 
 
-def min_renewable_share(network,snapshots,share=0.60):
+def min_renewable_share(network,snapshots,share=0.72):
     """
     Sets minimal renewable share of generation as extra functionality in LOPF
     
@@ -1682,5 +1682,5 @@ def min_renewable_share(network,snapshots,share=0.60):
                                for gen  in total
                                for sn in snapshots)
 
-        return (renewable_production == total_production * share)
+        return (renewable_production >= total_production * share)
     network.model.min_renewable_share = Constraint(rule=_rule)

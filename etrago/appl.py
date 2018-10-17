@@ -103,9 +103,9 @@ args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'start_snapshot': 48,
+    'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,
                         'FeasibilityTol':1.e-5, 
@@ -124,8 +124,8 @@ args = {  # Setup and Configuration:
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, #'uniform', # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -475,9 +475,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=1000,
-                max_iter=1000,
-                tol=1e-20,
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
@@ -508,7 +508,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=min_renewable_share, formulation="kirchhoff")
+            extra_functionality=None, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
