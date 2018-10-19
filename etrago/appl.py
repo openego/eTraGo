@@ -99,7 +99,8 @@ if 'READTHEDOCS' not in os.environ:
     import oedialect
     
 
-args = {  # Setup and Configuration:
+args = {  
+    # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
@@ -107,9 +108,8 @@ args = {  # Setup and Configuration:
     'start_snapshot': 48,
     'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2, 'crossover':0, 'BarConvTol':1.e-5,
-                        'FeasibilityTol':1.e-5, 
-                        'logFile':'gurobi_eTraGo_300ego.log'},  # {} for default or dict of solver options
+    'solver_options': {'BarConvTol':1.e-5, 'FeasibilityTol':1.e-5, 
+                       'logFile':'solver.log'}, # {} for default options 
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None, # None or array of extension scenarios
@@ -133,9 +133,9 @@ args = {  # Setup and Configuration:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # factors to change branch capacities
-    'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
+    'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # p.u. branch derating
+    'load_shedding': False, # meet the demand at value of loss load cost
+    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
