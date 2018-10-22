@@ -269,10 +269,11 @@ def etrago(args):
 
     extra_functionality : function or None
         None, 
-        Choose name of extra functionalitys described in etrago/utilities.py
-        min_renewable_share to set the minimal renwable share of energy or
-        max_line_ext to set overall maximum of line extension
-        This does not work with snapshot-clsuertering. 
+        Choose name of extra functionality described in etrago/utilities.py
+        min_renewable_share to set a minimal share of renewable energy or
+        max_line_ext to set an overall maximum of line expansion
+        When activating snapshot_clustering or minimize_loading these
+        extra_funtionalities are overwritten and therefore neglected. 
         
     network_clustering_kmeans : bool or int
         False,
