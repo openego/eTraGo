@@ -67,7 +67,7 @@ if 'READTHEDOCS' not in os.environ:
         storage_distribution,
         storage_expansion,
         nodal_gen_dispatch,
-        network_extension)
+        network_expansion)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -92,7 +92,7 @@ if 'READTHEDOCS' not in os.environ:
         max_line_ext,
         min_renewable_share)
     
-    from etrago.tools.extendable import extendable, extension_preselection
+    from etrago.tools.extendable import extendable, extension_preselection,print_expansion_costs
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -106,7 +106,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 48,
-    'end_snapshot': 72,
+    'end_snapshot': 49,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol':1.e-5, 'FeasibilityTol':1.e-5, 
                        'logFile':'solver.log'}, # {} for default options 
@@ -119,13 +119,13 @@ args = {
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -530,19 +530,9 @@ def etrago(args):
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
         network = distribute_q(network, allocation = 'p_nom')
-        
-    # provide storage installation costs
-    if sum(network.storage_units.p_nom_opt) != 0:
-        installed_storages = \
-            network.storage_units[network.storage_units.p_nom_opt != 0]
-        storage_costs = sum(
-            installed_storages.capital_cost *
-            installed_storages.p_nom_opt)
-        print(
-            "Investment costs for all storages in selected snapshots [EUR]:",
-            round(
-                storage_costs,
-                2))
+
+    if not args['extendable']==[]:
+        print_expansion_costs(network,args)
 
     if clustering:
         disagg = args.get('disaggregation')
