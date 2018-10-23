@@ -1308,30 +1308,26 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     -------
 
     """
-    # Add costs for converter
+    # Add costs for DC-converter
     network.links.capital_cost = network.links.capital_cost + 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))
 
-    #
+    # Apply function on lines, links, trafos and storages
+    # Storage costs are already annuized yearly
     network.lines.loc[network.lines.s_nom_extendable == True,
                       'capital_cost'] = (network.lines.capital_cost /
-                                         (PVA * (8760 / (end_snapshot -
-                                                         start_snapshot + 1))))
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1))))
     network.links.loc[network.links.p_nom_extendable == True,
-                      'capital_cost'] = network.\
-        links.capital_cost / (PVA * (8760 // (end_snapshot -
-                                              start_snapshot + 1)))
+                      'capital_cost'] = network. links.capital_cost /\
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
     network.transformers.loc[network.transformers.s_nom_extendable == True,
-                             'capital_cost'] = network.\
-        transformers.capital_cost / \
-        (PVA * (8760 // (end_snapshot - start_snapshot + 1)))
-    network.storage_units.loc[network.storage_units.
-                              p_nom_extendable == True,
-                              'capital_cost'] = network.\
-        storage_units.capital_cost / (8760 // (end_snapshot -
-                                               start_snapshot + 1))
+                     'capital_cost'] = network.transformers.capital_cost / \
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+    network.storage_units.loc[network.storage_units.p_nom_extendable == True,
+                      'capital_cost'] = network.storage_units.capital_cost / \
+                              (8760 / (end_snapshot - start_snapshot + 1))
 
     return network
 

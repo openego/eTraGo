@@ -67,7 +67,7 @@ if 'READTHEDOCS' not in os.environ:
         storage_distribution,
         storage_expansion,
         nodal_gen_dispatch,
-        network_extension)
+        network_expansion)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -92,7 +92,7 @@ if 'READTHEDOCS' not in os.environ:
         max_line_ext,
         min_renewable_share)
     
-    from etrago.tools.extendable import extendable, extension_preselection
+    from etrago.tools.extendable import extendable, extension_preselection,print_expansion_costs
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
@@ -539,36 +539,9 @@ def etrago(args):
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
         network = distribute_q(network, allocation = 'p_nom')
-        
-    # provide storage installation costs
-    if sum(network.storage_units.p_nom_opt) != 0:
-        installed_storages = \
-            network.storage_units[network.storage_units.p_nom_opt != 0]
-        storage_costs = sum(
-            installed_storages.capital_cost *
-            installed_storages.p_nom_opt)
-        print(
-            "Investment costs for all storages in selected snapshots [EUR]:",
-            round(
-                storage_costs,
-                2))
 
-    if network.lines.s_nom_extendable.any() or \
-        network.links.p_nom_extendable.any():
-
-            installed_lines = network.lines[network.lines.s_nom_extendable]
-            line_costs = sum(installed_lines.capital_cost *
-                        (installed_lines.s_nom_opt-installed_lines.s_nom_min))
- 
-            installed_links = network.links[network.links.p_nom_extendable]
-            link_costs = sum(installed_links.capital_cost *
-                        (installed_links.p_nom_opt- installed_links.p_nom_min))
-
-            print(
-            "Investment costs for all lines in selected snapshots [EUR]:",
-            round(
-                (line_costs + link_costs),
-                2))
+    if not args['extendable']==[]:
+        print_expansion_costs(network,args)
 
     if clustering:
         disagg = args.get('disaggregation')

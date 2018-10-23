@@ -426,3 +426,33 @@ def extension_preselection(network, args, method, days = 3):
     print("Time for first LOPF [min]:", round(z1st, 2))
 
     return network
+
+def print_expansion_costs(network,args):
+
+    ext_storage=network.storage_units[network.storage_units.p_nom_extendable]
+    ext_lines=network.lines[network.lines.s_nom_extendable]
+    ext_links=network.links[network.links.p_nom_extendable]
+    ext_trafos=network.transformers[network.transformers.s_nom_extendable]
+
+    if not ext_storage.empty:
+        storage_costs=(ext_storage.p_nom_opt*ext_storage.capital_cost).sum()
+
+    if not ext_lines.empty:
+        network_costs=((ext_lines.s_nom_opt-ext_lines.s_nom_min
+                   )*ext_lines.capital_cost +\
+                   (ext_links.p_nom_opt-ext_links.p_nom_min
+                    )*ext_links.capital_cost).sum()
+
+    if not ext_trafos.empty:
+        network_costs=network_costs+((ext_trafos.s_nom_opt-ext_trafos.s_nom_min
+                                     )*ext_trafos.capital_cost).sum()
+
+    if not ext_storage.empty:
+        print(
+            "Investment costs for all storage units in selected snapshots [EUR]:",
+            round(storage_costs,2))
+
+    if not ext_lines.empty:
+        print(
+            "Investment costs for all lines and transformers in selected snapshots [EUR]:",
+            round(network_costs,2))
