@@ -116,8 +116,8 @@ args = {
     'scn_decommissioning': None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': False,  # save results as csv: False or /path/tofolder
-    'export': False,  # export the results back to the oedb
+    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -224,12 +224,12 @@ def etrago(args):
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofolder'.import numpy as np
 
-    results : obj
+    csv_export : obj
         False,
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
 
-    export : bool
+    db_export : bool
         False,
         State if you want to export the results of your calculation
         back to the database.
@@ -607,7 +607,7 @@ def etrago(args):
                 'symbolic_solver_labels': True})
 
     # write PyPSA results back to database
-    if args['export']:
+    if args['db_export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
         safe_results = False  # default is False.
@@ -630,7 +630,7 @@ def etrago(args):
                 safe_results=safe_results)
 
     # write PyPSA results to csv to path
-    if not args['results'] is False:
+    if not args['csv_export'] is False:
         if not args['pf_post_lopf']:
             results_to_csv(network, args)
         else:
