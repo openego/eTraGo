@@ -31,6 +31,7 @@ import os.path
 import time
 import numpy as np
 import pandas as pd
+from etrago.tools.utilities import get_args_setting
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -67,7 +68,7 @@ if 'READTHEDOCS' not in os.environ:
         storage_distribution,
         storage_expansion,
         nodal_gen_dispatch,
-        network_extension)
+        network_expansion)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -88,52 +89,55 @@ if 'READTHEDOCS' not in os.environ:
         ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity)
+        set_branch_capacity,
+        max_line_ext,
+        min_renewable_share)
     
-    from etrago.tools.extendable import extendable, extension_preselection
+    from etrago.tools.extendable import extendable, extension_preselection,print_expansion_costs
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
     
 
-args = {  # Setup and Configuration:
+args = {  
+    # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2,'BarConvTol':1.e-5,
-                         'FeasibilityTol':1.e-6, 
-                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'solver_options': {'BarConvTol':1.e-5, 'FeasibilityTol':1.e-5, 
+                       'logFile':'solver.log'}, # {} for default options 
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None, # None or array of extension scenarios
     'scn_decommissioning': None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': './results',  # save results as csv: False or /path/tofolder
-    'export': False,  # export the results back to the oedb
+    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
+    'extra_functionality': None, # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # factors to change branch capacities
-    'load_shedding': False, # meet the demand at very high cost
-    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'}, # dict containing carrier and capacity settings of foreign lines
+    'branch_capacity_factor': {'HV': 0.5, 'eHV' : 0.7},  # p.u. branch derating
+    'load_shedding': False, # meet the demand at value of loss load cost
+    'foreign_lines' : {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
@@ -221,12 +225,12 @@ def etrago(args):
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofolder'.import numpy as np
 
-    results : obj
+    csv_export : obj
         False,
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
 
-    export : bool
+    db_export : bool
         False,
         State if you want to export the results of your calculation
         back to the database.
@@ -258,12 +262,21 @@ def etrago(args):
     minimize_loading : bool
         False,
         ...
+        
     ramp_limits : bool
         False,
         State if you want to consider ramp limits of generators. 
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
+    extra_functionality : function or None
+        None, 
+        Choose name of extra functionality described in etrago/utilities.py
+        min_renewable_share to set a minimal share of renewable energy or
+        max_line_ext to set an overall maximum of line expansion.
+        When activating snapshot_clustering or minimize_loading these
+        extra_funtionalities are overwritten and therefore neglected. 
+        
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
@@ -327,8 +340,6 @@ def etrago(args):
     network : `pandas.DataFrame<dataframe>`
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
-
-
     """
     conn = db.connection(section=args['db'])
     Session = sessionmaker(bind=conn)
@@ -375,9 +386,9 @@ def etrago(args):
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
-    # set extra_functionality to default
-    extra_functionality = None
-    
+    # set extra_functionality
+    extra_functionality = args['extra_functionality']
+
     # set disaggregated_network to default
     disaggregated_network = None
 
@@ -387,9 +398,11 @@ def etrago(args):
     if args['generator_noise'] is not False:
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
-        network.generators.marginal_cost += \
-            abs(s.normal(0, 0.001, len(network.generators.marginal_cost)))
-
+        network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code == 'DE'])] += \
+            abs(s.normal(0, 0.1, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])])))
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
@@ -433,10 +446,11 @@ def etrago(args):
     if args['extendable'] != []:
         network = extendable(
                     network,
-                    args)
+                    args,
+                    line_max=4)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-    
+
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
@@ -470,10 +484,10 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=100,
-                max_iter=1000,
-                tol=1e-8,
-                n_jobs=-2)
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
+                n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -503,7 +517,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
@@ -525,19 +539,9 @@ def etrago(args):
         print("Time for PF [min]:", round(z, 2))
         calc_line_losses(network)
         network = distribute_q(network, allocation = 'p_nom')
-        
-    # provide storage installation costs
-    if sum(network.storage_units.p_nom_opt) != 0:
-        installed_storages = \
-            network.storage_units[network.storage_units.p_nom_opt != 0]
-        storage_costs = sum(
-            installed_storages.capital_cost *
-            installed_storages.p_nom_opt)
-        print(
-            "Investment costs for all storages in selected snapshots [EUR]:",
-            round(
-                storage_costs,
-                2))
+
+    if not args['extendable']==[]:
+        print_expansion_costs(network,args)
 
     if clustering:
         disagg = args.get('disaggregation')
@@ -576,7 +580,7 @@ def etrago(args):
                 'symbolic_solver_labels': True})
 
     # write PyPSA results back to database
-    if args['export']:
+    if args['db_export']:
         username = str(conn.url).split('//')[1].split(':')[0]
         args['user_name'] = username
         safe_results = False  # default is False.
@@ -599,7 +603,7 @@ def etrago(args):
                 safe_results=safe_results)
 
     # write PyPSA results to csv to path
-    if not args['results'] is False:
+    if not args['csv_export'] is False:
         if not args['pf_post_lopf']:
             results_to_csv(network, args)
         else:

@@ -110,7 +110,7 @@ optimization problem, whereby the possible extension is unlimited. With respect
 to the different voltage levels and lengths MVA-specific costs are considered
 in the linear optimization of the power flow. Besides, several planned grid
 expansion scenarios from the German grid development plan can be considered as
-possible additional power lines.
+possible additional power lines by using the 'scn_extension' argument.
 
 
 Miscellaneous Features
@@ -122,9 +122,11 @@ marginal costs of each generator in order to prevent an optima plateau. The
 specific solver options depend on the applied solver like for example Gurobi,
 CPLEX or GLPK. Considering reproducibility, the 'load_cluster' argument
 enables to load a former calculated clustered network. Besides,
-'line_grouping' provides a grouping of lines which connect the same buses and
-the 'branch_capacity_factor' adds a factor to adapt all line capacities. The
-'load_shedding' argument is used for debugging complex grids in order to avoid
+'line_grouping' provides a grouping of lines which connect the same buses.
+The 'branch_capacity_factor' adds a factor to adapt all line capacities in order
+to consider (n-1) security. Because the average number of HV systems is much
+smaller than the one of eHV lines, you can choose factors for 'HV' and 'eHV'.
+The 'load_shedding' argument is used for debugging complex grids in order to avoid
 infeasibilities. It introduces a very expensive generator at each bus to meet 
 the demand. When optimizing storage units and grid expansion without limiting
 constraints, the need for load shedding should not be existent. The
