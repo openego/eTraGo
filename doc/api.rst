@@ -1,8 +1,12 @@
+.. _api:
+
 .. make doc-string generated documentation appear here
 
-.. toctree::
-   :maxdepth: 7
-   :glob:
-   :titlesonly:
+API
+===
 
-   API <api/modules>
+.. toctree::
+   :maxdepth: 1
+   :glob:
+   
+   api/*
