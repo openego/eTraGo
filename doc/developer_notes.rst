@@ -29,7 +29,7 @@ You can checkout to the dev branch and create new feature branches.
 For the correct work-flow, please mind the 
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
-Use the pip -e to install eTraGo directly from the cloned repository:
+3. Use the pip -e to install eTraGo directly from the cloned repository:
 
 .. code-block::
 
