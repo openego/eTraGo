@@ -101,31 +101,29 @@ args = {  # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'start_snapshot': 48,
+    'end_snapshot': 52,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'threads':4, 'method':2,'BarConvTol':1.e-5,
-                         'FeasibilityTol':1.e-6, 
-                         'logFile':'gurobi_eTraGo.log'},  # {} for default or dict of solver options
+    'solver_options': {},  # {} for default or dict of solver options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None, # None or array of extension scenarios
     'scn_decommissioning': None, # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'results': './results',  # save results as csv: False or /path/tofolder
+    'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 500,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform', # or None, 'mini' or 'uniform'
+    'disaggregation': None, # or None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -470,9 +468,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=100,
-                max_iter=1000,
-                tol=1e-8,
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
                 n_jobs=-2)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
