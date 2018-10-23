@@ -1757,9 +1757,9 @@ def set_branch_capacity(network, args):
 
     """         
     
-    network.lines["s_nom_installed"] = network.lines.s_nom.copy()
+    network.lines["s_nom_total"] = network.lines.s_nom.copy()
     
-    network.transformers["s_nom_installed"] = network.transformers.s_nom.copy()
+    network.transformers["s_nom_total"] = network.transformers.s_nom.copy()
     
     network.lines["v_nom"] = network.lines.bus0.map(
         network.buses.v_nom)
