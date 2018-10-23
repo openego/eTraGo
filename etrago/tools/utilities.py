@@ -1516,9 +1516,13 @@ def crossborder_capacity(network, method, capacity_factor):
         'thermal_acer' corrects certain capacities where our dataset most 
         likely overestimates the thermal capacity.
     capacity_factor : float
-        branch capacity factor. Makes sure that new thermal values are adjusted
-        in the same way as the rest of the network. ntc-values are not adjusted
-        since they already include n-1 security.
+        branch capacity factor. Reduction by branch-capacity 
+        factor is applied afterwards and shouln't effect ntc-values, which 
+        already include (n-1)-security. To exclude the ntc-capacities from the 
+        capacity factor, the crossborder-capacities are diveded by the factor 
+        in this function. For thermal-acer this is excluded by setting branch
+        capacity factors to one.
+        
 
     """         
     if method == 'ntc_acer':
