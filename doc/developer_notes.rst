@@ -18,20 +18,21 @@ Installation for Developers
    $ virtualenv --clear -p python3.5  etrago``
    $ cd etrago/
    $ source bin/activate
-
-2. Clone the source code from github
+   
+2. Clone the source code from github:
 
 .. code-block::
 
    $ git clone https://github.com/openego/eTraGo
-   $ git checkout dev
 
-With your activated environment `cd` to the cloned directory and run:
+You can checkout to the dev branch and create new feature branches.
+For the correct work-flow, please mind the 
+`Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
+
+Use the pip -e to install eTraGo directly from the cloned repository:
 
 .. code-block::
 
-   $ pip3 install -e eTraGo/ --process-dependency-links
+   $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
 
-This will install all needed packages into your environment.
-Now you should be ready to go.
 
