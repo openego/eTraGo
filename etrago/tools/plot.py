@@ -462,7 +462,7 @@ def network_extension(network, method = 'rel', ext_min=0.1,
 
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)
-        boundaries = [min(extension), max(extension)]
+        boundaries = [min(extension).round(0), max(extension).round(0)]
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
@@ -517,16 +517,10 @@ def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
         line_widths=2)
-    
-    if not boundaries:
-            v = np.linspace(min(extension), max(extension), 101)
-    
-    else:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
-    
+
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)
-        boundaries = [min(extension), max(extension)]
+        boundaries = [min(extension).round(0), max(extension).round(0)]
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
