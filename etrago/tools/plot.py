@@ -1694,21 +1694,15 @@ def storage_soc(network, filename = None,dpi=300):
     else:
         (network.storage_units_t.p[sbatt].sum(axis=1).sort_values(
                 ascending=False).reset_index() / \
-        network.storage_units.p_nom_opt[sbatt].sum()).plot(
+        network.storage_units.p_nom_opt[sbatt].sum())[0].plot(
                 ax=ax, label="Battery storage", color='orangered')
         (network.storage_units_t.p[shydr].sum(axis=1).sort_values(
                 ascending=False).reset_index() / \
-        network.storage_units.p_nom_opt[shydr].sum()).plot(
+        network.storage_units.p_nom_opt[shydr].sum())[0].plot(
                 ax=ax, label="Hydrogen storage", color='teal')
-    #   ax2 = ax.twinx()  # instantiate a second axes that shares the same x-axis
-    #    ((network.storage_units_t.state_of_charge[shydr].sum(axis=1).sort_values(ascending=False).reset_index() / cap_hydr)*100).plot(ax=ax2, label="Hydrogen state of charge", color='green')
-    #    ((network.storage_units_t.state_of_charge[sbatt].sum(axis=1).sort_values(ascending=False).reset_index() / cap_batt)*100).plot(ax=ax2, label="Battery state of charge", color='red')
 
     ax.set_xlabel("")
     ax.set_ylabel("Storage operation \n <- charge - discharge ->")
-  #  ax.set_ylabel("Storage state of charge [%]")
-  #  ax2.set_ylabel("Storage State of charge [%]")
-  #  ax2.set_ylim([0, 100])
     ax.set_ylim([-1.05,1.05])
     ax.legend()
   #  ax2.legend(loc=1)
