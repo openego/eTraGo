@@ -435,7 +435,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         
 
     extension = extension_lines.append(extension_links)
-    
+
     # Plot whole network in backgroud of plot
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
@@ -533,20 +533,25 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
         line_widths=2)
-    
-    if not  boundaries:
-            v = np.linspace(min(extension).round(0), max(extension).round(0), 101)
-    
-    else:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
-    
-    cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
-    cb_Link = plt.colorbar(ll[2], boundaries=v,
-                           ticks=v[0:101:10])
 
-    cb_Link.set_clim(vmin=min(v), vmax=max(v))
-    cb_Link.remove()
+    if not boundaries:
+        v = np.linspace(min(extension), max(extension), 101)
+        boundaries = [min(extension).round(0), max(extension).round(0)]
+        
+    else:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        
+    if not extension_links.empty:
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                      ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb_Link.remove()
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label('line extension derivation  in %')
 
     if filename is None:
@@ -793,23 +798,34 @@ def plot_residual_load(network):
     """
 
     renewables = network.generators[
-        network.generators.former_dispatch == 'variable']
-    renewables_t = network.generators.p_nom.mul(network.snapshot_weightings, 
-                                                axis=0)[renewables.index] * \
-        network.generators_t.p_max_pu[renewables.index]
+        network.generators.carrier.isin(['wind_onshore', 'wind_offshore', 
+                                         'solar', 'run_of_river',
+                                         'wind'])]
+    renewables_t = network.generators.p_nom[renewables.index] * \
+        network.generators_t.p_max_pu[renewables.index].mul(
+                network.snapshot_weightings, axis=0)
     load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).\
     sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
-    residual_load.plot(
+    plot = residual_load.plot(
+        title = 'Residual load',
         drawstyle='steps',
         lw=2,
         color='red',
-        legend='residual load')
+        legend=False)
+    plot.set_ylabel("MW")
     # sorted curve
     sorted_residual_load = residual_load.sort_values(
         ascending=False).reset_index()
-    sorted_residual_load.plot(drawstyle='steps', lw=1.4, color='red')
+    plot1 = sorted_residual_load.plot(
+            title='Sorted residual load',
+            drawstyle='steps',
+            lw=2,
+            color='red',
+            legend=False)
+    plot1.set_ylabel("MW")
+
 
 
 def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):

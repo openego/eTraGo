@@ -625,7 +625,7 @@ def results_to_csv(network, args, pf_solution=None):
 
     """
 
-    path = args['results']
+    path = args['csv_export']
 
     if path == False:
         return None
