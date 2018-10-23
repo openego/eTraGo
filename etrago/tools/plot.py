@@ -433,7 +433,7 @@ def network_extension(network, method = 'rel', ext_min=0.1,
         
 
     extension = extension_lines.append(extension_links)
-    
+
     # Plot whole network in backgroud of plot
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
@@ -462,7 +462,7 @@ def network_extension(network, method = 'rel', ext_min=0.1,
 
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)
-        boundaries = [min(extension).round(0), max(extension).round(0)]
+        boundaries = [min(extension), max(extension)]
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
@@ -736,9 +736,9 @@ def plot_residual_load(network):
         network.generators.carrier.isin(['wind_onshore', 'wind_offshore', 
                                          'solar', 'run_of_river',
                                          'wind'])]
-    renewables_t = network.generators.p_nom.mul(network.snapshot_weightings, 
-                                                axis=0)[renewables.index] * \
-        network.generators_t.p_max_pu[renewables.index]
+    renewables_t = network.generators.p_nom[renewables.index] * \
+        network.generators_t.p_max_pu[renewables.index].mul(
+                network.snapshot_weightings, axis=0)
     load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).\
     sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
@@ -748,17 +748,18 @@ def plot_residual_load(network):
         drawstyle='steps',
         lw=2,
         color='red',
-        label="residual load")
-    plot.legend()
-    plot.set_ylabel("Residual load in MW")
+        legend=False)
+    plot.set_ylabel("MW")
     # sorted curve
     sorted_residual_load = residual_load.sort_values(
         ascending=False).reset_index()
-    sorted_residual_load.plot(
+    plot1 = sorted_residual_load.plot(
             title='Sorted residual load',
             drawstyle='steps',
-            lw=1.4,
-            color='red')
+            lw=2,
+            color='red',
+            legend=False)
+    plot1.set_ylabel("MW")
 
 
 
