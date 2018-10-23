@@ -7,15 +7,20 @@ After you installed eTraGo you would typically start optimization runs by
 executing the ‘appl.py’ wich is situated in 
 ``./eTrago/etrago/`` (e.g by ``python3 appl.py``).
 
-The ‘appl.py’ is used as a simple user interface. Here
-parameters, calculation methods and scenario settings are set in a python
-dictionary called 'args'. It is crucial to understand these parameters.
-For example some of them contradict the usage of others. 
+eTraGo doesn't have a graphical user interface, 
+the ‘appl.py’ is used as a simple user interface which can be edited with 
+the preferred python-editor.
+Here parameters, calculation methods and scenario settings are set in a python
+dictionary called 'args'. Alternatively, arguments can be set in a json-file. 
+To run the desired calculation, it is crucial to understand these parameters. 
+In addition, some of them contradict the usage of others. 
 You find the documentation of all defined parameters from the 'args' here:
-:meth:`etrago.appl.etrago`.
+:func:`etrago.appl.etrago`.
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
+To improve the performance of the optimization in the selected solver, 
+you might use solver-options which are described here: . 
 
 Afterwards a PyPSA network will contain all results. You can use
 several plotting functions from the :meth:`etrago.tools.plot` in order

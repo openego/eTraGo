@@ -673,35 +673,35 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 def extension (network, session, version, scn_extension, start_snapshot, end_snapshot, **kwargs):
-    '''
-        Function that adds an additional network to the existing network container. 
-        The new network can include every PyPSA-component (e.g. buses, lines, links). 
-        To connect it to the existing network, transformers are needed. 
+    """
+    Function that adds an additional network to the existing network container. 
+    The new network can include every PyPSA-component (e.g. buses, lines, links). 
+    To connect it to the existing network, transformers are needed. 
         
-        All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-        The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
+    All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+    The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
 
-        Until now, the tables include three additional scenarios:
-            'nep2035_confirmed':    all new lines and needed transformers planed in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the Bundesnetzagentur (BNetzA)
+    Until now, the tables include three additional scenarios:
+    'nep2035_confirmed': all new lines and needed transformers planed in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the Bundesnetzagentur (BNetzA)
 
-            'nep2035_b2':           all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
+    'nep2035_b2': all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
 
-            'BE_NO_NEP 2035':       DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway
-                                    Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
+    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway 
+     Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
 
 
-        Input
-        -----
+     Parameters
+     -----
           network : The existing network container (e.g. scenario 'NEP 2035')
           session : session-data
           overlay_scn_name : Name of the additional scenario (WITHOUT 'extension_')
           start_snapshot, end_snapshot: Simulation time
 
-        Output
-        ------
+    Returns
+    ------
           network : Network container including existing and additional network
 
-    '''
+    """
     
     if version is None:
        ormcls_prefix = 'EgoGridPfHvExtension'
@@ -733,26 +733,26 @@ def extension (network, session, version, scn_extension, start_snapshot, end_sna
     return network
 
 def decommissioning(network, session, args, **kwargs):
-    '''
-        Function that removes components in a decommissioning-scenario from the existing network container.
-        Currently, only lines can be decommissioned.
+    """
+    Function that removes components in a decommissioning-scenario from the existing network container.
+    Currently, only lines can be decommissioned.
                
-        All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-        The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
+    All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+    The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
         
     
-        Input
-        -----
-          network : The existing network container (e.g. scenario 'NEP 2035')
-          session : session-data
-          overlay_scn_name : Name of the decommissioning scenario (WITHOUT 'decommissioning_')
+    Parameters
+    -----
+        network : The existing network container (e.g. scenario 'NEP 2035')
+        session : session-data
+        overlay_scn_name : Name of the decommissioning scenario (WITHOUT 'decommissioning_')
 
 
-        Output
-        ------
-          network : Network container including decommissioning
+    Returns
+    ------
+        network : Network container including decommissioning
           
-    '''  
+    """  
 
     if args['gridversion'] == None:   
         ormclass = getattr(import_module('egoio.db_tables.model_draft'),
@@ -795,23 +795,24 @@ def decommissioning(network, session, args, **kwargs):
 
 
 def distance(x0, x1, y0, y1):
-    '''
-        Function that calculates the square of the distance between two points.
+    """
+    Function that calculates the square of the distance between two points.
 
 
-        Input
-        -----
-          x0:  x - coordinate of point 0
-          x1:  x - coordinate of point 1
-          y0:  y - coordinate of point 0
-          y1:  y - coordinate of point 1
+    Parameters
+    -----
+        x0:  x - coordinate of point 0
+        x1:  x - coordinate of point 1
+        y0:  y - coordinate of point 0
+        y1:  y - coordinate of point 1
 
 
-        Output
-        ------
-          distance : square of distance
+    Returns
+    ------
+        distance : float
+        square of distance 
           
-    '''    
+    """   
     # Calculate square of the distance between two points (Pythagoras)
     distance = (x1.values- x0.values)*(x1.values- x0.values)\
         + (y1.values- y0.values)*(y1.values- y0.values)
@@ -819,21 +820,24 @@ def distance(x0, x1, y0, y1):
 
 
 def calc_nearest_point(bus1, network):
-    '''
-        Function that finds the geographical nearest point in a network from a given bus.
+    """
+    Function that finds the geographical nearest point in a network from a given bus.
 
 
-        Input
-        -----
-          bus1:  id of bus
-          network: network container including the comparable buses
+    Parameters
+    -----
+        bus1:  float
+        id of bus
+        network: Pypsa network container
+        network including the comparable buses
 
 
-        Output
-        ------
-          bus0 : bus_id of nearest point
+    Returns
+    ------
+        bus0 : float
+        bus_id of nearest point
 
-    '''
+    """
 
     bus1_index = network.buses.index[network.buses.index == bus1]
 
