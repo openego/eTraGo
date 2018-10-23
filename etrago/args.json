@@ -17,6 +17,7 @@
     "generator_noise": 789456,
     "minimize_loading": false,
     "ramp_limits": false,
+    "extra_functionality": null,
     "network_clustering_kmeans": 30,
     "load_cluster": false,
     "network_clustering_ehv": false,

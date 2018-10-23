@@ -105,8 +105,8 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 48,
-    'end_snapshot': 49,
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol':1.e-5, 'FeasibilityTol':1.e-5, 
                        'logFile':'solver.log'}, # {} for default options 
@@ -119,13 +119,14 @@ args = {
     'results': False,  # save results as csv: False or /path/tofolder
     'export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storage'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False, # Choose if using ramp limit of generators
+    'extra_functionality': None, # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
+    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None, # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -266,6 +267,14 @@ def etrago(args):
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
+    extra_functionality : function or None
+        None, 
+        Choose name of extra functionality described in etrago/utilities.py
+        min_renewable_share to set a minimal share of renewable energy or
+        max_line_ext to set an overall maximum of line expansion.
+        When activating snapshot_clustering or minimize_loading these
+        extra_funtionalities are overwritten and therefore neglected. 
+        
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
@@ -377,9 +386,9 @@ def etrago(args):
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
 
-    # set extra_functionality to default
-    extra_functionality = None
-    
+    # set extra_functionality
+    extra_functionality = args['extra_functionality']
+
     # set disaggregated_network to default
     disaggregated_network = None
 
