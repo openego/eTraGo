@@ -750,6 +750,7 @@ def plot_residual_load(network):
         color='red',
         label="residual load")
     plot.legend()
+    plot.set_ylabel("Residual load in MW")
     # sorted curve
     sorted_residual_load = residual_load.sort_values(
         ascending=False).reset_index()
