@@ -17,7 +17,6 @@ energy storages. Grid expansion measures are not part of this tool and will be
 instead part of 'eGo' https://github.com/openego/eGo
 
 
-============
 Installation
 ============
 eTraGo is designed as a Python package therefore it is mandatory to have
@@ -49,8 +48,8 @@ Use the pip -e to install eTraGo directly from the cloned repository:
 
    $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
 
-Using virtual environment
-=========================
+Using a virtual environment
+===========================
 
 Before installing eTraGo, 
 you create a virtual environment (where you like it) and activate it:
