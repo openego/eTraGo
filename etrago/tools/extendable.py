@@ -449,7 +449,7 @@ def print_expansion_costs(network,args):
 
     if not ext_storage.empty:
         print(
-            "Investment costs for all storages in selected snapshots [EUR]:",
+            "Investment costs for all storage units in selected snapshots [EUR]:",
             round(storage_costs,2))
 
     if not ext_lines.empty:
