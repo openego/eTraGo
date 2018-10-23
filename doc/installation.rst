@@ -13,10 +13,12 @@ command in order to install eTraGo:
 
 
 
-Using virtual environment
-=========================
+Using a virtual environment
+===========================
 
-Firstly, you create a virtual environment (where you like it) and activate it:
+
+Before installing eTraGo, 
+you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
@@ -24,7 +26,8 @@ Firstly, you create a virtual environment (where you like it) and activate it:
    $ source venv/bin/activate
    $ cd venv
 
-Inside your virtual environment you can install eTraGo with the pip command.
+Inside your activated virtual environment you can 
+install eTraGo with the pip command, as previously explained.
 
 Linux and Ubuntu
 ================

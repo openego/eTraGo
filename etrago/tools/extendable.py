@@ -42,7 +42,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(network, args):
+def extendable(network, args, line_max):
 
     """
     Function that sets selected components extendable
@@ -71,17 +71,34 @@ def extendable(network, args):
     if 'network' in args['extendable']:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
-        network.lines.s_nom_max = float("inf")
+        
+        if not line_max==None:
+            network.lines.s_nom_max = line_max * network.lines.s_nom
+        
+        else:
+            network.lines.s_nom_max = float("inf")
 
         if not network.transformers.empty:
             network.transformers.s_nom_extendable = True
             network.transformers.s_nom_min = network.transformers.s_nom
-            network.transformers.s_nom_max = float("inf")
+
+            if not line_max==None:
+                network.transformers.s_nom_max =\
+                line_max * network.transformers.s_nom
+                
+            else:
+                network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
             network.links.p_nom_extendable = True
             network.links.p_nom_min = network.links.p_nom
             network.links.p_nom_max = float("inf")
+            if not line_max==None:
+                network.links.p_nom_max=\
+                line_max * network.links.p_nom
+                
+            else:
+                network.links.p_nom_max = float("inf")
 
         network = set_line_costs(network, args)
         network = set_trafo_costs(network, args)
@@ -98,13 +115,30 @@ def extendable(network, args):
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                           (network.lines.bus1.isin(buses.index)),
                           's_nom_max'] = float("inf")
+        
+        if not line_max==None:
+            network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                    (network.lines.bus1.isin(buses.index)),
+                    's_nom_max'] = line_max * network.lines.s_nom
+        
+        else:
+            network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                    (network.lines.bus1.isin(buses.index)),
+                    's_nom_max'] = float("inf")
 
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
                     buses.index),'s_nom_extendable'] = True
             network.transformers.loc[network.transformers.bus0.isin(
                     buses.index),'s_nom_min'] = network.transformers.s_nom
-            network.transformers.loc[network.transformers.bus0.isin(
+                
+            if not line_max==None:
+                network.transformers.loc[network.transformers.bus0.isin(
+                    buses.index),'s_nom_max'] = \
+                line_max * network.transformers.s_nom
+                
+            else:
+                network.transformers.loc[network.transformers.bus0.isin(
                     buses.index),'s_nom_max'] = float("inf")
 
         if not network.links.empty:
@@ -114,8 +148,15 @@ def extendable(network, args):
             network.links.loc[(network.links.bus0.isin(buses.index)) &
                               (network.links.bus1.isin(buses.index)),
                           'p_nom_min'] = network.links.p_nom
-            network.links.loc[(network.links.bus0.isin(buses.index)) &
-                              (network.links.bus1.isin(buses.index)),
+
+            if not line_max==None:
+                network.links.loc[(network.links.bus0.isin(buses.index)) &
+                        (network.links.bus1.isin(buses.index)),
+                          'p_nom_max'] = line_max * network.links.p_nom
+                
+            else:
+                network.links.loc[(network.links.bus0.isin(buses.index)) &
+                        (network.links.bus1.isin(buses.index)),
                           'p_nom_max'] = float("inf")
             
         network = set_line_costs(network, args)
@@ -130,9 +171,16 @@ def extendable(network, args):
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
                           's_nom_min'] = network.lines.s_nom
-        network.lines.loc[network.lines.bus0.isin(buses.index) |
+
+        if not line_max==None:
+            network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
-                          's_nom_max'] = float("inf")
+                    's_nom_max'] = line_max * network.lines.s_nom
+        
+        else:
+            network.lines.loc[network.lines.bus0.isin(buses.index) |
+                          network.lines.bus1.isin(buses.index),
+                    's_nom_max'] = float("inf")
         
         if not network.transformers.empty:
             network.transformers.loc[network.transformers.bus0.isin(
@@ -141,9 +189,17 @@ def extendable(network, args):
             network.transformers.loc[network.transformers.bus0.isin(
                     buses.index) | network.transformers.bus1.isin(
                     buses.index) ,'s_nom_min'] = network.transformers.s_nom
-            network.transformers.loc[network.transformers.bus0.isin(
+
+            if not line_max==None:
+                network.transformers.loc[network.transformers.bus0.isin(
                     buses.index) | network.transformers.bus1.isin(
-                    buses.index) ,'s_nom_max'] = float("inf")
+                    buses.index),'s_nom_max'] = \
+                line_max * network.transformers.s_nom
+                
+            else:
+                network.transformers.loc[network.transformers.bus0.isin(
+                    buses.index) | network.transformers.bus1.isin(
+                    buses.index),'s_nom_max'] = float("inf")
 
         if not network.links.empty:
             network.links.loc[(network.links.bus0.isin(buses.index)) |
@@ -152,7 +208,14 @@ def extendable(network, args):
             network.links.loc[(network.links.bus0.isin(buses.index)) |
                               (network.links.bus1.isin(buses.index)),
                           'p_nom_min'] = network.links.p_nom
-            network.links.loc[(network.links.bus0.isin(buses.index)) |
+            
+            if not line_max==None:
+                network.links.loc[(network.links.bus0.isin(buses.index)) |
+                              (network.links.bus1.isin(buses.index)),
+                          'p_nom_max'] = line_max * network.links.p_nom
+                
+            else:
+                network.links.loc[(network.links.bus0.isin(buses.index)) |
                               (network.links.bus1.isin(buses.index)),
                           'p_nom_max'] = float("inf")
             
@@ -178,6 +241,41 @@ def extendable(network, args):
         network.generators.p_nom_extendable = True
         network.generators.p_nom_min = network.generators.p_nom
         network.generators.p_nom_max = float("inf")
+        
+    if 'foreign_storage' in args['extendable']:
+        network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])) & (
+                network.storage_units.carrier.isin(
+                        ['battery_storage','hydrogen_storage'] ))] = True
+
+        network.storage_units.loc[
+                network.storage_units.p_nom_max.isnull(),'p_nom_max'] = \
+                network.storage_units.p_nom
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'battery_storage'),
+                'capital_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') 
+                & (network.storage_units.max_hours == 6),'capital_cost'].max()
+
+        network.storage_units.loc[ 
+                (network.storage_units.carrier == 'hydrogen_storage'),
+                'capital_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.max_hours == 168),'capital_cost'].max()
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'battery_storage'),
+                'marginal_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') 
+                & (network.storage_units.max_hours == 6),'marginal_cost'].max()
+
+        network.storage_units.loc[
+                (network.storage_units.carrier == 'hydrogen_storage'),
+                'marginal_cost'] = network.storage_units.loc[(
+                network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.max_hours == 168),'marginal_cost'].max()
+
 
     # Extension settings for extension-NEP 2035 scenarios
     if 'NEP Zubaunetz' in args['extendable']:
@@ -352,3 +450,33 @@ def extension_preselection(network, args, method, days = 3):
     print("Time for first LOPF [min]:", round(z1st, 2))
 
     return network
+
+def print_expansion_costs(network,args):
+
+    ext_storage=network.storage_units[network.storage_units.p_nom_extendable]
+    ext_lines=network.lines[network.lines.s_nom_extendable]
+    ext_links=network.links[network.links.p_nom_extendable]
+    ext_trafos=network.transformers[network.transformers.s_nom_extendable]
+
+    if not ext_storage.empty:
+        storage_costs=(ext_storage.p_nom_opt*ext_storage.capital_cost).sum()
+
+    if not ext_lines.empty:
+        network_costs=((ext_lines.s_nom_opt-ext_lines.s_nom_min
+                   )*ext_lines.capital_cost +\
+                   (ext_links.p_nom_opt-ext_links.p_nom_min
+                    )*ext_links.capital_cost).sum()
+
+    if not ext_trafos.empty:
+        network_costs=network_costs+((ext_trafos.s_nom_opt-ext_trafos.s_nom_min
+                                     )*ext_trafos.capital_cost).sum()
+
+    if not ext_storage.empty:
+        print(
+            "Investment costs for all storage units in selected snapshots [EUR]:",
+            round(storage_costs,2))
+
+    if not ext_lines.empty:
+        print(
+            "Investment costs for all lines and transformers in selected snapshots [EUR]:",
+            round(network_costs,2))

@@ -453,6 +453,19 @@ def clear_results_db(session):
 
 def results_to_oedb(session, network, args, grid='hv', safe_results=False):
     """Return results obtained from PyPSA to oedb"""
+    
+    # Update generator_ids when k_means clustering to get integer ids
+    if args['network_clustering_kmeans'] != False:
+        new_index=pd.DataFrame(index = network.generators.index)
+        new_index['new']=range(len(network.generators))
+
+        for col in (network.generators_t):
+            if not network.generators_t[col].empty:
+                network.generators_t[col].columns =\
+                    new_index.new[network.generators_t[col].columns]
+
+        network.generators.index = range(len(network.generators))
+    
     # moved this here to prevent error when not using the mv-schema
     import datetime
     if grid.lower() == 'mv':

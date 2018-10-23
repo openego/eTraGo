@@ -358,7 +358,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     
 
 
-def network_extension(network, method = 'rel', ext_min=0.1,
+def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[]):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
@@ -491,8 +491,8 @@ def network_extension(network, method = 'rel', ext_min=0.1,
         plt.savefig(filename)
         plt.close()
 
-def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
-    """Plot relative network extension derivation of AC- and DC-lines.
+def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
+    """Plot relative network expansion derivation of AC- and DC-lines.
     
     Parameters
     ----------

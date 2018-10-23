@@ -832,8 +832,8 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
         network_pf.lopf(network.snapshots,
             solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            solver_options={'threads':4,'crossover':0,'method':2, 'NumericFocus':2, 'BarHomogeneous':1, 'BarConvTol':1.e-5,'FeasibilityTol':1.e-6,'logFile':'gurobi_eTraGo.log'},
+            extra_functionality=None)
         
         network_pf.storage_units.p_nom_extendable = storages_extendable
         network_pf.lines.s_nom_extendable = lines_extendable 
@@ -1437,30 +1437,26 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     -------
 
     """
-    # Add costs for converter
+    # Add costs for DC-converter
     network.links.capital_cost = network.links.capital_cost + 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))
 
-    #
+    # Apply function on lines, links, trafos and storages
+    # Storage costs are already annuized yearly
     network.lines.loc[network.lines.s_nom_extendable == True,
                       'capital_cost'] = (network.lines.capital_cost /
-                                         (PVA * (8760 / (end_snapshot -
-                                                         start_snapshot + 1))))
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1))))
     network.links.loc[network.links.p_nom_extendable == True,
-                      'capital_cost'] = network.\
-        links.capital_cost / (PVA * (8760 // (end_snapshot -
-                                              start_snapshot + 1)))
+                      'capital_cost'] = network. links.capital_cost /\
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
     network.transformers.loc[network.transformers.s_nom_extendable == True,
-                             'capital_cost'] = network.\
-        transformers.capital_cost / \
-        (PVA * (8760 // (end_snapshot - start_snapshot + 1)))
-    network.storage_units.loc[network.storage_units.
-                              p_nom_extendable == True,
-                              'capital_cost'] = network.\
-        storage_units.capital_cost / (8760 // (end_snapshot -
-                                               start_snapshot + 1))
+                     'capital_cost'] = network.transformers.capital_cost / \
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+    network.storage_units.loc[network.storage_units.p_nom_extendable == True,
+                      'capital_cost'] = network.storage_units.capital_cost / \
+                              (8760 / (end_snapshot - start_snapshot + 1))
 
     return network
 
@@ -1761,3 +1757,65 @@ def set_branch_capacity(network, args):
     network.transformers.s_nom[network.transformers.v_nom0 > 110]\
         = network.transformers.s_nom * \
             args['branch_capacity_factor']['eHV']
+
+def max_line_ext(network,snapshots,share=1.01):
+    """
+    Sets maximal share of overall network extension 
+    as extra functionality in LOPF
+    
+    Parameters
+    ----------
+    share: float
+        Maximal share of network extension in p.u.
+    """
+
+    lines_snom = network.lines.s_nom.sum()
+    links_pnom = network.links.p_nom.sum()
+
+    def _rule(m):
+        
+        lines_opt = sum(m.passive_branch_s_nom[index]
+                        for index
+                        in m.passive_branch_s_nom_index)
+                        
+        links_opt = sum(m.link_p_nom[index]
+                        for index
+                        in m.link_p_nom_index)
+
+    
+        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
+    network.model.max_line_ext = Constraint(rule=_rule)
+
+
+def min_renewable_share(network,snapshots,share=0.72):
+    """
+    Sets minimal renewable share of generation as extra functionality in LOPF
+    
+    
+    Parameters
+    ----------
+    share: float
+        Minimal share of renewable generation in p.u.
+    """
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'biomass', 'solar', 'run_of_river']
+
+    res = list(network.generators.index[
+            network.generators.carrier.isin(renewables)])
+
+    total = list(network.generators.index)
+    snapshots = network.snapshots
+
+    def _rule(m):
+        """
+        """
+        renewable_production = sum(m.generator_p[gen,sn]
+                                  for gen
+                                  in res
+                                  for sn in snapshots)
+        total_production = sum(m.generator_p[gen,sn]
+                               for gen  in total
+                               for sn in snapshots)
+
+        return (renewable_production >= total_production * share)
+    network.model.min_renewable_share = Constraint(rule=_rule)
