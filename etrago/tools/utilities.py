@@ -107,7 +107,7 @@ def geolocation_buses(network, session):
      in order to locate the buses
      
      Else:
-     Use x/y coordinats to locate foreign buses
+     Use coordinats of buses to locate foreign buses, which is less accurate.
 
      Parameters
      ----------
@@ -215,7 +215,8 @@ def geolocation_buses(network, session):
 
 def buses_by_country(network):
     """
-    Find buses of foreign countries and return them as Pandas Series
+    Find buses of foreign countries using coordinates
+    and return them as Pandas Series
 
     Parameters
     ----------
@@ -396,9 +397,9 @@ def clip_foreign(network):
 
 
 def foreign_links(network):
-    """
-    Change transmission technology of foreign lines from AC to DC (links).
-        Parameters
+    """Change transmission technology of foreign lines from AC to DC (links).
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -444,11 +445,14 @@ def foreign_links(network):
 
 
 def set_q_foreign_loads(network, cos_phi=1):
-    """
-    Set reative power timeseries of loads in neighbouring countries
+    """Set reative power timeseries of loads in neighbouring countries
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    cos_phi: float
+        Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
@@ -515,6 +519,8 @@ def connected_transformer(network, busids):
 def load_shedding(network, **kwargs):
     """ Implement load shedding in existing network to identify
     feasibility problems
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -550,6 +556,16 @@ def load_shedding(network, **kwargs):
 
 
 def data_manipulation_sh(network):
+    """ Adds missing components to run calculations with SH scenarios.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    
+
+    
+    """
     from shapely.geometry import Point, LineString, MultiLineString
     from geoalchemy2.shape import from_shape, to_shape
 
@@ -595,10 +611,21 @@ def _enumerate_row(row):
 
 
 def results_to_csv(network, args, pf_solution=None):
-    """
+    """ Function the writes the calaculation results
+    in csv-files in the desired directory. 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Contains calculation settings of appl.py
+    pf_solution: pandas.Dataframe or None
+        If pf was calculated, df containing information of convergence else None. 
+
     """
 
-    path = args['results']
+    path = args['csv_export']
 
     if path == False:
         return None
@@ -629,22 +656,41 @@ def results_to_csv(network, args, pf_solution=None):
     return
 
 
-def parallelisation(network, start_snapshot, end_snapshot, group_size,
-                    solver_name, solver_options, extra_functionality=None):
+def parallelisation(network, args, group_size, extra_functionality=None):
+
+    """
+    Function that splits problem in selected number of 
+    snapshot groups and runs optimization successive for each group. 
+        
+    Not useful for calculations with storage untis or extension.  
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Contains calculation settings of appl.py
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
 
     print("Performing linear OPF, {} snapshot(s) at a time:".
           format(group_size))
     t = time.time()
 
-    for i in range(int((end_snapshot - start_snapshot + 1) / group_size)):
+    for i in range(int((args['end_snapshot'] - args['start_snapshot'] + 1)
+        / group_size)):
         if i > 0:
             network.storage_units.state_of_charge_initial = network.\
                 storage_units_t.state_of_charge.loc[
                     network.snapshots[group_size * i - 1]]
         network.lopf(network.snapshots[
                      group_size * i:group_size * i + group_size],
-                     solver_name=solver_name,
-                     solver_options=solver_options,
+                     solver_name=args['solver_name'],
+                     solver_options=args['solver_options'],
                      extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
 
@@ -652,6 +698,23 @@ def parallelisation(network, start_snapshot, end_snapshot, group_size,
     return
 
 def set_slack(network):
+    
+    """ Function that chosses the bus with the maximum installed power as slack
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+
+
+    """
+    
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
     # check if old slack was PV or PQ control:
@@ -694,6 +757,34 @@ def set_slack(network):
 
 def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
+    """ Function that prepares and runs non-linar load flow using PyPSA pf. 
+    
+    If network has been extendable, a second lopf with reactances adapted to
+    new s_nom is needed. 
+    
+    If crossborder lines are DC-links, pf is only applied on german network. 
+    Crossborder flows are still considerd due to the active behavior of links.
+    To return a network containing the whole grid, the optimised solution of the
+    foreign components can be added afterwards. 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Contains calculation settings of appl.py   
+    extra_fuctionality: function or NoneType
+        Adds constraint to optimization (e.g. when applied snapshot clustering)
+    add_foreign_lopf: boolean
+        Choose if foreign results of lopf should be added to the network when
+        foreign lines are DC
+
+    Returns
+    -------
+    pf_solve: pandas.Dataframe
+        Contains information about convergency and calculation time of pf
+        
+    """
     network_pf = network
 
     # Update x of extended lines and transformers
@@ -855,7 +946,24 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
 
 def distribute_q(network, allocation='p_nom'):
+    
+    """ Function that distributes reactive power at bus to all installed
+    generators and storages. 
 
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    allocation: str
+        Choose key to distribute reactive power:
+        'p_nom' to dirstribute via p_nom
+        'p' to distribute via p_set
+
+    Returns
+    -------
+
+        
+    """
     network.allocation = allocation
     if allocation == 'p':
         p_sum = network.generators_t['p'].\
@@ -919,6 +1027,8 @@ def distribute_q(network, allocation='p_nom'):
 
 def calc_line_losses(network):
     """ Calculate losses per line with PF result data
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -1047,6 +1157,8 @@ def group_parallel_lines(network):
 def set_line_costs(network, args, 
                    cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -1090,6 +1202,8 @@ def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
                     cost220_380=14166):
     """ Set capital costs for extendable transformers in respect
     to PyPSA [€/MVA]
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -1122,10 +1236,23 @@ def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
 
 def add_missing_components(network):
     # Munich
-    '''
-     add missing transformer at Heizkraftwerk Nord in Munich:
-     https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
-@@ -329,27 +334,28 @@
+    """Add missing transformer at Heizkraftwerk Nord in Munich and missing
+    transformer in Stuttgart
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+        
+    """
+    
+    """https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
+
      to bus 25096:
      25369 (86)
      28232 (24)
@@ -1142,7 +1269,7 @@ def add_missing_components(network):
      28335 to 28139 (28)
      Overhead lines:
      16573 to 24182 (part of 4)
-     '''
+     """
     """
      Installierte Leistung der Umspannungsebene Höchst- zu Hochspannung
      (380 kV / 110 kV): 2.750.000 kVA
@@ -1300,6 +1427,8 @@ def add_missing_components(network):
 
 def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     """ Convert capital_costs to fit to pypsa and caluculated time
+    
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -1308,30 +1437,26 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     -------
 
     """
-    # Add costs for converter
+    # Add costs for DC-converter
     network.links.capital_cost = network.links.capital_cost + 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))
 
-    #
+    # Apply function on lines, links, trafos and storages
+    # Storage costs are already annuized yearly
     network.lines.loc[network.lines.s_nom_extendable == True,
                       'capital_cost'] = (network.lines.capital_cost /
-                                         (PVA * (8760 / (end_snapshot -
-                                                         start_snapshot + 1))))
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1))))
     network.links.loc[network.links.p_nom_extendable == True,
-                      'capital_cost'] = network.\
-        links.capital_cost / (PVA * (8760 // (end_snapshot -
-                                              start_snapshot + 1)))
+                      'capital_cost'] = network. links.capital_cost /\
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
     network.transformers.loc[network.transformers.s_nom_extendable == True,
-                             'capital_cost'] = network.\
-        transformers.capital_cost / \
-        (PVA * (8760 // (end_snapshot - start_snapshot + 1)))
-    network.storage_units.loc[network.storage_units.
-                              p_nom_extendable == True,
-                              'capital_cost'] = network.\
-        storage_units.capital_cost / (8760 // (end_snapshot -
-                                               start_snapshot + 1))
+                     'capital_cost'] = network.transformers.capital_cost / \
+                      (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+    network.storage_units.loc[network.storage_units.p_nom_extendable == True,
+                      'capital_cost'] = network.storage_units.capital_cost / \
+                              (8760 / (end_snapshot - start_snapshot + 1))
 
     return network
 
@@ -1460,6 +1585,16 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
 
 def set_line_country_tags(network):
+    """
+    Set country tag for AC- and DC-lines. 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+
+    """ 
 
     transborder_lines_0 = network.lines[network.lines['bus0'].isin(
             network.buses.index[network.buses['country_code'] != 'DE'])].index
@@ -1503,7 +1638,7 @@ def set_line_country_tags(network):
 
 def crossborder_capacity(network, method, capacity_factor):
     """
-    Correct interconnector capacties.
+    Adjust interconnector capacties.
 
     Parameters
     ----------
@@ -1516,9 +1651,13 @@ def crossborder_capacity(network, method, capacity_factor):
         'thermal_acer' corrects certain capacities where our dataset most 
         likely overestimates the thermal capacity.
     capacity_factor : float
-        branch capacity factor. Makes sure that new thermal values are adjusted
-        in the same way as the rest of the network. ntc-values are not adjusted
-        since they already include n-1 security.
+        branch capacity factor. Reduction by branch-capacity 
+        factor is applied afterwards and shouln't effect ntc-values, which 
+        already include (n-1)-security. To exclude the ntc-capacities from the 
+        capacity factor, the crossborder-capacities are diveded by the factor 
+        in this function. For thermal-acer this is excluded by setting branch
+        capacity factors to one.
+        
 
     """         
     if method == 'ntc_acer':
@@ -1543,43 +1682,57 @@ def crossborder_capacity(network, method, capacity_factor):
                            'LUFR': 364,
                            'SEDK': 1928,
                            'DKSE': 1928}
-        capacity_factor = 1
+
     elif method == 'thermal_acer':
         cap_per_country = {'CH': 12000,
                             'DK': 4000,
                             'SEDK': 3500,
                             'DKSE': 3500}
+        capacity_factor = {'HV': 1, 'eHV':1}
     if not network.lines[network.lines.country != 'DE'].empty:
         weighting = network.lines.loc[network.lines.country!='DE', 's_nom'].\
                 groupby(network.lines.country).transform(lambda x: x/x.sum())
 
     weighting_links = network.links.loc[network.links.country!='DE', 'p_nom'].\
                 groupby(network.links.country).transform(lambda x: x/x.sum())
-
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
     for country in cap_per_country:
 
-        index = network.lines[network.lines.country == country].index
+        index_HV = network.lines[(network.lines.country == country) &(
+                network.lines.v_nom == 110)].index
+        index_eHV = network.lines[(network.lines.country == country) &(
+                network.lines.v_nom > 110)].index
         index_links = network.links[network.links.country == country].index
 
         if not network.lines[network.lines.country == country].empty:
-                network.lines.loc[index, 's_nom'] = \
-                                weighting[index] * cap_per_country[country] *\
-                                capacity_factor
+                network.lines.loc[index_HV, 's_nom'] = weighting[index_HV] * \
+                    cap_per_country[country] / capacity_factor['HV']
+                    
+                network.lines.loc[index_eHV, 's_nom'] = \
+                    weighting[index_eHV] * cap_per_country[country] /\
+                                capacity_factor['eHV']
 
         if not network.links[network.links.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
                                 weighting_links[index_links] * cap_per_country\
-                                [country] * capacity_factor
+                                [country] 
         if country == 'SE':
                 network.links.loc[network.links.country == country, 'p_nom'] =\
                 cap_per_country[country]
 
         if not network.lines[network.lines.country == (country+country)].empty:
-            i_lines =  network.lines[network.lines.country ==
-                                     country+country].index
-            network.lines.loc[i_lines, 's_nom'] = \
-                                weighting[i_lines] * cap_per_country[country]*\
-                                capacity_factor
+            i_HV =  network.lines[(network.lines.v_nom == 110)&(
+                    network.lines.country ==country+country)].index
+            
+            i_eHV =  network.lines[(network.lines.v_nom == 110)&(
+                    network.lines.country ==country+country)].index
+            
+            network.lines.loc[i_HV, 's_nom'] = \
+                                weighting[i_HV] * cap_per_country[country]/\
+                                capacity_factor['HV']
+            network.lines.loc[i_eHV, 's_nom'] = \
+                                weighting[i_eHV] * cap_per_country[country]/\
+                                capacity_factor['eHV']
 
         if not network.links[network.links.country == (country+country)].empty:
             i_links =  network.links[network.links.country ==
@@ -1603,7 +1756,11 @@ def set_branch_capacity(network, args):
         Settings in appl.py
 
     """         
-
+    
+    network.lines["s_nom_total"] = network.lines.s_nom.copy()
+    
+    network.transformers["s_nom_total"] = network.transformers.s_nom.copy()
+    
     network.lines["v_nom"] = network.lines.bus0.map(
         network.buses.v_nom)
     network.transformers["v_nom0"] = network.transformers.bus0.map(
@@ -1622,3 +1779,65 @@ def set_branch_capacity(network, args):
     network.transformers.s_nom[network.transformers.v_nom0 > 110]\
         = network.transformers.s_nom * \
             args['branch_capacity_factor']['eHV']
+
+def max_line_ext(network,snapshots,share=1.01):
+    """
+    Sets maximal share of overall network extension 
+    as extra functionality in LOPF
+    
+    Parameters
+    ----------
+    share: float
+        Maximal share of network extension in p.u.
+    """
+
+    lines_snom = network.lines.s_nom.sum()
+    links_pnom = network.links.p_nom.sum()
+
+    def _rule(m):
+        
+        lines_opt = sum(m.passive_branch_s_nom[index]
+                        for index
+                        in m.passive_branch_s_nom_index)
+                        
+        links_opt = sum(m.link_p_nom[index]
+                        for index
+                        in m.link_p_nom_index)
+
+    
+        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
+    network.model.max_line_ext = Constraint(rule=_rule)
+
+
+def min_renewable_share(network,snapshots,share=0.72):
+    """
+    Sets minimal renewable share of generation as extra functionality in LOPF
+    
+    
+    Parameters
+    ----------
+    share: float
+        Minimal share of renewable generation in p.u.
+    """
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'biomass', 'solar', 'run_of_river']
+
+    res = list(network.generators.index[
+            network.generators.carrier.isin(renewables)])
+
+    total = list(network.generators.index)
+    snapshots = network.snapshots
+
+    def _rule(m):
+        """
+        """
+        renewable_production = sum(m.generator_p[gen,sn]
+                                  for gen
+                                  in res
+                                  for sn in snapshots)
+        total_production = sum(m.generator_p[gen,sn]
+                               for gen  in total
+                               for sn in snapshots)
+
+        return (renewable_production >= total_production * share)
+    network.model.min_renewable_share = Constraint(rule=_rule)

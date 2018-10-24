@@ -105,6 +105,7 @@ def plot_line_loading(
     Plots line loading as a colored heatmap.
 
     Line loading is displayed as relative to nominal capacity in %.
+    
     Parameters
     ----------
     network : PyPSA network container
@@ -248,6 +249,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
 
     Positive values mean that line loading with switches is bigger than without
     Plot switches as small dots
+    
     Parameters
     ----------
     networkA : PyPSA network container
@@ -356,7 +358,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     
 
 
-def network_extension(network, method = 'rel', ext_min=0.1,
+def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[]):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
@@ -433,7 +435,7 @@ def network_extension(network, method = 'rel', ext_min=0.1,
         
 
     extension = extension_lines.append(extension_links)
-    
+
     # Plot whole network in backgroud of plot
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
@@ -489,7 +491,21 @@ def network_extension(network, method = 'rel', ext_min=0.1,
         plt.savefig(filename)
         plt.close()
 
-def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
+def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
+    """Plot relative network expansion derivation of AC- and DC-lines.
+    
+    Parameters
+    ----------
+    networkA: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    networkB: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename: str or None
+        Save figure in this direction
+    boundaries: array
+       Set boundaries of heatmap axis
+    
+    """
 
     cmap = plt.cm.jet
     
@@ -517,20 +533,25 @@ def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
         line_widths=2)
-    
-    if not  boundaries:
-            v = np.linspace(min(extension).round(0), max(extension).round(0), 101)
-    
-    else:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
-    
-    cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
-    cb_Link = plt.colorbar(ll[2], boundaries=v,
-                           ticks=v[0:101:10])
 
-    cb_Link.set_clim(vmin=min(v), vmax=max(v))
-    cb_Link.remove()
+    if not boundaries:
+        v = np.linspace(min(extension), max(extension), 101)
+        boundaries = [min(extension).round(0), max(extension).round(0)]
+        
+    else:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        
+    if not extension_links.empty:
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                      ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb_Link.remove()
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label('line extension derivation  in %')
 
     if filename is None:
@@ -540,11 +561,21 @@ def network_extension_diff (networkA, networkB, filename=None, boundaries=[]):
         plt.close()
 
 
-def full_load_hours(
-        network,
-        boundaries=[0, 4830],
-        filename=None,
-        two_cb=False):
+def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
+    """Plot loading of lines in equivalten full load hours.
+    
+    Parameters
+    ----------
+    network: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename: str or None
+        Save figure in this direction
+    boundaries: array
+       Set boundaries of heatmap axis
+    two_cb: bool
+        Choose if an extra colorbar for DC-lines is plotted
+    
+    """
     cmap = plt.cm.jet
 
     array_line = [['Line'] * len(network.lines), network.lines.index]
@@ -591,7 +622,15 @@ def full_load_hours(
         plt.savefig(filename)
         plt.close()
 
-def plot_q_flows(network ):
+def plot_q_flows(network):
+    """Plot maximal reactive line load. 
+    
+    Parameters
+    ----------
+    network: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+
+    """
     cmap_line = plt.cm.jet
     
     q_flows_max = abs(network.lines_t.q0.abs().max()/(network.lines.s_nom))
@@ -607,6 +646,21 @@ def plot_q_flows(network ):
     
 
 def max_load(network, boundaries=[], filename=None, two_cb=False):
+    
+    """Plot maximum loading of each line. 
+    
+    Parameters
+    ----------
+    network: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    filename: str or None
+        Save figure in this direction
+    boundaries: array
+       Set boundaries of heatmap axis
+    two_cb: bool
+        Choose if an extra colorbar for DC-lines is plotted
+    
+    """
 
     cmap_line = plt.cm.jet
     cmap_link = plt.cm.jet
@@ -663,6 +717,22 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
 
 
 def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
+    
+    """Plot number of hours with line loading in selected range. 
+    
+    Parameters
+    ----------
+    network: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    min_load: float
+        Choose lower bound of relative load 
+    max_load: float
+        Choose upper bound of relative load
+    boundaries: array
+       Set boundaries of heatmap axis    
+    
+    """
+    
     cmap_line = plt.cm.jet
     cmap_link = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
@@ -728,23 +798,34 @@ def plot_residual_load(network):
     """
 
     renewables = network.generators[
-        network.generators.former_dispatch == 'variable']
-    renewables_t = network.generators.p_nom.mul(network.snapshot_weightings, 
-                                                axis=0)[renewables.index] * \
-        network.generators_t.p_max_pu[renewables.index]
+        network.generators.carrier.isin(['wind_onshore', 'wind_offshore', 
+                                         'solar', 'run_of_river',
+                                         'wind'])]
+    renewables_t = network.generators.p_nom[renewables.index] * \
+        network.generators_t.p_max_pu[renewables.index].mul(
+                network.snapshot_weightings, axis=0)
     load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).\
     sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
-    residual_load.plot(
+    plot = residual_load.plot(
+        title = 'Residual load',
         drawstyle='steps',
         lw=2,
         color='red',
-        legend='residual load')
+        legend=False)
+    plot.set_ylabel("MW")
     # sorted curve
     sorted_residual_load = residual_load.sort_values(
         ascending=False).reset_index()
-    sorted_residual_load.plot(drawstyle='steps', lw=1.4, color='red')
+    plot1 = sorted_residual_load.plot(
+            title='Sorted residual load',
+            drawstyle='steps',
+            lw=2,
+            color='red',
+            legend=False)
+    plot1.set_ylabel("MW")
+
 
 
 def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
@@ -814,6 +895,11 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
 
     ax.set_ylabel(resolution)
     ax.set_xlabel("")
+    
+
+    matplotlib.rcParams.update({'font.size': 22})
+
+
 
     if filename is None:
         plt.show()
@@ -918,7 +1004,24 @@ def plot_voltage(network, boundaries=[]):
 
 
 def curtailment(network, carrier='solar', filename=None):
+    """
+    Plot curtailment of selected carrier
 
+
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    carrier: str
+        Plot curtailemt of this carrier
+    filename: str or None
+        Save figure in this direction
+    
+
+    Returns
+    -------
+    Plot
+    """
     p_by_carrier = network.generators_t.p.groupby\
         (network.generators.carrier, axis=1).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
@@ -959,6 +1062,7 @@ def storage_distribution(network, scaling=1, filename=None):
     Plot storage distribution as circles on grid nodes
 
     Displays storage size and distribution in network.
+    
     Parameters
     ----------
     network : PyPSA network container
@@ -1025,6 +1129,7 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
     """
     Plot storage distribution as circles on grid nodes
     Displays storage size and distribution in network.
+    
     Parameters
     ----------
     network : PyPSA network container
@@ -1126,6 +1231,8 @@ def gen_dist(
         filename=None):
     """
     Generation distribution
+    
+    Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
@@ -1202,6 +1309,8 @@ def gen_dist_diff(
     is bigger with switches than without
     Blue colors mean that the generation at a location is smaller with switches
     than without
+    
+    Parameters
     ----------
     networkA : PyPSA network container
         Holds topology of grid with switches
@@ -1285,6 +1394,7 @@ def gen_dist(
     """
     Generation distribution
 
+    Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
