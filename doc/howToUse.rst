@@ -38,8 +38,8 @@ the arguments used in the functions which are executed in the 'appl.py'.
 Lastly, for more specific or extensive changes you are highly invited
 to write code and add new functionalities.
 
-Afterwards a PyPSA network will contain all results. You can use
-several plotting functions from the :meth:`etrago.tools.plot` in order
+Once the calculation has finished a PyPSA network will contain all results. 
+You can use several plotting functions from the :meth:`etrago.tools.plot` in order
 to visualize the results. For example 
 the :meth:`etrago.tools.plot.plot_line_loading` plots
 the relative line loading in % of all AC lines and DC links of the network.
