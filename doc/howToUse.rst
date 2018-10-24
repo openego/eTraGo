@@ -28,9 +28,15 @@ The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
 
 To improve the performance of the optimization of the selected solver, 
-you might want to use solver options. For gurobi
+you might want to use solver options (part of 'args'). For gurobi
 the most used ones are described 
 `here <https://github.com/openego/eTraGo/issues/213>`_.
+
+Moreover, if you want to change parameters apart from the options which
+are provided by the 'args' you can change the default values of 
+the arguments used in the functions which are executed in the 'appl.py'.
+Lastly, for more specific or extensive changes you are highly invited
+to write code and add new functionalities.
 
 Afterwards a PyPSA network will contain all results. You can use
 several plotting functions from the :meth:`etrago.tools.plot` in order
