@@ -64,8 +64,10 @@ environments.
 
 Setup database connection
 =========================
-The package ``ego.io`` gives you a python SQL-Alchemy representations of
-the _OpenEnergy-Database_  (oedb) and access to it by using the
+The package `ego.io <https://github.com/openego/ego.io>`_  
+gives you a python SQL-Alchemy representations of
+the `OpenEnergy-Database(oedb) <https://openenergy-platform.org/dataedit/>`_ 
+and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_ a SQL-Alchemy binding
 Python package for the REST-API used by the OpenEnergy Platform (OEP). Your API
 access / login data will be saved in the folder ``.egoio`` in the file
