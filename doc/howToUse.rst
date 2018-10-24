@@ -24,7 +24,7 @@ and the get_args_setting() within the `'appl.py' <https://github.com/openego/eTr
 is executed the 'args' dictionary within the 'appl.py' is ignored
 and replaced by the 'args' of the json-file.
 
-The appl.py contains the etrago(args) function which uses the
+The appl.py contains the :func:`etrago.appl.etrago` function which uses the
 defined 'args' dictionary to start the desired calculation.
 
 To improve the performance of the optimization of the selected solver, 
