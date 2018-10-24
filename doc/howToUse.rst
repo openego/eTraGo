@@ -26,8 +26,11 @@ and replaced by the 'args' in the json-file.
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
-To improve the performance of the optimization in the selected solver, 
-you might use solver-options which are described here: . 
+
+To improve the performance of the optimization of the selected solver, 
+you might want to use solver options. For gurobi
+the most used ones are described 
+`here <https://github.com/openego/eTraGo/issues/213>`_.
 
 Afterwards a PyPSA network will contain all results. You can use
 several plotting functions from the :meth:`etrago.tools.plot` in order
