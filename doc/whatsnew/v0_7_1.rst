@@ -1,1 +1,18 @@
+Release 0.7.1 (October 24, 2018)
+++++++++++++++++++++++++++++
+A minor release adding new options for additional constraints, modelling assumptions and plotting
+
+Added features
+--------------
+
+* Two extra functionalities were introduced in order to apply constraints concerning a minimal share of renewable energy and a maximal expansion of grid expansion. You can activate these functions in the 'args' of the etrago() function.
+* The branch_capacity_factor can now be defined separately for the high and extra high voltage level in order to address the (n-1) criteria more accurately.
+* There are some more plotting functions e.g. plotting the state-of-charge and dispatch of storage units.
+* Storage capacities in foreign countries can easily be be optimized.
+* By default the maximum expansion of each line and transformer is set to four times its original capacity. Being an argument of the extendable() function it can be easily adjusted.
+* k-means clustered results can now also be stored to the oedb.
+
+
+
+
 
