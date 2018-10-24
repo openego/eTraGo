@@ -765,18 +765,21 @@ def extension (network, session, version, scn_extension, start_snapshot,
 
 def decommissioning(network, session, args, **kwargs):
     """
-    Function that removes components in a decommissioning-scenario from the existing network container.
+    Function that removes components in a decommissioning-scenario from
+    the existing network container.
     Currently, only lines can be decommissioned.
                
-    All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-    The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
+    All components of the decommissioning scenario need to be inserted in
+    the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+    The scn_name in the tables have to be labled with 'decommissioning_' 
+    + scn_name (e.g. 'decommissioning_nep2035'). 
         
     
     Parameters
     -----
         network : The existing network container (e.g. scenario 'NEP 2035')
         session : session-data
-        overlay_scn_name : Name of the decommissioning scenario (WITHOUT 'decommissioning_')
+        overlay_scn_name : Name of the decommissioning scenario
 
 
     Returns

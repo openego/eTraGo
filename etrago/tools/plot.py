@@ -1025,7 +1025,8 @@ def curtailment(network, carrier='solar', filename=None):
     p_by_carrier = network.generators_t.p.groupby\
         (network.generators.carrier, axis=1).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
-    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
+    p_available = network.generators_t.p_max_pu.multiply(
+            network.generators["p_nom"])
     p_available_by_carrier = p_available.groupby(
         network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
@@ -1143,18 +1144,26 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
                                    'extendable_storage']
     batteries = stores[stores.max_hours == 6]
     hydrogen = stores[stores.max_hours == 168]
-    storage_distribution = network.storage_units.p_nom_opt[stores.index].groupby(
-        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
-    battery_distribution = network.storage_units.p_nom_opt[batteries.index].groupby(
-        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
-    hydrogen_distribution = network.storage_units.p_nom_opt[hydrogen.index].groupby(
-        network.storage_units.bus).sum().reindex(network.buses.index, fill_value=0.)
+    storage_distribution =\
+        network.storage_units.p_nom_opt[stores.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    battery_distribution =\
+        network.storage_units.p_nom_opt[batteries.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    hydrogen_distribution =\
+        network.storage_units.p_nom_opt[hydrogen.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
 
     sbatt = network.storage_units.index[
-        (network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (
+        (network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10) & (
                     network.storage_units.max_hours == 6)]
     shydr = network.storage_units.index[
-        (network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (
+        (network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10) & (
                     network.storage_units.max_hours == 168)]
 
     fig, ax = plt.subplots(1, 1)
@@ -1183,15 +1192,22 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         battery_distribution = battery_distribution / 1000
         hydrogen_distribution = hydrogen_distribution / 1000
 
-    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() < 1:
         print("No storage unit to plot")
-    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and network.storage_units.p_nom_opt[shydr].sum() < 1:
-        network.plot(bus_sizes=battery_distribution * scaling, bus_colors='orangered', ax=ax, line_widths=0.3)
-    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and network.storage_units.p_nom_opt[shydr].sum() > 1:
-        network.plot(bus_sizes=hydrogen_distribution * scaling, bus_colors='teal', ax=ax, line_widths=0.3)
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() < 1:
+        network.plot(bus_sizes=battery_distribution * scaling, 
+                     bus_colors='orangered', ax=ax, line_widths=0.3)
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() > 1:
+        network.plot(bus_sizes=hydrogen_distribution * scaling,
+                     bus_colors='teal', ax=ax, line_widths=0.3)
     else:
-        network.plot(bus_sizes=battery_distribution * scaling, bus_colors='orangered', ax=ax, line_widths=0.3)
-        network.plot(bus_sizes=hydrogen_distribution * scaling, bus_colors='teal', ax=ax, line_widths=0.3)
+        network.plot(bus_sizes=battery_distribution * scaling,
+                     bus_colors='orangered', ax=ax, line_widths=0.3)
+        network.plot(bus_sizes=hydrogen_distribution * scaling,
+                     bus_colors='teal', ax=ax, line_widths=0.3)
 
     if basemap and basemap_present:
         x = network.buses["x"]

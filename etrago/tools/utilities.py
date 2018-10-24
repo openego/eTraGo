@@ -105,7 +105,7 @@ def geolocation_buses(network, session):
      Use Geometries of buses x/y(lon/lat) and Polygons
      of Countries from RenpassGisParameterRegion
      in order to locate the buses
-     
+
      Else:
      Use coordinats of buses to locate foreign buses, which is less accurate.
 
@@ -115,52 +115,51 @@ def geolocation_buses(network, session):
          eTraGo network object compiled by: meth: `etrago.appl.etrago`
      session: : sqlalchemy: `sqlalchemy.orm.session.Session < orm/session_basics.html >`
          SQLAlchemy session to the OEDB
-    
+
     """
-    if geopandas: 
-     # ToDo: check eTrago stack generation plots and other in order of adaptation
-     # Start db connetion
-     # get renpassG!S scenario data
-    
-         RenpassGISRegion = RenpassGisParameterRegion
+    if geopandas:
+        # Start db connetion
+        # get renpassG!S scenario data
 
-         # Define regions
-         region_id = ['DE', 'DK', 'FR', 'BE', 'LU', 'AT',
-                  'NO', 'PL', 'CH', 'CZ', 'SE', 'NL']
+        RenpassGISRegion = RenpassGisParameterRegion
 
-         query = session.query(RenpassGISRegion.gid, 
-                               RenpassGISRegion.u_region_id,
-                               RenpassGISRegion.stat_level, 
-                               RenpassGISRegion.geom,
-                               RenpassGISRegion.geom_point)
+        # Define regions
+        region_id = ['DE', 'DK', 'FR', 'BE', 'LU', 'AT',
+                     'NO', 'PL', 'CH', 'CZ', 'SE', 'NL']
 
-         # get regions by query and filter
-         Regions = [(gid, u_region_id, stat_level, geoalchemy2.shape.to_shape(
-                 geom),geoalchemy2.shape.to_shape(geom_point)) 
+        query = session.query(RenpassGISRegion.gid,
+                              RenpassGISRegion.u_region_id,
+                              RenpassGISRegion.stat_level,
+                              RenpassGISRegion.geom,
+                              RenpassGISRegion.geom_point)
+
+        # get regions by query and filter
+        Regions = [(gid, u_region_id, stat_level, geoalchemy2.shape.to_shape(
+                 geom), geoalchemy2.shape.to_shape(geom_point))
                  for gid, u_region_id, stat_level,
                 geom, geom_point in query.filter(RenpassGISRegion.u_region_id.
                                                  in_(region_id)).all()]
 
-         crs = {'init': 'epsg:4326'}
-         # transform lon lat to shapely Points and create GeoDataFrame
-         points = [Point(xy) for xy in zip(network.buses.x,  network.buses.y)]
-         bus = gpd.GeoDataFrame(network.buses, crs=crs, geometry=points)
-         # Transform Countries Polygons as Regions
-         region = pd.DataFrame(
+        crs = {'init': 'epsg:4326'}
+        # transform lon lat to shapely Points and create GeoDataFrame
+        points = [Point(xy) for xy in zip(network.buses.x,  network.buses.y)]
+        bus = gpd.GeoDataFrame(network.buses, crs=crs, geometry=points)
+        # Transform Countries Polygons as Regions
+        region = pd.DataFrame(
                  Regions, columns=['id', 'country', 'stat_level', 'Polygon',
                                    'Point'])
-         re = gpd.GeoDataFrame(region, crs=crs, geometry=region['Polygon'])
-         # join regions and buses by geometry which intersects
-         busC = gpd.sjoin(bus, re, how='inner', op='intersects')
-         # busC
-         # Drop non used columns
-         busC = busC.drop(['index_right', 'Point', 'id', 'Polygon',
+        re = gpd.GeoDataFrame(region, crs=crs, geometry=region['Polygon'])
+        # join regions and buses by geometry which intersects
+        busC = gpd.sjoin(bus, re, how='inner', op='intersects')
+        # busC
+        # Drop non used columns
+        busC = busC.drop(['index_right', 'Point', 'id', 'Polygon',
                        'stat_level', 'geometry'], axis=1)
-         # add busC to eTraGo.buses
-         network.buses['country_code'] = busC['country']
-         network.buses.country_code[network.buses.country_code.isnull()] = 'DE'
-         # close session 
-         session.close()
+        # add busC to eTraGo.buses
+        network.buses['country_code'] = busC['country']
+        network.buses.country_code[network.buses.country_code.isnull()] = 'DE'
+        # close session 
+        session.close()
 
     else:
 
@@ -1726,7 +1725,7 @@ def crossborder_capacity(network, method, capacity_factor):
             
             i_eHV =  network.lines[(network.lines.v_nom == 110)&(
                     network.lines.country ==country+country)].index
-            
+
             network.lines.loc[i_HV, 's_nom'] = \
                                 weighting[i_HV] * cap_per_country[country]/\
                                 capacity_factor['HV']
@@ -1738,15 +1737,15 @@ def crossborder_capacity(network, method, capacity_factor):
             i_links =  network.links[network.links.country ==
                                      (country+country)].index
             network.links.loc[i_links, 'p_nom'] = \
-                                weighting_links[i_links] * cap_per_country\
-                                [country]*capacity_factor
+                weighting_links[i_links] * cap_per_country\
+                [country]*capacity_factor
 
 
 def set_branch_capacity(network, args):
-    
+
     """
     Set branch capacity factor of lines and transformers, different factors for
-    HV (110kV) and eHV (220kV, 380kV). 
+    HV (110kV) and eHV (220kV, 380kV).
 
     Parameters
     ----------
@@ -1755,36 +1754,35 @@ def set_branch_capacity(network, args):
     args: dict
         Settings in appl.py
 
-    """         
-    
+    """
+
     network.lines["s_nom_total"] = network.lines.s_nom.copy()
-    
+
     network.transformers["s_nom_total"] = network.transformers.s_nom.copy()
-    
+
     network.lines["v_nom"] = network.lines.bus0.map(
         network.buses.v_nom)
     network.transformers["v_nom0"] = network.transformers.bus0.map(
         network.buses.v_nom)
 
-    network.lines.s_nom[network.lines.v_nom == 110] = network.lines.s_nom * \
-            args['branch_capacity_factor']['HV']
+    network.lines.s_nom[network.lines.v_nom == 110] = \
+        network.lines.s_nom * args['branch_capacity_factor']['HV']
 
-    network.lines.s_nom[network.lines.v_nom > 110] = network.lines.s_nom * \
-            args['branch_capacity_factor']['eHV']
+    network.lines.s_nom[network.lines.v_nom > 110] = \
+        network.lines.s_nom * args['branch_capacity_factor']['eHV']
 
     network.transformers.s_nom[network.transformers.v_nom0 == 110]\
-        = network.transformers.s_nom * \
-            args['branch_capacity_factor']['HV']
+        = network.transformers.s_nom * args['branch_capacity_factor']['HV']
 
     network.transformers.s_nom[network.transformers.v_nom0 > 110]\
-        = network.transformers.s_nom * \
-            args['branch_capacity_factor']['eHV']
+        = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
 
-def max_line_ext(network,snapshots,share=1.01):
+def max_line_ext(network, snapshots, share=1.01):
+
     """
-    Sets maximal share of overall network extension 
+    Sets maximal share of overall network extension
     as extra functionality in LOPF
-    
+
     Parameters
     ----------
     share: float
@@ -1795,25 +1793,22 @@ def max_line_ext(network,snapshots,share=1.01):
     links_pnom = network.links.p_nom.sum()
 
     def _rule(m):
-        
+
         lines_opt = sum(m.passive_branch_s_nom[index]
                         for index
                         in m.passive_branch_s_nom_index)
-                        
+
         links_opt = sum(m.link_p_nom[index]
                         for index
                         in m.link_p_nom_index)
 
-    
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
     network.model.max_line_ext = Constraint(rule=_rule)
 
-
-def min_renewable_share(network,snapshots,share=0.72):
+def min_renewable_share(network, snapshots, share=0.72):
     """
     Sets minimal renewable share of generation as extra functionality in LOPF
-    
-    
+
     Parameters
     ----------
     share: float
@@ -1831,12 +1826,12 @@ def min_renewable_share(network,snapshots,share=0.72):
     def _rule(m):
         """
         """
-        renewable_production = sum(m.generator_p[gen,sn]
-                                  for gen
-                                  in res
-                                  for sn in snapshots)
-        total_production = sum(m.generator_p[gen,sn]
-                               for gen  in total
+        renewable_production = sum(m.generator_p[gen, sn]
+                                      for gen
+                                      in res
+                                      for sn in snapshots)
+        total_production = sum(m.generator_p[gen, sn]
+                               for gen in total
                                for sn in snapshots)
 
         return (renewable_production >= total_production * share)
