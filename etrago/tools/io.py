@@ -377,7 +377,8 @@ class NetworkScenario(ScenarioBase):
                         df_series = self.series_fetch_by_relname(comp_t, col)
 
                         # TODO: VMagPuSet is not implemented.
-                        if timevarying_override and comp == 'Generator' and not df_series.empty:
+                        if timevarying_override and comp == 'Generator' \
+                        and not df_series.empty:
                             idx = df[df.former_dispatch == 'flexible'].index
                             idx = [i for i in idx if i in df_series.columns]
                             df_series.drop(idx, axis=1, inplace=True)
@@ -452,8 +453,24 @@ def clear_results_db(session):
 
 
 def results_to_oedb(session, network, args, grid='hv', safe_results=False):
-    """Return results obtained from PyPSA to oedb"""
-    
+    """Return results obtained from PyPSA to oedb
+
+    Parameters
+    ----------
+    session: 
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    args: dict
+        Settings from appl.py
+    grid: str
+        Choose voltage-level, currently only 'hv' implemented
+    safe_results: boolean
+        If it is set to 'True' the result set will be saved
+        to the versioned grid schema eventually apart from
+        being saved to the model_draft by a SQL-script.
+        ONLY set to True if you know what you are doing.
+
+    """
     # Update generator_ids when k_means clustering to get integer ids
     if args['network_clustering_kmeans'] != False:
         new_index=pd.DataFrame(index = network.generators.index)
@@ -471,7 +488,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
     if grid.lower() == 'mv':
         print('MV currently not implemented')
     elif grid.lower() == 'hv':
-        from egoio.db_tables.model_draft import EgoGridPfHvResultBus as BusResult,\
+        from egoio.db_tables.model_draft import\
+            EgoGridPfHvResultBus as BusResult,\
             EgoGridPfHvResultBusT as BusTResult,\
             EgoGridPfHvResultStorage as StorageResult,\
             EgoGridPfHvResultStorageT as StorageTResult,\
@@ -500,7 +518,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
     res_meta = ResultMeta()
     meta_misc = []
     for arg, value in args.items():
-        if arg not in dir(res_meta) and arg not in ['db', 'lpfile', 'results', 'export']:
+        if arg not in dir(res_meta) and arg not in ['db', 'lpfile',
+                                                     'results', 'export']:
             meta_misc.append([arg, str(value)])
 
     res_meta.result_id = new_res_id
@@ -528,14 +547,17 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
             new_source.name = network.generators.carrier[gen]
             session.add(new_source)
             session.commit()
-            sources = pd.read_sql(session.query(Source).statement, session.bind)
+            sources = pd.read_sql(
+                    session.query(Source).statement, session.bind)
         try:
             old_source_id = int(
-                sources.source_id[sources.name == network.generators.carrier[gen]])
+                sources.source_id[
+                        sources.name == network.generators.carrier[gen]])
             network.generators.set_value(gen, 'source', int(old_source_id))
         except:
             print(
-                'Source ' + network.generators.carrier[gen] + ' is not in the source table!')
+                'Source ' + network.generators.carrier[gen] + 
+                ' is not in the source table!')
     for stor in network.storage_units.index:
         if network.storage_units.carrier[stor] not in sources.name.values:
             new_source = Source()
@@ -544,14 +566,17 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
             new_source.name = network.storage_units.carrier[stor]
             session.add(new_source)
             session.commit()
-            sources = pd.read_sql(session.query(Source).statement, session.bind)
+            sources = pd.read_sql(
+                    session.query(Source).statement, session.bind)
         try:
             old_source_id = int(
-                sources.source_id[sources.name == network.storage_units.carrier[stor]])
+                sources.source_id[
+                        sources.name == network.storage_units.carrier[stor]])
             network.storage_units.set_value(stor, 'source', int(old_source_id))
         except:
             print(
-                'Source ' + network.storage_units.carrier[stor] + ' is not in the source table!')
+                'Source ' + network.storage_units.carrier[stor] +
+                ' is not in the source table!')
 
     whereismyindex = {BusResult: network.buses.index,
                       LoadResult: network.loads.index,
@@ -586,8 +611,10 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                        'soc_cyclic': 'cyclic_state_of_charge',
                        'soc_initial': 'state_of_charge_initial'}
 
-    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult, GeneratorResult, StorageResult,
-                  BusTResult, LoadTResult, LineTResult, TransformerTResult, GeneratorTResult, StorageTResult]
+    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult, 
+                  GeneratorResult, StorageResult, BusTResult, LoadTResult, 
+                  LineTResult, TransformerTResult, GeneratorTResult, 
+                  StorageTResult]
 
     for ormclass in ormclasses:
         for index in whereismyindex[ormclass]:
@@ -608,7 +635,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                     if col == 'soc_set':
                         try:
                             setattr(myinstance, col, getattr(
-                                whereismydata[ormclass], 'state_of_charge_set')[index].tolist())
+                                whereismydata[ormclass], 
+                                'state_of_charge_set')[index].tolist())
                         except:
                             pass
                     else:
@@ -625,7 +653,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                         if col == 'soc_cyclic':
                             try:
                                 setattr(myinstance, col, bool(
-                                    whereismydata[ormclass].loc[index, new_to_old_name[col]]))
+                                    whereismydata[ormclass].loc[index,
+                                                 new_to_old_name[col]]))
                             except:
                                 pass
                         elif 'Storage' in str(ormclass) and col == 'dispatch':
@@ -637,7 +666,8 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                         else:
                             try:
                                 setattr(
-                                    myinstance, col, whereismydata[ormclass].loc[index, new_to_old_name[col]])
+                                    myinstance, col, whereismydata[ormclass].\
+                                    loc[index, new_to_old_name[col]])
                             except:
                                 pass
                     elif col in ['s_nom_extendable', 'p_nom_extendable']:
@@ -672,7 +702,8 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, version, scn_extension, start_snapshot, end_snapshot, **kwargs):
+def extension (network, session, version, scn_extension, start_snapshot, 
+               end_snapshot, **kwargs):
     """
     Function that adds an additional network to the existing network container. 
     The new network can include every PyPSA-component (e.g. buses, lines, links). 
@@ -734,18 +765,21 @@ def extension (network, session, version, scn_extension, start_snapshot, end_sna
 
 def decommissioning(network, session, args, **kwargs):
     """
-    Function that removes components in a decommissioning-scenario from the existing network container.
+    Function that removes components in a decommissioning-scenario from
+    the existing network container.
     Currently, only lines can be decommissioned.
                
-    All components of the decommissioning scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-    The scn_name in the tables have to be labled with 'decommissioning_' + scn_name (e.g. 'decommissioning_nep2035'). 
+    All components of the decommissioning scenario need to be inserted in
+    the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+    The scn_name in the tables have to be labled with 'decommissioning_' 
+    + scn_name (e.g. 'decommissioning_nep2035'). 
         
     
     Parameters
     -----
         network : The existing network container (e.g. scenario 'NEP 2035')
         session : session-data
-        overlay_scn_name : Name of the decommissioning scenario (WITHOUT 'decommissioning_')
+        overlay_scn_name : Name of the decommissioning scenario
 
 
     Returns
@@ -842,7 +876,8 @@ def calc_nearest_point(bus1, network):
     bus1_index = network.buses.index[network.buses.index == bus1]
 
     forbidden_buses = np.append(
-        bus1_index.values, network.lines.bus1[network.lines.bus0 == bus1].values)
+        bus1_index.values, network.lines.bus1[
+                network.lines.bus0 == bus1].values)
 
     forbidden_buses = np.append(
         forbidden_buses, network.lines.bus0[network.lines.bus1 == bus1].values)
@@ -857,7 +892,8 @@ def calc_nearest_point(bus1, network):
 
     y0 = network.buses.y[network.buses.index.isin(bus1_index)]
 
-    comparable_buses = network.buses[~network.buses.index.isin(forbidden_buses)]
+    comparable_buses = network.buses[~network.buses.index.isin(
+            forbidden_buses)]
 
     x1 = comparable_buses.x
 
@@ -868,8 +904,8 @@ def calc_nearest_point(bus1, network):
 
     min_distance = distance.min()
 
-    bus0 = comparable_buses[(((x1.values - x0.values)*(x1.values - x0.values) + (
-        y1.values - y0.values)*(y1.values - y0.values)) == min_distance)]
+    bus0 = comparable_buses[(((x1.values - x0.values)*(x1.values - x0.values
+        ) + (y1.values - y0.values)*(y1.values - y0.values)) == min_distance)]
     bus0 = bus0.index[bus0.index == bus0.index.max()]
     bus0 = ''.join(bus0.values)
 
