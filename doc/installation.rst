@@ -74,6 +74,7 @@ access / login data will be saved in the folder ``.egoio`` in the file
 ``config.ini``. In order connect eTraGo via the oedialect with the oedb you
 have to create an account at
 `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
+In the following you can see how the config.ini should look like.
 
 
 oedialect connection
