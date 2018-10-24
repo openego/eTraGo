@@ -836,7 +836,7 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
     # if selected, copy lopf results of neighboring countries to network
     if ((args['foreign_lines']['carrier'] == 'DC') or ((args['scn_extension']!=
-       None) and ('BE_NO_NEP 2035' in args['scn_extension']))) & add_foreign_lopf:
+       None) and ('BE_NO_NEP 2035' in args['scn_extension']))) and add_foreign_lopf:
         for comp in sorted(foreign_series):
             network.import_components_from_dataframe(foreign_comp[comp], comp)
 
