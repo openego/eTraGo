@@ -20,7 +20,9 @@ You find the documentation of all defined parameters from the 'args' here:
 Alternatively, the 'args' dictionary can be edited in a json-file.
 Then the path to the json-file has to be defined in the function
 :meth:`etrago.tools.utilities.get_args_setting`. Once a path is given
-and the `get_args_setting() within the 'appl.py' <https://github.com/openego/eTraGo/blob/37a91c92fd9eafc31bd0679334c906ac571a2b18/etrago/appl.py#L144>`_
+and the get_args_setting() within the `'appl.py' <https://github.com/openego/eTraGo/blob/37a91c92fd9eafc31bd0679334c906ac571a2b18/etrago/appl.py#L144>`_
+is executed the 'args' dictionary within the 'appl.py' is ignored
+and replaced by the 'args' in the json-file.
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
