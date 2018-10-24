@@ -11,11 +11,16 @@ eTraGo doesn't have a graphical user interface,
 the ‘appl.py’ is used as a simple user interface which can be edited with 
 the preferred python-editor.
 Here parameters, calculation methods and scenario settings are set in a python
-dictionary called 'args'. Alternatively, arguments can be set in a json-file. 
+dictionary called 'args'. 
 To run the desired calculation, it is crucial to understand these parameters. 
 In addition, some of them contradict the usage of others. 
 You find the documentation of all defined parameters from the 'args' here:
 :func:`etrago.appl.etrago`.
+
+Alternatively, the 'args' dictionary can be edited in a json-file.
+Then the path to the json-file has to be defined in the function
+:meth:`etrago.tools.utilities.get_args_setting`. Once a path is given
+and the `get_args_setting() within the 'appl.py' <https://github.com/openego/eTraGo/blob/37a91c92fd9eafc31bd0679334c906ac571a2b18/etrago/appl.py#L144>`_
 
 The appl.py contains the etrago(args) function which uses the
 defined 'args' dictionary to start the desired calculation.
