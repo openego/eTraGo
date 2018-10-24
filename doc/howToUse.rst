@@ -34,7 +34,8 @@ the most used ones are described
 
 Moreover, if you want to change parameters apart from the options which
 are provided by the 'args' you can change the default values of 
-the arguments used in the functions which are executed in the 'appl.py'.
+the arguments used in the functions which are executed by the 
+:meth:`etrago.appl.etrago` function.
 Lastly, for more specific or extensive changes you are highly invited
 to write code and add new functionalities.
 
