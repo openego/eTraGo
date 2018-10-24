@@ -111,7 +111,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 13,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
@@ -130,7 +130,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -273,11 +273,11 @@ def etrago(args):
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
-    extra_functionality : function or None
+    extra_functionality : str or None
         None,
         Choose name of extra functionality described in etrago/utilities.py
-        min_renewable_share to set a minimal share of renewable energy or
-        max_line_ext to set an overall maximum of line expansion.
+        "min_renewable_share" to set a minimal share of renewable energy or
+        "max_line_ext" to set an overall maximum of line expansion.
         When activating snapshot_clustering or minimize_loading these
         extra_funtionalities are overwritten and therefore neglected.
 
@@ -392,8 +392,11 @@ def etrago(args):
     network.storage_units.cyclic_state_of_charge = True
 
     # set extra_functionality
-    extra_functionality = args['extra_functionality']
-
+    if args['extra_functionality'] is not None:
+        extra_functionality = eval(args['extra_functionality'])
+    elif args['extra_functionality'] is None:
+        extra_functionality = args['extra_functionality']
+        
     # set disaggregated_network to default
     disaggregated_network = None
 

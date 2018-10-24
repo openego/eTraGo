@@ -459,7 +459,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         line_colors=extension,
         line_cmap=cmap,
         bus_sizes=0,
-        title="Optimized AC- and DC-line extension",
+        title="Optimized AC- and DC-line expansion",
         line_widths=line_widths) 
 
     if not boundaries:
@@ -482,9 +482,9 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
     if method == 'rel':
-        cb.set_label('line extension relative to s_nom in %')
+        cb.set_label('line expansion relative to s_nom in %')
     if method == 'abs':
-        cb.set_label('line extension in MW')
+        cb.set_label('line expansion in MW')
     if filename is None:
         plt.show()
     else:
@@ -1228,7 +1228,9 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
                 label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
     plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
+    ax.set_title("Storage expansion")
 
+    
     if filename is None:
         plt.show()
     else:
