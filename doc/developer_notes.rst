@@ -21,7 +21,7 @@ Installation for Developers
    
 2. Clone the source code from github:
 
-.. code-block::
+.. code-block:: bash
 
    $ git clone https://github.com/openego/eTraGo
 
@@ -31,7 +31,7 @@ For the correct work-flow, please mind the
 
 3. Use the pip -e to install eTraGo directly from the cloned repository:
 
-.. code-block::
+.. code-block:: bash
 
    $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
 

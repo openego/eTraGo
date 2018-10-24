@@ -616,7 +616,7 @@ def etrago(args):
             results_to_csv(
                     disaggregated_network,
                     {k: os.path.join(v, 'disaggregated')
-                        if k == 'results' else v
+                        if k == 'csv_export' else v
                         for k, v in args.items()})
 
     # close session
