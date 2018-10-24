@@ -89,6 +89,10 @@ your connection parameters or add new ones.
 In the following you can see how the config.ini looks like when you use the
 oedialect, a local postgresql database or the old psycopg2 developer connection.
 
+Once you have created a connection (which is saved in the config.ini) you do not have
+to enter the connection parameter. The software will take the connection parameter
+which corresponds to the entry at the `'db' <https://github.com/openego/eTraGo/blob/42a8629e966c866af2d228d49fb7234a6cc38cfe/etrago/appl.py#L105>`_ argument.
+
 
 oedialect connection
 --------------------
