@@ -4,7 +4,7 @@ How to use eTraGo?
 ==================
 
 After you installed eTraGo you would typically start optimization runs by
-executing the ‘appl.py’ wich is situated in 
+executing the ‘appl.py’ which is situated in 
 ``./eTrago/etrago/`` (e.g by ``python3 appl.py``).
 
 eTraGo doesn't have a graphical user interface, 
