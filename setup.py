@@ -16,7 +16,7 @@ setup(
     author='DLR VE, ZNES Flensburg',
     author_email='',
     description="electric transmission grid optimization",
-    version='0.7.0',
+    version='0.7.1',
     url='https://github.com/openego/eTraGo',
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
