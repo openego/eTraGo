@@ -1838,3 +1838,46 @@ def min_renewable_share(network, snapshots, share=0.72):
 
         return (renewable_production >= total_production * share)
     network.model.min_renewable_share = Constraint(rule=_rule)
+
+
+def max_curtailment(network, snapshots, curtail_max=0.03):
+    
+    """
+    each RE can only be curtailed (over all snapshots) 
+    with respect to curtail_max
+
+    Parameters
+    ----------
+    curtail_max: float
+        maximal curtailment per power plant in p.u.
+    """
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'solar']
+    
+    res = list(network.generators.index[
+        (network.generators.carrier.isin(renewables))])
+       # & (network.generators.bus.astype(str).isin(network.buses.index[network.buses.country_code == 'DE']))])
+      
+#    network.import_series_from_dataframe(pd.DataFrame(
+#                index=network.generators_t.p_set.index,
+#                columns=network.generators.index[
+#                        network.generators.carrier=='biomass'],
+#                data=1), "Generator", "p_max_pu")
+    
+    res_potential = (network.generators.p_nom[res]*network.generators_t.p_max_pu[res]).sum()
+    
+    snapshots = network.snapshots
+
+    for gen in res:
+
+        def _rule(m, gen):
+            """
+            """
+            #import pdb; pdb.set_trace()
+            re_n = sum(m.generator_p[gen, sn]
+                                      for sn in snapshots)
+            potential_n = res_potential[gen]
+
+            return (re_n >= (1-curtail_max) * potential_n)
+        setattr(network.model, "max_curtailment"+gen, Constraint(res, rule=_rule))
+
