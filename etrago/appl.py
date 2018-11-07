@@ -478,7 +478,13 @@ def etrago(args):
     # ehv network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+        busmap = busmap_from_psql(
+                network,
+                session,
+                scn_name=(
+                        args['scn_name'] if args['scn_extension']==None
+                        else args['scn_name']+'_ext_'+'_'.join(
+                                args['scn_extension'])))
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
 
