@@ -1278,7 +1278,7 @@ def add_missing_components(network):
     """
     new_trafo = str(network.transformers.index.astype(int).max() + 1)
 
-    network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
+    network.add("Transformer", new_trafo, bus0="16573", bus1="23648",
                 x=0.135 / (2750 / 2),
                 r=0.0, tap_ratio=1, s_nom=2750 / 2)
 
@@ -1346,7 +1346,7 @@ def add_missing_components(network):
          Heizkraftwerk Heilbronn:
     """
     # new_trafo = str(network.transformers.index.astype(int).max()1)
-    network.add("Transformer", '99999', bus0="25766", bus1="18967",
+    network.add("Transformer", '99999', bus0="18967", bus1="25766",
                 x=0.135 / 300, r=0.0, tap_ratio=1, s_nom=300)
     """
     According to:
