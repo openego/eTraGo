@@ -1423,6 +1423,18 @@ def add_missing_components(network):
                                                 )
 
     add_220kv_line("266", "24633", overhead=True)
+
+
+    # temporary turn buses of transformers
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom)
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom)
+    new_bus0 = network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1]
+    new_bus1 = network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1]
+    network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus0.values
+    network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus1.values
+
     return network
 
 
