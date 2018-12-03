@@ -115,6 +115,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
+        network_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # dealing with generators
     network.generators.control = "PV"
