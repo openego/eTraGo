@@ -101,7 +101,7 @@ if 'READTHEDOCS' not in os.environ:
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
-    import oedialect
+#    import oedialect
 
 
 args = {
@@ -110,12 +110,12 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 24,
+    'start_snapshot': 1,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -130,7 +130,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -383,6 +383,43 @@ def etrago(args):
         crossborder_capacity(
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
+
+    # set numbers for offshore wind to their connection points
+    # Büttel
+    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind_offshore')] = 3000  # ok
+    # Dörpen West
+    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind_offshore')] = 2616  # ok
+    # Diele
+    network.generators.p_nom.loc[(network.generators.bus == '27153') & (network.generators.carrier == 'wind_offshore')] = 1200  # ok
+    # Lubmin
+    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind_offshore')] = 1771  # ok
+
+    # Emden
+    network.add("Generator", '24710 wind_offshore', bus=24710, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=113)
+    network.add("Generator", '26134 wind_offshore', bus=26134, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=2700)
+
+    # Hagermarsch
+    network.add("Generator", '25427 wind_offshore', bus=25427, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=62)
+
+    # Inhausen
+    network.add("Generator", '24374 wind_offshore', bus=24374, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=111)
+
+    # Cloppenburg
+    network.add("Generator", '25249 wind_offshore', bus=25249, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=900)
+
+    # Hanekenfähr
+    network.add("Generator", '25451 wind_offshore', bus=25451, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=1879)
+
+    # Bentwisch
+    network.add("Generator", '24579 wind_offshore', bus=24579, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=339)
+
+    # Siedenbrünzow/Sanitz
+    network.add("Generator", '27541 wind_offshore', bus=27541, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=309)
+
+    # Wilhemshaven2
+    network.add("Generator", '26892 wind_offshore', bus=26892, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1000)
+    # Segeberg
+    network.add("Generator", '24876 wind_offshore', bus=24876, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1800)
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
