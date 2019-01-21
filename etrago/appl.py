@@ -436,10 +436,6 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
-
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
         network = decommissioning(
@@ -449,6 +445,10 @@ def etrago(args):
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
+
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
 
     # investive optimization strategies
     if args['extendable'] != []:
