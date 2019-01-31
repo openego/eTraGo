@@ -1849,45 +1849,39 @@ def min_renewable_share(network, snapshots, share=.99):
 
         return (renewable_production >= total_production * share)
     network.model.min_renewable_share = Constraint(rule=_rule)
-    
 
-def max_curtailment(network, snapshots, curtail_max=0.03):
-    
-    """
-    each RE can only be curtailed (over all snapshots) 
-    with respect to curtail_max
-
-    Parameters
-    ----------
-    curtail_max: float
-        maximal curtailment per power plant in p.u.
-    """
-    renewables = ['wind_onshore', 'wind_offshore',
-                  'solar']
-    
-    res = list(network.generators.index[
-        (network.generators.carrier.isin(renewables))
-        & (network.generators.bus.astype(str).isin(network.buses.index[network.buses.country_code == 'DE']))])
-      
-#    network.import_series_from_dataframe(pd.DataFrame(
-#                index=network.generators_t.p_set.index,
-#                columns=network.generators.index[
-#                        network.generators.carrier=='biomass'],
-#                data=1), "Generator", "p_max_pu")
-    
-    res_potential = (network.generators.p_nom[res]*network.generators_t.p_max_pu[res]).sum()
-    
+def cross_border_flow(network, snapshots, export=[0,1000]):
+# Identify cross-border-lines in respect of order of buses 
+    cb0 = network.lines.index[(network.lines.bus0.isin(
+            network.buses.index[network.buses.country_code!='DE'])) & (
+        network.lines.bus1.isin(
+                network.buses.index[network.buses.country_code=='DE']))]
+        
+    cb1= network.lines.index[(network.lines.bus0.isin(
+            network.buses.index[network.buses.country_code=='DE'])) & (
+        network.lines.bus1.isin(
+                network.buses.index[network.buses.country_code!='DE']))]
     snapshots = network.snapshots
 
-    for gen in res:
-
-        def _rule(m, gen):
-            """
-            """
-            #import pdb; pdb.set_trace()
-            re_n = sum(m.generator_p[gen, sn]
-                                      for sn in snapshots)
-            potential_n = res_potential[gen]
-
-            return (re_n >= (1-curtail_max) * potential_n)
-        setattr(network.model, "max_curtailment"+gen, Constraint(res, rule=_rule))
+    def _rule_min(m):
+       # import pdb; pdb.set_trace()
+        cb_flow=-sum(m.passive_branch_p['Line', line, sn]
+                        for line in cb0
+                        for sn in snapshots) + \
+                sum(m.passive_branch_p['Line',line, sn]
+                        for line in cb1
+                        for sn in snapshots)
+        return ((cb_flow>=export[0]))
+    
+    def _rule_max(m):
+       # import pdb; pdb.set_trace()
+        cb_flow=-sum(m.passive_branch_p['Line', line, sn]
+                        for line in cb0
+                        for sn in snapshots) + \
+                sum(m.passive_branch_p['Line',line, sn]
+                        for line in cb1
+                        for sn in snapshots)
+        return ((cb_flow<=export[1]))
+    
+    network.model.cross_border_flows_min = Constraint(rule=_rule_min)
+    network.model.cross_border_flows_max = Constraint(rule=_rule_max)
