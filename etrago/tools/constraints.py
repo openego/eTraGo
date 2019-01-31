@@ -19,7 +19,7 @@
 
 # File description
 """
-Constraints.py includes additional constranits for eTraGo-optimizations
+Constraints.py includes additional constraints for eTraGo-optimizations
 """
 
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
@@ -34,7 +34,6 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
                  "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
-
 
 
 def max_line_ext(network, snapshots, share=1.01):
@@ -97,7 +96,17 @@ def min_renewable_share(network, snapshots, share=0.72):
         return (renewable_production >= total_production * share)
     network.model.min_renewable_share = Constraint(rule=_rule)
 
-def cross_border_flow(network, snapshots, export=[0,1000]):
+def cross_border_flow(network, snapshots, export_per_load=[0,0.2]):
+    """
+    Limit sum of border_flows in snapshots
+
+    Parameters
+    ----------
+    export_per_load: Array of minimum and maximum export from Germany to other 
+                    countries (postive: export, negative: import)
+                    in percent of german loads in all snapshots
+
+    """
 # Identify cross-border-lines in respect of order of buses 
     cb0 = network.lines.index[(network.lines.bus0.isin(
             network.buses.index[network.buses.country_code!='DE'])) & (
@@ -120,6 +129,10 @@ def cross_border_flow(network, snapshots, export=[0,1000]):
                 network.buses.index[network.buses.country_code!='DE']))]
         
     snapshots = network.snapshots
+
+    export=pd.Series(data=export_per_load)*network.loads_t.p_set[
+            network.loads.index[network.loads.bus.isin(network.buses.index[
+                    network.buses.country_code == 'DE'])]].sum().sum()
 
     def _rule_min(m):
         cb_flow=-sum(m.passive_branch_p['Line', line, sn]
@@ -155,7 +168,7 @@ def cross_border_flow(network, snapshots, export=[0,1000]):
     network.model.cross_border_flows_max = Constraint(rule=_rule_max)
 
 def cross_border_flows_per_country(network, snapshots,
-                                   export_per_country={'AT': [0,10],
+                                   export_per_load={'AT': [0,10],
                                                        'NL': [0,20],
                                                        'CZ': [0,30],
                                                        'PL': [0,40],
@@ -164,11 +177,25 @@ def cross_border_flows_per_country(network, snapshots,
                                                        'CH': [0,70],
                                                        'FR': [0,80],
                                                        'SE': [0,90] }):
+    """
+    Limit sum of border_flows in snapshots per country
+
+    Parameters
+    ----------
+    export_per_load: Array of minimum and maximum export from Germany to other 
+                    countries (postive: export, negative: import)
+                    in percent of german loads in all snapshots
+
+    """
+
     snapshots=network.snapshots
     
     countries = network.buses.country_code.unique()
-    
-    for cntr in export_per_country.keys():
+    export_per_country = pd.DataFrame(data=export_per_load).transpose()*\
+            network.loads_t.p_set[network.loads.index[
+            network.loads.bus.isin(network.buses.index[
+                    network.buses.country_code == 'DE'])]].sum().sum()
+    for cntr in export_per_country.index:
         if cntr in countries:
             cb0=network.lines.index[(network.lines.bus0.isin(
                     network.buses.index[network.buses.country_code==cntr])) & (
