@@ -89,9 +89,10 @@ if 'READTHEDOCS' not in os.environ:
         ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity,
-        max_line_ext,
-        min_renewable_share)
+        set_branch_capacity)
+
+    from etrago.tools.constraints import(
+        Constraints)
 
     from etrago.tools.extendable import (
             extendable,
@@ -111,11 +112,11 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 24,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -128,10 +129,10 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': None,  # Choose function name or None
+    'extra_functionality': {'max_line_ext': 1.2, 'min_renew':0.8, 'cross_border_flow':[0,0.02]},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -392,10 +393,10 @@ def etrago(args):
     network.storage_units.cyclic_state_of_charge = True
 
     # set extra_functionality
-    if args['extra_functionality'] is not None:
+    """if args['extra_functionality'] is not None:
         extra_functionality = eval(args['extra_functionality'])
     elif args['extra_functionality'] is None:
-        extra_functionality = args['extra_functionality']
+        extra_functionality = args['extra_functionality']"""
         
     # set disaggregated_network to default
     disaggregated_network = None
@@ -500,6 +501,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+        network = geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
@@ -521,12 +523,13 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
+        c=Constraints(args)
         x = time.time()
         network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="angles")
+            extra_functionality=c.functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
