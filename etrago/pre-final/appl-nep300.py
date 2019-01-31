@@ -89,9 +89,13 @@ if 'READTHEDOCS' not in os.environ:
         ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity,
+        set_branch_capacity)
+
+    from etrago.tools.constraints import(
         max_line_ext,
-        min_renewable_share)
+        min_renewable_share,
+        cross_border_flow, 
+        cross_border_flows_per_country)
 
     from etrago.tools.extendable import (
             extendable,
@@ -129,7 +133,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': None,  # Choose function name or None
+    'extra_functionality': 'cross_border_flows_per_country',  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -138,7 +142,7 @@ args = {
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.7, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -146,7 +150,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)#'/home/lukas_wienholt/eTraGo/etrago/ego-3-500.json')
+args = get_args_setting(args, jsonpath=None)
 
 
 def etrago(args):
@@ -384,8 +388,6 @@ def etrago(args):
         crossborder_capacity(
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
-    # variation of storage costs
-    # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.05
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -481,13 +483,7 @@ def etrago(args):
     # ehv network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
-        busmap = busmap_from_psql(
-                network,
-                session,
-                scn_name=(
-                        args['scn_name'] if args['scn_extension']==None
-                        else args['scn_name']+'_ext_'+'_'.join(
-                                args['scn_extension'])))
+        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
 
@@ -509,6 +505,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+        network = geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
@@ -521,8 +518,11 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            args,
+            start_snapshot=args['start_snapshot'],
+            end_snapshot=args['end_snapshot'],
             group_size=1,
+            solver_name=args['solver'],
+            solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
 
     # start linear optimal powerflow calculations
@@ -532,7 +532,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="kirchhoff")
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
