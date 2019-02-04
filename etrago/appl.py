@@ -129,7 +129,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'max_line_ext': 1.2, 'min_renew':0.8},  # Choose function name or None
+    'extra_functionality': {'max_line_ext': 1.2, 'min_renewable_share':0.8},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
@@ -535,13 +535,13 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        c=Constraints(args)
         x = time.time()
         network.lopf(
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=c.functionality, formulation="angles")
+            extra_functionality=Constraints(args).functionality,
+            formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

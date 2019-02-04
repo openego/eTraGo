@@ -89,7 +89,7 @@ class Constraints:
                                for sn in snapshots)
 
                 return (renewable_production >= total_production *\
-                        self.args['extra_functionality']['min_renew'])
+                        self.args['extra_functionality']['min_renewable_share'])
             network.model.min_renewable_share = Constraint(rule=_rule)
             
             
