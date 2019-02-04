@@ -832,7 +832,8 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
         network_pf.lopf(network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=extra_functionality, 
+            formulation=args['model_formulation'])
         
         network_pf.storage_units.p_nom_extendable = storages_extendable
         network_pf.lines.s_nom_extendable = lines_extendable 

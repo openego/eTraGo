@@ -115,6 +115,7 @@ args = {
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
+    'model_formulation': 'angles', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
@@ -187,6 +188,15 @@ def etrago(args):
         'glpk',
         Choose your preferred solver. Current options: 'glpk' (open-source),
         'cplex' or 'gurobi'.
+
+    solver_options: dict
+        Choose settings of solver to improve simulation time and result. 
+        Options are described in documentation of choosen solver.
+    
+    model_formulation: str
+        'angles'
+        Choose formulation of pyomo-model.
+        Current options: angles, cycles, kirchhoff, ptdf
 
     scn_name : str
         'Status Quo',
@@ -517,7 +527,8 @@ def etrago(args):
             group_size=1,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=extra_functionality, 
+            formulation=args['model_formulation'])
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
@@ -526,7 +537,8 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="angles")
+            extra_functionality=extra_functionality, 
+            formulation=args['model_formulation'])
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
