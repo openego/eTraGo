@@ -33,7 +33,7 @@ import logging
 import math
 
 
-geopandas = True
+geopandas = False
 try:
     import geopandas as gpd
     from shapely.geometry import Point

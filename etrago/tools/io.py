@@ -329,7 +329,7 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.11.0':
+        if pypsa.__version__ in ['0.11.0', '0.13.2']:
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
@@ -913,6 +913,6 @@ def calc_nearest_point(bus1, network):
 
 
 if __name__ == '__main__':
-    if pypsa.__version__ not in ['0.6.2', '0.11.0']:
+    if pypsa.__version__ not in ['0.6.2', '0.11.0', '0.13.2']:
         print('Pypsa version %s not supported.' % pypsa.__version__)
     pass
