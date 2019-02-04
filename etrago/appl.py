@@ -129,7 +129,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'max_line_ext': 1.2, 'min_renew':0.8, 'cross_border_flow':[0,0.02]},  # Choose function name or None
+    'extra_functionality': {'max_line_ext': 1.2, 'min_renew':0.8},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
@@ -274,14 +274,26 @@ def etrago(args):
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
-    extra_functionality : str or None
+    extra_functionality : dict or None
         None,
-        Choose name of extra functionality described in etrago/utilities.py
-        "min_renewable_share" to set a minimal share of renewable energy or
-        "max_line_ext" to set an overall maximum of line expansion.
-        When activating snapshot_clustering or minimize_loading these
-        extra_funtionalities are overwritten and therefore neglected.
-
+        Choose extra functionalities and their parameters for PyPSA-model.
+        Settings can be added in /tools/constraints.py.
+        Current options are:
+            'max_line_ext': float
+                Maximal share of network extension in p.u.
+            'min_renewable_share': float
+                Minimal share of renewable generation in p.u.
+            'cross_border_flow': array of two floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in percent of german loads in snapshots
+                for all countries
+                (positiv: export from Germany)
+            'cross_border_flows_per_country': dict of cntr and array of floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in percent of german loads in snapshots
+                for each country
+                (positiv: export from Germany)  
+                
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
