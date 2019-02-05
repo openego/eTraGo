@@ -115,14 +115,14 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarHomogenous':1,
-                       'logFile': 'solver_ego500-3.log', 'threads':4, 'method':2, 'crossover':-1, 'NumericFocus':1},  # {} for default options
+                       'logFile': 'solver_ego500-5.log', 'threads':8, 'method':-1, 'crossover':-1, 'NumericFocus':1},  # {} for default options
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-3-500',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-5-500',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -138,7 +138,7 @@ args = {
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': 5,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -564,7 +564,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="cycles")
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

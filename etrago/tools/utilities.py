@@ -1807,7 +1807,51 @@ def max_line_ext(network, snapshots, share=1.01):
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
     network.model.max_line_ext = Constraint(rule=_rule)
 
-def min_renewable_share(network, snapshots, share=0.72):
+def analyse(network):
+    #objective
+    print("Network objective:", round(network.objective,0))
+
+    #solver time
+   # print("Solver time [min]:", round((network.time / 60),0))
+    #re_share
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    res = network.generators[network.generators.carrier.isin(renewables)]
+    res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
+    load = network.loads_t.p_set.sum(axis=1).sum()
+    share=(res_dispatch / load) * 100
+    print("RE-share [%]:", round(share, 2))
+
+    #storage capacity
+    print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[ network.storage_units.carrier=='extendable_storage'].sum(),0))
+
+    #storage costs
+    print("Ext. storage costs [EUR]:", round((network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum(),0))
+
+    #batteries
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    print("Ext. battery capacity [MW]:", round(network.storage_units.p_nom_opt[ sbatt].sum(),0))
+    print("No. of batteries:",network.storage_units.carrier[ sbatt].count())
+
+    #hydrogen
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+    print("Ext. hydrogen capacity [MW]:", round(network.storage_units.p_nom_opt[ shydr].sum(),0))
+    print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
+
+    #curtailment
+    p_by_carrier = network.generators_t.p.groupby\
+        (network.generators.carrier, axis=1).sum()
+    capacity = network.generators.p_nom.groupby(network.generators.carrier).sum()
+    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
+    p_available_by_carrier = p_available.groupby(
+        network.generators.carrier, axis=1).sum()
+    p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
+    print("Curtailment by carrier [%]:",round((p_curtailed_by_carrier.sum()/p_available_by_carrier.sum())*100,2))
+    print("Total curtailment rate [%]:",round((p_curtailed_by_carrier.sum().sum() / p_available_by_carrier.sum().sum()) * 100, 2))
+
+    return network
+
+
+def min_renewable_share(network, snapshots, share=0.65):
     """
     Sets minimal renewable share of generation as extra functionality in LOPF
 

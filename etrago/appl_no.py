@@ -108,21 +108,21 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': None,#'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarHomogenous':1,
-                       'logFile': 'solver_ego500-3.log', 'threads':4, 'method':2, 'crossover':-1, 'NumericFocus':1},  # {} for default options
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+                       'logFile': 'solver_nep.log', 'threads':8, 'method': 2, 'crossover':0, 'NumericFocus':1},  # {} for default options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
+    'scn_extension': None,#'BE_NO_NEP 2035',  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-3-500',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/nep-3-500-no-10-sep',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -422,6 +422,12 @@ def etrago(args):
     # Segeberg
 #    network.add("Generator", '24876 wind_offshore', bus=24876, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1000)
 
+    # add storage at Büttel 
+    network.add("StorageUnit", '26435 norway', bus=26435, carrier='pumped_storage', control='PV', capital_cost='0.0', cyclic_stage_of_charge=True, efficiency_dispatch = 0.89, efficiency_store=0.88, marginal_cost=0, max_hours=6,p_nom=5000, standing_loss=0.00052,p_nom_extendable=False,state_of_charge_initial=0)
+
+    # add storage at Unterweser 
+    network.add("StorageUnit", '24558 norway', bus=24558, carrier='pumped_storage', control='PV', capital_cost='0.0', cyclic_stage_of_charge=True, efficiency_dispatch = 0.89, efficiency_store=0.88, marginal_cost=0, max_hours=6,p_nom=5000, standing_loss=0.00052,p_nom_extendable=False,state_of_charge_initial=0)
+
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -564,7 +570,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="cycles")
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes

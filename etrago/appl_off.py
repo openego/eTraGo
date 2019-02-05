@@ -115,21 +115,21 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarHomogenous':1,
-                       'logFile': 'solver_ego500-3.log', 'threads':4, 'method':2, 'crossover':-1, 'NumericFocus':1},  # {} for default options
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+                       'logFile': 'solver_ego_off.log', 'threads':4, 'method': 2, 'crossover':0, 'NumericFocus':1},  # {} for default options
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-3-500',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/nep-3-500-25',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': None,  # Choose function name or None
+    'extra_functionality': None,#'min_renewable_share',  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
     'load_cluster': '/home/lukas_wienholt/eTraGo/etrago/cluster_coord_k_500_result',  # False or predefined busmap for k-means
@@ -387,40 +387,50 @@ def etrago(args):
 
     # set numbers for offshore wind to their connection points
     # Büttel
-#    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind_offshore')] = 3000  # ok
+    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind_offshore')] = 3000  # ok
     # Dörpen West
-#    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind_offshore')] = 2616  # ok
+    network.generators.p_nom.loc[(network.generators.bus == '26504') & (network.generators.carrier == 'wind_offshore')] = 2616  # ok
     # Diele
-#    network.generators.p_nom.loc[(network.generators.bus == '27153') & (network.generators.carrier == 'wind_offshore')] = 1200  # ok
+    network.generators.p_nom.loc[(network.generators.bus == '27153') & (network.generators.carrier == 'wind_offshore')] = 1200  # ok
     # Lubmin
-#    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind_offshore')] = 1771  # ok
+    network.generators.p_nom.loc[(network.generators.bus == '24401') & (network.generators.carrier == 'wind_offshore')] = 1771  # ok
 
     # Emden
-#    network.add("Generator", '24710 wind_offshore', bus=24710, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=113)
-#    network.add("Generator", '26134 wind_offshore', bus=26134, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=2700)
+    network.add("Generator", '24710 wind_offshore', bus=24710, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=113)
+    network.add("Generator", '26134 wind_offshore', bus=26134, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=2700)
 
     # Hagermarsch
-#    network.add("Generator", '25427 wind_offshore', bus=25427, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=62)
+    network.add("Generator", '25427 wind_offshore', bus=25427, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=62)
 
     # Inhausen
-#    network.add("Generator", '24374 wind_offshore', bus=24374, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=111)
+    network.add("Generator", '24374 wind_offshore', bus=24374, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=111)
 
     # Cloppenburg
-#    network.add("Generator", '25249 wind_offshore', bus=25249, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=900)
+    network.add("Generator", '25249 wind_offshore', bus=25249, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=900)
 
     # Hanekenfähr
-#    network.add("Generator", '25451 wind_offshore', bus=25451, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=1879)
+    network.add("Generator", '25451 wind_offshore', bus=25451, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=1879)
 
     # Bentwisch
-#    network.add("Generator", '24579 wind_offshore', bus=24579, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=339)
+    network.add("Generator", '24579 wind_offshore', bus=24579, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=339)
 
     # Siedenbrünzow/Sanitz
-#    network.add("Generator", '27541 wind_offshore', bus=27541, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=309)
+    network.add("Generator", '27541 wind_offshore', bus=27541, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=909)
 
     # Wilhemshaven2
-#    network.add("Generator", '26892 wind_offshore', bus=26892, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1000)
-    # Segeberg
-#    network.add("Generator", '24876 wind_offshore', bus=24876, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1000)
+    network.add("Generator", '26892 wind_offshore', bus=26892, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=2200)
+
+    # Unterweser
+    network.add("Generator", '24558 wind_offshore', bus=24558, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=2200)
+
+    # Westerkappeln
+    network.add("Generator", '26277 wind_offshore', bus=26277, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=2000)
+
+    # Wehrendorf
+    network.add("Generator", '24653 wind_offshore', bus=24653, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=2000)
+
+    # Heide West
+    network.add("Generator", '25477 wind_offshore', bus=25477, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=1000)
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -564,7 +574,7 @@ def etrago(args):
             network.snapshots,
             solver_name=args['solver'],
             solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="cycles")
+            extra_functionality=extra_functionality, formulation="angles")
         y = time.time()
         z = (y - x) / 60
         # z is time for lopf in minutes
