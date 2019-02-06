@@ -125,17 +125,17 @@ def prepare_pypsa_timeseries(network, normed=False):
     """
     """
     if normed:
-        normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
+        normed_loads = network.loads_t.p_set.copy() / network.loads_t.p_set.max()
         normed_loads.columns = 'L' + normed_loads.columns
-        normed_renewables = network.generators_t.p_max_pu
+        normed_renewables = network.generators_t.p_max_pu.copy()
         normed_renewables.columns = 'G' + normed_renewables.columns
 
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
-        loads = network.loads_t.p_set
+        loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set
+        renewables = network.generators_t.p_set.copy()
         renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 

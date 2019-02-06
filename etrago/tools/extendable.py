@@ -463,8 +463,8 @@ def print_expansion_costs(network,args):
 
     if not ext_lines.empty:
         network_costs=((ext_lines.s_nom_opt-ext_lines.s_nom_min
-                   )*ext_lines.capital_cost +\
-                   (ext_links.p_nom_opt-ext_links.p_nom_min
+                   )*ext_lines.capital_cost).sum() +\
+                   ((ext_links.p_nom_opt-ext_links.p_nom_min
                     )*ext_links.capital_cost).sum()
 
     if not ext_trafos.empty:
