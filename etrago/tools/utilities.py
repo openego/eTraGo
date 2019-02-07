@@ -1278,7 +1278,7 @@ def add_missing_components(network):
     """
     new_trafo = str(network.transformers.index.astype(int).max() + 1)
 
-    network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
+    network.add("Transformer", new_trafo, bus0="16573", bus1="23648",
                 x=0.135 / (2750 / 2),
                 r=0.0, tap_ratio=1, s_nom=2750 / 2)
 
@@ -1346,7 +1346,7 @@ def add_missing_components(network):
          Heizkraftwerk Heilbronn:
     """
     # new_trafo = str(network.transformers.index.astype(int).max()1)
-    network.add("Transformer", '99999', bus0="25766", bus1="18967",
+    network.add("Transformer", '99999', bus0="18967", bus1="25766",
                 x=0.135 / 300, r=0.0, tap_ratio=1, s_nom=300)
     """
     According to:
@@ -1423,6 +1423,18 @@ def add_missing_components(network):
                                                 )
 
     add_220kv_line("266", "24633", overhead=True)
+
+
+    # temporary turn buses of transformers
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom)
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom)
+    new_bus0 = network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1]
+    new_bus1 = network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1]
+    network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus0.values
+    network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus1.values
+
     return network
 
 
@@ -1838,3 +1850,45 @@ def min_renewable_share(network, snapshots, share=0.72):
 
         return (renewable_production >= total_production * share)
     network.model.min_renewable_share = Constraint(rule=_rule)
+    
+
+def max_curtailment(network, snapshots, curtail_max=0.03):
+    
+    """
+    each RE can only be curtailed (over all snapshots) 
+    with respect to curtail_max
+
+    Parameters
+    ----------
+    curtail_max: float
+        maximal curtailment per power plant in p.u.
+    """
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'solar']
+    
+    res = list(network.generators.index[
+        (network.generators.carrier.isin(renewables))
+        & (network.generators.bus.astype(str).isin(network.buses.index[network.buses.country_code == 'DE']))])
+      
+#    network.import_series_from_dataframe(pd.DataFrame(
+#                index=network.generators_t.p_set.index,
+#                columns=network.generators.index[
+#                        network.generators.carrier=='biomass'],
+#                data=1), "Generator", "p_max_pu")
+    
+    res_potential = (network.generators.p_nom[res]*network.generators_t.p_max_pu[res]).sum()
+    
+    snapshots = network.snapshots
+
+    for gen in res:
+
+        def _rule(m, gen):
+            """
+            """
+            #import pdb; pdb.set_trace()
+            re_n = sum(m.generator_p[gen, sn]
+                                      for sn in snapshots)
+            potential_n = res_potential[gen]
+
+            return (re_n >= (1-curtail_max) * potential_n)
+        setattr(network.model, "max_curtailment"+gen, Constraint(res, rule=_rule))
