@@ -688,7 +688,7 @@ def parallelisation(network, args, group_size, extra_functionality=None):
                     network.snapshots[group_size * i - 1]]
         network.lopf(network.snapshots[
                      group_size * i:group_size * i + group_size],
-                     solver_name=args['solver_name'],
+                     solver_name=args['solver'],
                      solver_options=args['solver_options'],
                      extra_functionality=extra_functionality)
         network.lines.s_nom = network.lines.s_nom_opt
@@ -746,10 +746,9 @@ def set_slack(network):
         p_nom[(network.generators['bus'] == new_slack_bus) & (
             network.generators['control'] == 'PV')].sort_values().index[-1]
 
-    network.generators = network.generators.set_value(
-        old_slack, 'control', old_control)
-    network.generators = network.generators.set_value(
-        new_slack_gen, 'control', 'Slack')
+
+    network.generators.control[old_slack] = old_control
+    network.generators.control[new_slack_gen] = 'Slack'
     
     return network
 
