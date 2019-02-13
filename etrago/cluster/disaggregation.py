@@ -114,7 +114,8 @@ class Disaggregation:
                         left_external_connectors.loc[:, 'bus0'].apply(f))
                 pd.set_option('mode.chained_assignment', ca_option)
                 external_buses = pd.concat((external_buses,
-                                            left_external_connectors.bus0))
+                                            left_external_connectors.bus0),
+                                            sort=False)
 
             # Copy all lines whose `bus1` lies within the cluster
             right_external_connectors = filter_right_external_connector(
@@ -128,7 +129,8 @@ class Disaggregation:
                         right_external_connectors.loc[:, 'bus1'].apply(f))
                 pd.set_option('mode.chained_assignment', ca_option)
                 external_buses = pd.concat((external_buses,
-                                            right_external_connectors.bus1))
+                                            right_external_connectors.bus1),
+                                            sort=False)
 
         # Collect all buses that are contained in or somehow connected to the
         # cluster
@@ -154,7 +156,8 @@ class Disaggregation:
 
         # .. and insert them as well as their time series
         partial_network.buses = (partial_network.buses
-                                                .append(externals_to_insert))
+                                                .append(externals_to_insert, 
+                                                        sort=False))
         partial_network.buses_t = self.original_network.buses_t
 
         # TODO: Rename `bustype` to on_bus_type
@@ -176,7 +179,8 @@ class Disaggregation:
                     buses_to_insert.loc[:, 'bus'])
 
             setattr(partial_network, bustype,
-                    getattr(partial_network, bustype).append(buses_to_insert))
+                    getattr(partial_network, bustype).append(buses_to_insert,
+                                                              sort=False))
 
             # Also copy their time series
             setattr(partial_network,
@@ -222,9 +226,11 @@ class Disaggregation:
         """
         clusters = set(self.clustering.busmap.values)
         n = len(clusters)
+        
         self.stats = {'clusters': pd.DataFrame(
             index=sorted(clusters),
             columns=["decompose", "spread", "transfer"])}
+
         profile = cProfile.Profile()
         for i, cluster in enumerate(sorted(clusters)):
             print('---')
