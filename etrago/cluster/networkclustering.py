@@ -125,7 +125,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         io.import_series_from_dataframe(network_c, df, 'Generator', attr)
 
     # dealing with all other components
-    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
@@ -487,7 +487,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
         network.generators['weight'] = network.generators['p_nom']
-        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports = network.one_port_components.copy()
         aggregate_one_ports.discard('Generator')
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
