@@ -115,6 +115,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
+        network_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # dealing with generators
     network.generators.control = "PV"
@@ -378,7 +379,7 @@ def busmap_from_psql(network, session, scn_name):
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
         busmap_by_shortest_path(network, session, scn_name,
-                                fromlvl=[110], tolvl=[220, 380],
+                                fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
@@ -471,7 +472,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost']]
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),
