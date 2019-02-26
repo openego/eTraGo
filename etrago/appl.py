@@ -91,7 +91,8 @@ if 'READTHEDOCS' not in os.environ:
         get_args_setting,
         set_branch_capacity,
         max_line_ext,
-        min_renewable_share)
+        min_renewable_share,
+        iterate_lopf)
 
     from etrago.tools.extendable import (
             extendable,
@@ -109,7 +110,7 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
     'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -117,11 +118,11 @@ args = {
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension':None,  # None or array of extension scenarios
+    'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': 'results',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
@@ -132,7 +133,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -527,19 +528,10 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(
-            network.snapshots,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="angles")
-        y = time.time()
-        z = (y - x) / 60
-        # z is time for lopf in minutes
-        print("Time for LOPF [min]:", round(z, 2))
+        iterate_lopf(network, args, n_iter=1)
 
         # start non-linear powerflow simulation
-    elif args['method'] is 'pf':
+    elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
 

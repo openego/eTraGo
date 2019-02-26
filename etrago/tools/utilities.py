@@ -786,64 +786,6 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     """
     network_pf = network
 
-    # Update x of extended lines and transformers
-    if network_pf.lines.s_nom_extendable.any() or \
-            network_pf.transformers.s_nom_extendable.any():
-
-        storages_extendable = network_pf.storage_units.p_nom_extendable.copy()
-        lines_extendable = network_pf.lines.s_nom_extendable.copy()
-        links_extendable = network_pf.links.p_nom_extendable.copy()
-        trafos_extendable = network_pf.transformers.s_nom_extendable.copy()
-        
-        storages_p_nom =  network_pf.storage_units.p_nom.copy()
-        lines_s_nom=  network_pf.lines.s_nom.copy()
-        links_p_nom =  network_pf.links.p_nom.copy()
-        trafos_s_nom =  network_pf.transformers.s_nom.copy()
-        
-        network_pf.lines.x[network.lines.s_nom_extendable] = \
-            network_pf.lines.x * network.lines.s_nom /\
-            network_pf.lines.s_nom_opt
-
-        network_pf.lines.r[network.lines.s_nom_extendable] = \
-            network_pf.lines.r * network.lines.s_nom /\
-            network_pf.lines.s_nom_opt
-
-        network_pf.lines.b[network.lines.s_nom_extendable] = \
-            network_pf.lines.b * network.lines.s_nom_opt /\
-            network_pf.lines.s_nom
-
-        network_pf.lines.g[network.lines.s_nom_extendable] = \
-            network_pf.lines.g * network.lines.s_nom_opt /\
-            network_pf.lines.s_nom
-
-        network_pf.transformers.x[network.transformers.s_nom_extendable] = \
-            network_pf.transformers.x * network.transformers.s_nom / \
-            network_pf.transformers.s_nom_opt
-
-        network_pf.lines.s_nom_extendable = False
-        network_pf.transformers.s_nom_extendable = False
-        network_pf.storage_units.p_nom_extendable = False
-        network_pf.links.p_nom_extendable = False
-        network_pf.lines.s_nom = network.lines.s_nom_opt
-        network_pf.transformers.s_nom = network.transformers.s_nom_opt
-        network_pf.storage_units.p_nom = network_pf.storage_units.p_nom_opt
-        network_pf.links.p_nom = network_pf.links.p_nom_opt
-
-        network_pf.lopf(network.snapshots,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
-        
-        network_pf.storage_units.p_nom_extendable = storages_extendable
-        network_pf.lines.s_nom_extendable = lines_extendable 
-        network_pf.links.p_nom_extendable = links_extendable
-        network_pf.transformers.s_nom_extendable = trafos_extendable
-        
-        network_pf.storage_units.p_nom = storages_p_nom
-        network_pf.lines.s_nom = lines_s_nom
-        network_pf.links.p_nom = links_p_nom
-        network_pf.transformers.s_nom = trafos_s_nom
-
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
@@ -1790,6 +1732,45 @@ def set_branch_capacity(network, args):
 
     network.transformers.s_nom[network.transformers.v_nom0 > 110]\
         = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
+        
+        
+def iterate_lopf(network, args, n_iter):
+    
+    if network.lines.s_nom_extendable.any():
+        for i in range (1,(1+n_iter)):
+            x = time.time()
+            network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=None,
+                    formulation="angles")
+            y = time.time()
+            z = (y - x) / 60
+            # z is time for lopf in minutes
+            print("Time for LOPF [min]:", round(z, 2))
+            if args['csv_export'] != False:
+                network.export_to_csv_folder(args['csv_export']+ '/lopf_iteration_'+ str(i))
+
+            network.lines.x[network.lines.s_nom_extendable] = \
+            network.lines.x * network.lines.s_nom /\
+            network.lines.s_nom_opt
+            
+    else:
+        x = time.time()
+        network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=None,
+                    formulation="angles")
+        y = time.time()
+        z = (y - x) / 60
+            # z is time for lopf in minutes
+        print("Time for LOPF [min]:", round(z, 2))
+            
+    return network
+            
 
 def max_line_ext(network, snapshots, share=1.01):
 
