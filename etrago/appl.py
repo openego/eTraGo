@@ -48,12 +48,12 @@ if not 'READTHEDOCS' in os.environ:
     from sqlalchemy.orm import sessionmaker
 
 args = {# Setup and Configuration:
-        'db': 'oedb', # db session
+        'db': 'oedb_clara', # db session
         'gridversion': 'v0.3.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 672,
+        'end_snapshot' : 96,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'NEP 2035', # state which scenario you want to run: Status Quo, NEP 2035, eGo100
             # Scenario variations:
@@ -61,8 +61,8 @@ args = {# Setup and Configuration:
             'scn_decommissioning': None, # None or name of decommissioning-scenario (in extension_tables) e.g. 'nep2035_b2'
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
-        'lpfile': '/home/kim/Dokumente/open_ego/yy/file_mit.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':"/home/kim/Dokumente/open_ego/yy", # state if and where you want to save results as csv: False or /path/tofolder
+        'lpfile': 'snapshottest.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
+        'results':"False", # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -72,7 +72,7 @@ args = {# Setup and Configuration:
         # Clustering:
         'network_clustering_kmeans':5, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':15, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         'extra_functionality_storage':snapshot_cluster_constraints,
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
