@@ -794,7 +794,7 @@ def plot_residual_load(network):
 
     Parameters
     ----------
-    network : PyPSA network containter
+    network : PyPSA network container
     """
 
     renewables = network.generators[
