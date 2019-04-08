@@ -1734,7 +1734,7 @@ def set_branch_capacity(network, args):
         = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
         
         
-def iterate_lopf(network, args, n_iter):
+def iterate_lopf(network, args, extra_functionality, n_iter):
     
     if network.lines.s_nom_extendable.any():
         for i in range (1,(1+n_iter)):
@@ -1743,26 +1743,64 @@ def iterate_lopf(network, args, n_iter):
                     network.snapshots,
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
-                    extra_functionality=None,
+                    extra_functionality=extra_functionality,
                     formulation="angles")
             y = time.time()
             z = (y - x) / 60
+            
+            if network.results["Solver"][0]["Status"].key!='ok':
+                raise  Exception('LOPF '+ str(i) + ' not solved.')
             # z is time for lopf in minutes
             print("Time for LOPF [min]:", round(z, 2))
             if args['csv_export'] != False:
                 network.export_to_csv_folder(args['csv_export']+ '/lopf_iteration_'+ str(i))
 
-            network.lines.x[network.lines.s_nom_extendable] = \
-            network.lines.x * network.lines.s_nom /\
-            network.lines.s_nom_opt
-            
+            if i < n_iter:
+                network.lines.x[network.lines.s_nom_extendable] = \
+                network.lines.x * network.lines.s_nom_min /\
+                network.lines.s_nom_opt
+                
+                network.transformers.x[network.transformers.s_nom_extendable]=\
+                network.transformers.x * network.transformers.s_nom_min /\
+                network.transformers.s_nom_opt
+                
+                network.lines.r[network.lines.s_nom_extendable] = \
+                network.lines.r * network.lines.s_nom_min /\
+                network.lines.s_nom_opt
+                
+                network.transformers.r[network.transformers.s_nom_extendable]=\
+                network.transformers.r * network.transformers.s_nom_min /\
+                network.transformers.s_nom_opt
+                
+                network.lines.g[network.lines.s_nom_extendable] = \
+                network.lines.g * network.lines.s_nom_opt /\
+                network.lines.s_nom_min
+                
+                network.transformers.g[network.transformers.s_nom_extendable]=\
+                network.transformers.g * network.transformers.s_nom_opt /\
+                network.transformers.s_nom_min
+                
+                network.lines.b[network.lines.s_nom_extendable] = \
+                network.lines.b * network.lines.s_nom_opt /\
+                network.lines.s_nom_min
+                
+                network.transformers.b[network.transformers.s_nom_extendable]=\
+                network.transformers.b * network.transformers.s_nom_opt /\
+                network.transformers.s_nom_min
+                
+                network.lines.s_nom_min = network.lines.s_nom_opt.copy()
+                network.transformers.s_nom_min = \
+                    network.transformers.s_nom_opt.copy()
+                network.links.p_nom_min = network.links.p_nom_opt.copy()
+                network.storage_units.p_nom_min = \
+                    network.storage_units.p_nom_opt.copy()
     else:
         x = time.time()
         network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
-                    extra_functionality=None,
+                    extra_functionality=extra_functionality,
                     formulation="angles")
         y = time.time()
         z = (y - x) / 60
@@ -1800,7 +1838,7 @@ def max_line_ext(network, snapshots, share=1.01):
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
     network.model.max_line_ext = Constraint(rule=_rule)
 
-def min_renewable_share(network, snapshots, share=0.72):
+def min_renewable_share(network, snapshots, share=0.9):
     """
     Sets minimal renewable share of generation as extra functionality in LOPF
 
