@@ -244,11 +244,11 @@ def plot_line_loading(
 
 def plot_line_loading_diff(networkA, networkB, timestep=0):
     """
-    Plot difference in line loading between two networks
+    Plots difference in line loading between two networks
     (with and without switches) as color on lines
 
     Positive values mean that line loading with switches is bigger than without
-    Plot switches as small dots
+    Plots switches as small dots
     
     Parameters
     ----------
@@ -360,7 +360,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
 
 def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[]):
-    """Plot relative or absolute network extension of AC- and DC-lines.
+    """Plots relative or absolute network extension of AC- and DC-lines.
     
     Parameters
     ----------
@@ -492,7 +492,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         plt.close()
 
 def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
-    """Plot relative network expansion derivation of AC- and DC-lines.
+    """Plots relative network expansion derivation of AC- and DC-lines.
     
     Parameters
     ----------
@@ -562,7 +562,7 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
 
 
 def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
-    """Plot loading of lines in equivalten full load hours.
+    """Plots loading of lines in equivalten full load hours.
     
     Parameters
     ----------
@@ -623,7 +623,7 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
         plt.close()
 
 def plot_q_flows(network):
-    """Plot maximal reactive line load. 
+    """Plots maximal reactive line load. 
     
     Parameters
     ----------
@@ -647,7 +647,7 @@ def plot_q_flows(network):
 
 def max_load(network, boundaries=[], filename=None, two_cb=False):
     
-    """Plot maximum loading of each line. 
+    """Plots maximum loading of each line. 
     
     Parameters
     ----------
@@ -718,7 +718,7 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
 
 def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
     
-    """Plot number of hours with line loading in selected range. 
+    """Plots number of hours with line loading in selected range. 
     
     Parameters
     ----------
@@ -830,14 +830,14 @@ def plot_residual_load(network):
 
 def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     """
-    Plot stacked sum of generation grouped by carrier type
+    Plots stacked sum of generation grouped by carrier type
 
 
     Parameters
     ----------
     network : PyPSA network container
     bus: string
-        Plot all generators at one specific bus. If none,
+        Plots all generators at one specific bus. If none,
         sum is calulated for all buses
     resolution: string
         Unit for y-axis. Can be either GW/MW/KW
@@ -918,7 +918,7 @@ def plot_gen_diff(
         'reservoir',
         'waste']):
     """
-    Plot difference in generation between two networks grouped by carrier type
+    Plots difference in generation between two networks grouped by carrier type
 
 
     Parameters
@@ -966,7 +966,7 @@ def plot_gen_diff(
 
 def plot_voltage(network, boundaries=[]):
     """
-    Plot voltage at buses as hexbin
+    Plots voltage at buses as hexbin
 
 
     Parameters
@@ -1005,7 +1005,7 @@ def plot_voltage(network, boundaries=[]):
 
 def curtailment(network, carrier='solar', filename=None):
     """
-    Plot curtailment of selected carrier
+    Plots curtailment of selected carrier
 
 
     Parameters
@@ -1013,7 +1013,7 @@ def curtailment(network, carrier='solar', filename=None):
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
     carrier: str
-        Plot curtailemt of this carrier
+        Plots curtailemt of this carrier
     filename: str or None
         Save figure in this direction
     
@@ -1060,7 +1060,7 @@ def curtailment(network, carrier='solar', filename=None):
 
 def storage_distribution(network, scaling=1, filename=None):
     """
-    Plot storage distribution as circles on grid nodes
+    Plots storage distribution as circles on grid nodes
 
     Displays storage size and distribution in network.
     
@@ -1128,7 +1128,7 @@ def storage_distribution(network, scaling=1, filename=None):
 
 def storage_expansion(network, basemap=True, scaling=1, filename=None):
     """
-    Plot storage distribution as circles on grid nodes
+    Plots storage distribution as circles on grid nodes
     Displays storage size and distribution in network.
     
     Parameters
@@ -1482,7 +1482,7 @@ def nodal_gen_dispatch(
         scaling=1,
         filename=None):
     """
-    Plot nodal dispatch or capacity. If networkB is given, difference in
+    Plots nodal dispatch or capacity. If networkB is given, difference in
     dispatch is plotted.
     
     Parameters
@@ -1740,7 +1740,7 @@ def storage_p_soc(network, mean='1H', filename = None):
 
 def storage_soc_sorted(network, filename = None):
     """
-    Plots the soc (state-pf-charge) of extendable storages
+    Plots the soc (state-of-charge) of extendable storages
     
     Parameters
     ----------
