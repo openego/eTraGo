@@ -1734,11 +1734,18 @@ def set_branch_capacity(network, args):
         = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
         
         
-def iterate_lopf(network, args, extra_functionality, n_iter):
+def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
     
     if network.lines.s_nom_extendable.any():
+        max_ext=(network.lines.s_nom_max/network.lines.s_nom_min).mean()
         for i in range (1,(1+n_iter)):
             x = time.time()
+            network.lines.s_nom_max=\
+                 (max_ext-(n_iter-i)*delta_s_max)*network.lines.s_nom_min
+            network.transformers.s_nom_max=\
+                 (max_ext-(n_iter-i)*delta_s_max)*network.transformers.s_nom_min                 
+            network.links.p_nom_max=\
+                 (max_ext-(n_iter-i)*delta_s_max)*network.links.p_nom_min
             network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],
@@ -1757,43 +1764,41 @@ def iterate_lopf(network, args, extra_functionality, n_iter):
 
             if i < n_iter:
                 network.lines.x[network.lines.s_nom_extendable] = \
-                network.lines.x * network.lines.s_nom_min /\
+                network.lines.x * network.lines.s_nom /\
                 network.lines.s_nom_opt
                 
                 network.transformers.x[network.transformers.s_nom_extendable]=\
-                network.transformers.x * network.transformers.s_nom_min /\
+                network.transformers.x * network.transformers.s_nom /\
                 network.transformers.s_nom_opt
                 
                 network.lines.r[network.lines.s_nom_extendable] = \
-                network.lines.r * network.lines.s_nom_min /\
+                network.lines.r * network.lines.s_nom /\
                 network.lines.s_nom_opt
                 
                 network.transformers.r[network.transformers.s_nom_extendable]=\
-                network.transformers.r * network.transformers.s_nom_min /\
+                network.transformers.r * network.transformers.s_nom /\
                 network.transformers.s_nom_opt
                 
                 network.lines.g[network.lines.s_nom_extendable] = \
                 network.lines.g * network.lines.s_nom_opt /\
-                network.lines.s_nom_min
+                network.lines.s_nom
                 
                 network.transformers.g[network.transformers.s_nom_extendable]=\
                 network.transformers.g * network.transformers.s_nom_opt /\
-                network.transformers.s_nom_min
+                network.transformers.s_nom
                 
                 network.lines.b[network.lines.s_nom_extendable] = \
                 network.lines.b * network.lines.s_nom_opt /\
-                network.lines.s_nom_min
+                network.lines.s_nom
                 
                 network.transformers.b[network.transformers.s_nom_extendable]=\
                 network.transformers.b * network.transformers.s_nom_opt /\
-                network.transformers.s_nom_min
-                
-                network.lines.s_nom_min = network.lines.s_nom_opt.copy()
-                network.transformers.s_nom_min = \
+                network.transformers.s_nom
+
+                network.lines.s_nom = network.lines.s_nom_opt.copy()
+                network.transformers.s_nom = \
                     network.transformers.s_nom_opt.copy()
-                network.links.p_nom_min = network.links.p_nom_opt.copy()
-                network.storage_units.p_nom_min = \
-                    network.storage_units.p_nom_opt.copy()
+
     else:
         x = time.time()
         network.lopf(
