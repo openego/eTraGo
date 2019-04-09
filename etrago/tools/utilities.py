@@ -1737,15 +1737,19 @@ def set_branch_capacity(network, args):
 def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
     
     if network.lines.s_nom_extendable.any():
-        max_ext=(network.lines.s_nom_max/network.lines.s_nom_min).mean()
+        max_ext_line=network.lines.s_nom_max/network.lines.s_nom_min
+        max_ext_link=network.links.p_nom_max/network.links.p_nom_min
+        max_ext_trafo=network.transformers.s_nom_max/\
+        network.transformers.s_nom_min
+
         for i in range (1,(1+n_iter)):
             x = time.time()
             network.lines.s_nom_max=\
-                 (max_ext-(n_iter-i)*delta_s_max)*network.lines.s_nom_min
+                 (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom_min
             network.transformers.s_nom_max=\
-                 (max_ext-(n_iter-i)*delta_s_max)*network.transformers.s_nom_min                 
+                 (max_ext_trafo-(n_iter-i)*delta_s_max)*network.transformers.s_nom_min                 
             network.links.p_nom_max=\
-                 (max_ext-(n_iter-i)*delta_s_max)*network.links.p_nom_min
+                 (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom_min
             network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],

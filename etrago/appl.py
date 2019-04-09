@@ -528,7 +528,7 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        iterate_lopf(network, args, n_iter=1)
+        iterate_lopf(network, args, extra_functionality,n_iter=4)
 
         # start non-linear powerflow simulation
     elif args['method'] == 'pf':
