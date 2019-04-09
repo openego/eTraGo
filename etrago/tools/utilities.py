@@ -32,7 +32,6 @@ import json
 import logging
 import math
 
-
 geopandas = True
 try:
     import geopandas as gpd
@@ -609,7 +608,7 @@ def _enumerate_row(row):
     return row
 
 
-def results_to_csv(network, args, pf_solution=None):
+def results_to_csv(network, args, path):
     """ Function the writes the calaculation results
     in csv-files in the desired directory. 
 
@@ -619,13 +618,11 @@ def results_to_csv(network, args, pf_solution=None):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
-    pf_solution: pandas.Dataframe or None
-        If pf was calculated, df containing information of convergence else None. 
+    path: str
+        Choose path for csv-files
 
     """
-
-    path = args['csv_export']
-
+    results_to_csv.counter += 1
     if path == False:
         return None
 
@@ -638,11 +635,9 @@ def results_to_csv(network, args, pf_solution=None):
     data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
-    with open(os.path.join(path, 'args.json'), 'w') as fp:
-        json.dump(args, fp)
-
-    if not isinstance(pf_solution, type(None)):
-        pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    if results_to_csv.counter ==1:
+        with open(os.path.join(args['csv_export'], 'args.json'), 'w') as fp:
+            json.dump(args, fp)
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
@@ -754,7 +749,7 @@ def set_slack(network):
     return network
 
 
-def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
+def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
 
     """ Function that prepares and runs non-linar load flow using PyPSA pf. 
     
@@ -772,16 +767,18 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py   
-    extra_fuctionality: function or NoneType
-        Adds constraint to optimization (e.g. when applied snapshot clustering)
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
         foreign lines are DC
+    q_allocation: str
+        Choose allocation of reactive power. Possible settings are listed in
+        distribute_q function. 
+    calc_losses: bolean
+        Choose if line losses will be calculated.
 
     Returns
     -------
-    pf_solve: pandas.Dataframe
-        Contains information about convergency and calculation time of pf
+
         
     """
     network_pf = network
@@ -884,8 +881,17 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     if not pf_solve[~pf_solve.converged].count().max() == 0:
         logger.warning("PF of %d snapshots not converged.",
                        pf_solve[~pf_solve.converged].count().max())
+    if calc_losses:
+        calc_line_losses(network)
 
-    return pf_solve
+    network = distribute_q(network, allocation=q_allocation)
+    
+    if args['csv_export'] != False:
+            path=args['csv_export']+ '/pf_post_lopf'
+            results_to_csv(network, args, path)
+            pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    
+    return network
 
 
 def distribute_q(network, allocation='p_nom'):
@@ -1735,6 +1741,8 @@ def set_branch_capacity(network, args):
         
         
 def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
+
+    results_to_csv.counter=0
     
     if network.lines.s_nom_extendable.any():
         max_ext_line=network.lines.s_nom_max/network.lines.s_nom_min
@@ -1764,7 +1772,9 @@ def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
             # z is time for lopf in minutes
             print("Time for LOPF [min]:", round(z, 2))
             if args['csv_export'] != False:
-                network.export_to_csv_folder(args['csv_export']+ '/lopf_iteration_'+ str(i))
+                path=args['csv_export']+ '/lopf_iteration_'+ str(i)
+                results_to_csv(network, args, path)
+               # network.export_to_csv_folder(args['csv_export']+ '/lopf_iteration_'+ str(i))
 
             if i < n_iter:
                 network.lines.x[network.lines.s_nom_extendable] = \
@@ -1815,6 +1825,10 @@ def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
         z = (y - x) / 60
             # z is time for lopf in minutes
         print("Time for LOPF [min]:", round(z, 2))
+        
+        if args['csv_export'] != False:
+            path=args['csv_export']+ '/lopf'
+            results_to_csv(network, args, path)
             
     return network
             

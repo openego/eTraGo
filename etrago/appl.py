@@ -107,7 +107,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
@@ -122,17 +122,17 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results24',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -537,15 +537,14 @@ def etrago(args):
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network,
-                                   args,
-                                   extra_functionality,
-                                   add_foreign_lopf=True)
+        pf_post_lopf(network,
+                     args,
+                     add_foreign_lopf=True,
+                     q_allocation='p_nom',
+                     calc_losses=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
-        calc_line_losses(network)
-        network = distribute_q(network, allocation='p_nom')
 
     if not args['extendable'] == []:
         print_expansion_costs(network, args)
@@ -580,6 +579,9 @@ def etrago(args):
             print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
 
+            if args['csv_export'] != False:
+                results_to_csv(disaggregated_network, args, 
+                               args['csv_export']+'/disaggregated')
     # write lpfile to path
     if not args['lpfile'] is False:
         network.model.write(
@@ -605,20 +607,6 @@ def etrago(args):
                 dict([("disaggregated_results", True)] + list(args.items())),
                 grid='hv',
                 safe_results=False)
-
-    # write PyPSA results to csv to path
-    if not args['csv_export'] is False:
-        if not args['pf_post_lopf']:
-            results_to_csv(network, args)
-        else:
-            results_to_csv(network, args, pf_solution=pf_solution)
-
-        if disaggregated_network:
-            results_to_csv(
-                    disaggregated_network,
-                    {k: os.path.join(v, 'disaggregated')
-                        if k == 'csv_export' else v
-                        for k, v in args.items()})
 
     # close session
     # session.close()
