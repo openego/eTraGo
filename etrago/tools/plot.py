@@ -594,26 +594,36 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
 
     ll = network.plot(line_colors=load_hours, line_cmap=cmap, bus_sizes=0,
                       title="Full load-hours of lines", line_widths=2)
-
-    if not boundaries:
-        cb = plt.colorbar(ll[1])
-        cb_Link = plt.colorbar(ll[2])
-    elif boundaries:
-        v = np.linspace(boundaries[0], boundaries[1], 101)
-
-        cb_Link = plt.colorbar(ll[2], boundaries=v,
-                               ticks=v[0:101:10])
-        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-        cb = plt.colorbar(ll[1], boundaries=v,
-                          ticks=v[0:101:10])
-        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
     if two_cb:
+        
+        if not boundaries:
+            cb = plt.colorbar(ll[1])
+            cb_Link = plt.colorbar(ll[2])
+        elif boundaries:
+            v = np.linspace(boundaries[0], boundaries[1], 101)
+
+            cb_Link = plt.colorbar(ll[2], boundaries=v,
+                               ticks=v[0:101:10])
+            cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+
+            cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+            cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+
         cb_Link.set_label('Number of full-load hours of DC-lines')
         cb.set_label('Number of full-load hours of AC-lines')
 
     else:
+        
+        if not boundaries:
+            cb = plt.colorbar(ll[1])
+        elif boundaries:
+            v = np.linspace(boundaries[0], boundaries[1], 101)
+
+            cb = plt.colorbar(ll[1], boundaries=v,
+                          ticks=v[0:101:10])
+            cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
         cb.set_label('Number of full-load hours')
 
     if filename is None:
@@ -643,6 +653,8 @@ def plot_q_flows(network):
                       ticks=v[0:101:10])
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    
+    cb.set_label('Maximal reactive line load')
     
 
 def max_load(network, boundaries=[], filename=None, two_cb=False):
