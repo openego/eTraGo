@@ -1742,6 +1742,24 @@ def set_branch_capacity(network, args):
         
 def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
 
+    """
+    Run optimization of lopf. If network extension is included, the specified 
+    number of iterations is calculated to consider reactance changes. 
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Settings in appl.py
+    extra_functionality: str
+        Define extra constranits. 
+    n_iter: int
+        Number of iterations
+    delta_s_max: float
+        Increase of maximal extension of each line in p.u.
+
+    """
     results_to_csv.counter=0
     
     if network.lines.s_nom_extendable.any():
