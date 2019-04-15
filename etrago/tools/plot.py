@@ -709,18 +709,25 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
     cb = plt.colorbar(ll[1], boundaries=v,
                       ticks=v[0:101:10])
 
-    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-    cb_Link = plt.colorbar(ll[2], boundaries=v,
-                               ticks=v[0:101:10])
-    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
     if two_cb:
-        # cb_Link.set_label('Maximum load of DC-lines %')
-        cb.set_label('Maximum load of AC-lines %')
 
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    
+        cb.set_label('Maximum load of AC-lines in %')
+
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                               ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    
+        cb_Link.set_label('Maximum load of DC-lines in %')
+        
     else:
+        
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
         cb.set_label('Maximum load in %')
+        
+        
     if filename is None:
         plt.show()
     else:
@@ -747,6 +754,7 @@ def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
     
     cmap_line = plt.cm.jet
     cmap_link = plt.cm.jet
+    
     array_line = [['Line'] * len(network.lines), network.lines.index]
 
     load_lines = pd.Series(((abs(network.lines_t.p0[(
@@ -785,12 +793,12 @@ def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
             'Line': cmap_line,
             'Link': cmap_link},
         bus_sizes=0,
-        title="Number of hours with more then 90% load",
+        title="Number of hours with load in the selected range",
         line_widths=2)
 
-    v1 = np.linspace(boundaries[0], boundaries[1], 101)
+    # v1 = np.linspace(boundaries[0], boundaries[1], 101) + 1 in cb_link
     v = np.linspace(boundaries[0], boundaries[1], 101)
-    cb_Link = plt.colorbar(ll[2], boundaries=v1,
+    cb_Link = plt.colorbar(ll[2], boundaries=v,
                            ticks=v[0:101:10])
     cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
 
@@ -969,10 +977,10 @@ def plot_gen_diff(
     x = []
     for i in range(0, len(diff)):
         x.append(i)
-    plt.xticks(x, x)
-    plot.set_xlabel('Timesteps')
-    plot.set_ylabel('Difference in Generation in MW')
-    plot.set_title('Difference in Generation')
+    plt.xticks(x, x) # matplotlib.rc('xtick', labelsize='small')
+    plot.set_xlabel('Timesteps', fontsize=10)
+    plot.set_ylabel('Difference in Generation in MW', fontsize=10)
+    plot.set_title('Difference in Generation', fontsize=20)
     plt.tight_layout()
 
 
@@ -1412,78 +1420,6 @@ def gen_dist_diff(
     else:
         plt.savefig(filename)
         plt.close()
-
-
-def gen_dist(
-        network,
-        techs=None,
-        snapshot=1,
-        n_cols=3,
-        gen_size=0.2,
-        filename=None):
-    """
-    Generation distribution
-
-    Parameters
-    ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    techs : dict
-        type of technologies which shall be plotted
-    snapshot : int
-        snapshot
-    n_cols : int
-        number of columns of the plot
-    gen_size : num
-        size of generation bubbles at the buses
-    filename : str
-        Specify filename
-        If not given, figure will be show directly
-    """
-    if techs is None:
-        techs = network.generators.carrier.unique()
-    else:
-        techs = techs
-
-    n_graphs = len(techs)
-    n_cols = n_cols
-
-    if n_graphs % n_cols == 0:
-        n_rows = n_graphs // n_cols
-    else:
-        n_rows = n_graphs // n_cols + 1
-
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
-
-    size = 4
-
-    fig.set_size_inches(size * n_cols, size * n_rows)
-
-    for i, tech in enumerate(techs):
-        i_row = i // n_cols
-        i_col = i % n_cols
-
-        ax = axes[i_row, i_col]
-
-        gens = network.generators[network.generators.carrier == tech]
-        gen_distribution = network.generators_t.p.mul(network.
-                snapshot_weightings, axis=0)\
-                [gens.index].loc[network.snapshots[snapshot]].groupby(
-                        network.generators.bus).sum().reindex(
-                                network.buses.index, fill_value=0.)
-
-        network.plot(
-            ax=ax,
-            bus_sizes=gen_size * gen_distribution,
-            line_widths=0.1)
-
-        ax.set_title(tech)
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()
-
 
 def nodal_gen_dispatch(
         network,
