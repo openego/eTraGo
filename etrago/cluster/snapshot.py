@@ -195,7 +195,10 @@ def snapshot_cluster_constraints(network, snapshots):
     #if network.cluster:
     sus = network.storage_units
     # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.index[0::24]
+    network.model.period_starts = network.snapshot_weightings.sort_index().index[0::24]
+    
+    # sorted(network.model.period_starts, key=)
+    # network.model.period_starts.sort_values('df')
 
     network.model.storages = sus.index
     
@@ -245,7 +248,7 @@ def snapshot_cluster_constraints(network, snapshots):
                 expr = (
                     m.state_of_charge_inter[s, i + 1] ==
                     m.state_of_charge_inter[s, i] 
-                    * (1 - network.storage_units.at[s, 'standing_loss'])*24
+                    * (1 - network.storage_units.at[s, 'standing_loss'])**24
                     + m.state_of_charge_intra[s, network.cluster["last_hour_RepresentativeDay"][i]])
             return expr
         network.model.inter_storage_soc_constraint = po.Constraint(
