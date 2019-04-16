@@ -1414,6 +1414,7 @@ def gen_dist_diff(
             bus_cmap=buscmap)
 
         ax.set_title(tech)
+        # plt.tight_layout()
 
     if filename is None:
         plt.show()
