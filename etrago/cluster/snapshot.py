@@ -178,8 +178,9 @@ def update_data_frames(network, cluster_weights, dates,hours):
         network.snapshot_weightings[i] = snapshot_weightings[i]   
     
     #put the snapshot in the right order
-    network.snapshots.sort_values()
-    network.snapshot_weightings.sort_index()
+    network.snapshots=network.snapshots.sort_values()
+    network.snapshot_weightings=network.snapshot_weightings.sort_index()
+
     
     return network
 
@@ -195,10 +196,7 @@ def snapshot_cluster_constraints(network, snapshots):
     #if network.cluster:
     sus = network.storage_units
     # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.sort_index().index[0::24]
-    
-    # sorted(network.model.period_starts, key=)
-    # network.model.period_starts.sort_values('df')
+    network.model.period_starts = network.snapshot_weightings.index[0::24]
 
     network.model.storages = sus.index
     
@@ -209,7 +207,7 @@ def snapshot_cluster_constraints(network, snapshots):
         # should be array-like DONE
         candidates = network.cluster.index.get_values()
 
-        # create set for inter-temp contraints and variables
+        # create set for inter-temp constraints and variables
         network.model.candidates = po.Set(initialize=candidates,
                                           ordered=True)
 
@@ -220,7 +218,7 @@ def snapshot_cluster_constraints(network, snapshots):
         
         def intra_soc_rule(m, s, p):
             """
-            Sets the soc_intra of the every first hour to zero
+            Sets the soc_intra of every first hour to zero
             """
             return (m.state_of_charge_intra[s, p] == 0)
     
@@ -240,7 +238,7 @@ def snapshot_cluster_constraints(network, snapshots):
             plus the state_of_charge (intra) of the last hour of the representative day
             """
                        
-            
+        
             if i == network.model.candidates[-1]:
                 expr = (m.state_of_charge_inter[s, i] ==
                  m.state_of_charge_inter[s, network.model.candidates[1]])
