@@ -242,13 +242,14 @@ def plot_line_loading(
 
 
 
-def plot_line_loading_diff(networkA, networkB, timestep=0):
+def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     """
     Plots difference in line loading between two networks
-    (with and without switches) as color on lines
+    (also possible: difference between network with and network without switches) 
+    as color on lines
 
-    Positive values mean that line loading with switches is bigger than without
-    Plots switches as small dots
+    Positive values mean that line loading with networkA is bigger than without
+    (switches as small dots)
     
     Parameters
     ----------
@@ -261,8 +262,10 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     filename : str
         Specify filename
         If not given, figure will be show directly
-    timestep : int
-        timestep to show, default is 0
+    timesteps : range 
+        Defines which timesteps are considered. If more than one, an 
+        average line loading is calculated.
+        
     """
 
     # new colormap to make sure 0% difference has the same color in every plot
@@ -322,21 +325,43 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
 
         return newcmap
 
+    # # # mit Links
     # calculate difference in loading between both networks
-    loading_switches = abs(
+    array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
+    array_link = [['Link'] * len(networkA.links), networkA.links.index]
+    loading_lines_diff = pd.Series((((networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+        loc[networkA.snapshots[timesteps]].abs().sum()) \
+        - (networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+        loc[networkB.snapshots[timesteps]].abs().sum()) \
+           /networkA.snapshot_weightings[networkA.snapshots[timesteps]].sum()) *100).values, index=array_line)
+    loading_links_diff = pd.Series((((networkA.links_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+        loc[networkA.snapshots[timesteps]].abs().sum()) \
+        - (networkB.links_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+        loc[networkB.snapshots[timesteps]].abs().sum()) \
+        /networkA.snapshot_weightings[networkA.snapshots[timesteps]].sum()) *100).values, index=array_link)
+    diff_loading_rel = loading_lines_diff.append(loading_links_diff)
+    
+    # # # ohne Links
+    # calculate difference in loading between both networks
+    loading_a = pd.Series(\
         networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
-        loc[networkA.snapshots[timestep]].to_frame())
-    loading_switches.columns = ['switch']
-    loading_noswitches = abs(
+        loc[networkA.snapshots[timesteps]].abs().sum())
+    loading_b = pd.Series(\
         networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
-        loc[networkB.snapshots[timestep]].to_frame())
-    loading_noswitches.columns = ['noswitch']
-    diff_network = loading_switches.join(loading_noswitches)
-    diff_network['noswitch'] = diff_network['noswitch'].fillna(
-        diff_network['switch'])
-    diff_network[networkA.snapshots[timestep]] \
-        = diff_network['switch'] - diff_network['noswitch']
-
+        loc[networkB.snapshots[timesteps]].abs().sum())
+    diff_loading = loading_a-loading_b
+    # for different lengths of line-arrays: fill NaNs 
+    if loading_a.size > loading_b.size:
+        diff_loading=diff_loading.fillna(loading_a)
+    if loading_b.size > loading_a.size:
+        loading_b_minus=loading_b*(-1)
+        diff_loading=diff_loading.fillna(loading_b_minus)
+    # relative difference of loading based on s_nom_opt of networkA
+    diff_loading_rel = (diff_loading / (networkA.lines.s_nom_opt))*100
+    # fill up base if other network contains more lines 
+    if loading_b.size > loading_a.size:
+        diff_loading_rel = diff_loading_rel.fillna(-100)
+    
     # get switches
     new_buses = pd.Series(index=networkA.buses.index.values)
     new_buses.loc[set(networkA.buses.index.values) -
@@ -344,17 +369,15 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     new_buses = new_buses.fillna(0)
 
     # plot network with difference in loading and shifted colormap
-    loading = (diff_network.loc[:, networkA.snapshots[timestep]] /
-               (networkA.lines.s_nom)) * 100
-    midpoint = 1 - max(loading) / (max(loading) + abs(min(loading)))
+    midpoint = 1 - max(diff_loading_rel) / (max(diff_loading_rel) + abs(min(diff_loading_rel)))
     shifted_cmap = shiftedColorMap(
         plt.cm.jet, midpoint=midpoint, name='shifted')
-    ll = networkA.plot(line_colors=loading, line_cmap=shifted_cmap,
+    ll = networkA.plot(line_colors=diff_loading_rel, line_cmap=shifted_cmap,
                        title="Line loading", bus_sizes=new_buses,
                        bus_colors='blue', line_widths=0.55)
 
     cb = plt.colorbar(ll[1])
-    cb.set_label('Difference in line loading in % of s_nom')
+    cb.set_label('Difference in line loading in % of s_nom based on networkA')
     
 
 
