@@ -60,6 +60,7 @@ def add_coordinates(network):
     Returns
     -------
     Altered PyPSA network container ready for plotting
+    
     """
     for idx, row in network.buses.iterrows():
         wkt_geom = to_shape(row['geom'])
@@ -112,7 +113,7 @@ def plot_line_loading(
         Holds topology of grid including results from powerflow analysis
     timesteps : range 
         Defines which timesteps are considered. If more than one, an 
-        average line loading is calculated.
+        average line loading is calculated
     filename : str
         Specify filename
         If not given, figure will be show directly
@@ -120,8 +121,10 @@ def plot_line_loading(
         If given, the colorbar is fixed to a given min and max value
     arrows : bool
         If True, the direction of the power flows is displayed as 
-        arrows.
+        arrows
+        
     """
+    
     # TODO: replace p0 by max(p0,p1) and analogously for q0
     # TODO: implement for all given snapshots
 
@@ -246,10 +249,10 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     """
     Plots difference in line loading between two networks
     (also possible: difference between network with and network without switches) 
-    as color on lines
+    as color on lines.
 
-    Positive values mean that line loading with networkA is bigger than without
-    (switches as small dots)
+    Positive values mean that line loading with networkA is bigger than without.
+    Switches as small dots.
     
     Parameters
     ----------
@@ -264,10 +267,10 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
         If not given, figure will be show directly
     timesteps : range 
         Defines which timesteps are considered. If more than one, an 
-        average line loading is calculated.
+        average line loading is calculated
         
     """
-
+    
     # new colormap to make sure 0% difference has the same color in every plot
     def shiftedColorMap(
             cmap,
@@ -276,8 +279,9 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
             stop=1.0,
             name='shiftedcmap'):
         '''
-        Function to offset the "center" of a colormap. Useful for
-        data with a negative min and positive max and you want the
+        Function to offset the "center" of a colormap. 
+        
+        useful for data with a negative min and positive max and you want the
         middle of the colormap's dynamic range to be at zero
 
         Input
@@ -285,7 +289,7 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
           cmap : The matplotlib colormap to be altered
           start : Offset from lowest point in the colormap's range.
               Defaults to 0.0 (no lower ofset). Should be between
-              0.0 and `midpoint`.
+              0.0 and `midpoint`
           midpoint : The new center of the colormap. Defaults to
               0.5 (no shift). Should be between 0.0 and 1.0. In
               general, this should be  1 - vmax/(vmax + abs(vmin))
@@ -294,7 +298,7 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
               should be set to  1 - 5/(5 + 15)) or 0.75
           stop : Offset from highets point in the colormap's range.
               Defaults to 1.0 (no upper ofset). Should be between
-              `midpoint` and 1.0.
+              `midpoint` and 1.0
         '''
         cdict = {
             'red': [],
@@ -324,43 +328,41 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
         plt.register_cmap(cmap=newcmap)
 
         return newcmap
-
-# # # ohne Links
+    
     # calculate difference in loading between both networks
-    if networkA.lines_t.q0.empty:
-        loading_a = pd.Series(\
-        networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
-        loc[networkA.snapshots[timesteps]].abs().sum())
-    else:
-        loading_a=pd.Series(\
-        (networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0)\
-        .loc[networkA.snapshots[timesteps]].abs().sum()**2 +\
-        networkA.lines_t.q0.mul(networkA.snapshot_weightings, axis=0)\
-        .loc[networkA.snapshots[timesteps]].abs().sum()**2).\
-            apply(sqrt))
-    if networkB.lines_t.q0.empty:
-        loading_b = pd.Series(\
-        networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
-        loc[networkB.snapshots[timesteps]].abs().sum())
-    else:
-       loading_b=pd.Series(\
-        (networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0)\
-        .loc[networkB.snapshots[timesteps]].abs().sum()**2 +\
-        networkB.lines_t.q0.mul(networkB.snapshot_weightings, axis=0)\
-        .loc[networkB.snapshots[timesteps]].abs().sum()**2).\
-            apply(sqrt)) 
-    diff_loading = loading_a-loading_b
-    # for different lengths of line-arrays: fill NaNs 
-    if loading_a.size > loading_b.size:
-        diff_loading=diff_loading.fillna(loading_a)
-    if loading_b.size > loading_a.size:
-        loading_b_minus=loading_b*(-1)
-        diff_loading=diff_loading.fillna(loading_b_minus)
-    # relative difference of loading based on s_nom_opt of networkA
-    diff_loading_rel = (diff_loading / (networkA.lines.s_nom_opt))*100
-    # fill up base if other network contains more lines 
-    if loading_b.size > loading_a.size:
-        diff_loading_rel = diff_loading_rel.fillna(-100)
+    
+    array_line_a = [['LineA'] * len(networkA.lines), networkA.lines.index]
+    array_link_a = [['Link'] * len(networkA.links), networkA.links.index]
+    
+    if networkA.lines_t.q0.empty or networkB.lines_t.q0.empty :
+        loading_lines_diff=pd.Series(((
+                ((networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+                 loc[networkA.snapshots[timesteps]].abs().sum()) \
+                 - (networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+                    loc[networkB.snapshots[timesteps]].abs().sum())) \
+                  /(networkA.lines.s_nom_opt)) *100).data, index=array_line_a)
+    else: 
+        loading_lines_diff=pd.Series(((
+                (((networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0)\
+                    .loc[networkA.snapshots[timesteps]].abs().sum() ** 2 +\
+                    networkA.lines_t.q0.mul(networkA.snapshot_weightings, axis=0)\
+                    .loc[networkA.snapshots[timesteps]].abs().sum() ** 2).\
+                    apply(sqrt)) \
+                 - ((networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0)\
+                    .loc[networkB.snapshots[timesteps]].abs().sum() ** 2 +\
+                    networkB.lines_t.q0.mul(networkB.snapshot_weightings, axis=0)\
+                    .loc[networkB.snapshots[timesteps]].abs().sum() ** 2)).\
+                    apply(sqrt))
+                    /(networkA.lines.s_nom_opt)) *100).data, index = array_line_a)
+                 
+    loading_links_diff = pd.Series(((
+            ((networkA.links_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+        loc[networkA.snapshots[timesteps]].abs().sum()) \
+        - (networkB.links_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+        loc[networkB.snapshots[timesteps]].abs().sum())) \
+        /(networkA.links.p_nom_opt)) *100).data, index=array_link_a)
+                 
+    diff_loading_rel = loading_lines_diff.append(loading_links_diff)
     
     # get switches
     new_buses = pd.Series(index=networkA.buses.index.values)
@@ -377,11 +379,12 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
                        bus_colors='blue', line_widths=0.55)
 
     cb = plt.colorbar(ll[1])
-    cb.set_label('Difference in line loading in % of s_nom based on networkA')
+    cb.set_label('Difference in line loading in % based on s_nom of networkA')
 
 def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[]):
-    """Plots relative or absolute network extension of AC- and DC-lines.
+    """
+    Plots relative or absolute network extension of AC- and DC-lines.
     
     Parameters
     ----------
@@ -389,7 +392,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         Holds topology of grid including results from powerflow analysis
     method: str
         Choose 'rel' for extension relative to s_nom and 'abs' for 
-        absolute extensions. 
+        absolute extensions 
     ext_min: float
         Choose minimum relative line extension shown in plot in p.u..
     ext_width: float or bool
@@ -415,7 +418,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
                                     overlay_network.links.p_nom_opt -
                                   overlay_network.links.p_nom_min)/
                                  overlay_network.links.p_nom >= ext_min)]
-    
+
     for i, row in overlay_network.links.iterrows():
         linked = overlay_network.links[(row['bus1'] ==
                 overlay_network.links.bus0) & (
@@ -510,10 +513,11 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         plt.show()
     else:
         plt.savefig(filename)
-        plt.close()
+plt.close()
 
 def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
-    """Plot relative network expansion derivation of AC- and DC-lines.
+    """
+    Plots relative network expansion derivation of AC- and DC-lines.
     
     Parameters
     ----------
@@ -582,7 +586,8 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
 plt.close()
 
 def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
-    """Plots loading of lines in equivalten full load hours.
+    """
+    Plots loading of lines in equivalten full load hours.
     
     Parameters
     ----------
@@ -594,8 +599,9 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
        Set boundaries of heatmap axis
     two_cb: bool
         Choose if an extra colorbar for DC-lines is plotted
-    
+        
     """
+    
     cmap = plt.cm.jet
 
     array_line = [['Line'] * len(network.lines), network.lines.index]
@@ -615,36 +621,24 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
     ll = network.plot(line_colors=load_hours, line_cmap=cmap, bus_sizes=0,
                       title="Full-load hours of lines", line_widths=2)
     
+    if not boundaries:
+        boundaries=[min(load_hours), max(load_hours)]
+        
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
+    
     if two_cb:
         
-        if not boundaries:
-            cb = plt.colorbar(ll[1])
-            cb_Link = plt.colorbar(ll[2])
-        elif boundaries:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
-
-            cb_Link = plt.colorbar(ll[2], boundaries=v,
-                               ticks=v[0:101:10])
-            cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-            cb = plt.colorbar(ll[1], boundaries=v,
-                          ticks=v[0:101:10])
-            cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-        cb_Link.set_label('Number of full-load hours of DC-lines')
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
         cb.set_label('Number of full-load hours of AC-lines')
+        
+        cb_Link = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        cb_Link.set_label('Number of full-load hours of DC-lines')
 
     else:
         
-        if not boundaries:
-            cb = plt.colorbar(ll[1])
-        elif boundaries:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
-
-            cb = plt.colorbar(ll[1], boundaries=v,
-                          ticks=v[0:101:10])
-            cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-        
+        cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
         cb.set_label('Number of full-load hours')
 
     if filename is None:
@@ -654,7 +648,8 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
         plt.close()
 
 def plot_q_flows(network):
-    """Plots maximal reactive line load. 
+    """
+    Plots maximal reactive line load. 
     
     Parameters
     ----------
@@ -662,6 +657,7 @@ def plot_q_flows(network):
         Holds topology of grid including results from powerflow analysis
 
     """
+    
     cmap_line = plt.cm.jet
     
     q_flows_max = abs(network.lines_t.q0.abs().max()/(network.lines.s_nom))
@@ -675,12 +671,12 @@ def plot_q_flows(network):
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
-    cb.set_label('Maximal reactive line load')
+    cb.set_label('Maximal reactive line load in MVar')
     
 
 def max_load(network, boundaries=[], filename=None, two_cb=False):
-    
-    """Plots maximum loading of each line. 
+    """
+    Plots maximum loading of each line. 
     
     Parameters
     ----------
@@ -756,9 +752,9 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
         plt.close()
 
 
-def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
-    
-    """Plots number of hours with line loading in selected range. 
+def load_hours(network, min_load=0.9, max_load=1, boundaries=[]):
+    """
+    Plots number of hours with line loading in selected range. 
     
     Parameters
     ----------
@@ -793,19 +789,15 @@ def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
 
     load_links = pd.Series(((abs(network.links_t.p0[(
         abs(network.links_t.p0.mul(network.snapshot_weightings, axis=0)) / 
-        network.links.p_nom_opt >= min_load) &
-                                                    (
+        network.links.p_nom_opt >= min_load) & (
         abs(network.links_t.p0.mul(network.snapshot_weightings, axis=0)) / 
         network.links.p_nom_opt <= max_load)]) /
-                             abs(network.links_t.p0[(
-                                abs(network.links_t.p0) /
-                                network.links.p_nom_opt >= min_load) &
-                                (abs(network.links_t.p0) /
-                                 network.links.p_nom_opt <= max_load)]))
-                            .sum()).data, index=array_link)
+        abs(network.links_t.p0[(
+        abs(network.links_t.p0) / network.links.p_nom_opt >= min_load) &
+        (abs(network.links_t.p0) / network.links.p_nom_opt <= max_load)])).sum()).data, index=array_link)
 
     load_hours = load_lines.append(load_links)
-    load_hours=load_hours.fillna(0) # neu
+    load_hours=load_hours.fillna(0)
 
     ll = network.plot(
         line_colors=load_hours,
@@ -816,34 +808,29 @@ def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
         title="Number of hours with load in the selected range",
         line_widths=2)
 
-    # neu:
-    boundaries = [min(load_hours), max(load_hours)]
-    v = np.linspace(boundaries[0], boundaries[1], boundaries[1]+1)
-    cb = plt.colorbar(ll[1], boundaries=v)
-    # cb.set_clim()
-    cb.set_label('Number of hours')
-    # cb_Link=plt.colorbar(ll[2])
+    if not boundaries:
+        boundaries = [min(load_hours), max(load_hours)]
+        v = np.linspace(boundaries[0], boundaries[1]+1, boundaries[1]+2)
+        cb = plt.colorbar(ll[1], boundaries=v)
+        cb.set_label('Number of hours')
     
-    # VORHER
-    # v1 = np.linspace(boundaries[0], boundaries[1], 101) + 1 in cb_link
-    if False:
+    elif boundaries:
         v = np.linspace(boundaries[0], boundaries[1], 101)
-        cb_Link = plt.colorbar(ll[2], boundaries=v,
-                           ticks=v[0:101:10])
-        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-        cb = plt.colorbar(ll[1], boundaries=v,
-                          ticks=v[0:101:10])
+        # # v1 = np.linspace(boundaries[0], boundaries[1], 101) + 1 in cb_link
+        # cb_Link = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
+        # cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
         cb.set_label('Number of hours')
 
 def plot_residual_load(network):
-    """ Plots residual load summed of all exisiting buses.
+    """ 
+    Plots residual load summed of all exisiting buses.
 
     Parameters
     ----------
     network : PyPSA network container
+    
     """
 
     renewables = network.generators[
@@ -879,7 +866,7 @@ def plot_residual_load(network):
 
 def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     """
-    Plots stacked sum of generation grouped by carrier type
+    Plots stacked sum of generation grouped by carrier type.
 
 
     Parameters
@@ -891,10 +878,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     resolution: string
         Unit for y-axis. Can be either GW/MW/KW
 
-    Returns
-    -------
-    Plot
     """
+    
     if resolution == 'GW':
         reso_int = 1e3
     elif resolution == 'MW':
