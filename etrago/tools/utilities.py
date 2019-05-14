@@ -1763,19 +1763,26 @@ def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
     results_to_csv.counter=0
     
     if network.lines.s_nom_extendable.any():
-        max_ext_line=network.lines.s_nom_max/network.lines.s_nom_min
-        max_ext_link=network.links.p_nom_max/network.links.p_nom_min
+        max_ext_line=network.lines.s_nom_max/network.lines.s_nom
+        max_ext_link=network.links.p_nom_max/network.links.p_nom
         max_ext_trafo=network.transformers.s_nom_max/\
-        network.transformers.s_nom_min
+        network.transformers.s_nom
+
+        # Initialise s_nom_pre (s_nom_opt of previous iteration) 
+        # to s_nom for first lopf:
+        l_snom_pre = network.lines.s_nom.copy()
+        t_snom_pre = network.transformers.s_nom.copy()
 
         for i in range (1,(1+n_iter)):
             x = time.time()
             network.lines.s_nom_max=\
-                 (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom_min
+                 (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom
             network.transformers.s_nom_max=\
-                 (max_ext_trafo-(n_iter-i)*delta_s_max)*network.transformers.s_nom_min                 
+                 (max_ext_trafo-(n_iter-i)*delta_s_max)*\
+                 network.transformers.s_nom                
             network.links.p_nom_max=\
-                 (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom_min
+                 (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
+            
             network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],
@@ -1784,53 +1791,49 @@ def iterate_lopf(network, args, extra_functionality, n_iter, delta_s_max=0.1):
                     formulation="angles")
             y = time.time()
             z = (y - x) / 60
-            
+
             if network.results["Solver"][0]["Status"].key!='ok':
                 raise  Exception('LOPF '+ str(i) + ' not solved.')
             # z is time for lopf in minutes
             print("Time for LOPF [min]:", round(z, 2))
             if args['csv_export'] != False:
-                path=args['csv_export']+ '/lopf_iteration_'+ str(i)
+                path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                 results_to_csv(network, args, path)
-               # network.export_to_csv_folder(args['csv_export']+ '/lopf_iteration_'+ str(i))
 
             if i < n_iter:
+                # Update electrical parameters of active branch components
+                # considering s_nom of previous iteration
                 network.lines.x[network.lines.s_nom_extendable] = \
-                network.lines.x * network.lines.s_nom /\
-                network.lines.s_nom_opt
+                network.lines.x * l_snom_pre / network.lines.s_nom_opt
                 
                 network.transformers.x[network.transformers.s_nom_extendable]=\
-                network.transformers.x * network.transformers.s_nom /\
+                network.transformers.x * t_snom_pre /\
                 network.transformers.s_nom_opt
                 
                 network.lines.r[network.lines.s_nom_extendable] = \
-                network.lines.r * network.lines.s_nom /\
-                network.lines.s_nom_opt
+                network.lines.r * l_snom_pre / network.lines.s_nom_opt
                 
                 network.transformers.r[network.transformers.s_nom_extendable]=\
-                network.transformers.r * network.transformers.s_nom /\
+                network.transformers.r * t_snom_pre /\
                 network.transformers.s_nom_opt
                 
                 network.lines.g[network.lines.s_nom_extendable] = \
-                network.lines.g * network.lines.s_nom_opt /\
-                network.lines.s_nom
+                network.lines.g * network.lines.s_nom_opt / l_snom_pre
                 
                 network.transformers.g[network.transformers.s_nom_extendable]=\
                 network.transformers.g * network.transformers.s_nom_opt /\
-                network.transformers.s_nom
+                t_snom_pre
                 
                 network.lines.b[network.lines.s_nom_extendable] = \
-                network.lines.b * network.lines.s_nom_opt /\
-                network.lines.s_nom
+                network.lines.b * network.lines.s_nom_opt / l_snom_pre
                 
                 network.transformers.b[network.transformers.s_nom_extendable]=\
                 network.transformers.b * network.transformers.s_nom_opt /\
-                network.transformers.s_nom
-
-                network.lines.s_nom = network.lines.s_nom_opt.copy()
-                network.transformers.s_nom = \
-                    network.transformers.s_nom_opt.copy()
-
+                t_snom_pre
+                
+                # Set snom_pre to s_nom_opt for next iteration
+                l_snom_pre = network.lines.s_nom_opt.copy()
+                t_snom_pre = network.transformers.s_nom_opt.copy()
     else:
         x = time.time()
         network.lopf(
