@@ -257,10 +257,10 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     Parameters
     ----------
     networkA : PyPSA network container
-        Holds topology of grid with switches
+        Holds topology of grid (possibly the one with switches)
         including results from powerflow analysis
     networkB : PyPSA network container
-        Holds topology of grid without switches
+        Holds topology of grid (possibly the one without switches)
         including results from powerflow analysis
     filename : str
         Specify filename
@@ -332,7 +332,7 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     # calculate difference in loading between both networks
     
     array_line_a = [['LineA'] * len(networkA.lines), networkA.lines.index]
-    array_link_a = [['Link'] * len(networkA.links), networkA.links.index]
+    array_link_a = [['LinkA'] * len(networkA.links), networkA.links.index]
     
     if networkA.lines_t.q0.empty or networkB.lines_t.q0.empty :
         loading_lines_diff=pd.Series(((
@@ -378,7 +378,10 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
                        title="Line loading", bus_sizes=new_buses,
                        bus_colors='blue', line_widths=0.55)
 
-    cb = plt.colorbar(ll[1])
+    # v = np.linspace(min(diff_loading_rel), max(diff_loading_rel), 101) #
+    # boundaries = [min(diff_loading_rel).round(0), max(diff_loading_rel).round(0)] #
+    cb = plt.colorbar(ll[1]) # , boundaries=v, ticks=v[0:101:10])
+    # cb.set_clim(vmin=boundaries[0], vmax=boundaries[1]) #
     cb.set_label('Difference in line loading in % based on s_nom of networkA')
 
 def network_expansion(network, method = 'rel', ext_min=0.1,
@@ -868,7 +871,6 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     """
     Plots stacked sum of generation grouped by carrier type.
 
-
     Parameters
     ----------
     network : PyPSA network container
@@ -952,20 +954,21 @@ def plot_gen_diff(
         'reservoir',
         'waste']):
     """
-    Plots difference in generation between two networks grouped by carrier type
-
+    Plots difference in generation between two networks grouped by carrier type.
 
     Parameters
     ----------
-    networkA : PyPSA network container with switches
-    networkB : PyPSA network container without switches
+    networkA : PyPSA network container
+        Holds topology of grid (possibly the one with switches)
+        including results from powerflow analysis
+    networkB : PyPSA network container
+        Holds topology of grid (possibly the one without switches)
+        including results from powerflow analysis
     leave_out_carriers : list of carriers to leave out (default to all small
     carriers)
 
-    Returns
-    -------
-    Plot
     """
+    
     def gen_by_c(network):
         gen = pd.concat([network.generators_t.p.mul(
                         network.snapshot_weightings, axis=0)[network.generators
@@ -998,25 +1001,25 @@ def plot_gen_diff(
     plt.tight_layout()
 
 
-def plot_voltage(network, boundaries=[]):
+def plot_voltage(network, boundaries=[], timesteps=range(0,1)):
     """
-    Plots voltage at buses as hexbin
-
+    Plots voltage at buses as hexbin.
 
     Parameters
     ----------
     network : PyPSA network container
-    boundaries: list of 2 values, setting the lower and upper bound of colorbar
+    boundaries: list of two values, setting the lower and upper bound of colorbar
 
-    Returns
-    -------
-    Plot
     """
 
     x = np.array(network.buses['x'])
     y = np.array(network.buses['y'])
 
-    alpha = np.array(network.buses_t.v_mag_pu.loc[network.snapshots[0]])
+    alpha = pd.Series(network.buses_t.v_mag_pu.mul(network.snapshot_weightings, axis=0).\
+        loc[network.snapshots[timesteps]].abs().mean()) 
+    
+    # vorher ohne timesteps als Paramterangabe:
+    # alpha = np.array(network.buses_t.v_mag_pu.loc[network.snapshots[0]])
 
     fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(6, 4)
@@ -1030,7 +1033,7 @@ def plot_voltage(network, boundaries=[]):
         plt.hexbin(x, y, C=alpha, cmap=cmap, gridsize=100, norm=norm)
         cb = plt.colorbar(boundaries=v, ticks=v[0:101:10], norm=norm)
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-    cb.set_label('Voltage Magnitude per unit of v_nom')
+    cb.set_label('Voltage magnitude per unit of v_nom')
 
     network.plot(
         ax=ax, line_widths=pd.Series(0.5, network.lines.index), bus_sizes=0)
@@ -1039,8 +1042,7 @@ def plot_voltage(network, boundaries=[]):
 
 def curtailment(network, carrier='solar', filename=None):
     """
-    Plots curtailment of selected carrier
-
+    Plots curtailment of selected carrier.
 
     Parameters
     ----------
@@ -1051,11 +1053,8 @@ def curtailment(network, carrier='solar', filename=None):
     filename: str or None
         Save figure in this direction
     
-
-    Returns
-    -------
-    Plot
     """
+    
     p_by_carrier = network.generators_t.p.groupby\
         (network.generators.carrier, axis=1).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
@@ -1082,7 +1081,7 @@ def curtailment(network, carrier='solar', filename=None):
          ].plot(ax=ax, linewidth=3)
 
     ax.set_xlabel("")
-    ax.set_ylabel("Power [MW]")
+    ax.set_ylabel("Power in MW")
     ax.set_ylim([0, capacity * 1.1])
     ax.legend()
     if filename is None:
@@ -1094,8 +1093,7 @@ def curtailment(network, carrier='solar', filename=None):
 
 def storage_distribution(network, scaling=1, filename=None):
     """
-    Plots storage distribution as circles on grid nodes
-
+    Plots storage distribution as circles on grid nodes.
     Displays storage size and distribution in network.
     
     Parameters
@@ -1105,6 +1103,7 @@ def storage_distribution(network, scaling=1, filename=None):
     filename : str
         Specify filename
         If not given, figure will be show directly
+        
     """
 
     stores = network.storage_units
@@ -1148,7 +1147,7 @@ def storage_distribution(network, scaling=1, filename=None):
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
     for area in [msd_max, msd_median, msd_min]:
-        plt.scatter([], [], c='white', s=area * scaling,
+        plt.scatter([], [], c='blue', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
     plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
 
@@ -1172,6 +1171,7 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
     filename : str
         Specify filename
         If not given, figure will be show directly
+        
     """
 
     stores = network.storage_units[network.storage_units.carrier == 
@@ -1282,7 +1282,7 @@ def gen_dist(
         gen_size=0.2,
         filename=None):
     """
-    Generation distribution
+    Plots generation distribution.
     
     Parameters
     ----------
@@ -1299,7 +1299,11 @@ def gen_dist(
     filename : str
         Specify filename
         If not given, figure will be show directly
+        
     """
+    
+    # from matplotlib import rcParams
+    # rcParams['figure.subplot.bottom']=0.01
     if techs is None:
         techs = network.generators.carrier.unique()
     else:
@@ -1356,11 +1360,13 @@ def gen_dist_diff(
         filename=None,
         buscmap=plt.cm.jet):
     """
-    Difference in generation distribution
-    Green/Yellow/Red colors mean that the generation at a location
+    Plots difference in generation distribution.
+    
+    (also possible is to plot difference between network with and network without switches:
+    - Green/Yellow/Red colors mean that the generation at a location
     is bigger with switches than without
-    Blue colors mean that the generation at a location is smaller with switches
-    than without
+    - Blue colors mean that the generation at a location is smaller with switches
+    than without)
     
     Parameters
     ----------
@@ -1381,6 +1387,7 @@ def gen_dist_diff(
     filename : str
         Specify filename
         If not given, figure will be show directly
+        
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -1445,8 +1452,8 @@ def nodal_gen_dispatch(
         scaling=1,
         filename=None):
     """
-    Plots nodal dispatch or capacity. If networkB is given, difference in
-    dispatch is plotted.
+    Plots nodal dispatch or capacity. 
+    If networkB is given, difference in dispatch is plotted.
     
     Parameters
     ----------
@@ -1477,6 +1484,7 @@ def nodal_gen_dispatch(
         Scaling to change plot sizes.
         default 1
     filename : path to folder
+    
     """   
     
     if techs:
@@ -1577,6 +1585,7 @@ def nodal_production_balance(
     filename : path to folder
     
     """
+    
     fig, ax = plt.subplots(1, 1)
     gen = network.generators_t.p.groupby(network.generators.bus, axis=1).sum()
     load = network.loads_t.p.groupby(network.loads.bus, axis=1).sum()
@@ -1702,8 +1711,7 @@ def storage_p_soc(network, mean='1H', filename = None):
 
 
 def storage_soc_sorted(network, filename = None):
-    """
-    Plots the soc (state-of-charge) of extendable storages
+    """Plots the state of charge (SOC) of extendable storages.
     
     Parameters
     ----------
@@ -1713,6 +1721,7 @@ def storage_soc_sorted(network, filename = None):
     filename : path to folder
     
     """
+    
     sbatt = network.storage_units.index[(network.storage_units.p_nom_opt>1) &
                                     (network.storage_units.capital_cost>10) & 
                                     (network.storage_units.max_hours==6)]
