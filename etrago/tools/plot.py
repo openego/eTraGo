@@ -334,15 +334,17 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     array_line_a = [['LineA'] * len(networkA.lines), networkA.lines.index]
     array_link_a = [['LinkA'] * len(networkA.links), networkA.links.index]
     
-    if networkA.lines_t.q0.empty or networkB.lines_t.q0.empty :
-        loading_lines_diff=pd.Series(((
+    if networkA.lines_t.q0.empty or networkB.lines_t.q0.empty:
+        
+        lines_diff=pd.Series((
                 ((networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
                  loc[networkA.snapshots[timesteps]].abs().sum()) \
                  - (networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
                     loc[networkB.snapshots[timesteps]].abs().sum())) \
-                  /(networkA.lines.s_nom_opt)) *100).data, index=array_line_a)
+                  /(networkA.lines.s_nom_opt)).data, index=array_line_a) 
     else: 
-        loading_lines_diff=pd.Series(((
+        
+        lines_diff=pd.Series((
                 (((networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0)\
                     .loc[networkA.snapshots[timesteps]].abs().sum() ** 2 +\
                     networkA.lines_t.q0.mul(networkA.snapshot_weightings, axis=0)\
@@ -351,18 +353,22 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
                  - ((networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0)\
                     .loc[networkB.snapshots[timesteps]].abs().sum() ** 2 +\
                     networkB.lines_t.q0.mul(networkB.snapshot_weightings, axis=0)\
-                    .loc[networkB.snapshots[timesteps]].abs().sum() ** 2)).\
-                    apply(sqrt))
-                    /(networkA.lines.s_nom_opt)) *100).data, index = array_line_a)
+                    .loc[networkB.snapshots[timesteps]].abs().sum() ** 2).\
+                    apply(sqrt))) \
+                    /(networkA.lines.s_nom_opt)).data, index = array_line_a)
                  
-    loading_links_diff = pd.Series(((
+    links_diff = pd.Series((
             ((networkA.links_t.p0.mul(networkA.snapshot_weightings, axis=0).\
         loc[networkA.snapshots[timesteps]].abs().sum()) \
         - (networkB.links_t.p0.mul(networkB.snapshot_weightings, axis=0).\
         loc[networkB.snapshots[timesteps]].abs().sum())) \
-        /(networkA.links.p_nom_opt)) *100).data, index=array_link_a)
+        /(networkA.links.p_nom_opt)).data, index=array_link_a)
+            
+    lines_diff_prozent = (lines_diff / networkA.snapshot_weightings[networkA.snapshots[timesteps]].sum())*100
+    
+    links_diff_prozent = (links_diff / networkA.snapshot_weightings[networkA.snapshots[timesteps]].sum())*100
                  
-    diff_loading_rel = loading_lines_diff.append(loading_links_diff)
+    diff_loading_rel = lines_diff_prozent.append(links_diff_prozent)
     
     # get switches
     new_buses = pd.Series(index=networkA.buses.index.values)
@@ -374,10 +380,10 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     midpoint = 1 - max(diff_loading_rel) / (max(diff_loading_rel) + abs(min(diff_loading_rel)))
     shifted_cmap = shiftedColorMap(
         plt.cm.jet, midpoint=midpoint, name='shifted')
+    # cmap = plt.cm.jet
     ll = networkA.plot(line_colors=diff_loading_rel, line_cmap=shifted_cmap,
                        title="Line loading", bus_sizes=new_buses,
                        bus_colors='blue', line_widths=0.55)
-
     # v = np.linspace(min(diff_loading_rel), max(diff_loading_rel), 101) #
     # boundaries = [min(diff_loading_rel).round(0), max(diff_loading_rel).round(0)] #
     cb = plt.colorbar(ll[1]) # , boundaries=v, ticks=v[0:101:10])
@@ -1149,7 +1155,7 @@ def storage_distribution(network, scaling=1, filename=None):
     for area in [msd_max, msd_median, msd_min]:
         plt.scatter([], [], c='blue', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
+        plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
 
     if filename is None:
         plt.show()
@@ -1271,8 +1277,6 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         plt.savefig(filename)
         plt.close()
 
-    return
-
 
 def gen_dist(
         network,
@@ -1302,8 +1306,8 @@ def gen_dist(
         
     """
     
-    # from matplotlib import rcParams
-    # rcParams['figure.subplot.bottom']=0.01
+    # from matplotlib import rcParams #
+    # rcParams['figure.subplot.bottom']=0.01 #
     if techs is None:
         techs = network.generators.carrier.unique()
     else:
@@ -1317,15 +1321,16 @@ def gen_dist(
     else:
         n_rows = n_graphs // n_cols + 1
 
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, squeeze=False)
 
     size = 4
 
     fig.set_size_inches(size * n_cols, size * n_rows)
 
     for i, tech in enumerate(techs):
-        i_row = i // n_cols
-        i_col = i % n_cols
+        
+        i_row = (i // n_cols) 
+        i_col = i % n_cols 
 
         ax = axes[i_row, i_col]
 
@@ -1343,6 +1348,7 @@ def gen_dist(
             line_widths=0.1)
 
         ax.set_title(tech)
+        
     if filename is None:
         plt.show()
     else:
@@ -1402,7 +1408,7 @@ def gen_dist_diff(
     else:
         n_rows = n_graphs // n_cols + 1
 
-    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols)
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_cols, squeeze=False)
 
     size = 4
 
@@ -1443,6 +1449,7 @@ def gen_dist_diff(
         plt.savefig(filename)
         plt.close()
 
+
 def nodal_gen_dispatch(
         network,
         networkB=None,
@@ -1474,7 +1481,7 @@ def nodal_gen_dispatch(
         the direction of change in dispatch between network and networkB.
         If 'positive', generation per tech which is higher in network than in 
         networkB is plotted.
-        If 'negative', generation per tech whcih is lower in network than 
+        If 'negative', generation per tech which is lower in network than 
         in networkB is plotted.
         If 'absolute', total change per node is plotted. 
         Green nodes have higher dispatch in network than in networkB.
@@ -1562,7 +1569,6 @@ def nodal_gen_dispatch(
         plt.savefig(filename)
         plt.close()
 
-    return
 
 def nodal_production_balance(
         network, 
@@ -1578,7 +1584,7 @@ def nodal_production_balance(
         Holds topology of grid including results from powerflow analysis
     snapshot : int or 'all'
         Snapshot to plot.
-        default 'all'
+        default: 'all'
     scaling : int
         Scaling to change plot sizes.
         default 0.0001
@@ -1617,8 +1623,7 @@ def nodal_production_balance(
     if filename:
         plt.savefig(filename)
         plt.close()
-        
-    return 
+
 
 def storage_p_soc(network, mean='1H', filename = None):
     """
@@ -1707,17 +1712,15 @@ def storage_p_soc(network, mean='1H', filename = None):
         plt.savefig(filename)
         plt.close()
 
-    return
-
 
 def storage_soc_sorted(network, filename = None):
-    """Plots the state of charge (SOC) of extendable storages.
+    """
+    Plots the state of charge (SOC) of extendable storages.
     
     Parameters
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
-
     filename : path to folder
     
     """
@@ -1772,8 +1775,6 @@ def storage_soc_sorted(network, filename = None):
     else:
         plt.savefig(filename,figsize=(3,4),bbox_inches='tight')
         plt.close()
-
-    return
     
     
 if __name__ == '__main__':
