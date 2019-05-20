@@ -439,19 +439,24 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
-
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
+        for i in range(len(args['scn_extension'])):
+            network = decommissioning(
+                    network,
+                    session,
+                    version=args['gridversion'],
+                    scn_decommissioning=args['scn_decommissioning'][i],
+                    start_snapshot=args['start_snapshot'],
+                    end_snapshot=args['end_snapshot'],
+                    branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
+
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
 
     # investive optimization strategies
     if args['extendable'] != []:
@@ -521,8 +526,11 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            args,
+            start_snapshot=args['start_snapshot'],
+            end_snapshot=args['end_snapshot'],
             group_size=1,
+            solver_name=args['solver'],
+            solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
 
     # start linear optimal powerflow calculations

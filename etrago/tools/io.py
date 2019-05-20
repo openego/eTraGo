@@ -763,11 +763,11 @@ def extension (network, session, version, scn_extension, start_snapshot,
                
     return network
 
-def decommissioning(network, session, args, **kwargs):
+def decommissioning(network, session, version, scn_decommissioning, 
+               branch_capacity_factor, **kwargs):
     """
-    Function that removes components in a decommissioning-scenario from
-    the existing network container.
-    Currently, only lines can be decommissioned.
+    Function that reduces the capacity of compnents 
+    in a decommissioning-scenario from the existing network container.
                
     All components of the decommissioning scenario need to be inserted in
     the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
@@ -779,7 +779,9 @@ def decommissioning(network, session, args, **kwargs):
     -----
         network : The existing network container (e.g. scenario 'NEP 2035')
         session : session-data
-        overlay_scn_name : Name of the decommissioning scenario
+        version : gridversion or None (args)
+        scn_decommissioning : Name of the decommissioning scenario
+        branch_capacity_factor: Capacity factor of args
 
 
     Returns
@@ -788,45 +790,94 @@ def decommissioning(network, session, args, **kwargs):
           
     """  
 
-    if args['gridversion'] == None:   
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'),
-                           'EgoGridPfHvExtensionLine')
-    else:
-        ormclass = getattr(import_module('egoio.db_tables.grid'),
-                           'EgoPfHvExtensionLine')
+    components = ['Line', 'Link', 'Transformer', 'Storage', 'Generator']
+    
+    for comp in components:
 
-    query = session.query(ormclass).filter(
+            
+        if version== None:   
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'),
+                           'EgoGridPfHvExtension' + comp)
+        else:
+            ormclass = getattr(import_module('egoio.db_tables.grid'),
+                           'EgoPfHvExtensionLine' + comp)
+
+        query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + 
-                        args['scn_decommissioning'])
-
-    df_decommisionning = pd.read_sql(query.statement,
+                        scn_decommissioning)
+        
+        id_column = re.findall(r'[A-Z][^A-Z]*', comp)[0] + '_' + 'id'
+        id_column = id_column.lower()
+        
+        if comp == 'Transformer':
+            id_column='trafo_id'
+        
+        df_decommisionning = pd.read_sql(query.statement,
                          session.bind,
-                         index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
+                         index_col=id_column)
+        df_decommisionning.index = df_decommisionning.index.astype(str)
 
-    for idx, row in network.lines.iterrows():
-        if (row['s_nom_min'] !=0) & (
-            row['scn_name'] =='extension_' + args['scn_decommissioning']):
-                v_nom_dec = df_decommisionning['v_nom'][(
-                 df_decommisionning.project == row['project']) & (
-                         df_decommisionning.project_id == row['project_id'])]
+        reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioning,
+                              branch_capacity_factor)
 
-                if (v_nom_dec == 110).any():
-                    network.lines.s_nom_min[network.lines.index == idx]\
-                    = args['branch_capacity_factor']['HV'] *\
-                    network.lines.s_nom_min
-
-                else:
-                    network.lines.s_nom_min[network.lines.index == idx] =\
-                    args['branch_capacity_factor']['eHV'] *\
-                    network.lines.s_nom_min
-
-    ### Drop decommissioning-lines from existing network
-    network.lines = network.lines[~network.lines.index.isin(
-            df_decommisionning.index)]
+    print('Scenario ' +scn_decommissioning + ' decommissioned.' )
 
     return network
 
+def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioning,
+                              branch_capacity_factor):
+    
+    if comp =='Line':
+         comp_df = network.lines[network.lines.index.isin(df_decommisionning.index)]
+         new_cap = comp_df.s_nom-df_decommisionning.s_nom
+         network.lines.s_nom[network.lines.index.isin(df_decommisionning.index)]=\
+         new_cap
+         
+         for idx, row in network.lines.iterrows():
+             if (row['s_nom_min'] !=0) & (
+                        row['scn_name'] =='extension_' + scn_decommissioning):
+                 v_nom_dec = df_decommisionning['v_nom'][(
+                            df_decommisionning.project == row['project']) & (
+                         df_decommisionning.project_id == row['project_id'])]
+
+                 if (v_nom_dec == 110).any():
+                    network.lines.s_nom_min[network.lines.index == idx]\
+                        = branch_capacity_factor['HV'] *\
+                        network.lines.s_nom_min
+
+                 else:
+                    network.lines.s_nom_min[network.lines.index == idx] =\
+                    branch_capacity_factor['eHV'] *\
+                    network.lines.s_nom_min
+         network.lines = network.lines[network.lines.s_nom > 0]
+         
+    if comp =='Transformer':
+         comp_df = network.transformers[network.transformers.index.isin(df_decommisionning.index)]
+         new_cap = comp_df.s_nom-df_decommisionning.s_nom
+         network.transformers.s_nom[network.transformers.index.isin(df_decommisionning.index)]=\
+         new_cap
+         network.transformers=network.transformers[network.transformers.s_nom>0]
+
+    if comp =='Link':
+         comp_df = network.links[network.links.index.isin(df_decommisionning.index)]
+         new_cap = comp_df.p_nom-df_decommisionning.p_nom
+         network.links.p_nom[network.links.index.isin(df_decommisionning.index)]=\
+         new_cap
+         network.links=network.links[network.links.p_nom>0]
+         
+    if comp =='Generator':
+         comp_df = network.generators[network.generators.index.isin(df_decommisionning.index)]
+         new_cap = comp_df.p_nom-df_decommisionning.p_nom
+         network.generators.p_nom[network.generators.index.isin(df_decommisionning.index)]=\
+         new_cap
+         network.generators=network.generators[network.generators.p_nom>0]
+         network.generators_t.p_max_pu=network.generators_t.p_max_pu[network.generators.index]
+         
+    if comp =='Storage':
+         comp_df = network.storage_units[network.storage_units.index.isin(df_decommisionning.index)]
+         new_cap = comp_df.p_nom-df_decommisionning.p_nom
+         network.storage_units.p_nom[network.storage_units.index.isin(df_decommisionning.index)]=\
+         new_cap
 
 def distance(x0, x1, y0, y1):
     """
