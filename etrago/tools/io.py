@@ -871,7 +871,7 @@ def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioni
          network.generators.p_nom[network.generators.index.isin(df_decommisionning.index)]=\
          new_cap
          network.generators=network.generators[network.generators.p_nom>0]
-         network.generators_t.p_max_pu=network.generators_t.p_max_pu[network.generators.index]
+#         network.generators_t.p_max_pu=network.generators_t.p_max_pu[network.generators.index]
          
     if comp =='Storage':
          comp_df = network.storage_units[network.storage_units.index.isin(df_decommisionning.index)]
