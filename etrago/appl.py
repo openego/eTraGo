@@ -106,7 +106,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
@@ -117,8 +117,8 @@ args = {
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension':['nep2035_b2'],  # None or array of extension scenarios
+    'scn_decommissioning': ['test'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
@@ -132,7 +132,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -438,10 +438,15 @@ def etrago(args):
 
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
+        for i in range(len(args['scn_extension'])):
+            network = decommissioning(
+                    network,
+                    session,
+                    version=args['gridversion'],
+                    scn_decommissioning=args['scn_decommissioning'][i],
+                    start_snapshot=args['start_snapshot'],
+                    end_snapshot=args['end_snapshot'],
+                    branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
