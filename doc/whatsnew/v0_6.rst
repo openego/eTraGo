@@ -1,14 +1,19 @@
-Release 0.6 (April 18, 2018)
+Release 0.6 (June 27, 2018)
 ++++++++++++++++++++++++++++
-[Title]
-
+eTraGo now enables combined grid and storage expansion, snapshot clustering and the consideration of exogenous grid expansion.
 
 Added features
 --------------
-* ..
+* A part from optimizing the investment of storages it is now also possible to optimize grid expansion investments. In this context we added an argument 'extendable' which expects an array of the different component types you want to optimize. This argument corresponds to functions in the new extendable.py file. It is possible to choose from expansion strategies which are defined within that sub-package. Capital costs for new grid components can be defined and are annualized by means of interest rate, component lifetime and operation period. 
+* The k-means network clustering ('network_clustering_kmeans') has been refactored. It is now possible to reproduce busmaps by csv-importing already defined busmaps. Consequently it is possible to write busmaps. Here the argument 'load_cluster' was introduced. Moreover it is possible read and write bus_weightings. This helps to e.g. run a future scenario but using a bus weighting of the status quo. Moreover, the remove_stubs function from PyPSA is now easily usable in eTraGo.
+* The snapshot_clustering can now be used in order to reduce the temporal complexity. Typical days are taken in order to represent the entire year. Here the package tsam (developed by Leander Kotzur) is used. Standardly a hierarchical clustering method is used which is e.g. described by Nahmacher et al. ( see: https://www.sciencedirect.com/science/article/pii/S0360544216308556 ). 
+* Scenario variations from the oedb can be introduced. The argument 'scn_extension' will activate an extension scenario which adds components such as lines or generator to the base scenario. The 'scn_decommissioning' argument states whether you want to remove existing components. Right now, in the oedb two scenarios are accessible which represent the grid expansion (and the corresponding removal of existing equipment) planned by the German network development plan.
+* Our data model at the oedb represents Germany and the electrical neighbors. If you consider planned grid expansion to Norway and Belgium you would most probably want to include also these countries as electrical neighbors including their aggregated generation and demand characteristics. The argument 'add_Belgium_Norway' therefore was introduced. Once activated it will add the countries to the model.
+* DC links are now also modelled as PyPSA DC links. Consequently Sweden is now connected by a DC link.
 
-Other news
+Other changes
 -------------
-* ..
-
-
+* The plotting sub-package was amplified and enhanced by new plotting functions and improvements of existing ones (e. g. introduced a legend for the plotting function storage_expansion())
+* The code complies now mostly with the pep8 standard
+* Documentation was improved (but ongoing work in progress) considering doc strings for functions and the rtd-documentation web site
+* The io was slightly reformatted and restructured.

@@ -11,27 +11,19 @@ Welcome to eTraGo's documentation!
    :align: right
    :scale: 80%
 
-Optimization of flexibility options for transmission grids based on PyPSA.
-
-A speciality in this context is that transmission grids are described by the 380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the distribution grid. The integration of the transmission and 'upper' distribution grid is part of eTraGo.
-
-The focus of optimization are flexibility options with a special focus on energy storages and grid expansion measures.
-
-.. warning:: Note, eTraGo and especially its documentation is still in heavy development.
-
-
-
+.. warning:: Note, eTraGo and its documentation is in
+             continuous development.
 
 .. toctree::
-   :maxdepth: 7
-   :titlesonly:
-
+   :maxdepth: 2
+   
    about
-   getting_started
+   installation
    howToUse
+   theoretical_background
+   developer_notes
    whatsnew
    api
-
 
 
 Indices and tables
@@ -40,4 +32,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

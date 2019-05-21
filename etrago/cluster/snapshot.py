@@ -1,12 +1,28 @@
 # -*- coding: utf-8 -*-
-""" This module contains functions for calculating representative days/weeks
-based on a pyPSA network object. It is designed to be used the the `lopf`
-method.
+# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Europa-Universität Flensburg,
+# Centre for Sustainable Energy Systems
 
-Use:
-    clusters = cluster(network, n_clusters=10)
-    medoids = medoids(clusters)
-    update_data_frames(network, medoids)
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# File description for read-the-docs
+""" This module contains functions for calculating representative days/weeks
+based on a pyPSA network object. It is designed to be used for the `lopf`
+method. Essentially the tsam package
+( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by
+Leander Kotzur is used.
 
 Remaining questions/tasks:
 
@@ -14,21 +30,29 @@ Remaining questions/tasks:
 - Include scaling method for yearly sums
 """
 
-__copyright__ = "tba"
-__license__ = "tba"
+import pandas as pd
+import os
+if 'READTHEDOCS' not in os.environ:
+    import pyomo.environ as po
+    import tsam.timeseriesaggregation as tsam
+
+__copyright__ = ("Flensburg University of Applied Sciences, "
+                 "Europa-Universität Flensburg, "
+                 "Centre for Sustainable Energy Systems")
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "Simon Hilpert"
 
-import pandas as pd
-import pyomo.environ as po
-import tsam.timeseriesaggregation as tsam
+
 from datetime import timedelta 
 
 def snapshot_clustering(network, how='daily', clusters=10):
+    """
+    """
 
-    network = run(network=network.copy(), n_clusters=clusters,
-            how=how, normed=False)
-    
-    return network
+    network, df_cluster = run(network=network.copy(), n_clusters=clusters,
+                  how=how, normed=False)
+
+    return network, df_cluster
 
 
 def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
@@ -52,10 +76,10 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
-        rescaleClusterPeriods=False, 
+        rescaleClusterPeriods=False,
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
-    
+
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
@@ -125,9 +149,11 @@ def run(network, n_clusters=None, how='daily',
                            typical_periods=n_clusters,
                            how='daily')       
     network.cluster = df_cluster
+    print(df_cluster)
     update_data_frames(network, cluster_weights, dates, hours)                 
     
-    return network
+    return network, df_cluster
+
 
 def prepare_pypsa_timeseries(network, normed=False):
     """
@@ -135,19 +161,23 @@ def prepare_pypsa_timeseries(network, normed=False):
 
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
+        normed_loads.columns = 'L' + normed_loads.columns
         normed_renewables = network.generators_t.p_max_pu
+        normed_renewables.columns = 'G' + normed_renewables.columns
 
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
         loads = network.loads_t.p_set
+        loads.columns = 'L' + loads.columns
         renewables = network.generators_t.p_set
+        renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
     return df
 
 
-def update_data_frames(network, cluster_weights, dates,hours):
+def update_data_frames(network, cluster_weights, dates, hours):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -155,25 +185,25 @@ def update_data_frames(network, cluster_weights, dates,hours):
     Parameters
     -----------
     network : pyPSA network object
-    cluster_weights: dictionary 
-    dates: Datetimeindex 
+    cluster_weights: dictionary
+    dates: Datetimeindex
 
 
     Returns
     -------
     network
 
-    """ 
-    network.snapshot_weightings= network.snapshot_weightings.loc[dates]
+    """
+    network.snapshot_weightings = network.snapshot_weightings.loc[dates]
     network.snapshots = network.snapshot_weightings.index
-    
-    #set new snapshot weights from cluster_weights
-    snapshot_weightings=[]
+
+    # set new snapshot weights from cluster_weights
+    snapshot_weightings = []
     for i in cluster_weights.values():
-        x=0
-        while x<hours: 
+        x = 0
+        while x < hours:
             snapshot_weightings.append(i)
-            x+=1
+            x += 1
     for i in range(len(network.snapshot_weightings)):
         network.snapshot_weightings[i] = snapshot_weightings[i]   
     
@@ -181,7 +211,7 @@ def update_data_frames(network, cluster_weights, dates,hours):
     network.snapshots=network.snapshots.sort_values()
     network.snapshot_weightings=network.snapshot_weightings.sort_index()
 
-    
+     
     return network
 
 def snapshot_cluster_constraints(network, snapshots):
@@ -318,11 +348,12 @@ def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
 
 def write_lpfile(network=None, path=None):
     network.model.write(path,
-                        io_options={'symbolic_solver_labels':True})
+                        io_options={'symbolic_solver_labels': True})
 
-def fix_storage_capacity(network,resultspath, n_clusters): ###"network" dazugefügt
+
+def fix_storage_capacity(network, resultspath, n_clusters):  # "network" added
     path = resultspath.strip('daily')
     values = pd.read_csv(path + 'storage_capacity.csv')[n_clusters].values
     network.storage_units.p_nom_max = values
-    network.storage_units.p_nom_min = valu
-    resultspath = 'compare-'+resultspath
+    network.storage_units.p_nom_min = values
+    resultspath = 'compare-' + resultspath

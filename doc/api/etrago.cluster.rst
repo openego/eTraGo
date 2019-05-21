@@ -20,7 +20,6 @@ etrago\.cluster\.snapshot module
     :undoc-members:
     :show-inheritance:
 
-
 Module contents
 ---------------
 
@@ -28,3 +27,4 @@ Module contents
     :members:
     :undoc-members:
     :show-inheritance:
+
