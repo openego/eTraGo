@@ -49,11 +49,11 @@ if not 'READTHEDOCS' in os.environ:
 
 args = {# Setup and Configuration:
         'db': 'oedb_clara', # db session
-        'gridversion': 'v0.4.2', # None for model_draft or Version number (e.g. v0.2.11) for grid schema
+        'gridversion': None, # None for model_draft or Version number (e.g. v0.2.11) for grid schema
         'method': 'lopf', # lopf or pf
         'pf_post_lopf': False, # state whether you want to perform a pf after a lopf simulation
         'start_snapshot': 1, 
-        'end_snapshot' : 72,
+        'end_snapshot' : 168,
         'solver': 'gurobi', # glpk, cplex or gurobi
         'scn_name': 'eGo 100', # state which scenario you want to run: Status Quo, NEP 2035, eGo 100
             # Scenario variations:
@@ -62,7 +62,7 @@ args = {# Setup and Configuration:
             'add_Belgium_Norway': False,  # state if you want to add Belgium and Norway as electrical neighbours, timeseries from scenario NEP 2035!
         # Export options:
         'lpfile': 'snapshottest.lp', # state if and where you want to save pyomo's lp file: False or /path/tofolder
-        'results':"False", # state if and where you want to save results as csv: False or /path/tofolder
+        'results': False, # state if and where you want to save results as csv: False or /path/tofolder
         'export': False, # state if you want to export the results back to the database
         # Settings:
         'extendable':['storages'], # None or array of components you want to optimize (e.g. ['network', 'storages'])
@@ -70,9 +70,9 @@ args = {# Setup and Configuration:
         'reproduce_noise': False,# state if you want to use a predefined set of random noise for the given scenario. if so, provide path, e.g. 'noise_values.csv'
         'minimize_loading':False,
         # Clustering:
-        'network_clustering_kmeans':30, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
+        'network_clustering_kmeans':5, # state if you want to perform a k-means clustering on the given network. State False or the value k (e.g. 20).
         'network_clustering_ehv': False, # state if you want to perform a clustering of HV buses to EHV buses.
-        'snapshot_clustering':2, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
+        'snapshot_clustering':5, # state if you want to perform snapshot_clustering on the given network. Move to PyPSA branch:features/snapshot_clustering
         'extra_functionality_storage':snapshot_cluster_constraints,
         # Simplifications:
         'parallelisation':False, # state if you want to run snapshots parallely.
@@ -334,8 +334,8 @@ def etrago(args):
         
     # snapshot clustering
     if not args['snapshot_clustering']== False:
-        network.storage_units.state_of_charge_initial=5
-        network.storage_units.cyclic_state_of_charge = True
+        network.storage_units.state_of_charge_initial=0
+        network.storage_units.cyclic_state_of_charge = False
         network = snapshot_clustering(network, how='daily', clusters= args['snapshot_clustering'])
         extra_functionality = args ['extra_functionality_storage']  # daily_bounds
 
