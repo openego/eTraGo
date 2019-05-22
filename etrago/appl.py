@@ -111,16 +111,16 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 168,
+    'end_snapshot': 240,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver.log', 'threads':4},  # {} for default options
+                       'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
-    'lpfile': 'snapshottest.lp',  # save pyomo's lp file: False or /path/tofolder
+    'lpfile': 'snapshottest1.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
@@ -134,7 +134,7 @@ args = {
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': 3,  # False or the number of 'periods'
+    'snapshot_clustering': 4,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -402,7 +402,7 @@ def etrago(args):
 
     # set clustering to default
     clustering = None
-
+    
     if args['generator_noise'] is not False:
         # add random noise to all generators
         s = np.random.RandomState(args['generator_noise'])
