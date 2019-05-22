@@ -43,8 +43,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "Simon Hilpert"
 
 
-from datetime import timedelta 
-
 def snapshot_clustering(network, how='daily', clusters=10):
     """
     """
@@ -149,7 +147,6 @@ def run(network, n_clusters=None, how='daily',
                            typical_periods=n_clusters,
                            how='daily')       
     network.cluster = df_cluster
-    print(df_cluster)
     update_data_frames(network, cluster_weights, dates, hours)                 
     
     return network, df_cluster
@@ -168,9 +165,9 @@ def prepare_pypsa_timeseries(network, normed=False):
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
-        loads = network.loads_t.p_set
+        loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set
+        renewables = network.generators_t.p_set.copy()
         renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
