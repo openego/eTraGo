@@ -356,13 +356,13 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
                     .loc[networkB.snapshots[timesteps]].abs().sum() ** 2).\
                     apply(sqrt))) \
                     /(networkA.lines.s_nom_opt)).data, index = array_line_a)
-                 
+        
     links_diff = pd.Series((
-            ((networkA.links_t.p0.mul(networkA.snapshot_weightings, axis=0).\
-        loc[networkA.snapshots[timesteps]].abs().sum()) \
-        - (networkB.links_t.p0.mul(networkB.snapshot_weightings, axis=0).\
-        loc[networkB.snapshots[timesteps]].abs().sum())) \
-        /(networkA.links.p_nom_opt)).data, index=array_link_a)
+           ((networkA.links_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+       loc[networkA.snapshots[timesteps]].abs().sum()) \
+       - (networkB.links_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+       loc[networkB.snapshots[timesteps]].abs().sum())) \
+       /(networkA.links.p_nom_opt)).data, index=array_link_a)
             
     lines_diff_prozent = (lines_diff / networkA.snapshot_weightings[networkA.snapshots[timesteps]].sum())*100
     
@@ -380,16 +380,21 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     midpoint = 1 - max(diff_loading_rel) / (max(diff_loading_rel) + abs(min(diff_loading_rel)))
     shifted_cmap = shiftedColorMap(
         plt.cm.jet, midpoint=midpoint, name='shifted')
-    # cmap = plt.cm.jet
+    # cmap = plt.cm.jet #
     ll = networkA.plot(line_colors=diff_loading_rel, line_cmap=shifted_cmap,
-                       title="Line loading", bus_sizes=new_buses,
-                       bus_colors='blue', line_widths=0.55)
+                       title="Line loading", \
+                       line_widths=0.55, \
+                       bus_sizes=0, bus_colors='blue') 
     # v = np.linspace(min(diff_loading_rel), max(diff_loading_rel), 101) #
     # boundaries = [min(diff_loading_rel).round(0), max(diff_loading_rel).round(0)] #
-    cb = plt.colorbar(ll[1]) # , boundaries=v, ticks=v[0:101:10])
+    # if not links_diff_prozent.empty:
+        # cb_Link=plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
+        # cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        # cb_Link.remove()
+    cb = plt.colorbar(ll[1]) # , boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
     # cb.set_clim(vmin=boundaries[0], vmax=boundaries[1]) #
     cb.set_label('Difference in line loading in % based on s_nom of networkA')
-
+    
 def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[]):
     """
@@ -469,7 +474,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
 
     extension = extension_lines.append(extension_links)
 
-    # Plot whole network in backgroud of plot
+    # Plot whole network in background of plot
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
                     network.lines), network.lines.index]).append(
@@ -1155,14 +1160,15 @@ def storage_distribution(network, scaling=1, filename=None):
     for area in [msd_max, msd_median, msd_min]:
         plt.scatter([], [], c='blue', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
+        # labels=ax.get_legend_handles_labels -> handles=labels
         plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
+    # ax.legend()
 
     if filename is None:
         plt.show()
     else:
         plt.savefig(filename)
         plt.close()
-
 
 
 def storage_expansion(network, basemap=True, scaling=1, filename=None):
@@ -1261,14 +1267,19 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         bmap.drawcountries()
         bmap.drawcoastlines()
 
-    if msd_max_hyd !=0:
-        plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() < 1:
+        network.plot(bus_sizes=0, ax=ax, title="No storage expansion")
+    else:
+
+        if msd_max_hyd !=0:
+            plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
                 label='= ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
-    if msd_max_bat !=0:
-        plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
+        if msd_max_bat !=0:
+            plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
                 label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
-    ax.set_title("Storage expansion")
+        plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
+        ax.set_title("Storage expansion")
 
     
     if filename is None:
@@ -1305,9 +1316,7 @@ def gen_dist(
         If not given, figure will be show directly
         
     """
-    
-    # from matplotlib import rcParams #
-    # rcParams['figure.subplot.bottom']=0.01 #
+
     if techs is None:
         techs = network.generators.carrier.unique()
     else:
@@ -1326,6 +1335,8 @@ def gen_dist(
     size = 4
 
     fig.set_size_inches(size * n_cols, size * n_rows)
+    
+    plt.subplots_adjust(hspace=n_rows*0.1)
 
     for i, tech in enumerate(techs):
         
@@ -1395,6 +1406,7 @@ def gen_dist_diff(
         If not given, figure will be show directly
         
     """
+    
     if techs is None:
         techs = networkA.generators.carrier.unique()
     else:
@@ -1413,6 +1425,8 @@ def gen_dist_diff(
     size = 4
 
     fig.set_size_inches(size * n_cols, size * n_rows)
+
+    plt.subplots_adjust(hspace=n_rows*0.1)
 
     for i, tech in enumerate(techs):
         i_row = i // n_cols
