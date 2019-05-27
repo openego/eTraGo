@@ -117,8 +117,8 @@ args = {
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2'],  # None or array of extension scenarios
-    'scn_decommissioning': ['test'],  # None or array of decommissioning scenarios
+    'scn_extension':['nep2035_b2', 'wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': ['bugfix_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
@@ -131,7 +131,7 @@ args = {
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
+    'load_cluster': False, # 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -438,7 +438,7 @@ def etrago(args):
 
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        for i in range(len(args['scn_extension'])):
+        for i in range(len(args['scn_decommissioning'])):
             network = decommissioning(
                     network,
                     session,
