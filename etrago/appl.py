@@ -110,9 +110,9 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 24,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
@@ -495,7 +495,8 @@ def etrago(args):
                 scn_name=(
                         args['scn_name'] if args['scn_extension']==None
                         else args['scn_name']+'_ext_'+'_'.join(
-                                args['scn_extension'])))
+                                args['scn_extension'])),
+                version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
 
