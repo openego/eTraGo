@@ -817,8 +817,8 @@ def decommissioning(network, session, version, scn_decommissioning,
                          index_col=id_column)
         df_decommisionning.index = df_decommisionning.index.astype(str)
 
-        reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioning,
-                              branch_capacity_factor)
+        reduce_capacity_by_comp(network, df_decommisionning, comp, 
+                                scn_decommissioning, branch_capacity_factor)
 
     print('Scenario ' +scn_decommissioning + ' decommissioned.' )
 
@@ -828,10 +828,11 @@ def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioni
                               branch_capacity_factor):
     
     if comp =='Line':
-         comp_df = network.lines[network.lines.index.isin(df_decommisionning.index)]
+         comp_df = network.lines[network.lines.index.isin(
+                 df_decommisionning.index)]
          new_cap = comp_df.s_nom-df_decommisionning.s_nom
-         network.lines.s_nom[network.lines.index.isin(df_decommisionning.index)]=\
-         new_cap
+         network.lines.s_nom[network.lines.index.isin(
+                 df_decommisionning.index)] = new_cap
          
          for idx, row in network.lines.iterrows():
              if (row['s_nom_min'] !=0) & (
@@ -852,32 +853,36 @@ def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioni
          network.lines = network.lines[network.lines.s_nom > 0]
          
     if comp =='Transformer':
-         comp_df = network.transformers[network.transformers.index.isin(df_decommisionning.index)]
+         comp_df = network.transformers[network.transformers.index.isin(
+                 df_decommisionning.index)]
          new_cap = comp_df.s_nom-df_decommisionning.s_nom
-         network.transformers.s_nom[network.transformers.index.isin(df_decommisionning.index)]=\
-         new_cap
-         network.transformers=network.transformers[network.transformers.s_nom>0]
+         network.transformers.s_nom[network.transformers.index.isin(
+                 df_decommisionning.index)] = new_cap
+         network.transformers =  \
+             network.transformers[network.transformers.s_nom>0]
 
     if comp =='Link':
-         comp_df = network.links[network.links.index.isin(df_decommisionning.index)]
+         comp_df = network.links[network.links.index.isin(
+                 df_decommisionning.index)]
          new_cap = comp_df.p_nom-df_decommisionning.p_nom
-         network.links.p_nom[network.links.index.isin(df_decommisionning.index)]=\
-         new_cap
+         network.links.p_nom[network.links.index.isin(
+                 df_decommisionning.index)] = new_cap
          network.links=network.links[network.links.p_nom>0]
          
     if comp =='Generator':
-         comp_df = network.generators[network.generators.index.isin(df_decommisionning.index)]
+         comp_df = network.generators[network.generators.index.isin
+                                      (df_decommisionning.index)]
          new_cap = comp_df.p_nom-df_decommisionning.p_nom
-         network.generators.p_nom[network.generators.index.isin(df_decommisionning.index)]=\
-         new_cap
+         network.generators.p_nom[network.generators.index.isin(
+                 df_decommisionning.index)] = new_cap
          network.generators=network.generators[network.generators.p_nom>0]
-#         network.generators_t.p_max_pu=network.generators_t.p_max_pu[network.generators.index]
          
     if comp =='Storage':
-         comp_df = network.storage_units[network.storage_units.index.isin(df_decommisionning.index)]
+         comp_df = network.storage_units[network.storage_units.index.isin(
+                 df_decommisionning.index)]
          new_cap = comp_df.p_nom-df_decommisionning.p_nom
-         network.storage_units.p_nom[network.storage_units.index.isin(df_decommisionning.index)]=\
-         new_cap
+         network.storage_units.p_nom[network.storage_units.index.isin(
+                 df_decommisionning.index)] = new_cap
 
 def distance(x0, x1, y0, y1):
     """

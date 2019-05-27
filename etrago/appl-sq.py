@@ -118,8 +118,8 @@ args = {
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'scn_name': 'Status Quo', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension':['nep2035_b2', 'wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': ['bugfix_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': '/home/lukas_wienholt/results/sq-300',  # save results as csv: False or /path/tofolder
@@ -441,7 +441,7 @@ def etrago(args):
 
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        for i in range(len(args['scn_extension'])):
+        for i in range(len(args['scn_decommissioning'])):
             network = decommissioning(
                     network,
                     session,
