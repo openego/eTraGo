@@ -403,12 +403,6 @@ def etrago(args):
 
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
-
-    # set extra_functionality
-    """if args['extra_functionality'] is not None:
-        extra_functionality = eval(args['extra_functionality'])
-    elif args['extra_functionality'] is None:
-        extra_functionality = args['extra_functionality']"""
         
     # set disaggregated_network to default
     disaggregated_network = None
