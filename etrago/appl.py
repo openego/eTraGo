@@ -99,7 +99,7 @@ if 'READTHEDOCS' not in os.environ:
             extension_preselection,
             print_expansion_costs)
 
-    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    from etrago.cluster.snapshot import snapshot_clustering
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -111,8 +111,8 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'start_snapshot': 1,
+    'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
@@ -135,7 +135,7 @@ args = {
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': False,  # False or the number of 'periods'
+    'snapshot_clustering': 2,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -476,7 +476,7 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
-        extra_functionality = daily_bounds  # daily_bounds or other constraint
+        #extra_functionality = daily_bounds  # daily_bounds or other constraint
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
@@ -520,12 +520,9 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
+            args,
             group_size=1,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
+            extra_functionality=Constraints(args).functionality)
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':

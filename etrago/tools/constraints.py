@@ -24,7 +24,7 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 
 from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
 import pandas as pd
-
+import pyomo.environ as po
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -223,3 +223,25 @@ class Constraints:
 
                     setattr(network.model,
                 "max_cross_border"+cntr, Constraint(cntr, rule=_rule_max))
+                    
+            if self.args['snapshot_clustering'] is not False:
+                # This will bound the storage level to 0.5 max_level every 24th hour.
+                sus = network.storage_units
+                # take every first hour of the clustered days
+                network.model.period_starts = network.snapshot_weightings.index[0::24]
+
+                network.model.storages = sus.index
+
+                def day_rule(m, s, p):
+                    """
+                    Sets the soc of the every first hour to the soc of the last 
+                    hour of the day (i.e. + 23 hours)
+                    """
+                    return (
+                        m.state_of_charge[s, p] ==
+                        m.state_of_charge[s, p + pd.Timedelta(hours=23)])
+
+                network.model.period_bound = po.Constraint(
+                    network.model.storages,
+                    network.model.period_starts, rule=day_rule)
+
