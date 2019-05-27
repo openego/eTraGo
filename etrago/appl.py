@@ -528,9 +528,12 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        iterate_lopf(network, args, extra_functionality,method={'threshold':0.01})
+        iterate_lopf(network,
+                     args,
+                     extra_functionality,
+                     method={'threshold':0.01})
 
-        # start non-linear powerflow simulation
+    # start non-linear powerflow simulation
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
