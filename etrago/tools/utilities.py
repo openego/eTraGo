@@ -635,7 +635,7 @@ def results_to_csv(network, args, path):
     data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
-    if results_to_csv.counter ==1:
+    if results_to_csv.counter == 1:
         with open(os.path.join(args['csv_export'], 'args.json'), 'w') as fp:
             json.dump(args, fp)
 
@@ -1849,7 +1849,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
-                    formulation="angles")
+                    formulation=args['model_formulation'])
                 y = time.time()
                 z = (y - x) / 60
 
@@ -1877,7 +1877,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
-                    formulation="angles")
+                    formulation=args['model_formulation'])
             y = time.time()
             z = (y - x) / 60
             
@@ -1905,7 +1905,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
-                    formulation="angles")
+                    formulation=args['model_formulation'])
                 y = time.time()
                 z = (y - x) / 60
             
@@ -1931,7 +1931,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
-                    formulation="angles")
+                    formulation=args['model_formulation'])
             y = time.time()
             z = (y - x) / 60
             print("Time for LOPF [min]:", round(z, 2))
