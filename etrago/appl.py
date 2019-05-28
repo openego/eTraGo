@@ -107,8 +107,8 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'db': 'local',  # database session
+    'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -122,7 +122,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export':False,  # save results as csv: False or /path/tofolder
+    'csv_export':'test_2805',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage', 'network'],  # Array of components to optimize
@@ -131,10 +131,10 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 5,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None,  # None, 'mini' or 'uniform'
+    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
@@ -542,8 +542,8 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'n_iter':5},
-                     iterations_to_csv=False)
+                     method = {'n_iter':5},
+                     iterations_to_csv = False)
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
@@ -595,6 +595,10 @@ def etrago(args):
             disaggregated_network.results = network.results
             print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
+            
+            if args['csv_export'] != False:
+                results_to_csv(network, args, 
+                           args['csv_export']+'/disaggregated_network')
 
     # write lpfile to path
     if not args['lpfile'] is False:
@@ -621,13 +625,7 @@ def etrago(args):
                 dict([("disaggregated_results", True)] + list(args.items())),
                 grid='hv',
                 safe_results=False)
-
-    # write PyPSA results to csv files
-    if args['csv_export'] != False:
-        results_to_csv(network, args, args['csv_export'])
-        if disaggregated_network:
-            results_to_csv(network, args, 
-                           args['csv_export']+'/disaggregated_network')
+            
     # close session
     # session.close()
 

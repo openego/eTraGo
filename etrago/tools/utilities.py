@@ -1937,7 +1937,10 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
-            
+        
+    if  args['csv_export'] != False:
+        results_to_csv(network, args, args['csv_export'] + '/lopf')
+
     return network
             
 
