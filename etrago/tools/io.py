@@ -800,7 +800,7 @@ def decommissioning(network, session, version, scn_decommissioning,
                            'EgoGridPfHvExtension' + comp)
         else:
             ormclass = getattr(import_module('egoio.db_tables.grid'),
-                           'EgoPfHvExtensionLine' + comp)
+                           'EgoPfHvExtension' + comp)
 
         query = session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + 
