@@ -113,7 +113,8 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 240,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},  # {} for default options
+    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
+                       'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
