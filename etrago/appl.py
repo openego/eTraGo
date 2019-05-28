@@ -111,28 +111,27 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'start_snapshot': 1,
+    'end_snapshot': 96,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver.log'},  # {} for default options
-    'model_formulation': 'kirchhoff', # angles or kirchhoff
+    'solver_options': {},  # {} for default options
+    'model_formulation': 'angles', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export':'test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -543,7 +542,8 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'threshold':0.01})
+                     method={'threshold':0.01},
+                     iterations_to_csv=True)
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
@@ -621,6 +621,10 @@ def etrago(args):
                 dict([("disaggregated_results", True)] + list(args.items())),
                 grid='hv',
                 safe_results=False)
+
+    # write PyPSA results to csv files
+    if args['csv_export'] != False:
+                results_to_csv(network, args, args['csv_export'])
 
     # close session
     # session.close()

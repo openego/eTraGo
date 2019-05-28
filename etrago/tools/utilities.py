@@ -1791,7 +1791,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 def iterate_lopf(network, args, extra_functionality, method={'n_iter':4}, 
-                 delta_s_max=0.1):
+                 delta_s_max=0.1, iterations_to_csv=True):
 
     """
     Run optimization of lopf. If network extension is included, the specified 
@@ -1857,7 +1857,8 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     raise  Exception('LOPF '+ str(i) + ' not solved.')
 
                 print("Time for LOPF [min]:", round(z, 2))
-                if args['csv_export'] != False:
+
+                if iterations_to_csv and args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
 
@@ -1916,7 +1917,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
                 i += 1
 
-                if args['csv_export'] != False:
+                if iterations_to_csv and args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
                     
