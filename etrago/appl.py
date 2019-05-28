@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)
+args = get_args_setting(args, jsonpath='args_ego100_paper_inf.json')
 
 
 def etrago(args):
@@ -470,7 +470,8 @@ def etrago(args):
         network = extendable(
                     network,
                     args,
-                    line_max=4)
+                    line_max=None,
+                    line_max_foreign=4)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 

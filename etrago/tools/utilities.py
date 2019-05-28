@@ -1104,7 +1104,7 @@ def group_parallel_lines(network):
 
 
 def set_line_costs(network, args, 
-                   cost110=230, cost220=290, cost380=85, costDC=375):
+                   cost110=4*230, cost220=4*290, cost380=4*85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
     
     Parameters
@@ -1943,7 +1943,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
     return network
             
 
-def max_line_ext(network, snapshots, share=1.01):
+def max_line_ext(network, snapshots, share=1.25):
 
     """
     Sets maximal share of overall network extension
