@@ -68,7 +68,11 @@ if 'READTHEDOCS' not in os.environ:
         storage_distribution,
         storage_expansion,
         nodal_gen_dispatch,
-        network_expansion)
+        network_expansion,
+        nodal_production_balance,
+        storage_p_soc,
+        storage_soc_sorted,
+        network_storage_expansion)
 
     from etrago.tools.utilities import (
         load_shedding,
@@ -111,11 +115,11 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'start_snapshot': 20,
+    'end_snapshot': 30,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver.log'},  # {} for default options
+                       'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -123,7 +127,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/ulf/Dokumente/Promotion/Berechnungen/test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
@@ -641,3 +645,21 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
+    plot_path = args['csv_export']+'/plots'
+    if not os.path.exists(plot_path):
+        os.makedirs(plot_path, exist_ok=True)
+    storage_expansion(network, scaling=100, filename=plot_path+'/storage_expansion.png')
+    storage_distribution(network, scaling=100, filename=plot_path+'/storage_dist.png')
+    network_expansion(network, ext_width=1000, filename=plot_path+'/grid_expansion.png')
+    network_storage_expansion(network, scaling=100, ext_width=1000, filename=plot_path+'/grid_storage_expansion.png')
+    plot_line_loading(network, timesteps=range(1,(abs(args['start_snapshot']-args['end_snapshot']))), arrows=False, filename=plot_path+'/line_loading.png')
+    plot_stacked_gen(network, filename=plot_path+'/stacked_gen.png')
+    curtailment(network, carrier='solar', filename=plot_path+'/curtail_solar.png')
+    curtailment(network, carrier='wind_onshore', filename=plot_path+'/curtail_windon.png')
+    curtailment(network, carrier='wind_offshore', filename=plot_path+'/curtail_windoff.png')
+    nodal_gen_dispatch(network,techs=None, scaling=2, filename=plot_path+'/nodal_gen.png')
+    nodal_production_balance(network, scaling=0.0001,  filename=plot_path+'/nodal_balance.png')
+    storage_p_soc(network, mean='60H', filename = plot_path+'/storage_psoc.png') # evtl. lieber anderes H wählen, Argument für jede 3. Stunde
+    storage_soc_sorted(network, filename = plot_path+'/storage_socsort.png')
+    
+      

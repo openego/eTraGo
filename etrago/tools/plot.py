@@ -130,7 +130,6 @@ def plot_line_loading(
     cmap = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     array_link = [['Link'] * len(network.links), network.links.index]
-    
     if network.lines_t.q0.empty:
 
         loading_lines = pd.Series((network.lines_t.p0.mul(
@@ -186,9 +185,11 @@ def plot_line_loading(
                             [network.snapshots[timesteps]].sum()) * 100
 
     loading = load_lines_rel.append(load_links_rel)
+    fig, ax = plt.subplots(1, 1)  
+    fig.set_size_inches(15, 10)
 
     ll = network.plot(line_colors=loading, line_cmap=cmap,
-                      title="Line loading", line_widths=0.55)
+                      title="Line loading", line_widths=0.55, bus_sizes=0)
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
@@ -199,9 +200,9 @@ def plot_line_loading(
         v = np.linspace(boundaries[0], boundaries[1], 101)
         
     cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
     cb_Link = plt.colorbar(ll[2], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
@@ -437,6 +438,8 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
     extension = extension_lines.append(extension_links)
 
     # Plot whole network in backgroud of plot
+    fig, ax = plt.subplots(1, 1)  
+    fig.set_size_inches(15, 10)
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
                     network.lines), network.lines.index]).append(
@@ -460,6 +463,218 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         line_cmap=cmap,
         bus_sizes=0,
         title="Optimized AC- and DC-line expansion",
+        line_widths=line_widths) 
+
+    if not boundaries:
+        v = np.linspace(min(extension), max(extension), 101)
+        boundaries = [min(extension), max(extension)]
+        
+    else:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+        
+    if not extension_links.empty:
+        cb_Link = plt.colorbar(ll[2], boundaries=v,
+                      ticks=v[0:101:10])
+        cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+        
+        cb_Link.remove()
+        
+    cb = plt.colorbar(ll[1], boundaries=v,
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    
+    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
+    
+    if method == 'rel':
+        cb.set_label('line expansion relative to s_nom in %')
+    if method == 'abs':
+        cb.set_label('line expansion in MW')
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
+
+def network_storage_expansion(network, method = 'rel', ext_min=0.1,
+                      ext_width=False, scaling=1, filename=None, boundaries=[]):
+    """Plot relative or absolute network extension of AC- and DC-lines.
+    
+    Parameters
+    ----------
+    network: PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    method: str
+        Choose 'rel' for extension relative to s_nom and 'abs' for 
+        absolute extensions. 
+    ext_min: float
+        Choose minimum relative line extension shown in plot in p.u..
+    ext_width: float or bool
+        Choose if line_width respects line extension. Turn off with 'False' or
+        set linear factor to decremise extension line_width.
+    filename: str or None
+        Save figure in this direction
+    boundaries: array
+       Set boundaries of heatmap axis
+    
+    """
+
+    stores = network.storage_units[network.storage_units.carrier == 
+                                   'extendable_storage']
+    batteries = stores[stores.max_hours == 6]
+    hydrogen = stores[stores.max_hours == 168]
+    storage_distribution =\
+        network.storage_units.p_nom_opt[stores.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    battery_distribution =\
+        network.storage_units.p_nom_opt[batteries.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    hydrogen_distribution =\
+        network.storage_units.p_nom_opt[hydrogen.index].groupby(
+        network.storage_units.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+
+    sbatt = network.storage_units.index[
+        (network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10) & (
+                    network.storage_units.max_hours == 6)]
+    shydr = network.storage_units.index[
+        (network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10) & (
+                    network.storage_units.max_hours == 168)]
+
+    fig, ax = plt.subplots(1, 1)  
+    fig.set_size_inches(15, 10)
+    
+    msd_max = storage_distribution.max()
+    msd_max_bat = battery_distribution.max()
+    msd_max_hyd = hydrogen_distribution.max()
+
+    if msd_max != 0:
+        LabelVal = int(log10(msd_max))
+    else:
+        LabelVal = 0
+    if LabelVal < 0:
+        LabelUnit = 'kW'
+        msd_max, msd_max_bat, msd_max_hyd = msd_max * \
+            1000, msd_max_bat * 1000, msd_max_hyd * 1000
+        battery_distribution = battery_distribution * 1000
+        hydrogen_distribution = hydrogen_distribution * 1000
+    elif LabelVal < 3:
+        LabelUnit = 'MW'
+    else:
+        LabelUnit = 'GW'
+        msd_max, msd_max_bat, msd_max_hyd = msd_max / \
+            1000, msd_max_bat / 1000, msd_max_hyd / 1000
+        battery_distribution = battery_distribution / 1000
+        hydrogen_distribution = hydrogen_distribution / 1000
+
+    if network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() < 1:
+        print("No storage unit to plot")
+    elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() < 1:
+        network.plot(bus_sizes=battery_distribution * scaling, 
+                     bus_colors='orangered', ax=ax, line_widths=0, branch_components=['Line'])
+    elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
+    network.storage_units.p_nom_opt[shydr].sum() > 1:
+        network.plot(bus_sizes=hydrogen_distribution * scaling,
+                     bus_colors='teal', ax=ax, line_widths=0, branch_components=['Line'])
+    else:
+        network.plot(bus_sizes=battery_distribution * scaling,
+                     bus_colors='orangered', ax=ax, line_widths=0, branch_components=['Line'])
+        network.plot(bus_sizes=hydrogen_distribution * scaling,
+                     bus_colors='teal', ax=ax, line_widths=0, branch_components=['Line'])
+
+    if msd_max_hyd !=0:
+        plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
+                label='= ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
+    if msd_max_bat !=0:
+        plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
+                label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
+    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
+    ax.set_title("Storage expansion")
+
+
+    cmap = plt.cm.jet
+
+    overlay_network = network.copy()
+    overlay_network.lines = overlay_network.lines[
+                            overlay_network.lines.s_nom_extendable & ((
+                                    overlay_network.lines.s_nom_opt -
+                                  overlay_network.lines.s_nom_min) /
+                                overlay_network.lines.s_nom >= ext_min)]
+    overlay_network.links = overlay_network.links[
+                            overlay_network.links.p_nom_extendable & ((
+                                    overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min)/
+                                 overlay_network.links.p_nom >= ext_min)]
+
+    for i, row in overlay_network.links.iterrows():
+        linked = overlay_network.links[(row['bus1'] ==
+                overlay_network.links.bus0) & (
+                        row['bus0'] == overlay_network.links.bus1)]
+        if not linked.empty:
+            if row['p_nom_opt'] < linked.p_nom_opt.values[0]:
+                overlay_network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
+
+    array_line = [['Line'] * len(overlay_network.lines),
+                  overlay_network.lines.index]
+    
+    array_link = [['Link'] * len(overlay_network.links),
+                  overlay_network.links.index]
+    
+    if method == 'rel':
+
+        extension_lines = pd.Series((100 *
+                                 (overlay_network.lines.s_nom_opt -
+                                  overlay_network.lines.s_nom_min) /
+                                overlay_network.lines.s_nom).data,
+                                index=array_line)
+
+        extension_links = pd.Series((100 *
+                                 (overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min)/
+                                 (overlay_network.links.p_nom)).data,
+                                index=array_link)
+    if method == 'abs':
+        extension_lines = pd.Series(
+                                 (overlay_network.lines.s_nom_opt -
+                                  overlay_network.lines.s_nom_min).data,
+                                index=array_line)
+
+        extension_links = pd.Series(
+                                 (overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min).data,
+                                index=array_link)
+        
+
+    extension = extension_lines.append(extension_links)
+
+    # Plot whole network in backgroud of plot
+    network.plot(
+            line_colors=pd.Series("grey", index = [['Line'] * len(
+                    network.lines), network.lines.index]).append(
+            pd.Series("grey", index = [['Link'] * len(network.links),
+                  network.links.index])),
+            bus_sizes=0,
+            line_widths=pd.Series(0.5, index = [['Line'] * len(network.lines),
+                  network.lines.index]).append(
+            pd.Series(0.55, index = [['Link'] * len(network.links),
+                  network.links.index])))
+
+    if not ext_width:
+        line_widths= pd.Series(0.8, index = array_line).append(
+                pd.Series(0.8, index = array_link))
+        
+    else: 
+        line_widths= 0.5 + (extension / ext_width)
+        
+    ll = overlay_network.plot(
+        line_colors=extension,
+        line_cmap=cmap,
+        bus_sizes=0,
+        title="Optimized storage and line expansion",
         line_widths=line_widths) 
 
     if not boundaries:
@@ -559,6 +774,9 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
     else:
         plt.savefig(filename)
         plt.close()
+
+
+
 
 
 def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
@@ -883,7 +1101,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
 
     fig, ax = plt.subplots(1, 1)
 
-    fig.set_size_inches(12, 6)
+    fig.set_size_inches(32, 18)
     colors = [colors[col] for col in p_by_carrier.columns]
     if len(colors) == 1:
         colors = colors[0]
@@ -1041,7 +1259,7 @@ def curtailment(network, carrier='solar', filename=None):
     p_df[carrier + " curtailed"][p_df[carrier + " curtailed"] < 0.] = 0.
 
     fig, ax = plt.subplots(1, 1)
-    fig.set_size_inches(12, 6)
+    fig.set_size_inches(32, 18)
     p_df[[carrier + " dispatched", carrier + " curtailed"]
          ].plot(kind="area", ax=ax, linewidth=3)
     p_df[[carrier + " available", carrier + " capacity"]
@@ -1079,7 +1297,7 @@ def storage_distribution(network, scaling=1, filename=None):
             .sum().reindex(network.buses.index, fill_value=0.)
 
     fig, ax = plt.subplots(1, 1)
-    fig.set_size_inches(6, 6)
+    fig.set_size_inches(12, 12)
 
     msd_max = storage_distribution.max()
     msd_median = storage_distribution[storage_distribution != 0].median()
@@ -1116,7 +1334,7 @@ def storage_distribution(network, scaling=1, filename=None):
     for area in [msd_max, msd_median, msd_min]:
         plt.scatter([], [], c='white', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
+    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
 
     if filename is None:
         plt.show()
@@ -1166,8 +1384,8 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
                 network.storage_units.capital_cost > 10) & (
                     network.storage_units.max_hours == 168)]
 
-    fig, ax = plt.subplots(1, 1)
-    fig.set_size_inches(6, 6)
+    fig, ax = plt.subplots(1, 1)  
+    fig.set_size_inches(18, 14)
     
     msd_max = storage_distribution.max()
     msd_max_bat = battery_distribution.max()
@@ -1554,7 +1772,9 @@ def nodal_gen_dispatch(
                             network.snapshot_weightings, axis=0).sum().groupby(
                     [network.generators.bus, network.generators.carrier]).sum()
     
-    fig, ax = plt.subplots(1, 1)          
+    fig, ax = plt.subplots(1, 1)  
+    fig.set_size_inches(32, 18)
+        
     scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
     if direction != 'absolute':
         colors = coloring()
@@ -1615,6 +1835,8 @@ def nodal_production_balance(
     
     """
     fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(15, 10)
+
     gen = network.generators_t.p.groupby(network.generators.bus, axis=1).sum()
     load = network.loads_t.p.groupby(network.loads.bus, axis=1).sum()
     
@@ -1675,6 +1897,7 @@ def storage_p_soc(network, mean='1H', filename = None):
                 network.storage_units.p_nom_opt[shydr]).sum()
 
     fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(32, 18)
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 and \
         network.storage_units.p_nom_opt[shydr].sum() < 1:
@@ -1763,6 +1986,8 @@ def storage_soc_sorted(network, filename = None):
                 network.storage_units.p_nom_opt[shydr]).sum()
 
     fig, ax = plt.subplots(1, 1)
+    fig.set_size_inches(32, 18)
+
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 and \
         network.storage_units.p_nom_opt[shydr].sum() < 1:
