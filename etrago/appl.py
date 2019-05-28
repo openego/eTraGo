@@ -548,7 +548,8 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'threshold':0.01})
+                     method={'n_iter':10},
+                     delta_s_max=0)
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
