@@ -331,8 +331,8 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     
     # calculate difference in loading between both networks
     
-    array_line_a = [['LineA'] * len(networkA.lines), networkA.lines.index]
-    array_link_a = [['LinkA'] * len(networkA.links), networkA.links.index]
+    array_line_a = [['Line'] * len(networkA.lines), networkA.lines.index]
+    array_link_a = [['Link'] * len(networkA.links), networkA.links.index]
     
     if networkA.lines_t.q0.empty or networkB.lines_t.q0.empty:
         
@@ -380,19 +380,11 @@ def plot_line_loading_diff(networkA, networkB, timesteps=range(1,2)):
     midpoint = 1 - max(diff_loading_rel) / (max(diff_loading_rel) + abs(min(diff_loading_rel)))
     shifted_cmap = shiftedColorMap(
         plt.cm.jet, midpoint=midpoint, name='shifted')
-    # cmap = plt.cm.jet #
     ll = networkA.plot(line_colors=diff_loading_rel, line_cmap=shifted_cmap,
                        title="Line loading", \
                        line_widths=0.55, \
                        bus_sizes=0, bus_colors='blue') 
-    # v = np.linspace(min(diff_loading_rel), max(diff_loading_rel), 101) #
-    # boundaries = [min(diff_loading_rel).round(0), max(diff_loading_rel).round(0)] #
-    # if not links_diff_prozent.empty:
-        # cb_Link=plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
-        # cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-        # cb_Link.remove()
-    cb = plt.colorbar(ll[1]) # , boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
-    # cb.set_clim(vmin=boundaries[0], vmax=boundaries[1]) #
+    cb = plt.colorbar(ll[1]) 
     cb.set_label('Difference in line loading in % based on s_nom of networkA')
     
 def network_expansion(network, method = 'rel', ext_min=0.1,
@@ -1160,9 +1152,10 @@ def storage_distribution(network, scaling=1, filename=None):
     for area in [msd_max, msd_median, msd_min]:
         plt.scatter([], [], c='blue', s=area * scaling,
                     label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-        # labels=ax.get_legend_handles_labels -> handles=labels
-        plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
-    # ax.legend()
+        handles, labels = ax.get_legend_handles_labels()
+        handles.remove(handles[0])
+        labels.remove(labels[0])
+        plt.legend(handles, labels, scatterpoints=1, labelspacing=1, title='Storage size')
 
     if filename is None:
         plt.show()
@@ -1278,7 +1271,10 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
         if msd_max_bat !=0:
             plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
                 label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
-        plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
+        handles, labels = ax.get_legend_handles_labels()
+        handles.remove(handles[0])
+        labels.remove(labels[0])
+        plt.legend(handles, labels, scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
         ax.set_title("Storage expansion")
 
     
