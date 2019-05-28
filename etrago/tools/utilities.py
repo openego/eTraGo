@@ -887,9 +887,9 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
     network = distribute_q(network, allocation=q_allocation)
     
     if args['csv_export'] != False:
-            path=args['csv_export']+ '/pf_post_lopf'
-            results_to_csv(network, args, path)
-            pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+        path=args['csv_export']+ '/pf_post_lopf'
+        results_to_csv(network, args, path)
+        pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
     
     return network
 
@@ -1815,11 +1815,11 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
     """
     results_to_csv.counter=0
-    
+
     # if network is extendable, iterate lopf 
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
-        
+
         max_ext_line=network.lines.s_nom_max/network.lines.s_nom
         max_ext_link=network.links.p_nom_max/network.links.p_nom
         max_ext_trafo=network.transformers.s_nom_max/\
@@ -1843,7 +1843,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 network.transformers.s_nom                
                 network.links.p_nom_max=\
                  (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
-            
+
                 network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],
@@ -1858,15 +1858,16 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
                 print("Time for LOPF [min]:", round(z, 2))
 
-                if iterations_to_csv and args['csv_export'] != False:
-                    path=args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    results_to_csv(network, args, path)
-
                 if i < n_iter:
+                    if iterations_to_csv and args['csv_export'] != False:
+
+                        results_to_csv(network, args, 
+                            args['csv_export'] + '/lopf_iteration_'+ str(i))
+
                     l_snom_pre, t_snom_pre = \
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
-        
+
         # Calculate variable number of iterations until threshold of objective 
         # function is reached
 
@@ -1881,25 +1882,29 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     formulation=args['model_formulation'])
             y = time.time()
             z = (y - x) / 60
-            
+
             print("Time for LOPF [min]:", round(z, 2))
 
             diff_obj=network.objective*thr/100
 
             i = 1
-            
+
             # Stop after 100 iterations to aviod unending loop
             while i <= 100:
-                
+
+                if iterations_to_csv and args['csv_export'] != False:
+                    results_to_csv(network, args,
+                            args['csv_export'] + '/lopf_iteration_'+ str(i))
+
                 if i ==100:
                     print('Maximum number of iterations reached.')
                     break
-                
+
                 l_snom_pre, t_snom_pre = \
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
                 pre = network.objective
-                
+
                 x = time.time()
                 network.lopf(
                     network.snapshots,
@@ -1909,37 +1914,29 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     formulation=args['model_formulation'])
                 y = time.time()
                 z = (y - x) / 60
-            
+
                 print("Time for LOPF [min]:", round(z, 2))
-                
+
                 if network.results["Solver"][0]["Status"].key!='ok':
                     raise  Exception('LOPF '+ str(i) + ' not solved.')
 
                 i += 1
 
-                if iterations_to_csv and args['csv_export'] != False:
-                    path=args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    results_to_csv(network, args, path)
-                    
                 if abs(pre-network.objective) <=diff_obj:
                     print('Threshold reached after ' + str(i) + ' iterations.')
                     break
-                    
+
     else:
-            x = time.time()
-            network.lopf(
+        x = time.time()
+        network.lopf(
                     network.snapshots,
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
-            y = time.time()
-            z = (y - x) / 60
-            print("Time for LOPF [min]:", round(z, 2))
-        
-            if args['csv_export'] != False:
-                path=args['csv_export']+ '/lopf'
-                results_to_csv(network, args, path)
+        y = time.time()
+        z = (y - x) / 60
+        print("Time for LOPF [min]:", round(z, 2))
             
     return network
             
