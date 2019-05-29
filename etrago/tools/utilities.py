@@ -38,6 +38,7 @@ try:
     from shapely.geometry import Point
     import geoalchemy2
     from egoio.db_tables.model_draft import RenpassGisParameterRegion
+    from etrago.tools.plot import save_plots
 
 except:
     geopandas = False
@@ -889,6 +890,7 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
     if args['csv_export'] != False:
             path=args['csv_export']+ '/pf_post_lopf'
             results_to_csv(network, args, path)
+            save_plots(network, args, plot_path=path+'/plots')
             pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
     
     return network
@@ -1860,6 +1862,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
+                    save_plots(network, args, plot_path=path+'/plots')
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
@@ -1919,6 +1922,8 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
+                    save_plots(network, args, plot_path=path+'/plots')
+
                     
                 if abs(pre-network.objective) <=diff_obj:
                     print('Threshold reached after ' + str(i) + ' iterations.')
@@ -1939,6 +1944,8 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             if args['csv_export'] != False:
                 path=args['csv_export']+ '/lopf'
                 results_to_csv(network, args, path)
+                save_plots(network, args, plot_path=path+'/plots')
+
             
     return network
             

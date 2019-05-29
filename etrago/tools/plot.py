@@ -2028,6 +2028,25 @@ def storage_soc_sorted(network, filename = None):
 
     return
     
+def save_plots(network, args, plot_path):    
+    
+    if not os.path.exists(plot_path):
+        os.makedirs(plot_path, exist_ok=True)
+    storage_expansion(network, scaling=100, filename=plot_path+'/storage_expansion.png')
+    storage_distribution(network, scaling=100, filename=plot_path+'/storage_dist.png')
+    network_expansion(network, ext_width=1000, filename=plot_path+'/grid_expansion.png')
+    network_storage_expansion(network, scaling=100, ext_width=1000, filename=plot_path+'/grid_storage_expansion.png')
+    plot_line_loading(network, timesteps=range(0,network.snapshots.size), arrows=False, filename=plot_path+'/line_loading.png')
+    plot_stacked_gen(network, filename=plot_path+'/stacked_gen.png')
+    curtailment(network, carrier='solar', filename=plot_path+'/curtail_solar.png')
+    curtailment(network, carrier='wind_onshore', filename=plot_path+'/curtail_windon.png')
+    curtailment(network, carrier='wind_offshore', filename=plot_path+'/curtail_windoff.png')
+    nodal_gen_dispatch(network,techs=None, scaling=2, filename=plot_path+'/nodal_gen.png')
+    nodal_production_balance(network, scaling=0.0001,  filename=plot_path+'/nodal_balance.png')
+    storage_p_soc(network, mean='60H', filename = plot_path+'/storage_psoc.png') # evtl. lieber anderes H wählen, Argument für jede 3. Stunde
+    storage_soc_sorted(network, filename = plot_path+'/storage_socsort.png')
+    
+    return
     
 if __name__ == '__main__':
     pass
