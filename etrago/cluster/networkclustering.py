@@ -115,6 +115,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
+        network_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # dealing with generators
     network.generators.control = "PV"
@@ -226,8 +227,8 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
-                            cpu_cores=4):
+def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
+                            tolvl, cpu_cores=4):
     """ Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
@@ -325,9 +326,8 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
 
     # prepare data for export
 
-    print(scn_name)
     df['scn_name'] = scn_name
-    print(df)
+    df['version'] = version
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
@@ -340,7 +340,7 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     return
 
 
-def busmap_from_psql(network, session, scn_name):
+def busmap_from_psql(network, session, scn_name, version):
     """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
@@ -365,7 +365,8 @@ def busmap_from_psql(network, session, scn_name):
     def fetch():
 
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name)
+            filter(EgoGridPfHvBusmap.scn_name == scn_name).filter(
+                    EgoGridPfHvBusmap.version == version)
 
         return dict(query.all())
 
@@ -377,8 +378,8 @@ def busmap_from_psql(network, session, scn_name):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name,
-                                fromlvl=[110], tolvl=[220, 380],
+        busmap_by_shortest_path(network, session, scn_name, version,
+                                fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
@@ -471,7 +472,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost']]
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),

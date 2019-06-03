@@ -108,15 +108,16 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5'',  # None for model_draft or Version number
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 72,
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'threads':2, 'crossover':0,
+    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'model_formulation': 'kirchhoff', # angles or kirchhoff
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -135,7 +136,7 @@ args = {
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': 2,  # False or the number of 'periods'
+    'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -188,6 +189,15 @@ def etrago(args):
         'glpk',
         Choose your preferred solver. Current options: 'glpk' (open-source),
         'cplex' or 'gurobi'.
+
+    solver_options: dict
+        Choose settings of solver to improve simulation time and result. 
+        Options are described in documentation of choosen solver.
+    
+    model_formulation: str
+        'angles'
+        Choose formulation of pyomo-model.
+        Current options: angles, cycles, kirchhoff, ptdf
 
     scn_name : str
         'Status Quo',
@@ -476,7 +486,6 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
-        #extra_functionality = daily_bounds  # daily_bounds or other constraint
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
@@ -485,7 +494,14 @@ def etrago(args):
     # ehv network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
-        busmap = busmap_from_psql(network, session, scn_name=args['scn_name'])
+        busmap = busmap_from_psql(
+                network,
+                session,
+                scn_name=(
+                        args['scn_name'] if args['scn_extension']==None
+                        else args['scn_name']+'_ext_'+'_'.join(
+                                args['scn_extension'])),
+                version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
 
@@ -526,29 +542,23 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(
-            network.snapshots,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=Constraints(args).functionality,
-            formulation="angles")
-        y = time.time()
-        z = (y - x) / 60
-        # z is time for lopf in minutes
-        print("Time for LOPF [min]:", round(z, 2))
+        iterate_lopf(network,
+                     args,
+                     Constraints(args).functionality,
+                     method={'threshold':0.01})
 
-        # start non-linear powerflow simulation
-    elif args['method'] is 'pf':
+    # start non-linear powerflow simulation
+    elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
 
     if args['pf_post_lopf']:
         x = time.time()
-        pf_solution = pf_post_lopf(network,
-                                   args,
-                                   extra_functionality,
-                                   add_foreign_lopf=True)
+        pf_post_lopf(network,
+                     args,
+                     add_foreign_lopf=True,
+                     q_allocation='p_nom',
+                     calc_losses=True)
         y = time.time()
         z = (y - x) / 60
         print("Time for PF [min]:", round(z, 2))
@@ -613,20 +623,6 @@ def etrago(args):
                 dict([("disaggregated_results", True)] + list(args.items())),
                 grid='hv',
                 safe_results=False)
-
-    # write PyPSA results to csv to path
-    if not args['csv_export'] is False:
-        if not args['pf_post_lopf']:
-            results_to_csv(network, args)
-        else:
-            results_to_csv(network, args, pf_solution=pf_solution)
-
-        if disaggregated_network:
-            results_to_csv(
-                    disaggregated_network,
-                    {k: os.path.join(v, 'disaggregated')
-                        if k == 'csv_export' else v
-                        for k, v in args.items()})
 
     # close session
     # session.close()
