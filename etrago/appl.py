@@ -106,7 +106,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
@@ -117,8 +117,8 @@ args = {
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'wind_offshore'],  # None or array of extension scenarios
-    'scn_decommissioning': ['bugfix_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
+    'scn_extension':['nep2035_b2', 'bugfix_wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': ['bugfix_pv_wind_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
