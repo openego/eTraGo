@@ -266,7 +266,7 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     # cpu_cores = mp.cpu_count()
 
     # data preperation
-    """s_buses = buses_grid_linked(network, fromlvl)
+    s_buses = buses_grid_linked(network, fromlvl)
     lines = connected_grid_lines(network, s_buses)
     transformer = connected_transformer(network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
@@ -330,14 +330,8 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     df['version'] = version
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
-    df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)"""
-    df = pd.read_csv('busmap_nep_wo_chp.csv', header= 0)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
-    df = df.fillna('')
-    df = df.drop_duplicates(keep='first')
-#    df = df.fillna('')
-    df.to_csv('/home/student/pypsa13/eTraGo_pypsa13/busmap_nep_wo_chp.csv')
     for i, d in df.reset_index().iterrows():
         session.add(EgoGridPfHvBusmap(**d.to_dict()))
 
@@ -385,7 +379,7 @@ def busmap_from_psql(network, session, scn_name, version):
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
         busmap_by_shortest_path(network, session, scn_name, version,
-                                fromlvl=[110], tolvl=[220,320, 380, 400, 450],
+                                fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
