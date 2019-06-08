@@ -1,0 +1,1 @@
+git+https://git@github.com/openego/PyPSA.git@master#egg=pypsa-0.11.0fork

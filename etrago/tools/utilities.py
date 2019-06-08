@@ -1818,7 +1818,7 @@ def max_line_ext(network, snapshots, share=1.01):
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
     network.model.max_line_ext = Constraint(rule=_rule)
 
-def min_renewable_share(network, snapshots, share=0.72):
+def min_renewable_share(network, snapshots, share=.99):
     """
     Sets minimal renewable share of generation as extra functionality in LOPF
 
