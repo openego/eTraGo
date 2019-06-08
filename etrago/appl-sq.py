@@ -114,14 +114,15 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+                       'logFile': 'solver_sq-300.log', 'threads':8, 'method':2, 'crossover':0,
+                       'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
+    'scn_name': 'Status Quo', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'bugfix_wind_offshore'],  # None or array of extension scenarios
-    'scn_decommissioning': ['bugfix_pv_wind_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
+    'scn_extension': None,  # None or array of extension scenarios
+    'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/sq-300',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['foreign_storage', 'storage'],  # Array of components to optimize

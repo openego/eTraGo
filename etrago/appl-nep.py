@@ -118,8 +118,8 @@ args = {
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'scn_name': 'NEP 2035', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension':['nep2035_b2', 'bugfix_wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': ['bugfix_pv_wind_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': '/home/lukas_wienholt/results/nep',  # save results as csv: False or /path/tofolder
@@ -530,10 +530,15 @@ def etrago(args):
 
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
+        for i in range(len(args['scn_decommissioning'])):
+            network = decommissioning(
+                    network,
+                    session,
+                    version=args['gridversion'],
+                    scn_decommissioning=args['scn_decommissioning'][i],
+                    start_snapshot=args['start_snapshot'],
+                    end_snapshot=args['end_snapshot'],
+                    branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
@@ -606,8 +611,11 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            args,
+            start_snapshot=args['start_snapshot'],
+            end_snapshot=args['end_snapshot'],
             group_size=1,
+            solver_name=args['solver'],
+            solver_options=args['solver_options'],
             extra_functionality=extra_functionality)
 
     # start linear optimal powerflow calculations
