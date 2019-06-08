@@ -1183,14 +1183,14 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
             1000, msd_max_bat * 1000, msd_max_hyd * 1000
         battery_distribution = battery_distribution * 1000
         hydrogen_distribution = hydrogen_distribution * 1000
-    elif LabelVal < 3:
-        LabelUnit = 'MW'
     else:
-        LabelUnit = 'GW'
-        msd_max, msd_max_bat, msd_max_hyd = msd_max / \
-            1000, msd_max_bat / 1000, msd_max_hyd / 1000
-        battery_distribution = battery_distribution / 1000
-        hydrogen_distribution = hydrogen_distribution / 1000
+        LabelUnit = 'MW'
+  #  else:
+  #      LabelUnit = 'GW'
+  #      msd_max, msd_max_bat, msd_max_hyd = msd_max / \
+  #          1000, msd_max_bat / 1000, msd_max_hyd / 1000
+  #      battery_distribution = battery_distribution / 1000
+  #      hydrogen_distribution = hydrogen_distribution / 1000
 
     if network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
     network.storage_units.p_nom_opt[shydr].sum() < 1:

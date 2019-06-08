@@ -1812,7 +1812,7 @@ def analyse(network):
     print("Network objective:", round(network.objective,0))
 
     #solver time
-   # print("Solver time [min]:", round((network.time / 60),0))
+    print("Solver time [min]:", round((network.time / 60),0))
     #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
     res = network.generators[network.generators.carrier.isin(renewables)]
@@ -1822,10 +1822,13 @@ def analyse(network):
     print("RE-share [%]:", round(share, 2))
 
     #storage capacity
-    print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[ network.storage_units.carrier=='extendable_storage'].sum(),0))
+    #print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[ network.storage_units.carrier=='extendable_storage'].sum(),0))
+    print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[(network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10)].sum(), 0))
 
     #storage costs
     print("Ext. storage costs [EUR]:", round((network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum(),0))
+
 
     #batteries
     sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
