@@ -114,7 +114,7 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver_sq-200.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_sq-300.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'scn_name': 'Status Quo', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -122,7 +122,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/sq-200',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/sq-300',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['foreign_storage', 'storage'],  # Array of components to optimize
@@ -131,7 +131,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 200,  # False or the value k for clustering
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
