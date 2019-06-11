@@ -842,8 +842,8 @@ def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioni
             df_decommisionning.index)] = new_cap
 
         for idx, row in network.lines.iterrows():
-            if row['s_nom_min'] != 0 &\
-                row['scn_name'] == 'extension_' + scn_decommissioning:
+            if (row['s_nom_min'] != 0) &\
+                (row['scn_name'] == 'extension_' + scn_decommissioning):
                 v_nom_dec = df_decommisionning['v_nom'][
                     (df_decommisionning.project == row['project']) &
                     (df_decommisionning.project_id == row['project_id'])]

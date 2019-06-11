@@ -455,8 +455,6 @@ def etrago(args):
                     session,
                     version=args['gridversion'],
                     scn_decommissioning=args['scn_decommissioning'][i],
-                    start_snapshot=args['start_snapshot'],
-                    end_snapshot=args['end_snapshot'],
                     branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
