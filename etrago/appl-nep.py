@@ -107,7 +107,7 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': None,#'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
@@ -118,8 +118,8 @@ args = {
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'scn_name': 'NEP 2035', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'bugfix_wind_offshore'],  # None or array of extension scenarios
-    'scn_decommissioning': ['bugfix_pv_wind_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
+    'scn_extension': None,#['nep2035_b2'],# 'bugfix_wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': None,#['bugfix_pv_wind_nep', 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': '/home/lukas_wienholt/results/nep',  # save results as csv: False or /path/tofolder
@@ -536,8 +536,6 @@ def etrago(args):
                     session,
                     version=args['gridversion'],
                     scn_decommissioning=args['scn_decommissioning'][i],
-                    start_snapshot=args['start_snapshot'],
-                    end_snapshot=args['end_snapshot'],
                     branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
