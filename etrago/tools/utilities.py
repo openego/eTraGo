@@ -1061,7 +1061,7 @@ def group_parallel_lines(network):
         old_lines['old_index'] = network.lines.index
 
     grouped = old_lines.groupby(['bus0', 'bus1'])
-
+    
     # calculating electrical properties for parallel lines
     grouped_agg = grouped.\
         agg({'b': np.sum,
@@ -2044,7 +2044,6 @@ def max_curtailment(network, snapshots, curtail_max=0.03):
         def _rule(m, gen):
             """
             """
-            #import pdb; pdb.set_trace()
             re_n = sum(m.generator_p[gen, sn]
                                       for sn in snapshots)
             potential_n = res_potential[gen]

@@ -130,7 +130,7 @@ args = {
     'csv_export': '/home/ulf/Dokumente/Promotion/Berechnungen/test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['foreign_network','german_network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath='args_ego100_paper_inf.json')
+args = get_args_setting(args, jsonpath="args_ego100_paper_inf.json")
 
 
 def etrago(args):
@@ -465,16 +465,24 @@ def etrago(args):
     if args['branch_capacity_factor']:
         set_branch_capacity(network, args)
 
+    from math import sqrt
+    def snommax(i=1020, u=380, wires=4, circuits=4):
+        s_nom_max = (i*u*sqrt(3)*wires*circuits)/1000
+        return s_nom_max
+
     # investive optimization strategies
     if args['extendable'] != []:
         network = extendable(
                     network,
                     args,
                     line_max=None,
-                    line_max_foreign=4)
+                    line_max_foreign=4,
+                    line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
+                    line_max_foreign_abs= None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
+    
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
@@ -548,7 +556,7 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'n_iter':10},
+                     method={'n_iter':5},
                      delta_s_max=0)
 
     # start non-linear powerflow simulation
