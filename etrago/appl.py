@@ -107,17 +107,17 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'db': 'local',  # database session
+    'gridversion': None,  # None for model_draft or Version number
+    'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'start_snapshot': 3,
+    'end_snapshot': 4,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -126,13 +126,13 @@ args = {
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -141,8 +141,8 @@ args = {
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
-    'load_shedding': False,  # meet the demand at value of loss load cost
+    'branch_capacity_factor': {'HV':1, 'eHV': 1},  # p.u. branch derating
+    'load_shedding': True,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
@@ -543,7 +543,40 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'threshold':0.01})
+                     method={'n_iter':1})
+        print("Objective:",network.objective)
+    # start non-linear powerflow simulation
+    elif args['method'] == 'sclopf':
+        now = network.snapshots[0]
+
+        branch_outages = network.lines.index[:50]
+
+        print("Performing security-constrained linear OPF:")
+
+        network.sclopf(network.snapshots,branch_outages=branch_outages, formulation = 'kirchhoff', solver_name='gurobi')
+        print("Objective:",network.objective)
+        
+        """#For the PF, set the P to the optimised P
+        network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
+        network.generators_t.p_set.loc[now] = network.generators_t.p.loc[now]
+        network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
+        network.storage_units_t.p_set.loc[now] = network.storage_units_t.p.loc[now]
+        network.links_t.p_set = network.links_t.p_set.reindex(columns=network.links.index)
+        network.links_t.p_set.loc[now] = network.links_t.p0.loc[now]
+
+        #Check no lines are overloaded with the linear contingency analysis
+
+        p0_test = network.lpf_contingency(now,branch_outages=branch_outages)
+
+        #check loading as per unit of s_nom in each contingency
+
+        max_loading = abs(p0_test.divide(network.passive_branches().s_nom,axis=0)).describe().loc["max"]
+
+        print(max_loading)
+
+        import numpy as np
+        np.testing.assert_array_almost_equal(max_loading,np.ones((len(max_loading))))"""
+
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
