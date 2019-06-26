@@ -106,25 +106,25 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'oedb_clara',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'start_snapshot': 4990,
+    'end_snapshot': 5060,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension':['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension': None,  # None or array of extension scenarios
+    'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': 'network',  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
