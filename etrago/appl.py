@@ -92,7 +92,8 @@ if 'READTHEDOCS' not in os.environ:
         set_branch_capacity,
         max_line_ext,
         min_renewable_share,
-        iterate_lopf)
+        iterate_lopf,
+        iterate_sclopf)
 
     from etrago.tools.extendable import (
             extendable,
@@ -112,9 +113,9 @@ args = {
     'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 3,
-    'end_snapshot': 4,
+    'end_snapshot': 3,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
+    'solver_options': {'Method': 2, 'Aggregate': 0, 
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -122,17 +123,17 @@ args = {
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
-    'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
+    'lpfile': 'sclopf.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storage'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'network_clustering_kmeans': 15,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -545,18 +546,22 @@ def etrago(args):
                      extra_functionality,
                      method={'n_iter':1})
         print("Objective:",network.objective)
-    # start non-linear powerflow simulation
-    elif args['method'] == 'sclopf':
-        now = network.snapshots[0]
 
-        branch_outages = network.lines.index[:50]
+    # start security-constraint lopf calculations
+    elif args['method'] == 'sclopf':
+        
+        branch_outages = network.lines.index
 
         print("Performing security-constrained linear OPF:")
-
-        network.sclopf(network.snapshots,branch_outages=branch_outages, formulation = 'kirchhoff', solver_name='gurobi')
+        iterate_sclopf(network, args, branch_outages, extra_functionality, 
+                   method={'n_iter':5}, delta_s_max=0.1)
+        #network.sclopf(network.snapshots,branch_outages=branch_outages, formulation = 'kirchhoff', solver_name='gurobi')
         print("Objective:",network.objective)
         
         """#For the PF, set the P to the optimised P
+        now = network.snapshots[0]
+        branch_outages = network.lines.index[:9]
+        network.lines.s_nom=network.lines.s_nom_opt
         network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
         network.generators_t.p_set.loc[now] = network.generators_t.p.loc[now]
         network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
