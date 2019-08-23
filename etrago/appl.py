@@ -93,7 +93,9 @@ if 'READTHEDOCS' not in os.environ:
         max_line_ext,
         min_renewable_share,
         iterate_lopf,
-        iterate_sclopf)
+        iterate_sclopf,
+        parallelisation_sclopf,
+        split_parallel_lines)
 
     from etrago.tools.extendable import (
             extendable,
@@ -108,45 +110,45 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb_clara',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 3,
-    'end_snapshot': 3,
+    'start_snapshot': 1,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'Method': 2, 'Aggregate': 0, 
-                       'logFile': 'solver.log'},  # {} for default options
+    'solver_options': {
+                       'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
-    'lpfile': 'sclopf.lp',  # save pyomo's lp file: False or /path/tofolder
+    'lpfile': 'sclopf_new.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 15,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_300_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
+    'parallel_lines': 'single',
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV':1, 'eHV': 1},  # p.u. branch derating
-    'load_shedding': True,  # meet the demand at value of loss load cost
+    'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
+    'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
-
 
 args = get_args_setting(args, jsonpath=None)
 
@@ -428,9 +430,7 @@ def etrago(args):
             args['scn_name'] == 'SH NEP 2035'):
         data_manipulation_sh(network)
 
-    # grouping of parallel lines
-    if args['line_grouping']:
-        group_parallel_lines(network)
+
 
     # Branch loading minimization
     if args['minimize_loading']:
@@ -470,6 +470,13 @@ def etrago(args):
                     line_max=4)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
+
+    # grouping or splitting of parallel lines
+    if args['parallel_lines']=='group':
+        group_parallel_lines(network)
+              
+    if args['parallel_lines']=='single':
+        network=split_parallel_lines(network)
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -515,7 +522,8 @@ def etrago(args):
                 n_init=10,
                 max_iter=100,
                 tol=1e-6,
-                n_jobs=-1)
+                n_jobs=-1,
+                line_agg=False)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -550,13 +558,24 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         
-        branch_outages = network.lines.index
+        idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
+        can1 =  network.lines[idx]
+        idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
+        can2 = can1[idx2]
+        can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
+        branch_outages=can2[can3].index
+        #branch_outages = network.lines.index[:5]
 
         print("Performing security-constrained linear OPF:")
-        iterate_sclopf(network, args, branch_outages, extra_functionality, 
+        if args['parallelisation'] == False:
+            iterate_sclopf(network, args, branch_outages, extra_functionality, 
                    method={'n_iter':5}, delta_s_max=0.1)
-        #network.sclopf(network.snapshots,branch_outages=branch_outages, formulation = 'kirchhoff', solver_name='gurobi')
-        print("Objective:",network.objective)
+            print("Objective:",network.objective)
+        else:
+            
+            parallelisation_sclopf(network, args, 1, branch_outages, 
+                           extra_functionality)
+    
         
         """#For the PF, set the P to the optimised P
         now = network.snapshots[0]

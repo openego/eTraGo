@@ -691,6 +691,53 @@ def parallelisation(network, args, group_size, extra_functionality=None):
     print(time.time() - t / 60)
     return
 
+def parallelisation_sclopf(network, args, group_size, branch_outages, 
+                           extra_functionality=None):
+
+    """
+    Function that splits problem in selected number of 
+    snapshot groups and runs optimization successive for each group. 
+        
+    Not useful for calculations with storage untis or extension.  
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Contains calculation settings of appl.py
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    """
+
+    print("Performing linear SOPF, {} snapshot(s) at a time:".
+          format(group_size))
+    t = time.time()
+
+    for i in range(int((args['end_snapshot'] - args['start_snapshot'] + 1)
+        / group_size)):
+        if i > 0:
+            network.storage_units.state_of_charge_initial = network.\
+                storage_units_t.state_of_charge.loc[
+                    network.snapshots[group_size * i - 1]]
+        network.sclopf(network.snapshots[
+                     group_size * i:group_size * i + group_size],
+                     branch_outages=branch_outages,
+                     formulation=args['model_formulation'],
+                     solver_name=args['solver'],
+                     solver_options=args['solver_options'],
+                     extra_functionality=extra_functionality)
+        print('SCLOPF ', i, 'of ', int((args['end_snapshot'] - args['start_snapshot'] + 1)/ group_size), 'finished.')
+
+    print(time.time() - t / 60)
+    dauer = (time.time() - t) / 60
+    print("Time for parallel sclopfs in min: ", dauer )
+    return
+
+
 def set_slack(network):
     
     """ Function that chosses the bus with the maximum installed power as slack
@@ -1043,62 +1090,88 @@ def loading_minimization(network, snapshots):
             for i in network.model.passive_branch_p_index)
 
 
+def split_parallel_lines(network):
+    
+    print('Splitting parallel lines...')
+    network.lines.num_parallel=network.lines.cables/3
+    parallel_lines=network.lines[network.lines.num_parallel>1]
+    
+    new_lines=pd.DataFrame(columns=network.lines.columns)
+    
+    for i in parallel_lines.index:
+        data_new=parallel_lines[parallel_lines.index==i]
+        for col in ['b', 'g', 's_nom', 's_nom_min', 's_nom_max']:
+            data_new[col]=data_new[col]/data_new.num_parallel
+        for col in ['x', 'r']:
+            data_new[col]=data_new[col]*data_new.num_parallel
+        data_new.cables=3
+        data_new.num_parallel=1
+        num = parallel_lines.num_parallel[i]
+        for n in range(int(num)):
+            new_lines= new_lines.append(
+                    data_new.rename(index={i:str(i)+ '_' + str(int(n+1))}))
+    network.import_components_from_dataframe(new_lines, "Line")
+    network.lines=network.lines.drop(parallel_lines.index)
+    
+    return network
+
 def group_parallel_lines(network):
+    
+    print('Grouping parallel lines...')
+    positive_order = network.lines.bus0 < network.lines.bus1
+    lines_p = network.lines[positive_order]
+    lines_n = network.lines[~ positive_order].rename(
+            columns={"bus0":"bus1", "bus1":"bus0"})
+    lines = pd.concat((lines_p,lines_n))
 
-    # ordering of buses: (not sure if still necessary, remaining from SQL code)
-    old_lines = network.lines
+    columns = network.lines.columns.difference(
+            ('name', 'bus0', 'bus1', 'geom'))
 
-    for line in old_lines.index:
-        bus0_new = str(old_lines.loc[line, ['bus0', 'bus1']].astype(int).min())
-        bus1_new = str(old_lines.loc[line, ['bus0', 'bus1']].astype(int).max())
-        old_lines.set_value(line, 'bus0', bus0_new)
-        old_lines.set_value(line, 'bus1', bus1_new)
+    def aggregate_parallel_lines(l):
 
-    # saving the old index
-    for line in old_lines:
-        old_lines['old_index'] = network.lines.index
+        if l['s_nom_extendable'].any():
+            costs = np.average(l['capital_cost'][l.s_nom_extendable],
+                weights=l['s_nom'][l.s_nom_extendable])
+        else:
+            costs = 0.0
 
-    grouped = old_lines.groupby(['bus0', 'bus1'])
+        data = dict(
+            r=1/((1/l['r']).sum()),
+            r_pu=1/((1/l['r_pu']).sum()),
+            x=1/((1/l['x']).sum()),
+            x_pu=1/((1/l['x_pu']).sum()),
+            g=l['g'].sum(),
+            g_pu=l['g_pu'].sum(),
+            b=l['b'].sum(),
+            b_pu=l['b_pu'].sum(),
+            terrain_factor=l['terrain_factor'].mean(),
+            s_nom=l['s_nom'].sum(),
+            s_nom_min=l['s_nom_min'].sum(),
+            s_nom_max=l['s_nom_max'].sum(),
+            s_nom_extendable=l['s_nom_extendable'].any(),
+            s_nom_total = l['s_nom_total'].sum(),
+            capital_cost=costs,
+            length=l['length'].mean(),
+            v_ang_min=l['v_ang_min'].max(),
+            v_ang_max=l['v_ang_max'].min(),
+            topo=l['topo'][0],
+            scn_name=l['scn_name'][0],
+            num_parallel=l['num_parallel'].sum(),
+            cables=l['cables'].sum(),
+            country=l['country'][0],
+            frequency=l['frequency'].mean(),
+            type=l['type'][0],
+            sub_network=l['sub_network'][0]
+        )
 
-    # calculating electrical properties for parallel lines
-    grouped_agg = grouped.\
-        agg({'b': np.sum,
-             'b_pu': np.sum,
-             'cables': np.sum,
-             'capital_cost': np.min,
-             'frequency': np.mean,
-             'g': np.sum,
-             'g_pu': np.sum,
-             'geom': lambda x: x[0],
-             'length': lambda x: x.min(),
-             'num_parallel': np.sum,
-             'r': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-             'r_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-             's_nom': np.sum,
-             's_nom_extendable': lambda x: x.min(),
-             's_nom_max': np.sum,
-             's_nom_min': np.sum,
-             's_nom_opt': np.sum,
-             'scn_name': lambda x: x.min(),
-             'sub_network': lambda x: x.min(),
-             'terrain_factor': lambda x: x.min(),
-             'topo': lambda x: x[0],
-             'type': lambda x: x.min(),
-             'v_ang_max': lambda x: x.min(),
-             'v_ang_min': lambda x: x.min(),
-             'x': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-             'x_pu': lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-             'old_index': np.min})
+        return pd.Series(data, index=[f for f in l.columns if f in columns])
 
-    for i in range(0, len(grouped_agg.index)):
-        grouped_agg.set_value(
-            grouped_agg.index[i], 'bus0', grouped_agg.index[i][0])
-        grouped_agg.set_value(
-            grouped_agg.index[i], 'bus1', grouped_agg.index[i][1])
-
-    new_lines = grouped_agg.set_index(grouped_agg.old_index)
-    new_lines = new_lines.drop('old_index', 1)
-    network.lines = new_lines
+    lines = lines.groupby(['bus0', 'bus1']).apply(aggregate_parallel_lines)
+    lines['bus0']=lines.index.get_level_values(0).values
+    lines['bus1']=lines.index.get_level_values(1).values
+    lines.index = [str(i+1) for i in range(len(lines))]
+    
+    network.lines=lines.copy()
 
     return
 

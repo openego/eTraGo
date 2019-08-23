@@ -391,7 +391,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                      remove_stubs=False, use_reduced_coordinates=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None,
                      n_init=10, max_iter=300, tol=1e-4,
-                     n_jobs=1):
+                     n_jobs=1, line_agg=True):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -503,7 +503,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
             busmap,
             aggregate_generators_weighted=True,
             aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=line_length_factor)
+            line_length_factor=line_length_factor,
+            line_agg=line_agg)
         network = clustering.network
 
     # define weighting based on conventional 'old' generator spatial
@@ -561,6 +562,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network,
         busmap,
         aggregate_generators_weighted=True,
-        aggregate_one_ports=aggregate_one_ports)
+        aggregate_one_ports=aggregate_one_ports,
+        line_agg=line_agg)
 
     return clustering
