@@ -95,7 +95,8 @@ if 'READTHEDOCS' not in os.environ:
         iterate_lopf,
         iterate_sclopf,
         parallelisation_sclopf,
-        split_parallel_lines)
+        split_parallel_lines,
+        group_parallel_lines_sclopf)
 
     from etrago.tools.extendable import (
             extendable,
@@ -110,12 +111,12 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb_clara',  # database session
+    'db': 'local',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 24,
+    'end_snapshot': 1,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
@@ -125,7 +126,7 @@ args = {
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
-    'lpfile': 'sclopf_new.lp',  # save pyomo's lp file: False or /path/tofolder
+    'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
@@ -135,8 +136,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_300_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'load_cluster': '/home/clara/GitHub/eTraGo/etrago/cluster_coord_k_10_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -564,8 +565,12 @@ def etrago(args):
         can2 = can1[idx2]
         can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
         branch_outages=can2[can3].index
-        #branch_outages = network.lines.index[:5]
+        #branch_outages = network.lines.index
 
+        #min_idx=network.lines.groupby(['bus0', 'bus1'])['x'].transform(min) == network.lines['x']
+        
+        # noch experimentell:
+        #group_parallel_lines_sclopf(network, branch_outages)
         print("Performing security-constrained linear OPF:")
         if args['parallelisation'] == False:
             iterate_sclopf(network, args, branch_outages, extra_functionality, 
@@ -579,7 +584,7 @@ def etrago(args):
         
         """#For the PF, set the P to the optimised P
         now = network.snapshots[0]
-        branch_outages = network.lines.index[:9]
+        branch_outages = network.lines.index
         network.lines.s_nom=network.lines.s_nom_opt
         network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
         network.generators_t.p_set.loc[now] = network.generators_t.p.loc[now]

@@ -1175,6 +1175,73 @@ def group_parallel_lines(network):
 
     return
 
+def group_parallel_lines_sclopf(network, branch_outages):
+    
+    print('Grouping parallel lines for sclopf...')
+    positive_order = network.lines.bus0 < network.lines.bus1
+    lines_p = network.lines[positive_order]
+    lines_n = network.lines[~ positive_order].rename(
+            columns={"bus0":"bus1", "bus1":"bus0"})
+    lines = pd.concat((lines_p,lines_n))
+
+    columns = network.lines.columns.difference(
+            ('name', 'bus0', 'bus1', 'geom'))
+
+    lines_grouped = lines[~lines.index.isin(branch_outages)]
+    
+    def aggregate_parallel_lines(l):
+
+        if l['s_nom_extendable'].any():
+            costs = np.average(l['capital_cost'][l.s_nom_extendable],
+                weights=l['s_nom'][l.s_nom_extendable])
+        else:
+            costs = 0.0
+
+        data = dict(
+            r=1/((1/l['r']).sum()),
+            x=1/((1/l['x']).sum()),
+            g=l['g'].sum(),
+            g_pu=l['g_pu'].sum(),
+            b=l['b'].sum(),
+            b_pu=l['b_pu'].sum(),
+            terrain_factor=l['terrain_factor'].mean(),
+            s_nom=l['s_nom'].sum(),
+            s_nom_min=l['s_nom_min'].sum(),
+            s_nom_max=l['s_nom_max'].sum(),
+            s_nom_extendable=l['s_nom_extendable'].any(),
+            s_nom_total = l['s_nom_total'].sum(),
+            capital_cost=costs,
+            length=l['length'].mean(),
+            v_ang_min=l['v_ang_min'].max(),
+            v_ang_max=l['v_ang_max'].min(),
+            num_parallel=l['num_parallel'].sum(),
+            type=l['type'][0],
+            sub_network=l['sub_network'][0],
+            index=l.index[0]
+        )
+
+        return pd.Series(data, index=[f for f in l.columns if f in columns])
+
+    lines_grouped = lines_grouped.groupby(['bus0', 'bus1']).apply(aggregate_parallel_lines)
+    lines_grouped['bus0']=lines_grouped.index.get_level_values(0).values
+    lines_grouped['bus1']=lines_grouped.index.get_level_values(1).values
+    lines_grouped.index = lines_grouped['index']#[str(i+1) for i in range(len(branch_outages), len(branch_outages)+len(lines))]
+    grp = lines.groupby(['bus0', 'bus1'])
+    x_parallel = grp.x.agg(lambda x: np.reciprocal(np.sum(np.reciprocal(x))))
+    x_single = (2 * x_parallel).reset_index()
+    x_single.columns=['bus0', 'bus1', 'x_new']
+        #(clustering.network.lines.groupby(['bus0', 'bus1']).size() *
+                  #  x_parallel).reset_index()
+    lines_grouped.x = pd.merge(x_single, 
+                    lines_grouped, on=['bus0','bus1'],
+                    how='inner', left_index=True)['x_new'].sort_index()
+    network.lines = network.lines.drop(network.lines.index[~network.lines.index.isin(branch_outages)])
+    network.lines.x[network.lines.index.isin(branch_outages)] = pd.merge(x_single, 
+                    network.lines[network.lines.index.isin(branch_outages)], on=['bus0','bus1'],
+                    how='inner', left_index=True)['x_new'].sort_index()
+    network.import_components_from_dataframe(lines_grouped, "Line")
+
+    return
 
 def set_line_costs(network, args, 
                    cost110=230, cost220=290, cost380=85, costDC=375):

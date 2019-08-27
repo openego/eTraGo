@@ -35,6 +35,7 @@ if 'READTHEDOCS' not in os.environ:
     import multiprocessing as mp
     from math import ceil
     import pandas as pd
+    import numpy as np
     from networkx import NetworkXNoPath
     from pickle import dump
     from pypsa import Network
@@ -564,5 +565,18 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         aggregate_generators_weighted=True,
         aggregate_one_ports=aggregate_one_ports,
         line_agg=line_agg)
+    
+    """if line_agg == False:
+        
+        grp = clustering.network.lines.groupby(['bus0', 'bus1'])
+        x_parallel = grp.x.agg(
+                lambda x: np.reciprocal(np.sum(np.reciprocal(x))))
+        x_single = (grp.size() * x_parallel).reset_index()
+        #(clustering.network.lines.groupby(['bus0', 'bus1']).size() *
+                  #  x_parallel).reset_index()
+        clustering.network.lines.x = pd.merge(x_single, 
+                    clustering.network.lines, on=['bus0','bus1'],
+                    how='inner', left_index=True)[0].sort_index()"""
+        
 
     return clustering
