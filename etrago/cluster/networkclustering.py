@@ -454,7 +454,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
-    network.buses['v_nom'] = 380.
+
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
@@ -482,6 +482,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr]\
             .reindex(columns=[])
+
+    network.buses['v_nom'] = 380.
 
     # remove stubs
     if remove_stubs:
