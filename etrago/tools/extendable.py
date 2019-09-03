@@ -332,6 +332,28 @@ def extendable(network, args, line_max):
             'extension_' + args['scn_extension'][i]),
                 'capital_cost'] = network.lines.capital_cost + (2 * 14166)
 
+    """nicht das selbe wie in appl.py, da vor dem clustering, höhere Komplexität!
+    if 'network_sclopf' in args['extendable']:
+        line=network.lines.copy()
+        line['index']=line.index.copy()
+        idx = line.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == line['s_nom']
+        can1 =  line[idx]
+        idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
+        can2 = can1[idx2]
+        can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
+        ext=can2[can3].index
+            
+        ext_lines = network.lines[network.lines.index.isin(ext)].copy()
+        ext_lines.s_nom_min = 0
+        ext_lines.s_nom_max = ext_lines.s_nom *10
+        ext_lines.s_nom_extendable=True
+        ext_lines.index=[str(x) for x in range(
+                network.lines.index.astype(int).max()+1,
+                network.lines.index.astype(int).max()+len(ext_lines)+1)]
+        network.lines=network.lines.append(ext_lines)
+        network = set_line_costs(network, args)
+        network = set_trafo_costs(network, args)"""
+            
     network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
         network.lines.s_nom
 

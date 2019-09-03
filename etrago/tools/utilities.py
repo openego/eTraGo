@@ -1227,20 +1227,19 @@ def group_parallel_lines_sclopf(network, branch_outages):
     lines_grouped['bus1']=lines_grouped.index.get_level_values(1).values
     lines_grouped.index = lines_grouped['index']#[str(i+1) for i in range(len(branch_outages), len(branch_outages)+len(lines))]
     grp = lines.groupby(['bus0', 'bus1'])
-    x_parallel = grp.x.agg(lambda x: np.reciprocal(np.sum(np.reciprocal(x))))
+    """x_parallel = grp.x.agg(lambda x: np.reciprocal(np.sum(np.reciprocal(x))))
     x_single = (2 * x_parallel).reset_index()
     x_single.columns=['bus0', 'bus1', 'x_new']
         #(clustering.network.lines.groupby(['bus0', 'bus1']).size() *
                   #  x_parallel).reset_index()
     lines_grouped.x = pd.merge(x_single, 
                     lines_grouped, on=['bus0','bus1'],
-                    how='inner', left_index=True)['x_new'].sort_index()
+                    how='inner', left_index=True)['x_new'].sort_index()"""
     network.lines = network.lines.drop(network.lines.index[~network.lines.index.isin(branch_outages)])
-    network.lines.x[network.lines.index.isin(branch_outages)] = pd.merge(x_single, 
-                    network.lines[network.lines.index.isin(branch_outages)], on=['bus0','bus1'],
-                    how='inner', left_index=True)['x_new'].sort_index()
+    #network.lines.x[network.lines.index.isin(branch_outages)] = pd.merge(x_single, 
+              #      network.lines[network.lines.index.isin(branch_outages)], on=['bus0','bus1'],
+               #     how='inner', left_index=True)['x_new'].sort_index()
     network.import_components_from_dataframe(lines_grouped, "Line")
-
     return
 
 def set_line_costs(network, args, 
