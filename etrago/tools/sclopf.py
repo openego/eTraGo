@@ -68,7 +68,7 @@ def post_contingency_analysis_per_line(network):
     network.links_t.p_set = network.links_t.p0
 
 
-    d = dict.fromkeys(network.snapshots)
+    d = {}
     
     for sn in network.snapshots:
         
@@ -77,70 +77,76 @@ def post_contingency_analysis_per_line(network):
         # rows: branch outage, index = monitorred line
         
         #check loading as per unit of s_nom in each contingency
-        overloaded = (abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>1.00001).drop(['base'], axis=1).transpose()# rows: branch outage, index = monitorred line
+        overloaded = (abs(
+                p0_test.divide(network.passive_branches().s_nom,axis=0)
+                )>1.00001).drop(['base'], axis=1).transpose()# rows: monitorred line, index = branch outage
         combinations = np.where(overloaded.values)
         # solve problem that np. start counting with 0, pypsa with 1!
-        d[sn]=combinations
+        if not combinations[0].size == 0:
+            d[sn]=combinations
+
     return d
 
-def add_reduced_contingency_constraints(network,snapshots):
-        combinations = post_contingency_analysis_per_line(network)
-        #a list of tuples with branch_outage and passive branches in same sub_network
-        branch_outage_keys = []
-        flow_upper = {}
-        flow_lower = {}
-        sub = network.sub_networks.obj[0]
-        sub._branches["_i"] = range(sub._branches.shape[0])
-        sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
-        sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
-        for sn in combinations:
-            line_outage= (combinations[sn][0]+1).astype(str)
-            monitorred_line = (combinations[sn][1]+1).astype(str)
-            
-            branch_outage_keys.extend([('Line',line_outage[i],'Line',monitorred_line[i], sn) for i in range(len(line_outage))])
-
-            flow_upper.update({('Line',line_outage[i],'Line',monitorred_line[i],sn) : 
-                [[(1,network.model.passive_branch_p['Line',monitorred_line[i],sn]),
-                  (sub.BODF[monitorred_line[i].astype(int)-1,line_outage[i].astype(int)-1],
-                   network.model.passive_branch_p['Line',line_outage[i],sn])],
-                   "<=",sub._fixed_branches.at[('Line', monitorred_line[i]),"s_nom"]] 
-                 for i in range(len(line_outage))})
+def add_reduced_contingency_constraints(network,combinations):
     
-            flow_lower.update({('Line',line_outage[i],'Line',monitorred_line[i],sn) : 
-                [[(1,network.model.passive_branch_p['Line',monitorred_line[i],sn]),
-                  (sub.BODF[monitorred_line[i].astype(int)-1,line_outage[i].astype(int)-1],
-                   network.model.passive_branch_p['Line',line_outage[i],sn])],
-                   ">=",-sub._fixed_branches.at[('Line', monitorred_line[i]),"s_nom"]] 
-                 for i in range(len(line_outage))})  
+    branch_outage_keys = []
+    flow_upper = {}
+    flow_lower = {}
+    sub = network.sub_networks.obj[0]
+    sub._branches["_i"] = range(sub._branches.shape[0])
+    sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
+    sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
 
-        l_constraint(network.model,"contingency_flow_upper",flow_upper,branch_outage_keys)
-       # import pdb; pdb.set_trace()
+    for sn in combinations:
+        out= (combinations[sn][0]+1).astype(str)
+        mon = (combinations[sn][1]+1).astype(str)
+            
+        branch_outage_keys.extend([('Line', out[i], 'Line',mon[i], sn)
+                                    for i in range(len(out))])
 
-        l_constraint(network.model,"contingency_flow_lower",flow_lower,branch_outage_keys)
+        flow_upper.update({
+                ('Line', out[i],'Line', mon[i], sn) : [[
+                        (1, network.model.passive_branch_p['Line', mon[i], sn]),
+                        (sub.BODF[mon[i].astype(int)-1, out[i].astype(int)-1],
+                        network.model.passive_branch_p['Line', out[i], sn])],
+                        "<=", sub._fixed_branches.at[('Line', mon[i]),"s_nom"]] 
+                 for i in range(len(out))})
+    
+        flow_lower.update({('Line', out[i], 'Line', mon[i], sn) : [[
+                        (1, network.model.passive_branch_p['Line', mon[i],sn]),
+                        (sub.BODF[mon[i].astype(int)-1, out[i].astype(int)-1],
+                        network.model.passive_branch_p['Line', out[i], sn])],
+                        ">=", -sub._fixed_branches.at[('Line', mon[i]),"s_nom"]] 
+                 for i in range(len(out))})
+    
+    l_constraint(network.model,"contingency_flow_upper",flow_upper,branch_outage_keys)
 
-        #return combinations
-
+    l_constraint(network.model,"contingency_flow_lower",flow_lower,branch_outage_keys)
 
 def sclopf_post_lopf(network, args):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
-    add_reduced_contingency_constraints(network,network.snapshots)
-    network_lopf_solve(network, 
+    combinations = post_contingency_analysis_per_line(network)
+    n=0
+    while len(combinations) > 0:
+        if  n < 10:
+            add_reduced_contingency_constraints(network,combinations)
+            network_lopf_solve(network, 
                        network.snapshots, 
                        formulation=args['model_formulation'], 
                        solver_options=args['solver_options'])
-    
+            n+=1
+            combinations = post_contingency_analysis_per_line(network)
+        else: 
+            print('Maximum number of iterations reached.')
+            break
     """network.lopf(solver_name=args['solver'], skip_pre=True,
                  extra_functionality=add_reduced_contingency_constraints,
                  solver_options=args['solver_options'], 
                  formulation='kirchhoff')"""
     y = (time.time() - x)/60
     
-    if post_contingency_analysis(network).any().any():
-        logger.warning("Contingengy analysis failed in "+ str(round(y, 2))+ " minutes. Try iterating a second SCLOPF with additional branch outages.")
-    
-    else:
-        logger.info("Contingengy analysis finished in "+ str(round(y, 2))+ " minutes.")
+    logger.info("Contingengy analysis finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
         
     """relevant_outages = post_contingency_analysis(network)
     branch_outages = relevant_outages.any()[relevant_outages.any()==True].index
