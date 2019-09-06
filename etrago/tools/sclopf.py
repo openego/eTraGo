@@ -88,7 +88,7 @@ def post_contingency_analysis_per_line(network):
     return d
 
 def add_reduced_contingency_constraints(network,combinations):
-    
+    add_reduced_contingency_constraints.counter += 1
     branch_outage_keys = []
     flow_upper = {}
     flow_lower = {}
@@ -119,13 +119,14 @@ def add_reduced_contingency_constraints(network,combinations):
                         ">=", -sub._fixed_branches.at[('Line', mon[i]),"s_nom"]] 
                  for i in range(len(out))})
     
-    l_constraint(network.model,"contingency_flow_upper",flow_upper,branch_outage_keys)
+    l_constraint(network.model,"contingency_flow_upper_"+str(add_reduced_contingency_constraints.counter),flow_upper,branch_outage_keys)
 
-    l_constraint(network.model,"contingency_flow_lower",flow_lower,branch_outage_keys)
+    l_constraint(network.model,"contingency_flow_lower_"+str(add_reduced_contingency_constraints.counter),flow_lower,branch_outage_keys)
 
 def sclopf_post_lopf(network, args):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
+    add_reduced_contingency_constraints.counter = 0
     combinations = post_contingency_analysis_per_line(network)
     n=0
     while len(combinations) > 0:
