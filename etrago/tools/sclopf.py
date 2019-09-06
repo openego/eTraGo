@@ -137,6 +137,9 @@ def sclopf_post_lopf(network, args):
                        network.snapshots, 
                        formulation=args['model_formulation'], 
                        solver_options=args['solver_options'])
+            if args['csv_export'] != False:
+                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
+                    results_to_csv(network, args, path)
             n+=1
             combinations = post_contingency_analysis_per_line(network)
         else: 
@@ -149,6 +152,7 @@ def sclopf_post_lopf(network, args):
     y = (time.time() - x)/60
     
     logger.info("Contingengy analysis finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
+    
         #len(network.model.contingency_flow_lower_1_index.data())
     """relevant_outages = post_contingency_analysis(network)
     branch_outages = relevant_outages.any()[relevant_outages.any()==True].index
