@@ -58,7 +58,7 @@ def post_contingency_analysis(network):
     return df
 
 def post_contingency_analysis_per_line(network):
-    
+    x = time.time()
     network.lines.s_nom = network.lines.s_nom_opt.copy()
     network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
     network.generators_t.p_set = network.generators_t.p
@@ -84,7 +84,8 @@ def post_contingency_analysis_per_line(network):
         # solve problem that np. start counting with 0, pypsa with 1!
         if not combinations[0].size == 0:
             d[sn]=combinations
-
+    y = (time.time() - x)/60
+    logger.info("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
     return d
 
 def add_reduced_contingency_constraints(network,combinations):
@@ -148,7 +149,7 @@ def sclopf_post_lopf(network, args):
     y = (time.time() - x)/60
     
     logger.info("Contingengy analysis finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
-        
+        #len(network.model.contingency_flow_lower_1_index.data())
     """relevant_outages = post_contingency_analysis(network)
     branch_outages = relevant_outages.any()[relevant_outages.any()==True].index
     n = 0
