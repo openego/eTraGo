@@ -93,7 +93,6 @@ if 'READTHEDOCS' not in os.environ:
         max_line_ext,
         min_renewable_share,
         iterate_lopf,
-        iterate_sclopf,
         parallelisation_sclopf,
         split_parallel_lines,
         group_parallel_lines_sclopf,
@@ -105,6 +104,8 @@ if 'READTHEDOCS' not in os.environ:
             print_expansion_costs)
 
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    
+    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -116,13 +117,14 @@ args = {
     'gridversion': None,  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'sclopf_post_lopf':True,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 18,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -131,7 +133,7 @@ args = {
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -561,12 +563,13 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         
-        idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
+        """idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
         can1 =  network.lines[idx]
         idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
         can2 = can1[idx2]
         can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
-        branch_outages=can2[can3].index
+        branch_outages=can2[can3].index"""
+        branch_outages=network.lines.index
         """min_idx=network.lines.groupby(['bus0', 'bus1'])['x'].transform(min) == network.lines['x']
         can1 =  network.lines[min_idx]
         can3 = can1.groupby(['bus0', 'bus1'])['index'].transform(min) == can1['index']"""
@@ -612,7 +615,9 @@ def etrago(args):
         p0_test = network.lpf_contingency(now,branch_outages=branch_outages)
 
         #check loading as per unit of s_nom in each contingency
-
+        overloaded = abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>1.00001
+        relevant_outages = overloaded.transpose().any()
+        branch_outages_post=relevant_outages[relevant_outages==True].reset_index().name.values
         max_loading = abs(p0_test.divide(network.passive_branches().s_nom,axis=0)).describe().loc["max"]
 
         import numpy as np
@@ -623,7 +628,11 @@ def etrago(args):
     elif args['method'] == 'pf':
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
-
+        
+    if args['sclopf_post_lopf']:
+        sclopf_post_lopf(network, args)
+        
+        
     if args['pf_post_lopf']:
         x = time.time()
         pf_post_lopf(network,

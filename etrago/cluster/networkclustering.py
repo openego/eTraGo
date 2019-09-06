@@ -455,13 +455,13 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
-    network.buses['v_nom'] = 380.                              
+    #etwork.buses['v_nom'] = 380.                              
     #import pdb; pdb.set_trace()
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    #network.buses['v_nom'] = 380.
+    network.buses['v_nom'] = 380.
 
     print(network.lines.x.describe())
 
