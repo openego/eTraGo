@@ -70,7 +70,7 @@ def post_contingency_analysis_per_line(network):
 
     d = {}
     
-    for sn in network.snapshots:
+    for sn in network.snapshots:# Nils hat gesagt, das kann ich parallelisieren
         
         #Check no lines are overloaded with the linear contingency analysis
         p0_test = network.lpf_contingency(sn)
@@ -88,12 +88,68 @@ def post_contingency_analysis_per_line(network):
     logger.info("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
     return d
 
+def post_contingency_analysis_per_line_multi(network, n_process):
+    x = time.time()
+    network.lines.s_nom = network.lines.s_nom_opt.copy()
+    network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
+    network.generators_t.p_set = network.generators_t.p
+    network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
+    network.storage_units_t.p_set = network.storage_units_t.p
+    network.links_t.p_set = network.links_t.p_set.reindex(columns=network.links.index)
+    network.links_t.p_set = network.links_t.p0
+
+    import multiprocessing as mp
+    output = mp.Queue()
+    snapshots_set={}
+    length = int(network.snapshots.size / n_process)
+    for i in range(n_process):
+        snapshots_set[str(i+1)]=network.snapshots[i*length : (i+1)*length]
+    manager = mp.Manager()
+    d = manager.dict()
+    snapshots_set[str(n_process-1)] = network.snapshots[i*length :]
+    def multi_con(network, snapshots, d):
+        for sn in network.snapshots:  
+            #d = {}
+        #Check no lines are overloaded with the linear contingency analysis
+            p0_test = network.lpf_contingency(sn)
+        # rows: branch outage, index = monitorred line
+        
+        #check loading as per unit of s_nom in each contingency
+            overloaded = (abs(
+                p0_test.divide(network.passive_branches().s_nom,axis=0)
+                )>1.00001).drop(['base'], axis=1).transpose()# rows: monitorred line, index = branch outage
+            combinations = np.where(overloaded.values)
+            
+            if not combinations[0].size == 0:
+                d[sn]=combinations
+            output.put(d)
+    processes = [mp.Process(target=multi_con, args=(network, snapshots_set[i], d)) for i in ['1', '2']]
+    
+    # Run processes
+    for p in processes:
+        p.start()
+
+# Exit the completed processes
+    for p in processes:
+        p.join()
+
+# Get process results from the output queue
+    #results = [output.get() for p in processes]
+        # solve problem that np. start counting with 0, pypsa with 1!
+
+    y = (time.time() - x)/60
+    logger.info("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
+    return d
+
+
 def add_reduced_contingency_constraints(network,combinations):
     add_reduced_contingency_constraints.counter += 1
     branch_outage_keys = []
     flow_upper = {}
     flow_lower = {}
     sub = network.sub_networks.obj[0]
+    sub._branches = sub.branches()
+    sub.calculate_BODF()
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
@@ -128,7 +184,7 @@ def sclopf_post_lopf(network, args):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
-    combinations = post_contingency_analysis_per_line(network)
+    combinations = post_contingency_analysis_per_line_multi(network, n_process=4)
     n=0
     while len(combinations) > 0:
         if  n < 10:
@@ -153,7 +209,7 @@ def sclopf_post_lopf(network, args):
     
     logger.info("Contingengy analysis finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
     
-        #len(network.model.contingency_flow_lower_1_index.data())
+        #len(network.model.contingency_flow_lower_4_index.data())
     """relevant_outages = post_contingency_analysis(network)
     branch_outages = relevant_outages.any()[relevant_outages.any()==True].index
     n = 0
