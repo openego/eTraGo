@@ -99,7 +99,7 @@ def post_contingency_analysis_per_line_multi(network, n_process):
     network.links_t.p_set = network.links_t.p0
 
     import multiprocessing as mp
-    output = mp.Queue()
+   # output = mp.Queue()
     snapshots_set={}
     length = int(network.snapshots.size / n_process)
     for i in range(n_process):
@@ -122,8 +122,8 @@ def post_contingency_analysis_per_line_multi(network, n_process):
             
             if not combinations[0].size == 0:
                 d[sn]=combinations
-            output.put(d)
-    processes = [mp.Process(target=multi_con, args=(network, snapshots_set[i], d)) for i in ['1', '2']]
+           # output.put(d)
+    processes = [mp.Process(target=multi_con, args=(network, snapshots_set[i], d)) for i in snapshots_set]
     
     # Run processes
     for p in processes:
@@ -180,11 +180,11 @@ def add_reduced_contingency_constraints(network,combinations):
 
     l_constraint(network.model,"contingency_flow_lower_"+str(add_reduced_contingency_constraints.counter),flow_lower,branch_outage_keys)
 
-def sclopf_post_lopf(network, args):
+def sclopf_post_lopf(network, args,n_process=2):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
-    combinations = post_contingency_analysis_per_line_multi(network, n_process=4)
+    combinations = post_contingency_analysis_per_line_multi(network, n_process)
     n=0
     while len(combinations) > 0:
         if  n < 10:
@@ -197,7 +197,7 @@ def sclopf_post_lopf(network, args):
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)
             n+=1
-            combinations = post_contingency_analysis_per_line(network)
+            combinations = post_contingency_analysis_per_line_multi(network, n_process)
         else: 
             print('Maximum number of iterations reached.')
             break
