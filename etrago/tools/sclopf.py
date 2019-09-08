@@ -108,7 +108,7 @@ def post_contingency_analysis_per_line_multi(network, n_process):
     d = manager.dict()
     snapshots_set[str(n_process-1)] = network.snapshots[i*length :]
     def multi_con(network, snapshots, d):
-        for sn in network.snapshots:  
+        for sn in snapshots:  
             #d = {}
         #Check no lines are overloaded with the linear contingency analysis
             p0_test = network.lpf_contingency(sn)
@@ -128,11 +128,13 @@ def post_contingency_analysis_per_line_multi(network, n_process):
     # Run processes
     for p in processes:
         p.start()
+        
 
 # Exit the completed processes
     for p in processes:
         p.join()
-
+    for p in processes:
+        p.terminate()
 # Get process results from the output queue
     #results = [output.get() for p in processes]
         # solve problem that np. start counting with 0, pypsa with 1!
@@ -177,18 +179,22 @@ def add_reduced_contingency_constraints(network,combinations):
                  for i in range(len(out))})
     
     l_constraint(network.model,"contingency_flow_upper_"+str(add_reduced_contingency_constraints.counter),flow_upper,branch_outage_keys)
-
+    print(len(branch_outage_keys))
     l_constraint(network.model,"contingency_flow_lower_"+str(add_reduced_contingency_constraints.counter),flow_lower,branch_outage_keys)
-
+    return len(branch_outage_keys)
 def sclopf_post_lopf(network, args,n_process=2):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
     combinations = post_contingency_analysis_per_line_multi(network, n_process)
     n=0
+    nb=0
     while len(combinations) > 0:
         if  n < 10:
-            add_reduced_contingency_constraints(network,combinations)
+                
+            logger.info("SCLOPF No. "+ str(n+1) + " started with " + str(2*nb) + " SC-constraints.")
+    
+            nb = nb + add_reduced_contingency_constraints(network,combinations)
             network_lopf_solve(network, 
                        network.snapshots, 
                        formulation=args['model_formulation'], 
@@ -198,6 +204,7 @@ def sclopf_post_lopf(network, args,n_process=2):
                     results_to_csv(network, args, path)
             n+=1
             combinations = post_contingency_analysis_per_line_multi(network, n_process)
+
         else: 
             print('Maximum number of iterations reached.')
             break
@@ -207,7 +214,7 @@ def sclopf_post_lopf(network, args,n_process=2):
                  formulation='kirchhoff')"""
     y = (time.time() - x)/60
     
-    logger.info("Contingengy analysis finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
+    logger.info("Contingengy analysis with " + str(2*nb) + " contraints finished after " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
     
         #len(network.model.contingency_flow_lower_4_index.data())
     """relevant_outages = post_contingency_analysis(network)
