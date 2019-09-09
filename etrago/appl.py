@@ -133,7 +133,7 @@ args = {
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -554,11 +554,13 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
+        network.lines.b = 1/network.lines.x
         iterate_lopf(network,
                      args,
                      extra_functionality,
                      method={'n_iter':5})
         print("Objective:",network.objective)
+        
 
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
