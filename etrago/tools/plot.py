@@ -163,20 +163,28 @@ def plot_line_loading(
             network.links.set_value(i, 'linked_to',l.values[0])
 
     network.links.linked_to = network.links.linked_to.astype(str)
+    # Set p_nom_max and line_loading for one directional links 
     link_load = network.links_t.p0[network.links.index[
             network.links.linked_to == '0']]
-
+    
+    p_nom_opt_max=network.links.p_nom_opt[network.links.linked_to == '0']
+    
+    # Set p_nom_max and line_loading for bidirectional links 
     for i, row in network.links[network.links.linked_to != '0'].iterrows():
         load = pd.DataFrame(index = network.links_t.p0.index,
                             columns = ['to', 'from'])
         load['to'] = network.links_t.p0[row['linked_to']]
         load['from'] = network.links_t.p0[i]
         link_load[i] = load.abs().max(axis = 1)
+        p_nom_opt_max[i] = max(row.p_nom_opt, 
+                     network.links.p_nom_opt[network.links.index
+                                             ==row['linked_to']].values[0])
+        
 
     loading_links = pd.Series((link_load.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
             timesteps]].abs().sum()[network.links.index] / (
-        network.links.p_nom_opt)).data, index=array_link).dropna()
+        p_nom_opt_max)).data, index=array_link).dropna()
 
     load_links_rel = (loading_links/  
                       network.snapshot_weightings\
@@ -187,7 +195,7 @@ def plot_line_loading(
 
     loading = load_lines_rel.append(load_links_rel)
 
-    ll = network.plot(line_colors=loading, line_cmap=cmap,
+    ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap},
                       title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
 

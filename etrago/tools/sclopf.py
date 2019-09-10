@@ -29,7 +29,44 @@ import logging
 logger = logging.getLogger(__name__)
 from etrago.tools.utilities import results_to_csv, update_electrical_parameters
 from pypsa.opt  import l_constraint
-from pypsa.opf import network_lopf_solve
+from pypsa.opf import define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows
+
+
+def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
+    """
+    Function that runs iterations of lopf without building new models. 
+    Currently only working with model_formulation = 'kirchhoff'
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    l_snom_pre: pandas.Series
+        s_nom of ac-lines in previous iteration
+    t_snom_pre: pandas.Series
+        s_nom of transformers in previous iteration
+    """
+    l_snom_pre, t_snom_pre = \
+                    update_electrical_parameters(network, 
+                                                 l_snom_pre, t_snom_pre)
+    # Delete flow constraints for each possible model formulation
+    network.model.del_component('cycle_constraints')
+    network.model.del_component('cycle_constraints_index')
+    network.model.del_component('cycle_constraints_index_0')
+    network.model.del_component('cycle_constraints_index_1')
+
+    
+    if args['model_formulation']=='kirchhoff':
+        define_passive_branch_flows_with_kirchhoff(network,network.snapshots,skip_vars=True)
+    else:
+        define_passive_branch_flows(network,network.snapshots,formulation=args['model_formulation'])
+
+    network_lopf_solve(network, network.snapshots, formulation=args['model_formulation'])
+
+    return l_snom_pre, t_snom_pre 
+
+
+
 def post_contingency_analysis(network):
     
     network.lines.s_nom = network.lines.s_nom_opt.copy()
@@ -57,7 +94,7 @@ def post_contingency_analysis(network):
     # returns lines which outages causes overloadings
     return df
 
-def post_contingency_analysis_per_line(network, n_process):
+def post_contingency_analysis_per_line(network, branch_outages, n_process):
     x = time.time()
     network.lines.s_nom = network.lines.s_nom_opt.copy()
     network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
@@ -169,16 +206,22 @@ def add_reduced_contingency_constraints(network,combinations):
 
 
     l_constraint(network.model,"contingency_flow_upper_"+str(add_reduced_contingency_constraints.counter),flow_upper,branch_outage_keys)
-    print((branch_outage_keys))
+    print(len(branch_outage_keys))
     l_constraint(network.model,"contingency_flow_lower_"+str(add_reduced_contingency_constraints.counter),flow_lower,branch_outage_keys)
     return len(branch_outage_keys)
 
 
-def sclopf_post_lopf(network, args, n_iter_fix = 5, n_process=2):
+def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
-    combinations = post_contingency_analysis_per_line(network, 4)
+    idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
+    can1 =  network.lines[idx]
+    idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
+    can2 = can1[idx2]
+    can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
+    branch_outages=can2[can3].index
+    combinations = post_contingency_analysis_per_line(network, branch_outages,4)
     n=0
     nb=0
     while len(combinations) > 0:
@@ -196,16 +239,18 @@ def sclopf_post_lopf(network, args, n_iter_fix = 5, n_process=2):
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)
             n+=1
-            combinations = post_contingency_analysis_per_line(network,4)
-            if network.lines.extendable.any():
+            combinations = post_contingency_analysis_per_line(network,branch_outages, 4)
+            if network.lines.s_nom_extendable.any():
                 l_snom_pre = network.lines.s_nom.copy()
                 t_snom_pre = network.transformers.s_nom.copy()
-                for i in range(n_iter_fix):
-
+                """for i in range(n_iter): #Aktuell endlos-Schleife, Warum?
+                    print(i)
                     l_snom_pre, t_snom_pre = \
                         update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
-                        
+                    l_snom_pre, t_snom_pre = \
+                        iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
+                    combinations = post_contingency_analysis_per_line(network,4)"""
                     # Anpassung x über update der cycyle constraints? Sonst muss das model immer wieder gebaut werden 
         else: 
             print('Maximum number of iterations reached.')
