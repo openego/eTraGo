@@ -413,6 +413,9 @@ def extendable(network, args, line_max, line_max_foreign, line_max_abs= {'380': 
         network.generators.p_nom_extendable = True
         network.generators.p_nom_min = network.generators.p_nom
         network.generators.p_nom_max = float("inf")
+        #network.generators.p_nom_max = network.generators.p_nom * 1.1
+        #network.generators.p_nom_min = network.generators.p_nom * 0.9
+        
         
     if 'foreign_storage' in args['extendable']:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(

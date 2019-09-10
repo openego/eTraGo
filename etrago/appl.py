@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)
+args = get_args_setting(args, jsonpath='args_ego100_paper_extdecom_test.json')
 
 
 def etrago(args):
@@ -481,7 +481,6 @@ def etrago(args):
                     line_max_foreign_abs= None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-
     
     # skip snapshots
     if args['skip_snapshots']:
@@ -519,14 +518,14 @@ def etrago(args):
                 network,
                 n_clusters=args['network_clustering_kmeans'],
                 load_cluster=args['load_cluster'],
-                line_length_factor=1,
+                line_length_factor=1.15,
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None,
-                n_init=2,
-                max_iter=10,
-                tol=1e-6,
+                bus_weight_fromcsv="bus_weighting_sq045_2019.csv",
+                n_init=2500,
+                max_iter=1000,
+                tol=1e-20,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)

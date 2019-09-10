@@ -31,6 +31,8 @@ import pypsa
 import json
 import logging
 import math
+from etrago.tools.plot import save_plots
+
 
 geopandas = True
 try:
@@ -38,7 +40,6 @@ try:
     from shapely.geometry import Point
     import geoalchemy2
     from egoio.db_tables.model_draft import RenpassGisParameterRegion
-    from etrago.tools.plot import save_plots
 
 except:
     geopandas = False
