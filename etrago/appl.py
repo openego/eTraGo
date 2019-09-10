@@ -136,7 +136,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath="args_ego100_paper_inf.json")
+args = get_args_setting(args, jsonpath=None)
 
 
 def etrago(args):
@@ -524,8 +524,8 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=10,
-                max_iter=100,
+                n_init=2,
+                max_iter=10,
                 tol=1e-6,
                 n_jobs=-1)
         disaggregated_network = (

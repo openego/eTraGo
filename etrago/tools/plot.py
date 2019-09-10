@@ -130,7 +130,6 @@ def plot_line_loading(
     cmap = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     array_link = [['Link'] * len(network.links), network.links.index]
-    
     if network.lines_t.q0.empty:
 
         loading_lines = pd.Series((network.lines_t.p0.mul(
@@ -208,9 +207,9 @@ def plot_line_loading(
         v = np.linspace(boundaries[0], boundaries[1], 101)
         
     cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
     cb_Link = plt.colorbar(ll[2], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
@@ -431,6 +430,19 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
                                   overlay_network.links.p_nom_min)/
                                  (overlay_network.links.p_nom)).data,
                                 index=array_link)
+
+    if method == 'rel_abs':
+
+        extension_lines = pd.Series((100 *
+                                 overlay_network.lines.s_nom_opt/
+                                overlay_network.lines.s_nom_max).data,
+                                index=array_line)
+
+        extension_links = pd.Series((100 *
+                                 overlay_network.links.p_nom_opt/
+                                 overlay_network.links.p_nom_max).data,
+                                index=array_link)
+
     if method == 'abs':
         extension_lines = pd.Series(
                                  (overlay_network.lines.s_nom_opt -
@@ -782,6 +794,9 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
     else:
         plt.savefig(filename)
         plt.close()
+
+
+
 
 
 def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
@@ -1365,8 +1380,13 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
 
     stores = network.storage_units[network.storage_units.carrier == 
                                    'extendable_storage']
-    batteries = stores[stores.max_hours == 6]
-    hydrogen = stores[stores.max_hours == 168]
+    batteries = network.storage_units[network.storage_units.carrier == 
+                                   'battery_storage']
+    hydrogen = network.storage_units[network.storage_units.carrier == 
+                                   'hydrogen_storage']            
+    batteries = batteries.append(stores[stores.max_hours == 6])
+    hydrogen = hydrogen.append(stores[stores.max_hours == 168])
+    
     storage_distribution =\
         network.storage_units.p_nom_opt[stores.index].groupby(
         network.storage_units.bus).sum().reindex(
