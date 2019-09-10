@@ -92,9 +92,8 @@ class ScenarioBase():
         Common prefix of component orm classnames in egoio.
     """
 
-    def __init__(
-        self, session, method='lopf', configpath='config.json', version=None,
-            prefix='EgoGridPfHv'):
+    def __init__(self, session, method='lopf', configpath='config.json',
+                 version=None, prefix='EgoGridPfHv'):
 
         global packagename
         global temp_ormclass
@@ -158,9 +157,8 @@ class NetworkScenario(ScenarioBase):
         Nummer of temporal resolution.
     """
 
-    def __init__(
-        self, session, scn_name='Status Quo', method='lopf',
-            start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
+    def __init__(self, session, scn_name='Status Quo', method='lopf',
+                 start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
 
         self.scn_name = scn_name
         self.method = method
@@ -213,10 +211,10 @@ class NetworkScenario(ScenarioBase):
 
         ormclass = self._mapped['Source']
         query = self.session.query(ormclass)
-        
+
         if self.version:
             query = query.filter(ormclass.version == self.version)
-            
+
         # TODO column naming in database
         return {k.source_id: k.name for k in query.all()}
 
@@ -457,7 +455,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
 
     Parameters
     ----------
-    session: 
+    session:
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
     args: dict
@@ -473,16 +471,16 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
     """
     # Update generator_ids when k_means clustering to get integer ids
     if args['network_clustering_kmeans'] != False:
-        new_index=pd.DataFrame(index = network.generators.index)
-        new_index['new']=range(len(network.generators))
+        new_index = pd.DataFrame(index=network.generators.index)
+        new_index['new'] = range(len(network.generators))
 
-        for col in (network.generators_t):
+        for col in network.generators_t:
             if not network.generators_t[col].empty:
                 network.generators_t[col].columns =\
                     new_index.new[network.generators_t[col].columns]
 
         network.generators.index = range(len(network.generators))
-    
+
     # moved this here to prevent error when not using the mv-schema
     import datetime
     if grid.lower() == 'mv':
@@ -519,7 +517,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
     meta_misc = []
     for arg, value in args.items():
         if arg not in dir(res_meta) and arg not in ['db', 'lpfile',
-                                                     'results', 'export']:
+                                                    'results', 'export']:
             meta_misc.append([arg, str(value)])
 
     res_meta.result_id = new_res_id
@@ -548,15 +546,15 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
             session.add(new_source)
             session.commit()
             sources = pd.read_sql(
-                    session.query(Source).statement, session.bind)
+                session.query(Source).statement, session.bind)
         try:
             old_source_id = int(
                 sources.source_id[
-                        sources.name == network.generators.carrier[gen]])
+                    sources.name == network.generators.carrier[gen]])
             network.generators.set_value(gen, 'source', int(old_source_id))
         except:
             print(
-                'Source ' + network.generators.carrier[gen] + 
+                'Source ' + network.generators.carrier[gen] +
                 ' is not in the source table!')
     for stor in network.storage_units.index:
         if network.storage_units.carrier[stor] not in sources.name.values:
@@ -567,11 +565,11 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
             session.add(new_source)
             session.commit()
             sources = pd.read_sql(
-                    session.query(Source).statement, session.bind)
+                session.query(Source).statement, session.bind)
         try:
             old_source_id = int(
                 sources.source_id[
-                        sources.name == network.storage_units.carrier[stor]])
+                    sources.name == network.storage_units.carrier[stor]])
             network.storage_units.set_value(stor, 'source', int(old_source_id))
         except:
             print(
@@ -611,9 +609,9 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                        'soc_cyclic': 'cyclic_state_of_charge',
                        'soc_initial': 'state_of_charge_initial'}
 
-    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult, 
-                  GeneratorResult, StorageResult, BusTResult, LoadTResult, 
-                  LineTResult, TransformerTResult, GeneratorTResult, 
+    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult,
+                  GeneratorResult, StorageResult, BusTResult, LoadTResult,
+                  LineTResult, TransformerTResult, GeneratorTResult,
                   StorageTResult]
 
     for ormclass in ormclasses:
@@ -635,7 +633,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                     if col == 'soc_set':
                         try:
                             setattr(myinstance, col, getattr(
-                                whereismydata[ormclass], 
+                                whereismydata[ormclass],
                                 'state_of_charge_set')[index].tolist())
                         except:
                             pass
@@ -702,30 +700,38 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, version, scn_extension, start_snapshot, 
-               end_snapshot, **kwargs):
+def extension(network, session, version, scn_extension, start_snapshot,
+              end_snapshot, **kwargs):
     """
-    Function that adds an additional network to the existing network container. 
-    The new network can include every PyPSA-component (e.g. buses, lines, links). 
-    To connect it to the existing network, transformers are needed. 
-        
-    All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-    The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
+    Function that adds an additional network to the existing network container.
+    The new network can include every PyPSA-component (e.g. buses, lines).
+    To connect it to the existing network, transformers are needed.
+
+    All components and its timeseries of the additional scenario need to be
+    inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
+    The scn_name in the tables have to be labled with 'extension_' + scn_name
+    (e.g. 'extension_nep2035').
 
     Until now, the tables include three additional scenarios:
-    'nep2035_confirmed': all new lines and needed transformers planed in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the Bundesnetzagentur (BNetzA)
+    'nep2035_confirmed': all new lines and needed transformers planed
+    in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed
+    by the Bundesnetzagentur (BNetzA)
 
-    'nep2035_b2': all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
+    'nep2035_b2': all new lines and needed transformers planned in the NEP 2035
+    in the scenario 2035 B2
 
-    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway 
-     Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
+    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming
+     electrical-neighbours Belgium and Norway
+     Generation, loads and its timeseries in Belgium and Norway
+     for scenario 'NEP 2035'
 
 
      Parameters
      -----
           network : The existing network container (e.g. scenario 'NEP 2035')
           session : session-data
-          overlay_scn_name : Name of the additional scenario (WITHOUT 'extension_')
+          overlay_scn_name : Name of the additional scenario
+          (WITHOUT 'extension_')
           start_snapshot, end_snapshot: Simulation time
 
     Returns
@@ -733,15 +739,15 @@ def extension (network, session, version, scn_extension, start_snapshot,
           network : Network container including existing and additional network
 
     """
-    
+
     if version is None:
-       ormcls_prefix = 'EgoGridPfHvExtension'
+        ormcls_prefix = 'EgoGridPfHvExtension'
     else:
         ormcls_prefix = 'EgoPfHvExtension'
-               
+
     # Adding overlay-network to existing network
     scenario = NetworkScenario(session,
-                               version = version,
+                               version=version,
                                prefix=ormcls_prefix,
                                method=kwargs.get('method', 'lopf'),
                                start_snapshot=start_snapshot,
@@ -757,76 +763,142 @@ def extension (network, session, version, scn_extension, start_snapshot,
     extension_buses = network.buses[network.buses.scn_name ==
                                     'extension_' + scn_extension]
     for idx, row in extension_buses.iterrows():
-            wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
-               
+        wkt_geom = to_shape(row['geom'])
+        network.buses.loc[idx, 'x'] = wkt_geom.x
+        network.buses.loc[idx, 'y'] = wkt_geom.y
+
     return network
 
-def decommissioning(network, session, args, **kwargs):
+def decommissioning(network, session, version, scn_decommissioning,
+                    branch_capacity_factor):
     """
-    Function that removes components in a decommissioning-scenario from
-    the existing network container.
-    Currently, only lines can be decommissioned.
-               
+    Function that reduces the capacity of compnents
+    in a decommissioning-scenario from the existing network container.
+
     All components of the decommissioning scenario need to be inserted in
-    the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-    The scn_name in the tables have to be labled with 'decommissioning_' 
-    + scn_name (e.g. 'decommissioning_nep2035'). 
-        
-    
+    the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
+    The scn_name in the tables have to be labled with 'decommissioning_'
+    + scn_name (e.g. 'decommissioning_nep2035').
+
+
     Parameters
     -----
         network : The existing network container (e.g. scenario 'NEP 2035')
         session : session-data
-        overlay_scn_name : Name of the decommissioning scenario
+        version : gridversion or None (args)
+        scn_decommissioning : Name of the decommissioning scenario
+        branch_capacity_factor: Capacity factor of args
 
 
     Returns
     ------
         network : Network container including decommissioning
-          
-    """  
 
-    if args['gridversion'] == None:   
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'),
-                           'EgoGridPfHvExtensionLine')
-    else:
-        ormclass = getattr(import_module('egoio.db_tables.grid'),
-                           'EgoPfHvExtensionLine')
+    """
 
-    query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + 
-                        args['scn_decommissioning'])
+    components = ['Line', 'Link', 'Transformer', 'Storage', 'Generator']
 
-    df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
-                         index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
+    for comp in components:
 
-    for idx, row in network.lines.iterrows():
-        if (row['s_nom_min'] !=0) & (
-            row['scn_name'] =='extension_' + args['scn_decommissioning']):
-                v_nom_dec = df_decommisionning['v_nom'][(
-                 df_decommisionning.project == row['project']) & (
-                         df_decommisionning.project_id == row['project_id'])]
 
-                if (v_nom_dec == 110).any():
-                    network.lines.s_nom_min[network.lines.index == idx]\
-                    = args['branch_capacity_factor']['HV'] *\
-                    network.lines.s_nom_min
+        if version == None:
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'),
+                               'EgoGridPfHvExtension' + comp)
+        else:
+            ormclass = getattr(import_module('egoio.db_tables.grid'),
+                               'EgoPfHvExtension' + comp)
 
-                else:
-                    network.lines.s_nom_min[network.lines.index == idx] =\
-                    args['branch_capacity_factor']['eHV'] *\
-                    network.lines.s_nom_min
+        query = session.query(ormclass).filter(
+                        ormclass.scn_name == 'decommissioning_' +
+                        scn_decommissioning)
 
-    ### Drop decommissioning-lines from existing network
-    network.lines = network.lines[~network.lines.index.isin(
-            df_decommisionning.index)]
+        id_column = re.findall(r'[A-Z][^A-Z]*', comp)[0] + '_' + 'id'
+        id_column = id_column.lower()
+
+        if comp == 'Transformer':
+            id_column = 'trafo_id'
+
+        df_decommisionning = pd.read_sql(
+            query.statement,
+            session.bind,
+            index_col=id_column)
+        df_decommisionning.index = df_decommisionning.index.astype(str)
+
+        reduce_capacity_by_comp(network, df_decommisionning, comp,
+                                scn_decommissioning, branch_capacity_factor)
+
+    print('Scenario ' +scn_decommissioning + ' decommissioned.')
 
     return network
 
+def reduce_capacity_by_comp(network, df_decommisionning, comp, scn_decommissioning,
+                            branch_capacity_factor):
+
+    if comp == 'Line':
+        comp_df = network.lines[network.lines.index.isin(
+            df_decommisionning.index)]
+        new_cap = comp_df.s_nom-df_decommisionning.s_nom
+        network.lines.s_nom[network.lines.index.isin(
+            df_decommisionning.index)] = new_cap
+
+        for idx, row in network.lines.iterrows():
+            if (row['s_nom_min'] != 0) &\
+                (row['scn_name'] == 'extension_' + scn_decommissioning):
+                v_nom_dec = df_decommisionning['v_nom'][
+                    (df_decommisionning.project == row['project']) &
+                    (df_decommisionning.project_id == row['project_id'])]
+
+                if (v_nom_dec == 110).any():
+                    network.lines.s_nom_min[network.lines.index == idx]\
+                        = branch_capacity_factor['HV'] *\
+                        network.lines.s_nom_min
+
+                else:
+                    network.lines.s_nom_min[network.lines.index == idx] =\
+                    branch_capacity_factor['eHV'] *\
+                    network.lines.s_nom_min
+        network.lines = network.lines[network.lines.s_nom > 0]
+
+    if comp == 'Transformer':
+        comp_df = network.transformers[network.transformers.index.isin(
+            df_decommisionning.index)]
+        new_cap = comp_df.s_nom-df_decommisionning.s_nom
+        network.transformers.s_nom[network.transformers.index.isin(
+            df_decommisionning.index)] = new_cap
+        network.transformers = \
+            network.transformers[network.transformers.s_nom > 0]
+
+    if comp == 'Link':
+        comp_df = network.links[network.links.index.isin(
+            df_decommisionning.index)]
+        new_cap = comp_df.p_nom-df_decommisionning.p_nom
+        network.links.p_nom[network.links.index.isin(
+            df_decommisionning.index)] = new_cap
+        network.links = network.links[network.links.p_nom > 0]
+
+    if comp == 'Generator':
+        comp_df = network.generators[network.generators.index.isin
+                                     (df_decommisionning.index)]
+        new_cap = comp_df.p_nom-df_decommisionning.p_nom
+        network.generators.p_nom[network.generators.index.isin(
+            df_decommisionning.index)] = new_cap
+        network.generators = network.generators[network.generators.p_nom > 0]
+
+        network.generators_t.p_set.drop(
+            network.generators_t.p_set.columns[~
+                     network.generators_t.p_set.columns.isin(
+                         network.generators.index)], axis=1)
+        network.generators_t.p_max_pu.drop(
+            network.generators_t.p_max_pu.columns[~
+                     network.generators_t.p_max_pu.columns.isin(
+                         network.generators.index)], axis=1)
+
+    if comp == 'Storage':
+        comp_df = network.storage_units[network.storage_units.index.isin(
+            df_decommisionning.index)]
+        new_cap = comp_df.p_nom-df_decommisionning.p_nom
+        network.storage_units.p_nom[network.storage_units.index.isin(
+            df_decommisionning.index)] = new_cap
 
 def distance(x0, x1, y0, y1):
     """
@@ -844,13 +916,13 @@ def distance(x0, x1, y0, y1):
     Returns
     ------
         distance : float
-        square of distance 
-          
-    """   
+        square of distance
+
+    """
     # Calculate square of the distance between two points (Pythagoras)
-    distance = (x1.values- x0.values)*(x1.values- x0.values)\
+    d = (x1.values- x0.values)*(x1.values- x0.values)\
         + (y1.values- y0.values)*(y1.values- y0.values)
-    return distance
+    return d
 
 
 def calc_nearest_point(bus1, network):
@@ -877,7 +949,7 @@ def calc_nearest_point(bus1, network):
 
     forbidden_buses = np.append(
         bus1_index.values, network.lines.bus1[
-                network.lines.bus0 == bus1].values)
+            network.lines.bus0 == bus1].values)
 
     forbidden_buses = np.append(
         forbidden_buses, network.lines.bus0[network.lines.bus1 == bus1].values)
@@ -893,7 +965,7 @@ def calc_nearest_point(bus1, network):
     y0 = network.buses.y[network.buses.index.isin(bus1_index)]
 
     comparable_buses = network.buses[~network.buses.index.isin(
-            forbidden_buses)]
+        forbidden_buses)]
 
     x1 = comparable_buses.x
 
@@ -904,8 +976,8 @@ def calc_nearest_point(bus1, network):
 
     min_distance = distance.min()
 
-    bus0 = comparable_buses[(((x1.values - x0.values)*(x1.values - x0.values
-        ) + (y1.values - y0.values)*(y1.values - y0.values)) == min_distance)]
+    bus0 = comparable_buses[(((x1.values - x0.values)*(x1.values - x0.values)
+         + (y1.values - y0.values)*(y1.values - y0.values)) == min_distance)]
     bus0 = bus0.index[bus0.index == bus0.index.max()]
     bus0 = ''.join(bus0.values)
 

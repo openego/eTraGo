@@ -453,10 +453,13 @@ def etrago(args):
 
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
+        for i in range(len(args['scn_decommissioning'])):
+            network = decommissioning(
+                    network,
+                    session,
+                    version=args['gridversion'],
+                    scn_decommissioning=args['scn_decommissioning'][i],
+                    branch_capacity_factor=args['branch_capacity_factor'])
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
