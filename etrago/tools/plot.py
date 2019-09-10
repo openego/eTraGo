@@ -130,6 +130,7 @@ def plot_line_loading(
     cmap = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     array_link = [['Link'] * len(network.links), network.links.index]
+    
     if network.lines_t.q0.empty:
 
         loading_lines = pd.Series((network.lines_t.p0.mul(
@@ -162,20 +163,27 @@ def plot_line_loading(
             network.links.set_value(i, 'linked_to',l.values[0])
 
     network.links.linked_to = network.links.linked_to.astype(str)
+    # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[network.links.index[
             network.links.linked_to == '0']]
 
+    p_nom_opt_max=network.links.p_nom_opt[network.links.linked_to == '0']
+
+    # Set p_nom_max and line_loading for bidirectional links
     for i, row in network.links[network.links.linked_to != '0'].iterrows():
         load = pd.DataFrame(index = network.links_t.p0.index,
                             columns = ['to', 'from'])
         load['to'] = network.links_t.p0[row['linked_to']]
         load['from'] = network.links_t.p0[i]
         link_load[i] = load.abs().max(axis = 1)
+        p_nom_opt_max[i] = max(row.p_nom_opt,
+                     network.links.p_nom_opt[network.links.index
+                                             ==row['linked_to']].values[0])
 
     loading_links = pd.Series((link_load.mul(
             network.snapshot_weightings, axis=0).loc[network.snapshots[
             timesteps]].abs().sum()[network.links.index] / (
-        network.links.p_nom_opt)).data, index=array_link).dropna()
+        p_nom_opt_max)).data, index=array_link).dropna()
 
     load_links_rel = (loading_links/  
                       network.snapshot_weightings\
@@ -188,8 +196,8 @@ def plot_line_loading(
     fig, ax = plt.subplots(1, 1)  
     fig.set_size_inches(15, 10)
 
-    ll = network.plot(line_colors=loading, line_cmap=cmap,
-                      title="Line loading", line_widths=0.55, bus_sizes=0)
+    ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap},
+                      title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
@@ -200,9 +208,9 @@ def plot_line_loading(
         v = np.linspace(boundaries[0], boundaries[1], 101)
         
     cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+                      ticks=v[0:101:10])
     cb_Link = plt.colorbar(ll[2], boundaries=v,
-                      ticks=v[0:101:10], fraction=0.046, pad=0.04)
+                      ticks=v[0:101:10])
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
@@ -774,9 +782,6 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
     else:
         plt.savefig(filename)
         plt.close()
-
-
-
 
 
 def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
