@@ -479,8 +479,8 @@ def etrago(args):
                     network,
                     args,
                     line_max=None,
-                    line_max_foreign=4,
-                    line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
+                    line_max_foreign=None,
+                    #line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
                     line_max_foreign_abs= None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])

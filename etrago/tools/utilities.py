@@ -1863,7 +1863,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
-                    #save_plots(network, args, plot_path=path+'/plots')
+                    save_plots(network, args, plot_path=path+'/plots')
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
@@ -1923,7 +1923,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
-                    #save_plots(network, args, plot_path=path+'/plots')
+                    save_plots(network, args, plot_path=path+'/plots')
 
                     
                 if abs(pre-network.objective) <=diff_obj:
@@ -1945,7 +1945,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             if args['csv_export'] != False:
                 path=args['csv_export']+ '/lopf'
                 results_to_csv(network, args, path)
-                #save_plots(network, args, plot_path=path+'/plots')
+                save_plots(network, args, plot_path=path+'/plots')
 
             
     return network
