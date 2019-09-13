@@ -31,6 +31,7 @@ import pypsa
 import json
 import logging
 import math
+#from etrago.tools.extendable import print_expansion_costs
 
 geopandas = True
 try:
@@ -1894,43 +1895,33 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     t_snom_pre: pandas.Series
         s_nom of transformers in previous iteration
     """
-
-    network.lines.x[network.lines.s_nom_extendable] = \
-    network.lines.x * l_snom_pre / network.lines.s_nom_opt
-                
-    network.transformers.x[network.transformers.s_nom_extendable]=\
-    network.transformers.x * t_snom_pre /\
-    network.transformers.s_nom_opt
-                
-    network.lines.r[network.lines.s_nom_extendable] = \
-    network.lines.r * l_snom_pre / network.lines.s_nom_opt
-                
-    network.transformers.r[network.transformers.s_nom_extendable]=\
-    network.transformers.r * t_snom_pre /\
-    network.transformers.s_nom_opt
-                
-    network.lines.g[network.lines.s_nom_extendable] = \
-    network.lines.g * network.lines.s_nom_opt / l_snom_pre
-                
-    network.transformers.g[network.transformers.s_nom_extendable]=\
-    network.transformers.g * network.transformers.s_nom_opt /\
-    t_snom_pre
-                
-    network.lines.b[network.lines.s_nom_extendable] = \
-    network.lines.b * network.lines.s_nom_opt / l_snom_pre
-                
-    network.transformers.b[network.transformers.s_nom_extendable]=\
-    network.transformers.b * network.transformers.s_nom_opt /\
-    t_snom_pre
-                
+    line_factor = l_snom_pre / network.lines.s_nom_opt
+    network.lines.x[network.lines.s_nom_extendable] *= line_factor.values
+    network.lines.r[network.lines.s_nom_extendable] *= line_factor.values
+    #print((l_snom_pre / network.lines.s_nom_opt).min())
+    network.lines.b[network.lines.s_nom_extendable] *= 1 / line_factor.values
+    network.lines.g[network.lines.s_nom_extendable] *= 1 / line_factor.values
+    
+    trafo_factor = (t_snom_pre / network.transformers.s_nom_opt).values
+    network.transformers.x[network.transformers.s_nom_extendable] *= trafo_factor
+    network.transformers.r[network.transformers.s_nom_extendable] *= trafo_factor
+    #print((l_snom_pre / network.lines.s_nom_opt).min())
+    network.transformers.b[network.transformers.s_nom_extendable] *= 1 / trafo_factor
+    network.transformers.g[network.transformers.s_nom_extendable] *= 1 / trafo_factor
+    """network.sub_networks.obj[0].calculate_B_H()
+    network.sub_networks.obj[0].calculate_PTDF()
+    network.sub_networks.obj[0].calculate_BODF()
+    print(network.sub_networks.obj[0].BODF.max())"""
+    #network.lines.x_pu = network.lines.x        
+               
     # Set snom_pre to s_nom_opt for next iteration
     l_snom_pre = network.lines.s_nom_opt.copy()
     t_snom_pre = network.transformers.s_nom_opt.copy()
-                
+    #network.calculate_dependent_values()
     return l_snom_pre, t_snom_pre
 
 def iterate_lopf(network, args, extra_functionality, method={'n_iter':4}, 
-                 delta_s_max=0.1):
+                 delta_s_max=0):
 
     """
     Run optimization of lopf. If network extension is included, the specified 
@@ -1989,21 +1980,27 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
+                network.sub_networks.obj[0].calculate_B_H()
+                network.sub_networks.obj[0].calculate_PTDF()
+                print(network.sub_networks.obj[0].PTDF)
+                network.sub_networks.obj[0].calculate_BODF()
+                #print(network.sub_networks.obj[0].BODF.max())
                 y = time.time()
                 z = (y - x) / 60
-
                 if network.results["Solver"][0]["Status"].key!='ok':
                     raise  Exception('LOPF '+ str(i) + ' not solved.')
-
+                print((network.lines.s_nom_opt-network.lines.s_nom_min).sum())
                 print("Time for LOPF [min]:", round(z, 2))
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
-
+                #import pdb; pdb.set_trace()
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
+                
+                
         
         # Calculate variable number of iterations until threshold of objective 
         # function is reached

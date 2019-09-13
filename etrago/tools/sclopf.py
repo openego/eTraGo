@@ -96,40 +96,41 @@ def post_contingency_analysis(network):
 
 def post_contingency_analysis_per_line(network, branch_outages, n_process):
     x = time.time()
-    network.lines.s_nom = network.lines.s_nom_opt.copy()
-    network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
-    network.generators_t.p_set = network.generators_t.p
-    network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
-    network.storage_units_t.p_set = network.storage_units_t.p
-    network.links_t.p_set = network.links_t.p_set.reindex(columns=network.links.index)
-    network.links_t.p_set = network.links_t.p0
+    nw = network.copy()
+    nw.lines.s_nom = nw.lines.s_nom_opt.copy()
+    nw.generators_t.p_set = nw.generators_t.p_set.reindex(columns=nw.generators.index)
+    nw.generators_t.p_set = nw.generators_t.p
+    nw.storage_units_t.p_set = nw.storage_units_t.p_set.reindex(columns=nw.storage_units.index)
+    nw.storage_units_t.p_set = nw.storage_units_t.p
+    nw.links_t.p_set = nw.links_t.p_set.reindex(columns=nw.links.index)
+    nw.links_t.p_set = nw.links_t.p0
 
     import multiprocessing as mp
    # output = mp.Queue()
     snapshots_set={}
-    length = int(network.snapshots.size / n_process)
+    length = int(nw.snapshots.size / n_process)
     for i in range(n_process):
-        snapshots_set[str(i+1)]=network.snapshots[i*length : (i+1)*length]
+        snapshots_set[str(i+1)]=nw.snapshots[i*length : (i+1)*length]
     manager = mp.Manager()
     d = manager.dict()
-    snapshots_set[str(n_process-1)] = network.snapshots[i*length :]
-    def multi_con(network, snapshots, d):
+    snapshots_set[str(n_process-1)] = nw.snapshots[i*length :]
+    def multi_con(nw, snapshots, d):
         for sn in snapshots:  
             #d = {}
         #Check no lines are overloaded with the linear contingency analysis
-            p0_test = network.lpf_contingency(sn)
+            p0_test = nw.lpf_contingency(sn)
         # rows: branch outage, index = monitorred line
         
         #check loading as per unit of s_nom in each contingency
             overloaded = (abs(
-                p0_test.divide(network.passive_branches().s_nom,axis=0)
+                p0_test.divide(nw.passive_branches().s_nom,axis=0)
                 )>1.00001).drop(['base'], axis=1).transpose()# rows: monitorred line, index = branch outage
             combinations = np.where(overloaded.values)
             
             if not combinations[0].size == 0:
                 d[sn]=combinations
            # output.put(d)
-    processes = [mp.Process(target=multi_con, args=(network, snapshots_set[i], d)) for i in snapshots_set]
+    processes = [mp.Process(target=multi_con, args=(nw, snapshots_set[i], d)) for i in snapshots_set]
     
     # Run processes
     for p in processes:
@@ -157,8 +158,11 @@ def add_reduced_contingency_constraints(network,combinations):
     flow_lower = {}
     sub = network.sub_networks.obj[0]
     sub._branches = sub.branches()
-    if add_reduced_contingency_constraints.counter ==1:
-        sub.calculate_BODF()
+    #if add_reduced_contingency_constraints.counter ==1:
+    sub.calculate_B_H()
+    sub.calculate_PTDF()
+    sub.calculate_BODF()
+    print(sub.BODF.max())
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
@@ -215,21 +219,20 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
-    idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
+    """idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
     can1 =  network.lines[idx]
     idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
     can2 = can1[idx2]
     can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
-    branch_outages=can2[can3].index
-    combinations = post_contingency_analysis_per_line(network, branch_outages,4)
+    branch_outages=can2[can3].index"""
+    branch_outages=network.lines.index
     n=0
     nb=0
+    combinations = post_contingency_analysis_per_line(network, branch_outages,4)
     while len(combinations) > 0:
         if  n < 10:
                 
             logger.info("SCLOPF No. "+ str(n+1) + " started with " + str(2*nb) + " SC-constraints.")
-            
-
             nb = nb + add_reduced_contingency_constraints(network,combinations)
             network_lopf_solve(network, 
                        network.snapshots, 
@@ -239,18 +242,17 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)
             n+=1
-            combinations = post_contingency_analysis_per_line(network,branch_outages, 4)
+            combinations  = post_contingency_analysis_per_line(network,branch_outages, 4)
+
             if network.lines.s_nom_extendable.any():
                 l_snom_pre = network.lines.s_nom.copy()
                 t_snom_pre = network.transformers.s_nom.copy()
-                """for i in range(n_iter): #Aktuell endlos-Schleife, Warum?
+                """for i in range(n_iter): #Aktuell endlos-Schleife, da sich mit x die LODFs und somit die SCs ändern!
                     print(i)
-                    l_snom_pre, t_snom_pre = \
-                        update_electrical_parameters(network, 
-                                                 l_snom_pre, t_snom_pre)
+                            
                     l_snom_pre, t_snom_pre = \
                         iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
-                    combinations = post_contingency_analysis_per_line(network,4)"""
+                    combinations= post_contingency_analysis_per_line(network,branch_outages, 4)"""
                     # Anpassung x über update der cycyle constraints? Sonst muss das model immer wieder gebaut werden 
         else: 
             print('Maximum number of iterations reached.')

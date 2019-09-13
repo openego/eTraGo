@@ -113,8 +113,8 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
-    'gridversion': None,  # None for model_draft or Version number
+    'db': 'oedb',  # database session
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':True,  # perform a sclopf after a lopf simulation
@@ -140,7 +140,7 @@ args = {
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': '/home/clara/GitHub/eTraGo/etrago/cluster_coord_k_50_result',  # False or predefined busmap for k-means
+    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -461,7 +461,7 @@ def etrago(args):
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
-
+    network.lines.b[network.lines.b==0] = (1/network.lines.x[network.lines.b==0]).copy()
     # set Branch capacity factor for lines and transformer
     if args['branch_capacity_factor']:
         set_branch_capacity(network, args)
@@ -554,7 +554,7 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        network.lines.b = 1/network.lines.x
+        #network.lines.b[network.lines.b==0] = (1/network.lines.x[network.lines.b==0]).copy()
         iterate_lopf(network,
                      args,
                      extra_functionality,
