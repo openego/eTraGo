@@ -2069,8 +2069,8 @@ def save_plots(network, args, plot_path):
     curtailment(network, carrier='wind_offshore', filename=plot_path+'/curtail_windoff.png')
     nodal_gen_dispatch(network,techs=None, scaling=2, filename=plot_path+'/nodal_gen.png')
     nodal_production_balance(network, scaling=0.0001,  filename=plot_path+'/nodal_balance.png')
-    storage_p_soc(network, mean='60H', filename = plot_path+'/storage_psoc.png') # evtl. lieber anderes H wählen, Argument für jede 3. Stunde
-    storage_soc_sorted(network, filename = plot_path+'/storage_socsort.png')
+    #storage_p_soc(network, mean='60H', filename = plot_path+'/storage_psoc.png') # evtl. lieber anderes H wählen, Argument für jede 3. Stunde
+    #storage_soc_sorted(network, filename = plot_path+'/storage_socsort.png')
     
     return
     

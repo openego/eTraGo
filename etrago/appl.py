@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath='args_ego100_paper_extdecom_test.json')
+args = get_args_setting(args, jsonpath='args_nep.json')
 
 
 def etrago(args):
@@ -470,7 +470,11 @@ def etrago(args):
 
     from math import sqrt
     def snommax(i=1020, u=380, wires=4, circuits=4):
-        s_nom_max = (i*u*sqrt(3)*wires*circuits)/1000
+        if u==380 or u==220:
+            cap_factor =  args['branch_capacity_factor']['eHV']
+        elif u==110:
+            cap_factor =  args['branch_capacity_factor']['HV']
+        s_nom_max = ((i*u*sqrt(3)*wires*circuits)/1000) *  cap_factor
         return s_nom_max
 
     # investive optimization strategies
@@ -479,8 +483,8 @@ def etrago(args):
                     network,
                     args,
                     line_max=None,
-                    line_max_foreign=None,
-                    #line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
+                    line_max_foreign=4,
+                    line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
                     line_max_foreign_abs= None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
