@@ -105,7 +105,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
     
-    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf
+    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf, iterate_sclopf_new
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -119,7 +119,7 @@ args = {
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':True,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 13,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
@@ -133,7 +133,7 @@ args = {
     'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -532,7 +532,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-
+       # network = geolocation_buses(network, session)
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -558,23 +558,26 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality,
-                     method={'n_iter':5})
+                     method={'n_iter':4})
         print("Objective:",network.objective)
         
 
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
-        
+        branch_outages=network.lines.index
+        iterate_sclopf(network, args, branch_outages, extra_functionality=None, 
+                   method={'n_iter':10}, delta_s_max=0)
+        #iterate_sclopf_new(network, args, network.lines.index, extra_functionality)
         """idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
         can1 =  network.lines[idx]
         idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
         can2 = can1[idx2]
         can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
-        branch_outages=can2[can3].index"""
+        branch_outages=can2[can3].index
         branch_outages=network.lines.index
-        """min_idx=network.lines.groupby(['bus0', 'bus1'])['x'].transform(min) == network.lines['x']
+        min_idx=network.lines.groupby(['bus0', 'bus1'])['x'].transform(min) == network.lines['x']
         can1 =  network.lines[min_idx]
-        can3 = can1.groupby(['bus0', 'bus1'])['index'].transform(min) == can1['index']"""
+        can3 = can1.groupby(['bus0', 'bus1'])['index'].transform(min) == can1['index']
         #branch_outages=branch_outages.append(can1[can3].index).unique()
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
@@ -593,12 +596,12 @@ def etrago(args):
         print("Performing security-constrained linear OPF:")
         if args['parallelisation'] == False:
             iterate_sclopf(network, args, branch_outages, extra_functionality=None, 
-                   method={'n_iter':5}, delta_s_max=0)
+                   method={'threshold':0.01}, delta_s_max=0)
             print("Objective:",network.objective)
         else:
             
             parallelisation_sclopf(network, args, 24, branch_outages, 
-                           extra_functionality)
+                           extra_functionality)"""
     
         
         """#For the PF, set the P to the optimised P

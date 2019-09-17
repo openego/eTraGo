@@ -1898,7 +1898,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     line_factor = l_snom_pre / network.lines.s_nom_opt
     network.lines.x[network.lines.s_nom_extendable] *= line_factor.values
     network.lines.r[network.lines.s_nom_extendable] *= line_factor.values
-    #print((l_snom_pre / network.lines.s_nom_opt).min())
+    #print(line_factor)
     network.lines.b[network.lines.s_nom_extendable] *= 1 / line_factor.values
     network.lines.g[network.lines.s_nom_extendable] *= 1 / line_factor.values
     
@@ -1980,11 +1980,11 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
-                network.sub_networks.obj[0].calculate_B_H()
+                """network.sub_networks.obj[0].calculate_B_H()
                 network.sub_networks.obj[0].calculate_PTDF()
-                print(network.sub_networks.obj[0].PTDF)
+                #print(network.sub_networks.obj[0].PTDF)
                 network.sub_networks.obj[0].calculate_BODF()
-                #print(network.sub_networks.obj[0].BODF.max())
+                print(network.sub_networks.obj[0].BODF.max())"""
                 y = time.time()
                 z = (y - x) / 60
                 if network.results["Solver"][0]["Status"].key!='ok':
