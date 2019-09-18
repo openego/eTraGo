@@ -46,9 +46,6 @@ def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
     t_snom_pre: pandas.Series
         s_nom of transformers in previous iteration
     """
-    #l_snom_pre, t_snom_pre = \
-                 #   update_electrical_parameters(network, 
-                                              #   l_snom_pre, t_snom_pre)
     # Delete flow constraints for each possible model formulation
     network.model.del_component('cycle_constraints')
     network.model.del_component('cycle_constraints_index')
@@ -105,7 +102,6 @@ def post_contingency_analysis_per_line(network, branch_outages, n_process):
     nw.storage_units_t.p_set = nw.storage_units_t.p
     nw.links_t.p_set = nw.links_t.p_set.reindex(columns=nw.links.index)
     nw.links_t.p_set = nw.links_t.p0
-
     import multiprocessing as mp
    # output = mp.Queue()
     snapshots_set={}
@@ -119,7 +115,7 @@ def post_contingency_analysis_per_line(network, branch_outages, n_process):
         for sn in snapshots:  
             #d = {}
         #Check no lines are overloaded with the linear contingency analysis
-            p0_test = nw.lpf_contingency(sn)
+            p0_test = nw.lpf_contingency(branch_outages=branch_outages, snapshots=sn)
         # rows: branch outage, index = monitorred line
         
         #check loading as per unit of s_nom in each contingency
@@ -164,7 +160,7 @@ def add_reduced_contingency_constraints(network,combinations):
     sub.calculate_B_H()
     sub.calculate_PTDF()
     sub.calculate_BODF()
-    print(sub.BODF.max())
+    #print(sub.BODF.max())
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
@@ -290,13 +286,17 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
-    """idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
-    can1 =  network.lines[idx]
-    idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
-    can2 = can1[idx2]
-    can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
-    branch_outages=can2[can3].index"""
-    branch_outages=network.lines.index#[network.lines.country=='DE']
+
+    if (network.lines.groupby(['bus0', 'bus1']).size()>1).any():
+        idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
+        can1 =  network.lines[idx]
+        idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
+        can2 = can1[idx2]
+        can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
+        branch_outages=can2[can3].index
+
+    else:
+        branch_outages=network.lines.index#[network.lines.country=='DE']
     n=0
     nb=0
     combinations = post_contingency_analysis_per_line(network, branch_outages, 4)
@@ -313,8 +313,8 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)
             n+=1
+            branch_outages=network.lines.index
             combinations  = post_contingency_analysis_per_line(network,branch_outages, 4)
-
             if network.lines.s_nom_extendable.any():
                 l_snom_pre = network.lines.s_nom.copy()
                 t_snom_pre = network.transformers.s_nom.copy()

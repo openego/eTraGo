@@ -118,8 +118,8 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':True,  # perform a sclopf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 24,
+    'start_snapshot': 1,
+    'end_snapshot': 6,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
@@ -139,15 +139,15 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
-    'parallel_lines': False, #'single',
+    'parallel_lines':False, # 'single',
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -528,7 +528,7 @@ def etrago(args):
                 max_iter=100,
                 tol=1e-6,
                 n_jobs=-1,
-                line_agg=True)
+                line_agg= True)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -567,18 +567,7 @@ def etrago(args):
         branch_outages=network.lines.index
         iterate_sclopf(network, args, branch_outages, extra_functionality=None, 
                    method={'n_iter':10}, delta_s_max=0)
-        #iterate_sclopf_new(network, args, network.lines.index, extra_functionality)
-        """idx = network.lines.groupby(['bus0', 'bus1'])['s_nom'].transform(max) == network.lines['s_nom']
-        can1 =  network.lines[idx]
-        idx2 = can1.groupby(['bus0', 'bus1'])['x'].transform(min) == can1['x']
-        can2 = can1[idx2]
-        can3 = can2.groupby(['bus0', 'bus1'])['index'].transform(min) == can2['index']
-        branch_outages=can2[can3].index
-        branch_outages=network.lines.index
-        min_idx=network.lines.groupby(['bus0', 'bus1'])['x'].transform(min) == network.lines['x']
-        can1 =  network.lines[min_idx]
-        can3 = can1.groupby(['bus0', 'bus1'])['index'].transform(min) == can1['index']
-        #branch_outages=branch_outages.append(can1[can3].index).unique()
+        """
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
             ext_lines.s_nom_min = 0
