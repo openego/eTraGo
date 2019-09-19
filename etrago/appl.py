@@ -151,7 +151,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath='args_nep.json')
+args = get_args_setting(args, jsonpath='args_ego100_paper_k300.json')
 
 
 def etrago(args):
