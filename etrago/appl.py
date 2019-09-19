@@ -89,7 +89,8 @@ if 'READTHEDOCS' not in os.environ:
         ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity)
+        set_branch_capacity,
+        iterate_lopf)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -453,6 +454,9 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
+    # Add missing lines in Munich and Stuttgart
+    network = add_missing_components(network)
+        
     # set Branch capacity factor for lines and transformer
     if args['branch_capacity_factor']:
         set_branch_capacity(network, args)
@@ -463,9 +467,6 @@ def etrago(args):
             network,
             session,
             args)
-
-    # Add missing lines in Munich and Stuttgart
-    network = add_missing_components(network)
 
     # investive optimization strategies
     if args['extendable'] != []:
@@ -523,7 +524,6 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-        network = geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
