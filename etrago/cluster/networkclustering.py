@@ -380,7 +380,7 @@ def busmap_from_psql(network, session, scn_name, version):
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
         busmap_by_shortest_path(network, session, scn_name, version,
-                                fromlvl=[110], tolvl=[220, 380, 400, 450],
+                                fromlvl=[110], tolvl=[220,320, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 

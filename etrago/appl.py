@@ -115,25 +115,25 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'sclopf_post_lopf':True,  # perform a sclopf after a lopf simulation
+    'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 6,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': 'sclopf_iter_ext2',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -461,7 +461,6 @@ def etrago(args):
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
-    network.lines.b[network.lines.b==0] = (1/network.lines.x[network.lines.b==0]).copy()
     # set Branch capacity factor for lines and transformer
     if args['branch_capacity_factor']:
         set_branch_capacity(network, args)
@@ -532,7 +531,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-       # network = geolocation_buses(network, session)
+        geolocation_buses(network, session)
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -564,9 +563,8 @@ def etrago(args):
 
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
-        branch_outages=network.lines.index
-        iterate_sclopf(network, args, branch_outages, extra_functionality=None, 
-                   method={'n_iter':10}, delta_s_max=0)
+        branch_outages=network.lines.index[network.lines.country=='DE']
+        iterate_sclopf_new(network, args, branch_outages, extra_functionality, method={'combinations':10})
         """
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
