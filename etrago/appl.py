@@ -113,15 +113,15 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.6',  # None for model_draft or Version number
+    'db': 'local',  # database session
+    'gridversion': None,  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {
+    'solver_options': {'crossover':0, 'BarConvTol': 1e-5, 'FeasibilityTol': 1e-5,
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -130,7 +130,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'sclopf_iter_ext2',  # save results as csv: False or /path/tofolder
+    'csv_export': 'sclopf_iter_ext7',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network'],  # Array of components to optimize
@@ -564,7 +564,8 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         branch_outages=network.lines.index[network.lines.country=='DE']
-        iterate_sclopf_new(network, args, branch_outages, extra_functionality, method={'combinations':10})
+        iterate_sclopf_new(network, args, 
+                           branch_outages, extra_functionality, method={'expansion_threshold':0.01})
         """
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
