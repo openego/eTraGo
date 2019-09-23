@@ -357,6 +357,7 @@ def iterate_sclopf_new(network,
                        args, 
                        branch_outages, 
                        extra_functionality, 
+                       n_process = 4,
                        method={'combinations':1}):
     # Aktuell verwendbar auch wenn Netzausbau möglich ist. Führt dann aber zu deutlich mer Iterationen. 
     # Ohne Netzausbau ist pf_post_lopf schneller, da nur einzelnen NB geschrieben werden 
@@ -381,7 +382,7 @@ def iterate_sclopf_new(network,
                                                  l_snom_pre, t_snom_pre)
     # Calc SC
     new = post_contingency_analysis_per_line(
-                network, network.lines.index, 4)
+                network, network.lines.index, n_process)
 
     # Initalzie dict of SC
     combinations =  dict.fromkeys(network.snapshots, [[], []])
@@ -405,7 +406,7 @@ def iterate_sclopf_new(network,
                         update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
                 new = post_contingency_analysis_per_line(
-                            network, network.lines.index, 4)
+                            network, network.lines.index, n_process)
 
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
@@ -447,7 +448,7 @@ def iterate_sclopf_new(network,
                                                  l_snom_pre, t_snom_pre)
 
             new = post_contingency_analysis_per_line(
-                            network, network.lines.index, 4)
+                            network, network.lines.index, n_process)
             if args['csv_export'] != False:
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)
@@ -491,7 +492,7 @@ def iterate_sclopf_new(network,
                                                  l_snom_pre, t_snom_pre)
 
             new = post_contingency_analysis_per_line(
-                            network, network.lines.index, 4)
+                            network, network.lines.index, n_process)
             if args['csv_export'] != False:
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
                     results_to_csv(network, args, path)

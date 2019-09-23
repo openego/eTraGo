@@ -564,8 +564,12 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         branch_outages=network.lines.index[network.lines.country=='DE']
-        iterate_sclopf_new(network, args, 
-                           branch_outages, extra_functionality, method={'expansion_threshold':0.01})
+        iterate_sclopf_new(network,
+                           args, 
+                           branch_outages,
+                           extra_functionality, 
+                           n_process = 8,
+                           method={'expansion_threshold':0.01})
         """
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
