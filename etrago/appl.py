@@ -543,6 +543,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+        network = geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
@@ -563,7 +564,7 @@ def etrago(args):
     elif args['method'] == 'lopf':
         iterate_lopf(network,
                      args,
-                     Constraints(args).functionality,
+                     extra_functionality=Constraints(args).functionality,
                      method={'n_iter':5})
 
     # start non-linear powerflow simulation
