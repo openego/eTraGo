@@ -105,8 +105,8 @@ class Constraints:
                     & (network.lines.bus1.isin(buses_de))]
 
                 cb1 = network.lines.index[
-                    (network.lines.bus0.isin(buses_for))
-                    & (network.lines.bus1.isin(buses_de))]
+                    (network.lines.bus1.isin(buses_for))
+                    & (network.lines.bus0.isin(buses_de))]
 
                 cb0_link = network.links.index[
                     (network.links.bus0.isin(buses_for))
@@ -220,7 +220,7 @@ class Constraints:
                                         for link in cb1_link
                                         for sn in snapshots)
 
-                        return cb_flow >= export_per_country[cntr][0]
+                        return cb_flow >= export_per_country[0][cntr]
 
                     setattr(network.model,
                             "min_cross_border" + cntr,
@@ -243,11 +243,72 @@ class Constraints:
                                         network.snapshot_weightings[sn]
                                         for link in cb1_link
                                         for sn in snapshots)
-                        return cb_flow <= export_per_country[cntr][1]
+                        return cb_flow <= export_per_country[1][cntr]
 
                     setattr(network.model,
                             "max_cross_border" + cntr,
                             Constraint(cntr, rule=_rule_max))
+
+        if 'max_curtailment' in self.args['extra_functionality'].keys():
+
+            renewables = ['wind_onshore', 'wind_offshore', 'solar']
+
+            res = list(network.generators.index[
+                    (network.generators.carrier.isin(renewables))
+                    & (network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country_code == 'DE']))])
+
+            res_potential = (network.generators.p_nom[res]*
+                             network.generators_t.p_max_pu[res]).sum().sum()
+
+            snapshots = network.snapshots
+
+            def _rule(m):
+                    """
+                    Sets renewable feed-in of each generator
+                    to minimum of renewable potential
+                    """
+                    re_n = sum(m.generator_p[gen, sn]
+                        for gen in res
+                        for sn in snapshots)
+
+                    return (re_n >= (1-self.args['extra_functionality']
+                                     ['max_curtailment'])
+                                    * res_potential)
+
+            setattr(network.model, "max_curtailment",
+                    Constraint(res, rule=_rule))
+
+        if 'max_curtailment_per_gen' in self.args['extra_functionality'].keys():
+
+            renewables = ['wind_onshore', 'wind_offshore', 'solar']
+
+            res = list(network.generators.index[
+                    (network.generators.carrier.isin(renewables))
+                    & (network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country_code == 'DE']))])
+
+            res_potential = (network.generators.p_nom[res]*
+                             network.generators_t.p_max_pu[res]).sum()
+
+            snapshots = network.snapshots
+
+            for gen in res:
+
+                def _rule(m, gen):
+                    """
+                    Sets renewable feed-in to minimum of renewable potential
+                    """
+                    re_n = sum(m.generator_p[gen, sn] for sn in snapshots)
+                    potential_n = res_potential[gen]
+
+                    return (re_n >= (1-self.args['extra_functionality']
+                                     ['max_curtailment_per_gen']) 
+                                    * potential_n)
+
+                setattr(network.model, "max_curtailment_" + gen,
+                        Constraint(res, rule=_rule))
+
 
         if self.args['snapshot_clustering'] is not False:
                 # This will bound the storage level to 0.5 max_level every 24th hour.
