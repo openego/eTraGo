@@ -434,7 +434,11 @@ def etrago(args):
                     network.generators.bus.isin(network.buses.index[
                             network.buses.country_code == 'DE'])])))
         network.generators.marginal_cost[network.generators.bus.isin(
-                network.buses.index[network.buses.country_code != 'DE'])] +=0.01        
+                network.buses.index[network.buses.country_code != 'DE'])] += \
+	    abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])]))).max()
+        
         
         # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
@@ -538,7 +542,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv="bus_weighting_sq045_2019.csv",
+                bus_weight_fromcsv="bus_weighting_sq046_2019.csv",
                 n_init=2500,
                 max_iter=1000,
                 tol=1e-20,
