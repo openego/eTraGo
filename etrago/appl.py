@@ -426,9 +426,15 @@ def etrago(args):
         s = np.random.RandomState(args['generator_noise'])
         network.generators.marginal_cost[network.generators.bus.isin(
                 network.buses.index[network.buses.country_code == 'DE'])] += \
-            abs(s.normal(0, 0.1, len(network.generators.marginal_cost[
+            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
                             network.buses.country_code == 'DE'])])))
+        network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])] += \
+            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])]))).max()
+
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
