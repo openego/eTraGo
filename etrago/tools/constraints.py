@@ -105,8 +105,8 @@ class Constraints:
                     & (network.lines.bus1.isin(buses_de))]
 
                 cb1 = network.lines.index[
-                    (network.lines.bus0.isin(buses_for))
-                    & (network.lines.bus1.isin(buses_de))]
+                    (network.lines.bus1.isin(buses_for))
+                    & (network.lines.bus0.isin(buses_de))]
 
                 cb0_link = network.links.index[
                     (network.links.bus0.isin(buses_for))
@@ -117,7 +117,7 @@ class Constraints:
                     & (network.links.bus1.isin(buses_for))]
 
                 snapshots = network.snapshots
-
+                
                 export = pd.Series(
                     data=self.args['extra_functionality']['cross_border_flow']
                     )*network.loads_t.p_set.mul(network.snapshot_weightings,
@@ -220,7 +220,7 @@ class Constraints:
                                         for link in cb1_link
                                         for sn in snapshots)
 
-                        return cb_flow >= export_per_country[cntr][0]
+                        return cb_flow >= export_per_country[0][cntr]
 
                     setattr(network.model,
                             "min_cross_border" + cntr,
@@ -243,7 +243,7 @@ class Constraints:
                                         network.snapshot_weightings[sn]
                                         for link in cb1_link
                                         for sn in snapshots)
-                        return cb_flow <= export_per_country[cntr][1]
+                        return cb_flow <= export_per_country[1][cntr]
 
                     setattr(network.model,
                             "max_cross_border" + cntr,
