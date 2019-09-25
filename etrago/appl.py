@@ -90,7 +90,8 @@ if 'READTHEDOCS' not in os.environ:
         geolocation_buses,
         get_args_setting,
         set_branch_capacity,
-        iterate_lopf)
+        iterate_lopf,
+        set_random_noise)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -421,20 +422,6 @@ def etrago(args):
     # set clustering to default
     clustering = None
 
-    if args['generator_noise'] is not False:
-        # add random noise to all generators
-        s = np.random.RandomState(args['generator_noise'])
-        network.generators.marginal_cost[network.generators.bus.isin(
-                network.buses.index[network.buses.country_code == 'DE'])] += \
-            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
-                    network.generators.bus.isin(network.buses.index[
-                            network.buses.country_code == 'DE'])])))
-        network.generators.marginal_cost[network.generators.bus.isin(
-                network.buses.index[network.buses.country_code != 'DE'])] += \
-            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
-                    network.generators.bus.isin(network.buses.index[
-                            network.buses.country_code == 'DE'])]))).max()
-
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
@@ -462,7 +449,11 @@ def etrago(args):
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
-        
+
+    # add random noise to all generators
+    if args['generator_noise'] is not False:
+        set_random_noise(network, args['generator_noise'], 0.01)
+
     # set Branch capacity factor for lines and transformer
     if args['branch_capacity_factor']:
         set_branch_capacity(network, args)
