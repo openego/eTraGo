@@ -1546,6 +1546,35 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
     return args
 
+def set_random_noise(network, seed, sigma = 0.01):
+    """
+    Sets random noise to marginal cost of each generator.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    seed: int
+        seed number, needed to reproduce results
+
+    sigma: float
+        Default: 0.01
+        standard deviation, small values reduce impact on dispatch
+        but might lead to numerical instability
+    """
+    s = np.random.RandomState(seed)
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code == 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])])))
+
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])]))).max()
 
 def set_line_country_tags(network):
     """
