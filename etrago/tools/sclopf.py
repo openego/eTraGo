@@ -59,13 +59,13 @@ def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
         
         logger.error('Currently only implemented for kirchhoff-formulation.')
 
-    network_lopf_solve(network, network.snapshots, formulation=args['model_formulation'])
+    network = network_lopf_solve(network, network.snapshots, formulation=args['model_formulation'], solver_options = args['solver_options'])
 
-    return #l_snom_pre, t_snom_pre 
+    return network
 
 
 
-def post_contingency_analysis(network, delta = 0.01):
+def post_contingency_analysis(network, delta = 0.05):
     
     network.lines.s_nom = network.lines.s_nom_opt.copy()
     network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
@@ -95,7 +95,7 @@ def post_contingency_analysis(network, delta = 0.01):
 def post_contingency_analysis_per_line(network, 
                                        branch_outages, 
                                        n_process = 4, 
-                                       delta = 0.01):
+                                       delta = 0.05):
     x = time.time()
     nw = network.copy()
     nw.lines.s_nom = nw.lines.s_nom_opt.copy()
@@ -122,9 +122,9 @@ def post_contingency_analysis_per_line(network,
         # rows: branch outage, index = monitorred line
         
         #check loading as per unit of s_nom in each contingency
-            overloaded = (abs(
-                p0_test.divide(nw.passive_branches().s_nom,axis=0)
-                )>(1 + delta)).drop(['base'], axis=1).transpose()# columns: monitorred line, index = branch outage
+            load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)).drop(['base'], axis = 1) # columns: branch_outages
+            # schon im base_case leitungen teilweise überlastet. Liegt das an x Anpassung? 
+            overloaded = (load>(1 + delta))# columns: branch_outages
            # combinations = [network.lines.index[np.where(overloaded.values)[0]],
                                           #      network.lines.index[np.where(overloaded.values)[1]]]
             array_mon = []
@@ -258,7 +258,7 @@ def add_all_contingency_constraints(network,combinations):
            flow_upper.update({
                 ( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
                         (1, network.model.passive_branch_p[mon[i], sn]),
-                        (sub.BODF[mon[i].astype(int)-1, out[i].astype(int)-1],
+                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                         network.model.passive_branch_p[out[i], sn])],
                         "<=", sub._fixed_branches.at[ mon[i],"s_nom"]] 
                 for i in range(len(mon_fix))}) 
@@ -275,13 +275,13 @@ def add_all_contingency_constraints(network,combinations):
     
            flow_lower.update({( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
                         (1, network.model.passive_branch_p['Line', mon[i],sn]),
-                        (sub.BODF[mon[i].astype(int)-1, out[i].astype(int)-1],
+                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                         network.model.passive_branch_p['Line', out[i], sn])],
                         ">=", -sub._fixed_branches.at[('Line', mon[i]),"s_nom"]] 
-                    for i in range(len( mon_fix))})
+                    for i in range(len(mon_fix))})
     
            flow_lower.update({
-                (  out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
+                (out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
                 (1, network.model.passive_branch_p[ mon[i], sn]),
                 (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                 network.model.passive_branch_p[ out[i], sn]),
@@ -375,6 +375,8 @@ def iterate_sclopf_new(network,
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
     
+
+    
     # Update electrical parameters if network is extendable
     if network.lines.s_nom_extendable.any():
         l_snom_pre, t_snom_pre = \
@@ -382,14 +384,14 @@ def iterate_sclopf_new(network,
                                                  l_snom_pre, t_snom_pre)
     # Calc SC
     new = post_contingency_analysis_per_line(
-                network, network.lines.index, n_process)
+                network, branch_outages, n_process)
 
     # Initalzie dict of SC
     combinations =  dict.fromkeys(network.snapshots, [[], []])
 
     if 'combinations' in method:
         while len(new) > 0:
-            if  n < 100:
+            if  n < 20:
 
                 combinations = calc_new_sc_combinations(combinations, new)
                 
@@ -397,16 +399,19 @@ def iterate_sclopf_new(network,
 
                 logger.info("SCLOPF No. "+ str(n+1) + " started with " 
                             + str(2*nb) + " SC-constraints.")
+               # network.model.write(('2_lp_' + str(n) + '.lp'), io_options={
+                #'symbolic_solver_labels': True})
                 iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
-
+                
 
                 # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
                 if network.lines.s_nom_extendable.any():
                     l_snom_pre, t_snom_pre = \
                         update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
+
                 new = post_contingency_analysis_per_line(
-                            network, network.lines.index, n_process)
+                            network, branch_outages, n_process)
 
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
@@ -441,7 +446,7 @@ def iterate_sclopf_new(network,
             iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
 
             # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) 
-            # kann Netzausbau n-1 sicher werden
+            # kann Netzausbau n-1 sicher werden, dann aber auch im n-0 Fall Überlastungen!!
             if network.lines.s_nom_extendable.any():
                     l_snom_pre, t_snom_pre = \
                         update_electrical_parameters(network,
@@ -456,6 +461,7 @@ def iterate_sclopf_new(network,
                    
             if abs(pre-(network.lines.s_nom_opt-network.lines.s_nom_min).sum()
                 ) <= diff:
+                    import pdb; pdb.set_trace()
                     print('Expansion-threshold reached after ' +
                           str(n) + ' iterations.')
                     break

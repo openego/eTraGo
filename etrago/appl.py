@@ -113,7 +113,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
@@ -121,7 +121,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'crossover':0, 'BarConvTol': 1e-5, 'FeasibilityTol': 1e-5,
+    'solver_options': {'crossover':0, 
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -130,7 +130,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'sclopf_iter_ext7',  # save results as csv: False or /path/tofolder
+    'csv_export': 'sclopf_iter/day',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network'],  # Array of components to optimize
@@ -139,8 +139,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_300_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -569,7 +569,7 @@ def etrago(args):
                            branch_outages,
                            extra_functionality, 
                            n_process = 8,
-                           method={'expansion_threshold':0.01})
+                           method={'combinations':0.01})
         """
         if 'network_sclopf' in args['extendable']:
             ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
@@ -597,8 +597,8 @@ def etrago(args):
     
         
         """#For the PF, set the P to the optimised P
-        now = network.snapshots[0]
-        branch_outages =network.lines.index
+        now = network.snapshots[1]
+        #branch_outages =network.lines.index
         network.lines.s_nom=network.lines.s_nom_opt
         network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
         network.generators_t.p_set.loc[now] = network.generators_t.p.loc[now]
