@@ -1977,4 +1977,14 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
             
     return network
-            
+
+
+def sensitivity_cd2(network, scale_solar=1, scale_windon=1.245, scale_windoff=1.148):
+    solar = network.generators[network.generators.carrier=='solar']
+    network.generators_t.p_max_pu[solar.index] *= scale_solar
+
+    wind_on = network.generators[network.generators.carrier=='wind_onshore']
+    network.generators_t.p_max_pu[wind_on.index] *= scale_windon
+
+    wind_off = network.generators[network.generators.carrier=='wind_offshore']
+    network.generators_t.p_max_pu[wind_off.index] *= scale_windoff            

@@ -95,7 +95,8 @@ if 'READTHEDOCS' not in os.environ:
         get_args_setting,
         set_branch_capacity,
         iterate_lopf,
-        set_random_noise)
+        set_random_noise,
+        sensitivity_cd2)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -153,7 +154,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath='args_ego100_paper_k300.json')
+args = get_args_setting(args, jsonpath='args_ego100_paper_reservoirmax.json')
 
 
 def etrago(args):
@@ -489,6 +490,9 @@ def etrago(args):
                     version=args['gridversion'],
                     scn_decommissioning=args['scn_decommissioning'][i],
                     branch_capacity_factor=args['branch_capacity_factor'])
+
+    # coastdat2 sensitivity
+    #sensitivity_cd2(network, scale_solar=1.25, scale_windon=1.667, scale_windoff=1.205)
 
     from math import sqrt
     def snommax(i=1020, u=380, wires=4, circuits=4):
