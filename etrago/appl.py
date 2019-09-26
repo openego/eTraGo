@@ -132,7 +132,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'max_curtailment_per_gen':0.05},  # Choose function name or None
+    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -311,7 +311,19 @@ def etrago(args):
             'max_curtailment_per_gen': float
                 Limit curtailment of each wind and solar generator in Germany,
                 values set in p.u. of generation potential.
-                
+            'capacity_factor': dict of arrays
+                Limit overall energy production for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen': dict of arrays
+                Limit overall energy production for each generator by carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each generator 
+                by carrier, set upper/lower limit in p.u.
+
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
