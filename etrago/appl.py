@@ -301,15 +301,33 @@ def etrago(args):
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
                 Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in percent of german loads in snapshots
+                countries, set values in p.u. of german loads in snapshots
                 for all countries
                 (positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
                 Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in percent of german loads in snapshots
+                countries, set values in p.u. of german loads in snapshots
                 for each country
                 (positiv: export from Germany)  
-                
+            'max_curtailment_per_gen': float
+                Limit curtailment of all wind and solar generators in Germany,
+                values set in p.u. of generation potential.
+            'max_curtailment_per_gen': float
+                Limit curtailment of each wind and solar generator in Germany,
+                values set in p.u. of generation potential.
+            'capacity_factor': dict of arrays
+                Limit overall energy production for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen': dict of arrays
+                Limit overall energy production for each generator by carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each generator 
+                by carrier, set upper/lower limit in p.u.
+
     network_clustering_kmeans : bool or int
         False,
         State if you want to apply a clustering of all network buses down to
@@ -540,7 +558,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-        network = geolocation_buses(network, session)
+        geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
@@ -660,4 +678,3 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
-      
