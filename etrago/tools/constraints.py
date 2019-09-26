@@ -249,6 +249,205 @@ class Constraints:
                             "max_cross_border" + cntr,
                             Constraint(cntr, rule=_rule_max))
 
+
+        if 'capacity_factor' in self.args['extra_functionality'].keys():
+            """
+            how to call in args: 
+                'capacity_factor': 
+                    {'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]}
+            """
+            arg = self.args['extra_functionality']['capacity_factor']
+            carrier = arg.keys()
+            snapshots = network.snapshots
+            for c in carrier:
+                factor = arg[c]
+                gens = network.generators.index[
+                        network.generators.carrier == c]
+
+                if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                    potential = (network.generators.p_nom[gens]*
+                             network.generators_t.p_max_pu[gens].mul(
+                             network.snapshot_weightings)
+                             ).sum().sum()
+                else:
+                    potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[gens].sum()
+
+                def _rule_max(m):
+
+                    dispatch = sum(m.generator_p[gen, sn] * \
+                                   network.snapshot_weightings[sn]
+                        for gen in gens
+                        for sn in snapshots)
+
+                    return (dispatch <= factor[1] * potential)
+
+                setattr(network.model, "max_flh_" + c,
+                    Constraint(rule=_rule_max))
+
+                def _rule_min(m):
+
+                    dispatch = sum(m.generator_p[gen, sn] * \
+                                   network.snapshot_weightings[sn]
+                        for gen in gens
+                        for sn in snapshots)
+
+                    return (dispatch >= factor[0] * potential)
+
+                setattr(network.model, "min_flh_" + c,
+                    Constraint(rule=_rule_min))
+
+
+        if 'capacity_factor_per_cntr' in self.args['extra_functionality'].keys():
+            """
+            how to call in args: 
+                'capacity_factor_per_cntr': 
+                    {'DE':{'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]},
+                    'DK':{'wind_onshore':[0, 0.7]}}
+            """
+            arg = self.args['extra_functionality']['capacity_factor_per_cntr']
+            for cntr in arg.keys():
+                carrier = arg[cntr].keys()
+                snapshots = network.snapshots
+                for c in carrier:
+                    factor = arg[cntr][c]
+                    gens = network.generators.index[
+                            (network.generators.carrier == c)  
+                            & (network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country_code == cntr]))]
+
+                    if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                        potential = (network.generators.p_nom[gens]*
+                             network.generators_t.p_max_pu[gens].mul(
+                             network.snapshot_weightings)
+                             ).sum().sum()
+                    else:
+                        potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[gens].sum()
+
+                    def _rule_max(m):
+
+                        dispatch = sum(m.generator_p[gen, sn] * \
+                                   network.snapshot_weightings[sn]
+                        for gen in gens
+                        for sn in snapshots)
+
+                        return (dispatch <= factor[1] * potential)
+
+                    setattr(network.model, "max_flh_" + cntr + '_'+ c,
+                    Constraint(rule=_rule_max))
+
+                    def _rule_min(m):
+
+                        dispatch = sum(m.generator_p[gen, sn] * \
+                                   network.snapshot_weightings[sn]
+                        for gen in gens
+                        for sn in snapshots)
+
+                        return (dispatch >= factor[0] * potential)
+
+                    setattr(network.model, "min_flh_" + cntr + '_'+ c,
+                            Constraint(rule=_rule_min))
+
+
+        if 'capacity_factor_per_gen' in self.args['extra_functionality'].keys():
+            """
+            how to call in args: 
+                'capacity_factor_per_gen': 
+                    {'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]}
+            """
+            arg = self.args['extra_functionality']['capacity_factor_per_gen']
+            carrier = arg.keys()
+            snapshots = network.snapshots
+            for c in carrier:
+                factor = arg[c]
+                gens = network.generators.index[
+                        network.generators.carrier == c]
+                for g in gens:
+                    if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                        potential = (network.generators.p_nom[g]*
+                             network.generators_t.p_max_pu[g].mul(
+                             network.snapshot_weightings)
+                             ).sum().sum()
+                    else:
+                        potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[g].sum()
+
+                    def _rule_max(m):
+
+                        dispatch = sum(m.generator_p[g, sn] * \
+                                   network.snapshot_weightings[sn]
+                                  for sn in snapshots)
+
+                        return (dispatch <= factor[1] * potential)
+
+                    setattr(network.model, "max_flh_" + g,
+                            Constraint(gens, rule=_rule_max))
+
+                    def _rule_min(m):
+
+                        dispatch = sum(m.generator_p[g, sn] * \
+                                   network.snapshot_weightings[sn]
+                                   for sn in snapshots)
+
+                        return (dispatch >= factor[0] * potential)
+
+                    setattr(network.model, "min_flh_" + g,
+                            Constraint(gens, rule=_rule_min))
+
+                    
+        if 'capacity_factor_per_gen_cntr' in self.args['extra_functionality'].keys():
+            """
+            how to call in args:
+                'capacity_factor_per_gen_cntr':
+                    {'DE':{'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]},
+                    'DK':{'wind_onshore':[0, 0.7]}}
+            """
+            arg = self.args['extra_functionality']\
+                ['capacity_factor_per_gen_cntr']
+            for cntr in arg.keys():
+
+                carrier = arg[cntr].keys()
+                snapshots = network.snapshots
+                for c in carrier:
+                    factor = arg[cntr][c]
+                    gens = network.generators.index[
+                            (network.generators.carrier == c)  
+                            & (network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country_code == cntr]))]
+                    for g in gens:
+                        if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                            potential = (network.generators.p_nom[g]*
+                             network.generators_t.p_max_pu[g].mul(
+                             network.snapshot_weightings)
+                             ).sum().sum()
+                        else:
+                            potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[g].sum()
+
+                        def _rule_max(m):
+
+                            dispatch = sum(m.generator_p[g, sn] * \
+                                   network.snapshot_weightings[sn]
+                                   for sn in snapshots)
+
+                            return (dispatch <= factor[1] * potential)
+
+                        setattr(network.model, "max_flh_" + cntr + '_'+ g,
+                                Constraint(gens, rule=_rule_max))
+
+                        def _rule_min(m):
+
+                            dispatch = sum(m.generator_p[g, sn] * \
+                                   network.snapshot_weightings[sn]
+                            for sn in snapshots)
+
+                            return (dispatch >= factor[0] * potential)
+
+                        setattr(network.model, "min_flh_" + cntr + '_'+ g,
+                                Constraint(rule=_rule_min))
+
+
         if self.args['snapshot_clustering'] is not False:
                 # This will bound the storage level to 0.5 max_level every 24th hour.
                 sus = network.storage_units
