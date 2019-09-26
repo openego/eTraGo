@@ -265,9 +265,9 @@ class Constraints:
                         network.generators.carrier == c]
 
                 if c in ['wind_onshore', 'wind_offshore', 'solar']:
-                    potential = (network.generators.p_nom[gens]*
-                             network.generators_t.p_max_pu[gens].mul(
-                             network.snapshot_weightings)
+                    potential = (network.generators.p_nom[gens]*\
+                             network.generators_t.p_max_pu[gens].mul( 
+                             network.snapshot_weightings, axis = 0)
                              ).sum().sum()
                 else:
                     potential = network.snapshot_weightings.sum() \
@@ -318,8 +318,8 @@ class Constraints:
 
                     if c in ['wind_onshore', 'wind_offshore', 'solar']:
                         potential = (network.generators.p_nom[gens]*
-                             network.generators_t.p_max_pu[gens].mul(
-                             network.snapshot_weightings)
+                             network.generators_t.p_max_pu[gens].mul( 
+                             network.snapshot_weightings, axis = 0)
                              ).sum().sum()
                     else:
                         potential = network.snapshot_weightings.sum() \
@@ -367,7 +367,7 @@ class Constraints:
                     if c in ['wind_onshore', 'wind_offshore', 'solar']:
                         potential = (network.generators.p_nom[g]*
                              network.generators_t.p_max_pu[g].mul(
-                             network.snapshot_weightings)
+                             network.snapshot_weightings, axis = 0)
                              ).sum().sum()
                     else:
                         potential = network.snapshot_weightings.sum() \
@@ -419,7 +419,7 @@ class Constraints:
                         if c in ['wind_onshore', 'wind_offshore', 'solar']:
                             potential = (network.generators.p_nom[g]*
                              network.generators_t.p_max_pu[g].mul(
-                             network.snapshot_weightings)
+                             network.snapshot_weightings, axis = 0)
                              ).sum().sum()
                         else:
                             potential = network.snapshot_weightings.sum() \
