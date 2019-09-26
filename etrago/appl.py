@@ -132,7 +132,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {'max_curtailment_per_gen':0.05},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -297,14 +297,20 @@ def etrago(args):
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
                 Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in percent of german loads in snapshots
+                countries, set values in p.u. of german loads in snapshots
                 for all countries
                 (positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
                 Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in percent of german loads in snapshots
+                countries, set values in p.u. of german loads in snapshots
                 for each country
                 (positiv: export from Germany)  
+            'max_curtailment_per_gen': float
+                Limit curtailment of all wind and solar generators in Germany,
+                values set in p.u. of generation potential.
+            'max_curtailment_per_gen': float
+                Limit curtailment of each wind and solar generator in Germany,
+                values set in p.u. of generation potential.
                 
     network_clustering_kmeans : bool or int
         False,
@@ -521,6 +527,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
+        geolocation_buses(network, session)
 
     if args['ramp_limits']:
         ramp_limits(network)
