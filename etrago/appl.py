@@ -312,16 +312,17 @@ def etrago(args):
                 Limit curtailment of each wind and solar generator in Germany,
                 values set in p.u. of generation potential.
             'capacity_factor': dict of arrays
-                Limit dispatch for each carrier, set upper/lower limit in p.u.
+                Limit overall energy production for each carrier, 
+                set upper/lower limit in p.u.
             'capacity_factor_per_gen': dict of arrays
-                Limit dispatch for each generator by carrier, 
+                Limit overall energy production for each generator by carrier, 
                 set upper/lower limit in p.u.
             'capacity_factor_per_cntr': dict of dict of arrays
-                Limit dispatch country-wise for each carrier, 
+                Limit overall energy production country-wise for each carrier, 
                 set upper/lower limit in p.u.
             'capacity_factor_per_gen_cntr': dict of dict of arrays
-                Limit dispatch country-wise for each generator by carrier, 
-                set upper/lower limit in p.u.
+                Limit overall energy production country-wise for each generator 
+                by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : bool or int
         False,
