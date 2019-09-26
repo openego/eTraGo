@@ -345,7 +345,7 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     logger.info("Contingengy analysis with " + str(2*nb) + " constraints solved in " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
 
 def calc_new_sc_combinations(combinations, new):
-    for sn in new:         
+    for sn in new.keys():         
         combinations[sn][0].extend(new[sn][0])
         combinations[sn][1].extend(new[sn][1])
         df = pd.DataFrame([combinations[sn][0], combinations[sn][1]])
