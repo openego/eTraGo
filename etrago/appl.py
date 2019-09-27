@@ -154,7 +154,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath='args_ego100_paper_reservoirmax.json')
+args = get_args_setting(args, jsonpath="args_ego100_paper_k300.json")
 
 
 def etrago(args):
@@ -492,7 +492,7 @@ def etrago(args):
                     branch_capacity_factor=args['branch_capacity_factor'])
 
     # coastdat2 sensitivity
-    #sensitivity_cd2(network, scale_solar=1.25, scale_windon=1.667, scale_windoff=1.205)
+    sensitivity_cd2(network, scale_solar=1, scale_windon=1.25, scale_windoff=1.15)
 
     from math import sqrt
     def snommax(i=1020, u=380, wires=4, circuits=4):
@@ -584,7 +584,8 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality=Constraints(args).functionality,
-                     method={'n_iter':5})
+                     method={'n_iter':5},
+                     delta_s_max=0)
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
