@@ -1896,11 +1896,11 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
         s_nom of transformers in previous iteration
     """
     line_factor = l_snom_pre / network.lines.s_nom_opt
-    network.lines.x[network.lines.s_nom_extendable] *= line_factor.values
-    network.lines.r[network.lines.s_nom_extendable] *= line_factor.values
+    network.lines.x[network.lines.s_nom_extendable] *= line_factor
+    network.lines.r[network.lines.s_nom_extendable] *= line_factor
     #print(line_factor)
-    network.lines.b[network.lines.s_nom_extendable] *= 1 / line_factor.values
-    network.lines.g[network.lines.s_nom_extendable] *= 1 / line_factor.values
+    network.lines.b[network.lines.s_nom_extendable] *= 1 / line_factor
+    network.lines.g[network.lines.s_nom_extendable] *= 1 / line_factor
     
     trafo_factor = (t_snom_pre / network.transformers.s_nom_opt).values
     network.transformers.x[network.transformers.s_nom_extendable] *= trafo_factor

@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 from etrago.tools.utilities import results_to_csv, update_electrical_parameters
 from pypsa.opt  import l_constraint
 from pypsa.opf import define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows
-
+import multiprocessing as mp
 
 def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
     """
@@ -78,18 +78,15 @@ def post_contingency_analysis(network, delta = 0.05):
 
     df = pd.DataFrame(index =network.snapshots, columns = network.lines.index)
     for sn in network.snapshots:
-        
-        #Check no lines are overloaded with the linear contingency analysis
+
         p0_test = network.lpf_contingency(sn)
         # rows: branch outage, index = monitorred line
-        
-        #check loading as per unit of s_nom in each contingency
+
         overloaded = (abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>(1 + delta)).drop(['base'], axis=1)# rows: branch outage, index = monitorred line
         
-        relevant_outages =overloaded.any()[overloaded.any().index !='base']#.reset_index()[0][1:]#.transpose()  
-        #pd.Series(index=relevant_outages.index, data = relevant_outages[0].values)
+        relevant_outages =overloaded.any()[overloaded.any().index !='base']
         df[df.index==sn]=pd.DataFrame(relevant_outages).transpose().values
-    # returns lines which outages causes overloadings
+
     return df
 
 def post_contingency_analysis_per_line(network, 
@@ -99,34 +96,35 @@ def post_contingency_analysis_per_line(network,
     x = time.time()
     nw = network.copy()
     nw.lines.s_nom = nw.lines.s_nom_opt.copy()
-    nw.generators_t.p_set = nw.generators_t.p_set.reindex(columns=nw.generators.index)
+    nw.generators_t.p_set = nw.generators_t.p_set.reindex(
+            columns=nw.generators.index)
     nw.generators_t.p_set = nw.generators_t.p
-    nw.storage_units_t.p_set = nw.storage_units_t.p_set.reindex(columns=nw.storage_units.index)
+    nw.storage_units_t.p_set = nw.storage_units_t.p_set.reindex(
+            columns=nw.storage_units.index)
     nw.storage_units_t.p_set = nw.storage_units_t.p
     nw.links_t.p_set = nw.links_t.p_set.reindex(columns=nw.links.index)
     nw.links_t.p_set = nw.links_t.p0
-    import multiprocessing as mp
     snapshots_set={}
     length = int(nw.snapshots.size / n_process)
+
     for i in range(n_process):
         snapshots_set[str(i+1)]=nw.snapshots[i*length : (i+1)*length]
+    snapshots_set[str(n_process-1)] = nw.snapshots[i*length :]
+
     manager = mp.Manager()
     d = manager.dict()
-    snapshots_set[str(n_process-1)] = nw.snapshots[i*length :]
+
     def multi_con(nw, snapshots, d):
 
         for sn in snapshots:  
-            #d = {}
-        #Check no lines are overloaded with the linear contingency analysis
-            p0_test = nw.lpf_contingency(branch_outages=branch_outages, snapshots=sn)
-        # rows: branch outage, index = monitorred line
-        
-        #check loading as per unit of s_nom in each contingency
-            load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)).drop(['base'], axis = 1) # columns: branch_outages
-            # schon im base_case leitungen teilweise überlastet. Liegt das an x Anpassung? 
+            # Check no lines are overloaded with the linear contingency analysis
+            p0_test = nw.lpf_contingency(branch_outages=branch_outages,
+                                         snapshots=sn)
+            # rows: branch outage, index = monitorred line
+            #check loading as per unit of s_nom in each contingency
+            load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
+                    ).drop(['base'], axis = 1) # columns: branch_outages
             overloaded = (load>(1 + delta))# columns: branch_outages
-           # combinations = [network.lines.index[np.where(overloaded.values)[0]],
-                                          #      network.lines.index[np.where(overloaded.values)[1]]]
             array_mon = []
             array_out = []
             for col in overloaded:
@@ -139,27 +137,22 @@ def post_contingency_analysis_per_line(network,
             if not len(combinations[0]) == 0:
                 d[sn]=combinations
 
-    processes = [mp.Process(target=multi_con, args=(nw, snapshots_set[i], d)) for i in snapshots_set]
+    processes = [mp.Process(
+            target=multi_con, args=(nw, snapshots_set[i], d)
+            ) for i in snapshots_set]
 
-    
-    # Run processes
     for p in processes:
         p.start()
-        
 
-# Exit the completed processes
     for p in processes:
         p.join()
     for p in processes:
         p.terminate()
 
-# Get process results from the output queue
-    #results = [output.get() for p in processes]
-        # solve problem that np. start counting with 0, pypsa with 1!
-
     y = (time.time() - x)/60
-    logger.info("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
-   # import pdb; pdb.set_trace()
+    logger.info("Post contingengy check finished in "
+                + str(round(y, 2))+ " minutes.")
+
     return d
 
 
@@ -228,7 +221,6 @@ def add_reduced_contingency_constraints(network,combinations):
 
 
     l_constraint(network.model,"contingency_flow_upper_"+str(add_reduced_contingency_constraints.counter),flow_upper,branch_outage_keys)
-    print(len(branch_outage_keys))
     l_constraint(network.model,"contingency_flow_lower_"+str(add_reduced_contingency_constraints.counter),flow_lower,branch_outage_keys)
     return len(branch_outage_keys)
 
@@ -236,56 +228,79 @@ def add_all_contingency_constraints(network,combinations):
     branch_outage_keys = []
     flow_upper = {}
     flow_lower = {}
-    sub = network.sub_networks.obj[0]
+   # import pdb; pdb.set_trace()
+    n_buses = 0
+    # choose biggest sub_network to avoid problems with BE / NO
+    for s in network.sub_networks.obj.index:
+        n = len(network.sub_networks.obj[s].buses())
+        
+        if n > n_buses:
+            n_buses = n
+            sub = network.sub_networks.obj[s]
+        
     sub._branches = sub.branches()
-    sub.calculate_B_H()
-    sub.calculate_PTDF()
     sub.calculate_BODF()
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
     sub._extendable_branches = sub._branches[sub._branches.s_nom_extendable]
+
     for sn in combinations.keys():
-        if len(combinations[sn][0])>0:
+        if len(combinations[sn][0]) > 0:
            out= combinations[sn][0]# branch in pypsa
            mon = combinations[sn][1] # b in pypsa
            mon_ext = [t for t in mon if t in sub._extendable_branches.index]
            mon_fix = [t for t in mon if t in sub._fixed_branches.index]
-           #[t for t in sub._extendable_branches.index if t in mon]
-           branch_outage_keys.extend([(out[i][0],out[i][1], mon[i][0],mon[i][1], sn)
+           
+           idx_ext = np.where(
+                   [np.isin(mon, mon_ext)[i].all() 
+                   for i in range(len(mon))])[0].tolist()
+
+           idx_fix = np.where(
+                   [np.isin(mon, mon_fix)[i].all() 
+                   for i in range(len(mon))])[0].tolist()
+
+           out_ext = [out[i] for i in idx_ext]
+           out_fix = [out[i] for i in idx_fix]
+           
+           branch_outage_keys.extend([(out[i][0],out[i][1], 
+                                       mon[i][0],mon[i][1], sn)
                                     for i in range(len(out))])
+
+            # avoid duplicate values in branch_outage_keys
            branch_outage_keys=list(set(branch_outage_keys))
+
            flow_upper.update({
-                ( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                        (1, network.model.passive_branch_p[mon[i], sn]),
-                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                        network.model.passive_branch_p[out[i], sn])],
-                        "<=", sub._fixed_branches.at[ mon[i],"s_nom"]] 
-                for i in range(len(mon_fix))}) 
-    # geht aktuell nur wenn alle Ltg extendable bzw. fix sind
+                (out_fix[i][0],out_fix[i][1], mon_fix[i][0],mon_fix[i][1], sn) : [[
+                (1, network.model.passive_branch_p[mon_fix[i], sn]),
+                (sub.BODF[int(mon_fix[i][1])-1, int(out_fix[i][1])-1],
+                network.model.passive_branch_p[out_fix[i], sn])],
+                "<=", sub._fixed_branches.at[mon_fix[i],"s_nom"]] 
+                for i in range(len(mon_fix))})
     
            flow_upper.update({
-                ( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon[i], sn]),
-                (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                network.model.passive_branch_p[ out[i], sn]),
-                 (-1,network.model.passive_branch_s_nom[ mon[i]])],"<=",0] 
+                ( out_ext[i][0],out_ext[i][1], mon_ext[i][0],mon_ext[i][1], sn) : [[
+                (1, network.model.passive_branch_p[ mon_ext[i], sn]),
+                (sub.BODF[int(mon_ext[i][1])-1, int(out_ext[i][1])-1],
+                network.model.passive_branch_p[ out_ext[i], sn]),
+                 (-1,network.model.passive_branch_s_nom[ mon_ext[i]])],"<=",0] 
                 for i in range(len(mon_ext))})
 
     
-           flow_lower.update({( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                        (1, network.model.passive_branch_p['Line', mon[i],sn]),
-                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                        network.model.passive_branch_p['Line', out[i], sn])],
-                        ">=", -sub._fixed_branches.at[('Line', mon[i]),"s_nom"]] 
-                    for i in range(len(mon_fix))})
+           flow_lower.update({
+                (out_fix[i][0],out_fix[i][1], mon_fix[i][0],mon_fix[i][1], sn) : [[
+                (1, network.model.passive_branch_p[mon_fix[i],sn]),
+                (sub.BODF[int(mon_fix[i][1])-1, int(out_fix[i][1])-1],
+                network.model.passive_branch_p[out_fix[i], sn])],
+                ">=", -sub._fixed_branches.at[(mon_fix[i]),"s_nom"]] 
+                for i in range(len(mon_fix))})
     
            flow_lower.update({
-                (out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon[i], sn]),
-                (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                network.model.passive_branch_p[ out[i], sn]),
-                 (1,network.model.passive_branch_s_nom[ mon[i]])],">=",0] 
+                (out_ext[i][0],out_ext[i][1], mon_ext[i][0],mon_ext[i][1], sn) : [[
+                (1, network.model.passive_branch_p[ mon_ext[i], sn]),
+                (sub.BODF[int(mon_ext[i][1])-1, int(out_ext[i][1])-1],
+                network.model.passive_branch_p[ out_ext[i], sn]),
+                 (1,network.model.passive_branch_s_nom[ mon_ext[i]])],">=",0] 
                 for i in range(len(mon_ext))})
 
     
@@ -359,8 +374,7 @@ def iterate_sclopf_new(network,
                        extra_functionality, 
                        n_process = 4,
                        method={'combinations':1}):
-    # Aktuell verwendbar auch wenn Netzausbau möglich ist. Führt dann aber zu deutlich mer Iterationen. 
-    # Ohne Netzausbau ist pf_post_lopf schneller, da nur einzelnen NB geschrieben werden 
+
     l_snom_pre = network.lines.s_nom.copy()
     t_snom_pre = network.transformers.s_nom.copy()
     add_all_contingency_constraints.counter = 0
@@ -368,15 +382,16 @@ def iterate_sclopf_new(network,
     x = time.time()
     results_to_csv.counter=0
     # 1. LOPF without SC
-    network.lopf(
-                    network.snapshots,
+    network.lopf(   network.snapshots,
                     solver_name=args['solver'],
                     solver_options=args['solver_options'],
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
-    
 
-    
+    if args['csv_export'] != False:
+        path=args['csv_export'] + '/lopf'
+        results_to_csv(network, args, path)
+
     # Update electrical parameters if network is extendable
     if network.lines.s_nom_extendable.any():
         l_snom_pre, t_snom_pre = \
@@ -391,7 +406,7 @@ def iterate_sclopf_new(network,
 
     if 'combinations' in method:
         while len(new) > 0:
-            if  n < 20:
+            if  n < 50:
 
                 combinations = calc_new_sc_combinations(combinations, new)
                 
@@ -403,7 +418,11 @@ def iterate_sclopf_new(network,
                 #'symbolic_solver_labels': True})
                 iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
                 
-
+                if args['csv_export'] != False:
+                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
+                    results_to_csv(network, args, path)
+                    combinations.to_csv(path+'sc_combinations.csv')
+                    
                 # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
                 if network.lines.s_nom_extendable.any():
                     l_snom_pre, t_snom_pre = \
@@ -413,9 +432,6 @@ def iterate_sclopf_new(network,
                 new = post_contingency_analysis_per_line(
                             network, branch_outages, n_process)
 
-                if args['csv_export'] != False:
-                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
-                    results_to_csv(network, args, path)
                 n+=1
                 
             else: 
