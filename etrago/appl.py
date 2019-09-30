@@ -114,23 +114,24 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': None,  # None for model_draft or Version number
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
+    'sclopf_settings': {'n_process': 4, 'delta_overload': 0.01},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 24,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'crossover':0, 
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
+    'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'sclopf_iter/day',  # save results as csv: False or /path/tofolder
+    'csv_export': 'sclopf_iter/2h',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network'],  # Array of components to optimize
@@ -139,9 +140,9 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_300_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -154,7 +155,7 @@ args = {
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
-args = get_args_setting(args, jsonpath=None)
+args = get_args_setting(args, jsonpath='args.json')
 
 
 def etrago(args):
@@ -426,7 +427,7 @@ def etrago(args):
         s = np.random.RandomState(args['generator_noise'])
         network.generators.marginal_cost[network.generators.bus.isin(
                 network.buses.index[network.buses.country_code == 'DE'])] += \
-            abs(s.normal(0, 0.1, len(network.generators.marginal_cost[
+            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
                             network.buses.country_code == 'DE'])])))
     # for SH scenario run do data preperation:
@@ -568,58 +569,8 @@ def etrago(args):
                            args, 
                            branch_outages,
                            extra_functionality, 
-                           n_process = 8,
-                           method={'combinations':0.01})
-        """
-        if 'network_sclopf' in args['extendable']:
-            ext_lines = network.lines[network.lines.index.isin(branch_outages)].copy()
-            ext_lines.s_nom_min = 0
-            ext_lines.s_nom_max = ext_lines.s_nom
-            ext_lines.s_nom_extendable=True
-            ext_lines.index=[str(x) for x in range(
-                network.lines.index.astype(int).max()+1,
-                network.lines.index.astype(int).max()+len(ext_lines)+1)]
-            network.lines=network.lines.append(ext_lines)
-            network = set_line_costs(network, args)
-            network = convert_capital_costs(
-                    network, args['start_snapshot'], args['end_snapshot'])
-        # experimentell, führt zu abweichungen!!
-        #group_parallel_lines_sclopf(network, branch_outages)
-        print("Performing security-constrained linear OPF:")
-        if args['parallelisation'] == False:
-            iterate_sclopf(network, args, branch_outages, extra_functionality=None, 
-                   method={'threshold':0.01}, delta_s_max=0)
-            print("Objective:",network.objective)
-        else:
-            
-            parallelisation_sclopf(network, args, 24, branch_outages, 
-                           extra_functionality)"""
-    
-        
-        """#For the PF, set the P to the optimised P
-        now = network.snapshots[1]
-        #branch_outages =network.lines.index
-        network.lines.s_nom=network.lines.s_nom_opt
-        network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
-        network.generators_t.p_set.loc[now] = network.generators_t.p.loc[now]
-        network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
-        network.storage_units_t.p_set.loc[now] = network.storage_units_t.p.loc[now]
-        network.links_t.p_set = network.links_t.p_set.reindex(columns=network.links.index)
-        network.links_t.p_set.loc[now] = network.links_t.p0.loc[now]
-
-        #Check no lines are overloaded with the linear contingency analysis
-
-        p0_test = network.lpf_contingency(now,branch_outages=branch_outages)
-
-        #check loading as per unit of s_nom in each contingency
-        overloaded = abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>1.00001
-        relevant_outages = overloaded.transpose().any()
-        branch_outages_post=relevant_outages[relevant_outages==True].reset_index().name.values
-        max_loading = abs(p0_test.divide(network.passive_branches().s_nom,axis=0)).describe().loc["max"]
-
-        import numpy as np
-        np.testing.assert_array_almost_equal(max_loading,np.ones((len(max_loading))))"""
-
+                           n_process = args['sclopf_settings']['n_process'],
+                           delta = args['sclopf_settings']['delta_overload'])
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
