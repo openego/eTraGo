@@ -113,14 +113,14 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 4, 'delta_overload': 0.01},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot':2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'crossover':0, 
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
@@ -140,9 +140,9 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': None,  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_10_result',  # False or predefined busmap for k-means
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -155,7 +155,7 @@ args = {
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
-args = get_args_setting(args, jsonpath='args.json')
+args = get_args_setting(args, jsonpath=None)
 
 
 def etrago(args):
