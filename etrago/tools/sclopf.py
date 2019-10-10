@@ -406,7 +406,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
     sub._extendable_branches = sub._branches[sub._branches.s_nom_extendable]
 
-    for sn in combinations.keys():
+    for sn in combinations.keys(): # Könnte parallelisiert werden, klappt aber noch nicht 
         if len(combinations[sn][0]) > 0:
            out= combinations[sn][0]# branch in pypsa
            mon = combinations[sn][1] # b in pypsa
