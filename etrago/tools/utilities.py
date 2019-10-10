@@ -31,7 +31,8 @@ import pypsa
 import json
 import logging
 import math
-
+from pypsa.opf import (define_passive_branch_flows_with_kirchhoff,
+                       network_lopf_solve)
 geopandas = True
 try:
     import geopandas as gpd
@@ -1818,6 +1819,38 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
                 
     return l_snom_pre, t_snom_pre
 
+def iterate_lopf_calc(network, args):
+    """
+    Function that runs iterations of lopf without building new models. 
+    Currently only working with model_formulation = 'kirchhoff'
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    """
+    # Delete flow constraints for each possible model formulation
+    if args['model_formulation']=='kirchhoff':
+        network.model.del_component('cycle_constraints')
+        network.model.del_component('cycle_constraints_index')
+        network.model.del_component('cycle_constraints_index_0')
+        network.model.del_component('cycle_constraints_index_1')
+
+        define_passive_branch_flows_with_kirchhoff(network,
+                                                   network.snapshots,
+                                                   skip_vars=True)
+    else:
+        
+        logger.error('Currently only implemented for kirchhoff-formulation.')
+
+    network = network_lopf_solve(network,
+                                 network.snapshots,
+                                 formulation=args['model_formulation'], 
+                                 solver_options = args['solver_options'])
+
+    return network
+
 def iterate_lopf(network, args, extra_functionality, method={'n_iter':4}, 
                  delta_s_max=0.1):
 
@@ -1872,12 +1905,16 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 network.links.p_nom_max=\
                  (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
             
-                network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
+                if i == 1 or args['model_formulation'] != 'kirchhoff':
+                    network.lopf(
+                            network.snapshots,
+                            solver_name=args['solver'],
+                            solver_options=args['solver_options'],
+                            extra_functionality=extra_functionality,
+                            formulation=args['model_formulation'])
+                else:
+                    iterate_lopf_calc(network, args)
+
                 y = time.time()
                 z = (y - x) / 60
 
@@ -1928,12 +1965,16 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 pre = network.objective
                 
                 x = time.time()
-                network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
+                if args['model_formulation'] != 'kirchhoff':
+                    network.lopf(
+                            network.snapshots,
+                            solver_name=args['solver'],
+                            solver_options=args['solver_options'],
+                            extra_functionality=extra_functionality,
+                            formulation=args['model_formulation'])
+                else:
+                    iterate_lopf_calc(network, args)
+
                 y = time.time()
                 z = (y - x) / 60
             
