@@ -90,20 +90,18 @@ if 'READTHEDOCS' not in os.environ:
         geolocation_buses,
         get_args_setting,
         set_branch_capacity,
-        max_line_ext,
-        min_renewable_share,
         iterate_lopf,
-        parallelisation_sclopf,
-        split_parallel_lines,
-        group_parallel_lines_sclopf,
-        set_line_costs)
+        set_random_noise)
+
+    from etrago.tools.constraints import(
+        Constraints)
 
     from etrago.tools.extendable import (
             extendable,
             extension_preselection,
             print_expansion_costs)
 
-    from etrago.cluster.snapshot import snapshot_clustering, daily_bounds
+    from etrago.cluster.snapshot import snapshot_clustering
     
     from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf, iterate_sclopf_new
     from egoio.tools import db
@@ -138,7 +136,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': None,  # Choose function name or None
+    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
@@ -154,6 +152,7 @@ args = {
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
+
 
 args = get_args_setting(args, jsonpath=None)
 
@@ -292,13 +291,43 @@ def etrago(args):
         Increases time for solving significantly.
         Only works when calculating at least 30 snapshots.
 
-    extra_functionality : str or None
+    extra_functionality : dict or None
         None,
-        Choose name of extra functionality described in etrago/utilities.py
-        "min_renewable_share" to set a minimal share of renewable energy or
-        "max_line_ext" to set an overall maximum of line expansion.
-        When activating snapshot_clustering or minimize_loading these
-        extra_funtionalities are overwritten and therefore neglected.
+        Choose extra functionalities and their parameters for PyPSA-model.
+        Settings can be added in /tools/constraints.py.
+        Current options are:
+            'max_line_ext': float
+                Maximal share of network extension in p.u.
+            'min_renewable_share': float
+                Minimal share of renewable generation in p.u.
+            'cross_border_flow': array of two floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
+                for all countries
+                (positiv: export from Germany)
+            'cross_border_flows_per_country': dict of cntr and array of floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
+                for each country
+                (positiv: export from Germany)  
+            'max_curtailment_per_gen': float
+                Limit curtailment of all wind and solar generators in Germany,
+                values set in p.u. of generation potential.
+            'max_curtailment_per_gen': float
+                Limit curtailment of each wind and solar generator in Germany,
+                values set in p.u. of generation potential.
+            'capacity_factor': dict of arrays
+                Limit overall energy production for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen': dict of arrays
+                Limit overall energy production for each generator by carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each carrier, 
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each generator 
+                by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : bool or int
         False,
@@ -409,12 +438,6 @@ def etrago(args):
 
     # set SOC at the beginning and end of the period to equal values
     network.storage_units.cyclic_state_of_charge = True
-
-    # set extra_functionality
-    if args['extra_functionality'] is not None:
-        extra_functionality = eval(args['extra_functionality'])
-    elif args['extra_functionality'] is None:
-        extra_functionality = args['extra_functionality']
         
     # set disaggregated_network to default
     disaggregated_network = None
@@ -422,19 +445,10 @@ def etrago(args):
     # set clustering to default
     clustering = None
 
-    if args['generator_noise'] is not False:
-        # add random noise to all generators
-        s = np.random.RandomState(args['generator_noise'])
-        network.generators.marginal_cost[network.generators.bus.isin(
-                network.buses.index[network.buses.country_code == 'DE'])] += \
-            abs(s.normal(0, 0.01, len(network.generators.marginal_cost[
-                    network.generators.bus.isin(network.buses.index[
-                            network.buses.country_code == 'DE'])])))
     # for SH scenario run do data preperation:
     if (args['scn_name'] == 'SH Status Quo' or
             args['scn_name'] == 'SH NEP 2035'):
         data_manipulation_sh(network)
-
 
 
     # Branch loading minimization
@@ -453,19 +467,23 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
+    # Add missing lines in Munich and Stuttgart
+    network = add_missing_components(network)
+
+    # add random noise to all generators
+    if args['generator_noise'] is not False:
+        set_random_noise(network, args['generator_noise'], 0.01)
+
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
+
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
         network = decommissioning(
             network,
             session,
             args)
-
-    # Add missing lines in Munich and Stuttgart
-    network = add_missing_components(network)
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
-
 
     # grouping or splitting of parallel lines
     if args['parallel_lines']=='group':
@@ -493,7 +511,6 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
-        extra_functionality = daily_bounds  # daily_bounds or other constraint
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
@@ -533,6 +550,7 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
+
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -544,21 +562,16 @@ def etrago(args):
     if args['parallelisation']:
         parallelisation(
             network,
-            start_snapshot=args['start_snapshot'],
-            end_snapshot=args['end_snapshot'],
+            args,
             group_size=1,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, 
-            formulation=args['model_formulation'])
+            extra_functionality=Constraints(args).functionality)
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        #network.lines.b[network.lines.b==0] = (1/network.lines.x[network.lines.b==0]).copy()
         iterate_lopf(network,
                      args,
-                     extra_functionality,
-                     method={'n_iter':4})
+                     Constraints(args).functionality,
+                     method={'threshold':0.01})
         print("Objective:",network.objective)
         
 

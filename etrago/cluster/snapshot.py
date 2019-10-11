@@ -133,9 +133,9 @@ def prepare_pypsa_timeseries(network, normed=False):
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
-        loads = network.loads_t.p_set
+        loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set
+        renewables = network.generators_t.p_set.copy()
         renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
@@ -179,27 +179,6 @@ def update_data_frames(network, cluster_weights, dates, hours):
     return network
 
 
-def daily_bounds(network, snapshots):
-    """ This will bound the storage level to 0.5 max_level every 24th hour.
-    """
-
-    sus = network.storage_units
-    # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.index[0::24]
-
-    network.model.storages = sus.index
-
-    def day_rule(m, s, p):
-        """
-        Sets the soc of the every first hour to the soc of the last hour
-        of the day (i.e. + 23 hours)
-        """
-        return (
-              m.state_of_charge[s, p] ==
-               m.state_of_charge[s, p + pd.Timedelta(hours=23)])
-
-    network.model.period_bound = po.Constraint(
-            network.model.storages, network.model.period_starts, rule=day_rule)
 
 
 ####################################

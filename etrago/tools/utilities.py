@@ -55,8 +55,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-
-
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
 
@@ -1246,6 +1244,7 @@ def group_parallel_lines_sclopf(network, branch_outages):
     network.import_components_from_dataframe(lines_grouped, "Line")
     return
 
+
 def set_line_costs(network, args, 
                    cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
@@ -1687,6 +1686,35 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
     return args
 
+def set_random_noise(network, seed, sigma = 0.01):
+    """
+    Sets random noise to marginal cost of each generator.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    seed: int
+        seed number, needed to reproduce results
+
+    sigma: float
+        Default: 0.01
+        standard deviation, small values reduce impact on dispatch
+        but might lead to numerical instability
+    """
+    s = np.random.RandomState(seed)
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code == 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])])))
+
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])]))).max()
 
 def set_line_country_tags(network):
     """
@@ -1920,7 +1948,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     # Set snom_pre to s_nom_opt for next iteration
     l_snom_pre = network.lines.s_nom_opt.copy()
     t_snom_pre = network.transformers.s_nom_opt.copy()
-    #network.calculate_dependent_values()
+                
     return l_snom_pre, t_snom_pre
 
 
@@ -2023,20 +2051,19 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     
                 y = time.time()
                 z = (y - x) / 60
+
                 if network.results["Solver"][0]["Status"].key!='ok':
                     raise  Exception('LOPF '+ str(i) + ' not solved.')
-                print((network.lines.s_nom_opt-network.lines.s_nom_min).sum())
+
                 print("Time for LOPF [min]:", round(z, 2))
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
-                #import pdb; pdb.set_trace()
+
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
-                
-                
         
         # Calculate variable number of iterations until threshold of objective 
         # function is reached
@@ -2115,106 +2142,3 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
     return network
             
 
-
-
-def max_line_ext(network, snapshots, share=1.01):
-
-    """
-    Sets maximal share of overall network extension
-    as extra functionality in LOPF
-
-    Parameters
-    ----------
-    share: float
-        Maximal share of network extension in p.u.
-    """
-
-    lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
-
-    def _rule(m):
-
-        lines_opt = sum(m.passive_branch_s_nom[index]
-                        for index
-                        in m.passive_branch_s_nom_index)
-
-        links_opt = sum(m.link_p_nom[index]
-                        for index
-                        in m.link_p_nom_index)
-
-        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
-    network.model.max_line_ext = Constraint(rule=_rule)
-
-def min_renewable_share(network, snapshots, share=0.72):
-    """
-    Sets minimal renewable share of generation as extra functionality in LOPF
-
-    Parameters
-    ----------
-    share: float
-        Minimal share of renewable generation in p.u.
-    """
-    renewables = ['wind_onshore', 'wind_offshore',
-                  'biomass', 'solar', 'run_of_river']
-
-    res = list(network.generators.index[
-            network.generators.carrier.isin(renewables)])
-
-    total = list(network.generators.index)
-    snapshots = network.snapshots
-
-    def _rule(m):
-        """
-        """
-        renewable_production = sum(m.generator_p[gen, sn]
-                                      for gen
-                                      in res
-                                      for sn in snapshots)
-        total_production = sum(m.generator_p[gen, sn]
-                               for gen in total
-                               for sn in snapshots)
-
-        return (renewable_production >= total_production * share)
-    network.model.min_renewable_share = Constraint(rule=_rule)
-    
-
-def max_curtailment(network, snapshots, curtail_max=0.03):
-    
-    """
-    each RE can only be curtailed (over all snapshots) 
-    with respect to curtail_max
-
-    Parameters
-    ----------
-    curtail_max: float
-        maximal curtailment per power plant in p.u.
-    """
-    renewables = ['wind_onshore', 'wind_offshore',
-                  'solar']
-    
-    res = list(network.generators.index[
-        (network.generators.carrier.isin(renewables))
-        & (network.generators.bus.astype(str).isin(network.buses.index[network.buses.country_code == 'DE']))])
-      
-#    network.import_series_from_dataframe(pd.DataFrame(
-#                index=network.generators_t.p_set.index,
-#                columns=network.generators.index[
-#                        network.generators.carrier=='biomass'],
-#                data=1), "Generator", "p_max_pu")
-    
-    res_potential = (network.generators.p_nom[res]*network.generators_t.p_max_pu[res]).sum()
-    
-    snapshots = network.snapshots
-
-    for gen in res:
-
-        def _rule(m, gen):
-            """
-            """
-            #import pdb; pdb.set_trace()
-            re_n = sum(m.generator_p[gen, sn]
-                                      for sn in snapshots)
-            potential_n = res_potential[gen]
-
-            return (re_n >= (1-curtail_max) * potential_n)
-        setattr(network.model, "max_curtailment"+gen, Constraint(res, rule=_rule))

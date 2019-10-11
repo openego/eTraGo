@@ -380,7 +380,7 @@ def busmap_from_psql(network, session, scn_name, version):
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
         busmap_by_shortest_path(network, session, scn_name, version,
-                                fromlvl=[110], tolvl=[220,320, 380, 400, 450],
+                                fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
@@ -455,27 +455,26 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
-    #etwork.buses['v_nom'] = 380.                              
-    #import pdb; pdb.set_trace()
+
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    network.buses['v_nom'] = 380.
-
-    # adjust the x of the lines which are not 380.
+    # adjust the electrical parameters of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
-    
+
     voltage_factor = (network.lines.loc[lines_v_nom_b, 'v_nom'] / 380.)**2
-    
+
     network.lines.loc[lines_v_nom_b, 'x'] *= 1/voltage_factor
+
     network.lines.loc[lines_v_nom_b, 'r'] *= 1/voltage_factor
-    network.lines.loc[lines_v_nom_b, 'g'] *= voltage_factor
+
     network.lines.loc[lines_v_nom_b, 'b'] *= voltage_factor
-    
+
+    network.lines.loc[lines_v_nom_b, 'g'] *= voltage_factor
+
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
-    
-    
+
     trafo_index = network.transformers.index
     transformer_voltages = \
         pd.concat([network.transformers.bus0.map(network.buses.v_nom),
@@ -493,6 +492,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr]\
             .reindex(columns=[])
+
+    network.buses['v_nom'] = 380.
 
     # remove stubs
     if remove_stubs:
