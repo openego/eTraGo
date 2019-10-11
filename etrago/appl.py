@@ -103,7 +103,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.cluster.snapshot import snapshot_clustering
     
-    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf, iterate_sclopf_new
+    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf_new
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -113,12 +113,12 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 4, 'delta_overload': 0.05},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot':48,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'crossover':0, 
                        'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
@@ -136,7 +136,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
@@ -581,7 +581,7 @@ def etrago(args):
         iterate_sclopf_new(network,
                            args, 
                            branch_outages,
-                           extra_functionality, 
+                           Constraints(args).functionality, 
                            n_process = args['sclopf_settings']['n_process'],
                            delta = args['sclopf_settings']['delta_overload'])
 
