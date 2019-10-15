@@ -433,6 +433,28 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     def weighting_for_scenario(x, save=None):
         """
         """
+        # define weighting based on conventional 'old' generator spatial
+        # distribution
+        non_conv_types = {
+                'biomass',
+                'wind_onshore',
+                'wind_offshore',
+                'solar',
+                'geothermal',
+                'load shedding',
+                'extendable_storage'}
+        # Attention: network.generators.carrier.unique()
+        gen = (network.generators.loc[(network.generators.carrier
+                                   .isin(non_conv_types) == False)]
+           .groupby('bus').p_nom.sum()
+                                .reindex(network.buses.index, fill_value=0.) +
+           network.storage_units
+                                .loc[(network.storage_units.carrier
+                                      .isin(non_conv_types) == False)]
+                  .groupby('bus').p_nom.sum()
+                  .reindex(network.buses.index, fill_value=0.))
+
+        load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
@@ -495,6 +517,16 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.buses['v_nom'] = 380.
 
+    # State whether to create a bus weighting and save it, create or not save
+    # it, or use a bus weighting from a csv file
+    if bus_weight_tocsv is not None:
+        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
+    elif bus_weight_fromcsv is not None:
+        weight = pd.Series.from_csv(bus_weight_fromcsv)
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network.buses, save=False)
+
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -518,44 +550,9 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
             line_length_factor=line_length_factor,
             line_agg=line_agg)
         network = clustering.network
-
-    # define weighting based on conventional 'old' generator spatial
-    # distribution
-    non_conv_types = {
-        'biomass',
-        'wind_onshore',
-        'wind_offshore',
-        'solar',
-        'geothermal',
-        'load shedding',
-        'extendable_storage'}
-    # Attention: network.generators.carrier.unique()
-    gen = (network.generators.loc[(network.generators.carrier
-                                   .isin(non_conv_types) == False)]
-           .groupby('bus').p_nom.sum()
-                                .reindex(network.buses.index, fill_value=0.) +
-           network.storage_units
-                                .loc[(network.storage_units.carrier
-                                      .isin(non_conv_types) == False)]
-                  .groupby('bus').p_nom.sum()
-                  .reindex(network.buses.index, fill_value=0.))
-
-    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+        weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-
-    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
-    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if bus_weight_tocsv is not None:
-        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
-    elif bus_weight_fromcsv is not None:
-        weight = pd.Series.from_csv(bus_weight_fromcsv)
-        weight.index = weight.index.astype(str)
-    else:
-        weight = weighting_for_scenario(x=network.buses, save=False)
-
     busmap = busmap_by_kmeans(
         network,
         bus_weightings=pd.Series(weight),

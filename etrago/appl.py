@@ -113,7 +113,7 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'sclopf',  # lopf or pf
+    'method': 'lopf',  # lopf or pf
     'sclopf_settings': {'n_process': 4, 'delta_overload': 0.05},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
@@ -125,22 +125,22 @@ args = {
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
+    'scn_extension': None, #['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False, #'sclopf_iter/48h_50k',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['german_network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -497,7 +497,8 @@ def etrago(args):
         network = extendable(
                     network,
                     args,
-                    line_max=4)
+                    line_max=None,
+                    line_max_foreign = None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
@@ -529,6 +530,8 @@ def etrago(args):
                 version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
+   
+    network.lines.original_lines = network.lines.index.values.copy()
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
@@ -537,7 +540,7 @@ def etrago(args):
                 n_clusters=args['network_clustering_kmeans'],
                 load_cluster=args['load_cluster'],
                 line_length_factor=1,
-                remove_stubs=False,
+                remove_stubs=True,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
