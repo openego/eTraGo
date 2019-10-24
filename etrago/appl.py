@@ -126,20 +126,20 @@ args = {
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None, #['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_decommissioning': None, #'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': False, #'sclopf_iter/48h_50k',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['german_network'],  # Array of components to optimize
+    'extendable': [],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 499,  # False or the value k for clustering
+    'load_cluster': '/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -466,6 +466,7 @@ def etrago(args):
                     start_snapshot=args['start_snapshot'],
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
+        network.transformers.x[network.transformers.x.isnull()] = 0.0000001
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
@@ -548,12 +549,14 @@ def etrago(args):
                 max_iter=100,
                 tol=1e-6,
                 n_jobs=-1,
-                line_agg= True)
+                line_agg= True,
+                remove_stubs_kmeans = True)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
 
+    network = clustering.network
     if args['ramp_limits']:
         ramp_limits(network)
 

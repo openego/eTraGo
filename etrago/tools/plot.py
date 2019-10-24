@@ -465,7 +465,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         
     ll = overlay_network.plot(
         line_colors=extension,
-        line_cmap=cmap,
+        line_cmap={'Line':cmap, 'Link':cmap},
         bus_sizes=0,
         title="Optimized AC- and DC-line expansion",
         line_widths=line_widths) 

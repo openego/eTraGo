@@ -392,7 +392,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                      remove_stubs=False, use_reduced_coordinates=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None,
                      n_init=10, max_iter=300, tol=1e-4,
-                     n_jobs=1, line_agg=True):
+                     n_jobs=1, line_agg=True, remove_stubs_kmeans = False):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -504,9 +504,9 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
-        .assign(x=network.transformers.x * (380. /
-                transformer_voltages.max(axis=1))**2, length = 1)
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]\
+        .assign(x=network.transformers.x * (380. /\
+                transformer_voltages.max(axis=1))**2, length = 1)\
         .set_index('T' + trafo_index),
         'Line')
     network.transformers.drop(trafo_index, inplace=True)
@@ -573,7 +573,31 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         aggregate_generators_weighted=True,
         aggregate_one_ports=aggregate_one_ports,
         line_agg=line_agg)
-    
+     
+    if remove_stubs_kmeans:
+        network = clustering.network.copy()
+        network.determine_network_topology()
+        busmap = busmap_by_stubs(network)
+        network.generators['weight'] = network.generators['p_nom']
+        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
+        # reset coordinates to the new reduced guys, rather than taking an
+        # average (copied from pypsa.networkclustering)
+        if use_reduced_coordinates:
+            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+            # i.e. network is changed in place!!
+            network.buses.loc[busmap.index, ['x', 'y']
+                              ] = network.buses.loc[busmap, ['x', 'y']].values
+
+        clustering = get_clustering_from_busmap(
+            network,
+            busmap,
+            aggregate_generators_weighted=True,
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=1,#line_length_factor,
+            line_agg=line_agg)
+        network = clustering.network  
+        
     """if line_agg == False:
         
         grp = clustering.network.lines.groupby(['bus0', 'bus1'])
