@@ -31,6 +31,9 @@ import numpy as np
 import time
 import math
 from math import sqrt, log10
+from pyproj import Proj, transform
+import tilemapbase
+
 
 if 'READTHEDOCS' not in os.environ:
     from geoalchemy2.shape import to_shape
@@ -68,6 +71,57 @@ def add_coordinates(network):
 
     return network
 
+def set_epsg_network(network):
+    """
+    Change EPSG from 4326 to 3857. Needed when using osm-background. 
+
+    Parameters
+    ----------
+    network : PyPSA network container
+
+    Returns
+    -------
+    """  
+    
+    inProj = Proj(init='epsg:4326')
+    outProj = Proj(init='epsg:3857')
+    x1,y1 = network.buses.x.values, network.buses.y.values
+    x2,y2 = transform(inProj,outProj,x1,y1)
+    network.buses.x, network.buses.y = x2, y2
+    set_epsg_network.counter = set_epsg_network.counter + 1
+
+
+def plot_osm(x, y, zoom, alpha = 0.4):
+    """
+    Plots openstreetmap as background of network-plots
+
+    Parameters
+    ----------
+    x : array of two floats
+        Define x-axis boundaries (lat) of osm plot 
+    y : array of two floats
+        Define y-axis boundaries (long) of osm plot 
+    zoom : int
+        Define zoom of osm, higher values for higher resolution
+    alpha : float
+        Sets osm-visibility, increase value if osm covers network-plot
+
+    Returns
+    -------
+    """  
+    
+    tilemapbase.init(create=True)
+
+    extent = tilemapbase.Extent.from_lonlat(x[0], x[1], y[0], y[1])
+    extent = extent.to_aspect(1.0)
+    extent = extent.to_project_3857()
+
+    fig, ax = plt.subplots()
+    plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(),
+                                  zoom = zoom)
+    plotter.plot(ax, alpha = alpha)
+    #ax.plot(x, y, "ro-")
+    return fig, ax
 
 def coloring():
     colors = {'biomass': 'green',
@@ -100,7 +154,8 @@ def plot_line_loading(
         timesteps=range(1,2),
         filename=None,
         boundaries=[],
-        arrows=False):
+        arrows=False,
+        osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """
     Plots line loading as a colored heatmap.
 
@@ -121,7 +176,19 @@ def plot_line_loading(
     arrows : bool
         If True, the direction of the power flows is displayed as 
         arrows.
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+
     # TODO: replace p0 by max(p0,p1) and analogously for q0
     # TODO: implement for all given snapshots
 
@@ -242,7 +309,7 @@ def plot_line_loading(
 
 
 
-def plot_line_loading_diff(networkA, networkB, timestep=0):
+def plot_line_loading_diff(networkA, networkB, timestep=0, osm = False):
     """
     Plot difference in line loading between two networks
     (with and without switches) as color on lines
@@ -263,8 +330,18 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
         If not given, figure will be show directly
     timestep : int
         timestep to show, default is 0
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
-
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(networkA)
+            set_epsg_network(networkB)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
     # new colormap to make sure 0% difference has the same color in every plot
     def shiftedColorMap(
             cmap,
@@ -358,8 +435,10 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     
 
 
+
 def network_expansion(network, method = 'rel', ext_min=0.1,
-                      ext_width=False, filename=None, boundaries=[]):
+                      ext_width=False, filename=None, boundaries=[],
+                      osm = False):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
     Parameters
@@ -378,8 +457,18 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         Save figure in this direction
     boundaries: array
        Set boundaries of heatmap axis
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     
     """
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     cmap = plt.cm.jet
 
@@ -491,7 +580,11 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
         plt.savefig(filename)
         plt.close()
 
-def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
+def network_expansion_diff (networkA,
+                            networkB,
+                            filename=None,
+                            boundaries=[],
+                            osm = False):
     """Plot relative network expansion derivation of AC- and DC-lines.
     
     Parameters
@@ -504,9 +597,20 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
         Save figure in this direction
     boundaries: array
        Set boundaries of heatmap axis
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     
     """
-
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(networkA)
+            set_epsg_network(networkB)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+        
     cmap = plt.cm.jet
     
     array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
@@ -561,7 +665,8 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
         plt.close()
 
 
-def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
+def full_load_hours(network, boundaries=[],
+                    filename=None, two_cb=False, osm = False):
     """Plot loading of lines in equivalten full load hours.
     
     Parameters
@@ -575,7 +680,19 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
     two_cb: bool
         Choose if an extra colorbar for DC-lines is plotted
     
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+        
     cmap = plt.cm.jet
 
     array_line = [['Line'] * len(network.lines), network.lines.index]
@@ -622,15 +739,24 @@ def full_load_hours(network, boundaries=[], filename=None, two_cb=False):
         plt.savefig(filename)
         plt.close()
 
-def plot_q_flows(network):
+def plot_q_flows(network, osm = False):
     """Plot maximal reactive line load. 
     
     Parameters
     ----------
     network: PyPSA network container
         Holds topology of grid including results from powerflow analysis
-
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
     cmap_line = plt.cm.jet
     
     q_flows_max = abs(network.lines_t.q0.abs().max()/(network.lines.s_nom))
@@ -645,7 +771,7 @@ def plot_q_flows(network):
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
 
-def max_load(network, boundaries=[], filename=None, two_cb=False):
+def max_load(network, boundaries=[], filename=None, two_cb=False, osm = False):
     
     """Plot maximum loading of each line. 
     
@@ -660,7 +786,18 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
     two_cb: bool
         Choose if an extra colorbar for DC-lines is plotted
     
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     cmap_line = plt.cm.jet
     cmap_link = plt.cm.jet
@@ -708,6 +845,7 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
         cb.set_label('Maximum load of AC-lines %')
 
     else:
+        cb_Link.remove()
         cb.set_label('Maximum load in %')
     if filename is None:
         plt.show()
@@ -716,7 +854,11 @@ def max_load(network, boundaries=[], filename=None, two_cb=False):
         plt.close()
 
 
-def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
+def load_hours(network,
+               min_load=0.9,
+               max_load=1,
+               boundaries=[0, 8760],
+               osm = False):
     
     """Plot number of hours with line loading in selected range. 
     
@@ -729,10 +871,20 @@ def load_hours(network, min_load=0.9, max_load=1, boundaries=[0, 8760]):
     max_load: float
         Choose upper bound of relative load
     boundaries: array
-       Set boundaries of heatmap axis    
+       Set boundaries of heatmap axis
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     
     """
-    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+
     cmap_line = plt.cm.jet
     cmap_link = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
@@ -964,7 +1116,7 @@ def plot_gen_diff(
     plt.tight_layout()
 
 
-def plot_voltage(network, boundaries=[]):
+def plot_voltage(network, boundaries=[], osm = False):
     """
     Plot voltage at buses as hexbin
 
@@ -973,11 +1125,21 @@ def plot_voltage(network, boundaries=[]):
     ----------
     network : PyPSA network container
     boundaries: list of 2 values, setting the lower and upper bound of colorbar
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
 
     Returns
     -------
     Plot
     """
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     x = np.array(network.buses['x'])
     y = np.array(network.buses['y'])
@@ -1058,7 +1220,7 @@ def curtailment(network, carrier='solar', filename=None):
         plt.close()
 
 
-def storage_distribution(network, scaling=1, filename=None):
+def storage_distribution(network, scaling=1, filename=None, osm = False):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -1071,14 +1233,26 @@ def storage_distribution(network, scaling=1, filename=None):
     filename : str
         Specify filename
         If not given, figure will be show directly
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    else:
+        fig, ax = plt.subplots(1, 1)
 
     stores = network.storage_units
     storage_distribution = network.storage_units.p_nom_opt[stores.index]\
             .groupby(network.storage_units.bus)\
             .sum().reindex(network.buses.index, fill_value=0.)
 
-    fig, ax = plt.subplots(1, 1)
+
     fig.set_size_inches(6, 6)
 
     msd_max = storage_distribution.max()
@@ -1126,7 +1300,11 @@ def storage_distribution(network, scaling=1, filename=None):
 
 
 
-def storage_expansion(network, basemap=True, scaling=1, filename=None):
+def storage_expansion(network,
+                      basemap=True,
+                      scaling=1,
+                      filename=None,
+                      osm = False):
     """
     Plot storage distribution as circles on grid nodes
     Displays storage size and distribution in network.
@@ -1138,8 +1316,20 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
     filename : str
         Specify filename
         If not given, figure will be show directly
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
-
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    else:
+        fig, ax = plt.subplots(1, 1)
     stores = network.storage_units[network.storage_units.carrier == 
                                    'extendable_storage']
     batteries = stores[stores.max_hours == 6]
@@ -1166,7 +1356,6 @@ def storage_expansion(network, basemap=True, scaling=1, filename=None):
                 network.storage_units.capital_cost > 10) & (
                     network.storage_units.max_hours == 168)]
 
-    fig, ax = plt.subplots(1, 1)
     fig.set_size_inches(6, 6)
     
     msd_max = storage_distribution.max()
@@ -1480,7 +1669,8 @@ def nodal_gen_dispatch(
         item='energy',
         direction=None,
         scaling=1,
-        filename=None):
+        filename=None,
+        osm = False):
     """
     Plot nodal dispatch or capacity. If networkB is given, difference in
     dispatch is plotted.
@@ -1514,7 +1704,20 @@ def nodal_gen_dispatch(
         Scaling to change plot sizes.
         default 1
     filename : path to folder
-    """   
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
+    """
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    else:
+        fig, ax = plt.subplots(1, 1)
     
     if techs:
         gens = network.generators[network.generators.carrier.isin(techs)]
@@ -1554,7 +1757,7 @@ def nodal_gen_dispatch(
                             network.snapshot_weightings, axis=0).sum().groupby(
                     [network.generators.bus, network.generators.carrier]).sum()
     
-    fig, ax = plt.subplots(1, 1)          
+    
     scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
     if direction != 'absolute':
         colors = coloring()
@@ -1597,7 +1800,8 @@ def nodal_production_balance(
         network, 
         snapshot='all', 
         scaling=0.00001, 
-        filename=None):
+        filename=None,
+        osm = False):
     """
     Plots the nodal difference between generation and consumption.
     
@@ -1612,9 +1816,22 @@ def nodal_production_balance(
         Scaling to change plot sizes.
         default 0.0001
     filename : path to folder
-    
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background 
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm 
     """
-    fig, ax = plt.subplots(1, 1)
+    
+    if osm != False:
+        if set_epsg_network.counter == 0:
+            set_epsg_network(network)
+        fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
+
+    else:
+        fig, ax = plt.subplots(1, 1)
+        
     gen = network.generators_t.p.groupby(network.generators.bus, axis=1).sum()
     load = network.loads_t.p.groupby(network.loads.bus, axis=1).sum()
     
@@ -1803,6 +2020,7 @@ def storage_soc_sorted(network, filename = None):
 
     return
     
-    
+set_epsg_network.counter = 0
+
 if __name__ == '__main__':
     pass

@@ -30,7 +30,8 @@ setup(
                       'matplotlib >= 1.5.3, <=1.5.3',
                       'tsam==0.9.9',
                       'shapely',
-                      'oedialect'],
+                      'oedialect',
+                      'tilemapbase'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
          '@master#egg=pypsa-0.11.0fork')],
