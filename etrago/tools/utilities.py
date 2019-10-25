@@ -1972,4 +1972,86 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             
     return network
             
+def sensitivity_cd2(network, scale_solar=1, scale_windon=1.245, scale_windoff=1.148):
+    solar = network.generators[network.generators.carrier=='solar']
+    network.generators_t.p_max_pu[solar.index] *= scale_solar
+
+    wind_on = network.generators[network.generators.carrier=='wind_onshore']
+    network.generators_t.p_max_pu[wind_on.index] *= scale_windon
+
+    wind_off = network.generators[network.generators.carrier=='wind_offshore']
+    network.generators_t.p_max_pu[wind_off.index] *= scale_windoff
+
+def analyse(network):
+    network_de = network.copy()
+    buses_by_country(network_de)
+    network_de = clip_foreign(network_de)
+
+    #objective
+    print("Total Network objective:", round(network.objective,0))
+
+    #lcoe
+
+    # Autarky-level DE
+    dispatch = network_de.generators_t.p.sum(axis=1).sum()
+    load = network_de.loads_t.p_set.sum(axis=1).sum()
+    share = (dispatch / load) * 100
+    print("Autarky-level DE [%]:", round(share, 2))
+
+    #solver time
+    print("Solver time [min]:", round((network.time / 60),0))
+
+    #re_share
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    res = network.generators[network.generators.carrier.isin(renewables)]
+    res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
+    load = network.loads_t.p_set.sum(axis=1).sum()
+    share=(res_dispatch / load) * 100
+    print("Total RE-share [%]:", round(share, 2))
+
+    res_de = network_de.generators[network_de.generators.carrier.isin(renewables)]
+    res_dispatch_de = network_de.generators_t.p[res_de.index].sum(axis=1).sum()
+    load_de = network_de.loads_t.p_set.sum(axis=1).sum()
+    share_de = (res_dispatch_de / load_de) * 100
+    print("DE RE-share [%]:", round(share_de, 2))
+
+    #storage capacity
+    print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[(network.storage_units.p_nom_opt > 1) & (
+                network.storage_units.capital_cost > 10)].sum(), 0))
+
+    #storage costs
+    print("Ext. storage costs [EUR]:", round((network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum(),0))
+
+    #batteries
+    sbatt = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)]
+    print("Ext. battery capacity [MW]:", round(network.storage_units.p_nom_opt[ sbatt].sum(),0))
+    print("No. of batteries:",network.storage_units.carrier[ sbatt].count())
+
+    #hydrogen
+    shydr = network.storage_units.index[(network.storage_units.p_nom_opt > 1) & (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 168)]
+    print("Ext. hydrogen capacity [MW]:", round(network.storage_units.p_nom_opt[ shydr].sum(),0))
+    print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
+
+    #curtailment
+    p_by_carrier = network.generators_t.p.groupby\
+        (network.generators.carrier, axis=1).sum()
+    capacity = network.generators.p_nom.groupby(network.generators.carrier).sum()
+    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
+    p_available_by_carrier = p_available.groupby(
+        network.generators.carrier, axis=1).sum()
+    p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
+    print("Curtailment by carrier [%]:",round((p_curtailed_by_carrier.sum()/p_available_by_carrier.sum())*100,2))
+    print("Total curtailment rate [%]:",round((p_curtailed_by_carrier.sum().sum() / p_available_by_carrier.sum().sum()) * 100, 2))
+
+    p_by_carrier_de = network_de.generators_t.p.groupby\
+        (network_de.generators.carrier, axis=1).sum()
+    capacity_de = network_de.generators.p_nom.groupby(network_de.generators.carrier).sum()
+    p_available_de = network_de.generators_t.p_max_pu.multiply(network_de.generators["p_nom"])
+    p_available_by_carrier_de = p_available_de.groupby(
+        network_de.generators.carrier, axis=1).sum()
+    p_curtailed_by_carrier_de = p_available_by_carrier_de - p_by_carrier_de
+    print("DE Curtailment by carrier [%]:",round((p_curtailed_by_carrier_de.sum()/p_available_by_carrier_de.sum())*100,2))
+    print("DE total curtailment rate [%]:",round((p_curtailed_by_carrier_de.sum().sum() / p_available_by_carrier_de.sum().sum()) * 100, 2))
+
+    return network
 
