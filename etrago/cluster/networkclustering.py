@@ -126,7 +126,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         io.import_series_from_dataframe(network_c, df, 'Generator', attr)
 
     # dealing with all other components
-    aggregate_one_ports = network.one_port_components.copy()
+    aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
@@ -227,8 +227,8 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
-                            cpu_cores=4):
+def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
+                            tolvl, cpu_cores=4):
     """ Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
@@ -325,7 +325,9 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
+
     df['scn_name'] = scn_name
+    df['version'] = version
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
@@ -338,7 +340,7 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     return
 
 
-def busmap_from_psql(network, session, scn_name):
+def busmap_from_psql(network, session, scn_name, version):
     """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
@@ -363,7 +365,8 @@ def busmap_from_psql(network, session, scn_name):
     def fetch():
 
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name)
+            filter(EgoGridPfHvBusmap.scn_name == scn_name).filter(
+                    EgoGridPfHvBusmap.version == version)
 
         return dict(query.all())
 
@@ -375,7 +378,7 @@ def busmap_from_psql(network, session, scn_name):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name,
+        busmap_by_shortest_path(network, session, scn_name, version,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
@@ -451,7 +454,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
- #   network.buses['v_nom'] = 380.
+
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
@@ -477,7 +480,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                    network.transformers.bus1.map(network.buses.v_nom)], axis=1)
 
     network.import_components_from_dataframe(
-        network.transformers[[
+        network.transformers.loc[:, [
                 'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
@@ -496,7 +499,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
         network.generators['weight'] = network.generators['p_nom']
-        aggregate_one_ports = network.one_port_components.copy()
+        aggregate_one_ports = components.one_port_components.copy()
         aggregate_one_ports.discard('Generator')
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
@@ -563,9 +566,8 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
-    aggregate_one_ports = network.one_port_components.copy()
+    aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-
     clustering = get_clustering_from_busmap(
         network,
         busmap,

@@ -113,53 +113,43 @@ args = {
     'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-<<<<<<< HEAD:etrago/pre-final/appl-nep200.py
-                       'logFile': 'solver_nep-200.log', 'threads':4, 'method':2, 'crossover':0,
-                       'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
-    'scn_name': 'NEP 2035', # a scenario: Status Quo, NEP 2035, eGo 100
-=======
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
->>>>>>> dev:etrago/appl.py
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/nep-3-200',  # save results as csv: False or /path/tofolder
+    'csv_export': False,  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['foreign_storage', 'storage'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
     # Clustering:
-<<<<<<< HEAD:etrago/pre-final/appl-nep200.py
-    'network_clustering_kmeans': 200,  # False or the value k for clustering
-=======
     'network_clustering_kmeans': 300,  # False or the value k for clustering
->>>>>>> dev:etrago/appl.py
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.7, 'eHV': 0.7},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)#'/home/lukas_wienholt/eTraGo/etrago/ego-3-500.json')
+args = get_args_setting(args, jsonpath=None)
 
 
 def etrago(args):
@@ -436,8 +426,6 @@ def etrago(args):
         crossborder_capacity(
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
-    # variation of storage costs
-    # network.storage_units.capital_cost = network.storage_units.capital_cost * 1.05
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -477,22 +465,6 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
-<<<<<<< HEAD:etrago/pre-final/appl-nep200.py
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
-
-    # scenario decommissioning
-    if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
-
-    # Add missing lines in Munich and Stuttgart
-    network = add_missing_components(network)
-
-=======
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
 
@@ -511,7 +483,6 @@ def etrago(args):
             session,
             args)
 
->>>>>>> dev:etrago/appl.py
     # investive optimization strategies
     if args['extendable'] != []:
         network = extendable(
@@ -561,9 +532,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=2500,
-                max_iter=1000,
-                tol=1e-20,
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
@@ -583,22 +554,6 @@ def etrago(args):
             network,
             args,
             group_size=1,
-<<<<<<< HEAD:etrago/pre-final/appl-nep200.py
-            extra_functionality=extra_functionality)
-
-    # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
-        x = time.time()
-        network.lopf(
-            network.snapshots,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality, formulation="kirchhoff")
-        y = time.time()
-        z = (y - x) / 60
-        # z is time for lopf in minutes
-        print("Time for LOPF [min]:", round(z, 2))
-=======
             extra_functionality=Constraints(args).functionality)
 
     # start linear optimal powerflow calculations
@@ -607,7 +562,6 @@ def etrago(args):
                      args,
                      Constraints(args).functionality,
                      method={'threshold':0.01})
->>>>>>> dev:etrago/appl.py
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
