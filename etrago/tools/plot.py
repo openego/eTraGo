@@ -117,6 +117,7 @@ def plot_osm(x, y, zoom, alpha = 0.4):
     extent = extent.to_project_3857()
 
     fig, ax = plt.subplots()
+    plt.axis('off')
     plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(),
                                   zoom = zoom)
     plotter.plot(ax, alpha = alpha)
