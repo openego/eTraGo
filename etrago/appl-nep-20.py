@@ -107,32 +107,32 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver_sq-600.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_nep-20.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
-    'scn_name': 'Status Quo', # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035', # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension': None,# ['chp_nep'],# 'bugfix_wind_offshore'],  # None or array of extension scenarios
+    'scn_decommissioning': None,#['bugfix_pv_wind_nep'],#, 'nep2035_b2'],  # None or array of decommissioning scenarios
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/sq-600',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/nep-20',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['foreign_storage', 'storage'],  # Array of components to optimize
+    'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': None,  # Choose function name or None
+    'extra_functionality': 'min_renewable_share',  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 600,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 500,  # False or the value k for clustering
+    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -385,7 +385,86 @@ def etrago(args):
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
     # variation of storage costs
-    #network.storage_units.capital_cost = network.storage_units.capital_cost * 1.05
+#    network.storage_units.capital_cost = network.storage_units.capital_cost * .95
+
+   # set numbers for offshore wind to their connection points
+    # Büttel
+    network.generators.p_nom.loc['24778'] = 3000  # ok
+#    network.generators.p_nom.loc['24784'] = 0  # ok
+    network.generators.p_nom.loc['56562'] = 0  # ok
+
+    # Dörpen West
+    network.generators.p_nom.loc['25461'] = 2616 # ok
+#    network.generators.p_nom.loc['25474'] = 0 # ok
+#    network.generators.p_nom.loc['56553'] = 0 # ok
+#    network.generators.p_nom.loc['56555'] = 0 # ok
+#    network.generators.p_nom.loc['56558'] = 0 # ok
+#    network.generators.p_nom.loc['56569'] = 0 # ok
+#    network.generators.p_nom.loc['56570'] = 0 # ok
+#    network.generators.p_nom.loc['56571'] = 0 # ok
+#    network.generators.p_nom.loc['56573'] = 0 # ok
+    network.generators.p_nom.loc['56574'] = 0 # ok
+    network.generators.p_nom.loc['56572'] = 0 # ok
+
+
+    # Diele
+    network.generators.p_nom.loc['32308'] = 1200  # ok
+#    network.generators.p_nom.loc['56551'] = 0 # ok
+    network.generators.p_nom.loc['56576'] = 0  # ok
+
+    # Lubmin
+    network.generators.p_nom.loc['56560'] = 0 # ok
+    network.generators.p_nom.loc['4683'] = 1771 # ok
+
+    # Emden
+    network.generators.bus.loc['25474'] = '24710'  # ok
+    network.generators.p_nom.loc['25474'] = 113  # ok
+    network.generators.bus.loc['24784'] = '26134'  # ok
+    network.generators.p_nom.loc['24784'] = 2700 # ok
+
+    # Hagermarsch
+    network.generators.bus.loc['56555'] = '25427'  # ok 
+    network.generators.p_nom.loc['56555'] = 62  # ok
+   
+    # Inhausen
+    network.generators.bus.loc['56558'] = '24374'  # ok        
+    network.generators.p_nom.loc['56558'] = 111  # ok
+    
+    # Cloppenburg
+    network.generators.bus.loc['56551'] = '25249'  # ok        
+    network.generators.p_nom.loc['56551'] = 900 # ok
+
+    # Hanekenfähr
+    network.generators.bus.loc['56553'] = '25451'  # ok        
+    network.generators.p_nom.loc['56553'] = 1800 # ok
+
+    # Bentwisch
+    network.generators.bus.loc['56569'] = '24579'  # ok        
+    network.generators.p_nom.loc['56569'] = 339 # ok
+
+    # Unterweser
+    network.generators.bus.loc['56570'] = '24558'  # ok        
+    network.generators.p_nom.loc['56570'] = 1800 # ok
+
+    # Siedenbrünzow/Sanitz
+#    network.generators.bus.loc['56556'] = '27541'  # ok        
+#    network.generators.p_nom.loc['56556'] = 900 # ok
+
+    # Wilhemshaven2
+    network.generators.bus.loc['56573'] = '26892'  # ok        
+    network.generators.p_nom.loc['56573'] = 2588 # ok
+
+    # Heide West
+    network.generators.bus.loc['56571'] = '25477'  # ok        
+    network.generators.p_nom.loc['56571'] = 1000 # ok
+
+    # Wehrendorf
+#    network.generators.bus.loc['25473'] = '24653'  # ok        
+#    network.generators.p_nom.loc['25473'] = 4000 # ok
+
+    # Westerkappeln
+#    network.generators.bus.loc['25460'] = '26277'  # ok        
+#    network.generators.p_nom.loc['25460'] = 4000 # ok
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -439,6 +518,10 @@ def etrago(args):
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
 
+    # set Branch capacity factor for lines and transformer
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
+
     # scenario decommissioning
     if args['scn_decommissioning'] is not None:
         for i in range(len(args['scn_decommissioning'])):
@@ -451,10 +534,6 @@ def etrago(args):
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
-
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
 
     # investive optimization strategies
     if args['extendable'] != []:

@@ -250,7 +250,7 @@ def extendable(network, args, line_max):
 
         network.storage_units.loc[
                 network.storage_units.p_nom_max.isnull(),'p_nom_max'] = \
-                1000000 # network.storage_units.p_nom
+                network.storage_units.p_nom #1000000
 
         network.storage_units.loc[
                 (network.storage_units.carrier == 'battery_storage'),
