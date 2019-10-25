@@ -100,7 +100,8 @@ def plot_line_loading(
         timesteps=range(1,2),
         filename=None,
         boundaries=[],
-        arrows=False):
+        arrows=False,
+        osm =  {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """
     Plots line loading as a colored heatmap.
 
@@ -127,6 +128,9 @@ def plot_line_loading(
 
     # calculate relative line loading as S/S_nom
     # with S = sqrt(P^2 + Q^2)
+    if osm != False:
+       # set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
     cmap = plt.cm.jet
     array_line = [['Line'] * len(network.lines), network.lines.index]
     array_link = [['Link'] * len(network.links), network.links.index]
@@ -364,10 +368,34 @@ def plot_line_loading_diff(networkA, networkB, timestep=0):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
     
+def set_epsg_network(network):
+    from pyproj import Proj, transform
 
+    inProj = Proj(init='epsg:4326')
+    outProj = Proj(init='epsg:3857')
+    x1,y1 = network.buses.x.values, network.buses.y.values
+    x2,y2 = transform(inProj,outProj,x1,y1)
+    network.buses.x, network.buses.y = x2, y2
+
+
+
+def plot_osm(x = [1,20], y = [47, 56], zoom = 6):
+    import tilemapbase
+
+    tilemapbase.init(create=True)
+
+    extent = tilemapbase.Extent.from_lonlat(x[0], x[1], y[0], y[1])
+    extent = extent.to_aspect(1.0)
+    extent = extent.to_project_3857()
+
+    fig, ax = plt.subplots()
+    plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), zoom = zoom)
+    plotter.plot(ax, alpha = 0.6)
+    ax.plot(x, y, "ro-")
 
 def network_expansion(network, method = 'rel', ext_min=0.1,
-                      ext_width=False, filename=None, boundaries=[]):
+                      ext_width=False, filename=None, boundaries=[],
+                      osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
     Parameters
@@ -388,7 +416,9 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
        Set boundaries of heatmap axis
     
     """
-
+    if osm != False:
+       # set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
     cmap = plt.cm.jet
 
     overlay_network = network.copy()
