@@ -101,20 +101,26 @@ def tsam_cluster(timeseries_df,
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
 
+
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
+    clusterOrder =aggregation.clusterOrder
+    clusterCenterIndices= aggregation.clusterCenterIndices
 
-    # get the medoids/ the clusterCenterIndices
-    clusterCenterIndices = aggregation.clusterCenterIndices
+    if extremePeriodMethod  != 'None':
+        for i in aggregation.extremePeriods.keys():
+            clusterCenterIndices.insert(
+                    aggregation.extremePeriods[i]['newClusterNo'],
+                    aggregation.extremePeriods[i]['stepNo'])
 
     # get all index for every hour of that day of the clusterCenterIndices
-    start = []
+    start=[]
     # get the first hour of the clusterCenterIndices (days start with 0)
     for i in clusterCenterIndices:
-        start.append(i * hours)
+        start.append(i*hours)
 
     # get a list with all hours belonging to the clusterCenterIndices
-    nrhours = []
+    nrhours=[]
     for j in start:
         nrhours.append(j)
         x = 1
@@ -126,7 +132,42 @@ def tsam_cluster(timeseries_df,
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index
 
-    return timeseries, cluster_weights, dates, hours
+    #get list of representative days
+    representative_day=[]
+
+    #cluster:medoid des jeweiligen Clusters
+    dic_clusterCenterIndices = dict(enumerate(clusterCenterIndices))
+    for i in clusterOrder:
+        representative_day.append(dic_clusterCenterIndices[i])
+
+    #get list of last hour of representative days
+    last_hour_datetime=[]
+    for i in representative_day:
+        last_hour = i * hours + hours - 1
+        last_hour_datetime.append(timeseries_df.index[last_hour])
+
+    #create a dataframe (index=nr. of day in a year/candidate)
+    df_cluster =  pd.DataFrame({
+                        'Cluster': clusterOrder, #Cluster of the day
+                        'RepresentativeDay': representative_day, #representative day of the cluster
+                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster  
+    df_cluster.index = df_cluster.index + 1
+    df_cluster.index.name = 'Candidate'
+
+    #create a dataframe each timeseries (h) and its candiddate day (i) df_i_h
+    nr_day = []
+    x = len(timeseries_df.index)/hours+1
+
+    for i in range(1,int(x)):
+        j=1
+        while j <= hours: 
+            nr_day.append(i)
+            j=j+1
+    df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
+                        'Candidate_day': nr_day})
+    df_i_h.set_index('Timeseries',inplace=True)
+
+    return df_cluster, cluster_weights, dates, hours, df_i_h
 
 
 def run(network, n_clusters=None, how='daily',
@@ -135,9 +176,13 @@ def run(network, n_clusters=None, how='daily',
     """
 
     # calculate clusters
-    tsam_ts, cluster_weights, dates, hours = tsam_cluster(
-        prepare_pypsa_timeseries(network), typical_periods=n_clusters,
-        how=how)
+    df_cluster, cluster_weights, dates, hours, df_i_h= tsam_cluster(
+                prepare_pypsa_timeseries(network),
+                typical_periods=n_clusters,
+                how='daily',
+                extremePeriodMethod = 'None')
+    network.cluster = df_cluster
+    network.cluster_ts = df_i_h
 
     update_data_frames(network, cluster_weights, dates, hours)
 

@@ -110,7 +110,7 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
@@ -132,7 +132,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {'minimal_renewable_share':0.72},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 300,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -492,17 +492,6 @@ def etrago(args):
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
-
-    # snapshot clustering
-    if not args['snapshot_clustering'] is False:
-        network = snapshot_clustering(
-            network, how='daily', clusters=args['snapshot_clustering'])
-
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
@@ -541,6 +530,18 @@ def etrago(args):
         network = clustering.network.copy()
         geolocation_buses(network, session)
 
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
+
+    # snapshot clustering
+    if not args['snapshot_clustering'] is False:
+        network = snapshot_clustering(
+            network, how='daily', clusters=args['snapshot_clustering'])
+        args['snapshot_clustering_constraints'] = 'daily_bounds'
+
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -561,7 +562,7 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      Constraints(args).functionality,
-                     method={'threshold':0.01})
+                     method={'n_iter':4})
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
