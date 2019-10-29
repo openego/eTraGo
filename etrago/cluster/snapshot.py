@@ -53,12 +53,27 @@ def snapshot_clustering(network, how='daily', clusters=10):
     return network
 
 
-def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
+def tsam_cluster(timeseries_df,
+                 typical_periods=10,
+                 how='daily',
+                 extremePeriodMethod = 'None'):
     """
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame with timeseries to cluster
+    extremePeriodMethod: {'None','append','new_cluster_center',
+                           'replace_cluster_center'}, default: 'None'
+        Method how to integrate extreme Periods
+        into to the typical period profiles.
+        None: No integration at all.
+        'append': append typical Periods to cluster centers
+        'new_cluster_center': add the extreme period as additional cluster
+            center. It is checked then for all Periods if they fit better
+            to the this new center or their original cluster center.
+        'replace_cluster_center': replaces the cluster center of the
+            cluster where the extreme period belongs to with the periodly
+            profile of the extreme period. (Worst case system design)
 
     Returns
     -------
@@ -68,12 +83,20 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
 
     if how == 'daily':
         hours = 24
+        period = ' days'
     if how == 'weekly':
         hours = 168
+        period = ' weeks'
+
+    print('Snapshot clustering to ' + str(typical_periods) + period + 
+          ' using extreme period method: ' + extremePeriodMethod)
 
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
+        extremePeriodMethod = extremePeriodMethod,
+        addPeakMin = ['residual_load'],
+        addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
@@ -135,9 +158,13 @@ def prepare_pypsa_timeseries(network, normed=False):
     else:
         loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set.copy()
+        renewables = network.generators_t.p_max_pu.mul(
+                network.generators.p_nom[
+                network.generators_t.p_max_pu.columns], axis = 1).copy()
         renewables.columns = 'G' + renewables.columns
-        df = pd.concat([renewables, loads], axis=1)
+        residual_load=pd.DataFrame()
+        residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
+        df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
 
