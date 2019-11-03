@@ -31,7 +31,9 @@ import pypsa
 import json
 import logging
 import math
-
+import pkgutil
+import io
+from ego.tools.economics import get_generator_investment
 
 geopandas = True
 try:
@@ -1987,17 +1989,27 @@ def analyse(network):
 
     #objective
     print("Total Network objective:", round(network.objective,0))
-
-    #lcoe
-
+    
     # Autarky-level DE
     dispatch = network_de.generators_t.p.sum(axis=1).sum()
     load = network_de.loads_t.p_set.sum(axis=1).sum()
     share = (dispatch / load) * 100
     print("Autarky-level DE [%]:", round(share, 2))
-
+    
+    #lcoe
+    total_costs = generator_invest_annuity(network).sum() + network.objective
+    lcoe = total_costs /network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()
+    dispatch_costs = (network.generators_t.p * network.generators.marginal_cost).sum().sum()
+    storage_costs = (network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum()
+    print("LCOE [EUR/MWh]:",lcoe.round(2))
+    print("..thereof exogen:",(generator_invest_annuity(network).sum()/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("..thereof endogen:",(network.objective/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("....thereof dispatch:",(dispatch_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("....thereof storage exp:",(storage_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    # resolve difference to objective, include pump annuities!
+    
     #solver time
-    print("Solver time [min]:", round((network.time / 60),0))
+#    print("Solver time [min]:", round((network.time / 60),0))
 
     #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
@@ -2006,12 +2018,23 @@ def analyse(network):
     load = network.loads_t.p_set.sum(axis=1).sum()
     share=(res_dispatch / load) * 100
     print("Total RE-share [%]:", round(share, 2))
-
+    
+    #share by technology
+    p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
+    share_tech=(p_by_carrier/load) * 100
+    print("Share by carrier [%]:",share_tech.round(2))
+    
+    # DE
     res_de = network_de.generators[network_de.generators.carrier.isin(renewables)]
     res_dispatch_de = network_de.generators_t.p[res_de.index].sum(axis=1).sum()
     load_de = network_de.loads_t.p_set.sum(axis=1).sum()
     share_de = (res_dispatch_de / load_de) * 100
     print("DE RE-share [%]:", round(share_de, 2))
+    
+    #share by technology
+    p_by_carrier_de = network_de.generators_t.p.groupby(network_de.generators.carrier, axis=1).sum().sum()
+    share_tech_de=(p_by_carrier_de/load_de) * 100
+    print("DE Share by carrier [%]:",share_tech_de.round(2))
 
     #storage capacity
     print("Ext. storage capacity [MW]:", round(network.storage_units.p_nom_opt[(network.storage_units.p_nom_opt > 1) & (
@@ -2030,6 +2053,13 @@ def analyse(network):
     print("Ext. hydrogen capacity [MW]:", round(network.storage_units.p_nom_opt[ shydr].sum(),0))
     print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
 
+    #storage losses
+    charge=network.storage_units_t.p[ network.storage_units_t.p < 0].sum(axis=1).sum()
+    discharge=network.storage_units_t.p[ network.storage_units_t.p > 0].sum(axis=1).sum()
+    print("Storage discharge/charge ratio [%]:",((abs(discharge/charge)*100).round(2)))
+    system_load=load+abs(network.storage_units_t.p.sum(axis=1).sum())
+    print("Storage losses share of system load [%]",((abs(network.storage_units_t.p.sum(axis=1).sum())/system_load)*100).round(2))
+   
     #curtailment
     p_by_carrier = network.generators_t.p.groupby\
         (network.generators.carrier, axis=1).sum()
@@ -2039,7 +2069,7 @@ def analyse(network):
         network.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier = p_available_by_carrier - p_by_carrier
     print("Curtailment by carrier [%]:",round((p_curtailed_by_carrier.sum()/p_available_by_carrier.sum())*100,2))
-    print("Total curtailment rate [%]:",round((p_curtailed_by_carrier.sum().sum() / p_available_by_carrier.sum().sum()) * 100, 2))
+    print("Total curtailment rate [%]:",round((p_curtailed_by_carrier[p_curtailed_by_carrier>1].sum().sum() / p_available_by_carrier[p_available_by_carrier>1].sum().sum()) * 100, 2))
 
     p_by_carrier_de = network_de.generators_t.p.groupby\
         (network_de.generators.carrier, axis=1).sum()
@@ -2049,7 +2079,38 @@ def analyse(network):
         network_de.generators.carrier, axis=1).sum()
     p_curtailed_by_carrier_de = p_available_by_carrier_de - p_by_carrier_de
     print("DE Curtailment by carrier [%]:",round((p_curtailed_by_carrier_de.sum()/p_available_by_carrier_de.sum())*100,2))
-    print("DE total curtailment rate [%]:",round((p_curtailed_by_carrier_de.sum().sum() / p_available_by_carrier_de.sum().sum()) * 100, 2))
+    print("DE Total curtailment rate [%]:",round((p_curtailed_by_carrier_de[p_curtailed_by_carrier>1].sum().sum() / p_available_by_carrier_de[p_available_by_carrier_de>1].sum().sum()) * 100, 2))
 
     return network
+
+def overnight_to_annuity(overnight_costs, start_snapshot, end_snapshot, p=0.05, T=40):
+
+    # Calculate present value of an annuity (PVA)
+    PVA = (1 / p) - (1 / (p * (1 + p) ** T))
+    
+    annuity = overnight_costs / (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+    return annuity
+
+def generator_invest_annuity(network):
+
+    if 'coal' in network.generators.carrier.unique():
+        generator_invest_costs = get_generator_investment(network, scn_name='NEP 2035')
+    else:
+        generator_invest_costs = get_generator_investment(network, scn_name='eGo 100')
+    
+    
+    lifetimes_gen = pd.Series(data=[25, 25, 25, 30, 30, 30, 30, 30, 30, 50, 50, 45, 40, 40], 
+                              index=['wind_onshore', 'wind_offshore', 'solar', 
+                              'biomass', 'geothermal', 'gas', 'oil', 'waste', 'other_non_renewable', 
+                              'run_of_river', 'reservoir',
+                              'uranium', 
+                              'coal', 'lignite'])
+    
+    generator_annuities = pd.Series()
+    for i in generator_invest_costs.index:
+        temp = overnight_to_annuity(overnight_costs = 
+            generator_invest_costs[generator_invest_costs.index == i]['carrier_costs'], 
+            start_snapshot = 1, end_snapshot=8760, p=0.05, T=lifetimes_gen[i])
+        generator_annuities=pd.concat([generator_annuities, temp])
+    return generator_annuities
 

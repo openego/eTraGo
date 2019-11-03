@@ -116,7 +116,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
                        'logFile': 'solver_sq.log', 'threads':8, 'method':2, 'crossover':0,

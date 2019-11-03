@@ -480,7 +480,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
                    network.transformers.bus1.map(network.buses.v_nom)], axis=1)
 
     network.import_components_from_dataframe(
-        network.transformers.[[
+        network.transformers.loc[:, [
                 'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
