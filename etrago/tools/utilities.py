@@ -33,7 +33,6 @@ import logging
 import math
 import pkgutil
 import io
-from ego.tools.economics import get_generator_investment
 
 geopandas = True
 try:
@@ -2114,3 +2113,41 @@ def generator_invest_annuity(network):
         generator_annuities=pd.concat([generator_annuities, temp])
     return generator_annuities
 
+def get_generator_investment(network, scn_name):
+    """ Get investment costs per carrier/ generator.
+
+    """
+    etg = network
+
+    try:
+
+        data = pkgutil.get_data('ego', 'data/investment_costs.csv')
+        invest = pd.read_csv(io.BytesIO(data),
+                             encoding='utf8', sep=",",
+                             index_col="carriers")
+
+    except FileNotFoundError:
+        path = os.getcwd()
+        filename = 'investment_costs.csv'
+        invest = pd.DataFrame.from_csv(path + '/data/'+filename)
+
+    if scn_name in ['SH Status Quo', 'Status Quo']:
+        invest_scn = 'Status Quo'
+
+    if scn_name in ['SH NEP 2035', 'NEP 2035']:
+        invest_scn = 'NEP 2035'
+
+    if scn_name in ['SH eGo 100', 'eGo 100']:
+        invest_scn = 'eGo 100'
+
+    gen_invest = pd.concat([invest[invest_scn],
+                            etg.generators.groupby('carrier')['p_nom'].sum()],
+                           axis=1, join='inner')
+
+    gen_invest = pd.concat([invest[invest_scn], etg.generators.groupby(
+        'carrier')
+        ['p_nom'].sum()], axis=1, join='inner')
+    gen_invest['carrier_costs'] = gen_invest[invest_scn] * \
+        gen_invest['p_nom'] * 1000  # in MW
+
+    return gen_invest
