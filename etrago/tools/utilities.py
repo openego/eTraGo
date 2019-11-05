@@ -1996,19 +1996,20 @@ def analyse(network):
     print("Autarky-level DE [%]:", round(share, 2))
     
     #lcoe
-    total_costs = generator_invest_annuity(network).sum() + network.objective
+    pump_overnight = network.storage_units[network.storage_units.carrier=='pumped_storage'].p_nom.sum() * 850000
+    pump_annuity = overnight_to_annuity(overnight_costs =pump_overnight,start_snapshot = 1, end_snapshot=8760, p=0.05, T=40)
+    total_costs = generator_invest_annuity(network).sum() + pump_annuity + network.objective
     lcoe = total_costs /network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()
-    dispatch_costs = (network.generators_t.p * network.generators.marginal_cost).sum().sum()
+    dispatch_costs = (network.generators_t.p.mul(network.snapshot_weightings, axis=0) * network.generators.marginal_cost).sum().sum()
     storage_costs = (network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum()
     print("LCOE [EUR/MWh]:",lcoe.round(2))
     print("..thereof exogen:",(generator_invest_annuity(network).sum()/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("..thereof endogen:",(network.objective/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof dispatch:",(dispatch_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof storage exp:",(storage_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
-    # resolve difference to objective, include pump annuities!
     
     #solver time
-#    print("Solver time [min]:", round((network.time / 60),0))
+    #print("Solver time [min]:", round((network.time / 60),0))
 
     #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
