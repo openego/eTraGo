@@ -1,0 +1,34 @@
+id,Spannungsebene,Anlage/Anlagenteil,Maßnahme,"
+Investionskosten ",Einheit,Bemerkung,Literatur,Source
+1,220,AC-Freileitungen,"220-kV-Stromkreisauflage/
+Umbeseilung","0,15",Mio. €/km,auf Bestandsleitung pro Stromkreis,NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+2,380,AC-Freileitungen,"380-kV-Stromkreisauflage/
+Umbeseilung","0,20",Mio. €/km,auf Bestandsleitung pro Stromkreis,NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+3,380,AC-Freileitungen,"380-kV-Neubau in bestehender
+Trasse Doppelleitung","1,6",Mio. €/km,inkl. Rückbau der bestehenden Trasse,NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+4,380,AC-Freileitungen,380-kV-Neubau in Doppelleitung,"1,5",Mio. €/km,"Neubautrasse, Hochstrom",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+5,,DC-Freileitungen,Neubau DC-Freileitung*,"1,5",Mio. €/km,Neubautrasse mit bis zu 4 GW,NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+6,,DC-Freileitungen,Umstellung Freileitung AC → DC,"0,20",Mio. €/km,"AC-Bestandsleitung, Stromkreisauflage DC
+(Nachbeseilung), Kosten pro Stromkreis",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+7,,DC-Erdkabel,Neubau DC-Erdkabel,"4,00",Mio. €/km,"Neubautrasse mit 2 GW bei durchschnittlichen
+Gegebenheiten",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+8,,DC-Erdkabel,Neubau DC-Erdkabel,"8,00",Mio. €/km,"Neubautrasse mit 2 x 2 GW bei durchschnittlichen
+Gegebenheiten",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+9,380,AC-Stationen,380-kV-Schaltfeld,"4,00",Mio. €/SF,inkl. anlagenanteiliger Infrastruktur,NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+10,,DC-Stationen,DC-Konverterstation,"0,20",Mio. €/MW,"pro Konverterstation inkl. Kosten des/der
+AC-Anschluss-SF, Kosten für VSC-Umrichter,
+die ausschließlich zum Einsatz kommen
+sollen (vorher Kosten für LCC-Umrichter)",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+11,380,"Kompensations
+anlagen",380-kV-MSCDN,"1,4",Mio. €/Stück,100 Mvar schaltbarere Kondensator (ohne SF),NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+12,380,"Kompensations
+anlagen",380-kV-SVC,"4,0",Mio. €/Stück,"100 Mvar regelbare Kompensation:
+inkl. Anpasstransformator (ohne SF)",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+13,380,"Kompensations
+anlagen",380-kV-Kompensationsspule,"1,5",Mio. €/Stück,100 Mvar Drosselspule (ohne SF),NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+14,380/110,380/110-kV-Transformatoren,300 MVA,"5,2",Mio. €/Stück,"inkl. 110-kV-Schaltfeld und Kabelableitung
+(ohne 380-kV-Schaltfeld)",NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+15,380/110,"380/220-kV-
+Transformatoren",600 MVA,"8,5",Mio. €/Stück,inkl. Nebenanlagen (ohne 380-kV-Schaltfeld),NEP 2025,https://www.netzentwicklungsplan.de/sites/default/files/paragraphs-files/kostenschaetzungen_nep_2025_1_entwurf.pdf
+16,110,"AC-Freileitungen",110-kV-Stromkreisauflage/Umbeseilung,"0,06",Mio. €/km,auf Bestandsleitung pro Stromkreis, dena Verteilnetzstudie 2030 S.146 ,https://shop.dena.de/sortiment/detail/produkt/dena-verteilnetzstudie-ausbau-und-innovationsbedarf-der-stromverteilnetze-in-deutschland-bis-2030/
+17,110,"AC-Freileitungen",110-kV-Neubau in bestehender Trasse Doppelleitung,"0,52",Mio. €/km,inkl. Rückbau der bestehenden Trasse,dena Verteilnetzstudie 2030 S.146 ,https://shop.dena.de/sortiment/detail/produkt/dena-verteilnetzstudie-ausbau-und-innovationsbedarf-der-stromverteilnetze-in-deutschland-bis-2030/

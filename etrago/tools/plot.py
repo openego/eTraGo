@@ -24,7 +24,6 @@ Plot.py defines functions necessary to plot results of eTraGo.
 
 import os
 import matplotlib
-matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pandas as pd

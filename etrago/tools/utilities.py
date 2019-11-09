@@ -2008,32 +2008,47 @@ def analyse(network):
     print("....thereof dispatch:",(dispatch_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof storage exp:",(storage_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     
+    #lcoe DE
+    pump_overnight_de = network_de.storage_units[network_de.storage_units.carrier=='pumped_storage'].p_nom.sum() * 850000
+    pump_annuity_de = overnight_to_annuity(overnight_costs =pump_overnight_de,start_snapshot = 1, end_snapshot=8760, p=0.05, T=40)
+    dispatch_costs_de = (network_de.generators_t.p.mul(network_de.snapshot_weightings, axis=0) * network_de.generators.marginal_cost).sum().sum()
+    storage_costs_de = (network_de.storage_units.capital_cost * network_de.storage_units.p_nom_opt).sum()
+    total_costs_de = generator_invest_annuity(network_de).sum() + pump_annuity_de + dispatch_costs_de + storage_costs_de
+    lcoe_de = total_costs_de / network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()
+    print("LCOE DE[EUR/MWh]:",lcoe_de.round(2))
+    print("..thereof exogen:",(generator_invest_annuity(network_de).sum()/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("..thereof endogen:",((dispatch_costs_de + storage_costs_de)/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("....thereof dispatch:",(dispatch_costs_de/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("....thereof storage exp:",(storage_costs_de/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
+    
     #solver time
-    #print("Solver time [min]:", round((network.time / 60),0))
+    print("Solver time [min]:", round((network.time / 60),0))
 
     #re_share
     renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
     res = network.generators[network.generators.carrier.isin(renewables)]
     res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
     load = network.loads_t.p_set.sum(axis=1).sum()
+    dispatch = network.generators_t.p.sum(axis=1).sum()
     share=(res_dispatch / load) * 100
     print("Total RE-share [%]:", round(share, 2))
     
     #share by technology
     p_by_carrier = network.generators_t.p.groupby(network.generators.carrier, axis=1).sum().sum()
-    share_tech=(p_by_carrier/load) * 100
+    share_tech=(p_by_carrier/dispatch) * 100
     print("Share by carrier [%]:",share_tech.round(2))
     
     # DE
     res_de = network_de.generators[network_de.generators.carrier.isin(renewables)]
     res_dispatch_de = network_de.generators_t.p[res_de.index].sum(axis=1).sum()
     load_de = network_de.loads_t.p_set.sum(axis=1).sum()
+    dispatch_de = network_de.generators_t.p.sum(axis=1).sum()
     share_de = (res_dispatch_de / load_de) * 100
     print("DE RE-share [%]:", round(share_de, 2))
     
     #share by technology
     p_by_carrier_de = network_de.generators_t.p.groupby(network_de.generators.carrier, axis=1).sum().sum()
-    share_tech_de=(p_by_carrier_de/load_de) * 100
+    share_tech_de=(p_by_carrier_de/dispatch_de) * 100
     print("DE Share by carrier [%]:",share_tech_de.round(2))
 
     #storage capacity
@@ -2081,6 +2096,14 @@ def analyse(network):
     print("DE Curtailment by carrier [%]:",round((p_curtailed_by_carrier_de.sum()/p_available_by_carrier_de.sum())*100,2))
     print("DE Total curtailment rate [%]:",round((p_curtailed_by_carrier_de[p_curtailed_by_carrier>1].sum().sum() / p_available_by_carrier_de[p_available_by_carrier_de>1].sum().sum()) * 100, 2))
 
+    # full load hours DE
+    p_by_carrier_full = p_by_carrier.mul(network.snapshot_weightings, axis=0).sum()
+    print("full load hours by carrier [h]:",round((p_by_carrier_full/network.generators.p_nom.groupby(network.generators.carrier).sum()),2))
+
+    # full load hours DE
+    p_by_carrier_full_de = p_by_carrier_de.mul(network_de.snapshot_weightings, axis=0).sum()
+    print("DE full load hours by carrier [h]:",round((p_by_carrier_full_de/network_de.generators.p_nom.groupby(network_de.generators.carrier).sum()),2))
+    
     return network
 
 def overnight_to_annuity(overnight_costs, start_snapshot, end_snapshot, p=0.05, T=40):
@@ -2122,7 +2145,7 @@ def get_generator_investment(network, scn_name):
 
     try:
 
-        data = pkgutil.get_data('ego', 'data/investment_costs.csv')
+        data = pkgutil.get_data('etrago', 'data/investment_costs.csv')
         invest = pd.read_csv(io.BytesIO(data),
                              encoding='utf8', sep=",",
                              index_col="carriers")
