@@ -2025,7 +2025,7 @@ def analyse(network):
     print("Solver time [min]:", round((network.time / 60),0))
 
     #re_share
-    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river']
+    renewables = ['wind_onshore', 'wind_offshore', 'biomass', 'solar', 'run_of_river','reservoir','geothermal']
     res = network.generators[network.generators.carrier.isin(renewables)]
     res_dispatch = network.generators_t.p[res.index].sum(axis=1).sum()
     load = network.loads_t.p_set.sum(axis=1).sum()

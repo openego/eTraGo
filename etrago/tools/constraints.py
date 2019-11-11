@@ -69,7 +69,7 @@ class Constraints:
         if 'min_renewable_share' in self.args['extra_functionality'].keys():
 
             renewables = ['wind_onshore', 'wind_offshore',
-                          'biomass', 'solar', 'run_of_river']
+                          'biomass', 'solar', 'run_of_river', 'reservoir','geothermal']
 
             res = list(network.generators.index[
                 network.generators.carrier.isin(renewables)])
