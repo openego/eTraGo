@@ -135,7 +135,9 @@ def prepare_pypsa_timeseries(network, normed=False):
     else:
         loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set.copy()
+        renewables = network.generators_t.p_max_pu.mul(
+                network.generators.p_nom[
+                network.generators_t.p_max_pu.columns], axis = 1).copy()
         renewables.columns = 'G' + renewables.columns
         df = pd.concat([renewables, loads], axis=1)
 
