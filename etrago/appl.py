@@ -103,7 +103,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.cluster.snapshot import snapshot_clustering
     
-    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf_new
+    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -111,17 +111,16 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
-    'sclopf_settings': {'n_process': 4, 'delta_overload': 0.05},
+    'method': 'sclopf',  # lopf or pf
+    'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 2,
+    'start_snapshot': 12,
+    'end_snapshot': 13,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'crossover':0, 
-                       'logFile': 'sclopf_solver.log', 'threads':4, 'method':2},  # {} for default options
+    'solver_options': {'logFile': 'sclopf_solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -129,18 +128,18 @@ args = {
     'scn_decommissioning': None, #'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False, #'sclopf_iter/48h_50k',  # save results as csv: False or /path/tofolder
+    'csv_export': 'test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': [],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 499,  # False or the value k for clustering
-    'load_cluster': '/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'load_cluster': False, #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
+    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -540,11 +539,11 @@ def etrago(args):
                 network,
                 n_clusters=args['network_clustering_kmeans'],
                 load_cluster=args['load_cluster'],
-                line_length_factor=1,
-                remove_stubs=True,
-                use_reduced_coordinates=False,
+                line_length_factor=1.09,
+                remove_stubs=False,
+                use_reduced_coordinates=True,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None,
+                bus_weight_fromcsv=None, #'/home/student/Clara/NEP/weighting_ehv_sq.csv',
                 n_init=10,
                 max_iter=100,
                 tol=1e-6,
@@ -556,7 +555,7 @@ def etrago(args):
         network = clustering.network.copy()
         geolocation_buses(network, session)
 
-    network = clustering.network
+
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -584,7 +583,7 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         branch_outages=network.lines.index[network.lines.country=='DE']
-        iterate_sclopf_new(network,
+        iterate_sclopf(network,
                            args, 
                            branch_outages,
                            Constraints(args).functionality, 

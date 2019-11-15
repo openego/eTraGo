@@ -62,7 +62,10 @@ def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
         logger.error('Currently only implemented for kirchhoff-formulation.')
     y = time.time()
     logger.info("Flow constraints updated in [min] " + str((y-x)/60))
-    network = network_lopf_solve(network, network.snapshots, formulation=args['model_formulation'], solver_options = args['solver_options'])
+    network = network_lopf_solve(network,
+                                 network.snapshots,
+                                 formulation=args['model_formulation'],
+                                 solver_options = args['solver_options'])
 
     return network
 
@@ -125,18 +128,27 @@ def post_contingency_analysis_per_line(network,
                                          snapshots=sn)
             # rows: branch outage, index = monitorred line
             #check loading as per unit of s_nom in each contingency
+            load_signed = (p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
+                    ).drop(['base'], axis = 1)
             load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
                     ).drop(['base'], axis = 1) # columns: branch_outages
             overloaded = (load>(1 + delta))# columns: branch_outages
+           
             array_mon = []
             array_out = []
+            array_sign = []
+
             for col in overloaded:
                 mon = overloaded.index[overloaded[col]].tolist()
                 out = [col]*len(mon)
+
+                sign = np.sign(load_signed[overloaded[col]][col]).values
+                
                 if mon != []:
                     array_mon.extend(mon)
                     array_out.extend(out)
-            combinations = [array_out, array_mon]
+                    array_sign.extend(sign)
+            combinations = [array_out, array_mon, array_sign]
             if not len(combinations[0]) == 0:
                 d[sn]=combinations
 
@@ -151,7 +163,7 @@ def post_contingency_analysis_per_line(network,
         p.join()
     for p in processes:
         p.terminate()
-
+   # import pdb; pdb.set_trace()
     y = (time.time() - x)/60
     logger.info("Post contingengy check finished in "
                 + str(round(y, 2))+ " minutes.")
@@ -369,7 +381,7 @@ def add_all_contingency_constraints_parallel(network,
     flow_u = {}
     flow_u.update(flow_upper)
     print((branch_outage_keys))
-    import pdb; pdb.set_trace()
+  #  import pdb; pdb.set_trace()
     print(flow_u.keys())
     l_constraint(network.model,"contingency_flow_upper",flow_u, branch_outage_keys)
 
@@ -384,11 +396,10 @@ def add_all_contingency_constraints(network,combinations, track_time):
     x = time.time()
     
     branch_outage_keys = []
-    flow_upper = {}
-    flow_lower = {}
-   # import pdb; pdb.set_trace()
+    contingency_flow = {}
     n_buses = 0
-    # choose biggest sub_network to avoid problems with BE / NO
+
+    # choose biggest sub_network
     if len(network.sub_networks.obj.index)> 1:
         for s in network.sub_networks.obj.index:
             n = len(network.sub_networks.obj[s].buses())
@@ -405,93 +416,47 @@ def add_all_contingency_constraints(network,combinations, track_time):
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
     sub._extendable_branches = sub._branches[sub._branches.s_nom_extendable]
+    
+    # set dict with s_nom containing fixed or extendable s_nom
+    s_nom = sub._branches.s_nom.to_dict()
+
+    for idx in sub._extendable_branches.index.values:
+         s_nom[idx] = network.model.passive_branch_s_nom[idx]
 
     for sn in combinations.keys(): # Könnte parallelisiert werden, klappt aber noch nicht 
         if len(combinations[sn][0]) > 0:
            out= combinations[sn][0]# branch in pypsa
            mon = combinations[sn][1] # b in pypsa
-           if not sub._extendable_branches.empty or sub._fixed_branches.empty:
-            
-                mon_ext = [t for t in mon if t in sub._extendable_branches.index]
-                mon_fix = [t for t in mon if t in sub._fixed_branches.index]
-           
-                idx_ext = np.where(
-                   [np.isin(mon, mon_ext)[i].all() 
-                   for i in range(len(mon))])[0].tolist()
+           sign = combinations[sn][2]
 
-                idx_fix = np.where(
-                   [np.isin(mon, mon_fix)[i].all() 
-                   for i in range(len(mon))])[0].tolist()
-
-                out_ext = [out[i] for i in idx_ext]
-                out_fix = [out[i] for i in idx_fix]
-                           
-           elif sub._extendable_branches.empty():
-                mon_fix =mon
-                out_fix = out 
-                mon_ext = []
-                out_ext =[]
-           elif sub._fixed_branches.empty():
-                mon_ext =mon
-                out_ext = out 
-                mon_fix = []
-                out_fix=[]
-                
-           
            branch_outage_keys.extend([(out[i][0],out[i][1], 
                                        mon[i][0],mon[i][1], sn)
                                     for i in range(len(out))])
 
             # avoid duplicate values in branch_outage_keys
            branch_outage_keys=list(set(branch_outage_keys))
+           # set contingengy flow constraint
+           contingency_flow.update({(
+                   out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
+                        (sign[i], network.model.passive_branch_p[mon[i], sn]),
+                        (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                         network.model.passive_branch_p[out[i], sn]), 
+                         (-1,s_nom[mon[i]])],"<=",0] 
+                        for i in range(len(mon))})
 
-           flow_upper.update({
-                (out_fix[i][0],out_fix[i][1], mon_fix[i][0],mon_fix[i][1], sn) : [[
-                (1, network.model.passive_branch_p[mon_fix[i], sn]),
-                (sub.BODF[int(mon_fix[i][1])-1, int(out_fix[i][1])-1],
-                network.model.passive_branch_p[out_fix[i], sn])],
-                "<=", sub._fixed_branches.at[mon_fix[i],"s_nom"]] 
-                for i in range(len(mon_fix))})
-    
-           flow_upper.update({
-                ( out_ext[i][0],out_ext[i][1], mon_ext[i][0],mon_ext[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon_ext[i], sn]),
-                (sub.BODF[int(mon_ext[i][1])-1, int(out_ext[i][1])-1],
-                network.model.passive_branch_p[ out_ext[i], sn]),
-                 (-1,network.model.passive_branch_s_nom[ mon_ext[i]])],"<=",0] 
-                for i in range(len(mon_ext))})
-
-    
-           flow_lower.update({
-                (out_fix[i][0],out_fix[i][1], mon_fix[i][0],mon_fix[i][1], sn) : [[
-                (1, network.model.passive_branch_p[mon_fix[i],sn]),
-                (sub.BODF[int(mon_fix[i][1])-1, int(out_fix[i][1])-1],
-                network.model.passive_branch_p[out_fix[i], sn])],
-                ">=", -sub._fixed_branches.at[(mon_fix[i]),"s_nom"]] 
-                for i in range(len(mon_fix))})
-    
-           flow_lower.update({
-                (out_ext[i][0],out_ext[i][1], mon_ext[i][0],mon_ext[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon_ext[i], sn]),
-                (sub.BODF[int(mon_ext[i][1])-1, int(out_ext[i][1])-1],
-                network.model.passive_branch_p[ out_ext[i], sn]),
-                 (1,network.model.passive_branch_s_nom[ mon_ext[i]])],">=",0] 
-                for i in range(len(mon_ext))})
 
     z = time.time()
     track_time[datetime.datetime.now()]=  'Contingency constraints calculated'
     logger.info("Security constraints calculated in [min] " + str((z-x)/60))
-    network.model.del_component('contingency_flow_upper')
-    network.model.del_component('contingency_flow_lower')
-    network.model.del_component('contingency_flow_upper_index')
-    network.model.del_component('contingency_flow_lower_index')
-    l_constraint(network.model,"contingency_flow_upper",flow_upper,branch_outage_keys)
-    #print(len(branch_outage_keys))
-    l_constraint(network.model,"contingency_flow_lower",flow_lower,branch_outage_keys)
+    network.model.del_component('contingency_flow')
+    network.model.del_component('contingency_flow_index')
+    l_constraint(network.model,"contingency_flow",
+                 contingency_flow,
+                 branch_outage_keys)
     y = time.time()
     logger.info("Security constraints updated in [min] " + str((y-x)/60))
     
-    return len(branch_outage_keys)
+    return len(contingency_flow)
 
 def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     # Aktuell verwendbar wenn kein Netzausbau möglich ist, dann auch schnellste und beste Lösung
@@ -513,7 +478,8 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
         branch_outages=network.lines.index[network.lines.country=='DE']
     n=0
     nb=0
-    combinations = post_contingency_analysis_per_line(network, branch_outages, 4)
+    combinations = post_contingency_analysis_per_line(
+            network, branch_outages, 4)
     while len(combinations) > 0:
         if  n < 10:
             nb = nb + add_reduced_contingency_constraints(network,combinations)
@@ -529,7 +495,8 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
             n+=1
 
             branch_outages=network.lines.index[network.lines.country=='DE']
-            combinations  = post_contingency_analysis_per_line(network,branch_outages, 4)
+            combinations  = post_contingency_analysis_per_line(
+                    network,branch_outages, 4)
 
         else: 
             print('Maximum number of iterations reached.')
@@ -537,18 +504,22 @@ def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
     y = (time.time() - x)/60
     
 
-    logger.info("Contingengy analysis with " + str(2*nb) + " constraints solved in " + str(n) + " iterations in "+ str(round(y, 2))+ " minutes.")
+    logger.info("Contingengy analysis with " + str(2*nb) + 
+                " constraints solved in " + str(n) + 
+                " iterations in "+ str(round(y, 2))+ " minutes.")
 
 def calc_new_sc_combinations(combinations, new):
     for sn in new.keys():         
         combinations[sn][0].extend(new[sn][0])
         combinations[sn][1].extend(new[sn][1])
-        df = pd.DataFrame([combinations[sn][0], combinations[sn][1]])
+        combinations[sn][2].extend(new[sn][2])
+      #  import pdb; pdb.set_trace()
+        df = pd.DataFrame([combinations[sn][0], combinations[sn][1], combinations[sn][2]])
         data = df.transpose().drop_duplicates().transpose()    
         combinations[sn] = data.values.tolist()
     return combinations
 
-def iterate_sclopf_new(network, 
+def iterate_sclopf(network, 
                        args, 
                        branch_outages, 
                        extra_functionality, 
@@ -557,7 +528,7 @@ def iterate_sclopf_new(network,
     track_time = pd.Series()
     l_snom_pre = network.lines.s_nom.copy()
     t_snom_pre = network.transformers.s_nom.copy()
-    add_all_contingency_constraints.counter = 0
+    add_all_contingency_constraints_signed.counter = 0
     n=0
     track_time[datetime.datetime.now()]= 'Iterative SCLOPF started'
     x = time.time()
@@ -580,158 +551,78 @@ def iterate_sclopf_new(network,
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
         track_time[datetime.datetime.now()]= 'Adjust impedances'
+
     # Calc SC
+    nb = 0
     new = post_contingency_analysis_per_line(
                 network, 
                 branch_outages, 
                 n_process,
                 delta)
     track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
+
     # Initalzie dict of SC
-    combinations =  dict.fromkeys(network.snapshots, [[], []])
+    combinations =  dict.fromkeys(network.snapshots, [[], [], []])
 
-    if True: #'combinations' in method:
-        while len(new) > 0:
-            if  n < 50:
+    while len(new) > 0:
+        if  n < 50:
 
-                combinations = calc_new_sc_combinations(combinations, new)
-                # Geht noch nicht
-                #nb = add_all_contingency_constraints_parallel(network, combinations,2,track_time)
-                
-                nb =add_all_contingency_constraints(network, combinations,track_time)
-                track_time[datetime.datetime.now()]= 'Update Contingency constraints'
-                logger.info("SCLOPF No. "+ str(n+1) + " started with " 
+            combinations = calc_new_sc_combinations(combinations, new)
+            # Geht noch nicht
+            #nb = add_all_contingency_constraints_parallel(network, combinations,2,track_time)
+
+            nb = int(add_all_contingency_constraints(
+                        network, combinations,track_time)/2)
+
+            track_time[datetime.datetime.now()]= 'Update Contingency constraints'
+
+            logger.info("SCLOPF No. "+ str(n+1) + " started with " 
                             + str(2*nb) + " SC-constraints.")
-               # network.model.write(('2_lp_' + str(n) + '.lp'), io_options={
-                #'symbolic_solver_labels': True})
-                iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
-                track_time[datetime.datetime.now()]= 'Solve SCLOPF'
-                if network.results["Solver"][0]["Status"].key!='ok':
-                    raise  Exception('SCLOPF '+ str(n) + ' not solved.')
-                if args['csv_export'] != False:
-                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
-                    results_to_csv(network, args, path)
+
+            iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
+            track_time[datetime.datetime.now()]= 'Solve SCLOPF'
+
+            if network.results["Solver"][0]["Status"].key!='ok':
+                raise  Exception('SCLOPF '+ str(n) + ' not solved.')
+            
+            if args['csv_export'] != False:
+                path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
+                results_to_csv(network, args, path)
                     
-                    with open(path + '/sc_combinations.csv', 'w') as f:
-                        for key in combinations.keys():
-                            f.write("%s,%s\n"%(key,combinations[key]))
-                    track_time[datetime.datetime.now()]= 'Export results'
+                with open(path + '/sc_combinations.csv', 'w') as f:
+                    for key in combinations.keys():
+                        f.write("%s,%s\n"%(key,combinations[key]))
+                track_time[datetime.datetime.now()]= 'Export results'
                 # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
-                if network.lines.s_nom_extendable.any():
-                    l_snom_pre, t_snom_pre = \
+            if network.lines.s_nom_extendable.any():
+                l_snom_pre, t_snom_pre = \
                         update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
-                    track_time[datetime.datetime.now()]= 'Adjust impedances'
-                new = post_contingency_analysis_per_line(
+                track_time[datetime.datetime.now()]= 'Adjust impedances'
+
+            new = post_contingency_analysis_per_line(
                         network, 
                         branch_outages, 
                         n_process,
                         delta)
-                track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
-                n+=1
-                
-            else: 
-                print('Maximum number of iterations reached.')
-                break
+            track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
+            n+=1
+
+        else: 
+            print('Maximum number of iterations reached.')
+            break
 
     if args['csv_export'] != False:
                 track_time.to_csv(args['csv_export']+ '/track-time.csv')
-            
-    """if 'expansion_threshold' in method:
-        # Threshold über aden Ausbau aller Ltg. evtl max diff einzelner Ltg?
-        thr = method['expansion_threshold']
-        diff=(network.lines.s_nom_opt-network.lines.s_nom_min).sum()*thr/100
-        n = 0
-            # Stop after 100 iterations to aviod unending loop
-        while n <= 100:
-                
-            if n ==100:
-                    print('Maximum number of iterations reached.')
-                    break
 
-            combinations = calc_new_sc_combinations(combinations, new)
-            
-            nb = add_all_contingency_constraints(network, combinations)
-
-            logger.info("SCLOPF No. "+ str(n+1) + " started with " 
-                            + str(2*nb) + " SC-constraints.")
-            
-            pre = (network.lines.s_nom_opt-network.lines.s_nom_min).sum()
-
-            iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
-
-            # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) 
-            # kann Netzausbau n-1 sicher werden, dann aber auch im n-0 Fall Überlastungen!!
-            if network.lines.s_nom_extendable.any():
-                    l_snom_pre, t_snom_pre = \
-                        update_electrical_parameters(network,
-                                                 l_snom_pre, t_snom_pre)
-
-            new = post_contingency_analysis_per_line(
-                            network, network.lines.index, n_process)
-            if args['csv_export'] != False:
-                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
-                    results_to_csv(network, args, path)
-            n+=1
-                   
-            if abs(pre-(network.lines.s_nom_opt-network.lines.s_nom_min).sum()
-                ) <= diff:
-                    import pdb; pdb.set_trace()
-                    print('Expansion-threshold reached after ' +
-                          str(n) + ' iterations.')
-                    break
-                    
-            
-    if 'threshold' in method:
-        thr = method['threshold']
-        diff_obj=network.objective*thr/100
-        i = 0
-            # Stop after 100 iterations to aviod unending loop
-        while i <= 100:
-                
-            if i ==100:
-                    print('Maximum number of iterations reached.')
-                    break
-            
-            for sn in new:
-                    df = pd.DataFrame([
-                        np.append(combinations[sn][0],new[sn][0]).astype(int),
-                        np.append(combinations[sn][1],new[sn][1]).astype(int)])
-                    data = df.transpose().drop_duplicates().transpose()    
-                    combinations[sn] = data.values
-            nb = add_all_contingency_constraints(network, combinations)
-
-            logger.info("SCLOPF No. "+ str(i+1) + " started with " 
-                            + str(2*nb) + " SC-constraints.")
-            pre = network.objective
-            iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
-
-                # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
-            if network.lines.s_nom_extendable.any():
-                    l_snom_pre, t_snom_pre = \
-                        update_electrical_parameters(network,
-                                                 l_snom_pre, t_snom_pre)
-
-            new = post_contingency_analysis_per_line(
-                            network, network.lines.index, n_process)
-            if args['csv_export'] != False:
-                    path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n)
-                    results_to_csv(network, args, path)
-            i+=1
-                   
-            if abs(pre-network.objective) <=diff_obj:
-                    print('Threshold reached after ' + str(i) + ' iterations.')
-                    break"""
-        
-        
     y = (time.time() - x)/60
     
     logger.info("SCLOPF with " + str(2*nb) +
                     " constraints solved in " + str(n) + 
                     " iterations in "+ str(round(y, 2))+ " minutes.")
 
-def iterate_sclopf(network, args, branch_outages, extra_functionality, 
-                   method={'n_iter':4}, delta_s_max=0.1):
+def iterate_full_sclopf(network, args, branch_outages, extra_functionality, 
+                   method={'n_iter':4}, delta_s_max=0):
 
     """
     Run optimization of lopf. If network extension is included, the specified 
