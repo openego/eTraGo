@@ -415,7 +415,6 @@ def add_all_contingency_constraints(network,combinations, track_time):
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
-    sub._extendable_branches = sub._branches[sub._branches.s_nom_extendable]
     
     # set dict with s_nom containing fixed or extendable s_nom
     s_nom = sub._branches.s_nom.to_dict()
@@ -448,8 +447,12 @@ def add_all_contingency_constraints(network,combinations, track_time):
     z = time.time()
     track_time[datetime.datetime.now()]=  'Contingency constraints calculated'
     logger.info("Security constraints calculated in [min] " + str((z-x)/60))
+    
+    # remove constraints from previous iteration
     network.model.del_component('contingency_flow')
     network.model.del_component('contingency_flow_index')
+    
+    # set constraints for new iteration
     l_constraint(network.model,"contingency_flow",
                  contingency_flow,
                  branch_outage_keys)
@@ -528,7 +531,7 @@ def iterate_sclopf(network,
     track_time = pd.Series()
     l_snom_pre = network.lines.s_nom.copy()
     t_snom_pre = network.transformers.s_nom.copy()
-    add_all_contingency_constraints_signed.counter = 0
+    add_all_contingency_constraints.counter = 0
     n=0
     track_time[datetime.datetime.now()]= 'Iterative SCLOPF started'
     x = time.time()

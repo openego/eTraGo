@@ -890,11 +890,9 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
 
                     else:
                         foreign_series[comp][a] = foreign_series[comp][a][
-                               foreign_comp[comp][foreign_comp[
-                                       comp]['carrier'].isin(
-                                                ['solar', 'wind_onshore',
-                                                 'wind_offshore',
-                                                 'run_of_river'])].index]
+                               foreign_comp[comp][
+                               foreign_comp[comp].index.isin(
+                               network.generators_t.p_max_pu.columns)].index]
 
         network.buses = network.buses.drop(foreign_bus.index)
         network.generators = network.generators[

@@ -111,11 +111,11 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'sclopf',  # lopf or pf
+    'method': 'lopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
     'end_snapshot': 13,
@@ -138,8 +138,8 @@ args = {
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': False, #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
-    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
+    'load_cluster': 'cluster_coord_k_50_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
+    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -149,7 +149,7 @@ args = {
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
+    'foreign_lines': {'carrier': 'DC', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
@@ -532,7 +532,7 @@ def etrago(args):
             network, busmap, with_time=True)
    
     network.lines.original_lines = network.lines.index.values.copy()
-
+    
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
         clustering = kmean_clustering(
@@ -540,7 +540,7 @@ def etrago(args):
                 n_clusters=args['network_clustering_kmeans'],
                 load_cluster=args['load_cluster'],
                 line_length_factor=1.09,
-                remove_stubs=False,
+                remove_stubs=True,
                 use_reduced_coordinates=True,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None, #'/home/student/Clara/NEP/weighting_ehv_sq.csv',
@@ -549,7 +549,7 @@ def etrago(args):
                 tol=1e-6,
                 n_jobs=-1,
                 line_agg= True,
-                remove_stubs_kmeans = True)
+                remove_stubs_kmeans = False)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
