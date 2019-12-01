@@ -119,7 +119,7 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_ego-batt-5.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_ego-50.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-batt-5',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-50',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -436,11 +436,7 @@ def etrago(args):
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
      # variation of storage costs
-#    network.storage_units.capital_cost = network.storage_units.capital_cost * 1.5
-
-    # variation of battery efficiency (round trip reduction by 5%: from 0.90 to 0.855
-    network.storage_units.efficiency_store.loc[ (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)] = 0.9247
-    network.storage_units.efficiency_dispatch.loc[ (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)] = 0.9247
+    network.storage_units.capital_cost = network.storage_units.capital_cost * 0.5
 
    # set numbers for offshore wind to their connection points
     # Büttel

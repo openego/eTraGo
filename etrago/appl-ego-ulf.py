@@ -119,7 +119,7 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_ego-batt-5.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_ego.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -128,14 +128,15 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-batt-5',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'capacity_factor_per_gen_cntr':
+    'extra_functionality': {'min_renewable_share':0.99,
+                            'capacity_factor_per_gen_cntr':
                     {"DE":{"reservoir": [0, 0.28]},
                      "AT":{"reservoir": [0, 0.23]},
                      "CH":{"reservoir": [0, 0.3]},
@@ -143,14 +144,14 @@ args = {
                      "FR":{"reservoir": [0, 0.21]},
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_300_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 3,
+    'skip_snapshots': 5,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -436,11 +437,7 @@ def etrago(args):
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
      # variation of storage costs
-#    network.storage_units.capital_cost = network.storage_units.capital_cost * 1.5
-
-    # variation of battery efficiency (round trip reduction by 5%: from 0.90 to 0.855
-    network.storage_units.efficiency_store.loc[ (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)] = 0.9247
-    network.storage_units.efficiency_dispatch.loc[ (network.storage_units.capital_cost > 10) & (network.storage_units.max_hours == 6)] = 0.9247
+#    network.storage_units.capital_cost = network.storage_units.capital_cost * .95
 
    # set numbers for offshore wind to their connection points
     # Büttel
