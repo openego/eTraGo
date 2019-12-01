@@ -115,8 +115,8 @@ args = {
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 1417,
-    'end_snapshot': 3624,
+    'start_snapshot': 1,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
                        'logFile': 'solver_ego.log', 'threads':8, 'method':2, 'crossover':0,
@@ -128,11 +128,11 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego-mar-jun3',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-noise1',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
-    'generator_noise': 789456,  # apply generator noise, False or seed number
+    'generator_noise': 789789,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {'min_renewable_share':0.99,
@@ -151,7 +151,7 @@ args = {
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': False,
+    'skip_snapshots': 3,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
