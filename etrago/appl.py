@@ -113,12 +113,12 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
-    'end_snapshot': 13,
+    'end_snapshot': 15,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'logFile': 'sclopf_solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -141,7 +141,9 @@ args = {
     'load_cluster': 'cluster_coord_k_50_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': False,  # False or the number of 'periods'
+    'snapshot_clustering':False,  # False or the number of 'periods'
+    'sc_settings':{'how':'hourly','extremePeriodMethod':'None', 'clusterMethod':'hierarchical', 
+                   'constraint': 'soc_hourly'},
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -502,17 +504,6 @@ def etrago(args):
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
-
-    # snapshot clustering
-    if not args['snapshot_clustering'] is False:
-        network = snapshot_clustering(
-            network, how='daily', clusters=args['snapshot_clustering'])
-
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
@@ -554,6 +545,18 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
+
+
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
+
+    # snapshot clustering
+    if not args['snapshot_clustering'] is False:
+        network = snapshot_clustering(
+            network, args, how=args['sc_settings']['how'])
 
 
     if args['ramp_limits']:
