@@ -70,6 +70,69 @@ def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
     return network
 
 
+def post_contingency_analysis_lopf(network, args,
+                                       branch_outages, 
+                                       n_process = 4):
+    x = time.time()
+    nw = network.copy()
+    nw.lines.s_nom = (nw.lines.s_nom_opt/0.7).copy()
+    nw.generators_t.p_set = nw.generators_t.p_set.reindex(columns=nw.generators.index)
+    nw.generators_t.p_set = nw.generators_t.p
+    nw.storage_units_t.p_set = nw.storage_units_t.p_set.reindex(columns=nw.storage_units.index)
+    nw.storage_units_t.p_set = nw.storage_units_t.p
+    nw.links_t.p_set = nw.links_t.p_set.reindex(columns=nw.links.index)
+    nw.links_t.p_set = nw.links_t.p0
+    
+    snapshots_set={}
+    length = int(nw.snapshots.size / n_process)
+    for i in range(n_process):
+        snapshots_set[str(i+1)]=nw.snapshots[i*length : (i+1)*length]
+    manager = mp.Manager()
+    d = manager.dict()
+    snapshots_set[str(n_process)] = nw.snapshots[i*length :]
+
+
+    def multi_con(nw, snapshots, d):
+
+        for sn in snapshots:  
+        #Check no lines are overloaded with the linear contingency analysis
+            p0_test = nw.lpf_contingency(branch_outages=branch_outages, snapshots=sn) # rows: branch outage, index = monitorred line
+        
+        #check loading as per unit of s_nom in each contingency
+            load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)).drop(['base'], axis = 1) # columns: branch_outages
+            # schon im base_case leitungen teilweise überlastet. Liegt das an x Anpassung? 
+            overload = (load -1)# columns: branch_outages
+            overload[overload<0] = 0
+
+            if not len(overload) == 0:
+                d[sn]=overload
+
+    processes = [mp.Process(target=multi_con, args=(nw, snapshots_set[i], d)) for i in snapshots_set]
+
+    
+    # Run processes
+    for p in processes:
+        p.start()
+        
+
+# Exit the completed processes
+    for p in processes:
+        p.join()
+    for p in processes:
+        p.terminate()
+    if args['csv_export'] != False:
+        import os
+        if not os.path.exists(args['csv_export'] + '/post_contingency_analysis/'):
+            os.mkdir(args['csv_export'] + '/post_contingency_analysis/')
+            
+        for s in d.keys():
+            d[s].to_csv(args['csv_export'] + '/post_contingency_analysis/' +str(s)+'.csv')
+            
+    y = (time.time() - x)/60
+    print("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
+   # import pdb; pdb.set_trace()
+    return d
+
 
 def post_contingency_analysis(network, delta = 0.05):
     
@@ -115,7 +178,7 @@ def post_contingency_analysis_per_line(network,
 
     for i in range(n_process):
         snapshots_set[str(i+1)]=nw.snapshots[i*length : (i+1)*length]
-    snapshots_set[str(n_process-1)] = nw.snapshots[i*length :]
+    snapshots_set[str(n_process)] = nw.snapshots[i*length :]
 
     manager = mp.Manager()
     d = manager.dict()

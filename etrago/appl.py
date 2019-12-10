@@ -91,7 +91,8 @@ if 'READTHEDOCS' not in os.environ:
         get_args_setting,
         set_branch_capacity,
         iterate_lopf,
-        set_random_noise)
+        set_random_noise,
+        split_parallel_lines)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -103,7 +104,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.cluster.snapshot import snapshot_clustering
     
-    from etrago.tools.sclopf import sclopf_post_lopf, iterate_sclopf
+    from etrago.tools.sclopf import post_contingency_analysis_lopf, iterate_sclopf
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -116,7 +117,7 @@ args = {
     'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'sclopf_post_lopf':False,  # perform a sclopf after a lopf simulation
+    'contingency_post_lopf':False,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
     'end_snapshot': 15,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -137,8 +138,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_50_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_10_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering':False,  # False or the number of 'periods'
@@ -534,13 +535,13 @@ def etrago(args):
                 remove_stubs=True,
                 use_reduced_coordinates=True,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None, #'/home/student/Clara/NEP/weighting_ehv_sq.csv',
+                bus_weight_fromcsv=None, #'weighting_ehv_sq.csv',
                 n_init=10,
                 max_iter=100,
                 tol=1e-6,
                 n_jobs=-1,
-                line_agg= True,
-                remove_stubs_kmeans = False)
+                line_agg= False,
+                remove_stubs_kmeans = True)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
@@ -598,8 +599,11 @@ def etrago(args):
         network.pf(scenario.timeindex)
         # calc_line_losses(network)
         
-    if args['sclopf_post_lopf']:
-        sclopf_post_lopf(network, args)
+    if args['contingency_post_lopf']:
+        branch_outages=network.lines.index[network.lines.country=='DE']
+        post_contingency_analysis_lopf(network, args,
+                            branch_outages, 
+                            n_process =args['sclopf_settings']['n_process'])
         
         
     if args['pf_post_lopf']:
