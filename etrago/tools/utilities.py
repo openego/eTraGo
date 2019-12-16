@@ -2003,7 +2003,7 @@ def analyse(network):
     dispatch_costs = (network.generators_t.p.mul(network.snapshot_weightings, axis=0) * network.generators.marginal_cost).sum().sum()
     storage_costs = (network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum()
     print("LCOE [EUR/MWh]:",lcoe.round(2))
-    print("..thereof exogen:",(generator_invest_annuity(network).sum()/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("..thereof exogen:",((generator_invest_annuity(network).sum()+pump_annuity)/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("..thereof endogen:",(network.objective/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof dispatch:",(dispatch_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof storage exp:",(storage_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
@@ -2016,7 +2016,7 @@ def analyse(network):
     total_costs_de = generator_invest_annuity(network_de).sum() + pump_annuity_de + dispatch_costs_de + storage_costs_de
     lcoe_de = total_costs_de / network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()
     print("LCOE DE[EUR/MWh]:",lcoe_de.round(2))
-    print("..thereof exogen:",(generator_invest_annuity(network_de).sum()/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("..thereof exogen:",((generator_invest_annuity(network_de).sum()+pump_annuity_de)/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("..thereof endogen:",((dispatch_costs_de + storage_costs_de)/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof dispatch:",(dispatch_costs_de/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof storage exp:",(storage_costs_de/network_de.loads_t.p.mul(network_de.snapshot_weightings, axis=0).sum().sum()).round(2))
