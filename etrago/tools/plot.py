@@ -188,7 +188,7 @@ def plot_line_loading(
     loading = load_lines_rel.append(load_links_rel)
 
     ll = network.plot(line_colors=loading, line_cmap=cmap,
-                      title="Line loading", line_widths=0.55)
+                      title="Line loading", line_widths=0.55, bus_sizes=0.25)
     # add colorbar, note mappable sliced from ll by [1]
 
     if not boundaries:
@@ -239,7 +239,6 @@ def plot_line_loading(
     else:
         plt.savefig(filename)
         plt.close()
-
 
 
 def plot_line_loading_diff(networkA, networkB, timestep=0):
