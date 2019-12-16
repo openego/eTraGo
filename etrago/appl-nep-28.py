@@ -119,7 +119,7 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_nep-no14.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_nep-28.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/nep-no14',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/nep-28',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -441,21 +441,21 @@ def etrago(args):
 
    # set numbers for offshore wind to their connection points
     # Büttel
-    network.generators.p_nom.loc['24778'] = 3000  # ok
+    network.generators.p_nom.loc['24778'] = 3127  # ok
 #    network.generators.p_nom.loc['24784'] = 0  # ok
-    network.generators.p_nom.loc['56562'] = 0  # ok
+#    network.generators.p_nom.loc['56562'] = 0  # ok
 
     # Dörpen West
-    network.generators.p_nom.loc['25461'] = 2616 # ok
+    network.generators.p_nom.loc['25461'] = 3000 # ok
 #    network.generators.p_nom.loc['25474'] = 0 # ok
 #    network.generators.p_nom.loc['56553'] = 0 # ok
 #    network.generators.p_nom.loc['56555'] = 0 # ok
 #    network.generators.p_nom.loc['56558'] = 0 # ok
 #    network.generators.p_nom.loc['56569'] = 0 # ok
 #    network.generators.p_nom.loc['56570'] = 0 # ok
-    network.generators.p_nom.loc['56571'] = 0 # ok
-    network.generators.p_nom.loc['56573'] = 0 # ok
-    network.generators.p_nom.loc['56574'] = 0 # ok
+#    network.generators.p_nom.loc['56571'] = 0 # ok
+#    network.generators.p_nom.loc['56573'] = 0 # ok
+#    network.generators.p_nom.loc['56574'] = 0 # ok
     network.generators.p_nom.loc['56572'] = 0 # ok
 
 
@@ -465,14 +465,14 @@ def etrago(args):
     network.generators.p_nom.loc['56576'] = 0  # ok
 
     # Lubmin
-    network.generators.p_nom.loc['56560'] = 0 # ok
+#    network.generators.p_nom.loc['56560'] = 0 # ok
     network.generators.p_nom.loc['4683'] = 1771 # ok
 
     # Emden
     network.generators.bus.loc['25474'] = '24710'  # ok
     network.generators.p_nom.loc['25474'] = 113  # ok
     network.generators.bus.loc['24784'] = '26134'  # ok
-    network.generators.p_nom.loc['24784'] = 2700 # ok
+    network.generators.p_nom.loc['24784'] = 3000 # ok
 
     # Hagermarsch
     network.generators.bus.loc['56555'] = '25427'  # ok 
@@ -496,44 +496,27 @@ def etrago(args):
 
     # Unterweser
     network.generators.bus.loc['56570'] = '24558'  # ok        
-    network.generators.p_nom.loc['56570'] = 1800 # ok
+    network.generators.p_nom.loc['56570'] = 4000 # ok
 
     # Siedenbrünzow/Sanitz
-#    network.generators.bus.loc['56556'] = '27541'  # ok        
-#    network.generators.p_nom.loc['56556'] = 900 # ok
+    network.generators.bus.loc['56560'] = '27541'  # ok        
+    network.generators.p_nom.loc['56560'] = 900 # ok
 
     # Wilhemshaven2
-#    network.generators.bus.loc['56554'] = '26892'  # ok        
-#    network.generators.p_nom.loc['56554'] = 4000 # ok
+    network.generators.bus.loc['56571'] = '26892'  # ok        
+    network.generators.p_nom.loc['56571'] = 2000 # ok
 
     # Heide West
-#    network.generators.bus.loc['24783'] = '25477'  # ok        
-#    network.generators.p_nom.loc['24783'] = 1500 # ok
+    network.generators.bus.loc['56562'] = '25477'  # ok        
+    network.generators.p_nom.loc['56562'] = 2000 # ok
 
     # Wehrendorf
-#    network.generators.bus.loc['25473'] = '24653'  # ok        
-#    network.generators.p_nom.loc['25473'] = 4000 # ok
+    network.generators.bus.loc['56574'] = '24653'  # ok        
+    network.generators.p_nom.loc['56574'] = 2000 # ok
 
     # Westerkappeln
-#    network.generators.bus.loc['25460'] = '26277'  # ok        
-#    network.generators.p_nom.loc['25460'] = 4000 # ok
-
-    # set numbers for storage in norway
-    # Büttel
-    network.add("StorageUnit",
-		"no1",
-		bus='26435',
-		carrier='pumped_storage',
-		control="PV",
-		cyclic_state_of_charge=True,
-		efficiency_dispatch=0.9,
-		efficiency_store=0.9,
-		marginal_cost=0,
-		max_hours=168,
-		p_min_pu=-1,
-		p_nom=1400, # variieren!
-		p_nom_extendable=False,
-                standing_loss=0.0005) # umgerechnet von 0.375%/Monat aus Acatech2015
+    network.generators.bus.loc['56573'] = '26277'  # ok        
+    network.generators.p_nom.loc['56573'] = 2000 # ok
 
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':

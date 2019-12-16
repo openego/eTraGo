@@ -119,16 +119,16 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_nep-no14.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_nep-no-real.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
+    'scn_extension': 'BE_NO_NEP 2035',  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/nep-no14',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/nep-no-real',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -517,23 +517,6 @@ def etrago(args):
     # Westerkappeln
 #    network.generators.bus.loc['25460'] = '26277'  # ok        
 #    network.generators.p_nom.loc['25460'] = 4000 # ok
-
-    # set numbers for storage in norway
-    # Büttel
-    network.add("StorageUnit",
-		"no1",
-		bus='26435',
-		carrier='pumped_storage',
-		control="PV",
-		cyclic_state_of_charge=True,
-		efficiency_dispatch=0.9,
-		efficiency_store=0.9,
-		marginal_cost=0,
-		max_hours=168,
-		p_min_pu=-1,
-		p_nom=1400, # variieren!
-		p_nom_extendable=False,
-                standing_loss=0.0005) # umgerechnet von 0.375%/Monat aus Acatech2015
 
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':

@@ -135,8 +135,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.99,
-                            'capacity_factor_per_gen_cntr':
+    'extra_functionality': {'capacity_factor_per_gen_cntr':
                     {"DE":{"reservoir": [0, 0.28]},
                      "AT":{"reservoir": [0, 0.23]},
                      "CH":{"reservoir": [0, 0.3]},

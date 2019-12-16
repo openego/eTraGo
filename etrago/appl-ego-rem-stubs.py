@@ -119,7 +119,7 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_ego.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_ego-rem-stubs.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/ego/lukas_diss/results/ego-rem-stubs',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-rem-stubs',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -144,7 +144,7 @@ args = {
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/ego/lukas_diss/etrago/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'load_cluster': False,#'/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -436,7 +436,7 @@ def etrago(args):
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
      # variation of storage costs
-#    network.storage_units.capital_cost = network.storage_units.capital_cost * .95
+#    network.storage_units.capital_cost = network.storage_units.capital_cost * 1.5
 
    # set numbers for offshore wind to their connection points
     # Büttel
