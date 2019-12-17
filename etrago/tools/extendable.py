@@ -42,7 +42,9 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(network, args, line_max, line_max_foreign, line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000}, line_max_foreign_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000}):
+def extendable(network, args, line_max, line_max_foreign,
+               line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000},
+               ine_max_foreign_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000}):
 
 
     """
@@ -124,7 +126,11 @@ def extendable(network, args, line_max, line_max_foreign, line_max_abs= {'380': 
         
         
         elif not line_max_abs==None:
+            print(line_max_abs)
             # calculate the cables of the route between two buses
+            if not 'cables' in network.lines.columns:
+                network.lines["cables"] = 3*network.lines.num_parallel
+                network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
             cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
             cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
             doubles_idx = cables.index == cables2.index

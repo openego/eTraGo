@@ -117,7 +117,7 @@ args = {
     'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'contingency_post_lopf':False,  # perform a sclopf after a lopf simulation
+    'contingency_post_lopf':True,  # perform a sclopf after a lopf simulation
     'start_snapshot': 12,
     'end_snapshot': 15,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -132,7 +132,7 @@ args = {
     'csv_export': 'test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['german_network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
@@ -150,7 +150,7 @@ args = {
     'skip_snapshots': False,
     'parallel_lines':False, # 'single',
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 1., 'eHV': 1.},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'DC', 'capacity': 'osmTGmod'},
     'comments': None}
@@ -501,7 +501,8 @@ def etrago(args):
                     network,
                     args,
                     line_max=None,
-                    line_max_foreign = None)
+                    line_max_foreign = None,
+                    line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
@@ -546,6 +547,15 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
+    if args['extendable'] != []:
+        network = extendable(
+                    network,
+                    args,
+                    line_max=None,
+                    line_max_foreign = None,
+                    line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
+        network = convert_capital_costs(
+            network, args['start_snapshot'], args['end_snapshot'])
 
 
     # skip snapshots
