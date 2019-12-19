@@ -2036,7 +2036,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 network.links.p_nom_max=\
                  (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
             
-                if True:#i == 1 or args['model_formulation'] != 'kirchhoff':
+                if i == 1 or args['model_formulation'] != 'kirchhoff':
                     network.lopf(
                             network.snapshots,
                             solver_name=args['solver'],
@@ -2096,12 +2096,15 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                 pre = network.objective
                 
                 x = time.time()
-                network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
+                if args['model_formulation'] != 'kirchhoff':
+                    network.lopf(
+                            network.snapshots,
+                            solver_name=args['solver'],
+                            solver_options=args['solver_options'],
+                            extra_functionality=extra_functionality,
+                            formulation=args['model_formulation'])
+                else:
+                    iterate_lopf_calc(network, args)
                 y = time.time()
                 z = (y - x) / 60
             

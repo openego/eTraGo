@@ -114,14 +114,20 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'sclopf',  # lopf or pf
-    'sclopf_settings': {'n_process': 2, 'delta_overload': 0.05},
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'contingency_post_lopf':True,  # perform a sclopf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 15,
+    'method': 'lopf',  # lopf or pf
+    'sclopf_settings': {'n_process': 2,
+                        'delta_overload': 0.05},
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'contingency_post_lopf':False,  # perform a sclopf after a lopf simulation
+    'start_snapshot': 1,
+    'end_snapshot': 2000,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'logFile': 'sclopf_solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
+    'solver_options': {'BarConvTol': 1.e-5,
+                       'FeasibilityTol': 1.e-5,
+                       'logFile': 'sclopf_solver.log',
+                       'threads':4,
+                       'method':2,
+                       'crossover':0},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -132,31 +138,39 @@ args = {
     'csv_export': 'test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['german_network'],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_10_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'kmeans_settings':{'line_length_factor':1.09,
+                'remove_stubs':True,
+                'bus_weight_tocsv':None,
+                'bus_weight_fromcsv':None,
+                'line_agg': False,
+                'remove_stubs_kmeans': True},
+    'load_cluster': 'cluster_coord_k_50_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering':False,  # False or the number of 'periods'
-    'sc_settings':{'how':'hourly','extremePeriodMethod':'None', 'clusterMethod':'hierarchical', 
-                   'constraint': 'soc_hourly'},
+    'snapshot_clustering':100,  # False or the number of 'periods'
+    'sc_settings':{'how':'hourly',
+                   'extremePeriodMethod':'None',
+                   'clusterMethod':'hierarchical', 
+                   'constraint': ''},
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'parallel_lines':False, # 'single',
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 1., 'eHV': 1.},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'DC', 'capacity': 'osmTGmod'},
+    'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)
+args = get_args_setting(args, jsonpath='args.json')
 
 
 def etrago(args):
@@ -500,7 +514,7 @@ def etrago(args):
         network = extendable(
                     network,
                     args,
-                    line_max=None,
+                    line_max=4,
                     line_max_foreign = None,
                     line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
         network = convert_capital_costs(
@@ -532,30 +546,21 @@ def etrago(args):
                 network,
                 n_clusters=args['network_clustering_kmeans'],
                 load_cluster=args['load_cluster'],
-                line_length_factor=1.09,
-                remove_stubs=True,
+                line_length_factor=args['kmeans_settings']['line_length_factor'],
+                remove_stubs=args['kmeans_settings']['remove_stubs'],
                 use_reduced_coordinates=True,
-                bus_weight_tocsv=None,
-                bus_weight_fromcsv=None, #'weighting_ehv_sq.csv',
+                bus_weight_tocsv=args['kmeans_settings']['bus_weight_tocsv'],
+                bus_weight_fromcsv=args['kmeans_settings']['bus_weight_fromcsv'], #'weighting_ehv_sq.csv',
                 n_init=10,
                 max_iter=100,
                 tol=1e-6,
                 n_jobs=-1,
-                line_agg= False,
-                remove_stubs_kmeans = True)
+                line_agg=args['kmeans_settings']['line_agg'],
+                remove_stubs_kmeans =args['kmeans_settings']['remove_stubs_kmeans'])
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
-    if args['extendable'] != []:
-        network = extendable(
-                    network,
-                    args,
-                    line_max=None,
-                    line_max_foreign = None,
-                    line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
-        network = convert_capital_costs(
-            network, args['start_snapshot'], args['end_snapshot'])
 
 
     # skip snapshots
@@ -590,7 +595,7 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      Constraints(args).functionality,
-                     method={'threshold':0.01})
+                     method={'n_iter':5})
         print("Objective:",network.objective)
         
 
