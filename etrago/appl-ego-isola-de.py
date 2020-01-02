@@ -535,6 +535,11 @@ def etrago(args):
     network.generators.bus.loc['25460'] = '26277'  # ok        
     network.generators.p_nom.loc['25460'] = 2000 # ok
 
+    # increase RES capacity to compensate less imports:
+
+    network.generators.p_nom.loc[(network.generators.carrier == 'wind_onshore')]  = 1.25 * network.generators.p_nom.loc[(network.generators.carrier == 'wind_onshore')]
+    network.generators.p_nom.loc[(network.generators.carrier == 'solar')]  = 1.25 * network.generators.p_nom.loc[(network.generators.carrier == 'solar')]
+
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001

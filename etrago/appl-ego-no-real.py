@@ -114,7 +114,7 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -124,7 +124,7 @@ args = {
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': 'BE_NO_eGo 100',  # None or array of extension scenarios
+    'scn_extension': ['BE_NO_eGo 100'], # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
@@ -144,7 +144,7 @@ args = {
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'load_cluster': False,#'/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'

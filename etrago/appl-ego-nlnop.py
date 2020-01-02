@@ -114,7 +114,7 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-nlnop',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -144,7 +144,7 @@ args = {
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -530,6 +530,9 @@ def etrago(args):
 #    network.add("Generator", '25617 wind_offshore', bus=25617, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=900)
     network.generators.bus.loc['25460'] = '26277'  # ok        
     network.generators.p_nom.loc['25460'] = 2000 # ok
+
+    # deactivate NL PHS
+    network.storage_units.p_nom['200162'] = 0 
 
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 # Copyright 2016-2018  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
@@ -119,16 +119,16 @@ args = {
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'BarIterLimit': 2000,
-                       'logFile': 'solver_ego.log', 'threads':8, 'method':2, 'crossover':0,
+                       'logFile': 'solver_ego-no-real-10.log', 'threads':8, 'method':2, 'crossover':0,
                        'BarHomogeneous': 1, 'NumericFocus': 3},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
+    'scn_extension': ['BE_NO_eGo 100'], # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-no-real-10',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -144,7 +144,7 @@ args = {
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'load_cluster': False,#'/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -568,6 +568,10 @@ def etrago(args):
                     start_snapshot=args['start_snapshot'],
                     end_snapshot=args['end_snapshot'])
         network = geolocation_buses(network, session)
+
+    # increase link capacitiy to NO:
+    network.links.p_nom.loc['13'] = 10000
+    network.links.p_nom_opt.loc['13'] = 10000
 
     # Add missing lines in Munich and Stuttgart
     network = add_missing_components(network)
