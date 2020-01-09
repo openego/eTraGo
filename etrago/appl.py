@@ -122,8 +122,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 2000,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5,
-                       'FeasibilityTol': 1.e-5,
+    'solver_options': {
                        'logFile': 'sclopf_solver.log',
                        'threads':4,
                        'method':2,

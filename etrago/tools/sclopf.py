@@ -600,9 +600,12 @@ def iterate_sclopf(network,
     x = time.time()
     results_to_csv.counter=0
     # 1. LOPF without SC
+    solver_options_lopf=args['solver_options']
+    solver_options_lopf['FeasibilityTol'] = 1e-5
+    solver_options_lopf['BarConvTol'] = 1e-6
     network.lopf(   network.snapshots,
                     solver_name=args['solver'],
-                    solver_options=args['solver_options'],
+                    solver_options=solver_options_lopf,
                     extra_functionality=extra_functionality,
                     formulation=args['model_formulation'])
     track_time[datetime.datetime.now()]= 'Solve SCLOPF'
