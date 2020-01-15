@@ -134,7 +134,7 @@ def post_contingency_analysis_lopf(network, args,
     return d
 
 
-def post_contingency_analysis(network, delta = 0.05):
+def post_contingency_analysis(network, branch_outages, delta = 0.05):
     
     network.lines.s_nom = network.lines.s_nom_opt.copy()
     network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
@@ -148,9 +148,22 @@ def post_contingency_analysis(network, delta = 0.05):
     df = pd.DataFrame(index =network.snapshots, columns = network.lines.index)
     for sn in network.snapshots:
 
-        p0_test = network.lpf_contingency(sn)
-        # rows: branch outage, index = monitorred line
-
+        p0_test = network.lpf_contingency(sn, branch_outages=branch_outages)
+        
+        # rows: mon , columns = branch outage
+        load_signed = (p0_test.divide(network.passive_branches().s_nom_opt,axis=0)
+                    ).drop(['base'], axis = 1)
+        
+        load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
+        
+        out = load_per_outage_over.columns.values
+        mon = load_per_outage_over.abs().idxmax().values
+        
+        sign = []
+        for i in range(len(out)): 
+            sign.append(np.sign(load_per_outage_over[out[i]][mon[i]]))
+        sign = load_per_outage_over[out]
+        
         overloaded = (abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>(1 + delta)).drop(['base'], axis=1)# rows: branch outage, index = monitorred line
         
         relevant_outages =overloaded.any()[overloaded.any().index !='base']
@@ -195,23 +208,35 @@ def post_contingency_analysis_per_line(network,
                     ).drop(['base'], axis = 1)
             load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
                     ).drop(['base'], axis = 1) # columns: branch_outages
-            overloaded = (load>(1 + delta))# columns: branch_outages
-           
-            array_mon = []
-            array_out = []
-            array_sign = []
-
-            for col in overloaded:
-                mon = overloaded.index[overloaded[col]].tolist()
-                out = [col]*len(mon)
-
-                sign = np.sign(load_signed[overloaded[col]][col]).values
+            if True:# noch experimentell
+                load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
                 
-                if mon != []:
-                    array_mon.extend(mon)
-                    array_out.extend(out)
-                    array_sign.extend(sign)
-            combinations = [array_out, array_mon, array_sign]
+                out = load_per_outage_over.columns.values
+                mon = load_per_outage_over.abs().idxmax().values
+                
+                sign = []
+                for i in range(len(out)): 
+                    sign.append(np.sign(load_per_outage_over[out[i]][mon[i]]).astype(int))
+                combinations = [out, mon, sign]
+
+            else:
+                overloaded = (load>(1 + delta))# columns: branch_outages
+
+                array_mon = []
+                array_out = []
+                array_sign = []
+    
+                for col in overloaded:
+                    mon = overloaded.index[overloaded[col]].tolist()
+                    out = [col]*len(mon)
+    
+                    sign = np.sign(load_signed[overloaded[col]][col]).values
+                    
+                    if mon != []:
+                        array_mon.extend(mon)
+                        array_out.extend(out)
+                        array_sign.extend(sign)
+                combinations = [array_out, array_mon, array_sign]
             if not len(combinations[0]) == 0:
                 d[sn]=combinations
 
@@ -524,13 +549,18 @@ def add_all_contingency_constraints(network,combinations, track_time):
     
     return len(contingency_flow)
 
-def sclopf_post_lopf(network, args, n_iter = 5, n_process=2):
+def sclopf_post_lopf(network, args, n_process=2, branch_cap_factor = 0.7):
     # Aktuell verwendbar wenn kein Netzausbau möglich ist, dann auch schnellste und beste Lösung
+
+    network.lines.s_nom = network.lines.s_nom_opt.copy()/ branch_cap_factor 
+    network.links.p_nom = network.links.p_nom_opt.copy()
+    network.lines.s_nom_extendable = False
+    network.links.p_nom_extendable = False
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
     add_reduced_contingency_constraints.counter = 0
 
-    if (network.lines.groupby(['bus0', 'bus1']).size()>1).any():
+    if False: #(network.lines.groupby(['bus0', 'bus1']).size()>1).any():
         idx = network.lines.groupby(
                 ['bus0', 'bus1'])['s_nom'].transform(max) \
                 == network.lines['s_nom']
@@ -628,12 +658,18 @@ def iterate_sclopf(network,
                 branch_outages, 
                 n_process,
                 delta)
+#    new = post_contingency_analysis(
+#                network,
+#                branch_outages,
+#                delta)
     track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
 
     # Initalzie dict of SC
     combinations =  dict.fromkeys(network.snapshots, [[], [], []])
-
-    while len(new) > 0:
+    size = 0
+    for i in range(len(new.keys())):
+        size = size + len(new.values()[i][0])
+    while size > 0:
         if  n < 50:
 
             combinations = calc_new_sc_combinations(combinations, new)
@@ -674,6 +710,9 @@ def iterate_sclopf(network,
                         branch_outages, 
                         n_process,
                         delta)
+            size = 0
+            for i in range(len(new.keys())):
+                size = size + len(new.values()[i][0])
             track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
             n+=1
 

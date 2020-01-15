@@ -393,7 +393,7 @@ def plot_osm(x = [1,20], y = [47, 56], zoom = 6):
     plotter.plot(ax, alpha = 0.6)
     ax.plot(x, y, "ro-")
 
-def network_expansion(network, method = 'rel', ext_min=0.1,
+def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 0.7, 
                       ext_width=False, filename=None, boundaries=[],
                       osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """Plot relative or absolute network extension of AC- and DC-lines.
@@ -462,8 +462,8 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
                                 index=array_link)
     if method == 'abs':
         extension_lines = pd.Series(
-                                 (overlay_network.lines.s_nom_opt -
-                                  overlay_network.lines.s_nom_min).data,
+                                 ((overlay_network.lines.s_nom_opt -
+                                  overlay_network.lines.s_nom_min)/branch_cap_factor).data,
                                 index=array_line)
 
         extension_links = pd.Series(
