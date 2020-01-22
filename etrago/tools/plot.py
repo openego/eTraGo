@@ -390,7 +390,7 @@ def plot_osm(x = [1,20], y = [47, 56], zoom = 6):
 
     fig, ax = plt.subplots()
     plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), zoom = zoom)
-    plotter.plot(ax, alpha = 0.6)
+    plotter.plot(ax, alpha = 0.4)
     ax.plot(x, y, "ro-")
 
 def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 0.7, 
@@ -470,7 +470,29 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
                                  (overlay_network.links.p_nom_opt -
                                   overlay_network.links.p_nom_min).data,
                                 index=array_link)
-        
+    if method == 'abs_trasse':
+        extension_lines = pd.Series(
+                                 ((overlay_network.lines.s_nom_opt_pro_trasse -
+                                  overlay_network.lines.s_nom_min_pro_trasse)/branch_cap_factor).data,
+                                index=array_line)
+
+        extension_links = pd.Series(
+                                 (overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min).data,
+                                index=array_link)
+                                 
+    if method == 'rel_trasse':
+        extension_lines = pd.Series((100 *
+                                 (overlay_network.lines.s_nom_opt_pro_trasse -
+                                  overlay_network.lines.s_nom_min_pro_trasse) /
+                                overlay_network.lines.s_nom_min_pro_trasse).data,
+                                index=array_line)
+
+        extension_links = pd.Series((100 *
+                                 (overlay_network.links.p_nom_opt -
+                                  overlay_network.links.p_nom_min)/
+                                 (overlay_network.links.p_nom)).data,
+                                index=array_link)
 
     extension = extension_lines.append(extension_links)
 
@@ -497,7 +519,7 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
         line_colors=extension,
         line_cmap={'Line':cmap, 'Link':cmap},
         bus_sizes=0,
-        title="Optimized AC- and DC-line expansion",
+       # title="Optimized AC- and DC-line expansion",
         line_widths=line_widths) 
 
     if not boundaries:
@@ -523,6 +545,11 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
         cb.set_label('line expansion relative to s_nom in %')
     if method == 'abs':
         cb.set_label('line expansion in MW')
+        
+    if method == 'rel_trasse':
+        cb.set_label('Leitungsausbau in % der Bestandsleitung')
+    if method == 'abs':
+        cb.set_label('Leitungsausbau in MW')
     if filename is None:
         plt.show()
     else:
