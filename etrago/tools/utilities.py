@@ -396,7 +396,7 @@ def clip_foreign(network):
     return network
 
 
-def foreign_links(network):
+def foreign_links(network, country = 'all'):
     """Change transmission technology of foreign lines from AC to DC (links).
     
     Parameters
@@ -410,24 +410,54 @@ def foreign_links(network):
         Overall container of PyPSA
 
     """
-    foreign_buses = network.buses[network.buses.country_code != 'DE']
-
-    foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
+    
+    if country == 'all':
+        foreign_buses = network.buses[network.buses.country_code != 'DE']
+        foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
             foreign_buses.index) | network.lines.bus1.astype(str).isin(
             foreign_buses.index)]
         
-    foreign_links = network.links[network.links.bus0.astype(str).isin(
-            foreign_buses.index) | network.links.bus1.astype(str).isin(
-            foreign_buses.index)]
-    
-    network.links = network.links.drop(
-            network.links.index[network.links.index.isin(foreign_links.index) 
-            & network.links.bus0.isin(network.links.bus1) & 
-            (network.links.bus0 > network.links.bus1)])
+        foreign_links = network.links[network.links.bus0.astype(str).isin(
+                foreign_buses.index) | network.links.bus1.astype(str).isin(
+                foreign_buses.index)]
         
-    foreign_links = network.links[network.links.bus0.astype(str).isin(
+        network.links = network.links.drop(
+                network.links.index[network.links.index.isin(foreign_links.index) 
+                & network.links.bus0.isin(network.links.bus1) & 
+                (network.links.bus0 > network.links.bus1)])
+            
+        foreign_links = network.links[network.links.bus0.astype(str).isin(
+                foreign_buses.index) | network.links.bus1.astype(str).isin(
+                foreign_buses.index)]
+    else:
+        foreign_buses = network.buses[network.buses.country_code.isin(country)]
+        german_buses = network.buses[network.buses.country_code =='DE']
+        foreign_lines = network.lines[(network.lines.bus0.astype(str).isin(
+            foreign_buses.index) | network.lines.bus1.astype(str).isin(
+            foreign_buses.index)) & (network.lines.bus0.astype(str).isin(
+            german_buses.index) | network.lines.bus1.astype(str).isin(
+            german_buses.index))]
+        
+        foreign_links = network.links[(network.links.bus0.astype(str).isin(
             foreign_buses.index) | network.links.bus1.astype(str).isin(
-            foreign_buses.index)]
+            foreign_buses.index)) & (network.links.bus0.astype(str).isin(
+            german_buses.index) | network.links.bus1.astype(str).isin(
+            german_buses.index))]
+        
+        network.links = network.links.drop(
+                network.links.index[(network.links.bus0.astype(str).isin(
+            foreign_buses.index) | network.links.bus1.astype(str).isin(
+            foreign_buses.index)) & (network.links.bus0.astype(str).isin(
+            german_buses.index) | network.links.bus1.astype(str).isin(
+            german_buses.index))& 
+                (network.links.bus0 > network.links.bus1)])
+            
+        foreign_links = network.links[(network.links.bus0.astype(str).isin(
+            foreign_buses.index) | network.links.bus1.astype(str).isin(
+            foreign_buses.index)) & (network.links.bus0.astype(str).isin(
+            german_buses.index) | network.links.bus1.astype(str).isin(
+            german_buses.index))]
+
     
     network.links.loc[foreign_links.index, 'p_min_pu'] = -1
 
@@ -436,6 +466,8 @@ def foreign_links(network):
     network.import_components_from_dataframe(
         foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
         .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)
+        .assign(p_nom_min=foreign_lines.s_nom_min).assign(p_nom_max=foreign_lines.s_nom_max)
+        .assign(p_nom_extendable=foreign_lines.s_nom_extendable)
         .set_index('N' + foreign_lines.index),
         'Link')
 
@@ -1869,7 +1901,7 @@ def crossborder_capacity(network, method, capacity_factor):
                                      (country+country)].index
             network.links.loc[i_links, 'p_nom'] = \
                 weighting_links[i_links] * cap_per_country\
-                [country]*capacity_factor
+                [country]
 
 
 def set_branch_capacity(network, args):
@@ -2141,4 +2173,3 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             
     return network
             
-

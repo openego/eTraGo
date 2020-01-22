@@ -114,12 +114,13 @@ args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2,
-                        'delta_overload': 0.01},
+                        'delta_overload': 0.01,
+                        'n_overload':5},
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'contingency_post_lopf':False,  # perform a sclopf after a lopf simulation
-    'sclopf_post_lopf': True,
+    'sclopf_post_lopf': False,
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -133,7 +134,7 @@ args = {
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None, #['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
+    'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None, #'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
@@ -153,7 +154,7 @@ args = {
                 'bus_weight_fromcsv':None,
                 'line_agg': False,
                 'remove_stubs_kmeans': True},
-    'load_cluster': 'cluster_coord_k_50_result', #'/home/clara/Dokumente/Systemtechnik/SCLOPF/cluster_coord_k_499_result',  # False or predefined busmap for k-means
+    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering':False,  # False or the number of 'periods'
@@ -166,9 +167,9 @@ args = {
     'skip_snapshots': False,
     'parallel_lines':False, # 'single',
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
+    'foreign_lines': {'carrier': 'phaseshift', 'capacity': 'osmTGmod'},
     'comments': None}
 
 
@@ -441,8 +442,12 @@ def etrago(args):
     network = set_q_foreign_loads(network, cos_phi=1)
 
     # Change transmission technology and/or capacity of foreign lines
-    if args['foreign_lines']['carrier'] == 'DC':
-        foreign_links(network)
+    if args['foreign_lines']['carrier'] != 'AC':
+        if args['foreign_lines']['carrier']== 'DC':
+            country = 'all'
+        elif args['foreign_lines']['carrier'] == 'phaseshift':
+            country = ['PL', 'CZ', 'NL']
+        foreign_links(network, country)
         network = geolocation_buses(network, session)
 
     if args['foreign_lines']['capacity'] != 'osmTGmod':
@@ -521,10 +526,6 @@ def etrago(args):
                     line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
-        
-        
-      #  network.lines.capital_cost += abs(
-            #    np.random.RandomState(args['generator_noise']).normal(0, 0.01, len(network.lines.capital_cost)))
 
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
@@ -567,7 +568,7 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
-
+   
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -613,7 +614,8 @@ def etrago(args):
                            branch_outages,
                            Constraints(args).functionality, 
                            n_process = args['sclopf_settings']['n_process'],
-                           delta = args['sclopf_settings']['delta_overload'])
+                           delta = args['sclopf_settings']['delta_overload'],
+                           n_overload = args['sclopf_settings']['n_overload'])
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
@@ -627,7 +629,16 @@ def etrago(args):
                             n_process =args['sclopf_settings']['n_process'])
     
     if args['sclopf_post_lopf']:
-        sclopf_post_lopf(network, args, args['sclopf_settings']['n_process'])
+        #sclopf_post_lopf(network, args, args['sclopf_settings']['n_process'])
+        branch_outages=network.lines.index[network.lines.country=='DE']
+        iterate_sclopf(network,
+                           args, 
+                           branch_outages,
+                           Constraints(args).functionality, 
+                           n_process = args['sclopf_settings']['n_process'],
+                           delta = args['sclopf_settings']['delta_overload'],
+                           n_overload = args['sclopf_settings']['n_overload'],
+                           post_lopf = True)
         
     if args['pf_post_lopf']:
         x = time.time()

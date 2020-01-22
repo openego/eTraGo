@@ -267,7 +267,15 @@ def add_reduced_contingency_constraints(network,combinations):
     branch_outage_keys = []
     flow_upper = {}
     flow_lower = {}
-    sub = network.sub_networks.obj[0]
+    
+    n_buses = 0
+    # choose biggest sub_network to avoid problems with BE / NO
+    for s in network.sub_networks.obj.index:
+        n = len(network.sub_networks.obj[s].buses())
+        
+        if n > n_buses:
+            n_buses = n
+            sub = network.sub_networks.obj[s]
     sub._branches = sub.branches()
     #if add_reduced_contingency_constraints.counter ==1:
     sub.calculate_B_H()
@@ -278,52 +286,27 @@ def add_reduced_contingency_constraints(network,combinations):
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
     sub._extendable_branches = sub._branches[sub._branches.s_nom_extendable]
-    for sn in combinations.keys():
-       # import pdb; pdb.set_trace()
-       if len(combinations[sn][0])>0:
+    for sn in combinations.keys(): # Könnte parallelisiert werden, klappt aber noch nicht 
+        if len(combinations[sn][0]) > 0:
            out= combinations[sn][0]# branch in pypsa
            mon = combinations[sn][1] # b in pypsa
-          # out= (combinations[sn][0]).astype(str)# branch in pypsa
-         #  mon = (combinations[sn][1]).astype(str) # b in pypsa
-         #  mon_ext = np.where(np.isin(mon[1], sub._extendable_branches.index.get_level_values(1)))[0]
-         #  mon_fix = np.where(~np.isin(mon, sub._extendable_branches.index.get_level_values(1)))[0]
-           mon_ext = [t for t in mon if t in sub._extendable_branches.index]
-           mon_fix = [t for t in mon if t in sub._fixed_branches.index]
-           branch_outage_keys.extend([(out[i][0],out[i][1], mon[i][0],mon[i][1], sn)
+           sign = combinations[sn][2]
+
+           branch_outage_keys.extend([(out[i][0],out[i][1], 
+                                       mon[i][0],mon[i][1], sn)
                                     for i in range(len(out))])
 
-           flow_upper.update({
-                ( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                        (1, network.model.passive_branch_p[mon[i], sn]),
-                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                        network.model.passive_branch_p[out[i], sn])],
-                        "<=", sub._fixed_branches.at[ mon[i],"s_nom"]] 
-        for i in range(len(mon_fix))})
-    
-           flow_upper.update({
-                ( out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon[i], sn]),
-                (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                network.model.passive_branch_p[ out[i], sn]),
-                 (-1,network.model.passive_branch_s_nom[ mon[i]])],"<=",0] 
-        for i in range(len(mon_ext))})
+            # avoid duplicate values in branch_outage_keys
+           branch_outage_keys=list(set(branch_outage_keys))
+           # set contingengy flow constraint
+           contingency_flow.update({(
+                   out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
+                        (sign[i], network.model.passive_branch_p[mon[i], sn]),
+                        (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                         network.model.passive_branch_p[out[i], sn]), 
+                         (-1,s_nom[mon[i]])],"<=",0] 
+                        for i in range(len(mon))})
 
-    
-           flow_lower.update({
-                ( out[i][0], out[i][1], mon[i][0],mon[i][1], sn) : [[
-                        (1, network.model.passive_branch_p[mon[i], sn]),
-                        (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                        network.model.passive_branch_p[out[i], sn])],
-                        ">=", -sub._fixed_branches.at[ mon[i],"s_nom"]] 
-        for i in range(len(mon_fix))})
-    
-           flow_lower.update({
-                (  out[i][0],out[i][1], mon[i][0],mon[i][1], sn) : [[
-                (1, network.model.passive_branch_p[ mon[i], sn]),
-                (sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                network.model.passive_branch_p[ out[i], sn]),
-                 (1,network.model.passive_branch_s_nom[ mon[i]])],">=",0] 
-        for i in range(len(mon_ext))})
 
 
     l_constraint(network.model,"contingency_flow_upper_"+str(add_reduced_contingency_constraints.counter),flow_upper,branch_outage_keys)
@@ -503,6 +486,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
+
     
     # set dict with s_nom containing fixed or extendable s_nom
     s_nom = sub._branches.s_nom.to_dict()
@@ -519,31 +503,52 @@ def add_all_contingency_constraints(network,combinations, track_time):
            branch_outage_keys.extend([(out[i][0],out[i][1], 
                                        mon[i][0],mon[i][1], sn)
                                     for i in range(len(out))])
-
+                    
             # avoid duplicate values in branch_outage_keys
            branch_outage_keys=list(set(branch_outage_keys))
            # set contingengy flow constraint
-           contingency_flow.update({(
-                   out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
-                        (sign[i], network.model.passive_branch_p[mon[i], sn]),
-                        (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
-                         network.model.passive_branch_p[out[i], sn]), 
-                         (-1,s_nom[mon[i]])],"<=",0] 
-                        for i in range(len(mon))})
+           if sub._fixed_branches.empty:
+               contingency_flow.update({(
+                       out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
+                            (sign[i], network.model.passive_branch_p[mon[i], sn]),
+                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                             network.model.passive_branch_p[out[i], sn]), 
+                             (-1,s_nom[mon[i]])],"<=",0] 
+                            for i in range(len(mon))})
+
+           elif sub._extendable_branches.empty:
+               contingency_flow.update({(
+                       out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
+                            (sign[i], network.model.passive_branch_p[mon[i], sn]),
+                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                             network.model.passive_branch_p[out[i], sn])]
+                            ,"<=",s_nom[mon[i]]] 
+                            for i in range(len(mon))})
+    
+           else:
+               print('Not implemented!')
+                
 
 
     z = time.time()
     track_time[datetime.datetime.now()]=  'Contingency constraints calculated'
     logger.info("Security constraints calculated in [min] " + str((z-x)/60))
-    
+
     # remove constraints from previous iteration
     network.model.del_component('contingency_flow')
     network.model.del_component('contingency_flow_index')
+
+    # Delete rows with small BODFs to avoid nummerical problems
+    for c in list(contingency_flow.keys()):
+        if (abs(contingency_flow[c][0][1][0]) < 1e-8) & \
+                (abs(contingency_flow[c][0][1][0]) != 0):
+             contingency_flow.pop(c)
     
     # set constraints for new iteration
     l_constraint(network.model,"contingency_flow",
                  contingency_flow,
-                 branch_outage_keys)
+                 contingency_flow.keys())
+
     y = time.time()
     logger.info("Security constraints updated in [min] " + str((y-x)/60))
     
@@ -558,7 +563,7 @@ def sclopf_post_lopf(network, args, n_process=2, branch_cap_factor = 0.7):
     network.links.p_nom_extendable = False
     logger.info("Contingengcy analysis started at "+ str(datetime.datetime.now()))
     x = time.time()
-    add_reduced_contingency_constraints.counter = 0
+    add_all_contingency_constraints.counter = 0
 
     if False: #(network.lines.groupby(['bus0', 'bus1']).size()>1).any():
         idx = network.lines.groupby(
@@ -576,9 +581,10 @@ def sclopf_post_lopf(network, args, n_process=2, branch_cap_factor = 0.7):
     nb=0
     combinations = post_contingency_analysis_per_line(
             network, branch_outages, 4)
+    track_time = pd.Series()
     while len(combinations) > 0:
         if  n < 10:
-            nb = nb + add_reduced_contingency_constraints(network,combinations)
+            nb = nb + add_all_contingency_constraints(network,combinations, track_time)
             logger.info("SCLOPF No. "+ str(n+1) + " started with "
                         + str(2*nb) + " SC-constraints.")
             network_lopf_solve(network, 
@@ -609,7 +615,6 @@ def calc_new_sc_combinations(combinations, new):
         combinations[sn][0].extend(new[sn][0])
         combinations[sn][1].extend(new[sn][1])
         combinations[sn][2].extend(new[sn][2])
-      #  import pdb; pdb.set_trace()
         df = pd.DataFrame([combinations[sn][0], combinations[sn][1], combinations[sn][2]])
         data = df.transpose().drop_duplicates().transpose()    
         combinations[sn] = data.values.tolist()
@@ -620,7 +625,9 @@ def iterate_sclopf(network,
                        branch_outages, 
                        extra_functionality, 
                        n_process,
-                       delta):
+                       delta,
+                       n_overload = 0,
+                       post_lopf = False):
     track_time = pd.Series()
     l_snom_pre = network.lines.s_nom.copy()
     t_snom_pre = network.transformers.s_nom.copy()
@@ -633,16 +640,24 @@ def iterate_sclopf(network,
     solver_options_lopf=args['solver_options']
     solver_options_lopf['FeasibilityTol'] = 1e-5
     solver_options_lopf['BarConvTol'] = 1e-6
-    network.lopf(   network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=solver_options_lopf,
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
-    track_time[datetime.datetime.now()]= 'Solve SCLOPF'
-    if args['csv_export'] != False:
-        path=args['csv_export'] + '/post_sclopf_iteration_0'
-        results_to_csv(network, args, path)
-        track_time[datetime.datetime.now()]= 'Export results'
+    
+    if post_lopf:
+        
+        network.lines.s_nom = network.lines.s_nom_opt.copy()/ 0.7 
+        network.links.p_nom = network.links.p_nom_opt.copy()
+        network.lines.s_nom_extendable = False
+        network.links.p_nom_extendable = False
+    else:
+        network.lopf(   network.snapshots,
+                        solver_name=args['solver'],
+                        solver_options=solver_options_lopf,
+                        extra_functionality=extra_functionality,
+                        formulation=args['model_formulation'])
+        track_time[datetime.datetime.now()]= 'Solve SCLOPF'
+        if args['csv_export'] != False:
+            path=args['csv_export'] + '/post_sclopf_iteration_0'
+            results_to_csv(network, args, path)
+            track_time[datetime.datetime.now()]= 'Export results'
 
     # Update electrical parameters if network is extendable
     if network.lines.s_nom_extendable.any():
@@ -667,9 +682,10 @@ def iterate_sclopf(network,
     # Initalzie dict of SC
     combinations =  dict.fromkeys(network.snapshots, [[], [], []])
     size = 0
+
     for i in range(len(new.keys())):
-        size = size + len(new.values()[i][0])
-    while size > 0:
+        size = size + len(new.values()[i][0]) * network.snapshot_weightings[new.keys()[i]]
+    while size > n_overload:
         if  n < 50:
 
             combinations = calc_new_sc_combinations(combinations, new)
