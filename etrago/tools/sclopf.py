@@ -539,15 +539,16 @@ def add_all_contingency_constraints(network,combinations, track_time):
     network.model.del_component('contingency_flow_index')
 
     # Delete rows with small BODFs to avoid nummerical problems
-    for c in list(contingency_flow.keys()):
-        if (abs(contingency_flow[c][0][1][0]) < 1e-8) & \
-                (abs(contingency_flow[c][0][1][0]) != 0):
-             contingency_flow.pop(c)
+#    for c in list(contingency_flow.keys()):
+#        if (abs(contingency_flow[c][0][1][0]) < 1e-8) & \
+#                (abs(contingency_flow[c][0][1][0]) != 0):
+#             contingency_flow.pop(c)
     
     # set constraints for new iteration
     l_constraint(network.model,"contingency_flow",
                  contingency_flow,
-                 contingency_flow.keys())
+                 branch_outage_keys)
+                 #contingency_flow.keys())
 
     y = time.time()
     logger.info("Security constraints updated in [min] " + str((y-x)/60))
@@ -656,7 +657,7 @@ def iterate_sclopf(network,
         track_time[datetime.datetime.now()]= 'Solve SCLOPF'
         if args['csv_export'] != False:
             path=args['csv_export'] + '/post_sclopf_iteration_0'
-            results_to_csv(network, args, path)
+            results_to_csv(network, args, path, with_time = False)
             track_time[datetime.datetime.now()]= 'Export results'
 
     # Update electrical parameters if network is extendable
@@ -708,7 +709,7 @@ def iterate_sclopf(network,
             
             if args['csv_export'] != False:
                 path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
-                results_to_csv(network, args, path)
+                results_to_csv(network, args, path, with_time = False)
                     
                 with open(path + '/sc_combinations.csv', 'w') as f:
                     for key in combinations.keys():
@@ -737,6 +738,8 @@ def iterate_sclopf(network,
             break
 
     if args['csv_export'] != False:
+                path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
+                results_to_csv(network, args, path, with_time = True)
                 track_time.to_csv(args['csv_export']+ '/track-time.csv')
 
     y = (time.time() - x)/60

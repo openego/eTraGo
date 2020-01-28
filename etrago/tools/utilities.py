@@ -642,7 +642,7 @@ def _enumerate_row(row):
     return row
 
 
-def results_to_csv(network, args, path):
+def results_to_csv(network, args, path, with_time = True):
     """ Function the writes the calaculation results
     in csv-files in the desired directory. 
 
@@ -662,8 +662,20 @@ def results_to_csv(network, args, path):
 
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
-
-    network.export_to_csv_folder(path)
+    if with_time:
+        network.export_to_csv_folder(path)
+    else:
+        if not os.path.isdir(path):
+            logger.warning("Directory {} does not exist, creating it".format(path))
+            os.mkdir(path)
+        allowed_types = [float,int,str,bool] + list(np.typeDict.values())
+        columns = [attr for attr in dir(network) if type(getattr(network,attr)) in allowed_types and attr != "name" and attr[:2] != "__"]
+        index = [network.name]
+        df = pd.DataFrame(index=index,columns=columns,data = [[getattr(network,col) for col in columns]])
+        df.index.name = "name"
+        
+        df.to_csv(os.path.join(path,"network.csv"))
+        
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     data['time'] = network.results['Solver'].Time
     data = data.apply(_enumerate_row, axis=1)
