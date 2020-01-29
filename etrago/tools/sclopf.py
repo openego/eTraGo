@@ -644,19 +644,23 @@ def iterate_sclopf(network,
     
     if post_lopf:
         
-        network.lines.s_nom = network.lines.s_nom_opt.copy()/ 0.7 
+        network.lines.s_nom = network.lines.s_nom_opt * \
+                                network.lines.s_nom_total/network.lines.s_nom
         network.links.p_nom = network.links.p_nom_opt.copy()
         network.lines.s_nom_extendable = False
         network.links.p_nom_extendable = False
+        path_name = '/post_sclopf_iteration_'
+
     else:
         network.lopf(   network.snapshots,
                         solver_name=args['solver'],
                         solver_options=solver_options_lopf,
                         extra_functionality=extra_functionality,
                         formulation=args['model_formulation'])
+        path_name = '/sclopf_iteration_'
         track_time[datetime.datetime.now()]= 'Solve SCLOPF'
         if args['csv_export'] != False:
-            path=args['csv_export'] + '/post_sclopf_iteration_0'
+            path=args['csv_export'] + '/sclopf_iteration_0'
             results_to_csv(network, args, path, with_time = False)
             track_time[datetime.datetime.now()]= 'Export results'
 
@@ -708,7 +712,7 @@ def iterate_sclopf(network,
                 raise  Exception('SCLOPF '+ str(n) + ' not solved.')
             
             if args['csv_export'] != False:
-                path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
+                path = args['csv_export'] + path_name + str(n+1)
                 results_to_csv(network, args, path, with_time = False)
                     
                 with open(path + '/sc_combinations.csv', 'w') as f:
@@ -729,7 +733,7 @@ def iterate_sclopf(network,
                         delta)
             size = 0
             for i in range(len(new.keys())):
-                size = size + len(new.values()[i][0])
+                size = size + len(new.values()[i][0])* network.snapshot_weightings[new.keys()[i]]
             track_time[datetime.datetime.now()]= 'Overall post contingency analysis'
             n+=1
 
@@ -738,7 +742,7 @@ def iterate_sclopf(network,
             break
 
     if args['csv_export'] != False:
-                path=args['csv_export'] + '/post_sclopf_iteration_'+ str(n+1)
+                path = args['csv_export'] + path_name + str(n+1)
                 results_to_csv(network, args, path, with_time = True)
                 track_time.to_csv(args['csv_export']+ '/track-time.csv')
 
