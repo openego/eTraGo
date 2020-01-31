@@ -104,7 +104,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.cluster.snapshot import snapshot_clustering
     
-    from etrago.tools.sclopf import post_contingency_analysis_lopf, iterate_sclopf, sclopf_post_lopf
+    from etrago.tools.sclopf import post_contingency_analysis_lopf, iterate_sclopf
     from egoio.tools import db
     from sqlalchemy.orm import sessionmaker
     import oedialect
@@ -112,7 +112,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2,
@@ -155,7 +155,7 @@ args = {
                 'line_agg': False,
                 'remove_stubs_kmeans': True},
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering':False,  # False or the number of 'periods'
     'sc_settings':{'how':'hourly',

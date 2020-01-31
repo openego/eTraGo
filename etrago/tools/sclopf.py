@@ -430,10 +430,10 @@ def iterate_sclopf(network,
     for i in range(len(new.keys())):
         size = size + len(new.values()[i][0]) * network.snapshot_weightings[new.keys()[i]]
 
-    logger.info(str(size) + ' overloadings')
-
     while size > n_overload:
         if  n < 50:
+            logger.info(str(size) + ' overloadings')
+            
             combinations = calc_new_sc_combinations(combinations, new)
 
             nb = int(add_all_contingency_constraints(
