@@ -1144,7 +1144,7 @@ def split_parallel_lines(network):
     
     for i in parallel_lines.index:
         data_new=parallel_lines[parallel_lines.index==i]
-        for col in ['b', 'g', 's_nom', 's_nom_min', 's_nom_max', 's_nom_opt']:
+        for col in ['b', 'g', 's_nom', 's_nom_min', 's_nom_max', 's_nom_opt', 's_nom_total']:
             data_new[col]=data_new[col]/data_new.num_parallel
         for col in ['x', 'r']:
             data_new[col]=data_new[col]*data_new.num_parallel
