@@ -390,7 +390,7 @@ def plot_osm(x = [1,20], y = [47, 56], zoom = 6):
 
     fig, ax = plt.subplots()
     plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), zoom = zoom)
-    plotter.plot(ax, alpha = 0.4)
+    plotter.plot(ax, alpha = 0.0)
     ax.plot(x, y, "ro-")
 
 def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 0.7, 
@@ -474,12 +474,12 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
         extension_lines = pd.Series(
                                  ((overlay_network.lines.s_nom_opt_pro_trasse -
                                   overlay_network.lines.s_nom_min_pro_trasse)/branch_cap_factor).data,
-                                index=array_line)
+                                index=array_line)/1000
 
         extension_links = pd.Series(
                                  (overlay_network.links.p_nom_opt -
                                   overlay_network.links.p_nom_min).data,
-                                index=array_link)
+                                index=array_link)/1000
                                  
     if method == 'rel_trasse':
         extension_lines = pd.Series((100 *
@@ -495,7 +495,12 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
                                 index=array_link)
 
     extension = extension_lines.append(extension_links)
-
+    #plt.axis('off')
+    frame1 = plt.gca()
+    frame1.axes.xaxis.set_ticklabels([])
+    frame1.axes.yaxis.set_ticklabels([])
+    frame1.axes.yaxis.set_ticks([])
+    frame1.axes.xaxis.set_ticks([])
     # Plot whole network in backgroud of plot
     network.plot(
             line_colors=pd.Series("grey", index = [['Line'] * len(
@@ -550,13 +555,18 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
         cb.set_label('Leitungsausbau in % der Bestandsleitung')
     if method == 'abs':
         cb.set_label('Leitungsausbau in MW')
+    if method == 'abs_trasse':
+        cb.set_label('Leitungsausbau in GW')
     if filename is None:
         plt.show()
     else:
-        plt.savefig(filename)
+        from matplotlib import pylab
+        pylab.savefig(
+                filename,dpi=300,
+                bbox_inches="tight" )
         plt.close()
 
-def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
+def network_expansion_diff (networkA, networkB, method = 'line', ext_width=False, filename=None, osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}, boundaries=[]):
     """Plot relative network expansion derivation of AC- and DC-lines.
     
     Parameters
@@ -571,37 +581,155 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
        Set boundaries of heatmap axis
     
     """
+    if osm != False:
+       # set_epsg_network(network)
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+    SMALL_SIZE = 10
+    MEDIUM_SIZE = 12
+    BIGGER_SIZE = 14
+    
+    plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+    plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+    plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+    plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+    plt.rc('ytick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+    plt.rc('legend', fontsize=SMALL_SIZE)    # legend fontsize
+    plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
-    cmap = plt.cm.jet
+    frame1 = plt.gca()
+    frame1.axes.xaxis.set_ticklabels([])
+    frame1.axes.yaxis.set_ticklabels([])
+    frame1.axes.yaxis.set_ticks([])
+    frame1.axes.xaxis.set_ticks([])
+    def shiftedColorMap(
+            cmap,
+            start=0,
+            midpoint=0.5,
+            stop=1.0,
+            name='shiftedcmap'):
+        '''
+        Function to offset the "center" of a colormap. Useful for
+        data with a negative min and positive max and you want the
+        middle of the colormap's dynamic range to be at zero
+
+        Input
+        -----
+          cmap : The matplotlib colormap to be altered
+          start : Offset from lowest point in the colormap's range.
+              Defaults to 0.0 (no lower ofset). Should be between
+              0.0 and `midpoint`.
+          midpoint : The new center of the colormap. Defaults to
+              0.5 (no shift). Should be between 0.0 and 1.0. In
+              general, this should be  1 - vmax/(vmax + abs(vmin))
+              For example if your data range from -15.0 to +5.0 and
+              you want the center of the colormap at 0.0, `midpoint`
+              should be set to  1 - 5/(5 + 15)) or 0.75
+          stop : Offset from highets point in the colormap's range.
+              Defaults to 1.0 (no upper ofset). Should be between
+              `midpoint` and 1.0.
+        '''
+        cdict = {
+            'red': [],
+            'green': [],
+            'blue': [],
+            'alpha': []
+        }
+
+        # regular index to compute the colors
+        reg_index = np.linspace(start, stop, 257)
+
+        # shifted index to match the data
+        shift_index = np.hstack([
+            np.linspace(0.0, midpoint, 128, endpoint=False),
+            np.linspace(midpoint, 1.0, 129, endpoint=True)
+        ])
+
+        for ri, si in zip(reg_index, shift_index):
+            r, g, b, a = cmap(ri)
+
+            cdict['red'].append((si, r, r))
+            cdict['green'].append((si, g, g))
+            cdict['blue'].append((si, b, b))
+            cdict['alpha'].append((si, a, a))
+
+        newcmap = matplotlib.colors.LinearSegmentedColormap(name, cdict)
+        plt.register_cmap(cmap=newcmap)
+
+        return newcmap
+
+    cmap = plt.cm.seismic
     
     array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
-
-    extension_lines = pd.Series(100 *\
-                                 ((networkA.lines.s_nom_opt - \
-                                    networkB.lines.s_nom_opt)/\
-                                    networkA.lines.s_nom_opt  ).values,\
-                                index=array_line)
-
     array_link = [['Link'] * len(networkA.links), networkA.links.index]
-
-    extension_links = pd.Series(100 *
+    if method == 'line':
+        extension_lines = pd.Series(100 *\
+                                     ((networkA.lines.s_nom_opt - \
+                                        networkB.lines.s_nom_opt)/\
+                                        networkA.lines.s_nom_opt  ).values,\
+                                    index=array_line)
+        extension_links = pd.Series(100 *
                                  ((networkA.links.p_nom_opt -\
                                     networkB.links.p_nom_opt)/\
                                     networkA.links.p_nom_opt).values,\
                                 index=array_link)
-
+        title = 'Derivation of AC- and DC-line extension'
+        label= 'line extension derivation  in %'
+    elif method == 'trasse':
+        extension_lines = pd.Series(100 *\
+                                     ((networkA.lines.s_nom_opt_pro_trasse - \
+                                        networkB.lines.s_nom_opt_pro_trasse)/\
+                                        networkA.lines.s_nom_opt_pro_trasse  ).values,\
+                                    index=array_line)
+        extension_links = pd.Series(100 *
+                                 ((networkA.links.p_nom_opt -\
+                                    networkB.links.p_nom_opt)/\
+                                    networkA.links.p_nom_opt).values,\
+                                index=array_link)
+        title = ''
+        label= 'Abweichungen des Netzausbaus in %'
+        #boundaries  =[-100, 100]
+    elif method == 'trasse_abs':
+        extension_lines = pd.Series((networkA.lines.s_nom_opt_pro_trasse - \
+                                        networkB.lines.s_nom_opt_pro_trasse).values,\
+                                    index=array_line)/1000
+        extension_links = pd.Series((networkA.links.p_nom_opt -\
+                                    networkB.links.p_nom_opt).values,\
+                                index=array_link)/1000
+        title=''
+        label= 'Abweichungen des Netzausbaus in GW'
+        #boundaries  =[-2000, 2000]
     extension = extension_lines.append(extension_links)
+        # Plot whole network in backgroud of plot
+    networkA.plot(
+            line_colors=pd.Series("grey", index = [['Line'] * len(
+                    networkA.lines), networkA.lines.index]).append(
+            pd.Series("grey", index = [['Link'] * len(networkA.links),
+                  networkA.links.index])),
+            bus_sizes=0,
+            line_widths=pd.Series(0.3, index = [['Line'] * len(networkA.lines),
+                  networkA.lines.index]).append(
+            pd.Series(0.3, index = [['Link'] * len(networkA.links),
+                  networkA.links.index])))
+    if not ext_width:
+        line_widths= pd.Series(0.8, index = array_line).append(
+                pd.Series(0.8, index = array_link))
+        
+    else: 
+        line_widths= 0.1 + (abs(extension) / ext_width)
 
+    shifted_cmap = shiftedColorMap(
+        cmap, midpoint=1-extension.max()/(extension.max()+abs(extension.min())), name='shifted')
+    
     ll = networkA.plot(
         line_colors=extension,
-        line_cmap=cmap,
+        line_cmap={'Line':shifted_cmap, 'Link':shifted_cmap},
         bus_sizes=0,
-        title="Derivation of AC- and DC-line extension",
-        line_widths=2)
+        title=title,
+        line_widths=line_widths)
 
     if not boundaries:
-        v = np.linspace(min(extension), max(extension), 101)
-        boundaries = [min(extension).round(0), max(extension).round(0)]
+        v = np.linspace(round(min(extension), 0), round(max(extension), 0), 101)
+        boundaries = [round(min(extension), 0), round(max(extension), 0)]
         
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
@@ -617,12 +745,15 @@ def network_expansion_diff (networkA, networkB, filename=None, boundaries=[]):
                       ticks=v[0:101:10], fraction=0.046, pad=0.04)
     
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-    cb.set_label('line extension derivation  in %')
-
+    cb.set_label(label)
+    cb.ax.tick_params(labelsize=12)
     if filename is None:
         plt.show()
     else:
-        plt.savefig(filename)
+        from matplotlib import pylab
+        pylab.savefig(
+                filename,dpi=300,
+                bbox_inches="tight" )
         plt.close()
 
 
