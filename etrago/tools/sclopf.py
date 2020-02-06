@@ -135,41 +135,70 @@ def post_contingency_analysis_lopf(network, args,
 
 
 def post_contingency_analysis(network, branch_outages, delta = 0.05):
+    nw = network.copy()
+    nw.lines.s_nom = nw.lines.s_nom_opt.copy()
     
-    network.lines.s_nom = network.lines.s_nom_opt.copy()
-    network.generators_t.p_set = network.generators_t.p_set.reindex(columns=network.generators.index)
-    network.generators_t.p_set = network.generators_t.p
-    network.storage_units_t.p_set = network.storage_units_t.p_set.reindex(columns=network.storage_units.index)
-    network.storage_units_t.p_set = network.storage_units_t.p
-    network.links_t.p_set = network.links_t.p_set.reindex(columns=network.links.index)
-    network.links_t.p_set = network.links_t.p0
+    nw.lines = nw.lines.drop(nw.lines.index[nw.lines.s_nom<10])
+    #import pdb; pdb.set_trace()
+    b_x = 1./nw.lines.x_pu
+    logger.info(b_x.min())
 
+    if np.isnan(b_x).any():
+        import pdb; pdb.set_trace()
+    branch_outages = branch_outages[branch_outages.isin(nw.lines.index)]
+    nw.generators_t.p_set = nw.generators_t.p_set.reindex(
+            columns=nw.generators.index)
+    nw.generators_t.p_set = nw.generators_t.p
+    nw.storage_units_t.p_set = nw.storage_units_t.p_set.reindex(
+            columns=nw.storage_units.index)
+    nw.storage_units_t.p_set = nw.storage_units_t.p
+    nw.links_t.p_set = nw.links_t.p_set.reindex(columns=nw.links.index)
+    nw.links_t.p_set = nw.links_t.p0
 
-    df = pd.DataFrame(index =network.snapshots, columns = network.lines.index)
+    d = {}
     for sn in network.snapshots:
 
-        p0_test = network.lpf_contingency(sn, branch_outages=branch_outages)
-        
-        # rows: mon , columns = branch outage
-        load_signed = (p0_test.divide(network.passive_branches().s_nom_opt,axis=0)
+            p0_test = nw.lpf_contingency(branch_outages=branch_outages,
+                                         snapshots=sn)
+            # rows: branch outage, index = monitorred line
+            #check loading as per unit of s_nom in each contingency
+            load_signed = (p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
                     ).drop(['base'], axis = 1)
-        
-        load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
-        
-        out = load_per_outage_over.columns.values
-        mon = load_per_outage_over.abs().idxmax().values
-        
-        sign = []
-        for i in range(len(out)): 
-            sign.append(np.sign(load_per_outage_over[out[i]][mon[i]]))
-        sign = load_per_outage_over[out]
-        
-        overloaded = (abs(p0_test.divide(network.passive_branches().s_nom,axis=0))>(1 + delta)).drop(['base'], axis=1)# rows: branch outage, index = monitorred line
-        
-        relevant_outages =overloaded.any()[overloaded.any().index !='base']
-        df[df.index==sn]=pd.DataFrame(relevant_outages).transpose().values
+            load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
+                    ).drop(['base'], axis = 1) # columns: branch_outages
+            if True:# noch experimentell
+                load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
+                
+                out = load_per_outage_over.columns.values
+                mon = load_per_outage_over.abs().idxmax().values
+                
+                sign = []
+                for i in range(len(out)): 
+                    sign.append(np.sign(load_per_outage_over[out[i]][mon[i]]).astype(int))
+                combinations = [out, mon, sign]
 
-    return df
+            else:
+                overloaded = (load>(1 + delta))# columns: branch_outages
+
+                array_mon = []
+                array_out = []
+                array_sign = []
+    
+                for col in overloaded:
+                    mon = overloaded.index[overloaded[col]].tolist()
+                    out = [col]*len(mon)
+    
+                    sign = np.sign(load_signed[overloaded[col]][col]).values
+                    
+                    if mon != []:
+                        array_mon.extend(mon)
+                        array_out.extend(out)
+                        array_sign.extend(sign)
+                combinations = [array_out, array_mon, array_sign]
+            if not len(combinations[0]) == 0:
+                d[sn]=combinations
+
+    return d
 
 def post_contingency_analysis_per_line(network, 
                                        branch_outages, 
@@ -178,6 +207,10 @@ def post_contingency_analysis_per_line(network,
     x = time.time()
     nw = network.copy()
     nw.lines.s_nom = nw.lines.s_nom_opt.copy()
+    
+    nw.lines = nw.lines.drop(nw.lines.index[nw.lines.s_nom<10])
+
+    branch_outages = branch_outages[branch_outages.isin(nw.lines.index)]
     nw.generators_t.p_set = nw.generators_t.p_set.reindex(
             columns=nw.generators.index)
     nw.generators_t.p_set = nw.generators_t.p
@@ -334,16 +367,18 @@ def add_all_contingency_constraints(network,combinations, track_time):
     network.model.del_component('contingency_flow_index')
 
     # Delete rows with small BODFs to avoid nummerical problems
-#    for c in list(contingency_flow.keys()):
-#        if (abs(contingency_flow[c][0][1][0]) < 1e-8) & \
-#                (abs(contingency_flow[c][0][1][0]) != 0):
+    for c in list(contingency_flow.keys()):
+        if ((abs(contingency_flow[c][0][1][0]) < 5e-8) & \
+                (abs(contingency_flow[c][0][1][0]) != 0)) | (abs(contingency_flow[c][0][1][0]) >1.1):
+             contingency_flow.pop(c)
+#        elif (abs(contingency_flow[c][0][1][0]) >1.1) :
 #             contingency_flow.pop(c)
     
     # set constraints for new iteration
     l_constraint(network.model,"contingency_flow",
                  contingency_flow,
-                 branch_outage_keys)
-                 #contingency_flow.keys())
+                 #branch_outage_keys)
+                 contingency_flow.keys())
 
     y = time.time()
     logger.info("Security constraints updated in [min] " + str((y-x)/60))
@@ -385,13 +420,15 @@ def iterate_sclopf(network,
     solver_options_lopf['BarConvTol'] = 1e-6
 
     if post_lopf:
-        
-        network.lines.s_nom = network.lines.s_nom_opt * \
+
+        network.lines.s_nom_opt = network.lines.s_nom_opt *\
                                 network.lines.s_nom_total/network.lines.s_nom
-        network.lines.s_nom_opt = network.lines.s_nom.copy()
+        network.lines.s_nom = network.lines.s_nom_opt.copy()
         network.links.p_nom = network.links.p_nom_opt.copy()
         network.lines.s_nom_extendable = False
         network.links.p_nom_extendable = False
+        network.storage_units.p_nom = network.storage_units.p_nom_opt.copy()
+        network.storage_units.p_nom_extendable = False
         path_name = '/post_sclopf_iteration_'
 
     else:
@@ -406,6 +443,13 @@ def iterate_sclopf(network,
             path=args['csv_export'] + '/sclopf_iteration_0'
             results_to_csv(network, args, path, with_time = False)
             track_time[datetime.datetime.now()]= 'Export results'
+            
+            if network.results["Solver"][0]["Status"].key!='ok':
+                raise  Exception('SCLOPF not solved.')
+            
+                if args['csv_export'] != False:
+                    network.model.write(args['csv_export']  + '/last_lp.lp', io_options={
+                            'symbolic_solver_labels': True})
 
     # Update electrical parameters if network is extendable
     if network.lines.s_nom_extendable.any():
@@ -450,7 +494,10 @@ def iterate_sclopf(network,
             if network.results["Solver"][0]["Status"].key!='ok':
                 raise  Exception('SCLOPF '+ str(n) + ' not solved.')
             
-            if args['csv_export'] != False:
+                if args['csv_export'] != False:
+                    network.model.write(args['csv_export']  + '/last_lp.lp', io_options={
+                            'symbolic_solver_labels': True})
+
                 path = args['csv_export'] + path_name + str(n+1)
                 results_to_csv(network, args, path, with_time = False)
                     
@@ -471,6 +518,7 @@ def iterate_sclopf(network,
                         branch_outages, 
                         n_process,
                         delta)
+
             size = 0
             for i in range(len(new.keys())):
                 size = size + len(new.values()[i][0])* network.snapshot_weightings[new.keys()[i]]

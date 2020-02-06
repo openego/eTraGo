@@ -75,6 +75,7 @@ def extendable(network, args, line_max, line_max_foreign,
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min[network.lines.scn_name == args['scn_name']] \
         = network.lines.s_nom[network.lines.scn_name == args['scn_name']]
+        network.lines.s_nom_min[network.lines.s_nom_min == 0] = 1
         
         if not line_max==None:
             network.lines.s_nom_max = line_max * network.lines.s_nom
@@ -87,8 +88,7 @@ def extendable(network, args, line_max, line_max_foreign,
             network.transformers.s_nom_min[\
                 network.transformers.scn_name == args['scn_name']] = \
                 network.transformers.s_nom[network.transformers.scn_name == args['scn_name']]
-
-
+            network.transformers.s_nom_min[network.transformers.s_nom_min == 0] = 1
 
             if not line_max==None:
                 network.transformers.s_nom_max =\

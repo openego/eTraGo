@@ -1137,7 +1137,15 @@ def loading_minimization(network, snapshots):
 def split_parallel_lines(network):
     
     print('Splitting parallel lines...')
+    
     network.lines.num_parallel=network.lines.cables/3
+    network.lines.num_parallel[network.lines.index.isin(['24676', '24677', '24657'])] = 2
+    network.lines.s_nom[network.lines.index.isin(['24615', '24614', '24616'])] = 5370
+    
+    network.lines.num_parallel[network.lines.index.isin(['24683', '24685'])] = 4
+    network.lines.num_parallel[network.lines.index.isin(['24680'])] = 7
+    network.lines.num_parallel[network.lines.index.isin(['24681'])] = 12
+
     parallel_lines=network.lines[network.lines.num_parallel>1]
     
     new_lines=pd.DataFrame(columns=network.lines.columns)
@@ -1969,11 +1977,12 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
         s_nom of transformers in previous iteration
     """
     line_factor = l_snom_pre / network.lines.s_nom_opt
-    network.lines.x[network.lines.s_nom_extendable] *= line_factor
-    network.lines.r[network.lines.s_nom_extendable] *= line_factor
-    network.lines.b[network.lines.s_nom_extendable] *= 1 / line_factor
-    network.lines.g[network.lines.s_nom_extendable] *= 1 / line_factor
-    
+
+    network.lines.x[(network.lines.s_nom_extendable) & (network.lines.s_nom_opt > 0)] *= line_factor
+    network.lines.r[(network.lines.s_nom_extendable) & (network.lines.s_nom_opt > 0)] *= line_factor
+    network.lines.b[(network.lines.s_nom_extendable) & (network.lines.s_nom_opt > 0)] *= 1 / line_factor
+    network.lines.g[(network.lines.s_nom_extendable) & (network.lines.s_nom_opt > 0)] *= 1 / line_factor
+
     trafo_factor = (t_snom_pre / network.transformers.s_nom_opt).values
     network.transformers.x[network.transformers.s_nom_extendable] *= trafo_factor
     network.transformers.r[network.transformers.s_nom_extendable] *= trafo_factor
@@ -1988,6 +1997,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
                
     # Set snom_pre to s_nom_opt for next iteration
     l_snom_pre = network.lines.s_nom_opt.copy()
+    l_snom_pre[l_snom_pre == 0] = network.lines.s_nom[l_snom_pre == 0]
     t_snom_pre = network.transformers.s_nom_opt.copy()
                 
     return l_snom_pre, t_snom_pre

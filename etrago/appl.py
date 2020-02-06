@@ -112,7 +112,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'sclopf',  # lopf or pf
     'sclopf_settings': {'n_process': 2,
@@ -134,28 +134,28 @@ args = {
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None, #'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
+    'scn_decommissioning': 'nep2035_b2', #'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'test',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'network_clustering_kmeans': 500,  # False or the value k for clustering
     'kmeans_settings':{'line_length_factor':1.09,
                 'remove_stubs':True,
                 'bus_weight_tocsv':None,
-                'bus_weight_fromcsv':None,
+                'bus_weight_fromcsv':'weighting_ehv_nepext_sq.csv',
                 'line_agg': False,
                 'remove_stubs_kmeans': True},
-    'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_ehv': False,   # clustering of HV buses to EHV buses.
+    'load_cluster': 'cluster_nep_ext_phaseshift_500',  # False or predefined busmap for k-means
+    'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering':False,  # False or the number of 'periods'
     'sc_settings':{'how':'hourly',
@@ -165,7 +165,7 @@ args = {
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
-    'parallel_lines':False, # 'single',
+    'parallel_lines': 'single',
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 1, 'eHV': 1},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -609,6 +609,8 @@ def etrago(args):
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
         branch_outages=network.lines.index[network.lines.country=='DE']
+        if args['scn_extension'] is not None:
+            branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
                            args, 
                            branch_outages,
@@ -631,6 +633,8 @@ def etrago(args):
     if args['sclopf_post_lopf']:
         #sclopf_post_lopf(network, args, args['sclopf_settings']['n_process'])
         branch_outages=network.lines.index[network.lines.country=='DE']
+        if args['scn_extension'] is not None:
+            branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
                            args, 
                            branch_outages,
