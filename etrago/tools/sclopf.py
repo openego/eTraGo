@@ -323,7 +323,9 @@ def add_all_contingency_constraints(network,combinations, track_time):
 
     for idx in sub._extendable_branches.index.values:
          s_nom[idx] = network.model.passive_branch_s_nom[idx]
-
+         
+    BODF_FACTOR = 1000 # avoid numerical trouble caused by small BODFs 
+    
     for sn in combinations.keys(): # Könnte parallelisiert werden, klappt aber noch nicht 
         if len(combinations[sn][0]) > 0:
            out= combinations[sn][0]# branch in pypsa
@@ -340,19 +342,19 @@ def add_all_contingency_constraints(network,combinations, track_time):
            if sub._fixed_branches.empty:
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
-                            (sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                            (BODF_FACTOR*sign[i], network.model.passive_branch_p[mon[i], sn]),
+                            (BODF_FACTOR*sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                              network.model.passive_branch_p[out[i], sn]), 
-                             (-1,s_nom[mon[i]])],"<=",0] 
+                             (-1 * BODF_FACTOR,s_nom[mon[i]])],"<=",0] 
                             for i in range(len(mon))})
 
            elif sub._extendable_branches.empty:
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
-                            (sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                            (10*sign[i], network.model.passive_branch_p[mon[i], sn]),
+                            (10*sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                              network.model.passive_branch_p[out[i], sn])]
-                            ,"<=",s_nom[mon[i]]] 
+                            ,"<=",(10,s_nom[mon[i]])] 
                             for i in range(len(mon))})
     
            else:
@@ -368,11 +370,10 @@ def add_all_contingency_constraints(network,combinations, track_time):
 
     # Delete rows with small BODFs to avoid nummerical problems
     for c in list(contingency_flow.keys()):
-        if ((abs(contingency_flow[c][0][1][0]) < 5e-8) & \
-                (abs(contingency_flow[c][0][1][0]) != 0)) | (abs(contingency_flow[c][0][1][0]) >1.1):
+        if ((abs(contingency_flow[c][0][1][0]) < 1e-8*BODF_FACTOR) & \
+                (abs(contingency_flow[c][0][1][0]) != 0)) | (abs(contingency_flow[c][0][1][0]) >1.1*BODF_FACTOR):
              contingency_flow.pop(c)
-#        elif (abs(contingency_flow[c][0][1][0]) >1.1) :
-#             contingency_flow.pop(c)
+
     
     # set constraints for new iteration
     l_constraint(network.model,"contingency_flow",
