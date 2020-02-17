@@ -29,7 +29,8 @@ import logging
 logger = logging.getLogger(__name__)
 from etrago.tools.utilities import results_to_csv, update_electrical_parameters
 from pypsa.opt  import l_constraint
-from pypsa.opf import define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows
+from pypsa.opf import (define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows,
+    network_lopf_build_model, network_lopf_prepare_solver)
 import multiprocessing as mp
 import csv
 
@@ -313,6 +314,8 @@ def add_all_contingency_constraints(network,combinations, track_time):
         
     sub._branches = sub.branches()
     sub.calculate_BODF()
+    bodf = pd.DataFrame(columns = network.lines.index, index = network.lines.index, data = sub.BODF)
+
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
@@ -343,7 +346,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
                             (BODF_FACTOR*sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (BODF_FACTOR*sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                            (BODF_FACTOR*sign[i]*bodf[mon[i][1]][out[i][1]], #[int(mon[i][1])-1, int(out[i][1])-1],
                              network.model.passive_branch_p[out[i], sn]), 
                              (-1 * BODF_FACTOR,s_nom[mon[i]])],"<=",0] 
                             for i in range(len(mon))})
@@ -351,11 +354,12 @@ def add_all_contingency_constraints(network,combinations, track_time):
            elif sub._extendable_branches.empty:
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
-                            (10*sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (10*sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                            (sign[i], network.model.passive_branch_p[mon[i], sn]),
+                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
                              network.model.passive_branch_p[out[i], sn])]
-                            ,"<=",(10,s_nom[mon[i]])] 
+                            ,"<=",s_nom[mon[i]]] 
                             for i in range(len(mon))})
+               BODF_FACTOR = 1
     
            else:
                print('Not implemented!')
@@ -386,6 +390,56 @@ def add_all_contingency_constraints(network,combinations, track_time):
     
     return len(contingency_flow)
 
+
+def split_extended_lines(network, percent):
+    #import pdb; pdb.set_trace()
+    split_extended_lines.counter += 1
+    print(split_extended_lines.counter)
+    expansion_rel = (network.lines.s_nom_opt/network.lines.s_nom)
+    num_lines =  expansion_rel[expansion_rel>percent]
+
+    expanded_lines = network.lines[network.lines.index.isin(num_lines.index)]
+    new_lines=pd.DataFrame(columns=network.lines.columns)
+    
+    for line in num_lines.index:
+        print(line)
+        data=expanded_lines[expanded_lines.index==line]
+        n = 0
+        while num_lines[line] > 0:
+            
+            if num_lines[line] < 1:
+                factor = num_lines[line]
+            else:
+                factor = 1
+            print(factor)
+            data_new = data.copy()
+
+            for col in ['x', 'r', 'x_pu']:
+                data_new[col]=data_new[col] / factor * data.s_nom_opt/data.s_nom
+            data_new.s_nom_opt  = data_new.s_nom * factor
+            if n == 0:
+                new_lines= new_lines.append(data_new)
+            else:
+                data_new.s_nom_min = 0
+                new_lines= new_lines.append(
+                    data_new.rename(
+                            index={line:str(line)+ '_' + str(np.ceil(num_lines[line]).astype(int)) 
+                            + 'iter_' +str(split_extended_lines.counter)}))
+            num_lines[line] = num_lines[line]-factor
+            n = n+1
+        
+    
+    network.lines=network.lines.drop(new_lines.index, errors = 'ignore')
+    network.import_components_from_dataframe(new_lines, "Line")
+    
+    l_snom_pre = network.lines.s_nom_opt.copy()
+    l_snom_pre[l_snom_pre == 0] = network.lines.s_nom[l_snom_pre == 0]
+    t_snom_pre = network.transformers.s_nom_opt.copy()
+    
+    
+    return l_snom_pre, t_snom_pre
+
+
 def calc_new_sc_combinations(combinations, new):
     for sn in new.keys():  
         com = [[],[],[]]
@@ -414,6 +468,7 @@ def iterate_sclopf(network,
     track_time[datetime.datetime.now()]= 'Iterative SCLOPF started'
     x = time.time()
     results_to_csv.counter=0
+    split_extended_lines.counter = 0
 
     # 1. LOPF without SC
     solver_options_lopf=args['solver_options']
@@ -474,9 +529,16 @@ def iterate_sclopf(network,
     size = 0
     for i in range(len(new.keys())):
         size = size + len(new.values()[i][0]) * network.snapshot_weightings[new.keys()[i]]
-
+    
     while size > n_overload:
         if  n < 50:
+            
+            if False:
+                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
+                
+                network_lopf_build_model(network, formulation='kirchhoff')
+                
+                network_lopf_prepare_solver(network, solver_name='gurobi')
             logger.info(str(size) + ' overloadings')
             
             combinations = calc_new_sc_combinations(combinations, new)
@@ -499,27 +561,27 @@ def iterate_sclopf(network,
                     network.model.write(args['csv_export']  + '/last_lp.lp', io_options={
                             'symbolic_solver_labels': True})
 
-                path = args['csv_export'] + path_name + str(n+1)
-                results_to_csv(network, args, path, with_time = False)
+            path = args['csv_export'] + path_name + str(n+1)
+            results_to_csv(network, args, path, with_time = False)
                     
-                with open(path + '/sc_combinations.csv', 'w') as f:
-                    for key in combinations.keys():
-                        f.write("%s,%s\n"%(key,combinations[key]))
-                track_time[datetime.datetime.now()]= 'Export results'
-
+            with open(path + '/sc_combinations.csv', 'w') as f:
+                for key in combinations.keys():
+                    f.write("%s,%s\n"%(key,combinations[key]))
+            track_time[datetime.datetime.now()]= 'Export results'
+            
             # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
             if network.lines.s_nom_extendable.any():
                 l_snom_pre, t_snom_pre = \
                         update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
                 track_time[datetime.datetime.now()]= 'Adjust impedances'
-
+            
             new = post_contingency_analysis_per_line(
                         network, 
                         branch_outages, 
                         n_process,
                         delta)
-
+            #import pdb; pdb.set_trace()
             size = 0
             for i in range(len(new.keys())):
                 size = size + len(new.values()[i][0])* network.snapshot_weightings[new.keys()[i]]
