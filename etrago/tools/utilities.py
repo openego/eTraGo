@@ -33,7 +33,8 @@ import logging
 import math
 from pypsa.opf import define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows
 #from etrago.tools.extendable import print_expansion_costs
-
+import time
+import datetime
 geopandas = True
 try:
     import geopandas as gpd
@@ -2061,7 +2062,8 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
     """
     results_to_csv.counter=0
-    
+    track_time = pd.Series()
+    track_time[datetime.datetime.now()]= 'Iterative LOPF started'
     # if network is extendable, iterate lopf 
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
@@ -2091,14 +2093,18 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                  (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
             
                 if i == 1 or args['model_formulation'] != 'kirchhoff':
+                    track_time[datetime.datetime.now()]= str(i) + ' LOPF started'
                     network.lopf(
                             network.snapshots,
                             solver_name=args['solver'],
                             solver_options=args['solver_options'],
                             extra_functionality=extra_functionality,
                             formulation=args['model_formulation'])
+                    track_time[datetime.datetime.now()]= str(i) + ' LOPF finished'
                 else:
+                    track_time[datetime.datetime.now()]= str(i) + ' LOPF started'
                     iterate_lopf_calc(network, args)
+                    track_time[datetime.datetime.now()]= str(i) + ' LOPF finished'
                     
                 y = time.time()
                 z = (y - x) / 60
@@ -2115,6 +2121,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     l_snom_pre, t_snom_pre = \
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
+                    track_time[datetime.datetime.now()]= 'Parameters adjusted'
         
         # Calculate variable number of iterations until threshold of objective 
         # function is reached
@@ -2192,6 +2199,17 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             if args['csv_export'] != False:
                 path=args['csv_export']+ '/lopf'
                 results_to_csv(network, args, path)
+    if args['csv_export'] != False:
+        track_time.to_csv(args['csv_export']+ '/lopf-track-time.csv')
             
     return network
-            
+
+def sensitivity_cd2(network, scale_solar=1, scale_windon=1.245, scale_windoff=1.148):
+    solar = network.generators[network.generators.carrier=='solar']
+    network.generators_t.p_max_pu[solar.index] *= scale_solar
+
+    wind_on = network.generators[network.generators.carrier=='wind_onshore']
+    network.generators_t.p_max_pu[wind_on.index] *= scale_windon
+
+    wind_off = network.generators[network.generators.carrier=='wind_offshore']
+    network.generators_t.p_max_pu[wind_off.index] *= scale_windoff   
