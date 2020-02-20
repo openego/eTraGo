@@ -612,7 +612,7 @@ def etrago(args):
 
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
-        branch_outages=network.lines.index[network.lines.country=='DE']
+        #branch_outages=network.lines.index[network.lines.country=='DE']
         if args['scn_extension'] is not None:
             branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
@@ -629,14 +629,14 @@ def etrago(args):
         # calc_line_losses(network)
         
     if args['contingency_post_lopf']:
-        branch_outages=network.lines.index[network.lines.country=='DE']
+        #branch_outages=network.lines.index[network.lines.country=='DE']
         df = post_contingency_analysis_lopf(network, args,
                             branch_outages, 
                             n_process =args['sclopf_settings']['n_process'])
     
     if args['sclopf_post_lopf']:
         #sclopf_post_lopf(network, args, args['sclopf_settings']['n_process'])
-        branch_outages=network.lines.index[network.lines.country=='DE']
+        #branch_outages=network.lines.index[network.lines.country=='DE']
         if args['scn_extension'] is not None:
             branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
