@@ -92,7 +92,8 @@ if 'READTHEDOCS' not in os.environ:
         set_branch_capacity,
         iterate_lopf,
         set_random_noise,
-        split_parallel_lines)
+        split_parallel_lines,
+        sensitivity_cd2)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -134,8 +135,8 @@ args = {
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': ['nep2035_b2', 'BE_NO_NEP 2035'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2', #'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension': None,  # None or array of extension scenarios
+    'scn_decommissioning': None, #'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False, #'sclopf_alle_nb.lp',  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'test',  # save results as csv: False or /path/tofolder
@@ -147,14 +148,14 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
+    'network_clustering_kmeans': 451,  # False or the value k for clustering
     'kmeans_settings':{'line_length_factor':1.09,
                 'remove_stubs':True,
                 'bus_weight_tocsv':None,
-                'bus_weight_fromcsv':'weighting_ehv_nepext_sq.csv',
+                'bus_weight_fromcsv':'weighting_ehv_sq.csv',
                 'line_agg': False,
                 'remove_stubs_kmeans': True},
-    'load_cluster': 'cluster_nep_ext_phaseshift_500',  # False or predefined busmap for k-means
+    'load_cluster': 'cluster_nep_phaseshift_451',   # False or predefined busmap for k-means
     'network_clustering_ehv': True,   # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering':False,  # False or the number of 'periods'
@@ -508,6 +509,9 @@ def etrago(args):
             network,
             session,
             args)
+        
+    # coastdat2 sensitivity
+    sensitivity_cd2(network, scale_solar=1, scale_windon=1.25, scale_windoff=1.15)
 
     # grouping or splitting of parallel lines
     if args['parallel_lines']=='group':
@@ -521,7 +525,7 @@ def etrago(args):
         network = extendable(
                     network,
                     args,
-                    line_max=4,
+                    line_max=None,
                     line_max_foreign = None,
                     line_max_abs= {'380': 10000, '220': 7000, '110':5000, 'dc':20000})
         network = convert_capital_costs(
