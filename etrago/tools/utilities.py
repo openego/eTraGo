@@ -465,7 +465,7 @@ def foreign_links(network, country = 'all'):
     network.links.loc[foreign_links.index, 'efficiency'] = 1
         
     network.import_components_from_dataframe(
-        foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
+        foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length', 'scn_name']]
         .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)
         .assign(p_nom_min=foreign_lines.s_nom_min).assign(p_nom_max=foreign_lines.s_nom_max)
         .assign(p_nom_extendable=foreign_lines.s_nom_extendable)
