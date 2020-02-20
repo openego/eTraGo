@@ -209,7 +209,7 @@ def post_contingency_analysis_per_line(network,
     nw = network.copy()
     nw.lines.s_nom = nw.lines.s_nom_opt.copy()
     
-    nw.lines = nw.lines.drop(nw.lines.index[nw.lines.s_nom<10])
+    nw.lines = nw.lines.drop(nw.lines.index[nw.lines.s_nom<1])
 
     branch_outages = branch_outages[branch_outages.isin(nw.lines.index)]
     nw.generators_t.p_set = nw.generators_t.p_set.reindex(
@@ -311,7 +311,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
                 sub = network.sub_networks.obj[s]
     else: 
         sub = network.sub_networks.obj[0]
-        
+    #import pdb; pdb.set_trace()    
     sub._branches = sub.branches()
     sub.calculate_BODF()
     bodf = pd.DataFrame(columns = network.lines.index, index = network.lines.index, data = sub.BODF)
@@ -327,7 +327,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
     for idx in sub._extendable_branches.index.values:
          s_nom[idx] = network.model.passive_branch_s_nom[idx]
          
-    BODF_FACTOR = 1000 # avoid numerical trouble caused by small BODFs 
+    BODF_FACTOR = 1 # avoid numerical trouble caused by small BODFs 
     
     for sn in combinations.keys(): # Könnte parallelisiert werden, klappt aber noch nicht 
         if len(combinations[sn][0]) > 0:
@@ -346,7 +346,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
                             (BODF_FACTOR*sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (BODF_FACTOR*sign[i]*bodf[mon[i][1]][out[i][1]], #[int(mon[i][1])-1, int(out[i][1])-1],
+                            (BODF_FACTOR*sign[i]*bodf[out[i][1]][mon[i][1]], #[int(mon[i][1])-1, int(out[i][1])-1],
                              network.model.passive_branch_p[out[i], sn]), 
                              (-1 * BODF_FACTOR,s_nom[mon[i]])],"<=",0] 
                             for i in range(len(mon))})
@@ -355,7 +355,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
                contingency_flow.update({(
                        out[i][0], out[i][1], mon[i][0], mon[i][1], sn) : [[
                             (sign[i], network.model.passive_branch_p[mon[i], sn]),
-                            (sign[i]*sub.BODF[int(mon[i][1])-1, int(out[i][1])-1],
+                            (sign[i]*bodf[out[i][1]][mon[i][1]],
                              network.model.passive_branch_p[out[i], sn])]
                             ,"<=",s_nom[mon[i]]] 
                             for i in range(len(mon))})
@@ -374,7 +374,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
 
     # Delete rows with small BODFs to avoid nummerical problems
     for c in list(contingency_flow.keys()):
-        if ((abs(contingency_flow[c][0][1][0]) < 1e-8*BODF_FACTOR) & \
+        if ((abs(contingency_flow[c][0][1][0]) < 1e-7*BODF_FACTOR) & \
                 (abs(contingency_flow[c][0][1][0]) != 0)) | (abs(contingency_flow[c][0][1][0]) >1.1*BODF_FACTOR):
              contingency_flow.pop(c)
 
@@ -476,7 +476,11 @@ def iterate_sclopf(network,
     solver_options_lopf['BarConvTol'] = 1e-6
 
     if post_lopf:
-
+        l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.2)
+                
+        network_lopf_build_model(network, formulation='kirchhoff')
+                
+        network_lopf_prepare_solver(network, solver_name='gurobi')
         network.lines.s_nom_opt = network.lines.s_nom_opt *\
                                 network.lines.s_nom_total/network.lines.s_nom
         network.lines.s_nom = network.lines.s_nom_opt.copy()
@@ -513,7 +517,12 @@ def iterate_sclopf(network,
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
         track_time[datetime.datetime.now()]= 'Adjust impedances'
-
+        if not post_lopf:
+                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.2)
+                
+                network_lopf_build_model(network, formulation='kirchhoff')
+                
+                network_lopf_prepare_solver(network, solver_name='gurobi')
     # Calc SC
     nb = 0
     new = post_contingency_analysis_per_line(
@@ -531,14 +540,14 @@ def iterate_sclopf(network,
         size = size + len(new.values()[i][0]) * network.snapshot_weightings[new.keys()[i]]
     
     while size > n_overload:
-        if  n < 50:
+        if  n < 100:
             
-            if False:
-                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
-                
-                network_lopf_build_model(network, formulation='kirchhoff')
-                
-                network_lopf_prepare_solver(network, solver_name='gurobi')
+#            if not post_lopf:
+#                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
+#                
+#                network_lopf_build_model(network, formulation='kirchhoff')
+#                
+#                network_lopf_prepare_solver(network, solver_name='gurobi')
             logger.info(str(size) + ' overloadings')
             
             combinations = calc_new_sc_combinations(combinations, new)
@@ -572,8 +581,15 @@ def iterate_sclopf(network,
             # nur mit dieser Reihenfolge (x anpassen, dann lpf_check) kann Netzausbau n-1 sicher werden
             if network.lines.s_nom_extendable.any():
                 l_snom_pre, t_snom_pre = \
-                        update_electrical_parameters(network,
-                                                 l_snom_pre, t_snom_pre)
+                            update_electrical_parameters(network, 
+                                                         l_snom_pre, t_snom_pre)
+                track_time[datetime.datetime.now()]= 'Adjust impedances'
+                if not post_lopf:
+                        l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
+                        
+                        network_lopf_build_model(network, formulation='kirchhoff')
+                        
+                        network_lopf_prepare_solver(network, solver_name='gurobi')
                 track_time[datetime.datetime.now()]= 'Adjust impedances'
             
             new = post_contingency_analysis_per_line(
