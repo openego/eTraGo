@@ -390,10 +390,10 @@ def plot_osm(x = [1,20], y = [47, 56], zoom = 6):
 
     fig, ax = plt.subplots()
     plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), zoom = zoom)
-    plotter.plot(ax, alpha = 0.0)
+    plotter.plot(ax, alpha = 0.0, allow_large=True)
     ax.plot(x, y, "ro-")
 
-def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 0.7, 
+def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 1, 
                       ext_width=False, filename=None, boundaries=[],
                       osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """Plot relative or absolute network extension of AC- and DC-lines.
@@ -566,7 +566,10 @@ def network_expansion(network, method = 'rel', ext_min=0.1, branch_cap_factor = 
                 bbox_inches="tight" )
         plt.close()
 
-def network_expansion_diff (networkA, networkB, method = 'line', ext_width=False, filename=None, osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}, boundaries=[]):
+def network_expansion_diff (networkA,
+                            networkB, method = 'line', ext_width=False,
+                            filename=None, osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6},
+                            boundaries=[], cities = []):
     """Plot relative network expansion derivation of AC- and DC-lines.
     
     Parameters
@@ -680,7 +683,7 @@ def network_expansion_diff (networkA, networkB, method = 'line', ext_width=False
                                         networkB.lines.s_nom_opt_pro_trasse)/\
                                         networkA.lines.s_nom_opt_pro_trasse  ).values,\
                                     index=array_line)
-        extension_links = pd.Series(100 *
+        extension_links = pd.Series(1 *
                                  ((networkA.links.p_nom_opt -\
                                     networkB.links.p_nom_opt)/\
                                     networkA.links.p_nom_opt).values,\
@@ -710,6 +713,21 @@ def network_expansion_diff (networkA, networkB, method = 'line', ext_width=False
                   networkA.lines.index]).append(
             pd.Series(0.3, index = [['Link'] * len(networkA.links),
                   networkA.links.index])))
+    
+    from geopy.geocoders import Nominatim
+    from pyproj import Proj, transform
+    geolocator = Nominatim()
+    for (city) in cities:
+        loc = geolocator.geocode(city)
+        x1, y1 = loc.longitude, loc.latitude
+        inProj = Proj(init='epsg:4326')
+        outProj = Proj(init='epsg:3857')
+        x2,y2 = transform(inProj,outProj,x1,y1)
+
+        plt.plot(x2,y2,marker='o',color='Grey',markersize=2)
+        plt.text(x2, y2,city, fontsize=7,color='Grey')
+
+
     if not ext_width:
         line_widths= pd.Series(0.8, index = array_line).append(
                 pd.Series(0.8, index = array_link))
