@@ -1997,13 +1997,14 @@ def analyse(network):
     
     #lcoe
     pump_overnight = network.storage_units[network.storage_units.carrier=='pumped_storage'].p_nom.sum() * 850000
-    pump_annuity = overnight_to_annuity(overnight_costs =pump_overnight,start_snapshot = 1, end_snapshot=8760, p=0.05, T=40)
-    total_costs = generator_invest_annuity(network).sum() + pump_annuity + network.objective
+    forstor_annuity = (network.storage_units[network.storage_units.carrier=='battery_storage'].p_nom.sum() * 44546) + (network.storage_units[network.storage_units.carrier=='hydrogen_storage'].p_nom.sum() * 47777)
+    pump_annuity = overnight_to_annuity(overnight_costs =(pump_overnight),start_snapshot = 1, end_snapshot=8760, p=0.05, T=40)
+    total_costs = generator_invest_annuity(network).sum() + pump_annuity + forstor_annuity + network.objective
     lcoe = total_costs /network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()
     dispatch_costs = (network.generators_t.p.mul(network.snapshot_weightings, axis=0) * network.generators.marginal_cost).sum().sum()
     storage_costs = (network.storage_units.capital_cost * network.storage_units.p_nom_opt).sum()
     print("LCOE [EUR/MWh]:",lcoe.round(2))
-    print("..thereof exogen:",((generator_invest_annuity(network).sum()+pump_annuity)/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
+    print("..thereof exogen:",((generator_invest_annuity(network).sum()+pump_annuity+forstor_annuity)/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("..thereof endogen:",(network.objective/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof dispatch:",(dispatch_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
     print("....thereof storage exp:",(storage_costs/network.loads_t.p.mul(network.snapshot_weightings, axis=0).sum().sum()).round(2))
@@ -2069,8 +2070,16 @@ def analyse(network):
     print("No. of hydrogen storage:",network.storage_units.carrier[ shydr].count())
 
     #storage losses
-    charge=network.storage_units_t.p[ network.storage_units_t.p < 0].sum(axis=1).sum()
-    discharge=network.storage_units_t.p[ network.storage_units_t.p > 0].sum(axis=1).sum()
+    charge=round(network.storage_units_t.p[ network.storage_units_t.p < 0].mul(network_de.snapshot_weightings, axis=0).sum(axis=1).sum()/1000000,2)
+    discharge=round(network.storage_units_t.p[ network.storage_units_t.p > 0].mul(network_de.snapshot_weightings, axis=0).sum(axis=1).sum()/1000000,2)
+    s = network.storage_units.index[(network.storage_units.p_nom_opt > 10) & (network.storage_units.capital_cost > 10)]
+    o = network.storage_units_t.p[s]
+    d = round(o[o > 0].mul(network_de.snapshot_weightings, axis=0).sum().sum()/1000000,2)
+    c = round(o[o < 0].mul(network_de.snapshot_weightings, axis=0).sum().sum()/1000000,2)
+    print("Total Charging Energy new [TWh]:", c)
+    print("Total Discharging Energy new [TWh]:", d)
+    print("Total Charging Energy exist. [TWh]:", charge-c)
+    print("Total Discharging Energy exist. [TWh]:", discharge-d)
     print("Storage discharge/charge ratio [%]:",((abs(discharge/charge)*100).round(2)))
     system_load=load+abs(network.storage_units_t.p.sum(axis=1).sum())
     print("Storage losses share of system load [%]",((abs(network.storage_units_t.p.sum(axis=1).sum())/system_load)*100).round(2))
