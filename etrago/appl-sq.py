@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/sq',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/sq-600',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -143,8 +143,8 @@ args = {
                      "FR":{"reservoir": [0, 0.21]},
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
-    'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 600,  # False or the value k for clustering
+    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_600_result',#False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'

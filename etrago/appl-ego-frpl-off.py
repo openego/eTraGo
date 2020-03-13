@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-frpl-off',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -144,7 +144,7 @@ args = {
                      "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
-    'load_cluster': '/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means
+    'load_cluster': '/home/lukas_wienholt/cluster_coord_k_500_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -443,7 +443,7 @@ def etrago(args):
 #    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind_offshore')] = 3000  # ok
     network.generators.p_nom.loc['56561'] = 3127  # ok
 #    network.generators.p_nom.loc['24783'] = 0  # ok
-    network.generators.p_nom.loc['24777'] = 0  # ok
+#    network.generators.p_nom.loc['24777'] = 0  # ok
 
     # Dörpen West
     network.generators.p_nom.loc['56568'] = 3000 # ok
@@ -462,7 +462,7 @@ def etrago(args):
     # Diele
     network.generators.p_nom.loc['32307'] = 1200  # ok
 #    network.generators.p_nom.loc['56552'] = 0 # ok
-    network.generators.p_nom.loc['56575'] = 0  # ok
+#    network.generators.p_nom.loc['56575'] = 0  # ok
 
     # Lubmin
 #    network.generators.p_nom.loc['56559'] = 0 # ok
@@ -530,6 +530,15 @@ def etrago(args):
 #    network.add("Generator", '25617 wind_offshore', bus=25617, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=900)
     network.generators.bus.loc['25460'] = '26277'  # ok        
     network.generators.p_nom.loc['25460'] = 2000 # ok
+
+    # add offshore generators of NEP 2035 scenario to FR and PL to check for their impact
+    # FR
+    network.generators.bus.loc['24777'] = '32170'  # ok        
+    network.generators.p_nom.loc['24777'] = 12000 # ok
+
+    # PL
+    network.generators.bus.loc['56575'] = '30809'  # ok        
+    network.generators.p_nom.loc['56575'] = 2700 # ok
 
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':

@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-curt-limit-5',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -141,7 +141,8 @@ args = {
                      "CH":{"reservoir": [0, 0.3]},
                      "CZ":{"reservoir": [0, 0.18]},
                      "FR":{"reservoir": [0, 0.21]},
-                     "SE":{"reservoir": [0, 0.44]}}},  # Choose function name or None
+                     "SE":{"reservoir": [0, 0.44]}},
+                     'max_curtailment': 0.05},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 500,  # False or the value k for clustering
     'load_cluster': '/home/lukas_wienholt/eTraGo/cluster_coord_k_500_result',  # False or predefined busmap for k-means

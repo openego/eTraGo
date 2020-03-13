@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright 2016-2018  Flensburg University of Applied Sciences,
-# Europa-Universität Flensburg,
+# Europa-UniversitÃ¤t Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
 
@@ -35,7 +35,7 @@ from etrago.tools.utilities import get_args_setting
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
-    "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
+    "Europa-UniversitÃ¤t Flensburg, Centre for Sustainable Energy Systems, "
     "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
@@ -128,7 +128,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/lukas_wienholt/results/ego',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/lukas_wienholt/results/ego-pv-wind',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['storage'],  # Array of components to optimize
@@ -439,13 +439,13 @@ def etrago(args):
 #    network.storage_units.capital_cost = network.storage_units.capital_cost * .95
 
    # set numbers for offshore wind to their connection points
-    # Büttel
+    # BÃ¼ttel
 #    network.generators.p_nom.loc[(network.generators.bus == '26435') & (network.generators.carrier == 'wind_offshore')] = 3000  # ok
     network.generators.p_nom.loc['56561'] = 3127  # ok
 #    network.generators.p_nom.loc['24783'] = 0  # ok
     network.generators.p_nom.loc['24777'] = 0  # ok
 
-    # Dörpen West
+    # DÃ¶rpen West
     network.generators.p_nom.loc['56568'] = 3000 # ok
 #    network.generators.p_nom.loc['56567'] = 0 # ok
 #    network.generators.p_nom.loc['56566'] = 0 # ok
@@ -491,7 +491,7 @@ def etrago(args):
     network.generators.bus.loc['56564'] = '25249'  # ok        
     network.generators.p_nom.loc['56564'] = 900 # ok
 
-    # Hanekenfähr
+    # HanekenfÃ¤hr
 #    network.add("Generator", '25451 wind_offshore', bus=25451, carrier='wind_offshore', dispatch='variable', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=1800)
     network.generators.bus.loc['56557'] = '25451'  # ok        
     network.generators.p_nom.loc['56557'] = 1800 # ok
@@ -506,7 +506,7 @@ def etrago(args):
     network.generators.bus.loc['56563'] = '24558'  # ok        
     network.generators.p_nom.loc['56563'] = 2677 # ok
 
-    # Siedenbrünzow/Sanitz
+    # SiedenbrÃ¼nzow/Sanitz
 #    network.add("Generator", '27541 wind_offshore', bus=27541, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency='NaN', marginal_cost=0, p_nom=309)
     network.generators.bus.loc['56556'] = '27541'  # ok        
     network.generators.p_nom.loc['56556'] = 900 # ok
@@ -530,6 +530,14 @@ def etrago(args):
 #    network.add("Generator", '25617 wind_offshore', bus=25617, carrier='wind_offshore', control='PV', capital_cost='NaN', efficiency = 'NaN', marginal_cost=0, p_nom=900)
     network.generators.bus.loc['25460'] = '26277'  # ok        
     network.generators.p_nom.loc['25460'] = 2000 # ok
+
+    # reduce wind and increase PV by 25%:
+
+    from etrago.tools.utilities import buses_by_country
+    buses_by_country(network)
+    foreign_buses = network.buses[ network.buses.country_code != 'DE']
+    network.generators.p_nom.loc[(~network.generators.bus.isin(foreign_buses.index)) & (network.generators.carrier == 'wind_onshore')]  = 0.75 * network.generators.p_nom.loc[(~network.generators.bus.isin(foreign_buses.index)) & (network.generators.carrier == 'wind_onshore')]
+    network.generators.p_nom.loc[(~network.generators.bus.isin(foreign_buses.index)) & (network.generators.carrier == 'solar')]  = 1.25 * network.generators.p_nom.loc[(~network.generators.bus.isin(foreign_buses.index)) & (network.generators.carrier == 'solar')]
 
      # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
@@ -768,3 +776,4 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
+
