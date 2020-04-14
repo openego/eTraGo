@@ -73,9 +73,11 @@ def extendable(network, args, line_max, line_max_foreign,
 
     if 'network' in args['extendable']:
         network.lines.s_nom_extendable = True
+        network.lines.s_nom_min[(network.lines.s_nom_min>0)&(network.lines.country != 'DE')] = network.lines.s_nom_min[(network.lines.s_nom_min>0)&(network.lines.country != 'DE')]*0.7
+        
         network.lines.s_nom_min[network.lines.scn_name == args['scn_name']] \
         = network.lines.s_nom[network.lines.scn_name == args['scn_name']]
-        #network.lines.s_nom_min[network.lines.s_nom_min == 0] = 1
+        network.lines.s_nom_min[network.lines.s_nom_min == 0] = 50*0.7
         
         if not line_max==None:
             network.lines.s_nom_max = line_max * network.lines.s_nom

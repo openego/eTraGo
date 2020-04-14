@@ -131,7 +131,7 @@ def post_contingency_analysis_lopf(network, args,
             
     y = (time.time() - x)/60
     print("Post contingengy check finished in "+ str(round(y, 2))+ " minutes.")
-   # import pdb; pdb.set_trace()
+
     return d
 
 
@@ -140,7 +140,7 @@ def post_contingency_analysis(network, branch_outages, delta = 0.05):
     nw.lines.s_nom = nw.lines.s_nom_opt.copy()
     
     nw.lines = nw.lines.drop(nw.lines.index[nw.lines.s_nom<10])
-    #import pdb; pdb.set_trace()
+
     b_x = 1./nw.lines.x_pu
     logger.info(b_x.min())
 
@@ -167,7 +167,7 @@ def post_contingency_analysis(network, branch_outages, delta = 0.05):
                     ).drop(['base'], axis = 1)
             load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
                     ).drop(['base'], axis = 1) # columns: branch_outages
-            if True:# noch experimentell
+            if True:
                 load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
                 
                 out = load_per_outage_over.columns.values
@@ -242,7 +242,7 @@ def post_contingency_analysis_per_line(network,
                     ).drop(['base'], axis = 1)
             load = abs(p0_test.divide(nw.passive_branches().s_nom_opt,axis=0)
                     ).drop(['base'], axis = 1) # columns: branch_outages
-            if True:# noch experimentell
+            if True:
                 load_per_outage_over = load_signed.transpose()[load_signed.abs().max() > (1+delta)].transpose()
                 
                 out = load_per_outage_over.columns.values
@@ -285,7 +285,7 @@ def post_contingency_analysis_per_line(network,
         p.join()
     for p in processes:
         p.terminate()
-   # import pdb; pdb.set_trace()
+
     y = (time.time() - x)/60
     logger.info("Post contingengy check finished in "
                 + str(round(y, 2))+ " minutes.")
@@ -311,11 +311,20 @@ def add_all_contingency_constraints(network,combinations, track_time):
                 sub = network.sub_networks.obj[s]
     else: 
         sub = network.sub_networks.obj[0]
-    #import pdb; pdb.set_trace()    
+
     sub._branches = sub.branches()
     sub.calculate_BODF()
     bodf = pd.DataFrame(columns = network.lines.index, index = network.lines.index, data = sub.BODF)
-
+    if True:
+        bodf['1230']['761']= 0
+        bodf['761']['1230']= 0
+        # NEP 2035 B2:
+        #bodf['1348']['592']= 0
+        #bodf['428']['545']= 0
+        #bodf['430']['531']= 0
+        #bodf['531']['430']= 0
+        #bodf['676']['677']= 0
+        #bodf['677']['676']= 0
     sub._branches["_i"] = range(sub._branches.shape[0])
     sub._extendable_branches =  sub._branches[ sub._branches.s_nom_extendable]
     sub._fixed_branches = sub._branches[~  sub._branches.s_nom_extendable]
@@ -374,7 +383,7 @@ def add_all_contingency_constraints(network,combinations, track_time):
 
     # Delete rows with small BODFs to avoid nummerical problems
     for c in list(contingency_flow.keys()):
-        if ((abs(contingency_flow[c][0][1][0]) < 1e-7*BODF_FACTOR) & \
+        if ((abs(contingency_flow[c][0][1][0]) < 1e-8*BODF_FACTOR) & \
                 (abs(contingency_flow[c][0][1][0]) != 0)) | (abs(contingency_flow[c][0][1][0]) >1.1*BODF_FACTOR):
              contingency_flow.pop(c)
 
@@ -392,9 +401,8 @@ def add_all_contingency_constraints(network,combinations, track_time):
 
 
 def split_extended_lines(network, percent):
-    #import pdb; pdb.set_trace()
+
     split_extended_lines.counter += 1
-    print(split_extended_lines.counter)
     expansion_rel = (network.lines.s_nom_opt/network.lines.s_nom)
     num_lines =  expansion_rel[expansion_rel>percent]
 
@@ -459,7 +467,8 @@ def iterate_sclopf(network,
                        n_process,
                        delta,
                        n_overload = 0,
-                       post_lopf = False):
+                       post_lopf = False,
+		div_ext_lines = True):
     track_time = pd.Series()
     l_snom_pre = network.lines.s_nom.copy()
     t_snom_pre = network.transformers.s_nom.copy()
@@ -476,20 +485,28 @@ def iterate_sclopf(network,
     solver_options_lopf['BarConvTol'] = 1e-6
 
     if post_lopf:
-        l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.2)
-                
-        network_lopf_build_model(network, formulation='kirchhoff')
-                
-        network_lopf_prepare_solver(network, solver_name='gurobi')
-        network.lines.s_nom_opt = network.lines.s_nom_opt *\
-                                network.lines.s_nom_total/network.lines.s_nom
+        if div_ext_lines:
+            l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
+                    
+            #network_lopf_build_model(network, formulation='kirchhoff')
+                    
+            #network_lopf_prepare_solver(network, solver_name='gurobi')
+        #import pdb; pdb.set_trace()
+        network.lines.s_nom_opt = network.lines.s_nom_opt/0.7# *\
+                                #network.lines.s_nom_total/network.lines.s_nom
         network.lines.s_nom = network.lines.s_nom_opt.copy()
         network.links.p_nom = network.links.p_nom_opt.copy()
         network.lines.s_nom_extendable = False
         network.links.p_nom_extendable = False
         network.storage_units.p_nom = network.storage_units.p_nom_opt.copy()
         network.storage_units.p_nom_extendable = False
+        if div_ext_lines:
+                    
+            network_lopf_build_model(network, formulation='kirchhoff')
+                    
+            network_lopf_prepare_solver(network, solver_name='gurobi')
         path_name = '/post_sclopf_iteration_'
+
 
     else:
         network.lopf(   network.snapshots,
@@ -518,7 +535,7 @@ def iterate_sclopf(network,
                                                  l_snom_pre, t_snom_pre)
         track_time[datetime.datetime.now()]= 'Adjust impedances'
         if not post_lopf:
-                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.2)
+                l_snom_pre, t_snom_pre = split_extended_lines(network, percent = 1.5)
                 
                 network_lopf_build_model(network, formulation='kirchhoff')
                 
@@ -563,12 +580,14 @@ def iterate_sclopf(network,
             iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre)
             track_time[datetime.datetime.now()]= 'Solve SCLOPF'
 
-            if network.results["Solver"][0]["Status"].key!='ok':
-                raise  Exception('SCLOPF '+ str(n) + ' not solved.')
+            #if network.results["Solver"][0]["Status"].key!='ok':
+                #if args['csv_export'] != False:
+                    #network.model.write(args['csv_export']  + '/last_lp.lp', io_options={
+                            #'symbolic_solver_labels': True})
+                #raise  Exception('SCLOPF not solved.')
             
-                if args['csv_export'] != False:
-                    network.model.write(args['csv_export']  + '/last_lp.lp', io_options={
-                            'symbolic_solver_labels': True})
+
+            
 
             path = args['csv_export'] + path_name + str(n+1)
             results_to_csv(network, args, path, with_time = False)

@@ -1865,6 +1865,7 @@ def crossborder_capacity(network, method, capacity_factor):
                            'LUFR': 364,
                            'SEDK': 1928,
                            'DKSE': 1928}
+        capacity_factor = {'HV': 1, 'eHV':1}
 
     elif method == 'thermal_acer':
         cap_per_country = {'CH': 12000,
@@ -1998,7 +1999,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
                
     # Set snom_pre to s_nom_opt for next iteration
     l_snom_pre = network.lines.s_nom_opt.copy()
-    l_snom_pre[l_snom_pre == 0] = network.lines.s_nom[l_snom_pre == 0]
+    l_snom_pre[l_snom_pre ==0] = network.lines.s_nom[l_snom_pre ==0]
     t_snom_pre = network.transformers.s_nom_opt.copy()
                 
     return l_snom_pre, t_snom_pre
@@ -2078,6 +2079,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
         l_snom_pre = network.lines.s_nom.copy()
         t_snom_pre = network.transformers.s_nom.copy()
 
+        cap_cost_prev = network.lines.capital_cost * network.lines.s_nom/network.lines.s_nom_total
         # calculate fixed number of iterations
         if 'n_iter' in method:
             n_iter = method['n_iter']
@@ -2122,7 +2124,26 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
                     update_electrical_parameters(network, 
                                                  l_snom_pre, t_snom_pre)
                     track_time[datetime.datetime.now()]= 'Parameters adjusted'
-        
+                    
+                    if False:
+                        sub = network.sub_networks.obj[0]
+                        sub._branches = sub.branches()
+                        sub.calculate_BODF()
+                        bodf = pd.DataFrame(columns = network.lines.index, index = network.lines.index, data = sub.BODF)
+                        bodf_max = bodf.max(axis = 0).sort_index()
+    
+                        cap_bodf = pd.read_csv('/home/student/eTraGo/etrago/tools/cap_bodf.csv')
+                        from scipy import interpolate
+                        x = cap_bodf.groupby('bodf').mean().index.values
+                        y = cap_bodf.groupby('bodf').mean().bound.values                 
+                        spl = interpolate.UnivariateSpline(x, y)
+                        
+                        new_cap_factor = pd.Series(index = bodf_max.index, data =spl(bodf_max))
+                        
+                        network.lines.s_nom_min = network.lines.s_nom_total * new_cap_factor
+                        network.lines.capital_cost = cap_cost_prev.sort_index() / new_cap_factor
+                    
+                #import pdb; pdb.set_trace()
         # Calculate variable number of iterations until threshold of objective 
         # function is reached
 
@@ -2203,6 +2224,7 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
         track_time.to_csv(args['csv_export']+ '/lopf-track-time.csv')
             
     return network
+
 
 def sensitivity_cd2(network, scale_solar=1, scale_windon=1.245, scale_windoff=1.148):
     solar = network.generators[network.generators.carrier=='solar']

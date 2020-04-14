@@ -44,7 +44,8 @@ from etrago.appl import etrago
 
 if __name__ == '__main__':
     # execute etrago function
-    paths = glob.glob("/home/clara/GitHub/eTraGo/etrago/json/*.json")
+    paths = glob.glob("/home/student/Clara/SCLOPF/args_lopf/sensitivitaeten/*.json")
+    paths.sort()
     args= {}
     for json_path in paths:
         print('Setting ' + json_path )

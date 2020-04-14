@@ -174,7 +174,7 @@ args = {
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath=None)
+args = get_args_setting(args, jsonpath='/home/student/Clara/SCLOPF/args_lopf/sensitivitaeten/args_d_ac.json')
 
 
 def etrago(args):
@@ -612,7 +612,7 @@ def etrago(args):
 
     # start security-constraint lopf calculations
     elif args['method'] == 'sclopf':
-        #branch_outages=network.lines.index[network.lines.country=='DE']
+        branch_outages=network.lines.index#[network.lines.country=='DE']
         if args['scn_extension'] is not None:
             branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
@@ -636,7 +636,7 @@ def etrago(args):
     
     if args['sclopf_post_lopf']:
         #sclopf_post_lopf(network, args, args['sclopf_settings']['n_process'])
-        #branch_outages=network.lines.index[network.lines.country=='DE']
+        branch_outages=network.lines.index#[network.lines.country=='DE']
         if args['scn_extension'] is not None:
             branch_outages = branch_outages.drop('54')
         iterate_sclopf(network,
