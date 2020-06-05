@@ -27,7 +27,7 @@ setup(
                       'pyomo == 5.5.0',
                       'networkx == 1.10',
                       'pypsa @ git+https://github.com/openego/PyPSA.git@master#egg=pypsa-0.11.0fork',
-                      'sqlalchemy >= 1.0.15, <= 1.1.4',
+                      'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib >= 1.5.3, <=1.5.3',
                       'tsam==0.9.9',
