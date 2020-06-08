@@ -9,8 +9,7 @@ command in order to install eTraGo:
 
 .. code-block:: bash
 
-  $ pip3 install eTraGo --process-dependency-links
-
+  $ pip3 install eTraGo
 
 
 Using a virtual environment
