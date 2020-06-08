@@ -31,7 +31,8 @@ setup(
                       'tsam==0.9.9',
                       'shapely',
                       'oedialect',
-                      'tilemapbase'],
+                      'pyproj == 2.0.2',
+                      'tilemapbase == 0.4.5'],
     dependency_links=[
         ('git+https://git@github.com/openego/PyPSA.git'
          '@master#egg=pypsa-0.11.0fork')],
