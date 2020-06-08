@@ -24,8 +24,6 @@ setup(
     install_requires=['egoio == 0.4.7',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
-                      'pyomo == 5.5.0',
-                      'networkx == 1.10',
                       'pypsa @ git+https://github.com/openego/PyPSA.git@master#egg=pypsa-0.11.0fork',
                       'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
