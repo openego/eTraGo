@@ -114,12 +114,12 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'db': 'local',  # database session
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 20,
-    'end_snapshot': 30,
+    'start_snapshot': 4000,
+    'end_snapshot': 4048,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log', 'threads':4, 'method':2, 'crossover':0},  # {} for default options
@@ -130,14 +130,14 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': '/home/ulf/Dokumente/Promotion/Berechnungen/test',  # save results as csv: False or /path/tofolder
+    'csv_export': '/home/ulf/Dokumente/Cuba/calculos/2050_biomasa0',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['foreign_network','german_network', 'storage'],  # Array of components to optimize
+    'extendable': ['foreign_network','german_network', 'storage', 'foreign_storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {},  # Choose function name or None
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
@@ -150,11 +150,11 @@ args = {
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
+    'foreign_lines': {'carrier': 'AC', 'capacity': 'ntc_acer'},
     'comments': None}
 
 
-args = get_args_setting(args, jsonpath="args_ego100_paper_k300.json")
+#args = get_args_setting(args, jsonpath="args_ego100_paper_k300.json")
 
 
 def etrago(args):
@@ -514,6 +514,8 @@ def etrago(args):
                     line_max_foreign_abs= None)
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
+        network.generators.loc[network.generators.carrier=='biomass', 'p_nom']= network.generators.p_nom*0
+
     
     # skip snapshots
     if args['skip_snapshots']:
@@ -555,9 +557,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv="bus_weighting_sq046_2019.csv",
-                n_init=2500,
-                max_iter=1000,
-                tol=1e-20,
+                n_init=5,
+                max_iter=50,
+                tol=1e-4,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
@@ -584,7 +586,7 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      extra_functionality=Constraints(args).functionality,
-                     method={'n_iter':5},
+                     method={'n_iter':2},
                      delta_s_max=0)
 
     # start non-linear powerflow simulation

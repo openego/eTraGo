@@ -1731,7 +1731,7 @@ def crossborder_capacity(network, method, capacity_factor):
                                      (country+country)].index
             network.links.loc[i_links, 'p_nom'] = \
                 weighting_links[i_links] * cap_per_country\
-                [country]*capacity_factor
+                [country]
 
 
 def set_branch_capacity(network, args):
