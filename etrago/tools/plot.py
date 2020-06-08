@@ -2062,7 +2062,7 @@ def save_plots(network, args, plot_path):
     network_expansion(network, ext_width=1000, filename=plot_path+'/grid_expansion.png')
     network_expansion(network, ext_width=1000, method='abs', filename=plot_path+'/grid_expansion_abs.png')
     network_storage_expansion(network, scaling=100, ext_width=1000, filename=plot_path+'/grid_storage_expansion.png')
-    plot_line_loading(network, timesteps=range(0,network.snapshots.size), arrows=False, filename=plot_path+'/line_loading.png')
+    #plot_line_loading(network, timesteps=range(0,network.snapshots.size), arrows=False, filename=plot_path+'/line_loading.png')
     plot_stacked_gen(network, filename=plot_path+'/stacked_gen.png')
     curtailment(network, carrier='solar', filename=plot_path+'/curtail_solar.png')
     curtailment(network, carrier='wind_onshore', filename=plot_path+'/curtail_windon.png')

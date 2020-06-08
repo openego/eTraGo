@@ -412,7 +412,7 @@ def etrago(args):
                                scn_name=args['scn_name'])
 
     network = scenario.build_network()
-
+   
     # add coordinates
     network = add_coordinates(network)
 
@@ -431,7 +431,6 @@ def etrago(args):
         crossborder_capacity(
                 network, args['foreign_lines']['capacity'],
                 args['branch_capacity_factor'])
-
     # TEMPORARY vague adjustment due to transformer bug in data processing
     if args['gridversion'] == 'v0.2.11':
         network.transformers.x = network.transformers.x * 0.0001
@@ -492,7 +491,7 @@ def etrago(args):
                     branch_capacity_factor=args['branch_capacity_factor'])
 
     # coastdat2 sensitivity
-    sensitivity_cd2(network, scale_solar=1, scale_windon=1.25, scale_windoff=1.15)
+    sensitivity_cd2(network, scale_solar=1, scale_windon=1.415, scale_windoff=1.075)
 
     from math import sqrt
     def snommax(i=1020, u=380, wires=4, circuits=4):
@@ -512,6 +511,17 @@ def etrago(args):
                     line_max_foreign=4,
                     line_max_abs={'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0},
                     line_max_foreign_abs= None)
+        #network.storage_units.capital_cost = network.storage_units.capital_cost * 0.125
+        #network.lines.capital_cost = network.lines.capital_cost * 0.5
+        #bus_pl = network.buses[network.buses.country_code == 'PL'].index    
+        #network.storage_units.loc[(network.storage_units.bus.isin(bus_pl)) & (network.storage_units.carrier == 'hydrogen_storage'), 'p_nom_max'] = 5000
+        #bus_de = network.buses[network.buses.country_code == 'DE'].index
+        #network.generators.loc[(network.generators.carrier=='biomass') & (network.generators.bus.isin(bus_de)), 'p_nom'] = network.generators.p_nom*(8300/27800)
+        #network.generators.loc[(network.generators.carrier=='solar'), 'p_nom'] = network.generators.p_nom*1.2
+        #network.generators.loc[(network.generators.carrier=='wind_onshore'), 'p_nom'] = network.generators.p_nom*1.2
+        #network.generators.loc[(network.generators.carrier=='wind_offshore'), 'p_nom'] = network.generators.p_nom*1.2
+        
+        #network.lines.capital_cost = network.lines.capital_cost * 0.1        
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
     
@@ -529,7 +539,9 @@ def etrago(args):
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
-
+    
+    network.lines.original_lines = network.lines.index.values.copy()
+    
     # ehv network clustering
     if args['network_clustering_ehv']:
         network.generators.control = "PV"
@@ -554,7 +566,7 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv="bus_weighting_sq046_2019.csv",
+                bus_weight_fromcsv="bus_weighting_sq046_2019.csv", #"bus_weighting_sq046_ehv_092019.csv",
                 n_init=2500,
                 max_iter=1000,
                 tol=1e-20,
@@ -563,7 +575,8 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
-
+	
+        #network = clip_foreign(network)
     if args['ramp_limits']:
         ramp_limits(network)
 

@@ -258,6 +258,10 @@ def extendable(network, args, line_max, line_max_foreign, line_max_abs= {'380': 
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
                           's_nom_min'] = network.lines.s_nom
+#        network.lines.loc[network.lines.bus0.isin(buses.index) |
+#                          network.lines.bus1.isin(buses.index),
+#                          'x'] = network.lines.x*2.5
+
 
         if not line_max_foreign==None:
             network.lines.loc[network.lines.bus0.isin(buses.index) |
@@ -332,7 +336,7 @@ def extendable(network, args, line_max, line_max_foreign, line_max_abs= {'380': 
             if not line_max_foreign==None:
                 network.links.loc[(network.links.bus0.isin(buses.index)) |
                               (network.links.bus1.isin(buses.index)),
-                          'p_nom_max'] = line_max_foreign * network.links.p_nom
+                          'p_nom_max'] = line_max_foreign* network.links.p_nom
             
             elif not line_max_foreign_abs==None:
                 network.links.loc[(network.links.bus0.isin(buses.index)) |

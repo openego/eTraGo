@@ -436,7 +436,7 @@ def foreign_links(network):
     network.import_components_from_dataframe(
         foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
         .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)
-        .set_index('N' + foreign_lines.index),
+        .set_index(foreign_lines.index),
         'Link')
 
     network.lines = network.lines.drop(foreign_lines.index)
@@ -845,8 +845,7 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
                                foreign_comp[comp][foreign_comp[
                                        comp]['carrier'].isin(
                                                 ['solar', 'wind_onshore',
-                                                 'wind_offshore',
-                                                 'run_of_river'])].index]
+                                                 'wind_offshore'])].index]
 
         network.buses = network.buses.drop(foreign_bus.index)
         network.generators = network.generators[
@@ -1731,7 +1730,7 @@ def crossborder_capacity(network, method, capacity_factor):
                                      (country+country)].index
             network.links.loc[i_links, 'p_nom'] = \
                 weighting_links[i_links] * cap_per_country\
-                [country]*capacity_factor
+                [country]
 
 
 def set_branch_capacity(network, args):
