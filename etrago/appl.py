@@ -110,7 +110,7 @@ if 'READTHEDOCS' not in os.environ:
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
-    'gridversion': 'v0.4.5',  # None for model_draft or Version number
+    'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 12,
@@ -132,9 +132,9 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'min_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
