@@ -114,13 +114,13 @@ def tsam_cluster(timeseries_df,
                     aggregation.extremePeriods[i]['stepNo'])
 
     # get all index for every hour of that day of the clusterCenterIndices
-    start=[]
+    start = []
     # get the first hour of the clusterCenterIndices (days start with 0)
     for i in clusterCenterIndices:
-        start.append(i*hours)
+        start.append(i * hours)
 
     # get a list with all hours belonging to the clusterCenterIndices
-    nrhours=[]
+    nrhours = []
     for j in start:
         nrhours.append(j)
         x = 1
