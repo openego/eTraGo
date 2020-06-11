@@ -31,7 +31,9 @@ setup(
                       'matplotlib == 3.0.3',
                       'tsam==0.9.9',
                       'shapely',
-                      'oedialect'],
+                      'oedialect',
+                      'pyproj == 2.0.2',
+                      'tilemapbase == 0.4.5'],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
