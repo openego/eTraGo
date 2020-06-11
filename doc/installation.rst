@@ -9,8 +9,7 @@ command in order to install eTraGo:
 
 .. code-block:: bash
 
-  $ pip3 install eTraGo --process-dependency-links
-
+  $ pip3 install eTraGo
 
 
 Using a virtual environment
@@ -51,8 +50,8 @@ prompt as administrator and run:
   $ conda install pip
   $ conda config --add channels conda-forge
   $ conda install shapely
-  $ pip3 install eTraGo --process-dependency-links
-
+  $ pip3 install eTraGo
+  
 The full Documentation can be found
 `on this page <https://docs.anaconda.com/anaconda/install/>`_ . We use Anaconda
 with an own environment in order to reduze problems with Packages and different
