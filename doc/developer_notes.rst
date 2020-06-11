@@ -33,6 +33,4 @@ For the correct work-flow, please mind the
 
 .. code-block:: bash
 
-   $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
-
-
+   $ pip3 install -e /path/to/eTraGo/

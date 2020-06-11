@@ -132,13 +132,13 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'minimal_renewable_share':0.72},  # Choose function name or None
+    'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 300,  # False or the value k for clustering
+    'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': False,  # False or the number of 'periods'
+    'snapshot_clustering': 48,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -540,7 +540,7 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
             network, how='daily', clusters=args['snapshot_clustering'])
-        args['snapshot_clustering_constraints'] = 'daily_bounds'
+        args['snapshot_clustering_constraints'] = 'soc_constraints'
 
     if args['ramp_limits']:
         ramp_limits(network)
