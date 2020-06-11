@@ -25,7 +25,7 @@ setup(
                       'numpy == 1.16.2',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
-                      'pypsa @ git+https://github.com/openego/PyPSA.git@feature/install_requires#egg=pypsa-0.11.0fork',
+                      'pypsa @ git+https://github.com/openego/PyPSA.git@master#egg=pypsa-0.11.0fork',
                       'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
