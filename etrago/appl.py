@@ -138,7 +138,7 @@ args = {
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': False,  # False or the number of 'periods'
+    'snapshot_clustering': 48,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
@@ -492,17 +492,6 @@ def etrago(args):
         network = convert_capital_costs(
             network, args['start_snapshot'], args['end_snapshot'])
 
-    # skip snapshots
-    if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
-
-    # snapshot clustering
-    if not args['snapshot_clustering'] is False:
-        network = snapshot_clustering(
-            network, how='daily', clusters=args['snapshot_clustering'])
-
     # load shedding in order to hunt infeasibilities
     if args['load_shedding']:
         load_shedding(network)
@@ -541,6 +530,18 @@ def etrago(args):
         network = clustering.network.copy()
         geolocation_buses(network, session)
 
+    # skip snapshots
+    if args['skip_snapshots']:
+        network.snapshots = network.snapshots[::args['skip_snapshots']]
+        network.snapshot_weightings = network.snapshot_weightings[
+            ::args['skip_snapshots']] * args['skip_snapshots']
+
+    # snapshot clustering
+    if not args['snapshot_clustering'] is False:
+        network = snapshot_clustering(
+            network, how='daily', clusters=args['snapshot_clustering'])
+        args['snapshot_clustering_constraints'] = 'soc_constraints'
+
     if args['ramp_limits']:
         ramp_limits(network)
 
@@ -561,7 +562,7 @@ def etrago(args):
         iterate_lopf(network,
                      args,
                      Constraints(args).functionality,
-                     method={'n_iter':2})
+                     method={'n_iter':4})
 
     # start non-linear powerflow simulation
     elif args['method'] == 'pf':
