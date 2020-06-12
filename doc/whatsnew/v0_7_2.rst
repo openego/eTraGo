@@ -1,0 +1,15 @@
+Release 0.7.2 (Juni 12, 2020)
+++++++++++++++++++++++++++++
+A minor release adding the following features.
+
+Added features
+--------------
+
+* snapshot clustering includes now an approach to model seasonal storage as in Kotzur et al, 2018 ( https://www.sciencedirect.com/science/article/pii/S0306261918300242 )
+* osm maps can now be used for background plotting
+* the iterate_lopf function enables to adequately model the reactances when expanding the grid
+* important bug fix for the adjustment of reactances when harmonizing the voltage level when applying the k-means network clustering
+* multiple extra_functionalities can be called easily called now at once
+* various minor changes such as specifying installation requires for flawless performance
+
+
