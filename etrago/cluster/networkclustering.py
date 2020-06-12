@@ -115,6 +115,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
+        network_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # dealing with generators
     network.generators.control = "PV"
@@ -226,8 +227,8 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
-                            cpu_cores=4):
+def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
+                            tolvl, cpu_cores=4):
     """ Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
@@ -325,9 +326,8 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
 
     # prepare data for export
 
-    print(scn_name)
     df['scn_name'] = scn_name
-    print(df)
+    df['version'] = version
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
@@ -340,7 +340,7 @@ def busmap_by_shortest_path(network, session, scn_name, fromlvl, tolvl,
     return
 
 
-def busmap_from_psql(network, session, scn_name):
+def busmap_from_psql(network, session, scn_name, version):
     """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
@@ -365,7 +365,8 @@ def busmap_from_psql(network, session, scn_name):
     def fetch():
 
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name)
+            filter(EgoGridPfHvBusmap.scn_name == scn_name).filter(
+                    EgoGridPfHvBusmap.version == version)
 
         return dict(query.all())
 
@@ -377,8 +378,8 @@ def busmap_from_psql(network, session, scn_name):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name,
-                                fromlvl=[110], tolvl=[220, 380],
+        busmap_by_shortest_path(network, session, scn_name, version,
+                                fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
@@ -431,6 +432,29 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     def weighting_for_scenario(x, save=None):
         """
         """
+        # define weighting based on conventional 'old' generator spatial
+        # distribution
+        non_conv_types = {
+                'biomass',
+                'wind_onshore',
+                'wind_offshore',
+                'solar',
+                'geothermal',
+                'load shedding',
+                'extendable_storage'}
+        # Attention: network.generators.carrier.unique()
+        gen = (network.generators.loc[(network.generators.carrier
+                                   .isin(non_conv_types) == False)]
+           .groupby('bus').p_nom.sum()
+                                .reindex(network.buses.index, fill_value=0.) +
+           network.storage_units
+                                .loc[(network.storage_units.carrier
+                                      .isin(non_conv_types) == False)]
+                  .groupby('bus').p_nom.sum()
+                  .reindex(network.buses.index, fill_value=0.))
+
+        load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
@@ -453,15 +477,24 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
-    network.buses['v_nom'] = 380.
+
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
     network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
-    # adjust the x of the lines which are not 380.
+    # adjust the electrical parameters of the lines which are not 380.
     lines_v_nom_b = network.lines.v_nom != 380
-    network.lines.loc[lines_v_nom_b, 'x'] *= \
-        (380. / network.lines.loc[lines_v_nom_b, 'v_nom'])**2
+
+    voltage_factor = (network.lines.loc[lines_v_nom_b, 'v_nom'] / 380.)**2
+
+    network.lines.loc[lines_v_nom_b, 'x'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'r'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'b'] *= voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'g'] *= voltage_factor
+
     network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
 
     trafo_index = network.transformers.index
@@ -471,7 +504,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost']]
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),
@@ -482,6 +515,19 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network.transformers_t[attr] = network.transformers_t[attr]\
             .reindex(columns=[])
 
+    network.buses['v_nom'] = 380.
+
+    # State whether to create a bus weighting and save it, create or not save
+    # it, or use a bus weighting from a csv file
+    if bus_weight_tocsv is not None:
+        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
+    elif bus_weight_fromcsv is not None:
+        weight = pd.Series.from_csv(bus_weight_fromcsv)
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network.buses, save=False)
+
+
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -489,6 +535,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network.generators['weight'] = network.generators['p_nom']
         aggregate_one_ports = components.one_port_components.copy()
         aggregate_one_ports.discard('Generator')
+
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
         if use_reduced_coordinates:
@@ -505,43 +552,9 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
             line_length_factor=line_length_factor)
         network = clustering.network
 
-    # define weighting based on conventional 'old' generator spatial
-    # distribution
-    non_conv_types = {
-        'biomass',
-        'wind_onshore',
-        'wind_offshore',
-        'solar',
-        'geothermal',
-        'load shedding',
-        'extendable_storage'}
-    # Attention: network.generators.carrier.unique()
-    gen = (network.generators.loc[(network.generators.carrier
-                                   .isin(non_conv_types) == False)]
-           .groupby('bus').p_nom.sum()
-                                .reindex(network.buses.index, fill_value=0.) +
-           network.storage_units
-                                .loc[(network.storage_units.carrier
-                                      .isin(non_conv_types) == False)]
-                  .groupby('bus').p_nom.sum()
-                  .reindex(network.buses.index, fill_value=0.))
-
-    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+        weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-
-    # busmap = busmap_by_kmeans(network, bus_weightings=pd.Series(np.repeat(1,
-    #       len(network.buses)), index=network.buses.index) , n_clusters= 10)
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if bus_weight_tocsv is not None:
-        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
-    elif bus_weight_fromcsv is not None:
-        weight = pd.Series.from_csv(bus_weight_fromcsv)
-        weight.index = weight.index.astype(str)
-    else:
-        weight = weighting_for_scenario(x=network.buses, save=False)
-
     busmap = busmap_by_kmeans(
         network,
         bus_weightings=pd.Series(weight),

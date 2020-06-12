@@ -53,12 +53,27 @@ def snapshot_clustering(network, how='daily', clusters=10):
     return network
 
 
-def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
+def tsam_cluster(timeseries_df,
+                 typical_periods=10,
+                 how='daily',
+                 extremePeriodMethod = 'None'):
     """
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame with timeseries to cluster
+    extremePeriodMethod: {'None','append','new_cluster_center',
+                           'replace_cluster_center'}, default: 'None'
+        Method how to integrate extreme Periods
+        into to the typical period profiles.
+        None: No integration at all.
+        'append': append typical Periods to cluster centers
+        'new_cluster_center': add the extreme period as additional cluster
+            center. It is checked then for all Periods if they fit better
+            to the this new center or their original cluster center.
+        'replace_cluster_center': replaces the cluster center of the
+            cluster where the extreme period belongs to with the periodly
+            profile of the extreme period. (Worst case system design)
 
     Returns
     -------
@@ -68,21 +83,41 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
 
     if how == 'daily':
         hours = 24
+        period = ' days'
     if how == 'weekly':
         hours = 168
+        period = ' weeks'
+
+    print('Snapshot clustering to ' + str(typical_periods) + period + 
+          ' using extreme period method: ' + extremePeriodMethod)
 
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
+        extremePeriodMethod = extremePeriodMethod,
+        addPeakMin = ['residual_load'],
+        addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
         hoursPerPeriod=hours,
         clusterMethod='hierarchical')
 
+
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
+    clusterOrder =aggregation.clusterOrder
+    clusterCenterIndices= aggregation.clusterCenterIndices
 
-    # get the medoids/ the clusterCenterIndices
-    clusterCenterIndices = aggregation.clusterCenterIndices
+    if extremePeriodMethod  == 'new_cluster_center':
+        for i in aggregation.extremePeriods.keys():
+            clusterCenterIndices.insert(
+                    aggregation.extremePeriods[i]['newClusterNo'],
+                    aggregation.extremePeriods[i]['stepNo'])
+
+    if extremePeriodMethod  == 'append':
+        for i in aggregation.extremePeriods.keys():
+            clusterCenterIndices.insert(
+                    aggregation.extremePeriods[i]['clusterNo'],
+                    aggregation.extremePeriods[i]['stepNo'])
 
     # get all index for every hour of that day of the clusterCenterIndices
     start = []
@@ -103,7 +138,42 @@ def tsam_cluster(timeseries_df, typical_periods=10, how='daily'):
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index
 
-    return timeseries, cluster_weights, dates, hours
+    #get list of representative days
+    representative_day=[]
+
+    #cluster:medoid des jeweiligen Clusters
+    dic_clusterCenterIndices = dict(enumerate(clusterCenterIndices))
+    for i in clusterOrder:
+        representative_day.append(dic_clusterCenterIndices[i])
+
+    #get list of last hour of representative days
+    last_hour_datetime=[]
+    for i in representative_day:
+        last_hour = i * hours + hours - 1
+        last_hour_datetime.append(timeseries_df.index[last_hour])
+
+    #create a dataframe (index=nr. of day in a year/candidate)
+    df_cluster =  pd.DataFrame({
+                        'Cluster': clusterOrder, #Cluster of the day
+                        'RepresentativeDay': representative_day, #representative day of the cluster
+                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster  
+    df_cluster.index = df_cluster.index + 1
+    df_cluster.index.name = 'Candidate'
+
+    #create a dataframe each timeseries (h) and its candiddate day (i) df_i_h
+    nr_day = []
+    x = len(timeseries_df.index)/hours+1
+
+    for i in range(1,int(x)):
+        j=1
+        while j <= hours: 
+            nr_day.append(i)
+            j=j+1
+    df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
+                        'Candidate_day': nr_day})
+    df_i_h.set_index('Timeseries',inplace=True)
+
+    return df_cluster, cluster_weights, dates, hours, df_i_h
 
 
 def run(network, n_clusters=None, how='daily',
@@ -112,9 +182,13 @@ def run(network, n_clusters=None, how='daily',
     """
 
     # calculate clusters
-    tsam_ts, cluster_weights, dates, hours = tsam_cluster(
-        prepare_pypsa_timeseries(network), typical_periods=n_clusters,
-        how=how)
+    df_cluster, cluster_weights, dates, hours, df_i_h= tsam_cluster(
+                prepare_pypsa_timeseries(network),
+                typical_periods=n_clusters,
+                how='daily',
+                extremePeriodMethod = 'None')
+    network.cluster = df_cluster
+    network.cluster_ts = df_i_h
 
     update_data_frames(network, cluster_weights, dates, hours)
 
@@ -133,11 +207,15 @@ def prepare_pypsa_timeseries(network, normed=False):
         df = pd.concat([normed_renewables,
                         normed_loads], axis=1)
     else:
-        loads = network.loads_t.p_set
+        loads = network.loads_t.p_set.copy()
         loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_set
+        renewables = network.generators_t.p_max_pu.mul(
+                network.generators.p_nom[
+                network.generators_t.p_max_pu.columns], axis = 1).copy()
         renewables.columns = 'G' + renewables.columns
-        df = pd.concat([renewables, loads], axis=1)
+        residual_load=pd.DataFrame()
+        residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
+        df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
 
@@ -179,27 +257,6 @@ def update_data_frames(network, cluster_weights, dates, hours):
     return network
 
 
-def daily_bounds(network, snapshots):
-    """ This will bound the storage level to 0.5 max_level every 24th hour.
-    """
-
-    sus = network.storage_units
-    # take every first hour of the clustered days
-    network.model.period_starts = network.snapshot_weightings.index[0::24]
-
-    network.model.storages = sus.index
-
-    def day_rule(m, s, p):
-        """
-        Sets the soc of the every first hour to the soc of the last hour
-        of the day (i.e. + 23 hours)
-        """
-        return (
-              m.state_of_charge[s, p] ==
-               m.state_of_charge[s, p + pd.Timedelta(hours=23)])
-
-    network.model.period_bound = po.Constraint(
-            network.model.storages, network.model.period_starts, rule=day_rule)
 
 
 ####################################

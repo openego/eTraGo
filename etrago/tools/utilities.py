@@ -32,7 +32,6 @@ import json
 import logging
 import math
 
-
 geopandas = True
 try:
     import geopandas as gpd
@@ -609,7 +608,7 @@ def _enumerate_row(row):
     return row
 
 
-def results_to_csv(network, args, pf_solution=None):
+def results_to_csv(network, args, path):
     """ Function the writes the calaculation results
     in csv-files in the desired directory. 
 
@@ -619,13 +618,11 @@ def results_to_csv(network, args, pf_solution=None):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
-    pf_solution: pandas.Dataframe or None
-        If pf was calculated, df containing information of convergence else None. 
+    path: str
+        Choose path for csv-files
 
     """
-
-    path = args['csv_export']
-
+    results_to_csv.counter += 1
     if path == False:
         return None
 
@@ -638,11 +635,9 @@ def results_to_csv(network, args, pf_solution=None):
     data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
-    with open(os.path.join(path, 'args.json'), 'w') as fp:
-        json.dump(args, fp)
-
-    if not isinstance(pf_solution, type(None)):
-        pf_solution.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    if results_to_csv.counter == 1:
+        with open(os.path.join(args['csv_export'], 'args.json'), 'w') as fp:
+            json.dump(args, fp)
 
     if hasattr(network, 'Z'):
         file = [i for i in os.listdir(
@@ -754,7 +749,7 @@ def set_slack(network):
     return network
 
 
-def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
+def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
 
     """ Function that prepares and runs non-linar load flow using PyPSA pf. 
     
@@ -772,77 +767,20 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py   
-    extra_fuctionality: function or NoneType
-        Adds constraint to optimization (e.g. when applied snapshot clustering)
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
         foreign lines are DC
+    q_allocation: str
+        Choose allocation of reactive power. Possible settings are listed in
+        distribute_q function. 
+    calc_losses: bolean
+        Choose if line losses will be calculated.
 
     Returns
     -------
-    pf_solve: pandas.Dataframe
-        Contains information about convergency and calculation time of pf
         
     """
     network_pf = network
-
-    # Update x of extended lines and transformers
-    if network_pf.lines.s_nom_extendable.any() or \
-            network_pf.transformers.s_nom_extendable.any():
-
-        storages_extendable = network_pf.storage_units.p_nom_extendable.copy()
-        lines_extendable = network_pf.lines.s_nom_extendable.copy()
-        links_extendable = network_pf.links.p_nom_extendable.copy()
-        trafos_extendable = network_pf.transformers.s_nom_extendable.copy()
-        
-        storages_p_nom =  network_pf.storage_units.p_nom.copy()
-        lines_s_nom=  network_pf.lines.s_nom.copy()
-        links_p_nom =  network_pf.links.p_nom.copy()
-        trafos_s_nom =  network_pf.transformers.s_nom.copy()
-        
-        network_pf.lines.x[network.lines.s_nom_extendable] = \
-            network_pf.lines.x * network.lines.s_nom /\
-            network_pf.lines.s_nom_opt
-
-        network_pf.lines.r[network.lines.s_nom_extendable] = \
-            network_pf.lines.r * network.lines.s_nom /\
-            network_pf.lines.s_nom_opt
-
-        network_pf.lines.b[network.lines.s_nom_extendable] = \
-            network_pf.lines.b * network.lines.s_nom_opt /\
-            network_pf.lines.s_nom
-
-        network_pf.lines.g[network.lines.s_nom_extendable] = \
-            network_pf.lines.g * network.lines.s_nom_opt /\
-            network_pf.lines.s_nom
-
-        network_pf.transformers.x[network.transformers.s_nom_extendable] = \
-            network_pf.transformers.x * network.transformers.s_nom / \
-            network_pf.transformers.s_nom_opt
-
-        network_pf.lines.s_nom_extendable = False
-        network_pf.transformers.s_nom_extendable = False
-        network_pf.storage_units.p_nom_extendable = False
-        network_pf.links.p_nom_extendable = False
-        network_pf.lines.s_nom = network.lines.s_nom_opt
-        network_pf.transformers.s_nom = network.transformers.s_nom_opt
-        network_pf.storage_units.p_nom = network_pf.storage_units.p_nom_opt
-        network_pf.links.p_nom = network_pf.links.p_nom_opt
-
-        network_pf.lopf(network.snapshots,
-            solver_name=args['solver'],
-            solver_options=args['solver_options'],
-            extra_functionality=extra_functionality)
-        
-        network_pf.storage_units.p_nom_extendable = storages_extendable
-        network_pf.lines.s_nom_extendable = lines_extendable 
-        network_pf.links.p_nom_extendable = links_extendable
-        network_pf.transformers.s_nom_extendable = trafos_extendable
-        
-        network_pf.storage_units.p_nom = storages_p_nom
-        network_pf.lines.s_nom = lines_s_nom
-        network_pf.links.p_nom = links_p_nom
-        network_pf.transformers.s_nom = trafos_s_nom
 
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
@@ -902,11 +840,9 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
 
                     else:
                         foreign_series[comp][a] = foreign_series[comp][a][
-                               foreign_comp[comp][foreign_comp[
-                                       comp]['carrier'].isin(
-                                                ['solar', 'wind_onshore',
-                                                 'wind_offshore',
-                                                 'run_of_river'])].index]
+                               foreign_comp[comp][
+                               foreign_comp[comp].index.isin(
+                               network.generators_t.p_max_pu.columns)].index]
 
         network.buses = network.buses.drop(foreign_bus.index)
         network.generators = network.generators[
@@ -942,8 +878,17 @@ def pf_post_lopf(network, args, extra_functionality, add_foreign_lopf):
     if not pf_solve[~pf_solve.converged].count().max() == 0:
         logger.warning("PF of %d snapshots not converged.",
                        pf_solve[~pf_solve.converged].count().max())
+    if calc_losses:
+        calc_line_losses(network)
 
-    return pf_solve
+    network = distribute_q(network, allocation=q_allocation)
+    
+    if args['csv_export'] != False:
+            path=args['csv_export']+ '/pf_post_lopf'
+            results_to_csv(network, args, path)
+            pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+    
+    return network
 
 
 def distribute_q(network, allocation='p_nom'):
@@ -1278,7 +1223,7 @@ def add_missing_components(network):
     """
     new_trafo = str(network.transformers.index.astype(int).max() + 1)
 
-    network.add("Transformer", new_trafo, bus0="23648", bus1="16573",
+    network.add("Transformer", new_trafo, bus0="16573", bus1="23648",
                 x=0.135 / (2750 / 2),
                 r=0.0, tap_ratio=1, s_nom=2750 / 2)
 
@@ -1346,7 +1291,7 @@ def add_missing_components(network):
          Heizkraftwerk Heilbronn:
     """
     # new_trafo = str(network.transformers.index.astype(int).max()1)
-    network.add("Transformer", '99999', bus0="25766", bus1="18967",
+    network.add("Transformer", '99999', bus0="18967", bus1="25766",
                 x=0.135 / 300, r=0.0, tap_ratio=1, s_nom=300)
     """
     According to:
@@ -1423,6 +1368,18 @@ def add_missing_components(network):
                                                 )
 
     add_220kv_line("266", "24633", overhead=True)
+
+
+    # temporary turn buses of transformers
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom)
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom)
+    new_bus0 = network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1]
+    new_bus1 = network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1]
+    network.transformers.bus0[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus0.values
+    network.transformers.bus1[network.transformers.v_nom0>network.transformers.v_nom1] = new_bus1.values
+
     return network
 
 
@@ -1584,6 +1541,35 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
     return args
 
+def set_random_noise(network, seed, sigma = 0.01):
+    """
+    Sets random noise to marginal cost of each generator.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    seed: int
+        seed number, needed to reproduce results
+
+    sigma: float
+        Default: 0.01
+        standard deviation, small values reduce impact on dispatch
+        but might lead to numerical instability
+    """
+    s = np.random.RandomState(seed)
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code == 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])])))
+
+    network.generators.marginal_cost[network.generators.bus.isin(
+                network.buses.index[network.buses.country_code != 'DE'])] += \
+            abs(s.normal(0, sigma, len(network.generators.marginal_cost[
+                    network.generators.bus.isin(network.buses.index[
+                            network.buses.country_code == 'DE'])]))).max()
 
 def set_line_country_tags(network):
     """
@@ -1778,63 +1764,208 @@ def set_branch_capacity(network, args):
 
     network.transformers.s_nom[network.transformers.v_nom0 > 110]\
         = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
+     
 
-def max_line_ext(network, snapshots, share=1.01):
+def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
+                
+    """
+    Update electrical parameters of active branch components
+    considering s_nom of previous iteration
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    l_snom_pre: pandas.Series
+        s_nom of ac-lines in previous iteration
+    t_snom_pre: pandas.Series
+        s_nom of transformers in previous iteration
+    """
+
+    network.lines.x[network.lines.s_nom_extendable] = \
+    network.lines.x * l_snom_pre / network.lines.s_nom_opt
+                
+    network.transformers.x[network.transformers.s_nom_extendable]=\
+    network.transformers.x * t_snom_pre /\
+    network.transformers.s_nom_opt
+                
+    network.lines.r[network.lines.s_nom_extendable] = \
+    network.lines.r * l_snom_pre / network.lines.s_nom_opt
+                
+    network.transformers.r[network.transformers.s_nom_extendable]=\
+    network.transformers.r * t_snom_pre /\
+    network.transformers.s_nom_opt
+                
+    network.lines.g[network.lines.s_nom_extendable] = \
+    network.lines.g * network.lines.s_nom_opt / l_snom_pre
+                
+    network.transformers.g[network.transformers.s_nom_extendable]=\
+    network.transformers.g * network.transformers.s_nom_opt /\
+    t_snom_pre
+                
+    network.lines.b[network.lines.s_nom_extendable] = \
+    network.lines.b * network.lines.s_nom_opt / l_snom_pre
+                
+    network.transformers.b[network.transformers.s_nom_extendable]=\
+    network.transformers.b * network.transformers.s_nom_opt /\
+    t_snom_pre
+                
+    # Set snom_pre to s_nom_opt for next iteration
+    l_snom_pre = network.lines.s_nom_opt.copy()
+    t_snom_pre = network.transformers.s_nom_opt.copy()
+                
+    return l_snom_pre, t_snom_pre
+
+def iterate_lopf(network, args, extra_functionality, method={'n_iter':4}, 
+                 delta_s_max=0.1):
 
     """
-    Sets maximal share of overall network extension
-    as extra functionality in LOPF
+    Run optimization of lopf. If network extension is included, the specified 
+    number of iterations is calculated to consider reactance changes. 
 
     Parameters
     ----------
-    share: float
-        Maximal share of network extension in p.u.
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    args: dict
+        Settings in appl.py
+    extra_functionality: str
+        Define extra constranits. 
+    method: dict
+        Choose 'n_iter' and integer for fixed number of iterations or
+        'threshold' and derivation of objective in percent for variable number
+        of iteration until the threshold of the objective function is reached
+    delta_s_max: float
+        Increase of maximal extension of each line in p.u.
+        Currently only working with method n_iter
+
     """
+    results_to_csv.counter=0
+    
+    # if network is extendable, iterate lopf 
+    # to include changes of electrical parameters
+    if network.lines.s_nom_extendable.any():
+        
+        max_ext_line=network.lines.s_nom_max/network.lines.s_nom
+        max_ext_link=network.links.p_nom_max/network.links.p_nom
+        max_ext_trafo=network.transformers.s_nom_max/\
+            network.transformers.s_nom
 
-    lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
+        # Initialise s_nom_pre (s_nom_opt of previous iteration) 
+        # to s_nom for first lopf:
+        l_snom_pre = network.lines.s_nom.copy()
+        t_snom_pre = network.transformers.s_nom.copy()
 
-    def _rule(m):
+        # calculate fixed number of iterations
+        if 'n_iter' in method:
+            n_iter = method['n_iter']
 
-        lines_opt = sum(m.passive_branch_s_nom[index]
-                        for index
-                        in m.passive_branch_s_nom_index)
+            for i in range (1,(1+n_iter)):
+                x = time.time()
+                network.lines.s_nom_max=\
+                 (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom
+                network.transformers.s_nom_max=\
+                 (max_ext_trafo-(n_iter-i)*delta_s_max)*\
+                network.transformers.s_nom                
+                network.links.p_nom_max=\
+                 (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
+            
+                network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=extra_functionality,
+                    formulation=args['model_formulation'])
+                y = time.time()
+                z = (y - x) / 60
 
-        links_opt = sum(m.link_p_nom[index]
-                        for index
-                        in m.link_p_nom_index)
+                if network.results["Solver"][0]["Status"].key!='ok':
+                    raise  Exception('LOPF '+ str(i) + ' not solved.')
 
-        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * share
-    network.model.max_line_ext = Constraint(rule=_rule)
+                print("Time for LOPF [min]:", round(z, 2))
+                if args['csv_export'] != False:
+                    path=args['csv_export'] + '/lopf_iteration_'+ str(i)
+                    results_to_csv(network, args, path)
 
-def min_renewable_share(network, snapshots, share=0.72):
-    """
-    Sets minimal renewable share of generation as extra functionality in LOPF
+                if i < n_iter:
+                    l_snom_pre, t_snom_pre = \
+                    update_electrical_parameters(network, 
+                                                 l_snom_pre, t_snom_pre)
+        
+        # Calculate variable number of iterations until threshold of objective 
+        # function is reached
 
-    Parameters
-    ----------
-    share: float
-        Minimal share of renewable generation in p.u.
-    """
-    renewables = ['wind_onshore', 'wind_offshore',
-                  'biomass', 'solar', 'run_of_river']
+        if 'threshold' in method:
+            thr = method['threshold']
+            x = time.time()
+            network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=extra_functionality,
+                    formulation=args['model_formulation'])
+            y = time.time()
+            z = (y - x) / 60
+            
+            print("Time for LOPF [min]:", round(z, 2))
 
-    res = list(network.generators.index[
-            network.generators.carrier.isin(renewables)])
+            diff_obj=network.objective*thr/100
 
-    total = list(network.generators.index)
-    snapshots = network.snapshots
+            i = 1
+            
+            # Stop after 100 iterations to aviod unending loop
+            while i <= 100:
+                
+                if i ==100:
+                    print('Maximum number of iterations reached.')
+                    break
+                
+                l_snom_pre, t_snom_pre = \
+                    update_electrical_parameters(network, 
+                                                 l_snom_pre, t_snom_pre)
+                pre = network.objective
+                
+                x = time.time()
+                network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=extra_functionality,
+                    formulation=args['model_formulation'])
+                y = time.time()
+                z = (y - x) / 60
+            
+                print("Time for LOPF [min]:", round(z, 2))
+                
+                if network.results["Solver"][0]["Status"].key!='ok':
+                    raise  Exception('LOPF '+ str(i) + ' not solved.')
 
-    def _rule(m):
-        """
-        """
-        renewable_production = sum(m.generator_p[gen, sn]
-                                      for gen
-                                      in res
-                                      for sn in snapshots)
-        total_production = sum(m.generator_p[gen, sn]
-                               for gen in total
-                               for sn in snapshots)
+                i += 1
 
-        return (renewable_production >= total_production * share)
-    network.model.min_renewable_share = Constraint(rule=_rule)
+                if args['csv_export'] != False:
+                    path=args['csv_export'] + '/lopf_iteration_'+ str(i)
+                    results_to_csv(network, args, path)
+                    
+                if abs(pre-network.objective) <=diff_obj:
+                    print('Threshold reached after ' + str(i) + ' iterations.')
+                    break
+                    
+    else:
+            x = time.time()
+            network.lopf(
+                    network.snapshots,
+                    solver_name=args['solver'],
+                    solver_options=args['solver_options'],
+                    extra_functionality=extra_functionality,
+                    formulation=args['model_formulation'])
+            y = time.time()
+            z = (y - x) / 60
+            print("Time for LOPF [min]:", round(z, 2))
+        
+            if args['csv_export'] != False:
+                path=args['csv_export']+ '/lopf'
+                results_to_csv(network, args, path)
+            
+    return network
+            
+

@@ -1,0 +1,16 @@
+Release 0.7.2 (Juni 12, 2020)
+++++++++++++++++++++++++++++
+A minor release adding the following features.
+
+Added features
+--------------
+
+* for single use of eTraGo (not as a sub-module of eGo), we recommend to use the newest minor data release 'gridversion': 'v0.4.6'. This data release includes some minor bug fixes but it is not consistent with the data on the MV and LV levels. Hence, the modelling results are only adequate for the HV and EHV level applying solely the tool eTraGo.
+* snapshot clustering includes now an approach to model seasonal storage as in Kotzur et al, 2018 ( https://www.sciencedirect.com/science/article/pii/S0306261918300242 ). Moreover the method may include extreme periods using an option of the tsam package.
+* osm maps can now be used for background plotting
+* the iterate_lopf function enables to adequately model the reactances when expanding the grid
+* important bug fix for the adjustment of reactances when harmonizing the voltage level when applying the k-means network clustering
+* multiple extra_functionalities can be called easily called now at once
+* various minor changes such as specifying installation requires for flawless performance
+
+
