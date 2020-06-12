@@ -107,10 +107,16 @@ def tsam_cluster(timeseries_df,
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices
 
-    if extremePeriodMethod  != 'None':
+    if extremePeriodMethod  == 'new_cluster_center':
         for i in aggregation.extremePeriods.keys():
             clusterCenterIndices.insert(
                     aggregation.extremePeriods[i]['newClusterNo'],
+                    aggregation.extremePeriods[i]['stepNo'])
+
+    if extremePeriodMethod  == 'append':
+        for i in aggregation.extremePeriods.keys():
+            clusterCenterIndices.insert(
+                    aggregation.extremePeriods[i]['clusterNo'],
                     aggregation.extremePeriods[i]['stepNo'])
 
     # get all index for every hour of that day of the clusterCenterIndices
