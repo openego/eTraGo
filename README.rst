@@ -27,7 +27,7 @@ command in order to install eTraGo:
 
 .. code-block:: bash
 
-  $ pip3 install eTraGo --process-dependency-links
+  $ pip3 install eTraGo
 
 Installation for Developers
 ===========================
@@ -46,7 +46,7 @@ Use the pip -e to install eTraGo directly from the cloned repository:
 
 .. code-block::
 
-   $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
+   $ pip3 install -e /path/to/eTraGo/
 
 Using a virtual environment
 ===========================
