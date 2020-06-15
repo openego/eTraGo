@@ -25,7 +25,7 @@ setup(
                       'numpy == 1.16.2',
                       'scikit-learn == 0.19.0',
                       'pandas >= 0.19.0, <=0.20.3',
-                      'pypsa @ git+https://github.com/openego/PyPSA.git@master#egg=pypsa-0.11.0fork',
+                      'pypsa==0.11.0fork',
                       'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
@@ -34,6 +34,9 @@ setup(
                       'oedialect',
                       'pyproj == 2.0.2',
                       'tilemapbase == 0.4.5'],
+    dependency_links=[
+        ('git+https://git@github.com/openego/PyPSA.git'
+         '@master#egg=pypsa-0.11.0fork')],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
