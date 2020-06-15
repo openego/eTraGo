@@ -24,7 +24,8 @@ eTraGo is designed as a Python package therefore it is mandatory to have
 working Python3 environment, use pypi to install the latest eTraGo version.
 We highly recommend you to use a virtual environment. Use following pip
 command in order to install eTraGo. Be sure having the pip version 
-18.1 installed since newer versions do not permit using dependency links.
+18.1 installed (pip3 install pip==18.1) since newer versions do not 
+permit using dependency links.
 
 .. code-block:: bash
 
@@ -44,7 +45,7 @@ For the correct work-flow, please mind the
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
 Use the pip -e to install eTraGo directly from the cloned repository (Be sure having the pip version 
-18.1 installed since newer versions do not permit using dependency links!):
+18.1 installed (pip3 install pip==18.1) since newer versions do not permit using dependency links!):
 
 .. code-block::
 
