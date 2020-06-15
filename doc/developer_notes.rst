@@ -30,7 +30,7 @@ For the correct work-flow, please mind the
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
 3. Use the pip -e to install eTraGo directly from the cloned repository (Be sure having the pip version 
-18.1 installed since newer versions do not permit using dependency links!):
+18.1 installed (pip3 install pip==18.1) since newer versions do not permit using dependency links!):
 
 .. code-block:: bash
 
