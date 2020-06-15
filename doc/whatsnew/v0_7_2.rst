@@ -1,4 +1,4 @@
-Release 0.7.2 (Juni 12, 2020)
+Release 0.7.2 (Juni 15, 2020)
 ++++++++++++++++++++++++++++
 A minor release adding the following features.
 
