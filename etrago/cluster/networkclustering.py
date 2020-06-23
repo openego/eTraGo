@@ -386,7 +386,7 @@ def busmap_from_psql(network, session, scn_name, version):
     return busmap
 
 
-def kmean_clustering(network, n_clusters=10, load_cluster=False,
+def kmean_clustering(etrago, 
                      line_length_factor=1.25,
                      remove_stubs=False, use_reduced_coordinates=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None,
@@ -429,6 +429,9 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network : pypsa.Network object
         Container for all network components.
     """
+    network = etrago.network
+    n_clusters=etrago.args['network_clustering_kmeans']
+    load_cluster=etrago.args['load_cluster']
     def weighting_for_scenario(x, save=None):
         """
         """

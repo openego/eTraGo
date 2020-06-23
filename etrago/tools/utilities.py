@@ -1383,7 +1383,7 @@ def add_missing_components(network):
     return network
 
 
-def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
+def convert_capital_costs(etrago, p=0.05, T=40):
     """ Convert capital_costs to fit to pypsa and caluculated time
     
     Parameters
@@ -1395,6 +1395,10 @@ def convert_capital_costs(network, start_snapshot, end_snapshot, p=0.05, T=40):
     -------
 
     """
+    
+    network = etrago.network
+    start_snapshot = etrago.args['start_snapshot']
+    end_snapshot = etrago.args['end_snapshot']
     # Add costs for DC-converter
     network.links.capital_cost = network.links.capital_cost + 400000
 
@@ -1541,7 +1545,7 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
     return args
 
-def set_random_noise(network, seed, sigma = 0.01):
+def set_random_noise(etrago, sigma = 0.01):
     """
     Sets random noise to marginal cost of each generator.
 
@@ -1558,6 +1562,8 @@ def set_random_noise(network, seed, sigma = 0.01):
         standard deviation, small values reduce impact on dispatch
         but might lead to numerical instability
     """
+    network = etrago.network
+    seed = etrago.args['generator_noise']
     s = np.random.RandomState(seed)
     network.generators.marginal_cost[network.generators.bus.isin(
                 network.buses.index[network.buses.country_code == 'DE'])] += \
@@ -1729,7 +1735,7 @@ def crossborder_capacity(network, method, capacity_factor):
                 [country]*capacity_factor
 
 
-def set_branch_capacity(network, args):
+def set_branch_capacity(etrago):
 
     """
     Set branch capacity factor of lines and transformers, different factors for
@@ -1743,7 +1749,8 @@ def set_branch_capacity(network, args):
         Settings in appl.py
 
     """
-
+    network = etrago.network
+    args=etrago.args
     network.lines["s_nom_total"] = network.lines.s_nom.copy()
 
     network.transformers["s_nom_total"] = network.transformers.s_nom.copy()

@@ -42,7 +42,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(network, args, line_max):
+def extendable(etrago, line_max):
 
     """
     Function that sets selected components extendable
@@ -67,7 +67,9 @@ def extendable(network, args, line_max):
     network : :class:`pypsa.Network
         Overall container of PyPSA
     """
-
+    network = etrago.network
+    args = etrago.args
+    
     if 'network' in args['extendable']:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom

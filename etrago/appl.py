@@ -44,6 +44,9 @@ __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 if 'READTHEDOCS' not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
+
+    from etrago.network import Etrago
+    
     from etrago.cluster.disaggregation import (
             MiniSolverDisaggregation,
             UniformDisaggregation)
@@ -109,7 +112,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
@@ -147,6 +150,8 @@ args = {
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
+
+
 
 
 args = get_args_setting(args, jsonpath=None)
@@ -388,134 +393,26 @@ def etrago(args):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    conn = db.connection(section=args['db'])
-    Session = sessionmaker(bind=conn)
-    session = Session()
-
-    # additional arguments cfgpath, version, prefix
-    if args['gridversion'] is None:
-        args['ormcls_prefix'] = 'EgoGridPfHv'
-    else:
-        args['ormcls_prefix'] = 'EgoPfHv'
-
-    scenario = NetworkScenario(session,
-                               version=args['gridversion'],
-                               prefix=args['ormcls_prefix'],
-                               method=args['method'],
-                               start_snapshot=args['start_snapshot'],
-                               end_snapshot=args['end_snapshot'],
-                               scn_name=args['scn_name'])
-
-    network = scenario.build_network()
-
-    # add coordinates
-    network = add_coordinates(network)
-
-    # Set countrytags of buses, lines, links and transformers
-    network = geolocation_buses(network, session)
-
-    # Set q_sets of foreign loads
-    network = set_q_foreign_loads(network, cos_phi=1)
-
-    # Change transmission technology and/or capacity of foreign lines
-    if args['foreign_lines']['carrier'] == 'DC':
-        foreign_links(network)
-        network = geolocation_buses(network, session)
-
-    if args['foreign_lines']['capacity'] != 'osmTGmod':
-        crossborder_capacity(
-                network, args['foreign_lines']['capacity'],
-                args['branch_capacity_factor'])
-
-    # TEMPORARY vague adjustment due to transformer bug in data processing
-    if args['gridversion'] == 'v0.2.11':
-        network.transformers.x = network.transformers.x * 0.0001
-
-    # set SOC at the beginning and end of the period to equal values
-    network.storage_units.cyclic_state_of_charge = True
-        
-    # set disaggregated_network to default
-    disaggregated_network = None
-
-    # set clustering to default
-    clustering = None
-
-    # for SH scenario run do data preperation:
-    if (args['scn_name'] == 'SH Status Quo' or
-            args['scn_name'] == 'SH NEP 2035'):
-        data_manipulation_sh(network)
-
-    # grouping of parallel lines
-    if args['line_grouping']:
-        group_parallel_lines(network)
-
-    # Branch loading minimization
-    if args['minimize_loading']:
-        extra_functionality = loading_minimization
-
-    # scenario extensions
-    if args['scn_extension'] is not None:
-        for i in range(len(args['scn_extension'])):
-            network = extension(
-                    network,
-                    session,
-                    version=args['gridversion'],
-                    scn_extension=args['scn_extension'][i],
-                    start_snapshot=args['start_snapshot'],
-                    end_snapshot=args['end_snapshot'])
-        network = geolocation_buses(network, session)
-
-    # Add missing lines in Munich and Stuttgart
-    network = add_missing_components(network)
-
-    # add random noise to all generators
-    if args['generator_noise'] is not False:
-        set_random_noise(network, args['generator_noise'], 0.01)
-
-    # set Branch capacity factor for lines and transformer
-    if args['branch_capacity_factor']:
-        set_branch_capacity(network, args)
-
-    # scenario decommissioning
-    if args['scn_decommissioning'] is not None:
-        network = decommissioning(
-            network,
-            session,
-            args)
-
-    # investive optimization strategies
-    if args['extendable'] != []:
-        network = extendable(
-                    network,
-                    args,
-                    line_max=4)
-        network = convert_capital_costs(
-            network, args['start_snapshot'], args['end_snapshot'])
-
-    # load shedding in order to hunt infeasibilities
-    if args['load_shedding']:
-        load_shedding(network)
+    etrago = Etrago(args)
 
     # ehv network clustering
     if args['network_clustering_ehv']:
-        network.generators.control = "PV"
+        etrago.network.generators.control = "PV"
         busmap = busmap_from_psql(
-                network,
-                session,
+                etrago.network,
+                etrago.session,
                 scn_name=(
                         args['scn_name'] if args['scn_extension']==None
                         else args['scn_name']+'_ext_'+'_'.join(
                                 args['scn_extension'])),
                 version=args['gridversion'])
-        network = cluster_on_extra_high_voltage(
-            network, busmap, with_time=True)
+        etrago.network = cluster_on_extra_high_voltage(
+            etrago.network, busmap, with_time=True)
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
         clustering = kmean_clustering(
-                network,
-                n_clusters=args['network_clustering_kmeans'],
-                load_cluster=args['load_cluster'],
+                etrago,
                 line_length_factor=1,
                 remove_stubs=False,
                 use_reduced_coordinates=False,
@@ -527,19 +424,19 @@ def etrago(args):
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
-        network = clustering.network.copy()
-        geolocation_buses(network, session)
+        etrago.network = clustering.network.copy()
+        geolocation_buses(etrago.network, etrago.session)
 
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = network.snapshot_weightings[
+        network.snapshot_weightings = etrago.network.snapshot_weightings[
             ::args['skip_snapshots']] * args['skip_snapshots']
 
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
         network = snapshot_clustering(
-            network, how='daily', clusters=args['snapshot_clustering'])
+            etrago.network, how='daily', clusters=args['snapshot_clustering'])
         args['snapshot_clustering_constraints'] = 'soc_constraints'
 
     if args['ramp_limits']:
@@ -559,7 +456,7 @@ def etrago(args):
 
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
-        iterate_lopf(network,
+        iterate_lopf(etrago.network,
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
@@ -583,7 +480,7 @@ def etrago(args):
         network = distribute_q(network, allocation='p_nom')
 
     if not args['extendable'] == []:
-        print_expansion_costs(network, args)
+        print_expansion_costs(etrago.network, args)
 
     if clustering:
         disagg = args.get('disaggregation')
@@ -644,13 +541,13 @@ def etrago(args):
     # close session
     # session.close()
 
-    return network, disaggregated_network
+    return etrago
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network, disaggregated_network = etrago(args)
+    etrago = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
