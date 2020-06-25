@@ -433,7 +433,7 @@ def kmean_clustering(etrago,
     """
     network = etrago.network
     n_clusters=etrago.args['network_clustering_kmeans']
-    load_cluster=etrago.args['load_cluster']
+    kmeans_busmap=etrago.args['kmeans_busmap']
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -559,22 +559,21 @@ def kmean_clustering(etrago,
 
         weight = weight.groupby(busmap.values).sum()
 
+    if not kmeans_busmap:
     # k-mean clustering
-    busmap = busmap_by_kmeans(
-        network,
-        bus_weightings=pd.Series(weight),
-        n_clusters=n_clusters,
-        load_cluster=load_cluster,
-        n_init=n_init,
-        max_iter=max_iter,
-        tol=tol,
-        n_jobs=n_jobs)
-    
-    #busmap.to_csv('busmap.csv')
-#    busmap = pd.Series.from_csv('busmap.csv')
-#    busmap.index = busmap.index.map(str)
-#    busmap = busmap.astype('str')
-    #import pdb; pdb.set_trace()
+        busmap = busmap_by_kmeans(
+            network,
+            bus_weightings=pd.Series(weight),
+            n_clusters=n_clusters,
+            n_init=n_init,
+            max_iter=max_iter,
+            tol=tol,
+            n_jobs=n_jobs)
+        busmap.to_csv('kmeans_busmap_' + str(n_clusters) + '_result.csv')
+    else:
+          busmap = pd.Series.from_csv(kmeans_busmap)
+          busmap.index = busmap.index.map(str)
+          busmap = busmap.astype('str')
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']

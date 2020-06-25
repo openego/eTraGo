@@ -118,7 +118,7 @@ args = {
     'extra_functionality': {'cross_border_flow':[0, 0]},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 100,  # False or the value k for clustering
-    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
+    'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'

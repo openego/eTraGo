@@ -26,7 +26,7 @@
     "ramp_limits": false,
     "extra_functionality": {},
     "network_clustering_kmeans": 100,
-    "load_cluster": false,
+    "kmeans_busmap": false,
     "network_clustering_ehv": false,
     "disaggregation": "uniform",
     "snapshot_clustering": false,
