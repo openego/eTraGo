@@ -32,6 +32,7 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
+### can be moved to pypsa.global_constraints??
 class Constraints:
 
     def __init__(self, args):

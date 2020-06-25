@@ -43,11 +43,12 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "Simon Hilpert"
 
 
-def snapshot_clustering(network, how='daily', clusters=10):
+def snapshot_clustering(etrago, how='daily'):
     """
     """
 
-    network = run(network=network.copy(), n_clusters=clusters,
+    network = run(network=etrago.network.copy(),
+                  n_clusters=etrago.args['snapshot_clustering'],
                   how=how, normed=False)
 
     return network

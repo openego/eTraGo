@@ -227,8 +227,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
-                            tolvl, cpu_cores=4):
+def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     """ Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
@@ -266,10 +265,10 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     # cpu_cores = mp.cpu_count()
 
     # data preperation
-    s_buses = buses_grid_linked(network, fromlvl)
-    lines = connected_grid_lines(network, s_buses)
+    s_buses = buses_grid_linked(etrago.network, fromlvl)
+    lines = connected_grid_lines(etrago.network, s_buses)
     transformer = connected_transformer(network, s_buses)
-    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
+    mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
     # temporary end points, later replaced by bus1 pendant
     t_buses = transformer[mask].bus0
@@ -296,11 +295,11 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
 
     # rename temporary endpoints
     df.reset_index(inplace=True)
-    df.target = df.target.map(dict(zip(network.transformers.bus0,
-                                       network.transformers.bus1)))
+    df.target = df.target.map(dict(zip(etrago.network.transformers.bus0,
+                                       etrago.network.transformers.bus1)))
 
     # append to busmap buses only connected to transformer
-    transformer = network.transformers
+    transformer = etrago.network.transformers
     idx = list(set(buses_of_vlvl(network, fromlvl)).
                symmetric_difference(set(s_buses)))
     mask = transformer.bus0.isin(idx)
@@ -313,7 +312,7 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     df = pd.concat([df, toappend], ignore_index=True, axis=0)
 
     # append all other buses
-    buses = network.buses
+    buses = etrago.network.buses
     mask = buses.index.isin(df.source)
 
     assert set(buses[~mask].v_nom) == set(tolvl)
@@ -327,20 +326,20 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     # prepare data for export
 
     df['scn_name'] = scn_name
-    df['version'] = version
+    df['version'] = etrago.args['gridversion']
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
     for i, d in df.reset_index().iterrows():
-        session.add(EgoGridPfHvBusmap(**d.to_dict()))
+        etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
 
-    session.commit()
+    etrago.session.commit()
 
     return
 
 
-def busmap_from_psql(network, session, scn_name, version):
+def busmap_from_psql(etrago):
     """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
@@ -361,12 +360,15 @@ def busmap_from_psql(network, session, scn_name, version):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-
+    scn_name=(etrago.args['scn_name'] if etrago.args['scn_extension']==None
+                        else etrago.args['scn_name']+'_ext_'+'_'.join(
+                                etrago.args['scn_extension']))
     def fetch():
 
-        query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name).filter(
-                    EgoGridPfHvBusmap.version == version)
+        query = etrago.session.query(
+            EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+            filter(EgoGridPfHvBusmap.scn_name == scn_name).\
+            filter(EgoGridPfHvBusmap.version == etrago.args['gridversion'])
 
         return dict(query.all())
 
@@ -378,7 +380,7 @@ def busmap_from_psql(network, session, scn_name, version):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name, version,
+        busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
@@ -567,6 +569,12 @@ def kmean_clustering(etrago,
         max_iter=max_iter,
         tol=tol,
         n_jobs=n_jobs)
+    
+    #busmap.to_csv('busmap.csv')
+#    busmap = pd.Series.from_csv('busmap.csv')
+#    busmap.index = busmap.index.map(str)
+#    busmap = busmap.astype('str')
+    #import pdb; pdb.set_trace()
 
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']

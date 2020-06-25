@@ -749,7 +749,7 @@ def set_slack(network):
     return network
 
 
-def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
+def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
 
     """ Function that prepares and runs non-linar load flow using PyPSA pf. 
     
@@ -780,8 +780,11 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
     -------
         
     """
+    x = time.time()
+    network = etrago.network
+    args = etrago.args
     network_pf = network
-
+    network_pf.lines.s_nom = network_pf.lines.s_nom_opt
     # For the PF, set the P to the optimised P
     network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
         columns=network_pf.generators.index)
@@ -883,6 +886,10 @@ def pf_post_lopf(network, args, add_foreign_lopf, q_allocation, calc_losses):
 
     network = distribute_q(network, allocation=q_allocation)
     
+    y = time.time()
+    z = (y - x) / 60
+    print("Time for PF [min]:", round(z, 2))
+        
     if args['csv_export'] != False:
             path=args['csv_export']+ '/pf_post_lopf'
             results_to_csv(network, args, path)
@@ -1823,7 +1830,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
                 
     return l_snom_pre, t_snom_pre
 
-def iterate_lopf(network, args, extra_functionality, method={'n_iter':4}, 
+def iterate_lopf(etrago, extra_functionality, method={'n_iter':4}, 
                  delta_s_max=0.1):
 
     """
@@ -1848,7 +1855,8 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
 
     """
     results_to_csv.counter=0
-    
+    network = etrago.network
+    args = etrago.args
     # if network is extendable, iterate lopf 
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
@@ -1972,7 +1980,15 @@ def iterate_lopf(network, args, extra_functionality, method={'n_iter':4},
             if args['csv_export'] != False:
                 path=args['csv_export']+ '/lopf'
                 results_to_csv(network, args, path)
+    if args['csv_export'] != False:
+        path=args['csv_export']
+        results_to_csv(network, args, path)
             
     return network
             
-
+def check_args(args):
+    from sys import exit
+    if args['scn_name'] not in ['Status Quo', 'NEP 2035', 'eGo 100']:
+        
+        logger.error("args['scn_name'] has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + args['scn_name'])
+        exit()

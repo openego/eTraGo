@@ -56,23 +56,6 @@ if 'READTHEDOCS' not in os.environ:
         cluster_on_extra_high_voltage,
         kmean_clustering)
 
-    from etrago.tools.io import (
-        NetworkScenario,
-        results_to_oedb,
-        extension,
-        decommissioning)
-
-    from etrago.tools.plot import (
-        plot_line_loading,
-        plot_stacked_gen,
-        add_coordinates,
-        curtailment,
-        gen_dist,
-        storage_distribution,
-        storage_expansion,
-        nodal_gen_dispatch,
-        network_expansion)
-
     from etrago.tools.utilities import (
         load_shedding,
         data_manipulation_sh,
@@ -100,13 +83,10 @@ if 'READTHEDOCS' not in os.environ:
         Constraints)
 
     from etrago.tools.extendable import (
-            extendable,
-            extension_preselection,
             print_expansion_costs)
 
     from etrago.cluster.snapshot import snapshot_clustering
-    from egoio.tools import db
-    from sqlalchemy.orm import sessionmaker
+
     import oedialect
 
 
@@ -115,9 +95,9 @@ args = {
     'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 12,
-    'end_snapshot': 13,
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'start_snapshot': 1,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
@@ -128,17 +108,17 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': 'test_2406',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {},  # Choose function name or {}
+    'extra_functionality': {'cross_border_flow':[0, 0]},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 30,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'load_cluster': 'cluster_coord_k_100_result',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -395,17 +375,12 @@ def etrago(args):
     """
     etrago = Etrago(args)
 
+    clustering = None
+
     # ehv network clustering
     if args['network_clustering_ehv']:
         etrago.network.generators.control = "PV"
-        busmap = busmap_from_psql(
-                etrago.network,
-                etrago.session,
-                scn_name=(
-                        args['scn_name'] if args['scn_extension']==None
-                        else args['scn_name']+'_ext_'+'_'.join(
-                                args['scn_extension'])),
-                version=args['gridversion'])
+        busmap = busmap_from_psql(etrago)
         etrago.network = cluster_on_extra_high_voltage(
             etrago.network, busmap, with_time=True)
 
@@ -422,62 +397,35 @@ def etrago(args):
                 max_iter=100,
                 tol=1e-6,
                 n_jobs=-1)
-        disaggregated_network = (
-                network.copy() if args.get('disaggregation') else None)
+        if args['disaggregation']!=None:
+            etrago.disaggregated_network = etrago.network.copy()
         etrago.network = clustering.network.copy()
         geolocation_buses(etrago.network, etrago.session)
 
     # skip snapshots
     if args['skip_snapshots']:
-        network.snapshots = network.snapshots[::args['skip_snapshots']]
-        network.snapshot_weightings = etrago.network.snapshot_weightings[
+        etrago.network.snapshots = etrago.network.snapshots[::args['skip_snapshots']]
+        etrago.network.snapshot_weightings = etrago.network.snapshot_weightings[
             ::args['skip_snapshots']] * args['skip_snapshots']
 
     # snapshot clustering
     if not args['snapshot_clustering'] is False:
-        network = snapshot_clustering(
-            etrago.network, how='daily', clusters=args['snapshot_clustering'])
+        etrago.network = snapshot_clustering(etrago, how='daily')
         args['snapshot_clustering_constraints'] = 'soc_constraints'
 
-    if args['ramp_limits']:
-        ramp_limits(network)
-
-    # preselection of extendable lines
-    if 'network_preselection' in args['extendable']:
-        extension_preselection(network, args, 'snapshot_clustering', 2)
-
-    # parallisation
-    if args['parallelisation']:
-        parallelisation(
-            network,
-            args,
-            group_size=1,
-            extra_functionality=Constraints(args).functionality)
-
     # start linear optimal powerflow calculations
-    elif args['method'] == 'lopf':
-        iterate_lopf(etrago.network,
-                     args,
+    if args['method'] == 'lopf':
+        iterate_lopf(etrago,
                      Constraints(args).functionality,
                      method={'n_iter':4})
 
-    # start non-linear powerflow simulation
-    elif args['method'] == 'pf':
-        network.pf(scenario.timeindex)
-        # calc_line_losses(network)
-
     if args['pf_post_lopf']:
-        x = time.time()
-        pf_post_lopf(network,
-                     args,
+        pf_post_lopf(etrago,
                      add_foreign_lopf=True,
                      q_allocation='p_nom',
                      calc_losses=True)
-        y = time.time()
-        z = (y - x) / 60
-        print("Time for PF [min]:", round(z, 2))
-        calc_line_losses(network)
-        network = distribute_q(network, allocation='p_nom')
+        calc_line_losses(etrago.network)
+
 
     if not args['extendable'] == []:
         print_expansion_costs(etrago.network, args)
@@ -489,54 +437,36 @@ def etrago(args):
         if disagg:
             if disagg == 'mini':
                 disaggregation = MiniSolverDisaggregation(
-                        disaggregated_network,
-                        network,
+                        etrago.disaggregated_network,
+                        etrago.network,
                         clustering,
                         skip=skip)
             elif disagg == 'uniform':
-                disaggregation = UniformDisaggregation(disaggregated_network,
-                                                       network,
+                disaggregation = UniformDisaggregation(etrago.disaggregated_network,
+                                                       etrago.network,
                                                        clustering,
                                                        skip=skip)
 
             else:
                 raise Exception('Invalid disaggregation command: ' + disagg)
 
-            disaggregation.execute(scenario, solver=args['solver'])
+            disaggregation.execute(etrago.scenario, solver=args['solver'])
             # temporal bug fix for solar generator which ar during night time
             # nan instead of 0
-            disaggregated_network.generators_t.p.fillna(0, inplace=True)
-            disaggregated_network.generators_t.q.fillna(0, inplace=True)
+            etrago.disaggregated_network.generators_t.p.fillna(0, inplace=True)
+            etrago.disaggregated_network.generators_t.q.fillna(0, inplace=True)
 
-            disaggregated_network.results = network.results
+            etrago.disaggregated_network.results = etrago.network.results
             print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
 
     # write lpfile to path
+    ### move to lopf
     if not args['lpfile'] is False:
         network.model.write(
             args['lpfile'], io_options={
                 'symbolic_solver_labels': True})
 
-    # write PyPSA results back to database
-    if args['db_export']:
-        username = str(conn.url).split('//')[1].split(':')[0]
-        args['user_name'] = username
-
-        results_to_oedb(
-            session,
-            network,
-            dict([("disaggregated_results", False)] + list(args.items())),
-            grid='hv',
-            safe_results=False)
-
-        if disaggregated_network:
-            results_to_oedb(
-                session,
-                disaggregated_network,
-                dict([("disaggregated_results", True)] + list(args.items())),
-                grid='hv',
-                safe_results=False)
 
     # close session
     # session.close()
