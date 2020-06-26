@@ -201,9 +201,10 @@ class NetworkScenario(ScenarioBase):
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
 
-        timeindex = pd.DatetimeIndex(start=tr.start_time,
-                                     periods=tr.timesteps,
-                                     freq=tr.resolution)
+        timeindex = pd.DatetimeIndex(data=pd.date_range(
+            start=tr.start_time,
+            periods=tr.timesteps,
+            freq=tr.resolution))
 
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
         """ pandas.tseries.index.DateTimeIndex :
@@ -329,7 +330,7 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.11.0':
+        if pypsa.__version__ == '0.17.0':
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',

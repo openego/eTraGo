@@ -100,9 +100,9 @@ class Etrago():
         add_missing_components(self.network)
         load_shedding(self.network)
         set_random_noise(self, 0.01)
-        self.network.lines.v_nom = self.network.lines.bus0.map(
+        self.network.lines['v_nom'] = self.network.lines.bus0.map(
                 self.network.buses.v_nom)
-        self.network.links.v_nom = self.network.links.bus0.map(
+        self.network.links['v_nom'] = self.network.links.bus0.map(
                 self.network.buses.v_nom)
         set_q_foreign_loads(self.network, cos_phi=1)
         set_branch_capacity(self) # will be replaced when using new pypsa version

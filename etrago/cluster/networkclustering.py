@@ -42,6 +42,7 @@ if 'READTHEDOCS' not in os.environ:
     import pypsa.components as components
     from six import iteritems
     from sqlalchemy import or_, exists
+    import numpy as np
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -568,15 +569,21 @@ def kmean_clustering(etrago,
             n_jobs=n_jobs)
         busmap.to_csv('kmeans_busmap_' + str(n_clusters) + '_result.csv')
     else:
-          busmap = pd.Series.from_csv(kmeans_busmap)
-          busmap.index = busmap.index.map(str)
-          busmap = busmap.astype('str')
+        df = pd.read_csv('kmeans_busmap_10_result.csv')
+        df=df.astype(str)
+        df = df.set_index('bus_id')
+        busmap = df.squeeze('columns')
 
     network.generators['weight'] = network.generators['p_nom']
     clustering = get_clustering_from_busmap(
         network,
         busmap,
-        aggregate_generators_weighted=True)
+        aggregate_generators_weighted=True,
+        one_port_strategies={'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
+                             'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
+                             'p_min_pu': np.min},
+        generator_strategies={'p_nom_min':np.min,'p_nom_max': np.min, 'weight': np.sum, 'p_nom': np.sum, 'p_nom_opt': np.sum,
+                  'marginal_cost': np.mean, 'capital_cost': np.mean})
 
 
     return clustering
