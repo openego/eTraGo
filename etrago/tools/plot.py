@@ -777,176 +777,6 @@ def plot_q_flows(network, osm = False):
                       ticks=v[0:101:10])
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-    
-
-def max_load(network, boundaries=[], filename=None, two_cb=False, osm = False):
-    
-    """Plot maximum loading of each line. 
-    
-    Parameters
-    ----------
-    network: PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    filename: str or None
-        Save figure in this direction
-    boundaries: array
-       Set boundaries of heatmap axis
-    two_cb: bool
-        Choose if an extra colorbar for DC-lines is plotted
-    
-    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-        If not False, osm is set as background 
-        with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm 
-    """
-    
-    if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
-        plot_osm(osm['x'], osm['y'], osm['zoom'])
-
-    cmap_line = plt.cm.jet
-    cmap_link = plt.cm.jet
-    array_line = [['Line'] * len(network.lines), network.lines.index]
-    array_link = [['Link'] * len(network.links), network.links.index]
-
-    if network.lines_t.q0.empty:
-        load_lines = pd.Series((abs(network.lines_t.p0).max(
-                ) / (network.lines.s_nom) * 100).data, index=array_line)
-
-    else: load_lines = pd.Series(((network.lines_t.p0**2 +
-                           network.lines_t.q0 ** 2).max().apply(sqrt)/
-                           (network.lines.s_nom) * 100).data, index=array_line)
-        
-    load_links = pd.Series((abs(network.links_t.p0.max(
-                ) / (network.links.p_nom)) * 100).data, index=array_link)
-
-    max_load = load_lines.append(load_links)
-
-    ll = network.plot(
-        line_colors=max_load,
-        line_cmap={
-            'Line': cmap_line,
-            'Link': cmap_link},
-        bus_sizes=0,
-        title="Maximum of line loading",
-        line_widths=2)
-
-    if not boundaries:
-        boundaries = [min(max_load), max(max_load)]
-
-    v = np.linspace(boundaries[0], boundaries[1], 101)
-
-    cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
-
-    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-    cb_Link = plt.colorbar(ll[2], boundaries=v,
-                               ticks=v[0:101:10])
-    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-    if two_cb:
-        # cb_Link.set_label('Maximum load of DC-lines %')
-        cb.set_label('Maximum load of AC-lines %')
-
-    else:
-        cb_Link.remove()
-        cb.set_label('Maximum load in %')
-    if filename is None:
-        plt.show()
-    else:
-        plt.savefig(filename)
-        plt.close()
-
-
-def load_hours(network,
-               min_load=0.9,
-               max_load=1,
-               boundaries=[0, 8760],
-               osm = False):
-    
-    """Plot number of hours with line loading in selected range. 
-    
-    Parameters
-    ----------
-    network: PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-    min_load: float
-        Choose lower bound of relative load 
-    max_load: float
-        Choose upper bound of relative load
-    boundaries: array
-       Set boundaries of heatmap axis
-    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-        If not False, osm is set as background 
-        with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm 
-    
-    """
-    if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
-        plot_osm(osm['x'], osm['y'], osm['zoom'])
-
-    cmap_line = plt.cm.jet
-    cmap_link = plt.cm.jet
-    array_line = [['Line'] * len(network.lines), network.lines.index]
-
-    load_lines = pd.Series(((abs(network.lines_t.p0[(
-        abs(network.lines_t.p0.mul(network.snapshot_weightings, axis=0)) / 
-        network.lines.s_nom_opt >= min_load) &
-                                                    (
-        abs(network.lines_t.p0.mul(network.snapshot_weightings, axis=0)) / 
-        network.lines.s_nom_opt <= max_load)]) /
-                            abs(network.lines_t.p0[(
-                                abs(network.lines_t.p0) /
-                                network.lines.s_nom_opt >= min_load) &
-                                (abs(network.lines_t.p0) /
-                                 network.lines.s_nom_opt <= max_load)]))
-                            .sum()).data, index=array_line)
-
-    array_link = [['Link'] * len(network.links), network.links.index]
-
-    load_links = pd.Series(((abs(network.links_t.p0[(
-        abs(network.links_t.p0.mul(network.snapshot_weightings, axis=0)) / 
-        network.links.p_nom_opt >= min_load) &
-                                                    (
-        abs(network.links_t.p0.mul(network.snapshot_weightings, axis=0)) / 
-        network.links.p_nom_opt <= max_load)]) /
-                             abs(network.links_t.p0[(
-                                abs(network.links_t.p0) /
-                                network.links.p_nom_opt >= min_load) &
-                                (abs(network.links_t.p0) /
-                                 network.links.p_nom_opt <= max_load)]))
-                            .sum()).data, index=array_link)
-
-    load_hours = load_lines.append(load_links)
-
-    ll = network.plot(
-        line_colors=load_hours,
-        line_cmap={
-            'Line': cmap_line,
-            'Link': cmap_link},
-        bus_sizes=0,
-        title="Number of hours with more then 90% load",
-        line_widths=2)
-
-    v1 = np.linspace(boundaries[0], boundaries[1], 101)
-    v = np.linspace(boundaries[0], boundaries[1], 101)
-    cb_Link = plt.colorbar(ll[2], boundaries=v1,
-                           ticks=v[0:101:10])
-    cb_Link.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-    cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
-    cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
-
-    cb.set_label('Number of hours')
 
 
 def plot_residual_load(network):
@@ -2028,49 +1858,140 @@ def storage_soc_sorted(network, filename = None):
 
     return
 
-def plot_grid(self, line_color, boundaries=None):
+def mul_weighting(network, timeseries):
+        return timeseries.mul(network.snapshot_weightings, axis = 0)
+    
+def calc_ac_loading(network, timesteps):
+    
+    loading_lines = mul_weighting(network, network.lines_t.p0).loc[
+                network.snapshots[timesteps]].abs().sum()
+
+    if not network.lines_t.q0.empty:
+        
+        loading_lines = (loading_lines ** 2 +\
+                mul_weighting(network, network.lines_t.q0).loc[
+                network.snapshots[timesteps]].abs().sum() ** 2).\
+                    apply(sqrt)
+                    
+    return loading_lines/network.lines.s_nom_opt
+
+def calc_dc_loading(network, timesteps):
+    
+    # Aviod covering of bidirectional links
+    network.links['linked_to'] = 0
+    for i,  row in network.links.iterrows():
+        if not (network.links.index[(network.links.bus0 == row['bus1']) &
+                                  (network.links.bus1 == row['bus0']) &
+                                  (network.links.length == row['length']
+                                  )]).empty:
+
+            l = network.links.index[(network.links.bus0 == row['bus1']) &
+                                  (network.links.bus1 == row['bus0']) &
+                                  (network.links.length == row['length'])]
+
+            network.links.set_value(i, 'linked_to',l.values[0])
+
+    network.links.linked_to = network.links.linked_to.astype(str)
+    # Set p_nom_max and line_loading for one directional links
+    link_load = network.links_t.p0[network.links.index[
+            network.links.linked_to == '0']]
+
+    p_nom_opt_max=network.links.p_nom_opt[network.links.linked_to == '0']
+
+    # Set p_nom_max and line_loading for bidirectional links
+    for i, row in network.links[network.links.linked_to != '0'].iterrows():
+        load = pd.DataFrame(index = network.links_t.p0.index,
+                            columns = ['to', 'from'])
+        load['to'] = network.links_t.p0[row['linked_to']]
+        load['from'] = network.links_t.p0[i]
+        link_load[i] = load.abs().max(axis = 1)
+        p_nom_opt_max[i] = max(row.p_nom_opt,
+                     network.links.p_nom_opt[network.links.index
+                                             ==row['linked_to']].values[0])
+
+    return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
+            .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
+
+def plot_grid(self,
+              line_color,
+              bus_size = 10,
+              timesteps=range(2), 
+              osm=False,
+              boundaries=None,
+              filename = None,
+              disaggregated = False):
+    
+    if disaggregated:
+        network = self.disaggregated_network
+    else:
         network = self.network
-        if line_color=='line_loading':
-            title='Line loading in percent'
-            
-            line_colors={'Line':(network.lines_t.p0/network.lines.s_nom_opt).abs().mean(),
-                         'Link':(network.links_t.p0/network.links.p_nom_opt).abs().mean()}
-            boundaries=[0,1]
-            label='line loading in p.u.'
+
+    ### Attribute line_colors will be split into line_colors and link_colors in new pypsa
+    
+    if osm != False:
+        if plot_grid.counter == 0:
+            set_epsg_network(network)
+            plot_grid.counter = 1
+        plot_osm(osm['x'], osm['y'], osm['zoom'])
+        
+    if line_color=='line_loading':
+        title='Mean loading from ' + str(network.snapshots[timesteps[0]])+\
+        ' to ' + str(network.snapshots[timesteps[-1]])
+        rep_snapshots = network.snapshot_weightings\
+                        [network.snapshots[timesteps]].sum()
+        line_colors={'Line':calc_ac_loading(network, timesteps)/rep_snapshots,
+                     'Link':calc_dc_loading(network, timesteps)/rep_snapshots}
+        label='line loading in p.u.'
             
 
-        elif line_color=='v_nom':
-              title='Voltage levels'
-              label='v_nom in kV'
-              line_colors={'Line':network.lines.v_nom,
-                           'Link':network.links.v_nom}
-              boundaries=[110, 450]
+    elif line_color=='v_nom':
+        title='Voltage levels'
+        label='v_nom in kV'
+        line_colors={'Line':network.lines.v_nom,
+                     'Link':network.links.v_nom}
+
         
-        elif line_color=='expansion':
-            title='Network expansion'
-            label='additional capacity in MW'
-            line_colors={'Line':network.lines.s_nom_opt-network.lines.s_nom_min,
-                         'Link':network.links.p_nom_opt-network.links.p_nom_min}
-        else:
-            return
+    elif line_color=='expansion':
+        title='Network expansion'
+        label='additional capacity in MW'
+        line_colors={'Line':network.lines.s_nom_opt-network.lines.s_nom_min,
+                     'Link':network.links.p_nom_opt-network.links.p_nom_min}
+
+    elif line_color=='q_flow_max':
+        title='Maximmal reactive power flows'
+        label='flow in Mvar'
+        line_colors = {'Line': abs(network.lines_t.q0.abs().max()/\
+                                   (network.lines.s_nom)), 
+                       'Link': pd.Series(data = 0, index=network.links.index)}
+        
+    else:
+        print('line_color undefined')
+        return
             
-        if not boundaries:
-            df = pd.DataFrame(line_colors)
-            v = np.linspace(df.min().min(), df.max().max(), 101)
-            boundaries = [df.min().min(), df.max().max()]
+    if not boundaries:
+        df = pd.DataFrame(line_colors)
+        v = np.linspace(df.min().min(), df.max().max(), 101)
+        boundaries = [df.min().min(), df.max().max()]
         
-        else:
-            v = np.linspace(boundaries[0], boundaries[1], 101)
+    else:
+        v = np.linspace(boundaries[0], boundaries[1], 101)
         
 
-        ll=network.plot(line_colors=line_colors, 
+    ll=network.plot(line_colors=line_colors, 
                 line_cmap={'Line':plt.cm.jet, 'Link': plt.cm.jet},
+                bus_sizes = bus_size,
                 title=title)
         
-        cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
-        cb.set_label(label)
+    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
+    cb.set_label(label)
+    
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()
     
 set_epsg_network.counter = 0
-
+plot_grid.counter = 0
 if __name__ == '__main__':
     pass
