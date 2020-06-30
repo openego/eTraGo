@@ -1889,7 +1889,7 @@ def calc_dc_loading(network, timesteps):
                                   (network.links.bus1 == row['bus0']) &
                                   (network.links.length == row['length'])]
 
-            network.links.set_value(i, 'linked_to',l.values[0])
+            network.links.at[i, 'linked_to']=l.values[0]
 
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
@@ -1939,52 +1939,48 @@ def plot_grid(self,
         ' to ' + str(network.snapshots[timesteps[-1]])
         rep_snapshots = network.snapshot_weightings\
                         [network.snapshots[timesteps]].sum()
-        line_colors={'Line':calc_ac_loading(network, timesteps)/rep_snapshots,
-                     'Link':calc_dc_loading(network, timesteps)/rep_snapshots}
+        line_colors = calc_ac_loading(network, timesteps)/rep_snapshots
+        link_colors = calc_dc_loading(network, timesteps)/rep_snapshots
         label='line loading in p.u.'
             
 
     elif line_color=='v_nom':
         title='Voltage levels'
         label='v_nom in kV'
-        line_colors={'Line':network.lines.v_nom,
-                     'Link':network.links.v_nom}
+        line_colors = network.lines.v_nom
+        link_colors = network.links.v_nom
 
         
     elif line_color=='expansion':
         title='Network expansion'
         label='additional capacity in MW'
-        line_colors={'Line':network.lines.s_nom_opt-network.lines.s_nom_min,
-                     'Link':network.links.p_nom_opt-network.links.p_nom_min}
+        line_colors = network.lines.s_nom_opt-network.lines.s_nom_min
+        link_colors = network.links.p_nom_opt-network.links.p_nom_min
 
     elif line_color=='q_flow_max':
         title='Maximmal reactive power flows'
         label='flow in Mvar'
-        line_colors = {'Line': abs(network.lines_t.q0.abs().max()/\
-                                   (network.lines.s_nom)), 
-                       'Link': pd.Series(data = 0, index=network.links.index)}
+        line_colors = abs(network.lines_t.q0.abs().max()/(network.lines.s_nom))
+        link_colors=  pd.Series(data = 0, index=network.links.index)
         
     else:
         print('line_color undefined')
         return
             
     if not boundaries:
-        df = pd.DataFrame(line_colors)
-        v = np.linspace(df.min().min(), df.max().max(), 101)
-        boundaries = [df.min().min(), df.max().max()]
-        
-    else:
-        v = np.linspace(boundaries[0], boundaries[1], 101)
-        
+        boundaries = [min(line_colors.min(), link_colors.min()), 
+                         max(line_colors.max(), link_colors.max())]
 
-    ll=network.plot(line_colors=line_colors, 
-                line_cmap={'Line':plt.cm.jet, 'Link': plt.cm.jet},
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+
+    ll=network.plot(line_colors=line_colors, link_colors=link_colors,
+                line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                 bus_sizes = bus_size,
                 title=title)
-        
-    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
+
+    cb = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
     cb.set_label(label)
-    
+
     if filename is None:
         plt.show()
     else:
