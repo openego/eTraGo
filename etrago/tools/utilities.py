@@ -730,7 +730,7 @@ def set_slack(network):
     for bus_iter in range(1, len(max_gen_buses_index) - 1):
         if old_gens[(network.
                      generators['bus'] == max_gen_buses_index[-bus_iter]) &
-                    (network.generators['control'] == 'PV')].empty:
+                    (network.generators['control'] != 'PQ')].empty:
             continue
         else:
             new_slack_bus = max_gen_buses_index[-bus_iter]
@@ -741,10 +741,9 @@ def set_slack(network):
         p_nom[(network.generators['bus'] == new_slack_bus) & (
             network.generators['control'] == 'PV')].sort_values().index[-1]
 
-    network.generators = network.generators.set_value(
-        old_slack, 'control', old_control)
-    network.generators = network.generators.set_value(
-        new_slack_gen, 'control', 'Slack')
+    network.generators.at[old_slack, 'control'] = old_control
+    network.generators.at[new_slack_gen, 'control'] = 'Slack'
+
     
     return network
 
@@ -1131,19 +1130,15 @@ def set_line_costs(network, args,
     -------
 
     """
-    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
 
     network.lines.loc[(network.lines.v_nom == 110),
-                      'capital_cost'] = cost110 * network.lines.length /\
-                          args['branch_capacity_factor']['HV']
+                      'capital_cost'] = cost110 * network.lines.length 
                       
     network.lines.loc[(network.lines.v_nom == 220),
-                      'capital_cost'] = cost220 * network.lines.length/\
-                      args['branch_capacity_factor']['eHV']
+                      'capital_cost'] = cost220 * network.lines.length
                       
     network.lines.loc[(network.lines.v_nom == 380),
-                      'capital_cost'] = cost380 * network.lines.length/\
-                      args['branch_capacity_factor']['eHV']
+                      'capital_cost'] = cost380 * network.lines.length
                       
     network.links.loc[network.links.p_nom_extendable,
                       'capital_cost'] = costDC * network.links.length
@@ -1175,14 +1170,13 @@ def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
         network.buses.v_nom)
 
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 220), 'capital_cost'] = cost110_220/\
-        args['branch_capacity_factor']['HV']
+        network.transformers.v_nom1 == 220), 'capital_cost'] = cost110_220
+
     network.transformers.loc[(network.transformers.v_nom0 == 110) & (
-        network.transformers.v_nom1 == 380), 'capital_cost'] = cost110_380/\
-        args['branch_capacity_factor']['HV']
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost110_380
+
     network.transformers.loc[(network.transformers.v_nom0 == 220) & (
-        network.transformers.v_nom1 == 380), 'capital_cost'] = cost220_380/\
-        args['branch_capacity_factor']['eHV']
+        network.transformers.v_nom1 == 380), 'capital_cost'] = cost220_380
 
     return network
 
@@ -1758,26 +1752,21 @@ def set_branch_capacity(etrago):
     """
     network = etrago.network
     args=etrago.args
-    network.lines["s_nom_total"] = network.lines.s_nom.copy()
 
-    network.transformers["s_nom_total"] = network.transformers.s_nom.copy()
-
-    network.lines["v_nom"] = network.lines.bus0.map(
-        network.buses.v_nom)
     network.transformers["v_nom0"] = network.transformers.bus0.map(
         network.buses.v_nom)
 
-    network.lines.s_nom[network.lines.v_nom == 110] = \
-        network.lines.s_nom * args['branch_capacity_factor']['HV']
+    network.lines.s_max_pu[network.lines.v_nom == 110] = \
+        args['branch_capacity_factor']['HV']
 
-    network.lines.s_nom[network.lines.v_nom > 110] = \
-        network.lines.s_nom * args['branch_capacity_factor']['eHV']
+    network.lines.s_max_pu[network.lines.v_nom > 110] = \
+        args['branch_capacity_factor']['eHV']
 
-    network.transformers.s_nom[network.transformers.v_nom0 == 110]\
-        = network.transformers.s_nom * args['branch_capacity_factor']['HV']
+    network.transformers.s_max_pu[network.transformers.v_nom0 == 110]\
+        = args['branch_capacity_factor']['HV']
 
-    network.transformers.s_nom[network.transformers.v_nom0 > 110]\
-        = network.transformers.s_nom * args['branch_capacity_factor']['eHV']
+    network.transformers.s_max_pu[network.transformers.v_nom0 > 110]\
+        = args['branch_capacity_factor']['eHV']
      
 
 def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
