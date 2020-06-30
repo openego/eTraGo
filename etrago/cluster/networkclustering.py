@@ -510,7 +510,7 @@ def kmean_clustering(etrago,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_max_pu']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),
