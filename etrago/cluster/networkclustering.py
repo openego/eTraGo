@@ -121,18 +121,26 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
-    new_df, new_pnl = aggregategenerators(network, busmap, with_time)
+    new_df, new_pnl = aggregategenerators(network, busmap, with_time,
+                    custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
+                                       'weight': np.sum, 'p_nom': np.sum, 
+                                       'p_nom_opt': np.sum, 'marginal_cost':
+                                           np.mean, 'capital_cost': np.mean})
     io.import_components_from_dataframe(network_c, new_df, 'Generator')
     for attr, df in iteritems(new_pnl):
         io.import_series_from_dataframe(network_c, df, 'Generator', attr)
 
     # dealing with all other components
-    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
+        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
+                             'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
+                             'p_min_pu': np.min}}
         new_df, new_pnl = aggregateoneport(
-            network, busmap, component=one_port, with_time=with_time)
+            network, busmap, component=one_port, with_time=with_time, 
+            custom_strategies=one_port_strategies.get(one_port, {}))
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
@@ -575,15 +583,18 @@ def kmean_clustering(etrago,
         busmap = df.squeeze('columns')
 
     network.generators['weight'] = network.generators['p_nom']
+    aggregate_one_ports = network.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
-        one_port_strategies={'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
+        one_port_strategies={'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
                              'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                             'p_min_pu': np.min},
+                             'p_min_pu': np.min}},
         generator_strategies={'p_nom_min':np.min,'p_nom_max': np.min, 'weight': np.sum, 'p_nom': np.sum, 'p_nom_opt': np.sum,
-                  'marginal_cost': np.mean, 'capital_cost': np.mean})
+                  'marginal_cost': np.mean, 'capital_cost': np.mean},
+        aggregate_one_ports=aggregate_one_ports)
 
 
     return clustering
