@@ -23,11 +23,11 @@ from pypsa.components import Network
 from egoio.tools import db
 from sqlalchemy.orm import sessionmaker
 import json
-from etrago.tools.io import NetworkScenario
+from etrago.tools.io import NetworkScenario, extension, decommissioning
 
 from etrago.tools.utilities import (set_branch_capacity, convert_capital_costs, 
 add_missing_components, set_random_noise, geolocation_buses, check_args, load_shedding, 
-set_q_foreign_loads)
+set_q_foreign_loads, foreign_links, crossborder_capacity)
 
 from etrago.tools.plot import add_coordinates, plot_grid
 
@@ -52,12 +52,10 @@ class Etrago():
         elif csv_folder_name!=None:
             with open(csv_folder_name + '/args.json') as f:
                 self.args = json.load(f)
-
         else:
             logger.error('Give args or csv_folder')
         
-        self.network = Network(
-                csv_folder_name, name, ignore_standard_types)
+        self.network = Network(csv_folder_name, name, ignore_standard_types)
 
         if self.args['disaggregation']!=None:
             self.disaggregated_network = Network(
@@ -69,12 +67,12 @@ class Etrago():
         self.__renewable_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                                      'biomass', 'run_of_river', 'reservoir']
 
-        
+        # Create network 
         if csv_folder_name==None: 
             conn = db.connection(section=args['db'])
             Session = sessionmaker(bind=conn)
             self.session = Session()
-            check_args(self.args)
+            check_args(self.args, self)
             self._build_network_from_db()
             self._adjust_network()
 
@@ -96,8 +94,20 @@ class Etrago():
         
     def _adjust_network(self):
         add_coordinates(self.network)
-        geolocation_buses(self.network, self.session)
+        geolocation_buses(self)
+
+        if self.args['scn_extension'] is not None:
+            for i in range(len(self.args['scn_extension'])):
+                extension(
+                    self,
+                    scn_extension=self.args['scn_extension'][i])
+                geolocation_buses(self)
+                
         add_missing_components(self.network)
+        
+        if self.args['scn_decommissioning'] is not None:
+            decommissioning(self)
+
         if self.args['load_shedding']:
             load_shedding(self.network)
         set_random_noise(self, 0.01)
@@ -106,6 +116,15 @@ class Etrago():
         self.network.links['v_nom'] = self.network.links.bus0.map(
                 self.network.buses.v_nom)
         set_q_foreign_loads(self.network, cos_phi=1)
+        
+        if self.args['foreign_lines']['carrier'] == 'DC':
+            foreign_links(self.network)
+            geolocation_buses(self)
+
+        if self.args['foreign_lines']['capacity'] != 'osmTGmod':
+            crossborder_capacity(
+                self.network, self.args['foreign_lines']['capacity'])
+        
         set_branch_capacity(self)
 
         if self.args['extendable'] != []:

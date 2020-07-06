@@ -98,7 +98,7 @@ def buses_grid_linked(network, voltage_level):
     return df.index
 
 
-def geolocation_buses(network, session):
+def geolocation_buses(etrago):
     """
      If geopandas is installed:
      Use Geometries of buses x/y(lon/lat) and Polygons
@@ -116,6 +116,10 @@ def geolocation_buses(network, session):
          SQLAlchemy session to the OEDB
 
     """
+    network = etrago.network
+
+    session = etrago.session
+
     if geopandas:
         # Start db connetion
         # get renpassG!S scenario data
@@ -1643,15 +1647,7 @@ def crossborder_capacity(network, method, capacity_factor):
         'ntc_acer' corrects all capacities according to values published by 
         the ACER in 2016.
         'thermal_acer' corrects certain capacities where our dataset most 
-        likely overestimates the thermal capacity.
-    capacity_factor : float
-        branch capacity factor. Reduction by branch-capacity 
-        factor is applied afterwards and shouln't effect ntc-values, which 
-        already include (n-1)-security. To exclude the ntc-capacities from the 
-        capacity factor, the crossborder-capacities are diveded by the factor 
-        in this function. For thermal-acer this is excluded by setting branch
-        capacity factors to one.
-        
+        likely overestimates the thermal capacity.        
 
     """         
     if method == 'ntc_acer':
@@ -1682,7 +1678,7 @@ def crossborder_capacity(network, method, capacity_factor):
                             'DK': 4000,
                             'SEDK': 3500,
                             'DKSE': 3500}
-        capacity_factor = {'HV': 1, 'eHV':1}
+
     if not network.lines[network.lines.country != 'DE'].empty:
         weighting = network.lines.loc[network.lines.country!='DE', 's_nom'].\
                 groupby(network.lines.country).transform(lambda x: x/x.sum())
@@ -1700,11 +1696,10 @@ def crossborder_capacity(network, method, capacity_factor):
 
         if not network.lines[network.lines.country == country].empty:
                 network.lines.loc[index_HV, 's_nom'] = weighting[index_HV] * \
-                    cap_per_country[country] / capacity_factor['HV']
+                    cap_per_country[country] 
                     
                 network.lines.loc[index_eHV, 's_nom'] = \
-                    weighting[index_eHV] * cap_per_country[country] /\
-                                capacity_factor['eHV']
+                    weighting[index_eHV] * cap_per_country[country]
 
         if not network.links[network.links.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
@@ -1722,18 +1717,15 @@ def crossborder_capacity(network, method, capacity_factor):
                     network.lines.country ==country+country)].index
 
             network.lines.loc[i_HV, 's_nom'] = \
-                                weighting[i_HV] * cap_per_country[country]/\
-                                capacity_factor['HV']
+                                weighting[i_HV] * cap_per_country[country]
             network.lines.loc[i_eHV, 's_nom'] = \
-                                weighting[i_eHV] * cap_per_country[country]/\
-                                capacity_factor['eHV']
+                                weighting[i_eHV] * cap_per_country[country]
 
         if not network.links[network.links.country == (country+country)].empty:
             i_links =  network.links[network.links.country ==
                                      (country+country)].index
             network.links.loc[i_links, 'p_nom'] = \
-                weighting_links[i_links] * cap_per_country\
-                [country]*capacity_factor
+                weighting_links[i_links] * cap_per_country[country]
 
 
 def set_branch_capacity(etrago):
@@ -1980,14 +1972,19 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
             
     return network
             
-def check_args(args):
-
+def check_args(args, etrago):
+    from importlib import import_module
     assert args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
         ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + args['scn_name'])
         
     assert args['start_snapshot'] < args['end_snapshot'],\
         ("start_snapshot after end_snapshot")
+
+    if args['gridversion'] != None:
+        ormclass = getattr(import_module('egoio.db_tables.grid'),
+                           'EgoPfHvTempResolution')
         
-    assert args['gridversion'] in ['v0.4.4', 'v0.4.5', 'v0.4.6'],\
-        ("gridversion does not exist")
+        assert args['gridversion'] in pd.read_sql(
+            etrago.session.query(ormclass).statement, etrago.session.bind
+            ).version.unique(), ("gridversion does not exist")
 

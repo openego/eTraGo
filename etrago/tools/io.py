@@ -703,8 +703,7 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, version, scn_extension, start_snapshot, 
-               end_snapshot, **kwargs):
+def extension(etrago, scn_extension, **kwargs):
     """
     Function that adds an additional network to the existing network container. 
     The new network can include every PyPSA-component (e.g. buses, lines, links). 
@@ -735,36 +734,35 @@ def extension (network, session, version, scn_extension, start_snapshot,
 
     """
     
-    if version is None:
+    if etrago.args['gridversion'] is None:
        ormcls_prefix = 'EgoGridPfHvExtension'
     else:
         ormcls_prefix = 'EgoPfHvExtension'
                
     # Adding overlay-network to existing network
-    scenario = NetworkScenario(session,
-                               version = version,
+    scenario = NetworkScenario(etrago.session,
+                               version = etrago.args['gridversion'],
                                prefix=ormcls_prefix,
                                method=kwargs.get('method', 'lopf'),
-                               start_snapshot=start_snapshot,
-                               end_snapshot=end_snapshot,
+                               start_snapshot=etrago.args['start_snapshot'],
+                               end_snapshot=etrago.args['end_snapshot'],
                                scn_name='extension_' + scn_extension)
 
-    network = scenario.build_network(network)
+    etrago.network = scenario.build_network(etrago.network)
 
     # Allow lossless links to conduct bidirectional
-    network.links.loc[network.links.efficiency == 1.0, 'p_min_pu'] = -1
+    etrago.network.links.loc[etrago.network.links.efficiency == 1.0, 'p_min_pu'] = -1
 
     # Set coordinates for new buses
-    extension_buses = network.buses[network.buses.scn_name ==
+    extension_buses = etrago.network.buses[etrago.network.buses.scn_name ==
                                     'extension_' + scn_extension]
     for idx, row in extension_buses.iterrows():
             wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
+            etrago.network.buses.loc[idx, 'x'] = wkt_geom.x
+            etrago.network.buses.loc[idx, 'y'] = wkt_geom.y
                
-    return network
 
-def decommissioning(network, session, args, **kwargs):
+def decommissioning(etrago, **kwargs):
     """
     Function that removes components in a decommissioning-scenario from
     the existing network container.
@@ -789,44 +787,34 @@ def decommissioning(network, session, args, **kwargs):
           
     """  
 
-    if args['gridversion'] == None:   
+    if etrago.args['gridversion'] == None:   
         ormclass = getattr(import_module('egoio.db_tables.model_draft'),
                            'EgoGridPfHvExtensionLine')
     else:
         ormclass = getattr(import_module('egoio.db_tables.grid'),
                            'EgoPfHvExtensionLine')
 
-    query = session.query(ormclass).filter(
+    query = etrago.session.query(ormclass).filter(
                         ormclass.scn_name == 'decommissioning_' + 
-                        args['scn_decommissioning'])
+                        etrago.args['scn_decommissioning'])
 
     df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
+                         etrago.session.bind,
                          index_col='line_id')
     df_decommisionning.index = df_decommisionning.index.astype(str)
 
-    for idx, row in network.lines.iterrows():
+    for idx, row in etrago.network.lines.iterrows():
         if (row['s_nom_min'] !=0) & (
-            row['scn_name'] =='extension_' + args['scn_decommissioning']):
+            row['scn_name'] =='extension_' + etrago.args['scn_decommissioning']):
                 v_nom_dec = df_decommisionning['v_nom'][(
                  df_decommisionning.project == row['project']) & (
                          df_decommisionning.project_id == row['project_id'])]
 
-                if (v_nom_dec == 110).any():
-                    network.lines.s_nom_min[network.lines.index == idx]\
-                    = args['branch_capacity_factor']['HV'] *\
-                    network.lines.s_nom_min
-
-                else:
-                    network.lines.s_nom_min[network.lines.index == idx] =\
-                    args['branch_capacity_factor']['eHV'] *\
-                    network.lines.s_nom_min
+                etrago.network.lines.s_nom_min[etrago.network.lines.index == idx] = etrago.network.lines.s_nom_min
 
     ### Drop decommissioning-lines from existing network
-    network.lines = network.lines[~network.lines.index.isin(
-            df_decommisionning.index)]
-
-    return network
+    etrago.network.lines = etrago.network.lines[
+        ~etrago.network.lines.index.isin(df_decommisionning.index)]
 
 
 def distance(x0, x1, y0, y1):

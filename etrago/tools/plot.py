@@ -1914,7 +1914,7 @@ def calc_dc_loading(network, timesteps):
 
 def plot_grid(self,
               line_color,
-              bus_size = 10,
+              bus_size = 2,
               timesteps=range(2), 
               osm=False,
               boundaries=None,

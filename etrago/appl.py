@@ -29,8 +29,6 @@ import datetime
 import os
 import os.path
 import time
-import numpy as np
-import pandas as pd
 from etrago.tools.utilities import get_args_setting
 
 __copyright__ = (
@@ -57,27 +55,11 @@ if 'READTHEDOCS' not in os.environ:
         kmean_clustering)
 
     from etrago.tools.utilities import (
-        load_shedding,
-        data_manipulation_sh,
-        convert_capital_costs,
-        results_to_csv,
-        parallelisation,
         pf_post_lopf,
-        loading_minimization,
         calc_line_losses,
-        group_parallel_lines,
-        add_missing_components,
-        distribute_q,
-        set_q_foreign_loads,
-        clip_foreign,
-        foreign_links,
-        crossborder_capacity,
-        ramp_limits,
         geolocation_buses,
         get_args_setting,
-        set_branch_capacity,
-        iterate_lopf,
-        set_random_noise)
+        iterate_lopf)
 
     from etrago.tools.constraints import(
         Constraints)
@@ -96,43 +78,35 @@ args = {
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': True,  # perform a pf after a lopf simulation
-    'start_snapshot': 4,
-    'end_snapshot': 5,
+    'start_snapshot': 1,
+    'end_snapshot': 4,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension': ['nep2035_b2', 'BE_NO_eGo 100'],  # None or array of extension scenarios
+    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'test_2406',  # save results as csv: False or /path/tofolder
-    'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
-    'minimize_loading': False,
-    'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 100,  # False or the value k for clustering
-    'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'kmeans_busmap': False,  # False or predefined busmap for k-means
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
-    'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
-    'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.7, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
-
-
-
 
 args = get_args_setting(args, jsonpath=None)
 
@@ -402,7 +376,7 @@ def etrago(args):
             etrago.disaggregated_network = etrago.network.copy()
         etrago.network = clustering.network.copy()
         etrago.network.generators.control[etrago.network.generators.control==''] = 'PV'
-        geolocation_buses(etrago.network, etrago.session)
+        geolocation_buses(etrago)
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -420,7 +394,7 @@ def etrago(args):
         x = time.time()
         iterate_lopf(etrago,
                       Constraints(args).functionality,
-                      method={'threshold':0.05})
+                      method={'n_iter':5})
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
