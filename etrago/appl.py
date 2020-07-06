@@ -95,9 +95,9 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
-    'start_snapshot': 1,
-    'end_snapshot': 4,
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'start_snapshot': 4,
+    'end_snapshot': 5,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
@@ -414,9 +414,7 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         etrago.network = snapshot_clustering(etrago, how='daily')
         args['snapshot_clustering_constraints'] = 'soc_constraints'
-    
 
-    
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
         x = time.time()
@@ -432,7 +430,8 @@ def etrago(args):
         # Temporary set all line types 
         etrago.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
         x = time.time()
-        ilopf(etrago.network, solver_name='gurobi', solver_options={'method':2, 'crossover':0, 'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5})
+        ilopf(etrago.network, solver_name = args['solver'], 
+              solver_options = args['solver_options'])
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
@@ -477,14 +476,6 @@ def etrago(args):
             etrago.disaggregated_network.results = etrago.network.results
             print("Time for overall desaggregation [min]: {:.2}"
                 .format((time.time() - t) / 60))
-
-    # write lpfile to path
-    ### move to lopf
-    if not args['lpfile'] is False:
-        network.model.write(
-            args['lpfile'], io_options={
-                'symbolic_solver_labels': True})
-
 
     # close session
     # session.close()

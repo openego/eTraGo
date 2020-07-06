@@ -1972,12 +1972,22 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
     if args['csv_export'] != False:
         path=args['csv_export']
         results_to_csv(network, args, path)
+
+    if not args['lpfile'] is False:
+        network.model.write(
+            args['lpfile'], io_options={
+                'symbolic_solver_labels': True})
             
     return network
             
 def check_args(args):
-    from sys import exit
-    if args['scn_name'] not in ['Status Quo', 'NEP 2035', 'eGo 100']:
+
+    assert args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
+        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + args['scn_name'])
         
-        logger.error("args['scn_name'] has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + args['scn_name'])
-        exit()
+    assert args['start_snapshot'] < args['end_snapshot'],\
+        ("start_snapshot after end_snapshot")
+        
+    assert args['gridversion'] in ['v0.4.4', 'v0.4.5', 'v0.4.6'],\
+        ("gridversion does not exist")
+
