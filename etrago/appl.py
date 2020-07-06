@@ -92,14 +92,14 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 4,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
+    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
@@ -115,18 +115,18 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
-    'extra_functionality': {'cross_border_flow':[0, 0]},  # Choose function name or {}
+    'extra_functionality': {},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 100,  # False or the value k for clustering
     'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
     'skip_snapshots': False,
     'line_grouping': False,  # group lines parallel lines
-    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 0.7, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
@@ -386,6 +386,7 @@ def etrago(args):
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
+        etrago.network.generators.control = "PV"
         clustering = kmean_clustering(
                 etrago,
                 line_length_factor=1,
@@ -400,6 +401,7 @@ def etrago(args):
         if args['disaggregation']!=None:
             etrago.disaggregated_network = etrago.network.copy()
         etrago.network = clustering.network.copy()
+        etrago.network.generators.control[etrago.network.generators.control==''] = 'PV'
         geolocation_buses(etrago.network, etrago.session)
 
     # skip snapshots
@@ -412,12 +414,28 @@ def etrago(args):
     if not args['snapshot_clustering'] is False:
         etrago.network = snapshot_clustering(etrago, how='daily')
         args['snapshot_clustering_constraints'] = 'soc_constraints'
+    
 
+    
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
+        x = time.time()
         iterate_lopf(etrago,
-                     Constraints(args).functionality,
-                     method={'n_iter':4})
+                      Constraints(args).functionality,
+                      method={'threshold':0.05})
+        y = time.time()
+        z = (y - x) / 60
+        print("Time for LOPF [min]:", round(z, 2))
+
+    elif args['method'] == 'ilopf':
+        from pypsa.linopf import ilopf
+        # Temporary set all line types 
+        etrago.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
+        x = time.time()
+        ilopf(etrago.network, solver_name='gurobi', solver_options={'method':2, 'crossover':0, 'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5})
+        y = time.time()
+        z = (y - x) / 60
+        print("Time for LOPF [min]:", round(z, 2))
 
     if args['pf_post_lopf']:
         pf_post_lopf(etrago,
