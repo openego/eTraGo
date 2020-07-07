@@ -1864,7 +1864,7 @@ def mul_weighting(network, timeseries):
 def calc_ac_loading(network, timesteps):
     
     loading_lines = mul_weighting(network, network.lines_t.p0).loc[
-                network.snapshots[timesteps]].abs().sum()
+                network.snapshots[timesteps]].sum()
 
     if not network.lines_t.q0.empty:
         
@@ -1914,7 +1914,7 @@ def calc_dc_loading(network, timesteps):
 
 def plot_grid(self,
               line_color,
-              bus_size = 2,
+              bus_size = 0.02,
               timesteps=range(2), 
               osm=False,
               boundaries=None,
@@ -1925,8 +1925,7 @@ def plot_grid(self,
         network = self.disaggregated_network
     else:
         network = self.network
-
-    ### Attribute line_colors will be split into line_colors and link_colors in new pypsa
+    flow = None
     
     if osm != False:
         if plot_grid.counter == 0:
@@ -1939,10 +1938,16 @@ def plot_grid(self,
         ' to ' + str(network.snapshots[timesteps[-1]])
         rep_snapshots = network.snapshot_weightings\
                         [network.snapshots[timesteps]].sum()
-        line_colors = calc_ac_loading(network, timesteps)/rep_snapshots
-        link_colors = calc_dc_loading(network, timesteps)/rep_snapshots
+        line_colors = calc_ac_loading(network, timesteps).abs()/rep_snapshots
+        link_colors = calc_dc_loading(network, timesteps).abs()/rep_snapshots
         label='line loading in p.u.'
-            
+        # Only active flow direction is displayed!
+        flow = pd.Series(index=network.branches().index)
+        flow.iloc[flow.index.get_level_values('component') == 'Line'] = \
+             (mul_weighting(network, network.lines_t.p0).loc[
+                network.snapshots[timesteps]].sum()/network.lines.s_nom/rep_snapshots).values
+        flow.iloc[flow.index.get_level_values('component') == 'Link'] = \
+            (calc_dc_loading(network, timesteps)/rep_snapshots).values
 
     elif line_color=='v_nom':
         title='Voltage levels'
@@ -1976,9 +1981,11 @@ def plot_grid(self,
     ll=network.plot(line_colors=line_colors, link_colors=link_colors,
                 line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                 bus_sizes = bus_size,
+                flow = flow,
                 title=title)
 
-    cb = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10])
+    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
+
     cb.set_label(label)
 
     if filename is None:
