@@ -44,7 +44,7 @@ if 'READTHEDOCS' not in os.environ:
     # Do not import internal packages directly
 
     from etrago.network import Etrago
-    
+    from etrago.sectors.heat import _try_add_heat_sector
     from etrago.cluster.disaggregation import (
             MiniSolverDisaggregation,
             UniformDisaggregation)
@@ -77,26 +77,27 @@ args = {
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 4,
+    'end_snapshot': 7,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'add_sectors': ['heat'],
     # Scenario variations:
-    'scn_extension': ['nep2035_b2', 'BE_NO_eGo 100'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension': None,  # None or array of extension scenarios
+    'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'test_2406',  # save results as csv: False or /path/tofolder
+    'csv_export': 'test_0707',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
     'kmeans_busmap': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -378,6 +379,9 @@ def etrago(args):
         etrago.network.generators.control[etrago.network.generators.control==''] = 'PV'
         geolocation_buses(etrago)
 
+    if 'heat' in args['add_sectors']:
+        _try_add_heat_sector(etrago)
+
     # skip snapshots
     if args['skip_snapshots']:
         etrago.network.snapshots = etrago.network.snapshots[::args['skip_snapshots']]
@@ -410,7 +414,7 @@ def etrago(args):
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
 
-    if args['pf_post_lopf']:
+    if args['pf_post_lopf'] and args['add_sectors']==[]:
         pf_post_lopf(etrago,
                      add_foreign_lopf=True,
                      q_allocation='p_nom',
