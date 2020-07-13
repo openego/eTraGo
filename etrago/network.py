@@ -24,11 +24,11 @@ from egoio.tools import db
 from sqlalchemy.orm import sessionmaker
 import json
 from etrago.tools.io import NetworkScenario, extension, decommissioning
-
+import pandas as pd
 from etrago.tools.utilities import (set_branch_capacity, convert_capital_costs, 
 add_missing_components, set_random_noise, geolocation_buses, check_args, load_shedding, 
 set_q_foreign_loads, foreign_links, crossborder_capacity)
-
+from etrago import __version__
 from etrago.tools.plot import add_coordinates, plot_grid
 
 from etrago.tools.extendable import (
@@ -47,6 +47,8 @@ class Etrago():
                  ignore_standard_types=False,
                  **kwargs):
         
+        self.tool_version = __version__
+
         if args != {}:
             self.args = args
         elif csv_folder_name!=None:
@@ -64,8 +66,9 @@ class Etrago():
                  else csv_folder_name),
                 name, ignore_standard_types)
 
-        self.__renewable_carriers = ['wind_onshore', 'wind_offshore', 'solar',
+        self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                                      'biomass', 'run_of_river', 'reservoir']
+        self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
 
         # Create network 
         if csv_folder_name==None: 
@@ -75,6 +78,8 @@ class Etrago():
             check_args(self.args, self)
             self._build_network_from_db()
             self._adjust_network()
+            #self.extra_functionality = extra_functionality(self, self.network, 
+                        #                                   self.network.snapshots)
 
 
     def _build_network_from_db(self):
@@ -143,9 +148,93 @@ class Etrago():
     
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.snapshot_weightings, axis = 0)
+    
+    # Add functions
     plot_grid = plot_grid
     
+    def _calc_stoagre_expansion(self):
+        return (self.network.storage_units.p_nom_opt -
+                self.network.storage_units.p_nom_min
+                    )[self.network.storage_units.p_nom_extendable]\
+                    .groupby(self.network.storage_units.carrier).sum()
 
+    def calc_investment_cost(self):
+        network=self.network
+        ext_storage=network.storage_units[network.storage_units.p_nom_extendable]
+        ext_lines=network.lines[network.lines.s_nom_extendable]
+        ext_links=network.links[network.links.p_nom_extendable]
+        ext_trafos=network.transformers[network.transformers.s_nom_extendable]
+        storage_costs = 0
+        network_costs = [0,0]
+        if not ext_storage.empty:
+            storage_costs=(ext_storage.p_nom_opt*ext_storage.capital_cost).sum()
+    
+        if not ext_lines.empty:
+            network_costs[0]=((ext_lines.s_nom_opt-ext_lines.s_nom_min
+                       )*ext_lines.capital_cost).sum()
+            
+        if not ext_links.empty:
+            network_costs[1]=((ext_links.p_nom_opt-ext_links.p_nom_min
+                       )*ext_links.capital_cost).sum()
+    
+        if not ext_trafos.empty:
+            network_costs[0]=network_costs[0]+((ext_trafos.s_nom_opt-ext_trafos.s_nom
+                                         )*ext_trafos.capital_cost).sum()
+            
+        return  network_costs, storage_costs
+
+    def calc_marginal_cost(self):
+        network=self.network
+        gen=network.generators_t.p.mul(
+                network.snapshot_weightings, axis=0).sum(axis=0).mul(
+                        network.generators.marginal_cost).sum()
+        stor=network.storage_units_t.p.mul(
+                network.snapshot_weightings, axis=0).sum(axis=0).mul(
+                        network.storage_units.marginal_cost).sum()
+        return(gen+stor)
+
+    def _calc_etrago_results(self):
+        self.results = pd.DataFrame(columns = ['unit', 'value'],
+                                    index = ['annual system costs',
+                                             'annual_investment_costs',
+                                             'annual_marginal_costs',
+                                             'annual_grid_investment_costs',
+                                             'ac_annual_grid_investment_costs',
+                                             'dc_annual_grid_investment_costs',
+                                             'annual_storage_investment_costs',
+                                            'storage_expansion', 
+                                            'battery_storage_expansion',
+                                            'hydrogen_storage_expansion',
+                                             'abs_network_expansion',
+                                             'rel_network_expansion'])
+
+        self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
+        self.results.unit[self.results.index.isin([
+            'storage_expansion', 'abs_network_expansion', 
+            'battery_storage_expansion', 'hydrogen_storage_expansion'])] = 'MW'
+        self.results.unit['abs_network_expansion'] = 'MW'
+        self.results.unit['rel_network_expansion'] = 'p.u.'
+        
+
+        
+        self.results.value['ac_annual_grid_investment_costs'] = self.calc_investment_cost()[0][0]
+        self.results.value['dc_annual_grid_investment_costs'] = self.calc_investment_cost()[0][1]
+        self.results.value['annual_grid_investment_costs'] = sum(self.calc_investment_cost()[0])
+        
+        self.results.value['annual_storage_investment_costs'] = self.calc_investment_cost()[1]
+        
+        self.results.value['annual_investment_costs'] = self.calc_investment_cost()[1] + sum(self.calc_investment_cost()[0])
+        self.results.value['annual_marginal_costs']  =self. calc_marginal_cost()
+        
+        self.results.value['annual system costs'] = self.results.value['annual_investment_costs'] + \
+                                                     self.calc_marginal_cost()
+        if 'storage' in self.args['extendable']:
+            self.results.value['storage_expansion'] = self._calc_stoagre_expansion().sum()
+            self.results.value['battery_storage_expansion'] = self._calc_stoagre_expansion()['extendable_batterry_storage']
+            self.results.value['hydrogen_storage_expansion'] = self._calc_stoagre_expansion()['extendable_hydrogen_storage']    
+        
+        if 'network' in self.args['extendable']:
+            self.results.value['abs_network_expansion']
         
         
     
