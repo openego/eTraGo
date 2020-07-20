@@ -74,19 +74,19 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
-    'add_sectors': ['heat'],
+    'add_sectors': [],
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -96,11 +96,10 @@ args = {
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
-    'extra_functionality': {'min_renewable_share':0.9, 
-                            'cross_border_flow': [0, 0]},  # Choose function name or {}
+    'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'kmeans_busmap': False,  # False or predefined busmap for k-means
+    'network_clustering_kmeans': 100,  # False or the value k for clustering
+    'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -372,15 +371,20 @@ def etrago(args):
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
         x = time.time()
-        from pypsa.linopf import network_lopf
-        network_lopf(etrago.network, solver_name = 'gurobi', 
-                     extra_functionality = Constraints(args).functionality)
-        #iterate_lopf(etrago,
-                 #     Constraints(args).functionality,
-                   #   method={'n_iter':5})
+        if True: 
+            from vresutils.benchmark import memory_logger
+            with memory_logger(filename=args['csv_export']+'/memory.log', interval=30.) as mem:
+                iterate_lopf(etrago,
+                              Constraints(args).functionality,
+                              method={'n_iter':10, 'pyomo':True})
+        else:
+            iterate_lopf(etrago,
+                              Constraints(args).functionality,
+                              method={'n_iter':10, 'pyomo':True})
         y = time.time()
         z = (y - x) / 60
-        print("Time for LOPF [min]:", round(z, 2))
+        print("Maximum memory usage: {}".format(mem.mem_usage))
+        print("Total time for LOPF [min]:", round(z, 2))
 
     elif args['method'] == 'ilopf':
         from pypsa.linopf import ilopf

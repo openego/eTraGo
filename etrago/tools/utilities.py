@@ -31,7 +31,7 @@ import pypsa
 import json
 import logging
 import math
-
+from pypsa.linopf import network_lopf
 geopandas = True
 try:
     import geopandas as gpd
@@ -635,7 +635,7 @@ def results_to_csv(network, args, path):
 
     network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
-    data['time'] = network.results['Solver'].Time
+    #data['time'] = network.results['Solver'].Time
     data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
@@ -1811,8 +1811,37 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
                 
     return l_snom_pre, t_snom_pre
 
-def iterate_lopf(etrago, extra_functionality, method={'n_iter':4}, 
-                 delta_s_max=0.1):
+def run_lopf(etrago, extra_functionality, method):
+
+    x = time.time()
+    if method['pyomo']:
+        etrago.network.lopf(
+                etrago.network.snapshots,
+                solver_name=etrago.args['solver'],
+                solver_options=etrago.args['solver_options'],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args['model_formulation'])
+
+        if etrago.network.results["Solver"][0]["Status"]!='ok':
+            raise  Exception('LOPF not solved.')
+
+    else:
+        status, termination_condition = network_lopf(
+            etrago.network,
+            solver_name=etrago.args['solver'],
+            solver_options=etrago.args['solver_options'],
+            extra_functionality=extra_functionality,
+            formulation=etrago.args['model_formulation'])
+        
+        if status != 'ok':
+            raise  Exception('LOPF not solved.')
+    y = time.time()
+    z = (y - x) / 60
+
+    print("Time for LOPF [min]:", round(z, 2))
+            
+def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True}, 
+                 delta_s_max=0):
 
     """
     Run optimization of lopf. If network extension is included, the specified 
@@ -1857,7 +1886,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
             n_iter = method['n_iter']
 
             for i in range (1,(1+n_iter)):
-                x = time.time()
+                
                 network.lines.s_nom_max=\
                  (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom
                 network.transformers.s_nom_max=\
@@ -1866,19 +1895,8 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
                 network.links.p_nom_max=\
                  (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
             
-                network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
-                y = time.time()
-                z = (y - x) / 60
+                run_lopf(etrago, extra_functionality, method)
 
-                if network.results["Solver"][0]["Status"].key!='ok':
-                    raise  Exception('LOPF '+ str(i) + ' not solved.')
-
-                print("Time for LOPF [min]:", round(z, 2))
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
@@ -1893,17 +1911,8 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
 
         if 'threshold' in method:
             thr = method['threshold']
-            x = time.time()
-            network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
-            y = time.time()
-            z = (y - x) / 60
             
-            print("Time for LOPF [min]:", round(z, 2))
+            run_lopf(etrago, extra_functionality, method)
 
             diff_obj=network.objective*thr/100
 
@@ -1921,20 +1930,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
                                                  l_snom_pre, t_snom_pre)
                 pre = network.objective
                 
-                x = time.time()
-                network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
-                y = time.time()
-                z = (y - x) / 60
-            
-                print("Time for LOPF [min]:", round(z, 2))
-                
-                if network.results["Solver"][0]["Status"].key!='ok':
-                    raise  Exception('LOPF '+ str(i) + ' not solved.')
+                run_lopf(etrago, extra_functionality, method)
 
                 i += 1
 
@@ -1947,20 +1943,12 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4},
                     break
                     
     else:
-            x = time.time()
-            network.lopf(
-                    network.snapshots,
-                    solver_name=args['solver'],
-                    solver_options=args['solver_options'],
-                    extra_functionality=extra_functionality,
-                    formulation=args['model_formulation'])
-            y = time.time()
-            z = (y - x) / 60
-            print("Time for LOPF [min]:", round(z, 2))
+            run_lopf(etrago, extra_functionality, method)
         
             if args['csv_export'] != False:
                 path=args['csv_export']+ '/lopf'
                 results_to_csv(network, args, path)
+
     if args['csv_export'] != False:
         path=args['csv_export']
         results_to_csv(network, args, path)
