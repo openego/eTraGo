@@ -79,12 +79,13 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 7,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
+    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
+                       'method':2, 'crossover':0,
                        'logFile': 'solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     'add_sectors': ['heat'],
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
@@ -95,7 +96,8 @@ args = {
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
-    'extra_functionality': {},  # Choose function name or {}
+    'extra_functionality': {'min_renewable_share':0.9, 
+                            'cross_border_flow': [0, 0]},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 50,  # False or the value k for clustering
     'kmeans_busmap': False,  # False or predefined busmap for k-means
@@ -104,7 +106,7 @@ args = {
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'skip_snapshots': False,
-    'branch_capacity_factor': {'HV': 0.7, 'eHV': 0.7},  # p.u. branch derating
+    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
@@ -207,11 +209,6 @@ def etrago(args):
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
 
-    db_export : bool
-        False,
-        State if you want to export the results of your calculation
-        back to the database.
-
     extendable : list
         ['network', 'storages'],
         Choose components you want to optimize.
@@ -235,16 +232,6 @@ def etrago(args):
         State if you want to apply a small random noise to the marginal costs
         of each generator in order to prevent an optima plateau. To reproduce
         a noise, choose the same integer (seed number).
-
-    minimize_loading : bool
-        False,
-        ...
-
-    ramp_limits : bool
-        False,
-        State if you want to consider ramp limits of generators.
-        Increases time for solving significantly.
-        Only works when calculating at least 30 snapshots.
 
     extra_functionality : dict or None
         None,
@@ -309,17 +296,6 @@ def etrago(args):
         only on a subset of snapshot periods. The int value defines the number
         of periods (i.e. days) which will be clustered to.
         Move to PyPSA branch:features/snapshot_clustering
-
-    parallelisation : bool
-        False,
-        Choose if you want to calculate a certain number of snapshots in
-        parallel. If yes, define the respective amount in the if-clause
-        execution below. Otherwise state False here.
-
-    line_grouping : bool
-        True,
-        State if you want to group lines that connect the same two buses
-        into one system.
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -396,9 +372,12 @@ def etrago(args):
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
         x = time.time()
-        iterate_lopf(etrago,
-                      Constraints(args).functionality,
-                      method={'n_iter':5})
+        from pypsa.linopf import network_lopf
+        network_lopf(etrago.network, solver_name = 'gurobi', 
+                     extra_functionality = Constraints(args).functionality)
+        #iterate_lopf(etrago,
+                 #     Constraints(args).functionality,
+                   #   method={'n_iter':5})
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
@@ -413,7 +392,9 @@ def etrago(args):
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
-
+        
+    etrago._calc_etrago_results()
+    
     if args['pf_post_lopf'] and args['add_sectors']==[]:
         pf_post_lopf(etrago,
                      add_foreign_lopf=True,

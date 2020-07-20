@@ -25,6 +25,7 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 from pyomo.environ import Constraint
 import pandas as pd
 import pyomo.environ as po
+from pypsa.linopt import get_var, linexpr, define_constraints
 import logging
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,45 @@ def _max_line_ext(self, network, snapshots):
 
     network.model.max_line_ext = Constraint(rule=_rule) 
 
+def _max_line_ext_nmp(self, network, snapshots):
+
+    lines_snom = network.lines.s_nom.sum()
+    links_pnom = network.links.p_nom.sum()
+    get_var(network, 'Line', 's_nom')
+    
+    def _rule(m):
+        lines_opt = sum(m.passive_branch_s_nom[index]
+                        for index in m.passive_branch_s_nom_index)
+
+        links_opt = sum(m.link_p_nom[index]
+                        for index in m.link_p_nom_index)
+        
+        return (lines_opt + links_opt) <= (lines_snom + links_pnom)\
+                           * self.args['extra_functionality']['max_line_ext']
+
+    network.model.max_line_ext = Constraint(rule=_rule) 
+
+def _min_renewable_share_nmp(self, network, snapshots):
+    
+    renewables = ['wind_onshore', 'wind_offshore',
+                  'biomass', 'solar', 'run_of_river']
+
+    res = network.generators.index[network.generators.carrier.isin(renewables)]
+    
+    renew = get_var(network, 'Generator', 'p').loc[network.snapshots, res].mul(
+        network.snapshot_weightings, axis = 0)
+    total = get_var(network, 'Generator', 'p').mul(
+        network.snapshot_weightings, axis = 0)
+    
+    renew_production = linexpr((1, renew)).sum().sum()
+    total_production = linexpr((
+        -self.args['extra_functionality']['min_renewable_share'],
+        total)).sum().sum()
+    
+    expr = renew_production + total_production 
+    
+    define_constraints(network, expr, '>=', 0, 'Generator', 'min_renew_share')
+    
 
 def _min_renewable_share(self, network, snapshots):
 
@@ -153,7 +193,40 @@ def _cross_border_flow(self, network, snapshots):
 
     network.model.cross_border_flows_min = Constraint(rule=_rule_min)
     network.model.cross_border_flows_max = Constraint(rule=_rule_max)
-    print("Added cross border flow")
+
+def _cross_border_flow_nmp(self, network, snapshots):
+
+
+    buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = \
+        _get_crossborder_components(network)
+
+    export = pd.Series(
+                    data=self.args['extra_functionality']['cross_border_flow']
+                    )*network.loads_t.p_set.mul(network.snapshot_weightings,
+                        axis = 0)[network.loads.index[
+                        network.loads.bus.isin(buses_de)]].sum().sum()
+
+    cb0_flow = get_var(network, 'Line', 's').loc[snapshots, cb0].mul(
+        network.snapshot_weightings, axis = 0)
+    
+    cb1_flow = get_var(network, 'Line', 's').loc[snapshots, cb1].mul(
+        network.snapshot_weightings, axis = 0)
+    
+    cb0_link_flow = get_var(network, 'Link', 'p').loc[snapshots, cb0_link].mul(
+        network.snapshot_weightings, axis = 0)
+    
+    cb1_link_flow = get_var(network, 'Link', 'p').loc[snapshots, cb1_link].mul(
+        network.snapshot_weightings, axis = 0)
+
+    cb0_expr = linexpr((-1, cb0_flow)).sum().sum()
+    cb1_expr = linexpr((1, cb0_flow)).sum().sum()
+    cb0_link_expr = linexpr((-1, cb0_link_flow)).sum().sum()
+    cb1_link_expr = linexpr((1, cb0_link_flow)).sum().sum()
+    
+    expr = cb0_expr + cb1_expr + cb0_link_expr + cb1_link_expr
+    
+    define_constraints(network, expr, '>=', export[0], 'Line', 'min_cb_flow')
+    define_constraints(network, expr, '<=', export[1], 'Line', 'max_cb_flow')
 
 def _cross_border_flow_per_country(self, network, snapshots):
     snapshots = network.snapshots
@@ -477,10 +550,20 @@ class Constraints:
 
         for constraint in self.args['extra_functionality'].keys():
             try:
-                eval('_'+constraint+'(self, network, snapshots)')
+                type(network.model)
+                try:
+                    eval('_'+constraint+'(self, network, snapshots)')
+                    logger.info("Added extra_functionality {}".format(constraint))
+                except:
+                    logger.warning("Constraint {} not defined".format(constraint)+". New constraints can be defined in etrago/tools/constraint.py.") 
             except:
-                logger.Warning("Constraint {} not defined".format(constraint)+". New constraints can be defined in etrago/tools/constraint.py.") 
-
+                try:
+                    eval('_'+constraint+'_nmp(self, network, snapshots)')
+                    logger.info("Added extra_functionality {} without pyomo".format(constraint))
+                except:
+                    logger.warning("Constraint {} not defined".format(constraint)) 
+           
+                
         if self.args['snapshot_clustering'] is not False:
                 # This will bound the storage level to 0.5 max_level every 24th hour.
                 sus = network.storage_units
