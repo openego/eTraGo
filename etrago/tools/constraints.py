@@ -219,14 +219,59 @@ def _cross_border_flow_nmp(self, network, snapshots):
         network.snapshot_weightings, axis = 0)
 
     cb0_expr = linexpr((-1, cb0_flow)).sum().sum()
-    cb1_expr = linexpr((1, cb0_flow)).sum().sum()
+    cb1_expr = linexpr((1, cb1_flow)).sum().sum()
     cb0_link_expr = linexpr((-1, cb0_link_flow)).sum().sum()
-    cb1_link_expr = linexpr((1, cb0_link_flow)).sum().sum()
+    cb1_link_expr = linexpr((1, cb1_link_flow)).sum().sum()
     
     expr = cb0_expr + cb1_expr + cb0_link_expr + cb1_link_expr
     
     define_constraints(network, expr, '>=', export[0], 'Line', 'min_cb_flow')
     define_constraints(network, expr, '<=', export[1], 'Line', 'max_cb_flow')
+
+def _cross_border_flow_per_country_nmp(self, network, snapshots):
+    snapshots = network.snapshots
+
+    buses_de = network.buses.index[network.buses.country_code == 'DE']
+
+    countries = network.buses.country_code.unique()
+
+    export_per_country = pd.DataFrame(
+                    data=self.args['extra_functionality']\
+                    ['cross_border_flow_per_country']).transpose()*\
+                    network.loads_t.p_set.mul(network.snapshot_weightings,
+                        axis = 0)[network.loads.index[
+                        network.loads.bus.isin(buses_de)]].sum().sum()
+
+    for cntr in export_per_country.index:
+        if cntr in countries:
+            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = \
+                _get_crossborder_components(network, cntr)
+
+            cb0_flow = get_var(network, 'Line', 's').loc[snapshots, cb0].mul(
+                network.snapshot_weightings, axis = 0)
+        
+            cb1_flow = get_var(network, 'Line', 's').loc[snapshots, cb1].mul(
+                network.snapshot_weightings, axis = 0)
+            
+            cb0_link_flow = get_var(network, 'Link', 'p').loc[snapshots, cb0_link].mul(
+                network.snapshot_weightings, axis = 0)
+            
+            cb1_link_flow = get_var(network, 'Link', 'p').loc[snapshots, cb1_link].mul(
+                network.snapshot_weightings, axis = 0)
+        
+            cb0_expr = linexpr((-1, cb0_flow)).sum().sum()
+            cb1_expr = linexpr((1, cb1_flow)).sum().sum()
+            cb0_link_expr = linexpr((-1, cb0_link_flow)).sum().sum()
+            cb1_link_expr = linexpr((1, cb1_link_flow)).sum().sum()
+            
+            expr = cb0_expr + cb1_expr + cb0_link_expr + cb1_link_expr
+        
+            define_constraints(network, expr,
+                               '>=', export_per_country[cntr][0],
+                               'Line', 'min_cb_flow_' + cntr)
+            define_constraints(network, expr,
+                               '<=', export_per_country[cntr][1],
+                               'Line', 'max_cb_flow_' + cntr)
 
 def _cross_border_flow_per_country(self, network, snapshots):
     snapshots = network.snapshots
@@ -319,7 +364,7 @@ def _capacity_factor(self, network, snapshots):
     """
     arg = self.args['extra_functionality']['capacity_factor']
     carrier = arg.keys()
-    snapshots = network.snapshots
+
     for c in carrier:
         factor = arg[c]
         gens, potential = _generation_potential(network, c, cntr = 'all')
@@ -346,6 +391,29 @@ def _capacity_factor(self, network, snapshots):
 
         setattr(network.model, "min_flh_" + c, Constraint(rule=_rule_min))
 
+def _capacity_factor_nmp(self, network, snapshots):
+    """
+    how to call in args: 
+    'capacity_factor': 
+                    {'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]}
+    """
+    arg = self.args['extra_functionality']['capacity_factor']
+    carrier = arg.keys()
+
+    for c in carrier:
+        factor = arg[c]
+        gens, potential = _generation_potential(network, c, cntr = 'all')
+
+        generation = get_var(network, 'Generator', 'p').loc[snapshots, gens].\
+            mul(network.snapshot_weightings, axis = 0)
+        
+        define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '>=', arg[0] * potential,'Generator',
+                               'min_flh_' + c)
+        define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '<=', arg[1] * potential,'Generator',
+                               'max_flh_' + c)
+        
 def _capacity_factor_per_cntr(self, network, snapshots):
     """
     how to call in args: 
@@ -356,7 +424,6 @@ def _capacity_factor_per_cntr(self, network, snapshots):
     arg = self.args['extra_functionality']['capacity_factor_per_cntr']
     for cntr in arg.keys():
         carrier = arg[cntr].keys()
-        snapshots = network.snapshots
         for c in carrier:
             factor = arg[cntr][c]
             gens, potential = _generation_potential(network, c, cntr)
@@ -384,6 +451,30 @@ def _capacity_factor_per_cntr(self, network, snapshots):
 
             setattr(network.model, "min_flh_" + cntr + '_'+ c,
                             Constraint(rule=_rule_min))
+            
+def _capacity_factor_per_cntr_nmp(self, network, snapshots):
+    """
+    how to call in args: 
+    'capacity_factor_per_cntr': 
+    {'DE':{'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]},
+    'DK':{'wind_onshore':[0, 0.7]}}
+    """
+    arg = self.args['extra_functionality']['capacity_factor_per_cntr']
+    for cntr in arg.keys():
+        carrier = arg[cntr].keys()
+        for c in carrier:
+            factor = arg[cntr][c]
+            gens, potential = _generation_potential(network, c, cntr)
+            
+            generation = get_var(network, 'Generator', 'p').loc[
+                snapshots, gens].mul(network.snapshot_weightings, axis = 0)
+        
+            define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '>=', arg[cntr][c][0] * potential ,'Generator', 
+                               'min_flh_' + c + '_' + cntr)
+            define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '<=', arg[cntr][c][1] * potential,'Generator',
+                               'max_flh_' + c + '_' + cntr)
 
 def _capacity_factor_per_gen(self, network, snapshots):
     """
@@ -428,7 +519,39 @@ def _capacity_factor_per_gen(self, network, snapshots):
 
             setattr(network.model, "min_flh_" + g,
                             Constraint(gens, rule=_rule_min))
-                    
+
+def _capacity_factor_per_gen_nmp(self, network, snapshots):
+    """
+    how to call in args: 
+    'capacity_factor_per_gen': 
+    {'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]}
+    """
+    arg = self.args['extra_functionality']['capacity_factor_per_gen']
+    carrier = arg.keys()
+    snapshots = network.snapshots
+    for c in carrier:
+        factor = arg[c]
+        gens = network.generators.index[network.generators.carrier == c]
+        for g in gens:
+            if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                potential = (network.generators.p_nom[g]*
+                             network.generators_t.p_max_pu[g].mul(
+                             network.snapshot_weightings, axis = 0)
+                             ).sum().sum()
+            else:
+                potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[g].sum()
+                                
+            generation = get_var(network, 'Generator', 'p').loc[
+                snapshots, g].mul(network.snapshot_weightings, axis = 0)
+        
+            define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '>=', arg[c][0]*potential, 'Generator', 
+                               'min_flh_' + g)
+            define_constraints(network, linexpr((1, generation)).sum().sum(),
+                               '<=', arg[c][1]*potential,'Generator',
+                               'max_flh_' + g)
+                                
 def _capacity_factor_per_gen_cntr(self, network, snapshots):
     """
     how to call in args:
@@ -477,7 +600,45 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     return (dispatch >= factor[0] * potential)
 
                 setattr(network.model, "min_flh_" + cntr + '_'+ g,
-                                Constraint(rule=_rule_min))    
+                                Constraint(rule=_rule_min))  
+                
+def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
+    """
+    how to call in args:
+                'capacity_factor_per_gen_cntr':
+                    {'DE':{'run_of_river': [0, 0.5], 'wind_onshore': [0.1, 1]},
+                    'DK':{'wind_onshore':[0, 0.7]}}
+    """
+    arg = self.args['extra_functionality']\
+                ['capacity_factor_per_gen_cntr']
+    for cntr in arg.keys():
+
+        carrier = arg[cntr].keys()
+        snapshots = network.snapshots
+        for c in carrier:
+            factor = arg[cntr][c]
+            gens = network.generators.index[(network.generators.carrier == c)  
+                            & (network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country_code == cntr]))]
+            for g in gens:
+                if c in ['wind_onshore', 'wind_offshore', 'solar']:
+                    potential = (network.generators.p_nom[g]*
+                             network.generators_t.p_max_pu[g].mul(
+                             network.snapshot_weightings, axis = 0)
+                             ).sum().sum()
+                else:
+                    potential = network.snapshot_weightings.sum() \
+                                * network.generators.p_nom[g].sum()
+
+                generation = get_var(network, 'Generator', 'p').loc[
+                    snapshots, g].mul(network.snapshot_weightings, axis = 0)
+            
+                define_constraints(network, linexpr((1, generation)).sum().sum(),
+                                   '>=', arg[cntr][c][0]*potential, 'Generator', 
+                                   'min_flh_' + g)
+                define_constraints(network, linexpr((1, generation)).sum().sum(),
+                                   '<=', arg[cntr][c][1]*potential,'Generator',
+                                   'max_flh_' + g)
 
 def _max_curtailment(self, network, snapshots):
     renewables = ['wind_onshore', 'wind_offshore', 'solar']
