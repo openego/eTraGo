@@ -79,7 +79,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 24,
+    'end_snapshot': 168,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'method':2, 'crossover':0,
@@ -92,7 +92,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'test_0707',  # save results as csv: False or /path/tofolder
+    'csv_export': 'test_2007_nmp',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -371,19 +371,19 @@ def etrago(args):
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
         x = time.time()
-        if True: 
+        try: 
             from vresutils.benchmark import memory_logger
-            with memory_logger(filename=args['csv_export']+'/memory.log', interval=30.) as mem:
+            with memory_logger(filename=args['csv_export']+'_memory.log', interval=30.) as mem:
                 iterate_lopf(etrago,
                               Constraints(args).functionality,
-                              method={'n_iter':10, 'pyomo':True})
-        else:
+                              method={'n_iter':5, 'pyomo':False})
+        except:
             iterate_lopf(etrago,
                               Constraints(args).functionality,
-                              method={'n_iter':10, 'pyomo':True})
+                              method={'n_iter':5, 'pyomo':True})
         y = time.time()
         z = (y - x) / 60
-        print("Maximum memory usage: {}".format(mem.mem_usage))
+        print("Maximum memory usage: {} MB".format(mem.mem_usage[0]))
         print("Total time for LOPF [min]:", round(z, 2))
 
     elif args['method'] == 'ilopf':

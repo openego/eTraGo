@@ -1982,7 +1982,8 @@ def plot_grid(self,
                 line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                 bus_sizes = bus_size,
                 flow = flow,
-                title=title)
+                title=title,
+                geomap=False)
 
     cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10])
 
