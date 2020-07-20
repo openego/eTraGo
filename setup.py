@@ -22,7 +22,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['egoio == 0.4.7',
-                      'scikit-learn == 0.19.0',
+                      'scikit-learn',
                       'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
@@ -31,9 +31,7 @@ setup(
                       'oedialect',
                       'pyproj == 2.0.2',
                       'tilemapbase == 0.4.5',
-                      'pyomo <= 5.6.9',
-                      'pyutilib == 5.8.0',
-                      'pypsa == 0.17.0'],
+                      'pypsa == 0.17.1'],
     extras_require={
         'docs': [
             'sphinx >= 1.4',

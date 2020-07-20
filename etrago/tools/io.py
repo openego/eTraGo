@@ -330,7 +330,7 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.17.0':
+        if pypsa.__version__ == '0.17.1':
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
