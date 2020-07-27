@@ -24,7 +24,7 @@ Utilities.py includes a wide range of useful functions.
 
 import os
 import time
-from pyomo.environ import (Var, Constraint, PositiveReals, ConcreteModel)
+from pyomo.environ import (Var, Constraint, PositiveReals)
 import numpy as np
 import pandas as pd
 import pypsa
@@ -101,12 +101,14 @@ def buses_grid_linked(network, voltage_level):
 def geolocation_buses(etrago):
     """
      If geopandas is installed:
-     Use Geometries of buses x/y(lon/lat) and Polygons
-     of Countries from RenpassGisParameterRegion
+     Use geometries of buses x/y(lon/lat) and polygons
+     of countries from RenpassGisParameterRegion
      in order to locate the buses
 
      Else:
      Use coordinats of buses to locate foreign buses, which is less accurate.
+
+     TODO: Why not alway use geopandas??
 
      Parameters
      ----------
@@ -161,7 +163,7 @@ def geolocation_buses(etrago):
         # add busC to eTraGo.buses
         network.buses['country_code'] = busC['country']
         network.buses.country_code[network.buses.country_code.isnull()] = 'DE'
-        # close session 
+        # close session
         session.close()
 
     else:
@@ -189,7 +191,7 @@ def geolocation_buses(etrago):
         c_bus1 = network.buses.loc[network.lines.loc[line, 'bus1'],
                                    'country_code']
         network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
-  
+
     transborder_links_0 = network.links[network.links['bus0'].isin(
             network.buses.index[network.buses['country_code']!= 'DE'])].index
     transborder_links_1 = network.links[network.links['bus1'].isin(
@@ -314,8 +316,8 @@ def buses_by_country(network):
 def clip_foreign(network):
     """
     Delete all components and timelines located outside of Germany.
-    Add transborder flows divided by country of origin as
-    network.foreign_trade.
+    If applied after optimization, transborder flows divided by country of
+    origin are added as network.foreign_trade.
 
     Parameters
     ----------
@@ -331,37 +333,27 @@ def clip_foreign(network):
     # get foreign buses by country
 
     foreign_buses = network.buses[network.buses.country_code != 'DE']
-
     network.buses = network.buses.drop(
         network.buses.loc[foreign_buses.index].index)
 
-    # identify transborder lines (one bus foreign, one bus not) and the country
-    # it is coming from
-    """transborder_lines = pd.DataFrame(index=network.lines[
-        ((network.lines['bus0'].isin(network.buses.index) == False) &
-         (network.lines['bus1'].isin(network.buses.index) == True)) |
-        ((network.lines['bus0'].isin(network.buses.index) == True) &
-         (network.lines['bus1'].isin(network.buses.index) == False))].index)
-    transborder_lines['bus0'] = network.lines['bus0']
-    transborder_lines['bus1'] = network.lines['bus1']
-    transborder_lines['country'] = ""
-    for i in range(0, len(transborder_lines)):
-        if transborder_lines.iloc[i, 0] in foreign_buses.index:
-            transborder_lines['country'][i] = foreign_buses[str(
-                transborder_lines.iloc[i, 0])]
-        else:
-            transborder_lines['country'][i] = foreign_buses[str(
-                transborder_lines.iloc[i, 1])]
+    if not network.lines_t.p0.empty:
+        # identify transborder lines
+        #TODO: Add links!
+        transborder_lines = network.lines.query("country != 'DE'")
+        transborder_lines['bus0'] = network.lines['bus0']
+        transborder_lines['bus1'] = network.lines['bus1']
+        transborder_lines['country'] = network.lines.country
 
-    # identify amount of flows per line and group to get flow per country
-    transborder_flows = network.lines_t.p0[transborder_lines.index]
-    for i in transborder_flows.columns:
-        if network.lines.loc[str(i)]['bus1'] in foreign_buses.index:
-            transborder_flows.loc[:, str(
-                i)] = transborder_flows.loc[:, str(i)]*-1
+        # identify amount of flows per line and group to get flow per country
+        transborder_flows = network.lines_t.p0[transborder_lines.index]
+        for i in transborder_flows.columns:
+            if network.lines.loc[str(i)]['bus1'] in foreign_buses.index:
+                transborder_flows.loc[:, str(
+                    i)] = transborder_flows.loc[:, str(i)]*-1
 
-    network.foreign_trade = transborder_flows.\
-        groupby(transborder_lines['country'], axis=1).sum()"""
+        network.foreign_trade = transborder_flows.\
+            groupby(transborder_lines['country'], axis=1).sum()
+
 
     # drop foreign components
     network.lines = network.lines.drop(network.lines[
@@ -400,7 +392,7 @@ def clip_foreign(network):
 
 def foreign_links(network):
     """Change transmission technology of foreign lines from AC to DC (links).
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -417,24 +409,24 @@ def foreign_links(network):
     foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
             foreign_buses.index) | network.lines.bus1.astype(str).isin(
             foreign_buses.index)]
-        
+
     foreign_links = network.links[network.links.bus0.astype(str).isin(
             foreign_buses.index) | network.links.bus1.astype(str).isin(
             foreign_buses.index)]
-    
+
     network.links = network.links.drop(
-            network.links.index[network.links.index.isin(foreign_links.index) 
-            & network.links.bus0.isin(network.links.bus1) & 
+            network.links.index[network.links.index.isin(foreign_links.index)
+            & network.links.bus0.isin(network.links.bus1) &
             (network.links.bus0 > network.links.bus1)])
-        
+
     foreign_links = network.links[network.links.bus0.astype(str).isin(
             foreign_buses.index) | network.links.bus1.astype(str).isin(
             foreign_buses.index)]
-    
+
     network.links.loc[foreign_links.index, 'p_min_pu'] = -1
 
     network.links.loc[foreign_links.index, 'efficiency'] = 1
-        
+
     network.import_components_from_dataframe(
         foreign_lines.loc[:, ['bus0', 'bus1', 'capital_cost', 'length']]
         .assign(p_nom=foreign_lines.s_nom).assign(p_min_pu=-1)
@@ -448,7 +440,7 @@ def foreign_links(network):
 
 def set_q_foreign_loads(network, cos_phi=1):
     """Set reative power timeseries of loads in neighbouring countries
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -521,7 +513,7 @@ def connected_transformer(network, busids):
 def load_shedding(network, **kwargs):
     """ Implement load shedding in existing network to identify
     feasibility problems
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -554,7 +546,6 @@ def load_shedding(network, **kwargs):
             index=index),
         "Generator"
     )
-    return
 
 
 def data_manipulation_sh(network):
@@ -564,9 +555,9 @@ def data_manipulation_sh(network):
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    
 
-    
+
+
     """
     from shapely.geometry import Point, LineString, MultiLineString
     from geoalchemy2.shape import from_shape, to_shape
@@ -604,8 +595,6 @@ def data_manipulation_sh(network):
     network.transformers.set_value(new_trafo, 'topo', from_shape(
         LineString([to_shape(network.buses.geom['25536']), point_bus1]), 4326))
 
-    return
-
 
 def _enumerate_row(row):
     row['name'] = row.name
@@ -614,7 +603,7 @@ def _enumerate_row(row):
 
 def results_to_csv(network, args, path):
     """ Function the writes the calaculation results
-    in csv-files in the desired directory. 
+    in csv-files in the desired directory.
 
     Parameters
     ----------
@@ -628,7 +617,7 @@ def results_to_csv(network, args, path):
     """
     results_to_csv.counter += 1
     if path == False:
-        return None
+        pass
 
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
@@ -653,51 +642,10 @@ def results_to_csv(network, args, path):
 
     return
 
-
-def parallelisation(network, args, group_size, extra_functionality=None):
-
-    """
-    Function that splits problem in selected number of 
-    snapshot groups and runs optimization successive for each group. 
-        
-    Not useful for calculations with storage untis or extension.  
-
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args: dict
-        Contains calculation settings of appl.py
-
-    Returns
-    -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    """
-
-    print("Performing linear OPF, {} snapshot(s) at a time:".
-          format(group_size))
-    t = time.time()
-
-    for i in range(int((args['end_snapshot'] - args['start_snapshot'] + 1)
-        / group_size)):
-        if i > 0:
-            network.storage_units.state_of_charge_initial = network.\
-                storage_units_t.state_of_charge.loc[
-                    network.snapshots[group_size * i - 1]]
-        network.lopf(network.snapshots[
-                     group_size * i:group_size * i + group_size],
-                     solver_name=args['solver_name'],
-                     solver_options=args['solver_options'],
-                     extra_functionality=extra_functionality)
-        network.lines.s_nom = network.lines.s_nom_opt
-
-    print(time.time() - t / 60)
-    return
-
 def set_slack(network):
-    
-    """ Function that chosses the bus with the maximum installed power as slack
+
+    """
+    Function that chosses the bus with the maximum installed power as slack
 
     Parameters
     ----------
@@ -712,7 +660,7 @@ def set_slack(network):
 
 
     """
-    
+
     old_slack = network.generators.index[network.
                                          generators.control == 'Slack'][0]
     # check if old slack was PV or PQ control:
@@ -748,62 +696,57 @@ def set_slack(network):
     network.generators.at[old_slack, 'control'] = old_control
     network.generators.at[new_slack_gen, 'control'] = 'Slack'
 
-    
+
     return network
+
 
 
 def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
 
-    """ Function that prepares and runs non-linar load flow using PyPSA pf. 
-    
-    If network has been extendable, a second lopf with reactances adapted to
-    new s_nom is needed. 
-    
-    If crossborder lines are DC-links, pf is only applied on german network. 
+    """
+    Function that prepares and runs non-linar load flow using PyPSA pf.
+
+
+    If crossborder lines are DC-links, pf is only applied on german network.
     Crossborder flows are still considerd due to the active behavior of links.
     To return a network containing the whole grid, the optimised solution of the
-    foreign components can be added afterwards. 
+    foreign components can be added afterwards.
 
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     args: dict
-        Contains calculation settings of appl.py   
+        Contains calculation settings of appl.py
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
         foreign lines are DC
     q_allocation: str
         Choose allocation of reactive power. Possible settings are listed in
-        distribute_q function. 
+        distribute_q function.
     calc_losses: bolean
         Choose if line losses will be calculated.
 
     Returns
     -------
-        
+
     """
-    x = time.time()
-    network = etrago.network
-    args = etrago.args
-    network_pf = network
-    network_pf.lines.s_nom = network_pf.lines.s_nom_opt
-    # For the PF, set the P to the optimised P
-    network_pf.generators_t.p_set = network_pf.generators_t.p_set.reindex(
-        columns=network_pf.generators.index)
-    network_pf.generators_t.p_set = network_pf.generators_t.p
+    def drop_foreign_components(network):
+        """
+        Function that drops foreign components which are only connected via
+        DC-links and saves their optimization results in pandas.DataFrame
 
-    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p_set\
-        .reindex(columns=network_pf.storage_units.index)
-    network_pf.storage_units_t.p_set = network_pf.storage_units_t.p
 
-    network_pf.links_t.p_set = network_pf.links_t.p_set.reindex(
-        columns=network_pf.links.index)
-    network_pf.links_t.p_set = network_pf.links_t.p0
+        Parameters
+        ----------
+        network : :class:`pypsa.Network
+            Overall container of PyPSA
 
-    # if foreign lines are DC, execute pf only on sub_network in Germany
-    if (args['foreign_lines']['carrier'] == 'DC') or ((args['scn_extension']!=
-       None) and ('BE_NO_NEP 2035' in args['scn_extension'])):
+        Returns
+        -------
+        None.
+
+        """
         n_bus = pd.Series(index=network.sub_networks.index)
 
         for i in range(0, len(network.sub_networks.index)-1):
@@ -850,6 +793,7 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
                                foreign_comp[comp].index.isin(
                                network.generators_t.p_max_pu.columns)].index]
 
+        # Drop compoenents
         network.buses = network.buses.drop(foreign_bus.index)
         network.generators = network.generators[
                 network.generators.bus.isin(network.buses.index)]
@@ -859,12 +803,39 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
                  network.transformers.bus0.isin(network.buses.index)]
         network.storage_units = network.storage_units[
                 network.storage_units.bus.isin(network.buses.index)]
-        
+
+        return foreign_bus, foreign_comp, foreign_series
+
+    x = time.time()
+    network = etrago.network
+    args = etrago.args
+
+    network.lines.s_nom = network.lines.s_nom_opt
+
+    # For the PF, set the P to the optimised P
+    network.generators_t.p_set = network.generators_t.p_set.reindex(
+        columns=network.generators.index)
+    network.generators_t.p_set = network.generators_t.p
+
+    network.storage_units_t.p_set = network.storage_units_t.p_set\
+        .reindex(columns=network.storage_units.index)
+    network.storage_units_t.p_set = network.storage_units_t.p
+
+    network.links_t.p_set = network.links_t.p_set.reindex(
+        columns=network.links.index)
+    network.links_t.p_set = network.links_t.p0
+
+    # if foreign lines are DC, execute pf only on sub_network in Germany
+    if (args['foreign_lines']['carrier'] == 'DC') or ((args['scn_extension']!=
+       None) and ('BE_NO_NEP 2035' in args['scn_extension'])):
+        foreign_bus, foreign_comp, foreign_series = \
+            drop_foreign_components(network)
+
     # Set slack bus
     network = set_slack(network)
 
     # execute non-linear pf
-    pf_solution = network_pf.pf(network.snapshots, use_seed=True)
+    pf_solution = network.pf(network.snapshots, use_seed=True)
 
     # if selected, copy lopf results of neighboring countries to network
     if ((args['foreign_lines']['carrier'] == 'DC') or ((args['scn_extension']!=
@@ -888,23 +859,23 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
         calc_line_losses(network)
 
     network = distribute_q(network, allocation=q_allocation)
-    
+
     y = time.time()
     z = (y - x) / 60
     print("Time for PF [min]:", round(z, 2))
-        
+
     if args['csv_export'] != False:
             path=args['csv_export']+ '/pf_post_lopf'
             results_to_csv(network, args, path)
             pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
-    
+
     return network
 
 
 def distribute_q(network, allocation='p_nom'):
-    
+
     """ Function that distributes reactive power at bus to all installed
-    generators and storages. 
+    generators and storages.
 
     Parameters
     ----------
@@ -918,7 +889,7 @@ def distribute_q(network, allocation='p_nom'):
     Returns
     -------
 
-        
+
     """
     network.allocation = allocation
     if allocation == 'p':
@@ -983,7 +954,7 @@ def distribute_q(network, allocation='p_nom'):
 
 def calc_line_losses(network):
     """ Calculate losses per line with PF result data
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1051,6 +1022,21 @@ def loading_minimization(network, snapshots):
 
 
 def group_parallel_lines(network):
+    """
+    TODO: Will be improved when mergin feature/sclopf
+    Functions that groups parallel lines of the same voltage level to one
+    line component representing all parallel lines
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
 
     # ordering of buses: (not sure if still necessary, remaining from SQL code)
     old_lines = network.lines
@@ -1110,10 +1096,9 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, args, 
-                   cost110=230, cost220=290, cost380=85, costDC=375):
+def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1129,32 +1114,32 @@ def set_line_costs(network, args,
                 default: 85€/MVA/km, source: costs for extra circuit in
                 NEP 2025, capactity from most used 380 kV lines in NEP
     costDC : capital costs per km for DC-lines
-                default: 375€/MVA/km, source: costs for DC transmission line 
+                default: 375€/MVA/km, source: costs for DC transmission line
                 in NEP 2035
     -------
 
     """
 
     network.lines.loc[(network.lines.v_nom == 110),
-                      'capital_cost'] = cost110 * network.lines.length 
-                      
+                      'capital_cost'] = cost110 * network.lines.length
+
     network.lines.loc[(network.lines.v_nom == 220),
                       'capital_cost'] = cost220 * network.lines.length
-                      
+
     network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
-                      
+
     network.links.loc[network.links.p_nom_extendable,
                       'capital_cost'] = costDC * network.links.length
 
     return network
 
 
-def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
+def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
                     cost220_380=14166):
     """ Set capital costs for extendable transformers in respect
     to PyPSA [€/MVA]
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1187,9 +1172,12 @@ def set_trafo_costs(network, args,  cost110_220=7500, cost110_380=17333,
 
 def add_missing_components(network):
     # Munich
-    """Add missing transformer at Heizkraftwerk Nord in Munich and missing
+    """ TODO: Manualy adds lines between hard-coded buses. Has to be changed
+            for the next dataversion and should be moved to data processing
+
+    Add missing transformer at Heizkraftwerk Nord in Munich and missing
     transformer in Stuttgart
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1199,9 +1187,9 @@ def add_missing_components(network):
     -------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-        
+
     """
-    
+
     """https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
 
      to bus 25096:
@@ -1390,7 +1378,7 @@ def add_missing_components(network):
 
 def convert_capital_costs(etrago, p=0.05, T=40):
     """ Convert capital_costs to fit to pypsa and caluculated time
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1400,7 +1388,7 @@ def convert_capital_costs(etrago, p=0.05, T=40):
     -------
 
     """
-    
+
     network = etrago.network
     start_snapshot = etrago.args['start_snapshot']
     end_snapshot = etrago.args['end_snapshot']
@@ -1429,9 +1417,9 @@ def convert_capital_costs(etrago, p=0.05, T=40):
 
 
 def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
-    
+
     """
-    Function that returns snapshots with maximum and/or minimum feed-in of 
+    Function that returns snapshots with maximum and/or minimum feed-in of
     selected carrier.
 
     Parameters
@@ -1452,7 +1440,7 @@ def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
     calc_snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
         List containing snapshots
     """
-    
+
     if carrier == 'residual load':
         power_plants = network.generators[network.generators.carrier.
                                     isin(['solar', 'wind', 'wind_onshore'])]
@@ -1462,7 +1450,7 @@ def find_snapshots(network, carrier, maximum = True, minimum = True, n = 3):
         all_renew = power_plants_t.sum(axis=1)
         all_carrier = load - all_renew
 
-    if carrier in ('solar', 'wind', 'wind_onshore', 
+    if carrier in ('solar', 'wind', 'wind_onshore',
                    'wind_offshore', 'run_of_river'):
         power_plants = network.generators[network.generators.carrier
                                           == carrier]
@@ -1496,17 +1484,17 @@ def ramp_limits(network):
 
     Returns
     -------
-    
+
     """
     carrier = ['coal', 'biomass', 'gas', 'oil', 'waste', 'lignite',
                        'uranium', 'geothermal']
     data = {'start_up_cost':[77, 57, 42, 57, 57, 77, 50, 57], #€/MW
             'start_up_fuel':[4.3, 2.8, 1.45, 2.8, 2.8, 4.3, 16.7, 2.8], #MWh/MW
-            'min_up_time':[5, 2, 3, 2, 2, 5, 12, 2], 
-            'min_down_time':[7, 2, 2, 2, 2, 7, 17, 2], 
+            'min_up_time':[5, 2, 3, 2, 2, 5, 12, 2],
+            'min_down_time':[7, 2, 2, 2, 2, 7, 17, 2],
 # =============================================================================
-#             'ramp_limit_start_up':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4], 
-#             'ramp_limit_shut_down':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4] 
+#             'ramp_limit_start_up':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4],
+#             'ramp_limit_shut_down':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4]
 # =============================================================================
             'p_min_pu':[0.33, 0.38, 0.4, 0.38, 0.38, 0.5, 0.45, 0.38]
             }
@@ -1518,7 +1506,7 @@ def ramp_limits(network):
     df.drop('start_up_fuel', axis=1, inplace=True)
     for tech in df.index:
         for limit in df.columns:
-            network.generators.loc[network.generators.carrier == tech, 
+            network.generators.loc[network.generators.carrier == tech,
                                    limit] = df.loc[tech, limit]
     network.generators.start_up_cost = network.generators.start_up_cost\
                                         *network.generators.p_nom
@@ -1528,7 +1516,7 @@ def ramp_limits(network):
 def get_args_setting(args, jsonpath='scenario_setting.json'):
     """
     Get and open json file with scenaio settings of eTraGo ``args``.
-    The settings incluedes all eTraGo specific settings of arguments and 
+    The settings incluedes all eTraGo specific settings of arguments and
     parameters for a reproducible calculation.
 
     Parameters
@@ -1540,9 +1528,9 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
     Returns
     -------
     args : dict
-        Dictionary of json file 
+        Dictionary of json file
     """
- 
+
     if not jsonpath == None:
         with open(jsonpath) as f:
             args = json.load(f)
@@ -1584,7 +1572,7 @@ def set_random_noise(etrago, sigma = 0.01):
 
 def set_line_country_tags(network):
     """
-    Set country tag for AC- and DC-lines. 
+    Set country tag for AC- and DC-lines.
 
     Parameters
     ----------
@@ -1592,7 +1580,7 @@ def set_line_country_tags(network):
         Overall container of PyPSA
 
 
-    """ 
+    """
 
     transborder_lines_0 = network.lines[network.lines['bus0'].isin(
             network.buses.index[network.buses['country_code'] != 'DE'])].index
@@ -1602,7 +1590,7 @@ def set_line_country_tags(network):
     network.lines.loc[transborder_lines_0, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_0, 'bus0']\
                           .values, 'country_code'].values
-    
+
     network.lines.loc[transborder_lines_1, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_1, 'bus1']\
                           .values, 'country_code'].values
@@ -1612,7 +1600,7 @@ def set_line_country_tags(network):
         c_bus0 = network.buses.loc[network.lines.loc[line, 'bus0'], 'country']
         c_bus1 = network.buses.loc[network.lines.loc[line, 'bus1'], 'country']
         network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
-    
+
     transborder_links_0 = network.links[network.links['bus0'].isin(
             network.buses.index[network.buses['country_code']!= 'DE'])].index
     transborder_links_1 = network.links[network.links['bus1'].isin(
@@ -1634,7 +1622,7 @@ def set_line_country_tags(network):
         network.links.loc[link, 'country'] = '{}{}'.format(c_bus0, c_bus1)
 
 
-def crossborder_capacity(network, method, capacity_factor):
+def crossborder_capacity(network, method):
     """
     Adjust interconnector capacties.
 
@@ -1644,12 +1632,12 @@ def crossborder_capacity(network, method, capacity_factor):
         Overall container of PyPSA
     method : string
         Method of correction. Options are 'ntc_acer' and 'thermal_acer'.
-        'ntc_acer' corrects all capacities according to values published by 
+        'ntc_acer' corrects all capacities according to values published by
         the ACER in 2016.
-        'thermal_acer' corrects certain capacities where our dataset most 
-        likely overestimates the thermal capacity.        
+        'thermal_acer' corrects certain capacities where our dataset most
+        likely overestimates the thermal capacity.
 
-    """         
+    """
     if method == 'ntc_acer':
         cap_per_country = {'AT': 4900,
                            'CH': 2695,
@@ -1696,15 +1684,15 @@ def crossborder_capacity(network, method, capacity_factor):
 
         if not network.lines[network.lines.country == country].empty:
                 network.lines.loc[index_HV, 's_nom'] = weighting[index_HV] * \
-                    cap_per_country[country] 
-                    
+                    cap_per_country[country]
+
                 network.lines.loc[index_eHV, 's_nom'] = \
                     weighting[index_eHV] * cap_per_country[country]
 
         if not network.links[network.links.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
                                 weighting_links[index_links] * cap_per_country\
-                                [country] 
+                                [country]
         if country == 'SE':
                 network.links.loc[network.links.country == country, 'p_nom'] =\
                 cap_per_country[country]
@@ -1712,7 +1700,7 @@ def crossborder_capacity(network, method, capacity_factor):
         if not network.lines[network.lines.country == (country+country)].empty:
             i_HV =  network.lines[(network.lines.v_nom == 110)&(
                     network.lines.country ==country+country)].index
-            
+
             i_eHV =  network.lines[(network.lines.v_nom == 110)&(
                     network.lines.country ==country+country)].index
 
@@ -1759,14 +1747,14 @@ def set_branch_capacity(etrago):
 
     network.transformers.s_max_pu[network.transformers.v_nom0 > 110]\
         = args['branch_capacity_factor']['eHV']
-     
+
 
 def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
-                
+
     """
     Update electrical parameters of active branch components
     considering s_nom of previous iteration
-    
+
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1779,36 +1767,36 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
 
     network.lines.x[network.lines.s_nom_extendable] = \
     network.lines.x * l_snom_pre / network.lines.s_nom_opt
-                
+
     network.transformers.x[network.transformers.s_nom_extendable]=\
     network.transformers.x * t_snom_pre /\
     network.transformers.s_nom_opt
-                
+
     network.lines.r[network.lines.s_nom_extendable] = \
     network.lines.r * l_snom_pre / network.lines.s_nom_opt
-                
+
     network.transformers.r[network.transformers.s_nom_extendable]=\
     network.transformers.r * t_snom_pre /\
     network.transformers.s_nom_opt
-                
+
     network.lines.g[network.lines.s_nom_extendable] = \
     network.lines.g * network.lines.s_nom_opt / l_snom_pre
-                
+
     network.transformers.g[network.transformers.s_nom_extendable]=\
     network.transformers.g * network.transformers.s_nom_opt /\
     t_snom_pre
-                
+
     network.lines.b[network.lines.s_nom_extendable] = \
     network.lines.b * network.lines.s_nom_opt / l_snom_pre
-                
+
     network.transformers.b[network.transformers.s_nom_extendable]=\
     network.transformers.b * network.transformers.s_nom_opt /\
     t_snom_pre
-                
+
     # Set snom_pre to s_nom_opt for next iteration
     l_snom_pre = network.lines.s_nom_opt.copy()
     t_snom_pre = network.transformers.s_nom_opt.copy()
-                
+
     return l_snom_pre, t_snom_pre
 
 def run_lopf(etrago, extra_functionality, method):
@@ -1832,20 +1820,20 @@ def run_lopf(etrago, extra_functionality, method):
             solver_options=etrago.args['solver_options'],
             extra_functionality=extra_functionality,
             formulation=etrago.args['model_formulation'])
-        
+
         if status != 'ok':
             raise  Exception('LOPF not solved.')
     y = time.time()
     z = (y - x) / 60
 
     print("Time for LOPF [min]:", round(z, 2))
-            
-def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True}, 
-                 delta_s_max=0):
+
+def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
+                 ):
 
     """
-    Run optimization of lopf. If network extension is included, the specified 
-    number of iterations is calculated to consider reactance changes. 
+    Run optimization of lopf. If network extension is included, the specified
+    number of iterations is calculated to consider reactance changes.
 
     Parameters
     ----------
@@ -1854,29 +1842,21 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
     args: dict
         Settings in appl.py
     extra_functionality: str
-        Define extra constranits. 
+        Define extra constranits.
     method: dict
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
         of iteration until the threshold of the objective function is reached
-    delta_s_max: float
-        Increase of maximal extension of each line in p.u.
-        Currently only working with method n_iter
 
     """
     results_to_csv.counter=0
     network = etrago.network
     args = etrago.args
-    # if network is extendable, iterate lopf 
+    # if network is extendable, iterate lopf
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
-        
-        max_ext_line=network.lines.s_nom_max/network.lines.s_nom
-        max_ext_link=network.links.p_nom_max/network.links.p_nom
-        max_ext_trafo=network.transformers.s_nom_max/\
-            network.transformers.s_nom
 
-        # Initialise s_nom_pre (s_nom_opt of previous iteration) 
+        # Initialise s_nom_pre (s_nom_opt of previous iteration)
         # to s_nom for first lopf:
         l_snom_pre = network.lines.s_nom.copy()
         t_snom_pre = network.transformers.s_nom.copy()
@@ -1886,15 +1866,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
             n_iter = method['n_iter']
 
             for i in range (1,(1+n_iter)):
-                
-                network.lines.s_nom_max=\
-                 (max_ext_line-(n_iter-i)*delta_s_max)*network.lines.s_nom
-                network.transformers.s_nom_max=\
-                 (max_ext_trafo-(n_iter-i)*delta_s_max)*\
-                network.transformers.s_nom                
-                network.links.p_nom_max=\
-                 (max_ext_link-(n_iter-i)*delta_s_max)*network.links.p_nom
-            
+
                 run_lopf(etrago, extra_functionality, method)
 
                 if args['csv_export'] != False:
@@ -1903,33 +1875,32 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
-                    update_electrical_parameters(network, 
+                    update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
-        
-        # Calculate variable number of iterations until threshold of objective 
+
+        # Calculate variable number of iterations until threshold of objective
         # function is reached
 
         if 'threshold' in method:
-            thr = method['threshold']
-            
+
             run_lopf(etrago, extra_functionality, method)
 
-            diff_obj=network.objective*thr/100
+            diff_obj=network.objective*method['threshold']/100
 
             i = 1
-            
+
             # Stop after 100 iterations to aviod unending loop
             while i <= 100:
-                
+
                 if i ==100:
                     print('Maximum number of iterations reached.')
                     break
-                
+
                 l_snom_pre, t_snom_pre = \
-                    update_electrical_parameters(network, 
+                    update_electrical_parameters(network,
                                                  l_snom_pre, t_snom_pre)
                 pre = network.objective
-                
+
                 run_lopf(etrago, extra_functionality, method)
 
                 i += 1
@@ -1937,17 +1908,13 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                 if args['csv_export'] != False:
                     path=args['csv_export'] + '/lopf_iteration_'+ str(i)
                     results_to_csv(network, args, path)
-                    
+
                 if abs(pre-network.objective) <=diff_obj:
                     print('Threshold reached after ' + str(i) + ' iterations.')
                     break
-                    
+
     else:
-            run_lopf(etrago, extra_functionality, method)
-        
-            if args['csv_export'] != False:
-                path=args['csv_export']+ '/lopf'
-                results_to_csv(network, args, path)
+        run_lopf(etrago, extra_functionality, method)
 
     if args['csv_export'] != False:
         path=args['csv_export']
@@ -1957,22 +1924,44 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
         network.model.write(
             args['lpfile'], io_options={
                 'symbolic_solver_labels': True})
-            
+
     return network
-            
-def check_args(args, etrago):
+
+def check_args(etrago):
+    """
+    Function that checks the consistency of etragos input parameters automatically.
+
+    Parameters
+    ----------
+    etrago : :class:`etrago.Etrago
+        Overall container of eTraGo
+
+    Returns
+    -------
+    None.
+
+    """
+
     from importlib import import_module
-    assert args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
-        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + args['scn_name'])
-        
-    assert args['start_snapshot'] < args['end_snapshot'],\
+    assert etrago.args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
+        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + etrago.args['scn_name'])
+
+    assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
         ("start_snapshot after end_snapshot")
 
-    if args['gridversion'] != None:
+    if etrago.args['gridversion'] != None:
         ormclass = getattr(import_module('egoio.db_tables.grid'),
                            'EgoPfHvTempResolution')
-        
-        assert args['gridversion'] in pd.read_sql(
+
+        assert etrago.args['gridversion'] in pd.read_sql(
             etrago.session.query(ormclass).statement, etrago.session.bind
             ).version.unique(), ("gridversion does not exist")
 
+    if etrago.args['snapshot_clustering'] != False:
+
+        assert etrago.args['end_snapshot']/\
+            etrago.args['start_snapshot'] % 24 == 0,\
+            ("Please select snapshots covering whole days when choosing snapshot clustering")
+
+        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > (24 *etrago.args['snapshot_clustering']),\
+            ("Number of selected days is smaller than number of representitive snapshots")

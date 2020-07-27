@@ -46,8 +46,8 @@ if 'READTHEDOCS' not in os.environ:
     from etrago.network import Etrago
     from etrago.sectors.heat import _try_add_heat_sector
     from etrago.cluster.disaggregation import (
-            MiniSolverDisaggregation,
-            UniformDisaggregation)
+        MiniSolverDisaggregation,
+        UniformDisaggregation)
 
     from etrago.cluster.networkclustering import (
         busmap_from_psql,
@@ -65,7 +65,7 @@ if 'READTHEDOCS' not in os.environ:
         Constraints)
 
     from etrago.tools.extendable import (
-            print_expansion_costs)
+        print_expansion_costs)
 
     from etrago.cluster.snapshot import snapshot_clustering
 
@@ -79,7 +79,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 168,
+    'end_snapshot': 24,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'method':2, 'crossover':0,
@@ -96,7 +96,7 @@ args = {
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
-    'extra_functionality': {},  # Choose function name or {}
+    'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 100,  # False or the value k for clustering
     'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
@@ -154,9 +154,9 @@ def etrago(args):
         'cplex' or 'gurobi'.
 
     solver_options: dict
-        Choose settings of solver to improve simulation time and result. 
+        Choose settings of solver to improve simulation time and result.
         Options are described in documentation of choosen solver.
-    
+
     model_formulation: str
         'angles'
         Choose formulation of pyomo-model.
@@ -250,7 +250,7 @@ def etrago(args):
                 Limit cross-border-flows between Germany and its neigbouring
                 countries, set values in p.u. of german loads in snapshots
                 for each country
-                (positiv: export from Germany)  
+                (positiv: export from Germany)
             'max_curtailment_per_gen': float
                 Limit curtailment of all wind and solar generators in Germany,
                 values set in p.u. of generation potential.
@@ -258,16 +258,16 @@ def etrago(args):
                 Limit curtailment of each wind and solar generator in Germany,
                 values set in p.u. of generation potential.
             'capacity_factor': dict of arrays
-                Limit overall energy production for each carrier, 
+                Limit overall energy production for each carrier,
                 set upper/lower limit in p.u.
             'capacity_factor_per_gen': dict of arrays
-                Limit overall energy production for each generator by carrier, 
+                Limit overall energy production for each generator by carrier,
                 set upper/lower limit in p.u.
             'capacity_factor_per_cntr': dict of dict of arrays
-                Limit overall energy production country-wise for each carrier, 
+                Limit overall energy production country-wise for each carrier,
                 set upper/lower limit in p.u.
             'capacity_factor_per_gen_cntr': dict of dict of arrays
-                Limit overall energy production country-wise for each generator 
+                Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : bool or int
@@ -338,17 +338,17 @@ def etrago(args):
     if not args['network_clustering_kmeans'] == False:
         etrago.network.generators.control = "PV"
         clustering = kmean_clustering(
-                etrago,
-                line_length_factor=1,
-                remove_stubs=False,
-                use_reduced_coordinates=False,
-                bus_weight_tocsv=None,
-                bus_weight_fromcsv=None,
-                n_init=10,
-                max_iter=100,
-                tol=1e-6,
-                n_jobs=-1)
-        if args['disaggregation']!=None:
+            etrago,
+            line_length_factor=1,
+            remove_stubs=False,
+            use_reduced_coordinates=False,
+            bus_weight_tocsv=None,
+            bus_weight_fromcsv=None,
+            n_init=10,
+            max_iter=100,
+            tol=1e-6,
+            n_jobs=-1)
+        if args['disaggregation'] != None:
             etrago.disaggregated_network = etrago.network.copy()
         etrago.network = clustering.network.copy()
         etrago.network.generators.control[etrago.network.generators.control==''] = 'PV'
@@ -371,35 +371,35 @@ def etrago(args):
     # start linear optimal powerflow calculations
     if args['method'] == 'lopf':
         x = time.time()
-        try: 
+        try:
             from vresutils.benchmark import memory_logger
             with memory_logger(filename=args['csv_export']+'_memory.log', interval=30.) as mem:
                 iterate_lopf(etrago,
-                              Constraints(args).functionality,
-                              method={'n_iter':5, 'pyomo':False})
+                             Constraints(args).functionality,
+                             method={'n_iter':5, 'pyomo':False})
         except:
             iterate_lopf(etrago,
-                              Constraints(args).functionality,
-                              method={'n_iter':5, 'pyomo':True})
+                         Constraints(args).functionality,
+                         method={'n_iter':5, 'pyomo':True})
         y = time.time()
         z = (y - x) / 60
-        print("Maximum memory usage: {} MB".format(mem.mem_usage[0]))
+        print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
         print("Total time for LOPF [min]:", round(z, 2))
 
     elif args['method'] == 'ilopf':
         from pypsa.linopf import ilopf
-        # Temporary set all line types 
+        # Temporary set all line types
         etrago.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
         x = time.time()
-        ilopf(etrago.network, solver_name = args['solver'], 
-              solver_options = args['solver_options'])
+        ilopf(etrago.network, solver_name=args['solver'],
+              solver_options=args['solver_options'])
         y = time.time()
         z = (y - x) / 60
         print("Time for LOPF [min]:", round(z, 2))
-        
-    etrago._calc_etrago_results()
-    
-    if args['pf_post_lopf'] and args['add_sectors']==[]:
+
+    etrago.calc_etrago_results()
+
+    if args['pf_post_lopf'] and args['add_sectors'] == []:
         pf_post_lopf(etrago,
                      add_foreign_lopf=True,
                      q_allocation='p_nom',
@@ -408,7 +408,7 @@ def etrago(args):
 
 
     if not args['extendable'] == []:
-        print_expansion_costs(etrago.network, args)
+        print_expansion_costs(etrago.network)
 
     if clustering:
         disagg = args.get('disaggregation')
@@ -417,10 +417,10 @@ def etrago(args):
         if disagg:
             if disagg == 'mini':
                 disaggregation = MiniSolverDisaggregation(
-                        etrago.disaggregated_network,
-                        etrago.network,
-                        clustering,
-                        skip=skip)
+                    etrago.disaggregated_network,
+                    etrago.network,
+                    clustering,
+                    skip=skip)
             elif disagg == 'uniform':
                 disaggregation = UniformDisaggregation(etrago.disaggregated_network,
                                                        etrago.network,
@@ -438,7 +438,7 @@ def etrago(args):
 
             etrago.disaggregated_network.results = etrago.network.results
             print("Time for overall desaggregation [min]: {:.2}"
-                .format((time.time() - t) / 60))
+                  .format((time.time() - t) / 60))
 
     # close session
     # session.close()
