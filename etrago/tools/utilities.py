@@ -112,10 +112,8 @@ def geolocation_buses(etrago):
 
      Parameters
      ----------
-     network_etrago: : class: `etrago.tools.io.NetworkScenario`
-         eTraGo network object compiled by: meth: `etrago.appl.etrago`
-     session: : sqlalchemy: `sqlalchemy.orm.session.Session < orm/session_basics.html >`
-         SQLAlchemy session to the OEDB
+     etrago : :class:`etrago.Etrago
+        Transmission grid object
 
     """
     network = etrago.network
@@ -714,10 +712,8 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args: dict
-        Contains calculation settings of appl.py
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
         foreign lines are DC
@@ -1381,8 +1377,8 @@ def convert_capital_costs(etrago, p=0.05, T=40):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     p : interest rate, default 0.05
     T : number of periods, default 40 years (source: StromNEV Anlage 1)
     -------
@@ -1544,8 +1540,8 @@ def set_random_noise(etrago, sigma = 0.01):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
 
     seed: int
         seed number, needed to reproduce results
@@ -1724,10 +1720,8 @@ def set_branch_capacity(etrago):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args: dict
-        Settings in appl.py
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
 
     """
     network = etrago.network
@@ -1800,6 +1794,25 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 def run_lopf(etrago, extra_functionality, method):
+    """ Function that performs lopf with or without pyomo
+
+
+    Parameters
+    ----------
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
+    extra_functionality: str
+        Define extra constranits.
+    method: dict
+        Choose 'n_iter' and integer for fixed number of iterations or
+        'threshold' and derivation of objective in percent for variable number
+        of iteration until the threshold of the objective function is reached
+
+    Returns
+    -------
+    None.
+
+    """
 
     x = time.time()
     if method['pyomo']:
@@ -1837,10 +1850,8 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args: dict
-        Settings in appl.py
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     extra_functionality: str
         Define extra constranits.
     method: dict

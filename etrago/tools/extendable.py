@@ -444,6 +444,19 @@ def extension_preselection(etrago, method, days=3):
     return network
 
 def print_expansion_costs(network):
+    """ Function that prints network and storage investment costs
+
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
 
     ext_storage = network.storage_units[network.storage_units.p_nom_extendable]
     ext_lines = network.lines[network.lines.s_nom_extendable]

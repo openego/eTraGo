@@ -85,7 +85,7 @@ class Etrago():
 
         if args != {}:
             self.args = args
-        elif csv_folder_name is None:
+        elif csv_folder_name is not None:
             with open(csv_folder_name + '/args.json') as json_file:
                 self.args = json.load(json_file)
         else:
@@ -115,6 +115,13 @@ class Etrago():
 
 
     def _build_network_from_db(self):
+        """ Function that imports transmission grid from chosen database
+
+        Returns
+        -------
+        None.
+
+        """
         self.scenario = NetworkScenario(self.session,
                                         version=self.args['gridversion'],
                                         prefix=('EgoGridPfHv' if
@@ -181,7 +188,7 @@ class Etrago():
             self.network.storage_units.carrier[
                 (self.network.storage_units.carrier == 'extendable_storage')&
                 (self.network.storage_units.max_hours == 6)] =\
-                    'extendable_batterry_storage'
+                    'extendable_battery_storage'
             self.network.storage_units.carrier[
                 (self.network.storage_units.carrier == 'extendable_storage')&
                 (self.network.storage_units.max_hours == 168)] = \
@@ -194,14 +201,22 @@ class Etrago():
     plot_grid = plot_grid
 
     def _calc_storage_expansion(self):
+        """ Function that calulates storage expansion in MW
+
+
+        Returns
+        -------
+        float
+            storage expansion in MW
+
+        """
         return (self.network.storage_units.p_nom_opt -
                 self.network.storage_units.p_nom_min
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
 
     def calc_investment_cost(self):
-        """
-        Function tht calulates overall annualized investment costs .
+        """ Function that calulates overall annualized investment costs.
 
         Returns
         -------
@@ -259,8 +274,8 @@ class Etrago():
         return marginal_cost
 
     def calc_etrago_results(self):
-        """
-        Function that calculates main results and adds them to Etrago object.
+        """ Function that calculates main results of grid optimization
+        and adds them to Etrago object.
 
         Returns
         -------
@@ -307,7 +322,7 @@ class Etrago():
             self.results.value['storage_expansion'] = \
                 self._calc_storage_expansion().sum()
             self.results.value['battery_storage_expansion'] = \
-                self._calc_storage_expansion()['extendable_batterry_storage']
+                self._calc_storage_expansion()['extendable_battery_storage']
             self.results.value['hydrogen_storage_expansion'] = \
                 self._calc_storage_expansion()['extendable_hydrogen_storage']
 
