@@ -57,7 +57,7 @@ args = {
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': {'type': 'lopf',
                'n_iter': 5},  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'pf_post_lopf': True,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -81,7 +81,7 @@ args = {
     'network_clustering_kmeans': {'n_cluster': 10,
                                   'kmeans_busmap': 'kmeans_busmap_10_result.csv'},  # False or the value k for clustering
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'mini',  # None, 'mini' or 'uniform'
+    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'skip_snapshots': False,

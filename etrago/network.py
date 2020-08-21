@@ -39,14 +39,15 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     load_shedding,
                                     set_q_foreign_loads,
                                     foreign_links,
-                                    crossborder_capacity,
-                                    lopf,
-                                    run_pf_post_lopf)
+                                    crossborder_capacity)
 from etrago.tools.plot import add_coordinates, plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import run_kmeans_clustering, ehv_clustering
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.cluster.disaggregation import run_disaggregation
+from etrago.tools.lopf import lopf
+from etrago.tools.pf_post_lopf import run_pf_post_lopf
+
 logger = logging.getLogger(__name__)
 
 class Etrago():
