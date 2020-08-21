@@ -355,7 +355,7 @@ class MiniSolverDisaggregation(Disaggregation):
             for bustype, bustype_pypsa, suffixes in [
                 ('storage', 'storage_units', ['_dispatch', '_spill', '_store']),
                 ('store', 'stores',[''])]:
-                generators = getattr(self.original_network, 
+                generators = getattr(self.original_network,
                                      bustype_pypsa).assign(
                     bus=lambda df: df.bus.map(self.clustering.busmap))
                 for suffix in suffixes:
@@ -543,3 +543,34 @@ def filter_on_buses(connecitve, buses):
 
 def update_constraints(network, externals):
     pass
+
+def run_disaggregation(self):
+    if self.clustering:
+        disagg = self.args.get('disaggregation')
+        skip = () if self.args['pf_post_lopf'] else ('q',)
+        t = time.time()
+        if disagg:
+            if disagg == 'mini':
+                disaggregation = MiniSolverDisaggregation(
+                    self.disaggregated_network,
+                    self.network,
+                    self.clustering,
+                    skip=skip)
+            elif disagg == 'uniform':
+                disaggregation = UniformDisaggregation(self.disaggregated_network,
+                                                       self.network,
+                                                       self.clustering,
+                                                       skip=skip)
+
+            else:
+                raise Exception('Invalid disaggregation command: ' + disagg)
+
+            disaggregation.execute(self.scenario, solver=self.args['solver'])
+            # temporal bug fix for solar generator which ar during night time
+            # nan instead of 0
+            self.disaggregated_network.generators_t.p.fillna(0, inplace=True)
+            self.disaggregated_network.generators_t.q.fillna(0, inplace=True)
+
+            self.disaggregated_network.results = self.network.results
+            print("Time for overall desaggregation [min]: {:.2}"
+                  .format((time.time() - t) / 60))

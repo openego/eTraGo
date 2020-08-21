@@ -43,6 +43,9 @@ if 'READTHEDOCS' not in os.environ:
     from six import iteritems
     from sqlalchemy import or_, exists
     import numpy as np
+    import logging
+
+    logger = logging.getLogger(__name__)
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -123,7 +126,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network.generators['weight'] = 1
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                     custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
-                                       'weight': np.sum, 'p_nom': np.sum, 
+                                       'weight': np.sum, 'p_nom': np.sum,
                                        'p_nom_opt': np.sum, 'marginal_cost':
                                            np.mean, 'capital_cost': np.mean})
     io.import_components_from_dataframe(network_c, new_df, 'Generator')
@@ -139,7 +142,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
                              'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
                              'p_min_pu': np.min}}
         new_df, new_pnl = aggregateoneport(
-            network, busmap, component=one_port, with_time=with_time, 
+            network, busmap, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
@@ -396,13 +399,23 @@ def busmap_from_psql(etrago):
 
     return busmap
 
+def ehv_clustering(self):
 
-def kmean_clustering(etrago, 
-                     line_length_factor=1.25,
-                     remove_stubs=False, use_reduced_coordinates=False,
-                     bus_weight_tocsv=None, bus_weight_fromcsv=None,
-                     n_init=10, max_iter=300, tol=1e-4,
-                     n_jobs=1):
+
+    if self.args['network_clustering_ehv']:
+
+        logger.info('Start ehv clustering')
+
+        self.network.generators.control = "PV"
+        busmap = busmap_from_psql(self)
+        self.network = cluster_on_extra_high_voltage(
+            self.network, busmap, with_time=True)
+
+        logger.info('Network clustered to EHV-grid')
+
+
+def kmean_clustering(etrago,
+                     kmean_settings):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -440,9 +453,10 @@ def kmean_clustering(etrago,
     network : pypsa.Network object
         Container for all network components.
     """
+
+
     network = etrago.network
     n_clusters=etrago.args['network_clustering_kmeans']
-    kmeans_busmap=etrago.args['kmeans_busmap']
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -485,7 +499,6 @@ def kmean_clustering(etrago,
     def normed(x):
         return (x / x.sum()).fillna(0.)
 
-    print('start k-mean clustering')
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control = "PV"
@@ -533,24 +546,26 @@ def kmean_clustering(etrago,
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
-    if bus_weight_tocsv is not None:
-        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
-    elif bus_weight_fromcsv is not None:
-        weight = pd.Series.from_csv(bus_weight_fromcsv)
+    if kmean_settings['bus_weight_tocsv'] is not None:
+        weight = weighting_for_scenario(
+            x=network.buses,
+            save=kmean_settings['bus_weight_tocsv'])
+    elif kmean_settings['bus_weight_fromcsv'] is not None:
+        weight = pd.Series.from_csv(kmean_settings['bus_weight_fromcsv'])
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
 
 
     # remove stubs
-    if remove_stubs:
+    if kmean_settings['remove_stubs']:
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
         network.generators['weight'] = network.generators['p_nom']
 
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
-        if use_reduced_coordinates:
+        if kmean_settings['use_reduced_coordinates']:
             # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
             # i.e. network is changed in place!!
             network.buses.loc[busmap.index, ['x', 'y']
@@ -560,24 +575,24 @@ def kmean_clustering(etrago,
             network,
             busmap,
             aggregate_generators_weighted=True,
-            line_length_factor=line_length_factor)
+            line_length_factor=kmean_settings['line_length_factor'])
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmeans_busmap:
+    if not kmean_settings['kmeans_busmap']:
         busmap = busmap_by_kmeans(
             network,
             bus_weightings=pd.Series(weight),
-            n_clusters=n_clusters,
-            n_init=n_init,
-            max_iter=max_iter,
-            tol=tol,
-            n_jobs=n_jobs)
+            n_clusters=kmean_settings['n_clusters'],
+            n_init=kmean_settings['n_init'],
+            max_iter=kmean_settings['max_iter'],
+            tol=kmean_settings['tol'],
+            n_jobs=kmean_settings['n_jobs'])
         busmap.to_csv('kmeans_busmap_' + str(n_clusters) + '_result.csv')
     else:
-        df = pd.read_csv(kmeans_busmap)
+        df = pd.read_csv(kmean_settings['kmeans_busmap'])
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
@@ -602,5 +617,44 @@ def kmean_clustering(etrago,
                               'capital_cost': np.mean},
         aggregate_one_ports=aggregate_one_ports)
 
-
     return clustering
+
+def run_kmeans_clustering(self):
+
+    if self.args['network_clustering_kmeans'] != False:
+        kmean_settings = {
+                'n_cluster': 10,
+                'kmeans_busmap': False,
+                'line_length_factor': 1.25,
+                'remove_stubs': False,
+                'use_reduced_coordinates': False,
+                'bus_weight_tocsv': None,
+                'bus_weight_fromcsv': None,
+                'n_init': 10,
+                'max_iter': 300,
+                'tol': 1e-4,
+                'n_jobs': 1}
+
+        if type(self.args['network_clustering_kmeans']) == dict:
+            for k in self.args['network_clustering_kmeans'].keys():
+                kmean_settings[k] = self.args['network_clustering_kmeans'][k]
+        else:
+            kmean_settings['n_cluster'] = self.args['network_clustering_kmeans']
+
+        self.network.generators.control = "PV"
+
+        logger.info('Start k-mean clustering')
+
+        self.clustering = kmean_clustering(self, kmean_settings)
+
+        if self.args['disaggregation'] != None:
+                self.disaggregated_network = self.network.copy()
+
+        self.network = self.clustering.network.copy()
+
+        geolocation_buses(self)
+
+        self.network.generators.control[self.network.generators.control == ''] = 'PV'
+
+        logger.info("Network clustered to {} buses with k-means algorithm."
+                    .format(kmean_settings['n_cluster']))

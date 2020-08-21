@@ -979,7 +979,7 @@ class Constraints:
 
                 network.model.storages = sus.index
 
-                if self.args['snapshot_clustering_constraints'] \
+                if self.args['snapshot_clustering']['storage_constraints'] \
                     == 'daily_bounds':
 
                     print('Setting daily_bounds constraint')
@@ -997,7 +997,7 @@ class Constraints:
                         network.model.storages,
                         network.model.period_starts, rule=day_rule)
 
-                elif self.args['snapshot_clustering_constraints'] \
+                elif self.args['snapshot_clustering']['storage_constraints'] \
                     == 'soc_constraints':
                     candidates = \
                         network.cluster.index.get_level_values(0).unique()

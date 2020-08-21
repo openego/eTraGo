@@ -44,30 +44,9 @@ if 'READTHEDOCS' not in os.environ:
     # Do not import internal packages directly
 
     from etrago.network import Etrago
-    from etrago.sectors.heat import _try_add_heat_sector
-    from etrago.cluster.disaggregation import (
-        MiniSolverDisaggregation,
-        UniformDisaggregation)
-
-    from etrago.cluster.networkclustering import (
-        busmap_from_psql,
-        cluster_on_extra_high_voltage,
-        kmean_clustering)
 
     from etrago.tools.utilities import (
-        pf_post_lopf,
-        calc_line_losses,
-        geolocation_buses,
-        get_args_setting,
-        iterate_lopf)
-
-    from etrago.tools.constraints import(
-        Constraints)
-
-    from etrago.tools.extendable import (
-        print_expansion_costs)
-
-    from etrago.cluster.snapshot import snapshot_clustering
+        get_args_setting)
 
     import oedialect
 
@@ -76,10 +55,11 @@ args = {
     # Setup and Configuration:
     'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
+    'method': {'type': 'lopf',
+               'n_iter': 5},  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 24,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'method':2, 'crossover':0,
@@ -97,11 +77,11 @@ args = {
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
-    # Clustering:
-    'network_clustering_kmeans': 100,  # False or the value k for clustering
-    'kmeans_busmap': 'kmeans_busmap_100_result.csv',  # False or predefined busmap for k-means
+    # Clustering:2
+    'network_clustering_kmeans': {'n_cluster': 10,
+                                  'kmeans_busmap': 'kmeans_busmap_10_result.csv'},  # False or the value k for clustering
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None,  # None, 'mini' or 'uniform'
+    'disaggregation': 'mini',  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'skip_snapshots': False,
@@ -325,123 +305,30 @@ def etrago(args):
     """
     etrago = Etrago(args)
 
-    clustering = None
-
     # ehv network clustering
-    if args['network_clustering_ehv']:
-        etrago.network.generators.control = "PV"
-        busmap = busmap_from_psql(etrago)
-        etrago.network = cluster_on_extra_high_voltage(
-            etrago.network, busmap, with_time=True)
+    etrago.ehv_clustering()
 
     # k-mean clustering
-    if not args['network_clustering_kmeans'] == False:
-        etrago.network.generators.control = "PV"
-        clustering = kmean_clustering(
-            etrago,
-            line_length_factor=1,
-            remove_stubs=False,
-            use_reduced_coordinates=False,
-            bus_weight_tocsv=None,
-            bus_weight_fromcsv=None,
-            n_init=10,
-            max_iter=100,
-            tol=1e-6,
-            n_jobs=-1)
-        if args['disaggregation'] != None:
-            etrago.disaggregated_network = etrago.network.copy()
-        etrago.network = clustering.network.copy()
-        etrago.network.generators.control[etrago.network.generators.control==''] = 'PV'
-        geolocation_buses(etrago)
-
-    if 'heat' in args['add_sectors']:
-        _try_add_heat_sector(etrago)
+    # TODO: add clustering to etrago object
+    clustering = etrago.kmean_clustering()
 
     # skip snapshots
-    if args['skip_snapshots']:
-        etrago.network.snapshots = etrago.network.snapshots[::args['skip_snapshots']]
-        etrago.network.snapshot_weightings = etrago.network.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
+    etrago.skip_snapshots()
 
     # snapshot clustering
-    if not args['snapshot_clustering'] is False:
-        etrago.network = snapshot_clustering(etrago, how='daily')
-        args['snapshot_clustering_constraints'] = 'soc_constraints'
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
-    if args['method'] == 'lopf':
-        x = time.time()
-        try:
-            from vresutils.benchmark import memory_logger
-            with memory_logger(filename=args['csv_export']+'_memory.log', interval=30.) as mem:
-                iterate_lopf(etrago,
-                             Constraints(args).functionality,
-                             method={'n_iter':5, 'pyomo':False})
-        except:
-            iterate_lopf(etrago,
-                         Constraints(args).functionality,
-                         method={'n_iter':5, 'pyomo':True})
-        y = time.time()
-        z = (y - x) / 60
-        print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
-        print("Total time for LOPF [min]:", round(z, 2))
-
-    elif args['method'] == 'ilopf':
-        from pypsa.linopf import ilopf
-        # Temporary set all line types
-        etrago.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
-        x = time.time()
-        ilopf(etrago.network, solver_name=args['solver'],
-              solver_options=args['solver_options'])
-        y = time.time()
-        z = (y - x) / 60
-        print("Time for LOPF [min]:", round(z, 2))
+    etrago.lopf()
 
     etrago.calc_etrago_results()
 
-    if args['pf_post_lopf'] and args['add_sectors'] == []:
-        pf_post_lopf(etrago,
-                     add_foreign_lopf=True,
-                     q_allocation='p_nom',
-                     calc_losses=True)
-        calc_line_losses(etrago.network)
+    # TODO: check if should be combined with etrago.lopf()
+    etrago.pf_post_lopf()
 
-
-    if not args['extendable'] == []:
-        print_expansion_costs(etrago.network)
-
-    if clustering:
-        disagg = args.get('disaggregation')
-        skip = () if args['pf_post_lopf'] else ('q',)
-        t = time.time()
-        if disagg:
-            if disagg == 'mini':
-                disaggregation = MiniSolverDisaggregation(
-                    etrago.disaggregated_network,
-                    etrago.network,
-                    clustering,
-                    skip=skip)
-            elif disagg == 'uniform':
-                disaggregation = UniformDisaggregation(etrago.disaggregated_network,
-                                                       etrago.network,
-                                                       clustering,
-                                                       skip=skip)
-
-            else:
-                raise Exception('Invalid disaggregation command: ' + disagg)
-
-            disaggregation.execute(etrago.scenario, solver=args['solver'])
-            # temporal bug fix for solar generator which ar during night time
-            # nan instead of 0
-            etrago.disaggregated_network.generators_t.p.fillna(0, inplace=True)
-            etrago.disaggregated_network.generators_t.q.fillna(0, inplace=True)
-
-            etrago.disaggregated_network.results = etrago.network.results
-            print("Time for overall desaggregation [min]: {:.2}"
-                  .format((time.time() - t) / 60))
-
-    # close session
-    # session.close()
+    # spaital disaggregation
+    etrago.disaggregation()
+    # ToDO: Do we need a temporal desaggregation???
 
     return etrago
 

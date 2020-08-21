@@ -32,6 +32,7 @@ import json
 import logging
 import math
 from pypsa.linopf import network_lopf
+from etrago.tools.constraints import Constraints
 geopandas = True
 try:
     import geopandas as gpd
@@ -697,6 +698,23 @@ def set_slack(network):
 
     return network
 
+def run_pf_post_lopf(self):
+
+    if self.args['pf_post_lopf'] != False:
+        # set deafault settings
+        pf_settings = {'add_foreign_lopf': True,
+                       'q_allocation': 'p_nom',
+                        'calc_losses': True}
+
+        # overwirte default values if given in args
+        if type(self.args['pf_post_lopf']) == dict:
+            for k in self.args['pf_post_lopf'].keys():
+                pf_settings[k] = self.args['pf_post_lopf'][k]
+
+        pf_post_lopf(self,
+                     pf_settings['add_foreign_lopf'],
+                     pf_settings['q_allocation'],
+                     pf_settings['calc_losses'])
 
 
 def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
@@ -1938,6 +1956,50 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
     return network
 
+def lopf(self):
+
+    # TODO: Check if Constraints can be added to etrago object
+
+    # set deafault settings
+    lopf_settings = {'type': 'lopf', 'n_iter':5, 'pyomo':True}
+
+    # overwirte default values if given in args
+    if type(self.args['method']) == dict:
+        for k in self.args['method'].keys():
+            lopf_settings[k] = self.args['method'][k]
+
+    else:
+        lopf_settings['type'] = self.args['method']
+
+    x = time.time()
+    if self.args['method']['type'] == 'lopf':
+        try:
+            from vresutils.benchmark import memory_logger
+            with memory_logger(filename=self.args['csv_export']+'_memory.log',
+                               interval=30.) as mem:
+                iterate_lopf(self,
+                             Constraints(self.args).functionality,
+                             method=lopf_settings)
+        except:
+            iterate_lopf(self,
+                         Constraints(self.args).functionality,
+                         method=lopf_settings)
+
+        print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
+
+    elif self.args['method']['type'] == 'ilopf':
+        from pypsa.linopf import ilopf
+        # Temporary set all line types
+        self.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
+        x = time.time()
+        ilopf(self.network, solver_name=self.args['solver'],
+              solver_options=self.args['solver_options'])
+
+    y = time.time()
+    z = (y - x) / 60
+    logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
+
+
 def check_args(etrago):
     """
     Function that checks the consistency of etragos input parameters automatically.
@@ -1974,5 +2036,5 @@ def check_args(etrago):
             etrago.args['start_snapshot'] % 24 == 0,\
             ("Please select snapshots covering whole days when choosing snapshot clustering")
 
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > (24 *etrago.args['snapshot_clustering']),\
+        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > (24 *etrago.args['snapshot_clustering']['n_cluster']),\
             ("Number of selected days is smaller than number of representitive snapshots")

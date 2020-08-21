@@ -39,11 +39,14 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     load_shedding,
                                     set_q_foreign_loads,
                                     foreign_links,
-                                    crossborder_capacity)
+                                    crossborder_capacity,
+                                    lopf,
+                                    run_pf_post_lopf)
 from etrago.tools.plot import add_coordinates, plot_grid
 from etrago.tools.extendable import extendable
-
-
+from etrago.cluster.networkclustering import run_kmeans_clustering, ehv_clustering
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.cluster.disaggregation import run_disaggregation
 logger = logging.getLogger(__name__)
 
 class Etrago():
@@ -80,6 +83,8 @@ class Etrago():
                  **kwargs):
 
         self.tool_version = __version__
+
+        self.clustering = None
 
         self.results = pd.DataFrame()
 
@@ -200,6 +205,20 @@ class Etrago():
     # Add functions
     plot_grid = plot_grid
 
+    kmean_clustering = run_kmeans_clustering
+
+    skip_snapshots = skip_snapshots
+
+    ehv_clustering = ehv_clustering
+
+    snapshot_clustering = snapshot_clustering
+
+    lopf = lopf
+
+    pf_post_lopf = run_pf_post_lopf
+
+    disaggregation = run_disaggregation
+
     def _calc_storage_expansion(self):
         """ Function that calulates storage expansion in MW
 
@@ -214,6 +233,7 @@ class Etrago():
                 self.network.storage_units.p_nom_min
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
+
 
     def calc_investment_cost(self):
         """ Function that calulates overall annualized investment costs.
