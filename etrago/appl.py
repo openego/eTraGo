@@ -28,8 +28,6 @@ the function etrago.
 import datetime
 import os
 import os.path
-import time
-from etrago.tools.utilities import get_args_setting
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -45,19 +43,14 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.network import Etrago
 
-    from etrago.tools.utilities import (
-        get_args_setting)
-
     import oedialect
-
 
 args = {
     # Setup and Configuration:
-    'db': 'local',  # database session
+    'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': {'type': 'lopf',
-               'n_iter': 5},  # lopf or pf
-    'pf_post_lopf': True,  # perform a pf after a lopf simulation
+    'method': 'lopf',  # lopf or pf
+    'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
@@ -68,8 +61,8 @@ args = {
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     'add_sectors': [],
     # Scenario variations:
-    'scn_extension': ['nep2035_b2'],  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    'scn_extension': ['BE_NO_NEP 2035', 'nep2035_b2'],  # None or array of extension scenarios
+    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'test_2007_nmp',  # save results as csv: False or /path/tofolder
@@ -80,7 +73,7 @@ args = {
     # Clustering:2
     'network_clustering_kmeans': {'n_clusters': 10},  # False or the value k for clustering
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'skip_snapshots': False,
@@ -89,10 +82,7 @@ args = {
     'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
     'comments': None}
 
-args = get_args_setting(args, jsonpath=None)
-
-
-def etrago(args):
+def run_etrago(args, json_path):
     """The etrago function works with following arguments:
 
 
@@ -302,7 +292,14 @@ def etrago(args):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    etrago = Etrago(args)
+    etrago = Etrago(args, json_path)
+
+    # TODO: Check if the following function calls should be moved to Etrago.__init__
+    # import network from database
+    etrago.build_network_from_db()
+
+    # adjust network, e.g. set (n-1)-security factor
+    etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -335,7 +332,7 @@ def etrago(args):
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    etrago = etrago(args)
+    etrago = run_etrago(args, json_path='args.json')
     print(datetime.datetime.now())
     # plots
     # make a line loading plot

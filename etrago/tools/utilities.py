@@ -129,10 +129,10 @@ def geolocation_buses(self):
                      'NO', 'PL', 'CH', 'CZ', 'SE', 'NL']
 
         query = self.session.query(RenpassGISRegion.gid,
-                              RenpassGISRegion.u_region_id,
-                              RenpassGISRegion.stat_level,
-                              RenpassGISRegion.geom,
-                              RenpassGISRegion.geom_point)
+                                   RenpassGISRegion.u_region_id,
+                                   RenpassGISRegion.stat_level,
+                                   RenpassGISRegion.geom,
+                                   RenpassGISRegion.geom_point)
 
         # get regions by query and filter
         Regions = [(gid, u_region_id, stat_level, geoalchemy2.shape.to_shape(
@@ -662,7 +662,7 @@ def loading_minimization(network, snapshots):
 
 def group_parallel_lines(network):
     """
-    TODO: Will be improved when mergin feature/sclopf
+    TODO: Will be improved when merging feature/sclopf
     Functions that groups parallel lines of the same voltage level to one
     line component representing all parallel lines
 
@@ -1159,7 +1159,7 @@ def ramp_limits(network):
     network.generators.committable = True
 
 
-def get_args_setting(args, jsonpath='scenario_setting.json'):
+def get_args_setting(self, jsonpath='scenario_setting.json'):
     """
     Get and open json file with scenaio settings of eTraGo ``args``.
     The settings incluedes all eTraGo specific settings of arguments and
@@ -1179,10 +1179,8 @@ def get_args_setting(args, jsonpath='scenario_setting.json'):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-            args = json.load(f)
+            self.args = json.load(f)
 
-
-    return args
 
 def set_random_noise(self, sigma=0.01):
     """
@@ -1207,13 +1205,13 @@ def set_random_noise(self, sigma=0.01):
         seed = self.args['generator_noise']
         s = np.random.RandomState(seed)
         network.generators.marginal_cost[network.generators.bus.isin(
-                    network.buses.index[network.buses.country_code == 'DE'])] += \
+            network.buses.index[network.buses.country_code == 'DE'])] += \
                 abs(s.normal(0, sigma, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
-                    network.buses.country_code == 'DE'])])))
+                        network.buses.country_code == 'DE'])])))
 
         network.generators.marginal_cost[network.generators.bus.isin(
-                    network.buses.index[network.buses.country_code != 'DE'])] += \
+            network.buses.index[network.buses.country_code != 'DE'])] += \
                 abs(s.normal(0, sigma, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
                         network.buses.country_code == 'DE'])]))).max()
@@ -1365,15 +1363,15 @@ def crossborder_capacity(self):
 
             if not network.links[network.links.country == (country+country)].empty:
                 i_links = network.links[network.links.country ==
-                                         (country+country)].index
+                                        (country+country)].index
                 network.links.loc[i_links, 'p_nom'] = \
                     weighting_links[i_links] * cap_per_country[country]
 
 def set_line_voltages(self):
     self.network.lines['v_nom'] = self.network.lines.bus0.map(
-            self.network.buses.v_nom)
+        self.network.buses.v_nom)
     self.network.links['v_nom'] = self.network.links.bus0.map(
-            self.network.buses.v_nom)
+        self.network.buses.v_nom)
 def set_branch_capacity(etrago):
 
     """
@@ -1441,5 +1439,6 @@ def check_args(etrago):
             etrago.args['start_snapshot'] % 24 == 0,\
             ("Please select snapshots covering whole days when choosing snapshot clustering")
 
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > (24 *etrago.args['snapshot_clustering']['n_cluster']),\
+        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
+            (24 *etrago.args['snapshot_clustering']['n_clusters']),\
             ("Number of selected days is smaller than number of representitive snapshots")

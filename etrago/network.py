@@ -42,7 +42,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     foreign_links,
                                     crossborder_capacity,
                                     set_line_voltages,
-                                    convert_capital_costs)
+                                    convert_capital_costs,
+                                    get_args_setting)
 from etrago.tools.plot import (add_coordinates,
                                plot_grid)
 from etrago.tools.extendable import extendable
@@ -84,7 +85,8 @@ class Etrago():
     --------
     """
     def __init__(self,
-                 args={},
+                 args=None,
+                 json_path=None,
                  csv_folder_name=None,
                  name="",
                  ignore_standard_types=False,
@@ -104,8 +106,11 @@ class Etrago():
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
 
-        if args != {}:
+        if args is not None:
+
             self.args = args
+
+            self.get_args_setting(json_path)
 
             conn = db.connection(section=args['db'])
 
@@ -115,32 +120,28 @@ class Etrago():
 
             self.check_args()
 
-            self.build_network_from_db()
-
-            self.adjust_network()
-
         elif csv_folder_name is not None:
 
-            with open(csv_folder_name + '/args.json') as json_file:
+            self.get_args_setting(csv_folder_name + '/args.json')
 
-                self.args = json.load(json_file)
+            self.network = Network(csv_folder_name,
+                                   name,
+                                   ignore_standard_types)
 
-                self.network = Network(csv_folder_name,
-                                       name,
-                                       ignore_standard_types)
+            if self.args['disaggregation'] is not None:
 
-                if self.args['disaggregation'] is not None:
-
-                    self.disaggregated_network = Network(
-                        csv_folder_name + '/disaggegated_network',
-                        name,
-                        ignore_standard_types)
+                self.disaggregated_network = Network(
+                    csv_folder_name + '/disaggegated_network',
+                    name,
+                    ignore_standard_types)
 
         else:
             logger.error('Set args or csv_folder_name')
 
 
     # Add functions
+    get_args_setting = get_args_setting
+
     check_args = check_args
 
     add_coordinates = add_coordinates
