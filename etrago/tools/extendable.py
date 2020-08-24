@@ -42,7 +42,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(etrago, line_max):
+def extendable(self, line_max):
 
     """
     Function that sets selected components extendable
@@ -67,10 +67,9 @@ def extendable(etrago, line_max):
     network : :class:`pypsa.Network
         Overall container of PyPSA
     """
-    network = etrago.network
-    args = etrago.args
+    network = self.network
 
-    if 'network' in args['extendable']:
+    if 'network' in self.args['extendable']:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
 
@@ -105,7 +104,7 @@ def extendable(etrago, line_max):
         network = set_line_costs(network)
         network = set_trafo_costs(network)
 
-    if 'german_network' in args['extendable']:
+    if 'german_network' in self.args['extendable']:
         buses = network.buses[~network.buses.index.isin(
             buses_by_country(network).index)]
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
@@ -168,7 +167,7 @@ def extendable(etrago, line_max):
         network = set_line_costs(network)
         network = set_trafo_costs(network)
 
-    if 'foreign_network' in args['extendable']:
+    if 'foreign_network' in self.args['extendable']:
         buses = network.buses[network.buses.index.isin(
             buses_by_country(network).index)]
         network.lines.loc[network.lines.bus0.isin(buses.index) |
@@ -230,13 +229,13 @@ def extendable(etrago, line_max):
         network = set_line_costs(network)
         network = set_trafo_costs(network)
 
-    if 'transformers' in args['extendable']:
+    if 'transformers' in self.args['extendable']:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
         network = set_trafo_costs(network)
 
-    if 'storages' in args['extendable'] or 'storage' in args['extendable']:
+    if 'storages' in self.args['extendable'] or 'storage' in self.args['extendable']:
         if not network.storage_units.carrier[
                 network.storage_units.carrier.str.contains(
                     'extendable')].empty:
@@ -244,12 +243,18 @@ def extendable(etrago, line_max):
                                       contains('extendable'),
                                       'p_nom_extendable'] = True
 
-    if 'generators' in args['extendable']:
-        network.generators.p_nom_extendable = True
-        network.generators.p_nom_min = network.generators.p_nom
-        network.generators.p_nom_max = float("inf")
+            # Split extendable carriers to keep them seperated in clustering
+            self.network.storage_units.carrier[
+                (self.network.storage_units.carrier == 'extendable_storage')&
+                (self.network.storage_units.max_hours == 6)] =\
+                    'extendable_battery_storage'
 
-    if 'foreign_storage' in args['extendable']:
+            self.network.storage_units.carrier[
+                (self.network.storage_units.carrier == 'extendable_storage')&
+                (self.network.storage_units.max_hours == 168)] = \
+                    'extendable_hydrogen_storage'
+
+    if 'foreign_storage' in self.args['extendable']:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
             network.buses.index[network.buses.country_code != 'DE'])) & (
                 network.storage_units.carrier.isin(
@@ -262,67 +267,51 @@ def extendable(etrago, line_max):
         network.storage_units.loc[
             (network.storage_units.carrier == 'battery_storage'),
             'capital_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_storage')
+                (network.storage_units.carrier == 'extendable_battery_storage')
                 & (network.storage_units.max_hours == 6), 'capital_cost'].max()
 
         network.storage_units.loc[
             (network.storage_units.carrier == 'hydrogen_storage'),
             'capital_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.carrier == 'extendable_hydrogen_storage') &
                 (network.storage_units.max_hours == 168), 'capital_cost'].max()
 
         network.storage_units.loc[
             (network.storage_units.carrier == 'battery_storage'),
             'marginal_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_storage')
+                (network.storage_units.carrier == 'extendable_battery_storage')
                 & (network.storage_units.max_hours == 6), 'marginal_cost'].max()
 
         network.storage_units.loc[
             (network.storage_units.carrier == 'hydrogen_storage'),
             'marginal_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_storage') &
+                (network.storage_units.carrier == 'extendable_hydrogen_storage') &
                 (network.storage_units.max_hours == 168), 'marginal_cost'].max()
 
 
     # Extension settings for extension-NEP 2035 scenarios
-    if 'overlay_network' in args['extendable']:
-        for i in range(len(args['scn_extension'])):
+    if 'overlay_network' in self.args['extendable']:
+        for i in range(len(self.args['scn_extension'])):
             network.lines.loc[network.lines.scn_name == (
-                'extension_' + args['scn_extension'][i]
+                'extension_' + self.args['scn_extension'][i]
             ), 's_nom_extendable'] = True
 
             network.lines.loc[network.lines.scn_name == (
-                'extension_' + args['scn_extension'][i]
+                'extension_' + self.args['scn_extension'][i]
             ), 's_nom_max'] = network.lines.s_nom[network.lines.scn_name == (
-                'extension_' + args['scn_extension'][i])]
+                'extension_' + self.args['scn_extension'][i])]
 
             network.links.loc[network.links.scn_name == (
-                'extension_' + args['scn_extension'][i]
+                'extension_' + self.args['scn_extension'][i]
             ), 'p_nom_extendable'] = True
 
             network.transformers.loc[network.transformers.scn_name == (
-                'extension_' + args['scn_extension'][i]
+                'extension_' + self.args['scn_extension'][i]
             ), 's_nom_extendable'] = True
 
             network.lines.loc[network.lines.scn_name == (
-                'extension_' + args['scn_extension'][i]
-            ), 'capital_cost'] = network.lines.capital_cost/\
-                args['branch_capacity_factor']['eHV']
-
-    if 'overlay_lines' in args['extendable']:
-        for i in range(len(args['scn_extension'])):
-            network.lines.loc[network.lines.scn_name == (
-                'extension_' + args['scn_extension'][i]
-            ), 's_nom_extendable'] = True
-
-            network.links.loc[network.links.scn_name == (
-                'extension_' + args['scn_extension'][i]
-            ), 'p_nom_extendable'] = True
-
-            network.lines.loc[network.lines.scn_name ==
-                              ('extension_' + args['scn_extension'][i]),
-                              'capital_cost'] = \
-                network.lines.capital_cost + (2 * 14166)
+                'extension_' + self.args['scn_extension'][i]
+            ), 'capital_cost'] = network.lines.capital_cost
 
     network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
         network.lines.s_nom
@@ -335,6 +324,8 @@ def extendable(etrago, line_max):
 
     network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
         False] = network.transformers.s_nom
+
+    self.convert_capital_costs()
 
     return network
 

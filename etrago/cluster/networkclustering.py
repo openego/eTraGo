@@ -623,7 +623,7 @@ def run_kmeans_clustering(self):
 
     if self.args['network_clustering_kmeans'] != False:
         kmean_settings = {
-                'n_cluster': 10,
+                'n_clusters': 10,
                 'kmeans_busmap': False,
                 'line_length_factor': 1.25,
                 'remove_stubs': False,
@@ -639,7 +639,7 @@ def run_kmeans_clustering(self):
             for k in self.args['network_clustering_kmeans'].keys():
                 kmean_settings[k] = self.args['network_clustering_kmeans'][k]
         else:
-            kmean_settings['n_cluster'] = self.args['network_clustering_kmeans']
+            kmean_settings['n_clusters'] = self.args['network_clustering_kmeans']
 
         self.network.generators.control = "PV"
 
@@ -657,4 +657,4 @@ def run_kmeans_clustering(self):
         self.network.generators.control[self.network.generators.control == ''] = 'PV'
 
         logger.info("Network clustered to {} buses with k-means algorithm."
-                    .format(kmean_settings['n_cluster']))
+                    .format(kmean_settings['n_clusters']))

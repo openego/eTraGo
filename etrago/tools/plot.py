@@ -45,7 +45,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
 
-def add_coordinates(network):
+def add_coordinates(self):
     """
     Add coordinates to nodes based on provided geom
 
@@ -57,12 +57,10 @@ def add_coordinates(network):
     -------
     Altered PyPSA network container ready for plotting
     """
-    for idx, row in network.buses.iterrows():
+    for idx, row in self.network.buses.iterrows():
         wkt_geom = to_shape(row['geom'])
-        network.buses.loc[idx, 'x'] = wkt_geom.x
-        network.buses.loc[idx, 'y'] = wkt_geom.y
-
-    return network
+        self.network.buses.loc[idx, 'x'] = wkt_geom.x
+        self.network.buses.loc[idx, 'y'] = wkt_geom.y
 
 def set_epsg_network(network):
     """

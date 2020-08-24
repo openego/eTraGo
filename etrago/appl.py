@@ -68,7 +68,7 @@ args = {
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     'add_sectors': [],
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
+    'scn_extension': ['nep2035_b2'],  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
@@ -78,8 +78,7 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:2
-    'network_clustering_kmeans': {'n_cluster': 10,
-                                  'kmeans_busmap': 'kmeans_busmap_10_result.csv'},  # False or the value k for clustering
+    'network_clustering_kmeans': {'n_clusters': 10},  # False or the value k for clustering
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -309,8 +308,7 @@ def etrago(args):
     etrago.ehv_clustering()
 
     # k-mean clustering
-    # TODO: add clustering to etrago object
-    clustering = etrago.kmean_clustering()
+    etrago.kmean_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
@@ -321,14 +319,15 @@ def etrago(args):
     # start linear optimal powerflow calculations
     etrago.lopf()
 
-    etrago.calc_etrago_results()
-
     # TODO: check if should be combined with etrago.lopf()
     etrago.pf_post_lopf()
 
     # spaital disaggregation
     etrago.disaggregation()
-    # ToDO: Do we need a temporal desaggregation???
+    # TODO: Do we need a temporal desaggregation???
+
+    # calculate central etrago results
+    etrago.calc_results()
 
     return etrago
 
