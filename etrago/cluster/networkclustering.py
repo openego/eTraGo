@@ -590,7 +590,7 @@ def kmean_clustering(etrago,
             max_iter=kmean_settings['max_iter'],
             tol=kmean_settings['tol'],
             n_jobs=kmean_settings['n_jobs'])
-        busmap.to_csv('kmeans_busmap_' + str(n_clusters) + '_result.csv')
+        busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
     else:
         df = pd.read_csv(kmean_settings['kmeans_busmap'])
         df=df.astype(str)

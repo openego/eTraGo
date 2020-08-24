@@ -33,6 +33,13 @@ if 'READTHEDOCS' not in os.environ:
 
 
 def run_pf_post_lopf(self):
+    """ Functions that runs pf_post_lopf accordning to arguments
+
+    Returns
+    -------
+    None.
+
+    """
 
     if self.args['pf_post_lopf'] != False:
         # set deafault settings
@@ -278,7 +285,7 @@ def distribute_q(network, allocation='p_nom'):
              .groupby(network.generators.bus).sum().add(
                  network.storage_units.p_nom_opt
                  .groupby(network.storage_units.bus).sum(), fill_value=0))[
-                        network.generators.bus.sort_index()].values
+                     network.generators.bus.sort_index()].values
 
         q_distributed.columns = network.generators.index
 
@@ -288,7 +295,7 @@ def distribute_q(network, allocation='p_nom'):
                 network.generators.carrier != 'load shedding']
               .groupby(network.generators.bus).sum()
               .add(network.storage_units.p_nom_opt
-                     .groupby(network.storage_units.bus).sum(), fill_value=0))[
+                   .groupby(network.storage_units.bus).sum(), fill_value=0))[
                          network.storage_units.bus].values)
 
         q_storages.columns = network.storage_units.index

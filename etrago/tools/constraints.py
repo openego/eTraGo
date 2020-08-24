@@ -852,7 +852,7 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                                      network.snapshot_weightings, axis=0)
                                  ).sum().sum()
                 else:
-                            potential = network.snapshot_weightings.sum() \
+                    potential = network.snapshot_weightings.sum() \
                                 * network.generators.p_nom[g].sum()
 
                 def _rule_max(m):

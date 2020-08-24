@@ -799,7 +799,7 @@ def decommissioning(self, **kwargs):
                              index_col='line_id')
         df_decommisionning.index = df_decommisionning.index.astype(str)
 
-        for idx, row in etrago.network.lines.iterrows():
+        for idx, row in self.network.lines.iterrows():
             if ((row['s_nom_min'] !=0)
             & (row['scn_name'] == 'extension_' +
                self.args['scn_decommissioning'])):

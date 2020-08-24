@@ -251,7 +251,7 @@ def lopf(self):
         lopf_settings['type'] = self.args['method']
 
     x = time.time()
-    if self.args['method']['type'] == 'lopf':
+    if lopf_settings['type'] == 'lopf':
         try:
             from vresutils.benchmark import memory_logger
             with memory_logger(filename=self.args['csv_export']+'_memory.log',

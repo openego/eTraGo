@@ -49,7 +49,7 @@ def snapshot_clustering(self):
     if self.args['snapshot_clustering'] != False:
 
         self.network = run(network=self.network.copy(),
-                      n_clusters=self.args['snapshot_clustering']['n_cluster'],
+                      n_clusters=self.args['snapshot_clustering']['n_clusters'],
                       how=self.args['snapshot_clustering']['how'],
                       normed=False)
 
