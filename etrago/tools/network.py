@@ -52,8 +52,7 @@ from etrago.cluster.networkclustering import (run_kmeans_clustering,
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
-from etrago.tools.lopf import lopf
-from etrago.tools.pf_post_lopf import run_pf_post_lopf
+from etrago.tools.execute import lopf, run_pf_post_lopf
 from etrago.tools.calc_results import calc_etrago_results
 
 logger = logging.getLogger(__name__)

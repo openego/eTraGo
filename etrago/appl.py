@@ -41,7 +41,7 @@ if 'READTHEDOCS' not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
 
-    from etrago.network import Etrago
+    from etrago import Etrago
 
 args = {
     # Setup and Configuration:
