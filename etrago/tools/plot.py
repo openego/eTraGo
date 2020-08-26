@@ -1227,7 +1227,9 @@ def plotting_colors(network):
     None.
 
     """
-    network.carriers = network.carriers.set_index("name")
+    if network.carriers.columns[1] != 'co2_emissions':
+        network.carriers = network.carriers.set_index(
+            network.carriers.columns[1])
     colors = coloring()
     for i in network.carriers.index:
         if i in colors.keys():
