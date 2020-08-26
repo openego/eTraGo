@@ -260,7 +260,8 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
         plt.cm.jet, midpoint=midpoint, name='shifted')
     ll = networkA.plot(line_colors=loading, line_cmap=shifted_cmap,
                        title="Line loading", bus_sizes=new_buses,
-                       bus_colors='blue', line_widths=0.55)
+                       bus_colors='blue', line_widths=0.55,
+                       geomap=False)
 
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
@@ -298,34 +299,29 @@ def network_expansion_diff(networkA,
 
     cmap = plt.cm.jet
 
-    array_line = [['Line'] * len(networkA.lines), networkA.lines.index]
+    extension_lines = 100 *((networkA.lines.s_nom_opt
+                            - networkB.lines.s_nom_opt)/\
+                            networkA.lines.s_nom_opt)
 
-    extension_lines = pd.Series(100 *\
-                                 ((networkA.lines.s_nom_opt - \
-                                    networkB.lines.s_nom_opt)/\
-                                    networkA.lines.s_nom_opt).values,\
-                                index=array_line)
+    extension_links = 100 * ((networkA.links.p_nom_opt -\
+                               networkB.links.p_nom_opt)/\
+                             networkA.links.p_nom_opt)
 
-    array_link = [['Link'] * len(networkA.links), networkA.links.index]
-
-    extension_links = pd.Series(100 *
-                                ((networkA.links.p_nom_opt -\
-                                    networkB.links.p_nom_opt)/\
-                                    networkA.links.p_nom_opt).values,\
-                                index=array_link)
-
-    extension = extension_lines.append(extension_links)
 
     ll = networkA.plot(
-        line_colors=extension,
+        line_colors=extension_lines,
+        link_colors = extension_links,
         line_cmap=cmap,
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
-        line_widths=2)
+        line_widths=2,
+        geomap=False)
 
     if not boundaries:
-        v = np.linspace(min(extension), max(extension), 101)
-        boundaries = [min(extension).round(0), max(extension).round(0)]
+        v = np.linspace(min(extension_lines.min(), extension_links.min()),
+                        max(extension_lines.max(), extension_links.max()), 101)
+        boundaries = [min(extension_lines.min(), extension_links.min()).round(0),
+                      max(extension_lines.max(), extension_links.max()).round(0)]
 
     else:
         v = np.linspace(boundaries[0], boundaries[1], 101)
@@ -622,6 +618,21 @@ def curtailment(network, carrier='solar', filename=None):
         plt.close()
 
 def calc_dispatch_per_carrier(network, timesteps):
+    """ Function that calculates dispatch per carrier in given timesteps
+
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    timesteps : array
+        Timesteps considered in dispatch calculation
+
+    Returns
+    -------
+    dist : pandas.Series
+        dispatch per carrier
+
+    """
 
     index = [(network.generators.bus[idx],
               network.generators.carrier[idx])
@@ -639,6 +650,19 @@ def calc_dispatch_per_carrier(network, timesteps):
     return dist
 
 def calc_storage_expansion_per_bus(network):
+    """ Function that calculates storage expansion per bus and technology
+
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+
+    Returns
+    -------
+    dist : pandas.Series
+        storage expansion per bus and technology
+
+    """
 
     batteries = network.storage_units[network.storage_units.carrier ==
                                       'extendable_battery_storage']
@@ -893,6 +917,25 @@ def nodal_gen_dispatch(
 
 
 def nodal_production_balance(network, timesteps, scaling=0.00001):
+    """ Function that calculates residual load per node in given timesteps
+
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    timesteps : array
+        timesteps considered in calculation
+    scaling : float, optional
+        Scaling factor for bus size. The default is 0.00001.
+
+    Returns
+    -------
+    bus_sizes : pandas.Series
+         scaled residual load per node
+    bus_colors : pandas.Series
+        'green' for producer and 'red' for consumer
+
+    """
 
     gen = mul_weighting(network, network.generators_t.p).\
             groupby(network.generators.bus, axis=1).sum().loc[
@@ -1070,9 +1113,40 @@ def storage_soc_sorted(network, filename=None):
     return
 
 def mul_weighting(network, timeseries):
-        return timeseries.mul(network.snapshot_weightings, axis=0)
+    """ Returns timeseries considering snapshot_weighting
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timeseries : pd.Series
+        timeseries not considering snapshot_weighting
+
+    Returns
+    -------
+    pd.Series
+         timeseries considering snapshot_weightings
+
+    """
+    return timeseries.mul(network.snapshot_weightings, axis=0)
 
 def calc_ac_loading(network, timesteps):
+    """ Calculates loading of AC-lines
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timesteps : range
+        Defines which timesteps are considered. If more than one, an
+        average line loading is calculated.
+
+    Returns
+    -------
+    pandas.Series
+        ACC line loading in MVA
+
+    """
 
     loading_lines = mul_weighting(network, network.lines_t.p0).loc[
                 network.snapshots[timesteps]].sum()
@@ -1140,40 +1214,19 @@ def calc_dc_loading(network, timesteps):
     return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
             .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
 
-### copied from pypsa-eur-sec
-from matplotlib.legend_handler import HandlerPatch
-from matplotlib.patches import Circle, Ellipse
-def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
-    fig = ax.get_figure()
-
-    def axes2pt():
-        return np.diff(ax.transData.transform([(0, 0), (1, 1)]), axis=0)[
-            0] * (72. / fig.dpi)
-
-    ellipses = []
-    if not dont_resize_actively:
-        def update_width_height(event):
-            dist = axes2pt()
-            for e, radius in ellipses:
-                e.width, e.height = 2. * radius * dist
-        fig.canvas.mpl_connect('resize_event', update_width_height)
-        ax.callbacks.connect('xlim_changed', update_width_height)
-        ax.callbacks.connect('ylim_changed', update_width_height)
-
-    def legend_circle_handler(legend, orig_handle, xdescent, ydescent,
-                              width, height, fontsize):
-        w, h = 2. * orig_handle.get_radius() * axes2pt()
-        e = Ellipse(xy=(0.5 * width - 0.5 * xdescent, 0.5 *
-                        height - 0.5 * ydescent), width=w, height=w)
-        ellipses.append((e, orig_handle.get_radius()))
-        return e
-    return {Circle: HandlerPatch(patch_func=legend_circle_handler)}
-
-def make_legend_circles_for(sizes, scale=1.0, **kw):
-    return [Circle((0, 0), radius=(s / scale)**0.5, **kw) for s in sizes]
-###
-
 def plotting_colors(network):
+    """ Add color values to network.carriers
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
     network.carriers = network.carriers.set_index("name")
     colors = coloring()
     for i in network.carriers.index:
@@ -1184,6 +1237,27 @@ def plotting_colors(network):
     network.carriers.color[network.carriers.color == ''] = 'grey'
 
 def calc_network_expansion(network, method='abs', ext_min=0.1):
+    """ Calculates absolute or relative expansion per AC- and DC-line
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    method : str, optional
+        Choose 'rel' or 'abs'. The default is 'abs'.
+    ext_min : float, optional
+        Remove lines extended less than this value. The default is 0.1.
+
+    Returns
+    -------
+    all_network : :class:`pypsa.Network
+        Whole network including not extended lines
+    extension_lines : pandas.Series
+        AC-line expansion
+    extension_links : pandas.Series
+        DC-line expansion
+
+    """
     all_network = network.copy()
     network.lines = network.lines[network.lines.s_nom_extendable &
                                   ((network.lines.s_nom_opt -
@@ -1217,7 +1291,21 @@ def calc_network_expansion(network, method='abs', ext_min=0.1):
     return all_network, extension_lines, extension_links
 
 def plot_background_grid(network, ax):
-        network.plot(ax=ax, line_colors='grey', link_colors='grey',
+    """ Plots grid topology in background of other network.plot
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    ax : matplotlib.axes._subplots.AxesSubplot
+        axes of plot
+
+    Returns
+    -------
+    None.
+
+    """
+    network.plot(ax=ax, line_colors='grey', link_colors='grey',
                      bus_sizes=0, line_widths=0.5, link_widths=0.55,
                      geomap=False)
 
@@ -1239,11 +1327,21 @@ def plot_grid(self,
     ----------
     line_colors : str
         Set static line color or attribute to plot e.g. 'expansion_abs'
+        Current options:
+            'line_loading': mean line loading in p.u. in selected timesteps
+            'v_nom': nominal voltage of lines
+            'expansion_abs': absolute network expansion in MVA
+            'expansion_rel': network expansion in p.u. of existing capacity
+            'q_flow_max': maximal reactive flows
     bus_sizes : float, optional
         Size of buses. The default is 0.02.
     bus_colors : str, optional
-        Set static bus color or attribute to plot, e.g. 'storage_expansion'.
-        The default is 'grey'.
+        Set static bus color or attribute to plot. The default is 'grey'.
+        Current options:
+            'nodal_production_balance': net producer/consumer in selected timeteps
+            'storage_expansion': storage expansion per bus and technology
+            'storage_distribution': installed storage units per bus
+            'gen_dist': dispatch per carrier in selected timesteps
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default is range(2).
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
@@ -1253,11 +1351,11 @@ def plot_grid(self,
                 'y': array of two floats, y axis boundaries (long)
                 'zoom' : resolution of osm. The default is False.
     boundaries: array
-       Set boundaries of heatmap axis. The default is None.
+       Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
         Save figure in this direction. The default is None.
-    disaggregated : TYPE, optional
-        DESCRIPTION. The default is False.
+    disaggregated : bool, optional
+        Choose if disaggregated network is shown. The default is False.
     ext_min: float
         Choose minimum relative line extension shown in plot in p.u..
     ext_width: float or bool
@@ -1270,21 +1368,21 @@ def plot_grid(self,
     None.
 
     """
-
+    # Choose network or disaggregated_network
     if disaggregated:
         network = self.disaggregated_network.copy()
     else:
         network = self.network.copy()
 
-    # Set colors fpr plotting
+    # Set colors for plotting
     plotting_colors(network)
 
-    #network.carriers.colors
+    # Set default values
     flow = None
-    l2 = None
     line_widths = 2
     link_widths = 2
 
+    # Plot osm map in background
     if osm != False:
         if network.srid == 4326:
             set_epsg_network(network)
@@ -1293,6 +1391,7 @@ def plot_grid(self,
     else:
         fig, ax = plt.subplots(1, 1)
 
+    # Set line colors
     if line_colors == 'line_loading':
         title = 'Mean loading from ' + str(network.snapshots[timesteps[0]])+\
         ' to ' + str(network.snapshots[timesteps[-1]])
@@ -1301,7 +1400,7 @@ def plot_grid(self,
         line_colors = calc_ac_loading(network, timesteps).abs()/rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs()/rep_snapshots
         label = 'line loading in p.u.'
-        # Only active flow direction is displayed!network.
+        # Only active flow direction is displayed!
         flow = pd.Series(index=network.branches().index, dtype='float64')
         flow.iloc[flow.index.get_level_values('component') == 'Line'] = \
              (mul_weighting(network, network.lines_t.p0).loc[
@@ -1309,14 +1408,11 @@ def plot_grid(self,
                      network.lines.s_nom/rep_snapshots).values
         flow.iloc[flow.index.get_level_values('component') == 'Link'] = \
             (calc_dc_loading(network, timesteps)/rep_snapshots).values
-
     elif line_colors == 'v_nom':
         title = 'Voltage levels'
         label = 'v_nom in kV'
         line_colors = network.lines.v_nom
         link_colors = network.links.v_nom
-
-
     elif line_colors == 'expansion_abs':
         title = 'Network expansion'
         label = 'network expansion in MW'
@@ -1326,7 +1422,6 @@ def plot_grid(self,
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
-
     elif line_colors == 'expansion_rel':
         title = 'Network expansion'
         label = 'network expansion in %'
@@ -1336,30 +1431,26 @@ def plot_grid(self,
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
-
     elif line_colors == 'q_flow_max':
         title = 'Maximmal reactive power flows'
         label = 'flow in Mvar'
         line_colors = abs(network.lines_t.q0.abs().max()/(network.lines.s_nom))
         link_colors = pd.Series(data=0, index=network.links.index)
-
     else:
         logger.warning("line_color {} undefined".format(line_colors))
 
-
+    # Set bus colors
     if bus_colors == 'nodal_production_balance':
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
             network, timesteps, scaling=bus_scaling)
         bus_legend = 'Nodal production balance'
         bus_unit = 'TWh'
-
     elif bus_colors == 'storage_expansion':
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         bus_legend = 'Storage expansion'
         bus_unit = 'TW'
-
     elif bus_colors == 'storage_distribution':
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * network.storage_units.p_nom_opt\
@@ -1367,17 +1458,13 @@ def plot_grid(self,
             .sum().reindex(network.buses.index, fill_value=0.)
         bus_legend = 'Storage distribution'
         bus_unit = 'TW'
-
     elif bus_colors == 'gen_dist':
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = 'Dispatch'
         bus_unit = 'TW'
-
-    if not boundaries:
-        boundaries = [min(line_colors.min(), link_colors.min()),
-                      max(line_colors.max(), link_colors.max())]
-    v = np.linspace(boundaries[0], boundaries[1], 101)
+    else:
+        logger.warning("bus_color {} undefined".format(bus_colors))
 
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
@@ -1419,14 +1506,23 @@ def plot_grid(self,
                         bbox_to_anchor=(-0.1, 0))
         ax.add_artist(l3)
 
-    # colorbar for line heatmap
-    cb = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10],
-                      fraction=0.046, pad=0.04)
+    # Set fixed boundaries if selected in parameters
+    if not boundaries:
+        boundaries = [min(line_colors.min(), link_colors.min()),
+                      max(line_colors.max(), link_colors.max())]
 
+    # Create ticks for legend
+    v = np.linspace(boundaries[0], boundaries[1], 101)
+
+    # colorbar for line heatmap
+    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10],
+                      fraction=0.046, pad=0.04)
+    # Set legend label
     cb.set_label(label)
 
+    # Show plot or save to file
     if filename is None:
-        if l2 != None:
+        if type(bus_sizes) != float:
             logger.warning("Legend of bus sizes will change when zooming")
         plt.show()
     else:
@@ -1435,6 +1531,40 @@ def plot_grid(self,
         plt.close()
 
 set_epsg_network.counter = 0
+
+### the following functions are copied from pypsa-eur-sec ###
+### see here: https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.patches import Circle, Ellipse
+def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
+    fig = ax.get_figure()
+
+    def axes2pt():
+        return np.diff(ax.transData.transform([(0, 0), (1, 1)]), axis=0)[
+            0] * (72. / fig.dpi)
+
+    ellipses = []
+    if not dont_resize_actively:
+        def update_width_height(event):
+            dist = axes2pt()
+            for e, radius in ellipses:
+                e.width, e.height = 2. * radius * dist
+        fig.canvas.mpl_connect('resize_event', update_width_height)
+        ax.callbacks.connect('xlim_changed', update_width_height)
+        ax.callbacks.connect('ylim_changed', update_width_height)
+
+    def legend_circle_handler(legend, orig_handle, xdescent, ydescent,
+                              width, height, fontsize):
+        w, h = 2. * orig_handle.get_radius() * axes2pt()
+        e = Ellipse(xy=(0.5 * width - 0.5 * xdescent, 0.5 *
+                        height - 0.5 * ydescent), width=w, height=w)
+        ellipses.append((e, orig_handle.get_radius()))
+        return e
+    return {Circle: HandlerPatch(patch_func=legend_circle_handler)}
+
+def make_legend_circles_for(sizes, scale=1.0, **kw):
+    return [Circle((0, 0), radius=(s / scale)**0.5, **kw) for s in sizes]
+###
 
 if __name__ == '__main__':
     pass
