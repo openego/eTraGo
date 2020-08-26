@@ -239,30 +239,19 @@ def lopf(self):
 
     # TODO: Check if Constraints can be added to etrago object
 
-    # set deafault settings
-    lopf_settings = {'type': 'lopf', 'n_iter':5, 'pyomo':True}
-
-    # overwirte default values if given in args
-    if type(self.args['method']) == dict:
-        for k in self.args['method'].keys():
-            lopf_settings[k] = self.args['method'][k]
-
-    else:
-        lopf_settings['type'] = self.args['method']
-
     x = time.time()
-    if lopf_settings['type'] == 'lopf':
+    if self.args['method']['type'] == 'lopf':
         try:
             from vresutils.benchmark import memory_logger
             with memory_logger(filename=self.args['csv_export']+'_memory.log',
                                interval=30.) as mem:
                 iterate_lopf(self,
                              Constraints(self.args).functionality,
-                             method=lopf_settings)
+                             method=self.args['method'])
         except:
             iterate_lopf(self,
                          Constraints(self.args).functionality,
-                         method=lopf_settings)
+                         method=self.args['method'])
 
         print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
 

@@ -43,44 +43,65 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago.network import Etrago
 
-    import oedialect
-
 args = {
     # Setup and Configuration:
     'db': 'oedb',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
-    'method': 'lopf',  # lopf or pf
-    'pf_post_lopf': False,  # perform a pf after a lopf simulation
+    'method': { # Choose method and settings for optimization
+        'type': 'lopf', # type of optimization, currently only 'lopf'
+        'n_iter': 8, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'pyomo': True}, # set if pyomo is used for model building
+    'pf_post_lopf': { # False if not perform a pf after a lopf simulation
+        'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
+        'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'method':2, 'crossover':0,
-                       'logFile': 'solver.log'},  # {} for default options
+    'solver_options': { # {} for default options, specific for solver
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
-    'add_sectors': [],
     # Scenario variations:
-    'scn_extension': ['BE_NO_NEP 2035', 'nep2035_b2'],  # None or array of extension scenarios
-    'scn_decommissioning': 'nep2035_b2',  # None or decommissioning scenario
+    'scn_extension': None,  # None or array of extension scenarios
+    'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'test_2007_nmp',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
-    # Clustering:2
-    'network_clustering_kmeans': {'n_clusters': 10},  # False or the value k for clustering
+    # Clustering:
+    'network_clustering_kmeans': { # False or dict
+        'n_clusters': 10, # number of resulting nodes
+        'kmeans_busmap': False, # False or path/to/busmap.csv
+        'line_length_factor': 1, #
+        'remove_stubs': False, # remove stubs bevore kmeans clustering
+        'use_reduced_coordinates': False, #
+        'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
+        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+        'n_init': 10, # affects clustering algorithm, only change when neccesary
+        'max_iter': 100, # affects clustering algorithm, only change when neccesary
+        'tol': 1e-6, # affects clustering algorithm, only change when neccesary
+        'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': False,  # False or the number of 'periods'
+    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'snapshot_clustering': {# False or dict
+        'n_clusters': 2, # number of periods
+        'how': 'daily', # type of period, currently only 'daily'
+        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
     # Simplifications:
-    'skip_snapshots': False,
+    'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'AC', 'capacity': 'osmTGmod'},
+    'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
+                      'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None}
+
 
 def run_etrago(args, json_path):
     """The etrago function works with following arguments:
@@ -94,20 +115,27 @@ def run_etrago(args, json_path):
         Name of Database session setting stored in *config.ini* of *.egoio*
 
     gridversion : NoneType or str
-        ``'v0.2.11'``,
+        ``'v0.4.6'``,
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
-        (e.g. 'v0.2.10') for the grid schema.
+        (e.g. 'v0.4.6') for the grid schema.
 
-    method : str
-        ``'lopf'``,
-        Choose between a non-linear power flow ('pf') or
-        a linear optimal power flow ('lopf').
+    method : dict
+        {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
+        Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
+        have to be performed. Choose either 'n_init' and a fixed number of
+        iterations or 'thershold' and a threashold of the objective function as
+        abort criteria.
+        Set 'pyomo' to False for big optimization problems, currently only
+        possible when solver is 'gurobi'.
 
-    pf_post_lopf : bool
-        False,
+    pf_post_lopf : bool or dict
+        {'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
         Option to run a non-linear power flow (pf) directly after the
         linear optimal power flow (and thus the dispatch) has finished.
+        If foreign lines are modeled as DC-links (see foreign_lines), results
+        of the lopf can be added by setting 'add_foreign_lopf'.
+        Reactive power can be distributed either by 'p_nom' or 'p'.
 
     start_snapshot : int
         1,
@@ -239,18 +267,20 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans : bool or int
-        False,
+    network_clustering_kmeans : bool or dict
+         {'n_clusters': 10, 'kmeans_busmap': False,'line_length_factor': 1.25,
+        'remove_stubs': False, 'use_reduced_coordinates': False,
+        'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
+        'n_init': 10, 'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
-        only ``'k'`` buses. The weighting takes place considering generation
-        and load
-        at each node. If so, state the number of k you want to apply. Otherwise
-        put False. This function doesn't work together with
-        ``'line_grouping = True'``.
-
-    load_cluster : bool or obj
-        state if you want to load cluster coordinates from a previous run:
-        False or /path/tofile (filename similar to ./cluster_coord_k_n_result).
+        only ``'n_clusters'`` buses. The weighting takes place considering
+        generation and load at each node.
+        With ``'kmeans_busmap'`` you can choose if you want to load cluster
+        coordinates from a previous run.
+        Option ``'remove_stubs'`` reduces the overestimating of line meshes.
+        The other options appect the kmeans algorithm and should only be
+        changed if you know what you do.
+        'This function doesn't work together with ``'line_grouping = True'``.
 
     network_clustering_ehv : bool
         False,
@@ -258,12 +288,15 @@ def run_etrago(args, json_path):
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         sub-station, taking into account the shortest distance on power lines.
 
-    snapshot_clustering : bool or int
-        False,
+    snapshot_clustering : bool or dict
+        {'n_clusters': 2, 'how': 'daily',
+         'storage_constraints': 'soc_constraints'},
         State if you want to cluster the snapshots and run the optimization
-        only on a subset of snapshot periods. The int value defines the number
-        of periods (i.e. days) which will be clustered to.
-        Move to PyPSA branch:features/snapshot_clustering
+        only on a subset of snapshot periods. The 'n_clusters' value defines
+        the number of periods which will be clustered to.
+        With 'how' you can choose the period, currently 'daily' is the only
+        option. Choose 'daily_bounds' or 'soc_constraints' to add extra
+        contraints for the SOC of storage units.
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -294,7 +327,6 @@ def run_etrago(args, json_path):
     """
     etrago = Etrago(args, json_path)
 
-    # TODO: Check if the following function calls should be moved to Etrago.__init__
     # import network from database
     etrago.build_network_from_db()
 
@@ -332,7 +364,7 @@ def run_etrago(args, json_path):
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path='args.json')
+    etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot

@@ -414,8 +414,7 @@ def ehv_clustering(self):
         logger.info('Network clustered to EHV-grid')
 
 
-def kmean_clustering(etrago,
-                     kmean_settings):
+def kmean_clustering(etrago):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -456,7 +455,7 @@ def kmean_clustering(etrago,
 
 
     network = etrago.network
-    n_clusters=etrago.args['network_clustering_kmeans']
+    kmean_settings = etrago.args['network_clustering_kmeans']
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -622,39 +621,21 @@ def kmean_clustering(etrago,
 def run_kmeans_clustering(self):
 
     if self.args['network_clustering_kmeans'] != False:
-        kmean_settings = {
-                'n_clusters': 10,
-                'kmeans_busmap': False,
-                'line_length_factor': 1.25,
-                'remove_stubs': False,
-                'use_reduced_coordinates': False,
-                'bus_weight_tocsv': None,
-                'bus_weight_fromcsv': None,
-                'n_init': 10,
-                'max_iter': 300,
-                'tol': 1e-4,
-                'n_jobs': 1}
-
-        if type(self.args['network_clustering_kmeans']) == dict:
-            for k in self.args['network_clustering_kmeans'].keys():
-                kmean_settings[k] = self.args['network_clustering_kmeans'][k]
-        else:
-            kmean_settings['n_clusters'] = self.args['network_clustering_kmeans']
 
         self.network.generators.control = "PV"
 
         logger.info('Start k-mean clustering')
 
-        self.clustering = kmean_clustering(self, kmean_settings)
+        self.clustering = kmean_clustering(self)
 
         if self.args['disaggregation'] != None:
                 self.disaggregated_network = self.network.copy()
 
         self.network = self.clustering.network.copy()
 
-        geolocation_buses(self)
+        self.geolocation_buses()
 
         self.network.generators.control[self.network.generators.control == ''] = 'PV'
 
         logger.info("Network clustered to {} buses with k-means algorithm."
-                    .format(kmean_settings['n_clusters']))
+                    .format(self.args['network_clustering_kmeans']['n_clusters']))

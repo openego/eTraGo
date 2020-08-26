@@ -42,23 +42,11 @@ def run_pf_post_lopf(self):
     """
 
     if self.args['pf_post_lopf'] != False:
-        # set deafault settings
-        pf_settings = {'add_foreign_lopf': True,
-                       'q_allocation': 'p_nom',
-                       'calc_losses': True}
 
-        # overwirte default values if given in args
-        if type(self.args['pf_post_lopf']) == dict:
-            for k in self.args['pf_post_lopf'].keys():
-                pf_settings[k] = self.args['pf_post_lopf'][k]
-
-        pf_post_lopf(self,
-                     pf_settings['add_foreign_lopf'],
-                     pf_settings['q_allocation'],
-                     pf_settings['calc_losses'])
+        pf_post_lopf(self)
 
 
-def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
+def pf_post_lopf(etrago, calc_losses = True):
 
     """
     Function that prepares and runs non-linar load flow using PyPSA pf.
@@ -197,7 +185,7 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
     if ((args['foreign_lines']['carrier'] == 'DC')
             or ((args['scn_extension'] != None)
                 and ('BE_NO_NEP 2035' in args['scn_extension']))
-       ) and add_foreign_lopf:
+       ) and etrago.args['pf_post_lopf']['add_foreign_lopf']:
         for comp in sorted(foreign_series):
             network.import_components_from_dataframe(foreign_comp[comp], comp)
 
@@ -216,7 +204,8 @@ def pf_post_lopf(etrago, add_foreign_lopf, q_allocation, calc_losses):
     if calc_losses:
         calc_line_losses(network)
 
-    network = distribute_q(network, allocation=q_allocation)
+    network = distribute_q(network,
+                           etrago.args['pf_post_lopf']['q_allocation'])
 
     y = time.time()
     z = (y - x) / 60
