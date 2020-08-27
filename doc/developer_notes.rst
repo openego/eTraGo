@@ -29,10 +29,9 @@ You can checkout to the dev branch and create new feature branches.
 For the correct work-flow, please mind the 
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
-3. Use the pip -e to install eTraGo directly from the cloned repository (Be sure having the pip version 
-18.1 installed (pip3 install pip==18.1) since newer versions do not permit using dependency links!):
+3. Use the pip -e to install eTraGo directly from the cloned repository:
 
 .. code-block:: bash
 
-   $ pip3 install -e /path/to/eTraGo/ --process-dependency-links
+   $ pip3 install -e /path/to/eTraGo/
 
