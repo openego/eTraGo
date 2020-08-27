@@ -278,9 +278,10 @@ def run_etrago(args, json_path):
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
-        The other options appect the kmeans algorithm and should only be
-        changed if you know what you do.
-        'This function doesn't work together with ``'line_grouping = True'``.
+        The other options affect the kmeans algorithm and should only be
+        changed carefully, documentation and possible settings are described
+        in sklearn-package (sklearn/cluster/k_means_.py).
+        This function doesn't work together with ``'line_grouping = True'``.
 
     network_clustering_ehv : bool
         False,
