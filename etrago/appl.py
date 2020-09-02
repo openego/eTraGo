@@ -51,7 +51,8 @@ if 'READTHEDOCS' not in os.environ:
     from etrago.cluster.networkclustering import (
         busmap_from_psql,
         cluster_on_extra_high_voltage,
-        kmean_clustering)
+        kmean_clustering,
+        kmedoid_clustering)
 
     from etrago.tools.io import (
         NetworkScenario,
@@ -136,6 +137,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
+    'network_clustering_kmedoidDijkstra': 30, # False or the value k for clustering
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -529,6 +531,22 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
+        
+    # k-medoid and Dijkstra clustering
+    if not args ['network_clustering_kmedoidDijkstra'] == False:
+        clustering2 = kmedoid_clustering(
+                network,
+                n_clusters=args['network_clustering_kmedoidDijkstra'],
+                load_cluster=False,
+                line_length_factor=1,
+                remove_stubs=False,
+                use_reduced_coordinates=False,
+                bus_weight_tocsv=None,
+                bus_weight_fromcsv=None,
+                max_iter=100)
+        # clustering2 = dijkstra(...)
+        network2 = clustering2.network.copy()
+        geolocation_buses(network2, session)
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -644,13 +662,13 @@ def etrago(args):
     # close session
     # session.close()
 
-    return network, disaggregated_network
+    return network, disaggregated_network, network2
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network, disaggregated_network = etrago(args)
+    network, disaggregated_network, network2 = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
