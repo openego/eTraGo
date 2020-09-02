@@ -404,7 +404,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         Desired number of clusters.
 
     load_cluster : boolean
-        Loads cluster coordinates from a former calculation.
+        Loads cluster coordinates from a former calculation. 
 
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
@@ -576,3 +576,342 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         aggregate_one_ports=aggregate_one_ports)
 
     return clustering
+
+
+def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
+                     line_length_factor=1.25,
+                     remove_stubs=False, use_reduced_coordinates=False,
+                     bus_weight_tocsv=None, bus_weight_fromcsv=None,
+                     n_init=10, max_iter=300, tol=1e-4,
+                     n_jobs=1):
+    """ Function of the k-medoid and Dijkstra combination clustering approach. 
+    Maps an original network to a new one with adjustable number of nodes 
+    using a k-medoid algorithm.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Container for all network components.
+
+    n_clusters : int
+        Desired number of clusters.
+
+    load_cluster : boolean
+        Loads cluster coordinates from a former calculation.
+    TODO: ANPASSEN?
+
+    line_length_factor : float
+        Factor to multiply the crow-flies distance between new buses in order
+        to get new line lengths.
+    TODO: warum? -> ANPASSEN?
+
+    remove_stubs: boolean
+        Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
+    TODO: Wirkung? -> ANPASSEN?
+
+    use_reduced_coordinates: boolean
+        If True, do not average cluster coordinates, but take from busmap.
+    TODO: nur innerhalb remove_stubs_Block -> Wirkung? -> ANPASSEN?
+
+    bus_weight_tocsv : str
+        Creates a bus weighting based on conventional generation and load
+        and save it to a csv file.
+    TODO: ANPASSEN?
+
+    bus_weight_fromcsv : str
+        Loads a bus weighting from a csv file to apply it to the clustering
+        algorithm.
+    TODO: ANPASSEN?
+
+    Returns
+    -------
+    network : pypsa.Network object
+        Container for all network components.
+    """
+    
+    # Ermittlung der Gewichtung kann von bisherigem k-mean clustering übernommen werden:
+    def weighting_for_scenario(x, save=None):
+        """
+        """
+        # define weighting based on conventional 'old' generator spatial
+        # distribution
+        non_conv_types = {
+                'biomass',
+                'wind_onshore',
+                'wind_offshore',
+                'solar',
+                'geothermal',
+                'load shedding',
+                'extendable_storage'}
+        # Attention: network.generators.carrier.unique()
+        gen = (network.generators.loc[(network.generators.carrier
+                                   .isin(non_conv_types) == False)]
+           .groupby('bus').p_nom.sum()
+                                .reindex(network.buses.index, fill_value=0.) +
+           network.storage_units
+                                .loc[(network.storage_units.carrier
+                                      .isin(non_conv_types) == False)]
+                  .groupby('bus').p_nom.sum()
+                  .reindex(network.buses.index, fill_value=0.))
+
+        load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+        b_i = x.index
+        g = normed(gen.reindex(b_i, fill_value=0))
+        l = normed(load.reindex(b_i, fill_value=0))
+
+        w = g + l
+        weight = ((w * (100000. / w.max())).astype(int)
+                  ).reindex(network.buses.index, fill_value=1)
+
+        if save:
+            weight.to_csv(save)
+
+        return weight
+
+    def normed(x):
+        return (x / x.sum()).fillna(0.)
+
+    print('start k-medoid clustering')
+    
+    network.generators.control = "PV"
+    network.storage_units.control[network.storage_units.carrier == \
+                                  'extendable_storage'] = "PV"
+                                  
+    # Vorbereitung der Daten kann von bisherigem k-mean clustering übernommen werden:
+    #-> Umrechnung der Parameter der Komponenten einheitlich auf 380V-Level
+
+    # problem our lines have no v_nom. this is implicitly defined by the
+    # connected buses:
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+    # adjust the electrical parameters of the lines which are not 380.
+    lines_v_nom_b = network.lines.v_nom != 380
+
+    voltage_factor = (network.lines.loc[lines_v_nom_b, 'v_nom'] / 380.)**2
+
+    network.lines.loc[lines_v_nom_b, 'x'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'r'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'b'] *= voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'g'] *= voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+    trafo_index = network.transformers.index
+    transformer_voltages = \
+        pd.concat([network.transformers.bus0.map(network.buses.v_nom),
+                   network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+
+    network.import_components_from_dataframe(
+        network.transformers.loc[:, [
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
+        .assign(x=network.transformers.x * (380. /
+                transformer_voltages.max(axis=1))**2, length = 1)
+        .set_index('T' + trafo_index),
+        'Line')
+    network.transformers.drop(trafo_index, inplace=True)
+
+    for attr in network.transformers_t:
+        network.transformers_t[attr] = network.transformers_t[attr]\
+            .reindex(columns=[])
+
+    network.buses['v_nom'] = 380.
+
+    # TODO: ANPASSEN?
+    # State whether to create a bus weighting and save it, create or not save
+    # it, or use a bus weighting from a csv file
+    if bus_weight_tocsv is not None:
+        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
+    elif bus_weight_fromcsv is not None:
+        weight = pd.Series.from_csv(bus_weight_fromcsv)
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network.buses, save=False)
+
+    # TODO: Wirkung? ANPASSEN?
+    # remove stubs
+    if remove_stubs:
+        network.determine_network_topology()
+        busmap = busmap_by_stubs(network)
+        network.generators['weight'] = network.generators['p_nom']
+        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
+
+        # reset coordinates to the new reduced guys, rather than taking an
+        # average (copied from pypsa.networkclustering)
+        if use_reduced_coordinates:
+            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+            # i.e. network is changed in place!!
+            network.buses.loc[busmap.index, ['x', 'y']
+                              ] = network.buses.loc[busmap, ['x', 'y']].values
+
+        clustering = get_clustering_from_busmap(
+            network,
+            busmap,
+            aggregate_generators_weighted=True,
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=line_length_factor)
+        network = clustering.network
+
+        weight = weight.groupby(busmap.values).sum()
+
+    # k-medoid clustering
+    # -> ab hier NEU (nach busmap_by_kmeans aus PYPSA):
+    
+    from importlib.util import find_spec
+    
+    if find_spec('sklearn_extra') is None:
+        raise ModuleNotFoundError("sklearn_extra not found")
+        
+    from sklearn_extra.cluster import KMedoids
+    
+    # implementation of points considering weightings
+    buses_i = network.buses.index
+    points = (network.buses.loc[buses_i, ["x", "y"]].values)
+              #.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
+    ### TODO: durch repeat zu viele Punkte für kmedoids.fit
+    
+    kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='euclidean')
+    ### TODO: Funktion zur Abstandsermittlung in metric auswählen
+    # TODO: weitere Parameter der KMedoids-Funktion
+    
+    kmedoids.fit(points)
+    ### TODO: nach diesem Schritt ist points noch genauso lang wie vorher 
+    ### -> ebenso bei kmean nach PyPSA
+    
+    busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
+
+    ### TODO: Programm läuft so durch, allerdings ergibt Ergebnis keinen Sinn:
+    '''
+    plot_line_loading(network)
+    plot_line_loading(network2) -> Key Error
+    buses_i=network.buses.index
+    network.buses.loc[buses_i, ["x", "y"]].values
+    buses_i2=network2.buses.index
+    network2.buses.loc[buses_i2, ["x", "y"]].values
+    '''
+
+    # ab hier wieder ALT -> kann so bleiben?
+    
+    # ToDo change function in order to use bus_strategies or similar
+    network.generators['weight'] = network.generators['p_nom']
+    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
+    clustering = get_clustering_from_busmap(
+        network,
+        busmap,
+        aggregate_generators_weighted=True,
+        aggregate_one_ports=aggregate_one_ports)
+
+    return clustering
+
+def dijkstra(network, session, scn_name, version, fromlvl,
+                            tolvl, cpu_cores=4):
+    """ Function of the k-medoid and Dijkstra combination clustering approach.
+    Creates a busmap assigning the nodes of a original network 
+    to the nodes of a clustered network 
+    considering the electrical distance based on dijkstra shortest path. 
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+
+    session : sqlalchemy.orm.session.Session object
+        Establishes interactions with the database.
+
+    scn_name : str
+        Name of the scenario.
+
+    fromlvl : list
+        List of voltage-levels to cluster.
+
+    tolvl : list
+        List of voltage-levels to remain.
+
+    cpu_cores : int
+        Number of CPU-cores.
+
+    Returns
+    -------
+    None
+    """
+
+    # cpu_cores = mp.cpu_count()
+
+    # data preperation
+    s_buses = buses_grid_linked(network, fromlvl)
+    lines = connected_grid_lines(network, s_buses)
+    transformer = connected_transformer(network, s_buses)
+    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
+
+    # temporary end points, later replaced by bus1 pendant
+    t_buses = transformer[mask].bus0
+
+    # create all possible pathways
+    ppaths = list(product(s_buses, t_buses))
+
+    # graph creation
+    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
+             in lines.iterrows()]
+    M = graph_from_edges(edges)
+
+    # applying multiprocessing
+    p = mp.Pool(cpu_cores)
+    chunksize = ceil(len(ppaths) / cpu_cores)
+    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
+    df = pd.concat(container)
+    dump(df, open('df.p', 'wb'))
+
+    # post processing
+    df.sortlevel(inplace=True)
+    mask = df.groupby(level='source')['path_length'].idxmin()
+    df = df.loc[mask, :]
+
+    # rename temporary endpoints
+    df.reset_index(inplace=True)
+    df.target = df.target.map(dict(zip(network.transformers.bus0,
+                                       network.transformers.bus1)))
+
+    # append to busmap buses only connected to transformer
+    transformer = network.transformers
+    idx = list(set(buses_of_vlvl(network, fromlvl)).
+               symmetric_difference(set(s_buses)))
+    mask = transformer.bus0.isin(idx)
+
+    toappend = pd.DataFrame(list(zip(transformer[mask].bus0,
+                                     transformer[mask].bus1)),
+                            columns=['source', 'target'])
+    toappend['path_length'] = 0
+
+    df = pd.concat([df, toappend], ignore_index=True, axis=0)
+
+    # append all other buses
+    buses = network.buses
+    mask = buses.index.isin(df.source)
+
+    assert set(buses[~mask].v_nom) == set(tolvl)
+
+    tofill = pd.DataFrame([buses.index[~mask]] * 2).transpose()
+    tofill.columns = ['source', 'target']
+    tofill['path_length'] = 0
+
+    df = pd.concat([df, tofill], ignore_index=True, axis=0)
+
+    # prepare data for export
+
+    df['scn_name'] = scn_name
+    df['version'] = version
+
+    df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
+    df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
+
+    for i, d in df.reset_index().iterrows():
+        session.add(EgoGridPfHvBusmap(**d.to_dict()))
+
+    session.commit()
+
+    return
