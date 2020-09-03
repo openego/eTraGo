@@ -572,6 +572,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     clustering = get_clustering_from_busmap(
         network,
         busmap,
+        line_length_factor=line_length_factor,
         aggregate_generators_weighted=True,
         aggregate_one_ports=aggregate_one_ports)
 
@@ -598,12 +599,12 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     load_cluster : boolean
         Loads cluster coordinates from a former calculation.
-    TODO: ANPASSEN?
+    TODO: ANPASSEN ohne Dopplung zu kmean
 
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
         to get new line lengths.
-    TODO: warum? -> ANPASSEN?
+    TODO: wie beim kmean lassen?
 
     remove_stubs: boolean
         Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
@@ -611,17 +612,17 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     use_reduced_coordinates: boolean
         If True, do not average cluster coordinates, but take from busmap.
-    TODO: nur innerhalb remove_stubs_Block -> Wirkung? -> ANPASSEN?
+    TODO: nur innerhalb remove_stubs-Block -> ANPASSEN?
 
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
         and save it to a csv file.
-    TODO: ANPASSEN?
+    TODO: ANPASSEN ohne Dopplung zu kmean
 
     bus_weight_fromcsv : str
         Loads a bus weighting from a csv file to apply it to the clustering
         algorithm.
-    TODO: ANPASSEN?
+    TODO: ANPASSEN ohne Dopplung zu kmean
 
     Returns
     -------
@@ -720,7 +721,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     network.buses['v_nom'] = 380.
 
-    # TODO: ANPASSEN?
+    # TODO: ANPASSEN der Lade- und Speicheroptionen ohne Dopplung
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
     if bus_weight_tocsv is not None:
@@ -770,21 +771,24 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     
     # implementation of points considering weightings
     buses_i = network.buses.index
-    points = (network.buses.loc[buses_i, ["x", "y"]].values)
-              #.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
-    ### TODO: durch repeat zu viele Punkte für kmedoids.fit
+    points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
+    ### TODO: durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
     
     kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='euclidean')
-    ### TODO: Funktion zur Abstandsermittlung in metric auswählen
-    # TODO: weitere Parameter der KMedoids-Funktion
+    ### TODO: Funktion zur Abstandsermittlung in metric auswählen -> verhindern Memory Error
+    ### TODO: weitere Parameter der KMedoids-Funktion
     
     kmedoids.fit(points)
-    ### TODO: nach diesem Schritt ist points noch genauso lang wie vorher 
+    ### nach diesem Schritt ist points noch genauso lang wie vorher 
     ### -> ebenso bei kmean nach PyPSA
     
     busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
 
-    ### TODO: Programm läuft so durch, allerdings ergibt Ergebnis keinen Sinn:
+    ### Programm läuft so durch
+    ### TODO: 
+    ### ! zunächst Berücksichtigung der Gewichtung (relevant für weitere Punkte)
+    ### Berücksichtigung von Nachbarländern
+    ### Varianz des k-medoid-Clustering in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
     '''
     plot_line_loading(network)
     plot_line_loading(network2) -> Key Error
@@ -794,7 +798,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network2.buses.loc[buses_i2, ["x", "y"]].values
     '''
 
-    # ab hier wieder ALT -> kann so bleiben?
+    # ab hier wieder ALT -> kann so bleiben
     
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
@@ -803,6 +807,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     clustering = get_clustering_from_busmap(
         network,
         busmap,
+        line_length_factor=line_length_factor,
         aggregate_generators_weighted=True,
         aggregate_one_ports=aggregate_one_ports)
 
