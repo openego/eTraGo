@@ -135,10 +135,10 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 30,  # False or the value k for clustering
+    'network_clustering_kmeans': False,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_kmedoidDijkstra': 30, # False or the value k for clustering
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -511,6 +511,8 @@ def etrago(args):
                 version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
+    
+    networkkmedoid = network.copy()
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
@@ -532,10 +534,15 @@ def etrago(args):
         network = clustering.network.copy()
         geolocation_buses(network, session)
         
+        
+    buses_i=network.buses.index
+    print(network.buses.loc[buses_i, ["x", "y"]].values)
+
+        
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
         clustering2 = kmedoid_clustering(
-                network,
+                networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=False,
                 line_length_factor=1,
@@ -547,6 +554,11 @@ def etrago(args):
         # clustering2 = dijkstra(...)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
+       
+        
+    buses_i2=network2.buses.index
+    print(network2.buses.loc[buses_i2, ["x", "y"]].values)
+
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -578,6 +590,10 @@ def etrago(args):
     # start linear optimal powerflow calculations
     elif args['method'] == 'lopf':
         iterate_lopf(network,
+                     args,
+                     Constraints(args).functionality,
+                     method={'n_iter':4})
+        iterate_lopf(network2,
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
