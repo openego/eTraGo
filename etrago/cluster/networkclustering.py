@@ -585,6 +585,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None,
                      n_init=10, max_iter=300, tol=1e-4,
                      n_jobs=1):
+    # TODO: anpassen der Argumente und Defaults
     """ Function of the k-medoid and Dijkstra combination clustering approach. 
     Maps an original network to a new one with adjustable number of nodes 
     using a k-medoid algorithm.
@@ -604,11 +605,11 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
         to get new line lengths.
-    TODO: wie beim kmean lassen?
+    TODO: wie beim kmean lassen? -> ANPASSEN
 
     remove_stubs: boolean
         Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
-    TODO: Wirkung? -> ANPASSEN?
+    TODO: in kmedoid nicht mehr relevant? -> ANPASSEN?
 
     use_reduced_coordinates: boolean
         If True, do not average cluster coordinates, but take from busmap.
@@ -630,7 +631,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
         Container for all network components.
     """
     
-    # Ermittlung der Gewichtung kann von bisherigem k-mean clustering übernommen werden:
+    # Ermittlung der Gewichtung kann von bisherigem k-mean clustering übernommen werden
+    
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -680,7 +682,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
                                   'extendable_storage'] = "PV"
                                   
     # Vorbereitung der Daten kann von bisherigem k-mean clustering übernommen werden:
-    #-> Umrechnung der Parameter der Komponenten einheitlich auf 380V-Level
+    # -> Umrechnung der Parameter der Komponenten einheitlich auf 380V-Level
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -722,6 +724,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network.buses['v_nom'] = 380.
 
     # TODO: ANPASSEN der Lade- und Speicheroptionen ohne Dopplung
+    
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
     if bus_weight_tocsv is not None:
@@ -732,7 +735,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
 
-    # TODO: Wirkung? ANPASSEN?
+    # TODO: ANPASSEN?
+    
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -767,16 +771,20 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     if find_spec('sklearn_extra') is None:
         raise ModuleNotFoundError("sklearn_extra not found")
         
+    # TODO: Fehlermeldung für Cython? 
+        
     from sklearn_extra.cluster import KMedoids
+    
+    ### import pdb; pdb.set_trace()
     
     # implementation of points considering weightings
     buses_i = network.buses.index
     points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
     ### TODO: durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
     
-    kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='euclidean')
-    ### TODO: Funktion zur Abstandsermittlung in metric auswählen -> verhindern Memory Error
-    ### TODO: weitere Parameter der KMedoids-Funktion
+    kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='sqeuclidean')
+    ### TODO: Funktion zur Abstandsermittlung in metric auswählen: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
+    ### TODO: weitere Parameter der KMedoids-Klasse
     
     kmedoids.fit(points)
     ### nach diesem Schritt ist points noch genauso lang wie vorher 
