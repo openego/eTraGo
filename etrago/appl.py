@@ -135,10 +135,10 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': False,  # False or the value k for clustering
+    'network_clustering_kmeans': 30,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_kmedoidDijkstra': 30, # False or the value k for clustering
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -538,7 +538,7 @@ def etrago(args):
     buses_i=network.buses.index
     print(network.buses.loc[buses_i, ["x", "y"]].values)
 
-        
+
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
         clustering2 = kmedoid_clustering(
