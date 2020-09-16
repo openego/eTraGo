@@ -249,12 +249,13 @@ def lopf(self):
                 iterate_lopf(self,
                              Constraints(self.args).functionality,
                              method=self.args['method'])
+            print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
         except:
             iterate_lopf(self,
                          Constraints(self.args).functionality,
                          method=self.args['method'])
 
-        print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
+
 
     elif self.args['method']['type'] == 'ilopf':
         from pypsa.linopf import ilopf
