@@ -31,6 +31,7 @@ setup(
                       'oedialect',
                       'pyproj == 2.0.2',
                       'tilemapbase == 0.4.5',
+                      'tables == 3.4.0',
                       'pypsa == 0.17.1'],
     extras_require={
         'docs': [
