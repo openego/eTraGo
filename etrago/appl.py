@@ -354,10 +354,9 @@ def run_etrago(args, json_path):
 
     # spaital disaggregation
     etrago.disaggregation()
-    # TODO: Do we need a temporal desaggregation???
 
     # calculate central etrago results
-    etrago.calc_results()
+    # etrago.calc_results()
 
     return etrago
 
