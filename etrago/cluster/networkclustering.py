@@ -42,6 +42,10 @@ if 'READTHEDOCS' not in os.environ:
     import pypsa.components as components
     from six import iteritems
     from sqlalchemy import or_, exists
+    import numpy as np
+    import logging
+
+    logger = logging.getLogger(__name__)
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -120,18 +124,26 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
-    new_df, new_pnl = aggregategenerators(network, busmap, with_time)
+    new_df, new_pnl = aggregategenerators(network, busmap, with_time,
+                    custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
+                                       'weight': np.sum, 'p_nom': np.sum,
+                                       'p_nom_opt': np.sum, 'marginal_cost':
+                                           np.mean, 'capital_cost': np.mean})
     io.import_components_from_dataframe(network_c, new_df, 'Generator')
     for attr, df in iteritems(new_pnl):
         io.import_series_from_dataframe(network_c, df, 'Generator', attr)
 
     # dealing with all other components
-    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
+        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
+                             'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
+                             'p_min_pu': np.min}}
         new_df, new_pnl = aggregateoneport(
-            network, busmap, component=one_port, with_time=with_time)
+            network, busmap, component=one_port, with_time=with_time,
+            custom_strategies=one_port_strategies.get(one_port, {}))
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
@@ -227,8 +239,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
-                            tolvl, cpu_cores=4):
+def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     """ Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
@@ -266,10 +277,10 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     # cpu_cores = mp.cpu_count()
 
     # data preperation
-    s_buses = buses_grid_linked(network, fromlvl)
-    lines = connected_grid_lines(network, s_buses)
+    s_buses = buses_grid_linked(etrago.network, fromlvl)
+    lines = connected_grid_lines(etrago.network, s_buses)
     transformer = connected_transformer(network, s_buses)
-    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
+    mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
     # temporary end points, later replaced by bus1 pendant
     t_buses = transformer[mask].bus0
@@ -296,11 +307,11 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
 
     # rename temporary endpoints
     df.reset_index(inplace=True)
-    df.target = df.target.map(dict(zip(network.transformers.bus0,
-                                       network.transformers.bus1)))
+    df.target = df.target.map(dict(zip(etrago.network.transformers.bus0,
+                                       etrago.network.transformers.bus1)))
 
     # append to busmap buses only connected to transformer
-    transformer = network.transformers
+    transformer = etrago.network.transformers
     idx = list(set(buses_of_vlvl(network, fromlvl)).
                symmetric_difference(set(s_buses)))
     mask = transformer.bus0.isin(idx)
@@ -313,7 +324,7 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     df = pd.concat([df, toappend], ignore_index=True, axis=0)
 
     # append all other buses
-    buses = network.buses
+    buses = etrago.network.buses
     mask = buses.index.isin(df.source)
 
     assert set(buses[~mask].v_nom) == set(tolvl)
@@ -327,20 +338,20 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     # prepare data for export
 
     df['scn_name'] = scn_name
-    df['version'] = version
+    df['version'] = etrago.args['gridversion']
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
     for i, d in df.reset_index().iterrows():
-        session.add(EgoGridPfHvBusmap(**d.to_dict()))
+        etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
 
-    session.commit()
+    etrago.session.commit()
 
     return
 
 
-def busmap_from_psql(network, session, scn_name, version):
+def busmap_from_psql(etrago):
     """ Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
@@ -361,12 +372,15 @@ def busmap_from_psql(network, session, scn_name, version):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-
+    scn_name=(etrago.args['scn_name'] if etrago.args['scn_extension']==None
+                        else etrago.args['scn_name']+'_ext_'+'_'.join(
+                                etrago.args['scn_extension']))
     def fetch():
 
-        query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name).filter(
-                    EgoGridPfHvBusmap.version == version)
+        query = etrago.session.query(
+            EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
+            filter(EgoGridPfHvBusmap.scn_name == scn_name).\
+            filter(EgoGridPfHvBusmap.version == etrago.args['gridversion'])
 
         return dict(query.all())
 
@@ -378,20 +392,29 @@ def busmap_from_psql(network, session, scn_name, version):
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
 
-        busmap_by_shortest_path(network, session, scn_name, version,
+        busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
         busmap = fetch()
 
     return busmap
 
+def ehv_clustering(self):
 
-def kmean_clustering(network, n_clusters=10, load_cluster=False,
-                     line_length_factor=1.25,
-                     remove_stubs=False, use_reduced_coordinates=False,
-                     bus_weight_tocsv=None, bus_weight_fromcsv=None,
-                     n_init=10, max_iter=300, tol=1e-4,
-                     n_jobs=1):
+
+    if self.args['network_clustering_ehv']:
+
+        logger.info('Start ehv clustering')
+
+        self.network.generators.control = "PV"
+        busmap = busmap_from_psql(self)
+        self.network = cluster_on_extra_high_voltage(
+            self.network, busmap, with_time=True)
+
+        logger.info('Network clustered to EHV-grid')
+
+
+def kmean_clustering(etrago):
     """ Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -429,6 +452,10 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     network : pypsa.Network object
         Container for all network components.
     """
+
+
+    network = etrago.network
+    kmean_settings = etrago.args['network_clustering_kmeans']
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -471,7 +498,6 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     def normed(x):
         return (x / x.sum()).fillna(0.)
 
-    print('start k-mean clustering')
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control = "PV"
@@ -504,7 +530,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     network.import_components_from_dataframe(
         network.transformers.loc[:, [
-                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_nom_total']]
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_max_pu']]
         .assign(x=network.transformers.x * (380. /
                 transformer_voltages.max(axis=1))**2, length = 1)
         .set_index('T' + trafo_index),
@@ -519,26 +545,28 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
-    if bus_weight_tocsv is not None:
-        weight = weighting_for_scenario(x=network.buses, save=bus_weight_tocsv)
-    elif bus_weight_fromcsv is not None:
-        weight = pd.Series.from_csv(bus_weight_fromcsv)
+    if kmean_settings['bus_weight_tocsv'] is not None:
+        weight = weighting_for_scenario(
+            x=network.buses,
+            save=kmean_settings['bus_weight_tocsv'])
+    elif kmean_settings['bus_weight_fromcsv'] is not None:
+        weight = pd.Series.from_csv(kmean_settings['bus_weight_fromcsv'])
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
 
 
     # remove stubs
-    if remove_stubs:
+    if kmean_settings['remove_stubs']:
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
         network.generators['weight'] = network.generators['p_nom']
-        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports = network.one_port_components.copy()
         aggregate_one_ports.discard('Generator')
 
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
-        if use_reduced_coordinates:
+        if kmean_settings['use_reduced_coordinates']:
             # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
             # i.e. network is changed in place!!
             network.buses.loc[busmap.index, ['x', 'y']
@@ -548,31 +576,80 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
             network,
             busmap,
             aggregate_generators_weighted=True,
+            one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
+                                             'capital_cost': np.mean,
+                                             'efficiency': np.mean,
+                                             'efficiency_dispatch': np.mean,
+                                             'standing_loss': np.mean,
+                                             'efficiency_store': np.mean,
+                                             'p_min_pu': np.min}},
+            generator_strategies={'p_nom_min':np.min,
+                              'p_nom_opt': np.sum,
+                              'marginal_cost': np.mean,
+                              'capital_cost': np.mean},
             aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=line_length_factor)
+            line_length_factor=kmean_settings['line_length_factor'])
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    busmap = busmap_by_kmeans(
-        network,
-        bus_weightings=pd.Series(weight),
-        n_clusters=n_clusters,
-        load_cluster=load_cluster,
-        n_init=n_init,
-        max_iter=max_iter,
-        tol=tol,
-        n_jobs=n_jobs)
+    if not kmean_settings['kmeans_busmap']:
+        busmap = busmap_by_kmeans(
+            network,
+            bus_weightings=pd.Series(weight),
+            n_clusters=kmean_settings['n_clusters'],
+            n_init=kmean_settings['n_init'],
+            max_iter=kmean_settings['max_iter'],
+            tol=kmean_settings['tol'],
+            n_jobs=kmean_settings['n_jobs'])
+        busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
+    else:
+        df = pd.read_csv(kmean_settings['kmeans_busmap'])
+        df=df.astype(str)
+        df = df.set_index('bus_id')
+        busmap = df.squeeze('columns')
 
-    # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
-    aggregate_one_ports = components.one_port_components.copy()
+    aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
+        one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
+                                             'capital_cost': np.mean,
+                                             'efficiency': np.mean,
+                                             'efficiency_dispatch': np.mean,
+                                             'standing_loss': np.mean,
+                                             'efficiency_store': np.mean,
+                                             'p_min_pu': np.min}},
+        generator_strategies={'p_nom_min':np.min,
+                              'p_nom_opt': np.sum,
+                              'marginal_cost': np.mean,
+                              'capital_cost': np.mean},
         aggregate_one_ports=aggregate_one_ports)
 
     return clustering
+
+def run_kmeans_clustering(self):
+
+    if self.args['network_clustering_kmeans'] != False:
+
+        self.network.generators.control = "PV"
+
+        logger.info('Start k-mean clustering')
+
+        self.clustering = kmean_clustering(self)
+
+        if self.args['disaggregation'] != None:
+                self.disaggregated_network = self.network.copy()
+
+        self.network = self.clustering.network.copy()
+
+        self.geolocation_buses()
+
+        self.network.generators.control[self.network.generators.control == ''] = 'PV'
+
+        logger.info("Network clustered to {} buses with k-means algorithm."
+                    .format(self.args['network_clustering_kmeans']['n_clusters']))

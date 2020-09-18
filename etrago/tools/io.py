@@ -201,9 +201,10 @@ class NetworkScenario(ScenarioBase):
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
 
-        timeindex = pd.DatetimeIndex(start=tr.start_time,
-                                     periods=tr.timesteps,
-                                     freq=tr.resolution)
+        timeindex = pd.DatetimeIndex(data=pd.date_range(
+            start=tr.start_time,
+            periods=tr.timesteps,
+            freq=tr.resolution))
 
         self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
         """ pandas.tseries.index.DateTimeIndex :
@@ -213,10 +214,10 @@ class NetworkScenario(ScenarioBase):
 
         ormclass = self._mapped['Source']
         query = self.session.query(ormclass)
-        
+
         if self.version:
             query = query.filter(ormclass.version == self.version)
-            
+
         # TODO column naming in database
         return {k.source_id: k.name for k in query.all()}
 
@@ -329,7 +330,7 @@ class NetworkScenario(ScenarioBase):
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.11.0':
+        if pypsa.__version__ == '0.17.1':
             old_to_new_name = {'Generator':
                                {'p_min_pu_fixed': 'p_min_pu',
                                 'p_max_pu_fixed': 'p_max_pu',
@@ -457,7 +458,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
 
     Parameters
     ----------
-    session: 
+    session:
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
     args: dict
@@ -482,7 +483,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                     new_index.new[network.generators_t[col].columns]
 
         network.generators.index = range(len(network.generators))
-    
+
     # moved this here to prevent error when not using the mv-schema
     import datetime
     if grid.lower() == 'mv':
@@ -556,7 +557,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
             network.generators.set_value(gen, 'source', int(old_source_id))
         except:
             print(
-                'Source ' + network.generators.carrier[gen] + 
+                'Source ' + network.generators.carrier[gen] +
                 ' is not in the source table!')
     for stor in network.storage_units.index:
         if network.storage_units.carrier[stor] not in sources.name.values:
@@ -611,9 +612,9 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                        'soc_cyclic': 'cyclic_state_of_charge',
                        'soc_initial': 'state_of_charge_initial'}
 
-    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult, 
-                  GeneratorResult, StorageResult, BusTResult, LoadTResult, 
-                  LineTResult, TransformerTResult, GeneratorTResult, 
+    ormclasses = [BusResult, LoadResult, LineResult, TransformerResult,
+                  GeneratorResult, StorageResult, BusTResult, LoadTResult,
+                  LineTResult, TransformerTResult, GeneratorTResult,
                   StorageTResult]
 
     for ormclass in ormclasses:
@@ -635,7 +636,7 @@ def results_to_oedb(session, network, args, grid='hv', safe_results=False):
                     if col == 'soc_set':
                         try:
                             setattr(myinstance, col, getattr(
-                                whereismydata[ormclass], 
+                                whereismydata[ormclass],
                                 'state_of_charge_set')[index].tolist())
                         except:
                             pass
@@ -702,14 +703,13 @@ def run_sql_script(conn, scriptname='results_md2grid.sql'):
 
 
 
-def extension (network, session, version, scn_extension, start_snapshot, 
-               end_snapshot, **kwargs):
+def extension(self, **kwargs):
     """
-    Function that adds an additional network to the existing network container. 
-    The new network can include every PyPSA-component (e.g. buses, lines, links). 
-    To connect it to the existing network, transformers are needed. 
-        
-    All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
+    Function that adds an additional network to the existing network container.
+    The new network can include every PyPSA-component (e.g. buses, lines, links).
+    To connect it to the existing network, transformers are needed.
+
+    All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
     The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
 
     Until now, the tables include three additional scenarios:
@@ -717,7 +717,7 @@ def extension (network, session, version, scn_extension, start_snapshot,
 
     'nep2035_b2': all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
 
-    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway 
+    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway
      Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
 
 
@@ -733,48 +733,43 @@ def extension (network, session, version, scn_extension, start_snapshot,
           network : Network container including existing and additional network
 
     """
-    
-    if version is None:
-       ormcls_prefix = 'EgoGridPfHvExtension'
-    else:
-        ormcls_prefix = 'EgoPfHvExtension'
-               
-    # Adding overlay-network to existing network
-    scenario = NetworkScenario(session,
-                               version = version,
-                               prefix=ormcls_prefix,
-                               method=kwargs.get('method', 'lopf'),
-                               start_snapshot=start_snapshot,
-                               end_snapshot=end_snapshot,
-                               scn_name='extension_' + scn_extension)
+    if self.args['scn_extension'] is not None:
 
-    network = scenario.build_network(network)
+        if self.args['gridversion'] is None:
+           ormcls_prefix = 'EgoGridPfHvExtension'
+        else:
+            ormcls_prefix = 'EgoPfHvExtension'
 
-    # Allow lossless links to conduct bidirectional
-    network.links.loc[network.links.efficiency == 1.0, 'p_min_pu'] = -1
+        for i in range(len(self.args['scn_extension'])):
+            scn_extension = self.args['scn_extension'][i]
+            # Adding overlay-network to existing network
+            scenario = NetworkScenario(
+                self.session,
+                version = self.args['gridversion'],
+                prefix=ormcls_prefix,
+                method=kwargs.get('method', 'lopf'),
+                start_snapshot=self.args['start_snapshot'],
+                end_snapshot=self.args['end_snapshot'],
+                scn_name='extension_' + scn_extension)
 
-    # Set coordinates for new buses
-    extension_buses = network.buses[network.buses.scn_name ==
-                                    'extension_' + scn_extension]
-    for idx, row in extension_buses.iterrows():
-            wkt_geom = to_shape(row['geom'])
-            network.buses.loc[idx, 'x'] = wkt_geom.x
-            network.buses.loc[idx, 'y'] = wkt_geom.y
-               
-    return network
+            self.network = scenario.build_network(self.network)
 
-def decommissioning(network, session, args, **kwargs):
+            # Allow lossless links to conduct bidirectional
+            self.network.links.loc[
+                self.network.links.efficiency == 1.0, 'p_min_pu'] = -1
+
+def decommissioning(self, **kwargs):
     """
     Function that removes components in a decommissioning-scenario from
     the existing network container.
     Currently, only lines can be decommissioned.
-               
+
     All components of the decommissioning scenario need to be inserted in
-    the fitting 'model_draft.ego_grid_pf_hv_extension_' table. 
-    The scn_name in the tables have to be labled with 'decommissioning_' 
-    + scn_name (e.g. 'decommissioning_nep2035'). 
-        
-    
+    the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
+    The scn_name in the tables have to be labled with 'decommissioning_'
+    + scn_name (e.g. 'decommissioning_nep2035').
+
+
     Parameters
     -----
         network : The existing network container (e.g. scenario 'NEP 2035')
@@ -785,47 +780,38 @@ def decommissioning(network, session, args, **kwargs):
     Returns
     ------
         network : Network container including decommissioning
-          
-    """  
 
-    if args['gridversion'] == None:   
-        ormclass = getattr(import_module('egoio.db_tables.model_draft'),
-                           'EgoGridPfHvExtensionLine')
-    else:
-        ormclass = getattr(import_module('egoio.db_tables.grid'),
-                           'EgoPfHvExtensionLine')
+    """
+    if self.args['scn_decommissioning'] is not None:
+        if self.args['gridversion'] == None:
+            ormclass = getattr(import_module('egoio.db_tables.model_draft'),
+                               'EgoGridPfHvExtensionLine')
+        else:
+            ormclass = getattr(import_module('egoio.db_tables.grid'),
+                               'EgoPfHvExtensionLine')
 
-    query = session.query(ormclass).filter(
-                        ormclass.scn_name == 'decommissioning_' + 
-                        args['scn_decommissioning'])
+        query = self.session.query(ormclass).filter(
+                            ormclass.scn_name == 'decommissioning_' +
+                            self.args['scn_decommissioning'])
 
-    df_decommisionning = pd.read_sql(query.statement,
-                         session.bind,
-                         index_col='line_id')
-    df_decommisionning.index = df_decommisionning.index.astype(str)
+        df_decommisionning = pd.read_sql(query.statement,
+                             self.session.bind,
+                             index_col='line_id')
+        df_decommisionning.index = df_decommisionning.index.astype(str)
 
-    for idx, row in network.lines.iterrows():
-        if (row['s_nom_min'] !=0) & (
-            row['scn_name'] =='extension_' + args['scn_decommissioning']):
-                v_nom_dec = df_decommisionning['v_nom'][(
-                 df_decommisionning.project == row['project']) & (
-                         df_decommisionning.project_id == row['project_id'])]
+        for idx, row in self.network.lines.iterrows():
+            if ((row['s_nom_min'] !=0)
+            & (row['scn_name'] == 'extension_' +
+               self.args['scn_decommissioning'])):
+                    v_nom_dec = df_decommisionning['v_nom'][(
+                     df_decommisionning.project == row['project'])
+                        & (df_decommisionning.project_id == row['project_id'])]
 
-                if (v_nom_dec == 110).any():
-                    network.lines.s_nom_min[network.lines.index == idx]\
-                    = args['branch_capacity_factor']['HV'] *\
-                    network.lines.s_nom_min
+                    self.network.lines.s_nom_min[self.network.lines.index == idx] = self.network.lines.s_nom_min
 
-                else:
-                    network.lines.s_nom_min[network.lines.index == idx] =\
-                    args['branch_capacity_factor']['eHV'] *\
-                    network.lines.s_nom_min
-
-    ### Drop decommissioning-lines from existing network
-    network.lines = network.lines[~network.lines.index.isin(
-            df_decommisionning.index)]
-
-    return network
+        ### Drop decommissioning-lines from existing network
+        self.network.lines = self.network.lines[
+            ~self.network.lines.index.isin(df_decommisionning.index)]
 
 
 def distance(x0, x1, y0, y1):
@@ -844,9 +830,9 @@ def distance(x0, x1, y0, y1):
     Returns
     ------
         distance : float
-        square of distance 
-          
-    """   
+        square of distance
+
+    """
     # Calculate square of the distance between two points (Pythagoras)
     distance = (x1.values- x0.values)*(x1.values- x0.values)\
         + (y1.values- y0.values)*(y1.values- y0.values)

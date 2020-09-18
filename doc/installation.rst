@@ -5,14 +5,11 @@ eTraGo is designed as a Python package therefore it is mandatory to have
 `Python 3 <https://www.python.org/downloads/.>`_ installed. If you have a
 working Python3 environment, use pypi to install the latest eTraGo version.
 We highly recommend you to use a virtual environment. Use following pip
-command in order to install eTraGo. Be sure having the pip version 
-18.1 installed (pip3 install pip==18.1) since newer versions do not 
-permit using dependency links.
+command in order to install eTraGo.
 
 .. code-block:: bash
 
-  $ pip3 install eTraGo --process-dependency-links
-
+  $ pip3 install eTraGo
 
 Using a virtual environment
 ===========================
@@ -49,10 +46,9 @@ prompt as administrator and run:
 
 .. code-block:: bash
 
-  $ conda install pip==18.1
   $ conda config --add channels conda-forge
   $ conda install shapely
-  $ pip3 install eTraGo --process-dependency-links
+  $ pip install eTraGo
 
   
 The full Documentation can be found

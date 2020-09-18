@@ -22,10 +22,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['egoio == 0.4.7',
-                      'numpy == 1.16.2',
-                      'scikit-learn == 0.19.0',
-                      'pandas >= 0.19.0, <=0.20.3',
-                      'pypsa==0.11.0fork',
+                      'scikit-learn',
                       'sqlalchemy == 1.2.0',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
@@ -33,10 +30,8 @@ setup(
                       'shapely',
                       'oedialect',
                       'pyproj == 2.0.2',
-                      'tilemapbase == 0.4.5'],
-    dependency_links=[
-        ('git+https://git@github.com/openego/PyPSA.git'
-         '@master#egg=pypsa-0.11.0fork')],
+                      'tilemapbase == 0.4.5',
+                      'pypsa == 0.17.1'],
     extras_require={
         'docs': [
             'sphinx >= 1.4',

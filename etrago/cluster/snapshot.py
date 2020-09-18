@@ -43,14 +43,16 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "Simon Hilpert"
 
 
-def snapshot_clustering(network, how='daily', clusters=10):
+def snapshot_clustering(self):
     """
     """
+    if self.args['snapshot_clustering'] != False:
 
-    network = run(network=network.copy(), n_clusters=clusters,
-                  how=how, normed=False)
+        self.network = run(network=self.network.copy(),
+                      n_clusters=self.args['snapshot_clustering']['n_clusters'],
+                      how=self.args['snapshot_clustering']['how'],
+                      normed=False)
 
-    return network
 
 
 def tsam_cluster(timeseries_df,
@@ -88,7 +90,7 @@ def tsam_cluster(timeseries_df,
         hours = 168
         period = ' weeks'
 
-    print('Snapshot clustering to ' + str(typical_periods) + period + 
+    print('Snapshot clustering to ' + str(typical_periods) + period +
           ' using extreme period method: ' + extremePeriodMethod)
 
     aggregation = tsam.TimeSeriesAggregation(
@@ -156,7 +158,7 @@ def tsam_cluster(timeseries_df,
     df_cluster =  pd.DataFrame({
                         'Cluster': clusterOrder, #Cluster of the day
                         'RepresentativeDay': representative_day, #representative day of the cluster
-                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster  
+                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster
     df_cluster.index = df_cluster.index + 1
     df_cluster.index.name = 'Candidate'
 
@@ -166,7 +168,7 @@ def tsam_cluster(timeseries_df,
 
     for i in range(1,int(x)):
         j=1
-        while j <= hours: 
+        while j <= hours:
             nr_day.append(i)
             j=j+1
     df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
@@ -257,7 +259,14 @@ def update_data_frames(network, cluster_weights, dates, hours):
     return network
 
 
+def skip_snapshots(self):
+    n_skip = self.args['skip_snapshots']
 
+    if n_skip:
+        self.network.snapshots = self.network.snapshots[::n_skip]
+
+        self.network.snapshot_weightings = \
+            self.network.snapshot_weightings[::n_skip] * n_skip
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
