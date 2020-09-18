@@ -561,6 +561,8 @@ def kmean_clustering(etrago):
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
         network.generators['weight'] = network.generators['p_nom']
+        aggregate_one_ports = network.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
 
         # reset coordinates to the new reduced guys, rather than taking an
         # average (copied from pypsa.networkclustering)
@@ -574,6 +576,18 @@ def kmean_clustering(etrago):
             network,
             busmap,
             aggregate_generators_weighted=True,
+            one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
+                                             'capital_cost': np.mean,
+                                             'efficiency': np.mean,
+                                             'efficiency_dispatch': np.mean,
+                                             'standing_loss': np.mean,
+                                             'efficiency_store': np.mean,
+                                             'p_min_pu': np.min}},
+            generator_strategies={'p_nom_min':np.min,
+                              'p_nom_opt': np.sum,
+                              'marginal_cost': np.mean,
+                              'capital_cost': np.mean},
+            aggregate_one_ports=aggregate_one_ports,
             line_length_factor=kmean_settings['line_length_factor'])
         network = clustering.network
 
