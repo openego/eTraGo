@@ -28,6 +28,7 @@ the function etrago.
 import datetime
 import os
 import os.path
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -42,6 +43,10 @@ if 'READTHEDOCS' not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
+    
+    from etrago.PtG_implementation.capacities_calculation import (
+        ptg_links_clustering,
+        ptg_links_ST_pu_clustering)
 
 args = {
     # Setup and Configuration:
@@ -51,18 +56,18 @@ args = {
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 8, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
-    'pf_post_lopf': { # False if not perform a pf after a lopf simulation
-        'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
-        'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
-    'start_snapshot': 1,
-    'end_snapshot': 72,
-    'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver.log'},
+    'pf_post_lopf': False, #{ # False if not perform a pf after a lopf simulation
+        # 'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
+        # 'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
+    'start_snapshot': 12,
+    'end_snapshot': 14,
+    'solver': 'glpk',  # glpk, cplex or gurobi
+    'solver_options': {}, # {} for default options, specific for solver
+        # 'BarConvTol': 1.e-5,
+        # 'FeasibilityTol': 1.e-5,
+        # 'method':2,
+        # 'crossover':0,
+        # 'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -77,7 +82,7 @@ args = {
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': { # False or dict
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 5, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -90,10 +95,10 @@ args = {
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {# False or dict
-        'n_clusters': 2, # number of periods
-        'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
+    'snapshot_clustering': False,#{# False or dict
+        # 'n_clusters': 2, # number of periods
+        # 'how': 'daily', # type of period, currently only 'daily'
+        # 'storage_constraints': 'soc_constraints'}, # additional constraints for storages
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -339,6 +344,37 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     etrago.kmean_clustering()
+    
+    # add gas bus
+    etrago.network.add("Bus",
+                  "Gas_Bus", 
+                  carrier="AC",
+                  v_nom=380)
+        
+    # add links
+    df = ptg_links_clustering(etrago.args['network_clustering_kmeans']['n_clusters'])
+    df = df.set_index('name')
+    etrago.network.import_components_from_dataframe(df, "Link")
+    
+    # add p_max_pu TS to gas links    
+    df_t = ptg_links_ST_pu_clustering(etrago.args['network_clustering_kmeans']['n_clusters'])
+    df_t.index = pd.DatetimeIndex(df_t.index)
+    etrago.network.import_series_from_dataframe(df_t, 
+                                            "Link",
+                                            "p_max_pu")
+    
+    # add gas store
+    etrago.network.add("Store",
+                "Gas_Store",
+                bus = "Gas_Bus",
+                e_cyclic = True,
+                e_initial = 12300)
+    
+    # add gas load
+    etrago.network.add("Load",
+                "Gas_Load",
+                bus = "Gas_Bus",
+                p_set = float(450000/876))                      
 
     # skip snapshots
     etrago.skip_snapshots()
@@ -349,6 +385,8 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     etrago.lopf()
 
+    # import pdb; pdb.set_trace()
+    
     # TODO: check if should be combined with etrago.lopf()
     etrago.pf_post_lopf()
 

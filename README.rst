@@ -4,7 +4,7 @@
 
 eTraGo
 ======
-#test
+
 Optimization of flexibility options for transmission grids based on PyPSA
 
 A speciality in this context is that transmission grids are described by the
