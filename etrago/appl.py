@@ -71,7 +71,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results_segmtrya_15segm',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -93,8 +93,9 @@ args = {
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {'n_clusters': 42, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints':'', # additional constraints for storages, set '' if segmentation used
+        'storage_constraints':'', #additional constraints for storages, 'soc_constraints', 'daily_bounds' or '' 
         'segmentation': 12 }, #False or number of segments per day
+        #If segmentation used: set n_clusters as no. of snapshots divided by 24, 'storage_constraints':''
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
