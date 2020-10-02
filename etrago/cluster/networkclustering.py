@@ -603,13 +603,15 @@ def kmean_clustering(etrago):
             max_iter=kmean_settings['max_iter'],
             tol=kmean_settings['tol'],
             n_jobs=kmean_settings['n_jobs'])
-        busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
+        busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv', header=["clustered_bus_ID"])
+        
     else:
         df = pd.read_csv(kmean_settings['kmeans_busmap'])
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
-
+        
+    busmap.index.name='original_bus_ID'
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')

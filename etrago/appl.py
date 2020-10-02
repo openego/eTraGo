@@ -43,6 +43,8 @@ if 'READTHEDOCS' not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
+    
+    from etrago.PtG_implementation.ptg import (ptg_addition)
 
 args = {
     # Setup and Configuration:
@@ -52,18 +54,18 @@ args = {
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
-    'pf_post_lopf': { # False if not perform a pf after a lopf simulation
-        'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
-        'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
-    'start_snapshot': 1,
-    'end_snapshot': 1008,
-    'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver.log'},
+    'pf_post_lopf': False, #{ # False if not perform a pf after a lopf simulation
+        # 'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
+        # 'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
+    'start_snapshot': 12,
+    'end_snapshot': 14,
+    'solver': 'glpk',  # glpk, cplex or gurobi
+    'solver_options': {}, # {} for default options, specific for solver
+        # 'BarConvTol': 1.e-5,
+        # 'FeasibilityTol': 1.e-5,
+        # 'method':2,
+        # 'crossover':0,
+        # 'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -78,7 +80,7 @@ args = {
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': { # False or dict
-        'n_clusters': 5, # number of resulting nodes
+        'n_clusters': 3, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -342,6 +344,9 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     etrago.kmean_clustering()
+    
+    #add ptg installations
+    ptg_addition(etrago.network, etrago.args['network_clustering_kmeans']['n_clusters'])       
 
     # skip snapshots
     etrago.skip_snapshots()
@@ -351,7 +356,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     etrago.lopf()
-
+    
     # TODO: check if should be combined with etrago.lopf()
     etrago.pf_post_lopf()
 
