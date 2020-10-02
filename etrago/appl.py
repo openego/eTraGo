@@ -26,6 +26,7 @@ the function etrago.
 
 
 import datetime
+import time
 import os
 import os.path
 
@@ -45,17 +46,17 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.6',  # None for model_draft or Version number
+    'db': 'esa',  # database session
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 8, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': { # False if not perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 72,
+    'end_snapshot': 1008,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -64,36 +65,36 @@ args = {
         'crossover':0,
         'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results_segmtrya_15segm',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': { # False or dict
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 5, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs before kmeans clustering
+        'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccessary
-        'max_iter': 100, # affects clustering algorithm, only change when neccessary
-        'tol': 1e-6, # affects clustering algorithm, only change when neccessary
-        'n_jobs': -1}, # affects clustering algorithm, only change when neccessary
+        'n_init': 10, # affects clustering algorithm, only change when neccesary
+        'max_iter': 100, # affects clustering algorithm, only change when neccesary
+        'tol': 1e-6, # affects clustering algorithm, only change when neccesary
+        'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {# False or dict
-        'n_clusters': 2, # number of periods
+    'snapshot_clustering': {'n_clusters': 42, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
+        'storage_constraints':'', # additional constraints for storages, set '' if segmentation used
+        'segmentation': 12 }, #False or number of segments per day
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -104,7 +105,7 @@ args = {
 
 
 def run_etrago(args, json_path):
-    """The etrago function works with the following arguments:
+    """The etrago function works with following arguments:
 
 
     Parameters
@@ -124,7 +125,7 @@ def run_etrago(args, json_path):
         {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
         Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
         have to be performed. Choose either 'n_init' and a fixed number of
-        iterations or 'threshhold' and a threshhold of the objective function as
+        iterations or 'thershold' and a threashold of the objective function as
         abort criteria.
         Set 'pyomo' to False for big optimization problems, currently only
         possible when solver is 'gurobi'.
@@ -152,7 +153,7 @@ def run_etrago(args, json_path):
 
     solver_options: dict
         Choose settings of solver to improve simulation time and result.
-        Options are described in documentation of chosen solver.
+        Options are described in documentation of choosen solver.
 
     model_formulation: str
         'angles'
@@ -217,7 +218,7 @@ def run_etrago(args, json_path):
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
-            'storages': allow installing extendable storages
+            'storages': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
             'network_preselection': set only preselected lines extendable,
@@ -239,13 +240,13 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit cross-border-flows between Germany and its neighbouring
-                countries, set values in p.u. of German loads in snapshots
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
                 for all countries
                 (positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
-                Limit cross-border-flows between Germany and its neighbouring
-                countries, set values in p.u. of German loads in snapshots
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
                 for each country
                 (positiv: export from Germany)
             'max_curtailment_per_gen': float
@@ -291,13 +292,13 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : bool or dict
         {'n_clusters': 2, 'how': 'daily',
-         'storage_constraints': 'soc_constraints'},
+         'storage_constraints': },
         State if you want to cluster the snapshots and run the optimization
         only on a subset of snapshot periods. The 'n_clusters' value defines
         the number of periods which will be clustered to.
         With 'how' you can choose the period, currently 'daily' is the only
         option. Choose 'daily_bounds' or 'soc_constraints' to add extra
-        constraints for the SOC of storage units.
+        contraints for the SOC of storage units.
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -326,6 +327,7 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
+    x = time.time()
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -356,10 +358,15 @@ def run_etrago(args, json_path):
     etrago.disaggregation()
 
     # calculate central etrago results
-    # etrago.calc_results()
+    etrago.calc_results()
+    print(etrago.results)
+    
+    #Calculate runtime
+    y = time.time()
+    z = (y - x) / 60
+    print("Runtime etrago [min]:", round(z, 2))
 
     return etrago
-
 
 if __name__ == '__main__':
     # execute etrago function
