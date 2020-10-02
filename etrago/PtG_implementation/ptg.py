@@ -1,6 +1,4 @@
 import pandas as pd
-# from etrago import Etrago
-n_clusters = 10
 
 def ptg_links_clustering(n_clusters):
     filename_1 = 'kmeans_busmap_'+str(n_clusters)+'_result.csv'
@@ -32,7 +30,8 @@ def ptg_links_clustering(n_clusters):
                        'p_nom_max': list_capacities}) 
     df.set_index('name')
     df['bus1']="Gas_Bus"
-    df['capital_cost']=350000
+    df['efficiency']=0.8 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4
+    df['capital_cost']=350000 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4
     df['p_nom']=0
     df['p_nom_min']=0
     df['p_nom_extendable']="True"
@@ -40,7 +39,7 @@ def ptg_links_clustering(n_clusters):
     df['p_min_pu']=0
     df['p_max_pu']=1
     df['version']="0.4.5"
-    df['scn_name']="eGo 100"
+    df['scn_name']="NEP 2035"
     
     return df
 
@@ -99,12 +98,11 @@ def ptg_addition(network, n_clusters):
                 bus = "Gas_Bus",
                 e_cyclic = True)
     
-    # add gas load
-    H2_FC_efficiency = 0.58 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system"
-    P_grid_oriented_installations = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
-    n_Full_load_hours = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    # add H2 load
+    P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
     n_year_hours = 8760
-    E_year = P_grid_oriented_installations*n_Full_load_hours/H2_FC_efficiency
+    E_year = P_grid_oriented_installations_H2*n_Full_load_hours_H2
     network.add("Load",
                 "Gas_Load",
                 bus = "Gas_Bus",

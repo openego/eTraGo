@@ -28,7 +28,6 @@ the function etrago.
 import datetime
 import os
 import os.path
-import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -44,10 +43,7 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago import Etrago
     
-    from etrago.PtG_implementation.ptg import (
-        ptg_links_clustering,
-        ptg_links_ST_pu_clustering,
-        ptg_addition)
+    from etrago.PtG_implementation.ptg import (ptg_addition)
 
 args = {
     # Setup and Configuration:
@@ -357,8 +353,6 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     etrago.lopf()
-
-    # import pdb; pdb.set_trace()
     
     # TODO: check if should be combined with etrago.lopf()
     etrago.pf_post_lopf()
