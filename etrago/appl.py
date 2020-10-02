@@ -44,9 +44,10 @@ if 'READTHEDOCS' not in os.environ:
 
     from etrago import Etrago
     
-    from etrago.PtG_implementation.capacities_calculation import (
+    from etrago.PtG_implementation.ptg import (
         ptg_links_clustering,
-        ptg_links_ST_pu_clustering)
+        ptg_links_ST_pu_clustering,
+        ptg_addition)
 
 args = {
     # Setup and Configuration:
@@ -82,7 +83,7 @@ args = {
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': { # False or dict
-        'n_clusters': 5, # number of resulting nodes
+        'n_clusters': 3, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -345,36 +346,8 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
     
-    # add gas bus
-    etrago.network.add("Bus",
-                  "Gas_Bus", 
-                  carrier="AC",
-                  v_nom=380)
-        
-    # add links
-    df = ptg_links_clustering(etrago.args['network_clustering_kmeans']['n_clusters'])
-    df = df.set_index('name')
-    etrago.network.import_components_from_dataframe(df, "Link")
-    
-    # add p_max_pu TS to gas links    
-    df_t = ptg_links_ST_pu_clustering(etrago.args['network_clustering_kmeans']['n_clusters'])
-    df_t.index = pd.DatetimeIndex(df_t.index)
-    etrago.network.import_series_from_dataframe(df_t, 
-                                            "Link",
-                                            "p_max_pu")
-    
-    # add gas store
-    etrago.network.add("Store",
-                "Gas_Store",
-                bus = "Gas_Bus",
-                e_cyclic = True,
-                e_initial = 12300)
-    
-    # add gas load
-    etrago.network.add("Load",
-                "Gas_Load",
-                bus = "Gas_Bus",
-                p_set = float(450000/876))                      
+    #add ptg installations
+    ptg_addition(etrago.network, etrago.args['network_clustering_kmeans']['n_clusters'])       
 
     # skip snapshots
     etrago.skip_snapshots()

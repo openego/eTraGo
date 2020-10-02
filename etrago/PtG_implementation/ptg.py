@@ -1,4 +1,5 @@
 import pandas as pd
+# from etrago import Etrago
 n_clusters = 10
 
 def ptg_links_clustering(n_clusters):
@@ -72,3 +73,40 @@ def ptg_links_ST_pu_clustering(n_clusters):
             df['Link_'+str(i)] = ST/C_max
 
     return df
+
+def ptg_addition(network, n_clusters):
+    # add gas bus
+    network.add("Bus",
+                  "Gas_Bus", 
+                  carrier="AC",
+                  v_nom=380)
+        
+    # add links
+    df = ptg_links_clustering(n_clusters)
+    df = df.set_index('name')
+    network.import_components_from_dataframe(df, "Link")
+    
+    # add p_max_pu TS to gas links    
+    df_t = ptg_links_ST_pu_clustering(n_clusters)
+    df_t.index = pd.DatetimeIndex(df_t.index)
+    network.import_series_from_dataframe(df_t, 
+                                            "Link",
+                                            "p_max_pu")
+    
+    # add gas store
+    network.add("Store",
+                "Gas_Store",
+                bus = "Gas_Bus",
+                e_cyclic = True)
+    
+    # add gas load
+    H2_FC_efficiency = 0.58 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system"
+    P_grid_oriented_installations = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    n_Full_load_hours = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    n_year_hours = 8760
+    E_year = P_grid_oriented_installations*n_Full_load_hours/H2_FC_efficiency
+    network.add("Load",
+                "Gas_Load",
+                bus = "Gas_Bus",
+                p_set = E_year/n_year_hours)  
+    
