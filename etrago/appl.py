@@ -80,14 +80,14 @@ args = {
         'n_clusters': 10, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
+        'remove_stubs': False, # remove stubs before kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccesary
-        'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6, # affects clustering algorithm, only change when neccesary
-        'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
+        'n_init': 10, # affects clustering algorithm, only change when neccessary
+        'max_iter': 100, # affects clustering algorithm, only change when neccessary
+        'tol': 1e-6, # affects clustering algorithm, only change when neccessary
+        'n_jobs': -1}, # affects clustering algorithm, only change when neccessary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {# False or dict
@@ -104,7 +104,7 @@ args = {
 
 
 def run_etrago(args, json_path):
-    """The etrago function works with following arguments:
+    """The etrago function works with the following arguments:
 
 
     Parameters
@@ -124,7 +124,7 @@ def run_etrago(args, json_path):
         {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
         Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
         have to be performed. Choose either 'n_init' and a fixed number of
-        iterations or 'thershold' and a threashold of the objective function as
+        iterations or 'threshhold' and a threshhold of the objective function as
         abort criteria.
         Set 'pyomo' to False for big optimization problems, currently only
         possible when solver is 'gurobi'.
@@ -152,7 +152,7 @@ def run_etrago(args, json_path):
 
     solver_options: dict
         Choose settings of solver to improve simulation time and result.
-        Options are described in documentation of choosen solver.
+        Options are described in documentation of chosen solver.
 
     model_formulation: str
         'angles'
@@ -217,7 +217,7 @@ def run_etrago(args, json_path):
             'transformers': set all transformers extendable
             'overlay_network': set all components of the 'scn_extension'
                                extendable
-            'storages': allow to install extendable storages
+            'storages': allow installing extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
             'network_preselection': set only preselected lines extendable,
@@ -239,13 +239,13 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
+                Limit cross-border-flows between Germany and its neighbouring
+                countries, set values in p.u. of German loads in snapshots
                 for all countries
                 (positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
+                Limit cross-border-flows between Germany and its neighbouring
+                countries, set values in p.u. of German loads in snapshots
                 for each country
                 (positiv: export from Germany)
             'max_curtailment_per_gen': float
@@ -297,7 +297,7 @@ def run_etrago(args, json_path):
         the number of periods which will be clustered to.
         With 'how' you can choose the period, currently 'daily' is the only
         option. Choose 'daily_bounds' or 'soc_constraints' to add extra
-        contraints for the SOC of storage units.
+        constraints for the SOC of storage units.
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
