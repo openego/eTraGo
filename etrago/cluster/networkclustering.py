@@ -628,7 +628,8 @@ def kmean_clustering(etrago):
                               'p_nom_opt': np.sum,
                               'marginal_cost': np.mean,
                               'capital_cost': np.mean},
-        aggregate_one_ports=aggregate_one_ports)
+        aggregate_one_ports=aggregate_one_ports,
+        line_length_factor=kmean_settings['line_length_factor'])
 
     return clustering
 
