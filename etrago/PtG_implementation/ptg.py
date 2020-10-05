@@ -8,12 +8,13 @@ def ptg_links_clustering(n_clusters):
     list_capacities=[]
     list_names=[]
     df_correspondance = pd.read_csv(filename_1, index_col ='bus_id')
+    print(df_correspondance)
     df_orginal_capacities = pd.read_csv(filename_2)
     new_column_list = []
     
     for index, row in df_orginal_capacities.iterrows():
         cell_content = row["otg_id"]
-        new_cell = df_correspondance.at[int(cell_content),"clustered_bus_ID"]
+        new_cell = df_correspondance.at[int(cell_content),"0"]
         new_column_list.append(new_cell)
     
     df_orginal_capacities["clustered_bus_ID"] = new_column_list
@@ -54,7 +55,7 @@ def ptg_links_ST_pu_clustering(n_clusters):
     new_names = []
     
     for i in original_names:
-        new_cell = df_correspondance.at[int(i),"clustered_bus_ID"]
+        new_cell = df_correspondance.at[int(i),"0"]
         new_names.append(new_cell)
     
     df_orginal_ST.loc["new_names"] = new_names
