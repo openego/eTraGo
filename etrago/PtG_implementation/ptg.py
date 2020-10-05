@@ -8,7 +8,6 @@ def ptg_links_clustering(n_clusters):
     list_capacities=[]
     list_names=[]
     df_correspondance = pd.read_csv(filename_1, index_col ='bus_id')
-    print(df_correspondance)
     df_orginal_capacities = pd.read_csv(filename_2)
     new_column_list = []
     
