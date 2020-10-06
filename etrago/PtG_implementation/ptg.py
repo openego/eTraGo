@@ -13,7 +13,7 @@ def ptg_links_clustering(n_clusters):
     
     for index, row in df_orginal_capacities.iterrows():
         cell_content = row["otg_id"]
-        new_cell = df_correspondance.at[int(cell_content),"clustered_bus_ID"]
+        new_cell = df_correspondance.at[int(cell_content),"0"]
         new_column_list.append(new_cell)
     
     df_orginal_capacities["clustered_bus_ID"] = new_column_list
@@ -54,7 +54,7 @@ def ptg_links_ST_pu_clustering(n_clusters):
     new_names = []
     
     for i in original_names:
-        new_cell = df_correspondance.at[int(i),"clustered_bus_ID"]
+        new_cell = df_correspondance.at[int(i),"0"]
         new_names.append(new_cell)
     
     df_orginal_ST.loc["new_names"] = new_names
@@ -107,4 +107,3 @@ def ptg_addition(network, n_clusters):
                 "Gas_Load",
                 bus = "Gas_Bus",
                 p_set = E_year/n_year_hours)  
-    
