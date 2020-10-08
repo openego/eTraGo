@@ -252,6 +252,7 @@ def run(network, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
+
     if normed:
         normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
         normed_loads.columns = 'L' + normed_loads.columns

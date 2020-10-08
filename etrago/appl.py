@@ -57,8 +57,8 @@ args = {
     'pf_post_lopf': False, #{ # False if not perform a pf after a lopf simulation
         # 'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         # 'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
-    'start_snapshot': 12,
-    'end_snapshot': 14,
+    'start_snapshot': 1,
+    'end_snapshot': 240,
     'solver': 'glpk',  # glpk, cplex or gurobi
     'solver_options': {}, # {} for default options, specific for solver
         # 'BarConvTol': 1.e-5,
@@ -92,8 +92,8 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {'n_clusters': 42, # number of periods
+    'disaggregation': None,#'uniform',  # None, 'mini' or 'uniform'
+    'snapshot_clustering': {'n_clusters': 10, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints':'', #additional constraints for storages, 'soc_constraints', 'daily_bounds' or '' 
         'segmentation': 12 }, #False or number of segments per day
@@ -350,7 +350,7 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
-
+    
     # snapshot clustering
     etrago.snapshot_clustering()
 
