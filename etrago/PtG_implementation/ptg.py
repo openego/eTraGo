@@ -110,4 +110,4 @@ def ptg_addition(network, n_clusters, P_grid_oriented_installations_H2 = 3000):
     network.add("Load",
                 "Gas_Load",
                 bus = "Gas_Bus",
-                p_set = ptg_t_pu.mul(P_grid_oriented_installations_H2)
+                p_set = ptg_t_pu.mul(P_grid_oriented_installations_H2))
