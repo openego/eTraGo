@@ -73,7 +73,7 @@ def ptg_links_ST_pu_clustering(n_clusters):
 
     return df
 
-def ptg_addition(network, n_clusters):
+def ptg_addition(network, n_clusters, P_grid_oriented_installations_H2 = 3000):
     # add gas bus
     network.add("Bus",
                   "Gas_Bus", 
@@ -98,13 +98,16 @@ def ptg_addition(network, n_clusters):
                 bus = "Gas_Bus",
                 e_cyclic = True)
     
-    # add H2 load
-    P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    # add H2 load series
+    """P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
     n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
     n_year_hours = 8760
-    E_year = P_grid_oriented_installations_H2*n_Full_load_hours_H2
+    E_year = P_grid_oriented_installations_H2*n_Full_load_hours_H2"""
+    
+    # get ptg normalized timeseries as mean value from ptg normalized timeseries of all buses
+    ptg_t_pu = df_t.mean(axis=1)
+    
     network.add("Load",
                 "Gas_Load",
                 bus = "Gas_Bus",
-                p_set = E_year/n_year_hours)  
-    
+                p_set = ptg_t_pu.mul(P_grid_oriented_installations_H2)
