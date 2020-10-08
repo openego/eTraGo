@@ -133,4 +133,3 @@ def ptg_addition(network, n_clusters,
                 "Gas_Load",
                 bus = "Gas_Bus",
                 p_set = feed_in_cap_norm_by_av.mul(ptg_average))
-
