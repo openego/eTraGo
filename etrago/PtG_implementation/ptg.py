@@ -111,14 +111,8 @@ def ptg_addition(network, n_clusters,
                 "Gas_Store",
                 bus = "Gas_Bus",
                 e_cyclic = True)
-    
-    # add H2 load series
-    """P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
-    n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
-    n_year_hours = 8760
-    E_year = P_grid_oriented_installations_H2*n_Full_load_hours_H2"""
 
-    # get normalized ptg feed-in capactiy timeseries as mean value of all buses 
+    # get normalized ptg feed-in capacity timeseries as mean value of all buses 
     feed_in_cap_norm_by_av = feed_in_capacity_t.mean(axis=1) / feed_in_capacity_t.mean(axis=1).mean(axis=0)    
 
     # use specified snapshots only

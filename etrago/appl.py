@@ -345,11 +345,15 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
     
+    # PtG Modelling Input Parameters
+    P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen    
+    n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    
     #add ptg installations
     ptg_addition(etrago.network, 
                  etrago.args['network_clustering_kmeans']['n_clusters'], 
-                P_grid_oriented_installations_H2 = 3000,
-                n_Full_load_hours_H2 = 1500)
+                P_grid_oriented_installations_H2 = P_grid_oriented_installations_H2,
+                n_Full_load_hours_H2 = n_Full_load_hours_H2)
 
     # skip snapshots
     etrago.skip_snapshots()
