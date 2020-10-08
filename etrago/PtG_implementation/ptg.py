@@ -43,12 +43,17 @@ def ptg_links_clustering(n_clusters):
     
     return df
 
-def ptg_links_ST_pu_clustering(n_clusters):
+def import_data(n_clusters):
     filename_1 = 'kmeans_busmap_'+str(n_clusters)+'_result.csv'
     filename_2 = "PtG_implementation/time_series_sum_up_h2_MW.csv"
     
     df_correspondance = pd.read_csv(filename_1, index_col ='bus_id')
-    df_orginal_ST = pd.read_csv(filename_2, index_col ='time')
+    feed_in_capacity_t = pd.read_csv(filename_2, index_col ='time')
+    
+    return df_correspondance,feed_in_capacity_t
+
+def ptg_links_ST_pu_clustering(n_clusters,df_correspondance, df_orginal_ST):
+
     
     original_names = df_orginal_ST.columns.tolist()
     new_names = []
@@ -73,7 +78,13 @@ def ptg_links_ST_pu_clustering(n_clusters):
 
     return df
 
-def ptg_addition(network, n_clusters, P_grid_oriented_installations_H2 = 3000):
+def ptg_addition(network, n_clusters, 
+                 P_grid_oriented_installations_H2,
+                 n_Full_load_hours_H2):
+    
+    #import data
+    df_correspondance,feed_in_capacity_t = import_data(n_clusters)
+    
     # add gas bus
     network.add("Bus",
                   "Gas_Bus", 
@@ -82,11 +93,14 @@ def ptg_addition(network, n_clusters, P_grid_oriented_installations_H2 = 3000):
         
     # add links
     df = ptg_links_clustering(n_clusters)
+                              
     df = df.set_index('name')
     network.import_components_from_dataframe(df, "Link")
     
     # add p_max_pu TS to gas links    
-    df_t = ptg_links_ST_pu_clustering(n_clusters)
+    df_t = ptg_links_ST_pu_clustering(n_clusters,
+                            df_correspondance = df_correspondance, 
+                            df_orginal_ST = feed_in_capacity_t.copy())
     df_t.index = pd.DatetimeIndex(df_t.index)
     network.import_series_from_dataframe(df_t, 
                                             "Link",
@@ -103,11 +117,20 @@ def ptg_addition(network, n_clusters, P_grid_oriented_installations_H2 = 3000):
     n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
     n_year_hours = 8760
     E_year = P_grid_oriented_installations_H2*n_Full_load_hours_H2"""
+
+    # get normalized ptg feed-in capactiy timeseries as mean value of all buses 
+    feed_in_cap_norm_by_av = feed_in_capacity_t.mean(axis=1) / feed_in_capacity_t.mean(axis=1).mean(axis=0)    
+
+    # use specified snapshots only
+    feed_in_cap_norm_by_av.index = pd.DatetimeIndex(feed_in_cap_norm_by_av.index)
+    feed_in_cap_norm_by_av = feed_in_cap_norm_by_av.loc[network.snapshots[0]:network.snapshots[-1]]    
     
-    # get ptg normalized timeseries as mean value from ptg normalized timeseries of all buses
-    ptg_t_pu = df_t.mean(axis=1)
+    # get ptg normalized timeseries as mean value from ptg normalized timeseries of all buses    
+    ptg_average = P_grid_oriented_installations_H2 * n_Full_load_hours_H2 / 8760 
+
     
     network.add("Load",
                 "Gas_Load",
                 bus = "Gas_Bus",
-                p_set = ptg_t_pu.mul(P_grid_oriented_installations_H2)
+                p_set = feed_in_cap_norm_by_av.mul(ptg_average))
+

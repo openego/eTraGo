@@ -346,7 +346,10 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
     
     #add ptg installations
-    ptg_addition(etrago.network, etrago.args['network_clustering_kmeans']['n_clusters'], P_grid_oriented_installations_H2 = 3000)       
+    ptg_addition(etrago.network, 
+                 etrago.args['network_clustering_kmeans']['n_clusters'], 
+                P_grid_oriented_installations_H2 = 3000,
+                n_Full_load_hours_H2 = 1500)
 
     # skip snapshots
     etrago.skip_snapshots()
