@@ -389,6 +389,10 @@ if __name__ == '__main__':
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     # plots
+    
+    # etrago.plot_grid(line_colors='line_loading') # to show other plots, adjust the line_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
+    
+    ### THE FOLLOWING FUNCTIONS ARE PARTLY OUTDATED --> NEED TO BE CHECKED
     # make a line loading plot
     # plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep
