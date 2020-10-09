@@ -346,14 +346,16 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
     
     # PtG Modelling Input Parameters
-    P_grid_oriented_installations_H2 = 3000 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen    
-    n_Full_load_hours_H2 = 1500 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    P_grid_oriented_installations_H2 = 3000.0 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen    
+    n_Full_load_hours_H2 = 1500.0 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
+    e_store_gas_grid = 130.0 * 10**6 # [MWh] Kapazität Speicher Gasnetz: 130 TWh Speicherkapazität (https://vng.de/de/erdgas-kann-mehr-wir-auch/gasinfrastruktur), dabei ist Gas über Druckunterschiede nur im Hochdrucknetz speicherbar, da im Nieder- und Mitteldrucknetz der Druck stabil bleiben muss (https://www.topagrar.com/energie/news/faktencheck-ist-das-gasnetz-als-speicher-geeignet-9835668.html)    
     
     #add ptg installations
     ptg_addition(etrago.network, 
                  etrago.args['network_clustering_kmeans']['n_clusters'], 
                 P_grid_oriented_installations_H2 = P_grid_oriented_installations_H2,
-                n_Full_load_hours_H2 = n_Full_load_hours_H2)
+                n_Full_load_hours_H2 = n_Full_load_hours_H2,
+                e_store_gas_grid = e_store_gas_grid)
 
     # skip snapshots
     etrago.skip_snapshots()

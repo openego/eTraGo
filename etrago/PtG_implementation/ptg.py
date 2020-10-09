@@ -80,7 +80,8 @@ def ptg_links_ST_pu_clustering(n_clusters,df_correspondance, df_orginal_ST):
 
 def ptg_addition(network, n_clusters, 
                  P_grid_oriented_installations_H2,
-                 n_Full_load_hours_H2):
+                 n_Full_load_hours_H2,
+                 e_store_gas_grid):
     
     #import data
     df_correspondance,feed_in_capacity_t = import_data(n_clusters)
@@ -89,7 +90,7 @@ def ptg_addition(network, n_clusters,
     network.add("Bus",
                   "Gas_Bus", 
                   carrier="AC",
-                  v_nom=380)
+                  v_nom=380.0)
         
     # add links
     df = ptg_links_clustering(n_clusters)
@@ -110,7 +111,8 @@ def ptg_addition(network, n_clusters,
     network.add("Store",
                 "Gas_Store",
                 bus = "Gas_Bus",
-                e_cyclic = True)
+                e_cyclic = True,
+                e_nom= e_store_gas_grid)
 
     # get normalized ptg feed-in capacity timeseries as mean value of all buses 
     feed_in_cap_norm_by_av = feed_in_capacity_t.mean(axis=1) / feed_in_capacity_t.mean(axis=1).mean(axis=0)    
@@ -120,7 +122,7 @@ def ptg_addition(network, n_clusters,
     feed_in_cap_norm_by_av = feed_in_cap_norm_by_av.loc[network.snapshots[0]:network.snapshots[-1]]    
     
     # get ptg normalized timeseries as mean value from ptg normalized timeseries of all buses    
-    ptg_average = P_grid_oriented_installations_H2 * n_Full_load_hours_H2 / 8760 
+    ptg_average = P_grid_oriented_installations_H2 * n_Full_load_hours_H2 / 8760.0 
 
     
     network.add("Load",
