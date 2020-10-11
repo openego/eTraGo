@@ -20,7 +20,7 @@
 # File description for read-the-docs
 """ Networkclustering.py defines the methods to cluster power grid networks
 spatially for applications within the tool eTraGo."""
-
+import pdb
 import os
 if 'READTHEDOCS' not in os.environ:
     from etrago.tools.utilities import *
@@ -498,6 +498,39 @@ def kmean_clustering(etrago):
     def normed(x):
         return (x / x.sum()).fillna(0.)
 
+    def bus_weightings_by_distance(network,x_pos,y_pos):
+    
+        # TODO: assign hight weights to foreign buses at the end of the function  
+    
+        # bounds of the territory in which the distances shall be calculated (e.g. Germany)
+        west_bound = 5.8
+        east_bound = 15.1
+        south_bound = 47.1
+        north_bound = 55.1
+    
+        # exclude foreign buses from distance calculation, by setting their coordinates to country border        
+        df_coord = network.buses.copy()
+        df_coord.loc[df_coord['x']< west_bound]['x'] = west_bound
+        df_coord.loc[df_coord['x']> east_bound]['y'] = east_bound
+        df_coord.loc[df_coord['y']< south_bound]['y'] = south_bound
+        df_coord.loc[df_coord['y']> north_bound]['y'] = north_bound
+    
+        # euclidean dist
+        euc_dist = (((df_coord['x']-x_pos)**2)+(df_coord['y']-y_pos)**2)**0.5
+        
+        # norm to 0 - 1 space
+        euc_dist_normed = (euc_dist-euc_dist.min())/(euc_dist.max()-euc_dist.min())
+    
+        # calc bus_weightings by distance    
+        bus_weightings_by_distance = (1/(euc_dist_normed + 0.01)).astype('int')
+        
+        bus_weightings_by_distance.to_csv('bus_weightings_by_distance.csv')
+        
+
+        
+        return bus_weightings_by_distance
+
+
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control = "PV"
@@ -593,6 +626,23 @@ def kmean_clustering(etrago):
 
         weight = weight.groupby(busmap.values).sum()
 
+    calc_bus_weightings_by_distance = True
+    if calc_bus_weightings_by_distance:
+        bus_weightings_distance = bus_weightings_by_distance(
+        network=network,x_pos=7.2,y_pos = 53.51) 
+        
+        # importance of weightings by distance vs. regular weighting 
+        distance_vs_reg_weight = 10
+        # maximum weighting
+        weight_max_number = len(network.buses) / 100
+        
+        # combine regular weightings and bus weightings by distance
+        weight = weight.astype('float') / weight.max() + bus_weightings_distance.astype('float') / bus_weightings_distance.max() * distance_vs_reg_weight
+        
+        # set maximum weighting
+        weight = weight / weight.max() * weight_max_number
+        weight = weight.astype('int')
+    
     # k-mean clustering
     if not kmean_settings['kmeans_busmap']:
         busmap = busmap_by_kmeans(
