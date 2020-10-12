@@ -462,7 +462,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         w = g + l
         weight = ((w * (100000. / w.max())).astype(int)
                   ).reindex(network.buses.index, fill_value=1)
-
+        
         if save:
             weight.to_csv(save)
 
@@ -526,8 +526,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
-
-
+    
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -553,11 +552,16 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
-
+    
+    # import pdb; pdb.set_trace()
+    # Test: Rechnung mit vernachlässigter Gewichtung
+    #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
+    #weight_points = weight_points.fillna(1)
+    
     # k-mean clustering
     busmap = busmap_by_kmeans(
         network,
-        bus_weightings=pd.Series(weight),
+        bus_weightings=pd.Series(weight),#weight_points),
         n_clusters=n_clusters,
         load_cluster=load_cluster,
         n_init=n_init,
@@ -631,8 +635,6 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
         Container for all network components.
     """
     
-    # Ermittlung der Gewichtung kann von bisherigem k-mean clustering übernommen werden
-    
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -680,9 +682,6 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network.generators.control = "PV"
     network.storage_units.control[network.storage_units.carrier == \
                                   'extendable_storage'] = "PV"
-                                  
-    # Vorbereitung der Daten kann von bisherigem k-mean clustering übernommen werden:
-    # -> Umrechnung der Parameter der Komponenten einheitlich auf 380V-Level
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -764,7 +763,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
         weight = weight.groupby(busmap.values).sum()
 
     # k-medoid clustering
-    # -> ab hier NEU (nach busmap_by_kmeans aus PYPSA):
+    
+    #import pdb; pdb.set_trace()
     
     from importlib.util import find_spec
     
@@ -775,26 +775,29 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
         
     from sklearn_extra.cluster import KMedoids
     
-    ### import pdb; pdb.set_trace()
-    
-    # implementation of points considering weightings
     buses_i = network.buses.index
-    points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
-    ### TODO: durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
+    ### implementation of points considering weightings
+    ### points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
+    ### durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
+    points = network.buses.loc[buses_i, ["x", "y"]].values
+    
+    ### Test: Rechnung mit vernachlässigter Gewichtung
+    #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
+    #weight_points = weight_points.fillna(1)
     
     kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='sqeuclidean')
-    ### TODO: Funktion zur Abstandsermittlung in metric auswählen: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
-    ### TODO: weitere Parameter der KMedoids-Klasse
+    ### Funktion zur Abstandsermittlung in metric: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
+    # TODO: weitere Parameter der KMedoids-Klasse
     
-    kmedoids.fit(points)
-    ### nach diesem Schritt ist points noch genauso lang wie vorher 
-    ### -> ebenso bei kmean nach PyPSA
+    kmedoids.fit(points, weight=pd.Series(weight))#_points))
+    
+    print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     
     busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
 
     ### Programm läuft so durch
     ### TODO: 
-    ### ! zunächst Berücksichtigung der Gewichtung (relevant für weitere Punkte)
+    ### Validierung der Methodik -> insbesondere Einbezug der Gewichtung? (relevant für weitere Punkte)
     ### Berücksichtigung von Nachbarländern
     ### Varianz des k-medoid-Clustering in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
     '''
@@ -806,7 +809,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network2.buses.loc[buses_i2, ["x", "y"]].values
     '''
 
-    # ab hier wieder ALT -> kann so bleiben
+    ### TODO: dieser Teil erst nach Dijkstra-Überprüfung
     
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
