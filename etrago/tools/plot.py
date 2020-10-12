@@ -1191,7 +1191,7 @@ def calc_dc_loading(network, timesteps):
                                     (network.links.length == row['length'])]
 
             network.links.at[i, 'linked_to'] = l.values[0]
-
+    
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[network.links.index[
@@ -1210,9 +1210,11 @@ def calc_dc_loading(network, timesteps):
                                network.links.p_nom_opt[
                                    network.links.index == row['linked_to']]
                                .values[0])
-
+    
+#    return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
+#            .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
     return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
-            .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
+            .abs().sum()[network.links.index]/p_nom_opt_max).fillna(0)
 
 def plotting_colors(network):
     """ Add color values to network.carriers
@@ -1440,7 +1442,7 @@ def plot_grid(self,
         link_colors = pd.Series(data=0, index=network.links.index)
     else:
         logger.warning("line_color {} undefined".format(line_colors))
-
+    pdb.set_trace()
     # Set bus colors
     if bus_colors == 'nodal_production_balance':
         bus_scaling = bus_sizes
@@ -1467,7 +1469,7 @@ def plot_grid(self,
         bus_unit = 'TW'
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
-
+    pdb.set_trace()
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
