@@ -392,10 +392,13 @@ if __name__ == '__main__':
     # create plots from results after optimisation has already been done:
     # the above line can be commented out: etrago = run_etrago(args, json_path=None)
     # instead uncomment the following line:
-    # etrago = Etrago(csv_folder_name='/home/XXXyour path to etrago XXXX/etrago/results/') 
+    # etrago = Etrago(csv_folder_name='/XXXyour path to etrago XXXX/etrago/results/') 
         
-    # to create plots, uncomment the following line:   
-    # etrago.plot_grid(line_colors='line_loading', bus_colors = 'ptg_plants') # to show other plots, adjust the line_colors and bus_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
+    # to create plots, uncomment the following lines:   
+#    etrago.plot_grid(
+#        line_colors='line_loading', 
+#        bus_colors = 'ptg_plants',
+#        filename='/XXXyour path to etrago XXXX/results/ptg_inst_capacities.pdf') # to show other plots, adjust the line_colors and bus_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
     
     ### THE FOLLOWING FUNCTIONS ARE PARTLY OUTDATED --> NEED TO BE CHECKED
     # make a line loading plot
