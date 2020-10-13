@@ -1442,7 +1442,6 @@ def plot_grid(self,
         link_colors = pd.Series(data=0, index=network.links.index)
     else:
         logger.warning("line_color {} undefined".format(line_colors))
-    pdb.set_trace()
     # Set bus colors
     if bus_colors == 'nodal_production_balance':
         bus_scaling = bus_sizes
@@ -1467,9 +1466,18 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = 'Dispatch'
         bus_unit = 'TW'
+    elif bus_colors == 'ptg_plants':
+        # the default number for bus_sizes created very large buses, at least if only few PtG plants are installed        
+        bus_sizes = bus_sizes / 10.0
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * network.links.loc[network.links['bus1']== 'Gas_Bus'].p_nom_opt.groupby(network.links.bus0).sum().reindex(network.buses.index, fill_value=0.)
+        bus_legend = 'PtG inst. capacity'
+        #link_colors = 'grey'
+        title = 'PtG inst. capacity'
+        bus_colors='grey'
+        bus_unit='GW' #Todo: check why the other units (see above) are in TW
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
-    pdb.set_trace()
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
@@ -1478,7 +1486,6 @@ def plot_grid(self,
                       flow=flow,
                       title=title,
                       geomap=False)
-
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
         handles = make_legend_circles_for(
