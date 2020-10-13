@@ -90,6 +90,8 @@ def ptg_addition(network, n_clusters,
     network.add("Bus",
                   "Gas_Bus", 
                   carrier="AC",
+                  x=2.2,#10.0, # random location (out of Germany)
+                  y=51.2,#45.0, # random location (out of Germany)
                   v_nom=380.0)
         
     # add links
