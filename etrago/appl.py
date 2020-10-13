@@ -390,7 +390,7 @@ if __name__ == '__main__':
     print(datetime.datetime.now())
     # plots
     
-    # etrago.plot_grid(line_colors='line_loading') # to show other plots, adjust the line_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
+    # etrago.plot_grid(line_colors='line_loading', bus_colors = 'ptg_plants') # to show other plots, adjust the line_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
     
     ### THE FOLLOWING FUNCTIONS ARE PARTLY OUTDATED --> NEED TO BE CHECKED
     # make a line loading plot
