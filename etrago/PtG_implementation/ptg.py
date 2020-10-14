@@ -1,6 +1,6 @@
 import pandas as pd
 
-def ptg_links_clustering(n_clusters):
+def ptg_links_clustering(n_clusters, ptg_efficiency):
     filename_1 = 'kmeans_busmap_'+str(n_clusters)+'_result.csv'
     filename_2 = 'PtG_implementation/max_capacities_subst_h2_MW.csv'
     # filename_correspondances = "PtG_implementation/correspondances.csv"
@@ -30,7 +30,7 @@ def ptg_links_clustering(n_clusters):
                        'p_nom_max': list_capacities}) 
     df.set_index('name')
     df['bus1']="Gas_Bus"
-    df['efficiency']=0.8 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4
+    df['efficiency']=ptg_efficiency # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4
     df['capital_cost']=350000 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4
     df['p_nom']=0
     df['p_nom_min']=0
@@ -81,7 +81,8 @@ def ptg_links_ST_pu_clustering(n_clusters,df_correspondance, df_orginal_ST):
 def ptg_addition(network, n_clusters, 
                  P_grid_oriented_installations_H2,
                  n_Full_load_hours_H2,
-                 e_store_gas_grid):
+                 e_store_gas_grid,
+                 ptg_efficiency):
     
     #import data
     df_correspondance,feed_in_capacity_t = import_data(n_clusters)
@@ -95,7 +96,7 @@ def ptg_addition(network, n_clusters,
                   v_nom=380.0)
         
     # add links
-    df = ptg_links_clustering(n_clusters)
+    df = ptg_links_clustering(n_clusters, ptg_efficiency)
                               
     df = df.set_index('name')
     network.import_components_from_dataframe(df, "Link")
@@ -130,4 +131,4 @@ def ptg_addition(network, n_clusters,
     network.add("Load",
                 "Gas_Load",
                 bus = "Gas_Bus",
-                p_set = feed_in_cap_norm_by_av.mul(ptg_average))
+                p_set = feed_in_cap_norm_by_av.mul(ptg_average)*ptg_efficiency)
