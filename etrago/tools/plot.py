@@ -1507,6 +1507,8 @@ def plot_grid(self,
             positive = mpatches.Patch(color='green', label='generation')
             negative = mpatches.Patch(color='red', label='consumption')
             handles = [positive, negative]
+        elif bus_legend == 'PtG inst. capacity':
+            pass            
         else:
             for i in network.carriers.color.index:
                 patch = mpatches.Patch(color=network.carriers.color[i],
