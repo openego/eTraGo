@@ -29,7 +29,7 @@ if 'READTHEDOCS' not in os.environ:
                                          get_clustering_from_busmap,
                                          busmap_by_kmeans, busmap_by_stubs)
     from egoio.db_tables.model_draft import EgoGridPfHvBusmap
-
+    
     from itertools import product
     import networkx as nx
     import multiprocessing as mp
@@ -337,7 +337,7 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
 
     session.commit()
 
-    return
+    return 
 
 
 def busmap_from_psql(network, session, scn_name, version):
@@ -794,7 +794,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     
     busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
-
+    # busmap_kmedoid
+    
     ### Programm läuft so durch
     ### TODO: 
     ### Validierung der Methodik -> insbesondere Einbezug der Gewichtung? (relevant für weitere Punkte)
@@ -809,7 +810,10 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network2.buses.loc[buses_i2, ["x", "y"]].values
     '''
 
-    ### TODO: dieser Teil erst nach Dijkstra-Überprüfung
+    # Aufruf des Dijkstra-Algorithmus zur Überprüfung der Zuordnung 
+    # der Datenpunkte in Abhängigkeit der elektrischen Distanz
+    #centers_kmedoid = kmedoids.medoid_indices_
+    #busmap = dijkstra(network, centers_kmedoid, busmap_kmedoid)
     
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
@@ -824,8 +828,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     return clustering
 
-def dijkstra(network, session, scn_name, version, fromlvl,
-                            tolvl, cpu_cores=4):
+def dijkstra(network, centers, busmap):
     """ Function of the k-medoid and Dijkstra combination clustering approach.
     Creates a busmap assigning the nodes of a original network 
     to the nodes of a clustered network 
@@ -836,57 +839,62 @@ def dijkstra(network, session, scn_name, version, fromlvl,
     network : pypsa.Network object
         Container for all network components.
 
-    session : sqlalchemy.orm.session.Session object
-        Establishes interactions with the database.
-
-    scn_name : str
-        Name of the scenario.
-
-    fromlvl : list
-        List of voltage-levels to cluster.
-
-    tolvl : list
-        List of voltage-levels to remain.
-
-    cpu_cores : int
-        Number of CPU-cores.
+    centers : indices of kmedoid centers 
 
     Returns
     -------
-    None
+    busmap
     """
 
-    # cpu_cores = mp.cpu_count()
+    cpu_cores = mp.cpu_count()
 
-    # data preperation
-    s_buses = buses_grid_linked(network, fromlvl)
-    lines = connected_grid_lines(network, s_buses)
-    transformer = connected_transformer(network, s_buses)
-    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
+    # original data
+    o_buses = network.buses.index
 
-    # temporary end points, later replaced by bus1 pendant
-    t_buses = transformer[mask].bus0
+    # kmedoid centers
+    c_buses = network.buses.index[centers]
+    
+    # lines
+    lines = network.lines 
 
-    # create all possible pathways
-    ppaths = list(product(s_buses, t_buses))
+    # possible pathways
+    ppaths = list(product(o_buses, c_buses))
 
     # graph creation
     edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
              in lines.iterrows()]
     M = graph_from_edges(edges)
 
-    # applying multiprocessing
+        
+
+    # calculation of shortest path between orgonal points and kmedoid centers
+    # using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppaths) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
-    # post processing
-    df.sortlevel(inplace=True)
+    # assignment of data points to closest kmedoid centers
+    df.sortlevel(inplace=True) #notwendig?
     mask = df.groupby(level='source')['path_length'].idxmin()
-    df = df.loc[mask, :]
+    
+    # dijkstra busmap
+    df_dijkstra = df.loc[mask, :]
+    
+    # kmedoid busmap 
+    df_kmedoid = pd.DataFrame(busmap)
+    
+    # comparison of kmedoid busmap and dijkstra busmap
+    #df_dijkstra['corrected assignment using dijkstra']=np.where(df_kmedoid==df_dijkstra.iloc[],'True', 'False')
 
+    # creation of new busmap 
+    #busmap = pd.Series(data=)
+    # busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
+    
+    return busmap 
+
+    '''
     # rename temporary endpoints
     df.reset_index(inplace=True)
     df.target = df.target.map(dict(zip(network.transformers.bus0,
@@ -930,4 +938,4 @@ def dijkstra(network, session, scn_name, version, fromlvl,
 
     session.commit()
 
-    return
+    return busmap'''
