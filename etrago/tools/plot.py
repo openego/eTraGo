@@ -1475,7 +1475,11 @@ def plot_grid(self,
         #link_colors = 'grey'
         title = 'PtG inst. capacity'
         bus_colors='grey'
-        bus_unit='GW' #Todo: check why the other units (see above) are in TW
+        bus_unit='GW' #Todo: check why the other units (see above) are in TW     
+        link_colors = link_colors.drop(network.links.loc[network.links['bus1']== 'Gas_Bus'].index)
+        flow = flow.drop(index=network.links.loc[network.links['bus1']== 'Gas_Bus'].index,level=1)
+        network.links.drop(network.links.loc[network.links['bus1']== 'Gas_Bus'].index, inplace = True)
+        
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
