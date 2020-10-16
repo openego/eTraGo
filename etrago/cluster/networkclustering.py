@@ -790,11 +790,18 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     # TODO: weitere Parameter der KMedoids-Klasse
     
     kmedoids.fit(points, weight=pd.Series(weight))#_points))
+    ### fit legt Medoids innerhalb der Originaldatenpunkte zu
     
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     
     busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
     # busmap_kmedoid
+    ### predict ordnet die Originalpunkte den Medoids zu über kürzeste geometrische Distanz
+    ### predict() ruft pairwise_distances_argmin() auf, sodass Medoiden als 
+    ###           Zeilenindizes 0 bis n_clusters angegeben werden 
+    ### -> Indizes der Medoids in Originaldatenpunkten gehen verloren
+    ### -> für späteren Vergleich der Zuordnungen kmedoid vs dijkstra ist 
+    ###    Darstellung mit Indizes der Medoids in Originaldatenpunkten notwendig
     
     ### Programm läuft so durch
     ### TODO: 
@@ -840,6 +847,8 @@ def dijkstra(network, centers, busmap):
         Container for all network components.
 
     centers : indices of kmedoid centers 
+    
+    busmap: busmap based on kmedoid clustering
 
     Returns
     -------
@@ -852,7 +861,7 @@ def dijkstra(network, centers, busmap):
     o_buses = network.buses.index
 
     # kmedoid centers
-    c_buses = network.buses.index[centers]
+    c_buses = network.buses.index[centers]    
     
     # lines
     lines = network.lines 
@@ -864,8 +873,6 @@ def dijkstra(network, centers, busmap):
     edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
              in lines.iterrows()]
     M = graph_from_edges(edges)
-
-        
 
     # calculation of shortest path between orgonal points and kmedoid centers
     # using multiprocessing
@@ -879,63 +886,26 @@ def dijkstra(network, centers, busmap):
     df.sortlevel(inplace=True) #notwendig?
     mask = df.groupby(level='source')['path_length'].idxmin()
     
-    # dijkstra busmap
+    # dijkstra assignment
     df_dijkstra = df.loc[mask, :]
+    df_dijkstra.reset_index(inplace=True)
     
-    # kmedoid busmap 
-    df_kmedoid = pd.DataFrame(busmap)
+    # kmedoid assignment 
+    df_kmedoid=pd.DataFrame({'medoid_labels':busmap.values})
+    df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
+    for i in range(c_buses.size):
+        df_kmedoid['medoid_indices'].replace(str(i),c_buses[i],inplace=True)
     
     # comparison of kmedoid busmap and dijkstra busmap
-    #df_dijkstra['corrected assignment using dijkstra']=np.where(df_kmedoid==df_dijkstra.iloc[],'True', 'False')
-
-    # creation of new busmap 
-    #busmap = pd.Series(data=)
-    # busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
+    df_dijkstra['correction of assignment using dijkstra']=np.where(df_kmedoid['medoid_indices']==df_dijkstra['target'],'False', 'True')
+    
+    # creation of new busmap with final assignment
+    busmap=pd.Series(df_kmedoid['medoid_indices']).rename("final_assignment", inplace=True)
+    for i in range (o_buses.size):
+        if df_dijkstra.iloc[i]['correction of assignment using dijkstra']==True:
+            busmap[i]=df_dijkstra['target'] 
+            
+    ### TODO: busmap eigentlich mit label-Nummerierung, nicht mit medoid_indices
+    ### TODO: Unterschied der Aggregation nach Erstellung der Busmap durch kmedoid?!
     
     return busmap 
-
-    '''
-    # rename temporary endpoints
-    df.reset_index(inplace=True)
-    df.target = df.target.map(dict(zip(network.transformers.bus0,
-                                       network.transformers.bus1)))
-
-    # append to busmap buses only connected to transformer
-    transformer = network.transformers
-    idx = list(set(buses_of_vlvl(network, fromlvl)).
-               symmetric_difference(set(s_buses)))
-    mask = transformer.bus0.isin(idx)
-
-    toappend = pd.DataFrame(list(zip(transformer[mask].bus0,
-                                     transformer[mask].bus1)),
-                            columns=['source', 'target'])
-    toappend['path_length'] = 0
-
-    df = pd.concat([df, toappend], ignore_index=True, axis=0)
-
-    # append all other buses
-    buses = network.buses
-    mask = buses.index.isin(df.source)
-
-    assert set(buses[~mask].v_nom) == set(tolvl)
-
-    tofill = pd.DataFrame([buses.index[~mask]] * 2).transpose()
-    tofill.columns = ['source', 'target']
-    tofill['path_length'] = 0
-
-    df = pd.concat([df, tofill], ignore_index=True, axis=0)
-
-    # prepare data for export
-
-    df['scn_name'] = scn_name
-    df['version'] = version
-
-    df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
-    df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
-
-    for i, d in df.reset_index().iterrows():
-        session.add(EgoGridPfHvBusmap(**d.to_dict()))
-
-    session.commit()
-
-    return busmap'''
