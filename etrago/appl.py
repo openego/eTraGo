@@ -135,10 +135,10 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 30,  # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_kmedoidDijkstra': 30, # False or the value k for clustering
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_kmedoidDijkstra': 10, # False or the value k for clustering
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -507,12 +507,12 @@ def etrago(args):
                 scn_name=(
                         args['scn_name'] if args['scn_extension']==None
                         else args['scn_name']+'_ext_'+'_'.join(
-                                args['scn_extension'])),
-                version=args['gridversion'])
+                        args['scn_extension'])),
+                        version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
-    
-    networkkmedoid = network.copy()
+        
+    networkkmedoid=network.copy()
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
@@ -551,7 +551,6 @@ def etrago(args):
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
                 max_iter=100)
-        # clustering2 = dijkstra(...)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
        
