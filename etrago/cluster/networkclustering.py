@@ -592,7 +592,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     # TODO: anpassen der Argumente und Defaults
     """ Function of the k-medoid and Dijkstra combination clustering approach. 
     Maps an original network to a new one with adjustable number of nodes 
-    using a k-medoid algorithm.
+    using a k-medoid clustering and a Dijkstra algorithm.
 
     Parameters
     ----------
@@ -795,9 +795,9 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     
     busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i).astype(str)
-    # busmap_kmedoid
+    #busmap_kmedoid
     ### predict ordnet die Originalpunkte den Medoids zu über kürzeste geometrische Distanz
-    ### predict() ruft pairwise_distances_argmin() auf, sodass Medoiden als 
+    ### predict ruft pairwise_distances_argmin() auf, sodass Medoids als 
     ###           Zeilenindizes 0 bis n_clusters angegeben werden 
     ### -> Indizes der Medoids in Originaldatenpunkten gehen verloren
     ### -> für späteren Vergleich der Zuordnungen kmedoid vs dijkstra ist 
@@ -807,7 +807,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     ### TODO: 
     ### Validierung der Methodik -> insbesondere Einbezug der Gewichtung? (relevant für weitere Punkte)
     ### Berücksichtigung von Nachbarländern
-    ### Varianz des k-medoid-Clustering in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
+    ### Varianz des kmedoid in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
     '''
     plot_line_loading(network)
     plot_line_loading(network2) -> Key Error
@@ -817,10 +817,12 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     network2.buses.loc[buses_i2, ["x", "y"]].values
     '''
 
-    # Aufruf des Dijkstra-Algorithmus zur Überprüfung der Zuordnung 
-    # der Datenpunkte in Abhängigkeit der elektrischen Distanz
+    # dijkstra algorithm to check the assignment  
+    # of the data points considering the electrical distance
     #centers_kmedoid = kmedoids.medoid_indices_
     #busmap = dijkstra(network, centers_kmedoid, busmap_kmedoid)
+    
+    ### TODO: Anpassung der Aggregation: Medoids als neue Repräsentative
     
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
@@ -835,7 +837,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     return clustering
 
-def dijkstra(network, centers, busmap):
+def dijkstra(network, kmedoid_centers, kmedoid_busmap):
     """ Function of the k-medoid and Dijkstra combination clustering approach.
     Creates a busmap assigning the nodes of a original network 
     to the nodes of a clustered network 
@@ -861,7 +863,7 @@ def dijkstra(network, centers, busmap):
     o_buses = network.buses.index
 
     # kmedoid centers
-    c_buses = network.buses.index[centers]    
+    c_buses = network.buses.index[kmedoid_centers]    
     
     # lines
     lines = network.lines 
@@ -891,21 +893,33 @@ def dijkstra(network, centers, busmap):
     df_dijkstra.reset_index(inplace=True)
     
     # kmedoid assignment 
-    df_kmedoid=pd.DataFrame({'medoid_labels':busmap.values})
+    df_kmedoid=pd.DataFrame({'medoid_labels':kmedoid_busmap.values})
     df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
-    for i in range(c_buses.size):
+    for i in range (c_buses.size):
         df_kmedoid['medoid_indices'].replace(str(i),c_buses[i],inplace=True)
     
     # comparison of kmedoid busmap and dijkstra busmap
     df_dijkstra['correction of assignment using dijkstra']=np.where(df_kmedoid['medoid_indices']==df_dijkstra['target'],'False', 'True')
+    ### TODO: theoretisch weniger kompliziert möglich, 
+    ###         so jedoch mehr Daten für spätere Auswertung? 
+    
     
     # creation of new busmap with final assignment
     busmap=pd.Series(df_kmedoid['medoid_indices']).rename("final_assignment", inplace=True)
     for i in range (o_buses.size):
-        if df_dijkstra.iloc[i]['correction of assignment using dijkstra']==True:
-            busmap[i]=df_dijkstra['target'] 
+        if df_dijkstra.iloc[i]['correction of assignment using dijkstra']=='True':
+            busmap[i]=df_dijkstra.iloc[i]['target'] 
             
-    ### TODO: busmap eigentlich mit label-Nummerierung, nicht mit medoid_indices
-    ### TODO: Unterschied der Aggregation nach Erstellung der Busmap durch kmedoid?!
+    # adaption of busmap to format of clustering
+    ### TODO: funktioniert so noch nicht!
+    for i in range (c_buses.size):
+        busmap.replace(c_buses[i], str(i),inplace=True)
+        
+    ### TODO: Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
+    ###     -> Ist das überhaupt notwendig?
+    ### DENN:
+    ### TODO: andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
+    ###       und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
+            
     
     return busmap 
