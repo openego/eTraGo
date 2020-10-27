@@ -27,9 +27,11 @@ if 'READTHEDOCS' not in os.environ:
     from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
                                          aggregategenerators,
                                          get_clustering_from_busmap,
-                                         busmap_by_kmeans, busmap_by_stubs)
+                                         busmap_by_kmeans, busmap_by_stubs, 
+                                         _make_consense)
     from egoio.db_tables.model_draft import EgoGridPfHvBusmap
     
+    import numpy as np
     from itertools import product
     import networkx as nx
     import multiprocessing as mp
@@ -777,9 +779,9 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     
     buses_i = network.buses.index
     ### implementation of points considering weightings
-    ### points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight).reindex(buses_i).astype(int),axis=0))
+    points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight/100).reindex(buses_i).astype(int),axis=0))
     ### durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
-    points = network.buses.loc[buses_i, ["x", "y"]].values
+    #points = network.buses.loc[buses_i, ["x", "y"]].values
     
     ### Test: Rechnung mit vernachlässigter Gewichtung
     #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
@@ -789,8 +791,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     ### Funktion zur Abstandsermittlung in metric: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
     # TODO: weitere Parameter der KMedoids-Klasse
     
-    kmedoids.fit(points, weight=pd.Series(weight))#_points))
-    ### fit legt Medoids innerhalb der Originaldatenpunkte zu
+    kmedoids.fit(points)#, weight=pd.Series(weight))#_points))
+    ### fit legt Medoids innerhalb der Originaldatenpunkte fest
     
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     
@@ -810,7 +812,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     ### Varianz des kmedoid in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
     '''
     plot_line_loading(network)
-    plot_line_loading(network2) -> Key Error
+    plot_line_loading(network2) -> Key Error bei zweiter Ausführung
     buses_i=network.buses.index
     network.buses.loc[buses_i, ["x", "y"]].values
     buses_i2=network2.buses.index
@@ -822,15 +824,38 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     #centers_kmedoid = kmedoids.medoid_indices_
     #busmap = dijkstra(network, centers_kmedoid, busmap_kmedoid)
     
+    # aggregation
+    
     ### TODO: Anpassung der Aggregation: Medoids als neue Repräsentative
     
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = components.one_port_components.copy()
-    aggregate_one_ports.discard('Generator')
+    aggregate_one_ports.discard('Generator') 
+    
+    # aggregate buses with new kmedoid coordinates
+    # TODO: custom_strategies? siehe (altes) ToDo oben?
+    custom_strategies = dict()
+    attrs = network.components["Bus"]["attrs"]
+    columns = set(attrs.index[attrs.static & attrs.status.str.startswith('Input')]) & set(network.buses.columns)
+    columns.remove('x')
+    columns.remove('y')
+    strategies = dict(v_nom=np.max,
+                      v_mag_pu_max=np.min, v_mag_pu_min=np.max)
+    strategies.update((attr, _make_consense("Bus", attr))
+                      for attr in columns.difference(strategies))
+    strategies.update(custom_strategies)
+    new_buses = network.buses.groupby(busmap).agg(strategies).reindex(columns=[f
+                              for f in network.buses.columns
+                              if f in columns or f in custom_strategies])
+    new_buses['x']=kmedoids.cluster_centers_[:,0]
+    new_buses['y']=kmedoids.cluster_centers_[:,1]
+    ### TODO: Reihenfolge cluster_centers_ prüfen und richtige Zuordnung zu Clustergruppen...
+    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
+        #buses=new_buses,
         line_length_factor=line_length_factor,
         aggregate_generators_weighted=True,
         aggregate_one_ports=aggregate_one_ports)
@@ -911,15 +936,15 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
             busmap[i]=df_dijkstra.iloc[i]['target'] 
             
     # adaption of busmap to format of clustering
-    ### TODO: funktioniert so noch nicht!
-    for i in range (c_buses.size):
-        busmap.replace(c_buses[i], str(i),inplace=True)
+    sorted_cbuses = c_buses.sort_values()
+    for i in range (c_buses.size-1):
+        busmap.replace(sorted_cbuses[i], str(i),inplace=True)
         
-    ### TODO: Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
-    ###     -> Ist das überhaupt notwendig?
+    ### Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
+    ### -> Ist das überhaupt notwendig?
     ### DENN:
-    ### TODO: andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
-    ###       und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
+    ### andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
+    ### und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
             
     
     return busmap 
