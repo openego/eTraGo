@@ -264,7 +264,7 @@ def busmap_by_shortest_path(network, session, scn_name, version, fromlvl,
     -------
     None
     """
-
+    
     # cpu_cores = mp.cpu_count()
 
     # data preperation
@@ -363,7 +363,7 @@ def busmap_from_psql(network, session, scn_name, version):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-
+    
     def fetch():
 
         query = session.query(EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
@@ -779,9 +779,11 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     
     buses_i = network.buses.index
     ### implementation of points considering weightings
-    points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(pd.Series(weight/100).reindex(buses_i).astype(int),axis=0))
+    #weight=weight/100
+    #weight=pd.Series(weight)
+    #points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(weight.reindex(buses_i).astype(int),axis=0))
     ### durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
-    #points = network.buses.loc[buses_i, ["x", "y"]].values
+    points = network.buses.loc[buses_i, ["x", "y"]].values
     
     ### Test: Rechnung mit vernachlässigter Gewichtung
     #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
@@ -862,7 +864,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
 
     return clustering
 
-def dijkstra(network, kmedoid_centers, kmedoid_busmap):
+def dijkstra(network, centers, busmap):
     """ Function of the k-medoid and Dijkstra combination clustering approach.
     Creates a busmap assigning the nodes of a original network 
     to the nodes of a clustered network 
@@ -881,6 +883,10 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
     -------
     busmap
     """
+    
+    ### TODO: falls weight über Multiplikation der einzelnen Originalpunkte:
+    ### kmedoids.cluster_centers_ muss angepasst werden, 
+    ### da Indizes dann nicht entsprechend Originaldatensatz (, der zu Vergleich notwendig)
 
     cpu_cores = mp.cpu_count()
 
@@ -888,7 +894,7 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
     o_buses = network.buses.index
 
     # kmedoid centers
-    c_buses = network.buses.index[kmedoid_centers]    
+    c_buses = network.buses.index[centers]    
     
     # lines
     lines = network.lines 
@@ -918,7 +924,7 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
     df_dijkstra.reset_index(inplace=True)
     
     # kmedoid assignment 
-    df_kmedoid=pd.DataFrame({'medoid_labels':kmedoid_busmap.values})
+    df_kmedoid=pd.DataFrame({'medoid_labels':busmap.values})
     df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
     for i in range (c_buses.size):
         df_kmedoid['medoid_indices'].replace(str(i),c_buses[i],inplace=True)
@@ -928,6 +934,8 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
     ### TODO: theoretisch weniger kompliziert möglich, 
     ###         so jedoch mehr Daten für spätere Auswertung? 
     
+    ### TODO: FEHLERHAFT -> Nummerierung der Medoids mit Labels und Indizes 
+    ###                     und verschiedenen Reihenfolgen durch kmedoid und dijkstra
     
     # creation of new busmap with final assignment
     busmap=pd.Series(df_kmedoid['medoid_indices']).rename("final_assignment", inplace=True)
@@ -941,7 +949,7 @@ def dijkstra(network, kmedoid_centers, kmedoid_busmap):
         busmap.replace(sorted_cbuses[i], str(i),inplace=True)
         
     ### Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
-    ### -> Ist das überhaupt notwendig?
+    ### TODO: -> Ist das überhaupt notwendig?
     ### DENN:
     ### andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
     ### und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
