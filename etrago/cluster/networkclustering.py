@@ -787,7 +787,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='sqeuclidean')
     ### Funktion zur Abstandsermittlung in metric: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
     # TODO: weitere Parameter der KMedoids-Klasse
-    kmedoids.fit(points)#, weight=pd.Series(weight))#_points))
+    kmedoids.fit(points, weight=pd.Series(weight))#, weight=pd.Series(weight))#_points))
     ### fit legt Medoids innerhalb der Originaldatenpunkte fest
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
     # busmap_kmedoid
@@ -853,6 +853,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     new_buses = df_buses.groupby(busmap).agg(strategies).reindex(columns=[f
                               for f in network.buses.columns
                               if f in columns or f in custom_strategies])
+    new_buses.index=new_buses.index.astype(str)
+    busmap=busmap.astype(str)
     
     clustering = get_clustering_from_busmap(
         network,
@@ -946,7 +948,7 @@ def dijkstra(network, centers, busmap):
     busmap=busmap.astype(object)
         
     ### Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
-    ### TODO: -> Ist das überhaupt notwendig?
+    ### -> Ist das überhaupt notwendig?
     ### DENN:
     ### andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
     ### und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
