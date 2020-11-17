@@ -777,41 +777,41 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     #weight=weight/100
     #weight=pd.Series(weight)
     #points = (network.buses.loc[buses_i, ["x", "y"]].values.repeat(weight.reindex(buses_i).astype(int),axis=0))
-    ### durch repeat zu viele Punkte für kmedoids.fit -> Memory Error
     points = network.buses.loc[buses_i, ["x", "y"]].values
     
-    ### Test: Rechnung mit vernachlässigter Gewichtung
+    ### Test: Rechnung mit vernachlässigter Gewichtung 
     #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
     #weight_points = weight_points.fillna(1)
     
     kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='sqeuclidean')
-    ### Funktion zur Abstandsermittlung in metric: sqeuclidean entspricht bisherig entsprechender Berechnung in kmean
-    # TODO: weitere Parameter der KMedoids-Klasse
-    kmedoids.fit(points, weight=pd.Series(weight))#, weight=pd.Series(weight))#_points))
+    # TODO: weitere Parameter der KMedoids-Klasse?
+    
+    kmedoids.fit(points)#, weight=pd.Series(weight))#_points))
     ### fit legt Medoids innerhalb der Originaldatenpunkte fest
+    
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
+    
     # busmap_kmedoid
     busmap = pd.Series(data=kmedoids.labels_, index=buses_i, dtype=object)#.astype(str)
     ### nicht zwingend über predict notwendig, da Zuordnung bei kmedoid schon in fit abrufbar
+    ### für Gewichtung mit points aus repeat ist Verwendung von predict notwendig
     #busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i)#.astype(str)
     ### predict ordnet die Originalpunkte den Medoids zu über kürzeste geometrische Distanz
-    ### predict ruft pairwise_distances_argmin() auf, sodass Medoids als 
-    ###           Zeilenindizes 0 bis n_clusters angegeben werden 
-    ### -> Indizes der Medoids in Originaldatenpunkten gehen verloren
-    ### -> für späteren Vergleich der Zuordnungen kmedoid vs dijkstra ist 
-    ###    Darstellung mit Indizes der Medoids in Originaldatenpunkten notwendig
-    
-    ### kmedoid läuft so durch
-    ### TODO: 
-    ### Umgang mit Gewichtung?!
-    ### Validierung der Methodik -> insbesondere Einbezug der Gewichtung? (relevant für weitere Punkte)
-    ### Berücksichtigung von Nachbarländern
-    ### Varianz des kmedoid in verschiedenen Durchläufen minimieren durch Anfangsbedingungen
 
     print('start dijkstra algorithm')
 
     # dijkstra algorithm to check the assignment  
     # of the data points considering the electrical distance
+
+    ### nur notwendig für Gewichtung mit points aus repeat
+    ### Anpassung der Medoid-Indizes an die Indizes der Originalpunkte vor repeat
+    ### TODO: zu aufwändig! 
+    #for i in range(kmedoids.cluster_centers_.shape[0]):
+    #    for j in range(df_buses.shape[0]):
+    #        if np.array_equal(kmedoids.cluster_centers_[i],network.buses.loc[buses_i, ["x", "y"]].values[j]):
+    #            kmedoids.medoid_indices_[i]=j
+    ### nur notwendig für Gewichtung mit points aus repeat
+    
     #centers_kmedoid = kmedoids.medoid_indices_
     #busmap = dijkstra(network, centers_kmedoid, busmap_kmedoid)
     
@@ -822,13 +822,9 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator') 
     
-    ### Anpassung der Aggregation: Medoids als neue Repräsentative
-    ### Variante 1: Nutzung der Funktionen in ehv clustering -> TO DO ?!
-    ### Variante 2: wie bei kmean, siehe folgende Berechnung new_buses:
-    ### -> TO DO: Fehler bei aggregategenerators mit weighted=True
+    # TODO: custom_strategies? siehe (altes) ToDo oben?
     
     # aggregate buses with new kmedoid coordinates
-    # TODO: custom_strategies? siehe (altes) ToDo oben?
     custom_strategies = dict()
     attrs = network.components["Bus"]["attrs"]
     columns = set(attrs.index[attrs.static & attrs.status.str.startswith('Input')]) & set(network.buses.columns)
@@ -837,7 +833,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     strategies.update((attr, _make_consense("Bus", attr))
                       for attr in columns.difference(strategies))
     strategies.update(custom_strategies)
-    ### TODO: einfacher? siehe Dijkstra... 
+    ### TODO: einfacher?!
     df_buses=pd.DataFrame(network.buses)
     x_medoid=pd.Series(data=df_buses['x'])
     y_medoid=pd.Series(data=df_buses['y'])
@@ -847,6 +843,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
         bus = df_buses[index:index+1]
         x_medoid[i]=bus['x']
         y_medoid[i]=bus['y']
+    ###
     df_buses['x']=x_medoid.values
     df_buses['y']=y_medoid.values
     ###
@@ -885,10 +882,6 @@ def dijkstra(network, centers, busmap):
     -------
     busmap
     """
-    
-    ### TODO: falls weight über Multiplikation der einzelnen Originalpunkte:
-    ### kmedoids.cluster_centers_ muss angepasst werden, 
-    ### da Indizes dann nicht entsprechend Originaldatensatz (, der zu Vergleich notwendig)
 
     cpu_cores = mp.cpu_count()
 
@@ -945,7 +938,7 @@ def dijkstra(network, centers, busmap):
     # adaption of busmap to format of clustering
     for i in range (c_buses.size):
         busmap.replace(c_buses[i], i, inplace=True)
-    busmap=busmap.astype(object)
+    busmap=busmap.astype(int)
         
     ### Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
     ### -> Ist das überhaupt notwendig?
