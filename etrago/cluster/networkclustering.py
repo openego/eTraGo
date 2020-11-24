@@ -559,11 +559,13 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
     # Test: Rechnung mit vernachlässigter Gewichtung
     #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
     #weight_points = weight_points.fillna(1)
+    #print("weight_points:")
+    #print(weight_points)
     
     # k-mean clustering
     busmap = busmap_by_kmeans(
         network,
-        bus_weightings=pd.Series(weight),#weight_points),
+        bus_weightings=pd.Series(weight),#_points),
         n_clusters=n_clusters,
         load_cluster=load_cluster,
         n_init=n_init,
@@ -786,7 +788,11 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     kmedoids = KMedoids(init='k-medoids++', n_clusters=n_clusters, max_iter=max_iter, metric='sqeuclidean')
     # TODO: weitere Parameter der KMedoids-Klasse?
     
-    kmedoids.fit(points)#, weight=pd.Series(weight))#_points))
+    print("weight:")
+    print(weight)
+    weight=np.array(weight.values.tolist())
+    print(weight)
+    kmedoids.fit(points, weight=weight)#_points))
     ### fit legt Medoids innerhalb der Originaldatenpunkte fest
     
     print('Inertia of k-medoids = '+(kmedoids.inertia_).astype(str))
@@ -798,7 +804,7 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     #busmap = pd.Series(data=kmedoids.predict(network.buses.loc[buses_i, ["x","y"]]),index=buses_i)#.astype(str)
     ### predict ordnet die Originalpunkte den Medoids zu über kürzeste geometrische Distanz
 
-    print('start dijkstra algorithm')
+    #print('start dijkstra algorithm')
 
     # dijkstra algorithm to check the assignment  
     # of the data points considering the electrical distance
