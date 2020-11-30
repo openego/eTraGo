@@ -348,7 +348,7 @@ def run_etrago(args, json_path):
     # PtG Modelling Input Parameters
     P_grid_oriented_installations_H2 = 3000.0 # [MWel] NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen    
     n_Full_load_hours_H2 = 1500.0 # NEP_2035_v_2021_Szenariorahmen_2035_Entwurf , p.52, Scenario C, netzdienliche Power-to-Hydrogen Anlagen
-    e_store_gas_grid = 130.0 * 10**6 # [MWh] Kapazität Speicher Gasnetz: 130 TWh Speicherkapazität (https://vng.de/de/erdgas-kann-mehr-wir-auch/gasinfrastruktur), dabei ist Gas über Druckunterschiede nur im Hochdrucknetz speicherbar, da im Nieder- und Mitteldrucknetz der Druck stabil bleiben muss (https://www.topagrar.com/energie/news/faktencheck-ist-das-gasnetz-als-speicher-geeignet-9835668.html)    
+    e_store_gas_grid = 15.0 * 10**6 # [MWh] Kapazität Speicher Gasnetz: 15 TWh Speicherkapazität, Götz et al.:Speicherung  von  regenerativerzeugter elektrischer Energie in der Erdgasinfrastruktur.gwf-Gas, 04/2011, April 2011
     ptg_efficiency = 0.8 # Brown et al. 2018 "SynergSynergies of sector coupling and transmission reinforcement in a cost-optimised, highly renewable European energy system", p.4    
     
     #add ptg installations
