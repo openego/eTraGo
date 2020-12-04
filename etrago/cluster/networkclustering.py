@@ -844,8 +844,8 @@ def kmedoid_clustering(network, n_clusters=10, load_cluster=False,
     x_medoid=pd.Series(data=df_buses['x'])
     y_medoid=pd.Series(data=df_buses['y'])
     for i in range(df_buses.shape[0]):
-        x=busmap[i]
-        index=kmedoids.medoid_indices_[x]
+        x=int(busmap[i])
+        index=kmedoids.medoid_indices_[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
         bus = df_buses[index:index+1]
         x_medoid[i]=bus['x']
         y_medoid[i]=bus['y']
@@ -941,16 +941,11 @@ def dijkstra(network, centers, busmap):
         if df_dijkstra.iloc[i]['correction of assignment using dijkstra']=='True':
             busmap[i]=df_dijkstra.iloc[i]['target'] 
             
+    ### nicht notwendig: busmap mit Indizes statt Labels kann an Aggregation weitergegeben werden
     # adaption of busmap to format of clustering
-    for i in range (c_buses.size):
-        busmap.replace(c_buses[i], i, inplace=True)
-    busmap=busmap.astype(int)
-        
-    ### Anpassung der busmap (Indizes der Medoids -> Labels (0...n_cluster))
-    ### -> Ist das überhaupt notwendig?
-    ### DENN:
-    ### andere Aggregation bei kmedoid mit medoids als neuen Repräsentativen
-    ### und nicht wie bei kmean neue Berechnung der means innerhalb Clustergruppen
-            
+    #for i in range (c_buses.size):
+    #    busmap.replace(c_buses[i], i, inplace=True)
     
+    busmap=busmap.astype(int)
+                    
     return busmap 
