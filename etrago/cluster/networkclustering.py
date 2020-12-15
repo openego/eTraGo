@@ -21,6 +21,8 @@
 """ Networkclustering.py defines the methods to cluster power grid networks
 spatially for applications within the tool eTraGo."""
 
+import pdb
+
 import os
 if 'READTHEDOCS' not in os.environ:
     from etrago.tools.utilities import *
@@ -613,6 +615,25 @@ def kmean_clustering(etrago):
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
+
+    ######################################
+    # add sub-sector to busmap
+    sub = ' dsm_sum'    
+    
+    busmap_sub = busmap + sub
+    busmap_sub.index = busmap_sub.index + sub
+    busmap = busmap.append(busmap_sub)
+
+    # add components of sub-sector to main network
+    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/01_fast_run/pypsa_format_sum/'    
+    
+    sub_network = Network(import_name=sub_csv_path) # pypsa.
+    
+    io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
+    io.import_components_from_dataframe(network, sub_network.links, "Link")  
+    io.import_components_from_dataframe(network, sub_network.stores, "Store") 
+    ######################################
+    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
@@ -623,7 +644,12 @@ def kmean_clustering(etrago):
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
-                                             'p_min_pu': np.min}},
+                                             'p_min_pu': np.min},
+                            'Store': {'e_nom': np.sum,
+                                      },
+                                             
+                                             },
+                                             
         generator_strategies={'p_nom_min':np.min,
                               'p_nom_opt': np.sum,
                               'marginal_cost': np.mean,
