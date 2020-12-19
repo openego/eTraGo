@@ -604,6 +604,18 @@ def dijkstra(network, ind_centers, k_busmap):
     -------
     busmap
     """
+    
+    ### Reduzierung der Komplexität durch Begrenzung der zu berechnenden Pfade:
+    ### Überprüfung der Zuordnung aus kmean nur bei Knoten mit benachbarten Clustern
+    
+    k_busmap.index=list(k_busmap.index.astype(str))
+    
+    lines = network.lines.assign(bus0_s=lambda df: df.bus0.map(k_busmap),
+                                 bus1_s=lambda df: df.bus1.map(k_busmap))
+
+    # lines between different clusters
+    interlines = lines.loc[lines['bus0_s'] != lines['bus1_s']]
+    
 
     cpu_cores = mp.cpu_count()
 
@@ -718,6 +730,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         Container for all network components.
     """
     
+    ### TODO: weighting-function außerhalb, da für kmean und kmedoid?
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -915,7 +928,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     strategies.update((attr, _make_consense("Bus", attr))
                       for attr in columns.difference(strategies))
     strategies.update(custom_strategies)
-    ### TODO: einfacher?!
+    ### TODO: einfacher?! zB mit lambda-Operator und map-Funktion?
     import pdb; pdb.set_trace()
     df_buses=pd.DataFrame(network.buses.copy())
     x_medoid=pd.Series(data=df_buses['x'])
@@ -933,8 +946,16 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     new_buses = df_buses.groupby(busmap_labels.values).agg(strategies).reindex(columns=[f
                               for f in network.buses.columns
                               if f in columns or f in custom_strategies])
+    ### TODO: groupby mit busmap_labels notwendig oder reicht busmap mit medoids? 
+    ###       entsprechend Übergabe an get_clustering from busmap mit labels oder medoids?
+    ###       -> return in dijkstra anpassen
+    new_buses2 = df_buses.groupby(busmap.values).agg(strategies).reindex(columns=[f
+                              for f in network.buses.columns
+                              if f in columns or f in custom_strategies])
     new_buses.index=new_buses.index.astype(str)
     busmap_labels=busmap_labels.astype(str)
+    busmap_labels.index=list(busmap_labels.index.astype(str))
+        ### TODO: Typen von busmaps prüfen: Zwischen- und Endumwandlung notwendig?
     
     clustering = get_clustering_from_busmap(
         network,
