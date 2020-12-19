@@ -657,6 +657,61 @@ def kmean_clustering(etrago):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings['line_length_factor'])
 
+    ############## cluster sub sector links ##############
+ 
+    links=clustering.network.links
+    
+    dsm_env_list = ['p_max','p_min'] # dsm envelope
+
+    # add main sector to linkmap
+    linkmap = pd.Series()
+    links_sel=links[~links.index.str.contains(sub)] # ATTENTION: adjust this when having multiple sub sectors
+    linkmap_sel = pd.Series(links_sel.index.to_list(), index=links_sel.index.to_list())  
+    linkmap = linkmap.append(linkmap_sel)
+
+    for dsm_env in dsm_env_list:
+        links_sel=links[links.index.str.contains(sub)&links.index.str.contains(dsm_env)]
+        ind = links_sel.index
+        l=links_sel.groupby(['bus0','bus1']) # dsm links all point to the dsm buses, so not necessary to take care off directionality 
+    
+        data=dict(
+            version =l['version'].first(),  
+            scn_name =l['scn_name'].first(),
+            efficiency=l['efficiency'].mean(), 
+            p_nom =l['p_nom'].sum(),
+           p_nom_extendable =l['p_nom_extendable'].first(), 
+           p_nom_min = l['p_nom_min'].sum(),
+           p_nom_max = l['p_nom_max'].sum(),
+           capital_cost = l['capital_cost'].mean(),
+           length =l['length'].first(),
+           terrain_factor = l['terrain_factor'].first(),
+           geom = l['geom'].first(),
+           topo = l['topo'].first(),
+           type = l['type'].first(),
+           p_set = l['p_set'].sum(),
+           p_min_pu = l['p_min_pu'].first(),
+           p_max_pu  = l['p_max_pu'].first(),
+           marginal_cost  = l['marginal_cost'].mean(),
+           p_nom_opt  = l['p_nom_opt'].first(),
+           country = l['country'].first(),
+           v_nom = l['v_nom'].first(),
+        )
+    
+        l_cl = pd.DataFrame(data)#, index = [str(i+1) for i in range(len(ind))])
+        l_cl['bus0'] = l_cl.index.get_level_values(0)  
+        l_cl['bus1'] = l_cl.index.get_level_values(1) 
+        l_cl['name'] = l_cl.index.get_level_values(1)+' '+dsm_env 
+        
+        linkmap_sel = links_sel.join(l_cl['name'], on=['bus0', 'bus1'])['name']
+        linkmap = linkmap.append(linkmap_sel)
+        l_cl.reset_index(drop=True, inplace=True)
+        l_cl.set_index('name',inplace=True)
+        
+        clustering.network.links.drop(ind,inplace=True)
+        clustering.network.links = clustering.network.links.append(l_cl)
+
+    ############################
+
     return clustering
 
 def run_kmeans_clustering(self):
