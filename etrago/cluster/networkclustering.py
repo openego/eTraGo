@@ -627,11 +627,14 @@ def kmean_clustering(etrago):
     # add components of sub-sector to main network
     sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/01_fast_run/pypsa_format_sum/'    
     
-    sub_network = Network(import_name=sub_csv_path) # pypsa.
+    sub_network = Network(import_name=sub_csv_path)
     
     io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
     io.import_components_from_dataframe(network, sub_network.links, "Link")  
-    io.import_components_from_dataframe(network, sub_network.stores, "Store") 
+    io.import_components_from_dataframe(network, sub_network.stores, "Store")
+    io.import_series_from_dataframe(network, sub_network.links_t.p_max_pu,'Link','p_max_pu')
+    io.import_series_from_dataframe(network, sub_network.links_t.p_min_pu,'Link','p_min_pu')
+
     ######################################
     
     clustering = get_clustering_from_busmap(
@@ -656,7 +659,7 @@ def kmean_clustering(etrago):
                               'capital_cost': np.mean},
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings['line_length_factor'])
-
+    
     ############## cluster sub sector links ##############
  
     links=clustering.network.links
@@ -711,6 +714,31 @@ def kmean_clustering(etrago):
         clustering.network.links = clustering.network.links.append(l_cl)
 
     ############################
+
+    ##### cluster links_t ############
+
+    def _flatten_multiindex(m, join=' '):
+        if m.nlevels <= 1: return m
+        levels = map(m.get_level_values, range(m.nlevels))
+        return reduce(lambda x, y: x+join+y, levels, next(levels))
+    
+    new_pnl = dict()
+    grouper=linkmap
+    old_pnl = clustering.network.pnl('Link') #network.pnl(component)
+    for attr, df in iteritems(old_pnl):
+        if not df.empty:
+            pnl_df = df.groupby(grouper, axis=1).mean()
+            pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
+            new_pnl[attr] = pnl_df
+    
+    for attr, df in iteritems(new_pnl):
+            io.import_series_from_dataframe(clustering.network, df, 'Link', attr)
+            
+    ind_drop=linkmap[linkmap.index.str.contains(sub)].index
+    clustering.network.links_t['p_max_pu'].drop(ind_drop,axis=1,inplace=True)
+    clustering.network.links_t['p_min_pu'].drop(ind_drop,axis=1,inplace=True)
+
+    ###############################    
 
     return clustering
 
