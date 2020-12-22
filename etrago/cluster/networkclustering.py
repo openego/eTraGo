@@ -604,12 +604,13 @@ def kmean_clustering(etrago):
             tol=kmean_settings['tol'],
             n_jobs=kmean_settings['n_jobs'])
         busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
+        
     else:
         df = pd.read_csv(kmean_settings['kmeans_busmap'])
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
-
+        
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
@@ -628,8 +629,7 @@ def kmean_clustering(etrago):
                               'p_nom_opt': np.sum,
                               'marginal_cost': np.mean,
                               'capital_cost': np.mean},
-        aggregate_one_ports=aggregate_one_ports,
-        line_length_factor=kmean_settings['line_length_factor'])
+        aggregate_one_ports=aggregate_one_ports)
 
     return clustering
 

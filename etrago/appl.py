@@ -26,6 +26,7 @@ the function etrago.
 
 
 import datetime
+import time
 import os
 import os.path
 
@@ -42,22 +43,24 @@ if 'READTHEDOCS' not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-
+    
+    from etrago.PtG_implementation.ptg import (ptg_addition)
+    
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.6',  # None for model_draft or Version number
+    'db': 'esa',  # database session
+    'gridversion': 'v0.4.5',  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 8, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
-    'pf_post_lopf': { # False if not perform a pf after a lopf simulation
-        'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
-        'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
+    'pf_post_lopf': False, #{ # False if not perform a pf after a lopf simulation
+        # 'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
+        # 'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 72,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
+    'solver_options': {
         'BarConvTol': 1.e-5,
         'FeasibilityTol': 1.e-5,
         'method':2,
@@ -77,7 +80,7 @@ args = {
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': { # False or dict
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 50, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -89,11 +92,12 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {# False or dict
-        'n_clusters': 2, # number of periods
+    'disaggregation': None,#'uniform',  # None, 'mini' or 'uniform'
+    'snapshot_clustering': {'n_clusters':1, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
+        'storage_constraints':'', #additional constraints for storages, 'soc_constraints', 'daily_bounds' or '' 
+        'segmentation': 100}, #False or number of segments per day
+        #If segmentation used: set n_clusters as no. of snapshots divided by 24, 'storage_constraints':''
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -291,7 +295,7 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : bool or dict
         {'n_clusters': 2, 'how': 'daily',
-         'storage_constraints': 'soc_constraints'},
+         'storage_constraints': },
         State if you want to cluster the snapshots and run the optimization
         only on a subset of snapshot periods. The 'n_clusters' value defines
         the number of periods which will be clustered to.
@@ -326,6 +330,7 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
+    x = time.time()
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -342,13 +347,13 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
-
+    
     # snapshot clustering
     etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     etrago.lopf()
-
+    
     # TODO: check if should be combined with etrago.lopf()
     etrago.pf_post_lopf()
 
@@ -356,10 +361,15 @@ def run_etrago(args, json_path):
     etrago.disaggregation()
 
     # calculate central etrago results
-    # etrago.calc_results()
+    etrago.calc_results()
+    print(etrago.results)
+    
+    #Calculate runtime
+    y = time.time()
+    z = (y - x) / 60
+    print("Runtime etrago [min]:", round(z, 2))
 
     return etrago
-
 
 if __name__ == '__main__':
     # execute etrago function
@@ -367,6 +377,10 @@ if __name__ == '__main__':
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     # plots
+
+    # etrago.plot_grid(line_colors='line_loading') # to show other plots, adjust the line_colors argument according to https://github.com/openego/eTraGo/blob/a0d109cbd94be6c6f8aad4704e5ced15b5e46874/etrago/tools/plot.py#L1314 
+    
+    ### THE FOLLOWING FUNCTIONS ARE PARTLY OUTDATED --> NEED TO BE CHECKED
     # make a line loading plot
     # plot_line_loading(network)
     # plot stacked sum of nominal power for each generator type and timestep

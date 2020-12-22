@@ -1191,7 +1191,7 @@ def calc_dc_loading(network, timesteps):
                                     (network.links.length == row['length'])]
 
             network.links.at[i, 'linked_to'] = l.values[0]
-
+    
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[network.links.index[
@@ -1210,9 +1210,11 @@ def calc_dc_loading(network, timesteps):
                                network.links.p_nom_opt[
                                    network.links.index == row['linked_to']]
                                .values[0])
-
+    
+#    return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
+#            .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
     return (mul_weighting(network, link_load).loc[network.snapshots[timesteps]]
-            .abs().sum()[network.links.index]/p_nom_opt_max).dropna()
+            .abs().sum()[network.links.index]/p_nom_opt_max).fillna(0)
 
 def plotting_colors(network):
     """ Add color values to network.carriers
@@ -1321,7 +1323,8 @@ def plot_grid(self,
               filename=None,
               disaggregated=False,
               ext_min=0.1,
-              ext_width=False):
+              ext_width=False,
+              titlename=None):
     """ Function that plots etrago.network and results for lines and buses
 
 
@@ -1440,7 +1443,6 @@ def plot_grid(self,
         link_colors = pd.Series(data=0, index=network.links.index)
     else:
         logger.warning("line_color {} undefined".format(line_colors))
-
     # Set bus colors
     if bus_colors == 'nodal_production_balance':
         bus_scaling = bus_sizes
@@ -1465,9 +1467,18 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = 'Dispatch'
         bus_unit = 'TW'
+    elif bus_colors == 'ptg_plants':
+        # the default number for bus_sizes created very large buses, at least if only few PtG plants are installed        
+        bus_sizes = bus_sizes / 10.0
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * network.links.loc[network.links['bus1']== 'Gas_Bus'].p_nom_opt.groupby(network.links.bus0).sum().reindex(network.buses.index, fill_value=0.)
+        bus_legend = 'P2G inst. capacity'
+        #link_colors = 'grey'
+        title = str(titlename)
+        bus_colors='grey'
+        bus_unit='GW' #Todo: check why the other units (see above) are in TW
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
-
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
@@ -1476,7 +1487,6 @@ def plot_grid(self,
                       flow=flow,
                       title=title,
                       geomap=False)
-
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
         handles = make_legend_circles_for(
@@ -1494,7 +1504,7 @@ def plot_grid(self,
         ax.add_artist(l2)
 
         handles = []
-        if bus_legend == 'Nodal production balance':
+        """if bus_legend == 'Nodal production balance':
             positive = mpatches.Patch(color='green', label='generation')
             negative = mpatches.Patch(color='red', label='consumption')
             handles = [positive, negative]
@@ -1502,8 +1512,7 @@ def plot_grid(self,
             for i in network.carriers.color.index:
                 patch = mpatches.Patch(color=network.carriers.color[i],
                                        label=i)
-                handles.append(patch)
-
+                handles.append(patch)"""
         l3 = plt.legend(handles=handles, loc='upper left', ncol=3,
                         bbox_to_anchor=(-0.1, 0))
         ax.add_artist(l3)

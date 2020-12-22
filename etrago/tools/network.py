@@ -45,7 +45,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     convert_capital_costs,
                                     get_args_setting)
 from etrago.tools.plot import (add_coordinates,
-                               plot_grid)
+                               plot_grid,
+                               plot_stacked_gen)
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_kmeans_clustering,
                                               ehv_clustering)
@@ -172,6 +173,8 @@ class Etrago():
     decommissioning = decommissioning
 
     plot_grid = plot_grid
+    
+    plot_stacked_gen = plot_stacked_gen
 
     kmean_clustering = run_kmeans_clustering
 
