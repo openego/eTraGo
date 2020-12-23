@@ -52,7 +52,8 @@ def snapshot_clustering(self):
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
                       how=self.args['snapshot_clustering']['how'],
                       normed=False,
-                      segmented_to = self.args['snapshot_clustering']['segmentation']
+                      segmented_to = self.args['snapshot_clustering']['segmentation'],
+                      csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
                       )
 
 
@@ -62,7 +63,8 @@ def tsam_cluster(timeseries_df,
                  how='daily',
                  extremePeriodMethod = 'None',
                  segmentation = False,
-                 segment_no = 24):
+                 segment_no = 24,
+                 segm_hoursperperiod = 24):
     """
     Parameters
     ----------
@@ -102,6 +104,11 @@ def tsam_cluster(timeseries_df,
 
 #    print('Snapshot clustering to ' + str(typical_periods) + period +
 #          ' using extreme period method: ' + extremePeriodMethod)
+    
+    if segmentation:
+        hoursPerPeriod = segm_hoursperperiod
+    else:
+        hoursPerPeriod = hours
 
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
@@ -110,7 +117,7 @@ def tsam_cluster(timeseries_df,
         addPeakMin = ['residual_load'],
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
-        hoursPerPeriod=8760,
+        hoursPerPeriod=hoursPerPeriod,
         clusterMethod='hierarchical',
         segmentation = segmentation,
         noSegments = segment_no)
@@ -144,7 +151,8 @@ def tsam_cluster(timeseries_df,
         if 'Segment Step' in timeseries.columns:
             del timeseries['Segment Step']
         print(timeseries)
-        timeseries.to_csv('Seg1/timeseries' + str(segmentation) + '.csv')    
+        
+  
 
 
 #    timeseries = aggregation.createTypicalPeriods() # If we see correctly, this line was included in the code before but the output was not further used
@@ -222,7 +230,7 @@ def tsam_cluster(timeseries_df,
 
 
 def run(network, n_clusters=None, how='daily',
-        normed=False, segmented_to=False):
+        normed=False, segmented_to=False, csv_export=False):
     """
     """
     if segmented_to is not False:
@@ -240,7 +248,17 @@ def run(network, n_clusters=None, how='daily',
                 how='daily',
                 extremePeriodMethod = 'None',
                 segmentation=segmentation,
-                segment_no=segment_no)
+                segment_no=segment_no,
+                segm_hoursperperiod=network.snapshots.size)
+    
+    ###### can be deleted later, just helpful to see how time steps were clustered ######### 
+    if csv_export is not False:
+        if not os.path.exists(csv_export):
+            os.makedirs(csv_export, exist_ok=True)  
+        timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
+    ########################
+
+        
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 
