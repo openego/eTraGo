@@ -110,7 +110,7 @@ def tsam_cluster(timeseries_df,
         addPeakMin = ['residual_load'],
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
-        hoursPerPeriod=hours,
+        hoursPerPeriod=8760,
         clusterMethod='hierarchical',
         segmentation = segmentation,
         noSegments = segment_no)
