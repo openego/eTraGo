@@ -1441,6 +1441,6 @@ def check_args(etrago):
             etrago.args['start_snapshot'] % 24 == 0,\
             ("Please select snapshots covering whole days when choosing snapshot clustering")
 
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
+        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
             (24 *etrago.args['snapshot_clustering']['n_clusters']),\
             ("Number of selected days is smaller than number of representitive snapshots")
