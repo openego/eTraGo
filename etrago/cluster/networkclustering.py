@@ -625,8 +625,9 @@ def kmean_clustering(etrago):
     busmap = busmap.append(busmap_sub)
 
     # add components of sub-sector to main network
-    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/01_fast_run/pypsa_format_sum/'    
-    
+    #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/01_fast_run/pypsa_format_sum/'    
+    #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/pypsa_format_sum/'
+    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'    
     sub_network = Network(import_name=sub_csv_path)
     
     io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
@@ -634,6 +635,8 @@ def kmean_clustering(etrago):
     io.import_components_from_dataframe(network, sub_network.stores, "Store")
     io.import_series_from_dataframe(network, sub_network.links_t.p_max_pu,'Link','p_max_pu')
     io.import_series_from_dataframe(network, sub_network.links_t.p_min_pu,'Link','p_min_pu')
+    io.import_series_from_dataframe(network, sub_network.stores_t.e_max_pu,'Store','e_max_pu')
+    io.import_series_from_dataframe(network, sub_network.stores_t.e_min_pu,'Store','e_min_pu')
 
     ######################################
     
@@ -649,6 +652,8 @@ def kmean_clustering(etrago):
                                              'efficiency_store': np.mean,
                                              'p_min_pu': np.min},
                             'Store': {'e_nom': np.sum,
+                                      'e_max_pu': np.mean,
+                                      'e_min_pu': np.mean,
                                       },
                                              
                                              },
