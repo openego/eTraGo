@@ -21,6 +21,7 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
+import pdb
 import logging
 from pyomo.environ import Constraint
 import pandas as pd
@@ -232,6 +233,49 @@ def _min_renewable_share(self, network, snapshots):
                         self.args['extra_functionality']['min_renewable_share']
 
     network.model.min_renewable_share = Constraint(rule=_rule)
+    
+def _dsm_link_store_ratio(self, network, snapshots):
+
+    p_max_loc = network.links.index.str.contains('dsm_sum p_max') 
+    link_indices = network.links.index[p_max_loc].str.rstrip(' dsm_sum p_max')
+
+    for link_ind in link_indices:
+
+        p_nom_max_ratio = (
+        network.links.p_nom_max.loc[link_ind+' dsm_sum p_max'] /
+        network.links.p_nom_max.loc[link_ind+' dsm_sum p_min']
+        )
+        
+        p_nom_e_nom_max_ratio = (
+        network.links.p_nom_max.loc[link_ind+' dsm_sum p_max'] /
+        network.stores.e_nom_max.loc[link_ind+' dsm_sum']
+        )
+        
+        
+        def _rule_link_ratios(m):
+
+            return (
+            m.link_p_nom[link_ind+' dsm_sum p_min'] * p_nom_max_ratio == 
+            m.link_p_nom[link_ind+' dsm_sum p_max']
+            )
+        
+        def _rule_link_store_ratios(m):
+
+            return (
+            m.store_e_nom[link_ind+' dsm_sum'] * p_nom_e_nom_max_ratio == 
+            m.link_p_nom[link_ind+' dsm_sum p_max']
+            )        
+    
+        setattr(network.model, 'dsm_link_ratio_'+link_ind,
+                        #Constraint(link_ind, rule=_rule_link_ratios))
+                        Constraint(rule=_rule_link_ratios))                        
+                        
+                        
+        setattr(network.model, 'dsm_link_store_ratio_'+link_ind,
+                        #Constraint(link_ind, rule=_rule_link_store_ratios))
+                        Constraint(rule=_rule_link_store_ratios))
+                        
+
 
 def _cross_border_flow(self, network, snapshots):
     """
@@ -948,7 +992,7 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
-
+        #pdb.set_trace()
         for constraint in self.args['extra_functionality'].keys():
             try:
                 type(network.model)
