@@ -52,7 +52,7 @@ if 'READTHEDOCS' not in os.environ:
         busmap_from_psql,
         cluster_on_extra_high_voltage,
         kmean_clustering,
-        kmedoid_clustering)
+        kmedoid_dijkstra_clustering)
 
     from etrago.tools.io import (
         NetworkScenario,
@@ -137,8 +137,8 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_kmedoidDijkstra': 50, # False or the value k for clustering
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_kmedoidDijkstra': False, # False or the value k for clustering
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -541,7 +541,7 @@ def etrago(args):
 
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
-        clustering2 = kmedoid_clustering(
+        clustering2 = kmedoid_dijkstra_clustering(
                 networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=False,
@@ -549,13 +549,17 @@ def etrago(args):
                 remove_stubs=False,
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
-                bus_weight_fromcsv=None,
-                max_iter=100)
+                bus_weight_fromcsv=None,                
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
+                n_jobs=-1)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
       
+        
     ###    
-    #network2=network.copy()    
+    network2=network.copy()    
     buses_i2=network2.buses.index
     print(network2.buses.loc[buses_i2, ["x", "y"]].values)
 
