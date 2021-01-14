@@ -62,7 +62,7 @@ __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 def get_clustering_from_busmap(network, busmap, buses=None, with_time=True, line_length_factor=1.0,
                                aggregate_generators_weighted=False, aggregate_one_ports={},
                                bus_strategies=dict()):
-    import pdb; pdb.set_trace()
+    
     # begin get_buses_linemap_and_lines:
     
     # get or compute new buses
@@ -728,7 +728,7 @@ def dijkstra(network, medoid_idx, busmap_k):
     ### TODO: weniger kompliziert?
     
     # list of all possible pathways
-    #ppaths = list(product(o_buses, c_buses))
+    ppathss = list(product(o_buses, c_buses))
     
     # list of paths between neighboured clusters 
     # to check assignment of points in cluster concerning neighboured clusters
@@ -753,8 +753,8 @@ def dijkstra(network, medoid_idx, busmap_k):
     # calculation of shortest path between original points and kmedoid centers
     # using multiprocessing
     p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(ppaths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
+    chunksize = ceil(len(ppathss) / cpu_cores)
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
@@ -783,10 +783,16 @@ def dijkstra(network, medoid_idx, busmap_k):
     for i in range (c_buses.size):
         busmap_labels.replace(c_buses[i], i, inplace=True)
     busmap_labels=pd.Series(data=busmap_labels, dtype=object)
+    busmap_labels.index=list(busmap_labels.index.astype(str))
                     
     return busmap, busmap_labels
 
 
+# TODO: überprüfe Schönheit der Implmentierung:
+    # Verwendung von vorhandenen Funktionen statt Kopieren und Abhängigkeiten
+    # angemessene Aufteilung in Funktionen
+    # Art der Programmierung von Teilschritten
+    # usw.
 def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
                      line_length_factor=1.25,
                      remove_stubs=False, use_reduced_coordinates=False,
@@ -1008,7 +1014,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         
     # Dijkstra's algorithm to check assignment of points to clusters considering electrical distance
     
-    busmap, busmap_labels = dijkstra(network, medoid_idx, busmap_k)
+    #busmap, busmap_labels = dijkstra(network, medoid_idx, busmap_k)
+    # dijkstra auskommentieren:
+    busmap_labels=busmap_k
     
     print('start aggregation')
     
@@ -1034,8 +1042,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     x_medoid=pd.Series(data=df_buses['x'])
     y_medoid=pd.Series(data=df_buses['y'])
     for i in range(df_buses.shape[0]):
-        index=int(busmap_labels[i]) 
-        # index=medoid_idx[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
+        x=int(busmap_labels[i]) #x
+        index=medoid_idx[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
         bus = df_buses[index:index+1]
         x_medoid[i]=bus['x']
         y_medoid[i]=bus['y']
@@ -1049,7 +1057,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     
     new_buses.index=new_buses.index.astype(str)
     busmap_labels=busmap_labels.astype(str)
-    busmap_labels.index=list(busmap_labels.index.astype(str))
    
     ### TODO: Überprüfung von Verwendung von busmap mit Indizes und Labels 
     ###       -> weniger kompliziert?
