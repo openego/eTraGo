@@ -726,9 +726,9 @@ def dijkstra(network, medoid_idx, busmap_k):
     liste_inter=set(liste_inter)
     
     ### TODO: weniger kompliziert?
-    
+    import pdb; pdb.set_trace()
     # list of all possible pathways
-    ppathss = list(product(o_buses, c_buses))
+    #ppathss = list(product(o_buses, c_buses))
     
     # list of paths between neighboured clusters 
     # to check assignment of points in cluster concerning neighboured clusters
@@ -753,8 +753,8 @@ def dijkstra(network, medoid_idx, busmap_k):
     # calculation of shortest path between original points and kmedoid centers
     # using multiprocessing
     p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
+    chunksize = ceil(len(ppaths) / cpu_cores)
+    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
@@ -1014,9 +1014,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         
     # Dijkstra's algorithm to check assignment of points to clusters considering electrical distance
     
-    #busmap, busmap_labels = dijkstra(network, medoid_idx, busmap_k)
+    busmap, busmap_labels = dijkstra(network, medoid_idx, busmap_k)
     # dijkstra auskommentieren:
-    busmap_labels=busmap_k
+    #busmap_labels=busmap_k
     
     print('start aggregation')
     
@@ -1042,8 +1042,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     x_medoid=pd.Series(data=df_buses['x'])
     y_medoid=pd.Series(data=df_buses['y'])
     for i in range(df_buses.shape[0]):
-        x=int(busmap_labels[i]) #x
-        index=medoid_idx[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
+        index=int(busmap_labels[i]) #x
+        #index=medoid_idx[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
         bus = df_buses[index:index+1]
         x_medoid[i]=bus['x']
         y_medoid[i]=bus['y']
