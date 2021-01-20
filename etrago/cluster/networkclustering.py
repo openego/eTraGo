@@ -611,6 +611,7 @@ def kmean_clustering(etrago):
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
+        busmap.to_csv(etrago.args['csv_export']+'/kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
 
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
@@ -624,12 +625,37 @@ def kmean_clustering(etrago):
     busmap_sub.index = busmap_sub.index + sub
     busmap = busmap.append(busmap_sub)
 
-    # add components of sub-sector to main network
-    #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/01_fast_run/pypsa_format_sum/'    
-    #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export/results/2011_test-2/2030/pypsa_format_sum/'
-    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'    
+    # import sub-sector network
+    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'
     sub_network = Network(import_name=sub_csv_path)
+
+    #### manipulate dsm parameters
+    p_max_loc = sub_network.links.index.str.contains('p_max')
+    sub_network.links.marginal_cost.loc[p_max_loc] = 5.0 # marginal costs of the cheapest dsm technology
     
+    # investment cost reduction from 2020 to 2035 (linear extrapolation from 2030 to 2035)
+    #  FFE_Merit Order Energiespeicherung_Hauptbericht Teil 2 Technoökonomische Analyse Funktionaler Energiespeicher, p. 48 / 49 
+    # linear extrapolation from 2030 to 2035: 220 + (220-310)/10 * 5 = 175
+    # The imported DSM cost data refer to 2020, so they are multiplied with a correction factor
+    # correction factor: 175/310 =  0.565        
+    sub_network.links.capital_cost.loc[p_max_loc] = (
+    sub_network.links.capital_cost.loc[p_max_loc] * 0.565 )   
+    
+    # cost reduction for the case that less than one year is modelled
+    t_period = etrago.args['end_snapshot'] - etrago.args['start_snapshot']    
+    sub_network.links.capital_cost.loc[p_max_loc] = (
+    (t_period + 1) / 8760 * sub_network.links.capital_cost.loc[p_max_loc] )
+    
+    sub_network.links.p_nom_extendable = True    
+    sub_network.links.p_nom_max = sub_network.links.p_nom
+    sub_network.links.p_nom = 0
+    
+    sub_network.stores.e_nom_extendable = True
+    sub_network.stores.e_nom_max = sub_network.stores.e_nom
+    sub_network.stores.e_nom = 0
+    sub_network.stores.e_initial = 0
+    
+    # add subsector network to main network   
     io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
     io.import_components_from_dataframe(network, sub_network.links, "Link")  
     io.import_components_from_dataframe(network, sub_network.stores, "Store")
@@ -652,6 +678,7 @@ def kmean_clustering(etrago):
                                              'efficiency_store': np.mean,
                                              'p_min_pu': np.min},
                             'Store': {'e_nom': np.sum,
+                                      'e_nom_max': np.sum,
                                       'e_max_pu': np.mean,
                                       'e_min_pu': np.mean,
                                       },
