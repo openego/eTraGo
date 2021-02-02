@@ -137,7 +137,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_kmedoidDijkstra': 10, # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': False, # False or the value k for clustering
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -390,51 +390,51 @@ def etrago(args):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-#    conn = db.connection(section=args['db'])
-#    Session = sessionmaker(bind=conn)
-#    session = Session()
+    conn = db.connection(section=args['db'])
+    Session = sessionmaker(bind=conn)
+    session = Session()
 
     # additional arguments cfgpath, version, prefix
-#    if args['gridversion'] is None:
-#        args['ormcls_prefix'] = 'EgoGridPfHv'
-#    else:
-#        args['ormcls_prefix'] = 'EgoPfHv'
+    if args['gridversion'] is None:
+        args['ormcls_prefix'] = 'EgoGridPfHv'
+    else:
+        args['ormcls_prefix'] = 'EgoPfHv'
 
-#    scenario = NetworkScenario(session,
-#                               version=args['gridversion'],
-#                               prefix=args['ormcls_prefix'],
-#                               method=args['method'],
-#                               start_snapshot=args['start_snapshot'],
-#                               end_snapshot=args['end_snapshot'],
-#                               scn_name=args['scn_name'])
+    scenario = NetworkScenario(session,
+                               version=args['gridversion'],
+                               prefix=args['ormcls_prefix'],
+                               method=args['method'],
+                               start_snapshot=args['start_snapshot'],
+                               end_snapshot=args['end_snapshot'],
+                               scn_name=args['scn_name'])
 
-#    network = scenario.build_network()
+    network = scenario.build_network()
 
     # add coordinates
-#    network = add_coordinates(network)
+    network = add_coordinates(network)
 
     # Set countrytags of buses, lines, links and transformers
-#    network = geolocation_buses(network, session)
+    network = geolocation_buses(network, session)
 
     # Set q_sets of foreign loads
-#    network = set_q_foreign_loads(network, cos_phi=1)
+    network = set_q_foreign_loads(network, cos_phi=1)
 
     # Change transmission technology and/or capacity of foreign lines
-#    if args['foreign_lines']['carrier'] == 'DC':
-#        foreign_links(network)
-#        network = geolocation_buses(network, session)
+    if args['foreign_lines']['carrier'] == 'DC':
+        foreign_links(network)
+        network = geolocation_buses(network, session)
 
-#    if args['foreign_lines']['capacity'] != 'osmTGmod':
-#        crossborder_capacity(
-#                network, args['foreign_lines']['capacity'],
-#                args['branch_capacity_factor'])
+    if args['foreign_lines']['capacity'] != 'osmTGmod':
+        crossborder_capacity(
+                network, args['foreign_lines']['capacity'],
+                args['branch_capacity_factor'])
 
     # TEMPORARY vague adjustment due to transformer bug in data processing
-#    if args['gridversion'] == 'v0.2.11':
-#        network.transformers.x = network.transformers.x * 0.0001
+    if args['gridversion'] == 'v0.2.11':
+        network.transformers.x = network.transformers.x * 0.0001
 
     # set SOC at the beginning and end of the period to equal values
-#    network.storage_units.cyclic_state_of_charge = True
+    network.storage_units.cyclic_state_of_charge = True
         
     # set disaggregated_network to default
     disaggregated_network = None
@@ -443,78 +443,77 @@ def etrago(args):
     clustering = None
 
     # for SH scenario run do data preperation:
-#    if (args['scn_name'] == 'SH Status Quo' or
-#            args['scn_name'] == 'SH NEP 2035'):
-#        data_manipulation_sh(network)
+    if (args['scn_name'] == 'SH Status Quo' or
+            args['scn_name'] == 'SH NEP 2035'):
+        data_manipulation_sh(network)
 
     # grouping of parallel lines
-#    if args['line_grouping']:
-#        group_parallel_lines(network)
+    if args['line_grouping']:
+        group_parallel_lines(network)
 
     # Branch loading minimization
-#    if args['minimize_loading']:
-#        extra_functionality = loading_minimization
+    if args['minimize_loading']:
+        extra_functionality = loading_minimization
 
     # scenario extensions
-#    if args['scn_extension'] is not None:
-#        for i in range(len(args['scn_extension'])):
-#            network = extension(
-#                    network,
-#                    session,
-#                    version=args['gridversion'],
-#                    scn_extension=args['scn_extension'][i],
-#                    start_snapshot=args['start_snapshot'],
-#                    end_snapshot=args['end_snapshot'])
-#        network = geolocation_buses(network, session)
+    if args['scn_extension'] is not None:
+        for i in range(len(args['scn_extension'])):
+            network = extension(
+                    network,
+                    session,
+                    version=args['gridversion'],
+                    scn_extension=args['scn_extension'][i],
+                    start_snapshot=args['start_snapshot'],
+                    end_snapshot=args['end_snapshot'])
+        network = geolocation_buses(network, session)
 
     # Add missing lines in Munich and Stuttgart
-#    network = add_missing_components(network)
+    network = add_missing_components(network)
 
     # add random noise to all generators
-#    if args['generator_noise'] is not False:
-#        set_random_noise(network, args['generator_noise'], 0.01)
+    if args['generator_noise'] is not False:
+        set_random_noise(network, args['generator_noise'], 0.01)
 
     # set Branch capacity factor for lines and transformer
-#    if args['branch_capacity_factor']:
-#        set_branch_capacity(network, args)
+    if args['branch_capacity_factor']:
+        set_branch_capacity(network, args)
 
     # scenario decommissioning
-#    if args['scn_decommissioning'] is not None:
-#        network = decommissioning(
-#            network,
-#            session,
-#            args)
+    if args['scn_decommissioning'] is not None:
+        network = decommissioning(
+            network,
+            session,
+            args)
 
     # investive optimization strategies
-#    if args['extendable'] != []:
-#        network = extendable(
-#                    network,
-#                    args,
-#                    line_max=4)
-#        network = convert_capital_costs(
-#            network, args['start_snapshot'], args['end_snapshot'])
+    if args['extendable'] != []:
+        network = extendable(
+                    network,
+                    args,
+                    line_max=4)
+        network = convert_capital_costs(
+            network, args['start_snapshot'], args['end_snapshot'])
 
     # load shedding in order to hunt infeasibilities
-#    if args['load_shedding']:
-#        load_shedding(network)
+    if args['load_shedding']:
+        load_shedding(network)
 
     # ehv network clustering
-#    if args['network_clustering_ehv']:
-#        network.generators.control = "PV"
-#        busmap = busmap_from_psql(
-#                network,
-#                session,
-#                scn_name=(
-#                        args['scn_name'] if args['scn_extension']==None
-#                        else args['scn_name']+'_ext_'+'_'.join(
-#                        args['scn_extension'])),
-#                        version=args['gridversion'])
-#        network = cluster_on_extra_high_voltage(
-#            network, busmap, with_time=True)
+    if args['network_clustering_ehv']:
+        network.generators.control = "PV"
+        busmap = busmap_from_psql(
+                network,
+                session,
+                scn_name=(
+                        args['scn_name'] if args['scn_extension']==None
+                        else args['scn_name']+'_ext_'+'_'.join(
+                        args['scn_extension'])),
+                        version=args['gridversion'])
+        network = cluster_on_extra_high_voltage(
+            network, busmap, with_time=True)
         
-    import pypsa
-    
-    network = pypsa.Network('/home/kathiesterl/etrago_dump_2h/etrago_dump_ehv')
+    #import pypsa
+    #network = pypsa.Network('/home/kathiesterl/etrago_dump_2h/etrago_dump_ehv')
         
     networkkmedoid=network.copy()
 
@@ -563,7 +562,7 @@ def etrago(args):
       
         
     ###    
-    #network2=network.copy()    
+    network2=network.copy()    
     buses_i2=network2.buses.index
     print(network2.buses.loc[buses_i2, ["x", "y"]].values)
 
