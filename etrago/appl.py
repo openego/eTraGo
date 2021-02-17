@@ -137,7 +137,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': 10,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_kmedoidDijkstra': False, # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 10, # False or the value k for clustering
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -535,7 +535,7 @@ def etrago(args):
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
-#        geolocation_buses(network, session)
+        geolocation_buses(network, session)
         
         
     buses_i=network.buses.index
@@ -558,11 +558,11 @@ def etrago(args):
                 tol=1e-6,
                 n_jobs=-1)
         network2 = clustering2.network.copy()
-#        geolocation_buses(network2, session)
+        geolocation_buses(network2, session)
       
         
     ###    
-    network2=network.copy()    
+    #network2=network.copy()    
     buses_i2=network2.buses.index
     print(network2.buses.loc[buses_i2, ["x", "y"]].values)
 
