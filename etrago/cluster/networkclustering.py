@@ -306,16 +306,31 @@ def shortest_path(paths, graph):
     idx = pd.MultiIndex.from_tuples(paths, names=idxnames)
     df = pd.DataFrame(index=idx, columns=['path_length'])
     df.sort_index(inplace=True)
-
-    for s, t in paths:
-
+    
+    ''' ursprüngliche Version: '''
+    '''for s, t in paths:
         try:
-            df.loc[(s, t), 'path_length'] = \
+            df.loc[(s, t), 'path_length'] =\
                 nx.dijkstra_path_length(graph, s, t)
-
         except NetworkXNoPath:
-            continue
+                continue'''
+                
+    # neue Variante - weniger komplex:
+    # funktioniert allerdings nur mit alle möglichen Pfaden im Graph 
+    # (also Beschränkung der Überprüfung der Nachbarcluster in dijkstra funktioniert hier nicht, 
+    # trotzdem sollte diese Variante weniger komplex sein!)
 
+    df_isna = df.isnull()
+    for s, t in paths:
+        while (df_isna.loc[(s, t), 'path_length'] == True):  
+            try:
+                s_to_other = nx.single_source_dijkstra_path_length(graph, s) #, target=t) ### cutoff
+                for t in idx.levels[1]: 
+                    df.loc[(s, t), 'path_length'] = s_to_other[t]  
+            except NetworkXNoPath:
+                continue
+            df_isna = df.isnull()
+    
     return df
 
 
@@ -702,16 +717,19 @@ def dijkstra(network, medoid_idx, busmap_k):
     o_buses = network.buses.index
 
     # kmedoid centers
-    c_buses = network.buses.index[medoid_idx] 
+    medoid_idx=medoid_idx.astype('str')
+    c_buses = medoid_idx.tolist()
     
     # kmedoid assignment 
     df_kmedoid=pd.DataFrame({'medoid_labels':busmap_k.values})
     df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
-    for i in range (c_buses.size):
+    df_kmedoid['kmean_index']=busmap_k.index
+    for i in range(len(c_buses)):
         df_kmedoid['medoid_indices'].replace(i,c_buses[i], inplace=True)
     
+    '''Beschränkung der Überprüfung der Nachbarcluster:'''
+    '''
     # find interlines (lines between clusters) to get list of neighboured clusters
-    busmap_k.index=list(busmap_k.index.astype(str))
     lines = network.lines.assign(bus0_s=lambda df: df.bus0.map(busmap_k),
                                  bus1_s=lambda df: df.bus1.map(busmap_k))
     interlines = lines.loc[lines['bus0_s'] != lines['bus1_s']]
@@ -726,9 +744,6 @@ def dijkstra(network, medoid_idx, busmap_k):
     liste_inter=set(liste_inter)
     
     ### TODO: weniger kompliziert?
-    import pdb; pdb.set_trace()
-    # list of all possible pathways
-    #ppathss = list(product(o_buses, c_buses))
     
     # list of paths between neighboured clusters 
     # to check assignment of points in cluster concerning neighboured clusters
@@ -737,15 +752,21 @@ def dijkstra(network, medoid_idx, busmap_k):
         medoid_i = df_kmedoid['medoid_indices'].loc[i]
         for j in range (c_buses.size):
             if ((medoid_i,c_buses[j]) in liste_inter) or ((c_buses[j],medoid_i) in liste_inter) or (medoid_i == c_buses[j]):
-                ppaths.append((str(i),c_buses[j]))
-
-    # lines
-    lines = network.lines
-
+                ppaths.append((df_kmedoid['kmean_index'].loc[i],c_buses[j])) '''
+                
+    # list of all possible pathways
+    ppathss = list(product(o_buses, c_buses))
+    
     # graph creation
+    lines = network.lines
     edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
              in lines.iterrows()]
     M = graph_from_edges(edges)
+    
+    ''' ohne multiprocessing: '''
+    #df = shortest_path(ppathss, M)
+    
+    # multiprocessing:
     
     # processor count
     cpu_cores = mp.cpu_count()  
@@ -753,8 +774,8 @@ def dijkstra(network, medoid_idx, busmap_k):
     # calculation of shortest path between original points and kmedoid centers
     # using multiprocessing
     p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(ppaths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
+    chunksize = ceil(len(ppathss) / cpu_cores)
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
@@ -766,6 +787,13 @@ def dijkstra(network, medoid_idx, busmap_k):
     df_dijkstra = df.loc[mask, :]
     df_dijkstra.reset_index(inplace=True)
     
+    # check df for paths which are shown twice due to multiprocessing and delete them
+    duplicated=df_dijkstra.duplicated()
+    for i in range(len(duplicated)):
+        if duplicated[i]==True:
+            df_dijkstra = df_dijkstra.drop([i])
+    df_dijkstra.index=df_kmedoid.index
+    
     # comparison of kmedoid busmap and dijkstra busmap
     df_dijkstra['correction of assignment using dijkstra']=np.where(df_kmedoid['medoid_indices']==df_dijkstra['target'],'False', 'True')
     ### TODO: theoretisch weniger kompliziert möglich, 
@@ -773,16 +801,13 @@ def dijkstra(network, medoid_idx, busmap_k):
     print(df_dijkstra['correction of assignment using dijkstra'])
     
     # creation of new busmap with final assignment
-    busmap=pd.Series(df_kmedoid['medoid_indices'], dtype=object).rename("final_assignment", inplace=True)
-    for i in range (o_buses.size):
-        if df_dijkstra.iloc[i]['correction of assignment using dijkstra']=='True':
-            busmap[i]=df_dijkstra.iloc[i]['target'] 
+    busmap=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
+    busmap.index=df_kmedoid['kmean_index']
             
     # adaption of busmap to format with labels (necessary for aggregation)
     busmap_labels=busmap.copy()
-    for i in range (c_buses.size):
+    for i in range (len(c_buses)):
         busmap_labels.replace(c_buses[i], i, inplace=True)
-    busmap_labels=pd.Series(data=busmap_labels, dtype=object)
     busmap_labels.index=list(busmap_labels.index.astype(str))
                     
     return busmap, busmap_labels
@@ -883,7 +908,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     def normed(x):
         return (x / x.sum()).fillna(0.)
     
-    print('start k-mean clustering')
+    print('start k-medoid clustering & dijkstra algorithm approach')
+    
+    print('1) start k-mean clustering')
     
     # taken from function kmean_clustering
     
@@ -1002,23 +1029,23 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     busmap_k = pd.Series(data=kmeans.predict(network.buses.loc[buses_i, ["x", "y"]]), 
                          index=buses_i, dtype=object)
     
+    print('2) identification of medoids')
+    
     # distances of data points to cluster centers
     distances = pd.DataFrame(data=kmeans.transform(network.buses.loc[buses_i, ["x", "y"]].values))
-    print('identification of medoids')
     # get closest point to each cluster center as new kmedoids
     medoid_idx = pd.Series(data=np.zeros(shape=n_clusters, dtype=int))
     for i in range(0, n_clusters):
-        medoid_idx[i]=distances[i].idxmin()
+        index=distances[i].idxmin()
+        medoid_idx[i]=buses_i[index]
         
-    print('start dijkstra algorithm')
+    print('3) start dijkstra algorithm')
         
     # Dijkstra's algorithm to check assignment of points to clusters considering electrical distance
     
     busmap, busmap_labels = dijkstra(network, medoid_idx, busmap_k)
-    # dijkstra auskommentieren:
-    #busmap_labels=busmap_k
     
-    print('start aggregation')
+    print('4) start aggregation')
     
     # aggregation of new buses
     
@@ -1042,9 +1069,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     x_medoid=pd.Series(data=df_buses['x'])
     y_medoid=pd.Series(data=df_buses['y'])
     for i in range(df_buses.shape[0]):
-        index=int(busmap_labels[i]) #x
-        #index=medoid_idx[x] #-> nicht notwendig: von dijkstra busmap mit Indizes statt Labels
-        bus = df_buses[index:index+1]
+        index=int(busmap[i])
+        bus = df_buses.loc[str(index)]
         x_medoid[i]=bus['x']
         y_medoid[i]=bus['y']
     df_buses['x']=x_medoid.values
