@@ -135,9 +135,9 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': 20,  # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_kmedoidDijkstra': 10, # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 20, # False or the value k for clustering
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -512,9 +512,6 @@ def etrago(args):
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
         
-    #import pypsa
-    #network = pypsa.Network('/home/kathiesterl/etrago_dump_2h/etrago_dump_ehv')
-        
     networkkmedoid=network.copy()
 
     # k-mean clustering
@@ -537,17 +534,12 @@ def etrago(args):
         network = clustering.network.copy()
         geolocation_buses(network, session)
         
-        
-    buses_i=network.buses.index
-    print(network.buses.loc[buses_i, ["x", "y"]].values)
-
-
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
         clustering2 = kmedoid_dijkstra_clustering(
                 networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
-                load_cluster=False,
+                load_cluster=args['load_cluster'],
                 line_length_factor=1,
                 remove_stubs=False,
                 use_reduced_coordinates=False,
@@ -559,13 +551,6 @@ def etrago(args):
                 n_jobs=-1)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
-      
-        
-    ###    
-    #network2=network.copy()    
-    buses_i2=network2.buses.index
-    print(network2.buses.loc[buses_i2, ["x", "y"]].values)
-
 
     # skip snapshots
     if args['skip_snapshots']:
