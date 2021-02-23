@@ -136,8 +136,8 @@ args = {
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': 20,  # False or the value k for clustering
-    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_kmedoidDijkstra': 20, # False or the value k for clustering
+    'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
@@ -330,8 +330,20 @@ def etrago(args):
         False,
         State if you want to apply a clustering of all network buses down to
         only ``'k'`` buses. The weighting takes place considering generation
-        and load
-        at each node. If so, state the number of k you want to apply. Otherwise
+        and load at each node. 
+        If so, state the number of k you want to apply. Otherwise
+        put False. This function doesn't work together with
+        ``'line_grouping = True'``.
+        
+    network_clustering_kmedoidDijkstra : bool or int
+        False,
+        alike network_clustering_kmeans, but using a different clustering approach,
+        stored in network2,
+        State if you want to apply a clustering of all network buses down to
+        only ``'k'`` buses by using a approach with a k-medoids clustering
+        and a Dijkstra's algorithm. The weighting takes place considering 
+        generation and load at each node. 
+        If so, state the number of k you want to apply. Otherwise
         put False. This function doesn't work together with
         ``'line_grouping = True'``.
 
