@@ -618,53 +618,57 @@ def kmean_clustering(etrago):
     aggregate_one_ports.discard('Generator')
 
     ######################################
-    # add sub-sector to busmap
-    sub = ' dsm_sum'    
+    if etrago.args['dsm'] is not False:
+        # add sub-sector to busmap
+        sub = ' dsm_sum'    
+        
+        busmap_sub = busmap + sub
+        busmap_sub.index = busmap_sub.index + sub
+        busmap = busmap.append(busmap_sub)
     
-    busmap_sub = busmap + sub
-    busmap_sub.index = busmap_sub.index + sub
-    busmap = busmap.append(busmap_sub)
-
-    # import sub-sector network
-    sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'
-    sub_network = Network(import_name=sub_csv_path)
-
-    #### manipulate dsm parameters
-    p_max_loc = sub_network.links.index.str.contains('p_max')
-    sub_network.links.marginal_cost.loc[p_max_loc] = 5.0 # marginal costs of the cheapest dsm technology
+        # import sub-sector network
+        #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'
+        sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_with_fix_c/2035/pypsa_format_sum/'
+        sub_network = Network(import_name=sub_csv_path)
     
-    # investment cost reduction from 2020 to 2035 (linear extrapolation from 2030 to 2035)
-    #  FFE_Merit Order Energiespeicherung_Hauptbericht Teil 2 Technoökonomische Analyse Funktionaler Energiespeicher, p. 48 / 49 
-    # linear extrapolation from 2030 to 2035: 220 + (220-310)/10 * 5 = 175
-    # The imported DSM cost data refer to 2020, so they are multiplied with a correction factor
-    # correction factor: 175/310 =  0.565        
-    sub_network.links.capital_cost.loc[p_max_loc] = (
-    sub_network.links.capital_cost.loc[p_max_loc] * 0.565 )   
+        #### manipulate dsm parameters
+        p_max_loc = sub_network.links.index.str.contains('p_max')
+        if etrago.args['dsm']['dsm_marg_cost'] is not False:
+            sub_network.links.marginal_cost.loc[p_max_loc] = etrago.args['dsm']['dsm_marg_cost'] # marginal costs of the cheapest dsm technology
+        
+        # investment cost reduction from 2020 to 2035 (linear extrapolation from 2030 to 2035)
+        #  FFE_Merit Order Energiespeicherung_Hauptbericht Teil 2 Technoökonomische Analyse Funktionaler Energiespeicher, p. 48 / 49 
+        # linear extrapolation from 2030 to 2035: 220 + (220-310)/10 * 5 = 175
+        # The imported DSM cost data refer to 2020, so they are multiplied with a correction factor
+        # correction factor: 175/310 =  0.565        
+        sub_network.links.capital_cost.loc[p_max_loc] = (
+        sub_network.links.capital_cost.loc[p_max_loc] * 0.565 )   
+        
+        # cost reduction for the case that less than one year is modelled
+        t_period = etrago.args['end_snapshot'] - etrago.args['start_snapshot']    
+        sub_network.links.capital_cost.loc[p_max_loc] = (
+        (t_period + 1) / 8760 * sub_network.links.capital_cost.loc[p_max_loc] )
     
-    # cost reduction for the case that less than one year is modelled
-    t_period = etrago.args['end_snapshot'] - etrago.args['start_snapshot']    
-    sub_network.links.capital_cost.loc[p_max_loc] = (
-    (t_period + 1) / 8760 * sub_network.links.capital_cost.loc[p_max_loc] )
+        if etrago.args['dsm']['dsm_extendable']:    
+            sub_network.links.p_nom_extendable = True    
+            sub_network.links.p_nom_max = sub_network.links.p_nom
+            sub_network.links.p_nom = 0
+            
+            sub_network.stores.e_nom_extendable = True
+            sub_network.stores.e_nom_max = sub_network.stores.e_nom
+            sub_network.stores.e_nom = 0
+            sub_network.stores.e_initial = 0
+        
+        # add subsector network to main network   
+        io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
+        io.import_components_from_dataframe(network, sub_network.links, "Link")  
+        io.import_components_from_dataframe(network, sub_network.stores, "Store")
+        io.import_series_from_dataframe(network, sub_network.links_t.p_max_pu,'Link','p_max_pu')
+        io.import_series_from_dataframe(network, sub_network.links_t.p_min_pu,'Link','p_min_pu')
+        io.import_series_from_dataframe(network, sub_network.stores_t.e_max_pu,'Store','e_max_pu')
+        io.import_series_from_dataframe(network, sub_network.stores_t.e_min_pu,'Store','e_min_pu')
     
-    sub_network.links.p_nom_extendable = True    
-    sub_network.links.p_nom_max = sub_network.links.p_nom
-    sub_network.links.p_nom = 0
-    
-    sub_network.stores.e_nom_extendable = True
-    sub_network.stores.e_nom_max = sub_network.stores.e_nom
-    sub_network.stores.e_nom = 0
-    sub_network.stores.e_initial = 0
-    
-    # add subsector network to main network   
-    io.import_components_from_dataframe(network, sub_network.buses, "Bus")    
-    io.import_components_from_dataframe(network, sub_network.links, "Link")  
-    io.import_components_from_dataframe(network, sub_network.stores, "Store")
-    io.import_series_from_dataframe(network, sub_network.links_t.p_max_pu,'Link','p_max_pu')
-    io.import_series_from_dataframe(network, sub_network.links_t.p_min_pu,'Link','p_min_pu')
-    io.import_series_from_dataframe(network, sub_network.stores_t.e_max_pu,'Store','e_max_pu')
-    io.import_series_from_dataframe(network, sub_network.stores_t.e_min_pu,'Store','e_min_pu')
-
-    ######################################
+        ######################################
     
     clustering = get_clustering_from_busmap(
         network,
@@ -693,84 +697,84 @@ def kmean_clustering(etrago):
         line_length_factor=kmean_settings['line_length_factor'])
     
     ############## cluster sub sector links ##############
- 
-    links=clustering.network.links
-    
-    dsm_env_list = ['p_max','p_min'] # dsm envelope
-
-    # add main sector to linkmap
-    linkmap = pd.Series()
-    links_sel=links[~links.index.str.contains(sub)] # ATTENTION: adjust this when having multiple sub sectors
-    linkmap_sel = pd.Series(links_sel.index.to_list(), index=links_sel.index.to_list())  
-    linkmap = linkmap.append(linkmap_sel)
-
-    for dsm_env in dsm_env_list:
-        links_sel=links[links.index.str.contains(sub)&links.index.str.contains(dsm_env)]
-        ind = links_sel.index
-        l=links_sel.groupby(['bus0','bus1']) # dsm links all point to the dsm buses, so not necessary to take care off directionality 
-    
-        data=dict(
-            version =l['version'].first(),  
-            scn_name =l['scn_name'].first(),
-            efficiency=l['efficiency'].mean(), 
-            p_nom =l['p_nom'].sum(),
-           p_nom_extendable =l['p_nom_extendable'].first(), 
-           p_nom_min = l['p_nom_min'].sum(),
-           p_nom_max = l['p_nom_max'].sum(),
-           capital_cost = l['capital_cost'].mean(),
-           length =l['length'].first(),
-           terrain_factor = l['terrain_factor'].first(),
-           geom = l['geom'].first(),
-           topo = l['topo'].first(),
-           type = l['type'].first(),
-           p_set = l['p_set'].sum(),
-           p_min_pu = l['p_min_pu'].first(),
-           p_max_pu  = l['p_max_pu'].first(),
-           marginal_cost  = l['marginal_cost'].mean(),
-           p_nom_opt  = l['p_nom_opt'].first(),
-           country = l['country'].first(),
-           v_nom = l['v_nom'].first(),
-        )
-    
-        l_cl = pd.DataFrame(data)#, index = [str(i+1) for i in range(len(ind))])
-        l_cl['bus0'] = l_cl.index.get_level_values(0)  
-        l_cl['bus1'] = l_cl.index.get_level_values(1) 
-        l_cl['name'] = l_cl.index.get_level_values(1)+' '+dsm_env 
+    if etrago.args['dsm'] is not False:  
+        links=clustering.network.links
         
-        linkmap_sel = links_sel.join(l_cl['name'], on=['bus0', 'bus1'])['name']
+        dsm_env_list = ['p_max','p_min'] # dsm envelope
+    
+        # add main sector to linkmap
+        linkmap = pd.Series()
+        links_sel=links[~links.index.str.contains(sub)] # ATTENTION: adjust this when having multiple sub sectors
+        linkmap_sel = pd.Series(links_sel.index.to_list(), index=links_sel.index.to_list())  
         linkmap = linkmap.append(linkmap_sel)
-        l_cl.reset_index(drop=True, inplace=True)
-        l_cl.set_index('name',inplace=True)
+    
+        for dsm_env in dsm_env_list:
+            links_sel=links[links.index.str.contains(sub)&links.index.str.contains(dsm_env)]
+            ind = links_sel.index
+            l=links_sel.groupby(['bus0','bus1']) # dsm links all point to the dsm buses, so not necessary to take care off directionality 
         
-        clustering.network.links.drop(ind,inplace=True)
-        clustering.network.links = clustering.network.links.append(l_cl)
-
-    ############################
-
-    ##### cluster links_t ############
-
-    def _flatten_multiindex(m, join=' '):
-        if m.nlevels <= 1: return m
-        levels = map(m.get_level_values, range(m.nlevels))
-        return reduce(lambda x, y: x+join+y, levels, next(levels))
-    
-    new_pnl = dict()
-    grouper=linkmap
-    old_pnl = clustering.network.pnl('Link') #network.pnl(component)
-    for attr, df in iteritems(old_pnl):
-        if not df.empty:
-            pnl_df = df.groupby(grouper, axis=1).mean()
-            pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
-            new_pnl[attr] = pnl_df
-    
-    for attr, df in iteritems(new_pnl):
-            io.import_series_from_dataframe(clustering.network, df, 'Link', attr)
+            data=dict(
+                version =l['version'].first(),  
+                scn_name =l['scn_name'].first(),
+                efficiency=l['efficiency'].mean(), 
+                p_nom =l['p_nom'].sum(),
+               p_nom_extendable =l['p_nom_extendable'].first(), 
+               p_nom_min = l['p_nom_min'].sum(),
+               p_nom_max = l['p_nom_max'].sum(),
+               capital_cost = l['capital_cost'].mean(),
+               length =l['length'].first(),
+               terrain_factor = l['terrain_factor'].first(),
+               geom = l['geom'].first(),
+               topo = l['topo'].first(),
+               type = l['type'].first(),
+               p_set = l['p_set'].sum(),
+               p_min_pu = l['p_min_pu'].first(),
+               p_max_pu  = l['p_max_pu'].first(),
+               marginal_cost  = l['marginal_cost'].mean(),
+               p_nom_opt  = l['p_nom_opt'].first(),
+               country = l['country'].first(),
+               v_nom = l['v_nom'].first(),
+            )
+        
+            l_cl = pd.DataFrame(data)#, index = [str(i+1) for i in range(len(ind))])
+            l_cl['bus0'] = l_cl.index.get_level_values(0)  
+            l_cl['bus1'] = l_cl.index.get_level_values(1) 
+            l_cl['name'] = l_cl.index.get_level_values(1)+' '+dsm_env 
             
-    ind_drop=linkmap[linkmap.index.str.contains(sub)].index
-    clustering.network.links_t['p_max_pu'].drop(ind_drop,axis=1,inplace=True)
-    clustering.network.links_t['p_min_pu'].drop(ind_drop,axis=1,inplace=True)
-
-    ###############################    
+            linkmap_sel = links_sel.join(l_cl['name'], on=['bus0', 'bus1'])['name']
+            linkmap = linkmap.append(linkmap_sel)
+            l_cl.reset_index(drop=True, inplace=True)
+            l_cl.set_index('name',inplace=True)
+            
+            clustering.network.links.drop(ind,inplace=True)
+            clustering.network.links = clustering.network.links.append(l_cl)
+    
+        ############################
+    
+        ##### cluster links_t ############
+    
+        def _flatten_multiindex(m, join=' '):
+            if m.nlevels <= 1: return m
+            levels = map(m.get_level_values, range(m.nlevels))
+            return reduce(lambda x, y: x+join+y, levels, next(levels))
+        
+        new_pnl = dict()
+        grouper=linkmap
+        old_pnl = clustering.network.pnl('Link') #network.pnl(component)
+        for attr, df in iteritems(old_pnl):
+            if not df.empty:
+                pnl_df = df.groupby(grouper, axis=1).mean()
+                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
+                new_pnl[attr] = pnl_df
+        
+        for attr, df in iteritems(new_pnl):
+                io.import_series_from_dataframe(clustering.network, df, 'Link', attr)
+                
+        ind_drop=linkmap[linkmap.index.str.contains(sub)].index
+        clustering.network.links_t['p_max_pu'].drop(ind_drop,axis=1,inplace=True)
+        clustering.network.links_t['p_min_pu'].drop(ind_drop,axis=1,inplace=True)
+    
+        ###############################    
 
     return clustering
 

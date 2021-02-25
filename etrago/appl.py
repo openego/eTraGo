@@ -102,7 +102,11 @@ args = {
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
-    'comments': None}
+    'comments': None,
+    'dsm':False #{ # False or dictionary with options
+        # 'dsm_marg_cost':5, # marginal DSM costs [EUR/MWh]
+        # 'dsm_extendable':dsm_extendable} # DSM extenable (True / False)
+    }
 
 
 def run_etrago(args, json_path):
