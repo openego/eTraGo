@@ -24,8 +24,9 @@ spatially for applications within the tool eTraGo."""
 import os
 if 'READTHEDOCS' not in os.environ:
     from etrago.tools.utilities import *
-    from pypsa.networkclustering import (aggregatebuses, aggregatelines,
-                                         aggregateoneport, aggregategenerators,
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport, 
+                                         aggregategenerators,
+                                         get_clustering_from_busmap,
                                          busmap_by_kmeans, busmap_by_stubs, 
                                          _make_consense, Clustering)
     # copied get_clustering_from_busmap from pypsa.networkclustering 
@@ -55,94 +56,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
 # ToDo: Workaround because of agg
-
-# copied from pypsa.networkclustering 
-    # because of some changes needed for clustering approach using
-    # combination of k-medoid clustering and Dijkstra's algorithm
-def get_clustering_from_busmap(network, busmap, buses=None, with_time=True, line_length_factor=1.0,
-                               aggregate_generators_weighted=False, aggregate_one_ports={},
-                               bus_strategies=dict()):
-    
-    # begin get_buses_linemap_and_lines:
-    
-    # get or compute new buses
-    if buses is not None:
-        buses = buses
-    else:
-        buses = aggregatebuses(network, busmap, bus_strategies)
-    
-    lines = network.lines.assign(bus0_s=lambda df: df.bus0.map(busmap),
-                                 bus1_s=lambda df: df.bus1.map(busmap))
-
-    # lines between different clusters
-    interlines = lines.loc[lines['bus0_s'] != lines['bus1_s']]
-    
-    lines, linemap_p, linemap_n, linemap = aggregatelines(network, buses, interlines, line_length_factor)
-
-    lines = lines.reset_index().rename(columns={'bus0_s': 'bus0', 'bus1_s': 'bus1'}, copy=False).set_index('name')
-    
-    # end get_buses_linemap_and_lines
-    
-    network_c = Network()
-
-    io.import_components_from_dataframe(network_c, buses, "Bus")
-    io.import_components_from_dataframe(network_c, lines, "Line")
-
-    if with_time:
-        network_c.set_snapshots(network.snapshots)
-        network_c.snapshot_weightings = network.snapshot_weightings.copy()
-
-    one_port_components = components.one_port_components.copy()
-
-    if aggregate_generators_weighted:
-        one_port_components.remove("Generator")
-        generators, generators_pnl = aggregategenerators(network, busmap, with_time=with_time)
-        io.import_components_from_dataframe(network_c, generators, "Generator")
-        if with_time:
-            for attr, df in iteritems(generators_pnl):
-                if not df.empty:
-                    io.import_series_from_dataframe(network_c, df, "Generator", attr)
-
-    for one_port in aggregate_one_ports:
-        one_port_components.remove(one_port)
-        new_df, new_pnl = aggregateoneport(network, busmap, component=one_port, with_time=with_time)
-        io.import_components_from_dataframe(network_c, new_df, one_port)
-        for attr, df in iteritems(new_pnl):
-            io.import_series_from_dataframe(network_c, df, one_port, attr)
-
-
-    ##
-    # Collect remaining one ports
-
-    for c in network.iterate_components(one_port_components):
-        io.import_components_from_dataframe(
-            network_c,
-            c.df.assign(bus=c.df.bus.map(busmap)).dropna(subset=['bus']),
-            c.name
-        )
-
-    if with_time:
-        for c in network.iterate_components(one_port_components):
-            for attr, df in iteritems(c.pnl):
-                if not df.empty:
-                    io.import_series_from_dataframe(network_c, df, c.name, attr)
-
-    new_links = (network.links.assign(bus0=network.links.bus0.map(busmap),
-                                      bus1=network.links.bus1.map(busmap))
-                        .dropna(subset=['bus0', 'bus1'])
-                        .loc[lambda df: df.bus0 != df.bus1])
-    io.import_components_from_dataframe(network_c, new_links, "Link")
-
-    if with_time:
-        for attr, df in iteritems(network.links_t):
-            if not df.empty:
-                io.import_series_from_dataframe(network_c, df, "Link", attr)
-
-    io.import_components_from_dataframe(network_c, network.carriers, "Carrier")
-
-    network_c.determine_network_topology()
-
-    return Clustering(network_c, busmap, linemap, linemap_p, linemap_n)
 
 
 def _leading(busmap, df):
@@ -665,12 +578,6 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
 
         weight = weight.groupby(busmap.values).sum()
     
-    # Test: Rechnung mit vernachlässigter Gewichtung
-    #weight_points = (weight/weight).reindex(network.buses.index, fill_value=1)
-    #weight_points = weight_points.fillna(1)
-    #print("weight_points:")
-    #print(weight_points)
-    
     # k-mean clustering
     busmap = busmap_by_kmeans(
         network,
@@ -681,7 +588,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         max_iter=max_iter,
         tol=tol,
         n_jobs=n_jobs)
-
+    
     # ToDo change function in order to use bus_strategies or similar
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = components.one_port_components.copy()
@@ -769,7 +676,12 @@ def dijkstra(network, medoid_idx, busmap_k):
     # (only necessary for examination of new approach compared to kmeans)
     df_dijkstra['correction of assignment using dijkstra']=np.where(df_kmedoid['medoid_indices']==df_dijkstra['target'],'False', 'True')
     print(df_dijkstra['correction of assignment using dijkstra'])
-    
+    n=0
+    for i in df_dijkstra['correction of assignment using dijkstra']:
+        if i=="True":
+            n=n+1
+    print('correction using Dijktra: '+str(n))
+         
     # creation of new busmap with final assignment
     busmap=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
     busmap.index=df_kmedoid['kmean_index']
@@ -778,6 +690,7 @@ def dijkstra(network, medoid_idx, busmap_k):
     busmap_labels=busmap.copy()
     for i in range (len(c_buses)):
         busmap_labels.replace(c_buses[i], i, inplace=True)
+    busmap_labels=busmap_labels.astype(str)
     busmap_labels.index=list(busmap_labels.index.astype(str))
                     
     return busmap, busmap_labels
@@ -808,16 +721,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
         to get new line lengths.
-
-    remove_stubs: boolean
-        Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
-    TODO: in kmedoid nicht mehr relevant? -> entfernen?
-    
-    TODO: auch in appl.py entfernen
-
-    use_reduced_coordinates: boolean
-        If True, do not average cluster coordinates, but take from busmap.
-    TODO: nur innerhalb remove_stubs-Block -> entfernen?
 
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
@@ -875,9 +778,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     def normed(x):
         return (x / x.sum()).fillna(0.)
     
-    print('start k-medoid clustering & dijkstra algorithm approach')
+    print('start k-medoids Clustering & Dijkstras algorithm approach')
     
-    print('1) start k-mean clustering')
+    print('1) start k-means Clustering')
     
     # taken from function kmean_clustering
     
@@ -933,34 +836,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
-
-    '''# TODO: entfernen? remove stubs und use_reduced_coordinates
-    
-    # remove stubs
-    if remove_stubs:
-        network.determine_network_topology()
-        busmap = busmap_by_stubs(network)
-        network.generators['weight'] = network.generators['p_nom']
-        aggregate_one_ports = components.one_port_components.copy()
-        aggregate_one_ports.discard('Generator')
-
-        # reset coordinates to the new reduced guys, rather than taking an
-        # average (copied from pypsa.networkclustering)
-        if use_reduced_coordinates:
-            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
-            # i.e. network is changed in place!!
-            network.buses.loc[busmap.index, ['x', 'y']
-                              ] = network.buses.loc[busmap, ['x', 'y']].values
-
-        clustering = get_clustering_from_busmap(
-            network,
-            busmap,
-            aggregate_generators_weighted=True,
-            aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=line_length_factor)
-        network = clustering.network
-
-        weight = weight.groupby(busmap.values).sum()'''
     
     # k-means clustering
     
@@ -1003,7 +878,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         index=distances[i].idxmin()
         medoid_idx[i]=buses_i[index]
         
-    print('3) start dijkstra algorithm')
+    print('3) start Dijkstras algorithm')
         
     # Dijkstra's algorithm to check assignment of points to clusters considering electrical distance
     
@@ -1018,41 +893,25 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator') 
-    
-    # aggregate buses with new kmedoid coordinates
-    attrs = network.components["Bus"]["attrs"]
-    columns = set(attrs.index[attrs.static & attrs.status.str.startswith('Input')]) & set(network.buses.columns)
-    strategies = dict(v_nom=np.max,
-                      v_mag_pu_max=np.min, v_mag_pu_min=np.max)
-    strategies.update((attr, _make_consense("Bus", attr))
-                      for attr in columns.difference(strategies))
-    
-    df_buses=pd.DataFrame(network.buses.copy())
-    x_medoid=pd.Series(data=df_buses['x'])
-    y_medoid=pd.Series(data=df_buses['y'])
-    for i in range(df_buses.shape[0]):
-        index=busmap[i]
-        bus = df_buses.loc[index]
-        x_medoid[i]=bus['x']
-        y_medoid[i]=bus['y']
-    df_buses['x']=x_medoid.values
-    df_buses['y']=y_medoid.values
-    
-    # new buses with medoid coordinates  
-    new_buses = df_buses.groupby(busmap_labels.values).agg(strategies).reindex(columns=[f
-                              for f in network.buses.columns
-                              if f in columns])
-    
-    new_buses.index=new_buses.index.astype(str)
-    busmap_labels=busmap_labels.astype(str)
-    
     clustering = get_clustering_from_busmap(
         network,
         busmap_labels,
-        buses=new_buses,
         line_length_factor=line_length_factor,
         aggregate_generators_weighted=True,        
-        aggregate_one_ports=aggregate_one_ports)
+        aggregate_one_ports=aggregate_one_ports) 
+    
+    # change coordinates of new representative buses 
+    # to coordinates of earlier identified medoids within clusters
+    import pdb; pdb.set_trace()
+    for i in range(len(medoid_idx)):
+        index=medoid_idx[i]
+        clustering.network.buses['x'].iloc[i]=network.buses['x'].iloc[index]     
+        clustering.network.buses['y'].iloc[i]=network.buses['y'].iloc[index] 
+    
+    #new_buses.index=new_buses.index.astype(str)
+    
+    ### TODO: find errors
+    ### TODO: check if busmap with medoids indices still necessary
     
     return clustering
 
