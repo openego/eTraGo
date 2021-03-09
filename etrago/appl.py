@@ -401,6 +401,13 @@ def etrago(args):
     network : `pandas.DataFrame<dataframe>`
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
+        -> clustering method: k-means clustering
+        
+    network2 : `pandas.DataFrame<dataframe>`
+        eTraGo result network based on `PyPSA network
+        <https://www.pypsa.org/doc/components.html#network>`_
+        -> clustering method: 
+                combination of k-medoid clustering and Dijkstra's algorithm
     """
     conn = db.connection(section=args['db'])
     Session = sessionmaker(bind=conn)
@@ -553,8 +560,6 @@ def etrago(args):
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=args['load_cluster'],
                 line_length_factor=1,
-                remove_stubs=False,
-                use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
                 n_init=10,
@@ -563,6 +568,9 @@ def etrago(args):
                 n_jobs=-1)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
+
+    ###
+    #network2=network.copy()
 
     # skip snapshots
     if args['skip_snapshots']:
