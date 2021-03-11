@@ -30,6 +30,7 @@
     "ramp_limits": false,
     "extra_functionality": {},
     "network_clustering_kmeans": {
+                "active": true,
                 "n_clusters": 10,
                 "kmeans_busmap": false,
                 "line_length_factor": 1.25,
@@ -44,6 +45,7 @@
     "network_clustering_ehv": false,
     "disaggregation": "uniform",
     "snapshot_clustering": {
+                "active": true,
                 "n_clusters": 2,
                 "how": "daily",
                 "storage_constraints": "soc_constraints"},

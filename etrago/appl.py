@@ -76,7 +76,8 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': { # False or dict
+    'network_clustering_kmeans': {
+        'active': True, # choose if clustering is activated
         'n_clusters': 10, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
@@ -90,7 +91,8 @@ args = {
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {# False or dict
+    'snapshot_clustering': {
+        'active': True, # choose if clustering is activated
         'n_clusters': 2, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints'}, # additional constraints for storages
@@ -267,11 +269,12 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans : bool or dict
-         {'n_clusters': 10, 'kmeans_busmap': False,'line_length_factor': 1.25,
-        'remove_stubs': False, 'use_reduced_coordinates': False,
-        'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
-        'n_init': 10, 'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
+    network_clustering_kmeans :dict
+         {'active': True, 'n_clusters': 10, 'kmeans_busmap': False,
+          'line_length_factor': 1.25, 'remove_stubs': False,
+          'use_reduced_coordinates': False, 'bus_weight_tocsv': None,
+          'bus_weight_fromcsv': None, 'n_init': 10, 'max_iter': 300,
+          'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
         generation and load at each node.
@@ -289,8 +292,8 @@ def run_etrago(args, json_path):
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         sub-station, taking into account the shortest distance on power lines.
 
-    snapshot_clustering : bool or dict
-        {'n_clusters': 2, 'how': 'daily',
+    snapshot_clustering : dict
+        {'active': True, 'n_clusters': 2, 'how': 'daily',
          'storage_constraints': 'soc_constraints'},
         State if you want to cluster the snapshots and run the optimization
         only on a subset of snapshot periods. The 'n_clusters' value defines

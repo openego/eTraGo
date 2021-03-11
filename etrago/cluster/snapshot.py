@@ -46,7 +46,7 @@ __author__ = "Simon Hilpert"
 def snapshot_clustering(self):
     """
     """
-    if self.args['snapshot_clustering'] != False:
+    if self.args['snapshot_clustering']['active']:
 
         self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
