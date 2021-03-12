@@ -1444,3 +1444,9 @@ def check_args(etrago):
         assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
             (24 *etrago.args['snapshot_clustering']['n_clusters']),\
             ("Number of selected days is smaller than number of representitive snapshots")
+
+        if not etrago.args['method']['pyomo']:
+            logger.warning("Snapshot clustering constriants are "
+                           "not yet implemented without pyomo. "
+                           "args['method']['pyomo'] is set to True.")
+            etrago.args['method']['pyomo'] = True
