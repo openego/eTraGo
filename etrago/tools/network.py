@@ -43,7 +43,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     crossborder_capacity,
                                     set_line_voltages,
                                     convert_capital_costs,
-                                    get_args_setting)
+                                    get_args_setting,
+                                    export_to_csv)
 from etrago.tools.plot import (add_coordinates,
                                plot_grid)
 from etrago.tools.extendable import extendable
@@ -188,6 +189,8 @@ class Etrago():
     disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
+
+    export_to_csv = export_to_csv
 
 
     def build_network_from_db(self):

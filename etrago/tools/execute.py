@@ -29,7 +29,6 @@ if 'READTHEDOCS' not in os.environ:
     import numpy as np
     from pypsa.linopf import network_lopf
     from etrago.tools.constraints import Constraints
-    from etrago.tools.utilities import results_to_csv
 
     logger = logging.getLogger(__name__)
 
@@ -180,7 +179,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
                 if args['csv_export'] != False:
                     path = args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    results_to_csv(network, args, path)
+                    etrago.export_to_csv(path)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
@@ -216,7 +215,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
                 if args['csv_export'] != False:
                     path = args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    results_to_csv(network, args, path)
+                    etrago.export_to_csv(path)
 
                 if abs(pre-network.objective) <= diff_obj:
                     print('Threshold reached after ' + str(i) + ' iterations.')
@@ -227,7 +226,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
     if args['csv_export'] != False:
         path = args['csv_export']
-        results_to_csv(network, args, path)
+        etrago.export_to_csv(path)
 
     if not args['lpfile'] is False:
         network.model.write(
@@ -452,8 +451,9 @@ def pf_post_lopf(etrago, calc_losses = True):
 
     if args['csv_export'] != False:
         path = args['csv_export'] + '/pf_post_lopf'
-        results_to_csv(network, args, path)
-        pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'), index=True)
+        etrago.export_to_csv(path)
+        pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'),
+                               index=True)
 
     return network
 
