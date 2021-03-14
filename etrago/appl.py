@@ -569,9 +569,6 @@ def etrago(args):
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
 
-    ###
-    #network2=network.copy()
-
     # skip snapshots
     if args['skip_snapshots']:
         network.snapshots = network.snapshots[::args['skip_snapshots']]
