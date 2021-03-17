@@ -135,8 +135,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 20,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 20, # False or the value k for clustering
+    'network_clustering_kmeans': 150,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 150, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -340,7 +340,7 @@ def etrago(args):
         alike network_clustering_kmeans, but using a different clustering approach,
         stored in network2,
         State if you want to apply a clustering of all network buses down to
-        only ``'k'`` buses by using a approach with a k-medoids clustering
+        only ``'k'`` buses by using a approach with a k-medoids Clustering
         and a Dijkstra's algorithm. The weighting takes place considering 
         generation and load at each node. 
         If so, state the number of k you want to apply. Otherwise
@@ -544,9 +544,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=10,
-                max_iter=100,
-                tol=1e-6,
+                n_init=5,
+                max_iter=30,
+                tol=1e-3,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
@@ -562,12 +562,14 @@ def etrago(args):
                 line_length_factor=1,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
-                n_init=10,
-                max_iter=100,
-                tol=1e-6,
+                n_init=5,
+                max_iter=30,
+                tol=1e-3,
                 n_jobs=-1)
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
+        
+    #network2=network.copy()
 
     # skip snapshots
     if args['skip_snapshots']:
