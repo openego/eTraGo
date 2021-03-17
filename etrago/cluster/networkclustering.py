@@ -674,17 +674,23 @@ def dijkstra(network, medoid_idx, busmap_k):
     
     # comparison of k-medoids busmap and Dijkstra's busmap
     # (only necessary for examination of new approach compared to k-means)
-    df_dijkstra['correction of assignment using dijkstras']=np.where(df_kmedoid['medoid_indices']==df_dijkstra['target'],'False', 'True')
-    print(df_dijkstra['correction of assignment using dijkstras'])
+    df_dijkstra['correction of assignment']=df_dijkstra['target']
+    df_kmedoid.index=df_kmedoid['index']
+    for i in range(len(df_dijkstra)):
+        index=df_dijkstra['source'].iloc[i]
+        if (int(df_kmedoid['medoid_indices'].loc[index]) != int(df_dijkstra['target'].iloc[i])):
+            df_dijkstra['correction of assignment'].iloc[i]='True'
+        else:
+            df_dijkstra['correction of assignment'].iloc[i]='False'
     n=0
-    for i in df_dijkstra['correction of assignment using dijkstras']:
+    for i in df_dijkstra['correction of assignment']:
         if i=="True":
             n=n+1
     print("Correction using Dijkstra's: "+str(n))
-         
+    
     # creation of new busmap with final assignment (format: medoids indices)
     busmap_ind=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
-    busmap_ind.index=df_kmedoid['index']
+    busmap_ind.index=df_dijkstra['source']
             
     # adaption of busmap to format with labels (necessary for aggregation)
     busmap=busmap_ind.copy()
@@ -703,9 +709,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
                      n_init=10, max_iter=300, tol=1e-4,
                      n_jobs=1):
     
-    """ Function for combination of k-medoids clustering and Dijkstra's algorithm. 
+    """ Function for combination of k-medoids Clustering and Dijkstra's algorithm. 
     Maps an original network to a new one with adjustable number of nodes 
-    using a k-medoids clustering and a Dijkstra's algorithm.
+    using a k-medoids Clustering and a Dijkstra's algorithm.
 
     Parameters
     ----------
@@ -778,9 +784,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     def normed(x):
         return (x / x.sum()).fillna(0.)
     
-    print("start k-medoids clustering & Dijkstra's algorithm approach")
+    print("start k-medoids Clustering & Dijkstra's algorithm approach")
     
-    print('1) start k-means clustering')
+    print('1) start k-means Clustering')
     
     # taken from function kmean_clustering
     
