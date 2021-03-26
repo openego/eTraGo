@@ -1459,7 +1459,7 @@ def check_args(etrago):
              "representitive snapshots")
 
         if not etrago.args['method']['pyomo']:
-            logger.warning("Snapshot clustering constriants are "
+            logger.warning("Snapshot clustering constraints are "
                            "not yet implemented without pyomo. "
                            "args['method']['pyomo'] is set to True.")
             etrago.args['method']['pyomo'] = True
