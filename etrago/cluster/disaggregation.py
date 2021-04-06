@@ -9,7 +9,6 @@ import time
 import pandas as pd
 from pyomo.environ import Constraint
 from pypsa import Network
-from etrago.tools.utilities import results_to_csv
 
 
 class Disaggregation:
@@ -578,4 +577,4 @@ def run_disaggregation(self):
 
             if self.args['csv_export'] != False:
                 path = self.args['csv_export'] + '/disaggregated_network'
-                results_to_csv(self.disaggregated_network, self.args, path)
+                self.disaggregated_network.export_to_csv_folder(path)

@@ -603,7 +603,7 @@ def _enumerate_row(row):
     return row
 
 
-def results_to_csv(network, args, path):
+def export_to_csv(self, path):
     """ Function the writes the calaculation results
     in csv-files in the desired directory.
 
@@ -623,22 +623,23 @@ def results_to_csv(network, args, path):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
-    network.export_to_csv_folder(path)
+    self.network.export_to_csv_folder(path)
     data = pd.read_csv(os.path.join(path, 'network.csv'))
     #data['time'] = network.results['Solver'].Time
     data = data.apply(_enumerate_row, axis=1)
     data.to_csv(os.path.join(path, 'network.csv'), index=False)
 
-    with open(os.path.join(args['csv_export'], 'args.json'), 'w') as fp:
-        json.dump(args, fp)
+    with open(os.path.join(path, 'args.json'), 'w') as fp:
+        json.dump(self.args, fp)
 
-    if hasattr(network, 'Z'):
+    if hasattr(self.network, 'Z'):
         file = [i for i in os.listdir(
             path.strip('0123456789')) if i == 'Z.csv']
         if file:
             print('Z already calculated')
         else:
-            network.Z.to_csv(path.strip('0123456789') + '/Z.csv', index=False)
+            self.network.Z.to_csv(
+                path.strip('0123456789') + '/Z.csv', index=False)
 
     return
 
