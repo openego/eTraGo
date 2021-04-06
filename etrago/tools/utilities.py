@@ -23,14 +23,14 @@ Utilities.py includes a wide range of useful functions.
 """
 
 import os
-from pyomo.environ import (Var, Constraint, PositiveReals)
 import numpy as np
 import pandas as pd
 import pypsa
 import json
 import logging
 import math
-
+from pyomo.environ import (Var, Constraint, PositiveReals)
+from importlib import import_module
 
 geopandas = True
 try:
@@ -831,7 +831,8 @@ def add_missing_components(self):
 
     """
 
-    """https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
+    """
+    https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
 
      to bus 25096:
      25369 (86)
@@ -1319,7 +1320,8 @@ def crossborder_capacity(self):
                                'DKSE': 3500}
 
         else:
-            logger.info("args['foreign_lines']['capacity'] has to be in ['osmTGmod', 'ntc_acer', 'thermal_acer']")
+            logger.info("args['foreign_lines']['capacity'] has to be "
+                        "in ['osmTGmod', 'ntc_acer', 'thermal_acer']")
 
         if not network.lines[network.lines.country != 'DE'].empty:
             weighting = network.lines.loc[network.lines.country != 'DE', 's_nom'].\
@@ -1370,6 +1372,14 @@ def crossborder_capacity(self):
                     weighting_links[i_links] * cap_per_country[country]
 
 def set_line_voltages(self):
+    """
+    Adds voltage level to AC-lines
+
+    Returns
+    -------
+    None.
+
+    """
     self.network.lines['v_nom'] = self.network.lines.bus0.map(
         self.network.buses.v_nom)
     self.network.links['v_nom'] = self.network.links.bus0.map(
@@ -1407,7 +1417,7 @@ def set_branch_capacity(etrago):
 
 def check_args(etrago):
     """
-    Function that checks the consistency of etragos input parameters automatically.
+    Function that checks the consistency of etragos input parameters.
 
     Parameters
     ----------
@@ -1420,9 +1430,10 @@ def check_args(etrago):
 
     """
 
-    from importlib import import_module
+
     assert etrago.args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
-        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] but is " + etrago.args['scn_name'])
+        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] "
+         "but is " + etrago.args['scn_name'])
 
     assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
         ("start_snapshot after end_snapshot")
@@ -1439,8 +1450,16 @@ def check_args(etrago):
 
         assert etrago.args['end_snapshot']/\
             etrago.args['start_snapshot'] % 24 == 0,\
-            ("Please select snapshots covering whole days when choosing snapshot clustering")
+            ("Please select snapshots covering whole days when choosing "
+             "snapshot clustering")
 
         assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
             (24 *etrago.args['snapshot_clustering']['n_clusters']),\
-            ("Number of selected days is smaller than number of representitive snapshots")
+            ("Number of selected days is smaller than number of "
+             "representitive snapshots")
+
+        if not etrago.args['method']['pyomo']:
+            logger.warning("Snapshot clustering constraints are "
+                           "not yet implemented without pyomo. "
+                           "args['method']['pyomo'] is set to True.")
+            etrago.args['method']['pyomo'] = True
