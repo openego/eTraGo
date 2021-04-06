@@ -970,7 +970,7 @@ class Constraints:
                     logger.warning("Constraint {} not defined".format(constraint))
 
 
-        if self.args['snapshot_clustering'] is not False:
+        if self.args['snapshot_clustering']['active']:
                 # This will bound the storage level to 0.5 max_level every 24th hour.
                 sus = network.storage_units
                 # take every first hour of the clustered days
