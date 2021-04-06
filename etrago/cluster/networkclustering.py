@@ -635,7 +635,7 @@ def kmean_clustering(etrago):
 
 def run_kmeans_clustering(self):
 
-    if self.args['network_clustering_kmeans'] != False:
+    if self.args['network_clustering_kmeans']['active']:
 
         self.network.generators.control = "PV"
 
