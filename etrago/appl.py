@@ -49,9 +49,10 @@ args = {
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 8, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
-    'pf_post_lopf': { # False if not perform a pf after a lopf simulation
+    'pf_post_lopf': {
+        'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
@@ -131,8 +132,8 @@ def run_etrago(args, json_path):
         Set 'pyomo' to False for big optimization problems, currently only
         possible when solver is 'gurobi'.
 
-    pf_post_lopf : bool or dict
-        {'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
+    pf_post_lopf :dict
+        {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
         Option to run a non-linear power flow (pf) directly after the
         linear optimal power flow (and thus the dispatch) has finished.
         If foreign lines are modeled as DC-links (see foreign_lines), results

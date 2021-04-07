@@ -265,7 +265,7 @@ def run_pf_post_lopf(self):
 
     """
 
-    if self.args['pf_post_lopf'] != False:
+    if self.args['pf_post_lopf']['active']:
 
         pf_post_lopf(self)
 
