@@ -236,33 +236,19 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
     return network
 
 def lopf(self):
+    """ Functions that runs lopf accordning to arguments
 
-    # TODO: Check if Constraints can be added to etrago object
+    Returns
+    -------
+    None.
+
+    """
 
     x = time.time()
-    if self.args['method']['type'] == 'lopf':
-        try:
-            from vresutils.benchmark import memory_logger
-            with memory_logger(filename=self.args['csv_export']+'_memory.log',
-                               interval=30.) as mem:
-                iterate_lopf(self,
-                             Constraints(self.args).functionality,
-                             method=self.args['method'])
-            print("Maximum memory usage: {} MB".format(round(mem.mem_usage[0], 1)))
-        except:
-            iterate_lopf(self,
-                         Constraints(self.args).functionality,
-                         method=self.args['method'])
 
-
-
-    elif self.args['method']['type'] == 'ilopf':
-        from pypsa.linopf import ilopf
-        # Temporary set all line types
-        self.network.lines.type = 'Al/St 240/40 4-bundle 380.0'
-        x = time.time()
-        ilopf(self.network, solver_name=self.args['solver'],
-              solver_options=self.args['solver_options'])
+    iterate_lopf(self,
+                     Constraints(self.args).functionality,
+                     method=self.args['method'])
 
     y = time.time()
     z = (y - x) / 60
