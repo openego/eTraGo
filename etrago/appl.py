@@ -135,8 +135,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 150,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 150, # False or the value k for clustering
+    'network_clustering_kmeans': 50,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': False, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -569,7 +569,7 @@ def etrago(args):
         network2 = clustering2.network.copy()
         geolocation_buses(network2, session)
         
-    #network2=network.copy()
+    network2=network.copy()
 
     # skip snapshots
     if args['skip_snapshots']:
