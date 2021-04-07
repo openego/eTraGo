@@ -9,6 +9,6 @@ Added features
 * (n-1)-security factors are set as line/transformer parameters s_max_pu instead of adding the additional argument s_nom_original 
 * There is now one central plotting function for all grid topology plots which also allows to combine different results (e.g. plot storage expansion and line expansion at once) 
 * eTraGo is now compatible to Python3.7
-* A bug in setting the line_length_factor in kemans clustering is fixed. 
+* A bug in setting the line_length_factor in kmeans clustering is fixed. 
 
 
