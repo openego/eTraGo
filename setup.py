@@ -35,7 +35,8 @@ setup(
     extras_require={
         'docs': [
             'sphinx >= 1.4',
-            'sphinx_rtd_theme']},
+            'sphinx_rtd_theme'],
+        'gurobipy':['gurobipy']},
     package_data={
         'etrago': [
             os.path.join('tools', '*.json')]
