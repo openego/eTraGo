@@ -15,7 +15,7 @@ Installation for Developers
 
 .. code-block:: bash
 
-   $ virtualenv --clear -p python3.5  etrago``
+   $ virtualenv --clear -p python3.7  etrago``
    $ cd etrago/
    $ source bin/activate
    
