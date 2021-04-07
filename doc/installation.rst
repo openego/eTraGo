@@ -30,7 +30,7 @@ install eTraGo with the pip command, as previously explained.
 Linux and Ubuntu
 ================
 
-The Package eTraGo is tested with Ubuntu 16.04 and 18.04 inside the virtual
+The Package eTraGo is tested with Ubuntu 16.04, 18.04 and 20.04 inside the virtual
 environments of `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
 The installation is shown above.
 
