@@ -49,14 +49,14 @@ args = {
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 72,
+    'end_snapshot': 3,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -91,9 +91,9 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
-        'active': True, # choose if clustering is activated
+        'active': False, # choose if clustering is activated
         'n_clusters': 2, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints'}, # additional constraints for storages
