@@ -1470,7 +1470,7 @@ def check_args(etrago):
             import gurobipy
         except ModuleNotFoundError:
             print(
-                "If you want to nomopyomo you need to use the "
+                "If you want to use nomopyomo you need to use the "
                 "solver gurobi and the package gurobipy. "
                 "You can find more information and installation "
                 "instructions for gurobi here: "
