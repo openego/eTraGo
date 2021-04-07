@@ -485,7 +485,7 @@ def plot_gen_diff(
     """
     def gen_by_c(network):
         gen = pd.concat(
-            [network.generators_t.p.mul(etwork.snapshot_weightings, axis=0)
+            [network.generators_t.p.mul(network.snapshot_weightings, axis=0)
              [network.generators[network.generators.control != 'Slack'].index],
              network.generators_t.p.mul(
                  network.snapshot_weightings, axis=0)
