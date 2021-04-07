@@ -20,7 +20,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.5
+   $ virtualenv venv --clear -p python3.7
    $ source venv/bin/activate
    $ cd venv
 
@@ -40,7 +40,7 @@ Windows or Mac OSX users
 ========================
 
 For Windows and/or Mac OSX user we highly recommend to install and use Anaconda
-for you Python3 installation. First install anaconda inclusing python 3.5 or
+for you Python3 installation. First install anaconda including python 3.5 or
 higher version from https://www.anaconda.com/download/ and open an anaconda
 prompt as administrator and run:
 
