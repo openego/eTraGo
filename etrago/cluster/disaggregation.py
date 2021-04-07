@@ -547,7 +547,7 @@ def update_constraints(network, externals):
 def run_disaggregation(self):
     if self.clustering:
         disagg = self.args.get('disaggregation')
-        skip = () if self.args['pf_post_lopf'] else ('q',)
+        skip = () if self.args['pf_post_lopf']['active'] else ('q',)
         t = time.time()
         if disagg:
             if disagg == 'mini':
