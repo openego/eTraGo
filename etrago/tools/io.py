@@ -59,11 +59,12 @@ import numpy as np
 if 'READTHEDOCS' not in os.environ:
     from geoalchemy2.shape import to_shape
     from sqlalchemy.orm.exc import NoResultFound
-    from sqlalchemy import and_, func, or_
+    from sqlalchemy import and_, func, or_, create_engine
+    import saio
+
 
 #from etrago.tools.nep import add_by_scenario, add_series_by_scenario
 
-packagename = 'egoio.db_tables'
 temp_ormclass = 'TempResolution'
 carr_ormclass = 'Source'
 
@@ -88,13 +89,10 @@ class ScenarioBase():
         Handles conversations with the database.
     version : str
         Version number of data version control in grid schema of the oedb.
-    prefix : str
-        Common prefix of component orm classnames in egoio.
     """
 
     def __init__(
-        self, session, method='lopf', configpath='config.json', version=None,
-            prefix='EgoGridPfHv'):
+        self, engine, session, configpath='config.json', version=None):
 
         global packagename
         global temp_ormclass
@@ -102,43 +100,10 @@ class ScenarioBase():
 
         schema = 'grid' if version else 'model_draft'
 
-        self.config = load_config_file(configpath)[method]
+        saio.register_schema(schema, engine)
+        self.config = load_config_file(configpath)['lopf']
         self.session = session
         self.version = version
-        self._prefix = prefix
-        #: module: Providing orm class definitions to oedb
-        self._pkg = import_module(packagename + '.' + schema)
-        #: dict: Container for orm classes corresponding to configuration file
-        self._mapped = {}
-
-        # Populate _mapped with orm classes according to config
-        for k, v in self.config.items():
-            self.map_ormclass(k)
-            if isinstance(v, dict):
-                for kk in v.keys():
-                    self.map_ormclass(kk)
-
-        # map temporal resolution table
-        self.map_ormclass(temp_ormclass)
-
-        # map carrier id to carrier table
-        self.map_ormclass(carr_ormclass)
-
-    def map_ormclass(self, name):
-        """ Populate _mapped attribute with orm class
-
-        Parameters
-        ----------
-        name : str
-            Component part of orm class name. Concatenated with _prefix.
-        """
-
-        try:
-            self._mapped[name] = getattr(self._pkg, self._prefix + name)
-
-        except AttributeError:
-            print('Warning: Relation %s does not exist.' % name)
-
 
 class NetworkScenario(ScenarioBase):
     """ Adapter class between oedb powerflow data and PyPSA. Provides the
@@ -159,21 +124,23 @@ class NetworkScenario(ScenarioBase):
     """
 
     def __init__(
-        self, session, scn_name='Status Quo', method='lopf',
+        self, engine, session, scn_name='Status Quo',
             start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
 
         self.scn_name = scn_name
-        self.method = method
         self.start_snapshot = start_snapshot
         self.end_snapshot = end_snapshot
         self.temp_id = temp_id
 
-        super().__init__(session, **kwargs)
+        super().__init__(engine, session, **kwargs)
 
         # network: pypsa.Network
         self.network = None
 
-        self.configure_timeindex()
+        saio.register_schema('grid', engine)
+
+        # TODO: Adjust for egon-data
+        #self.configure_timeindex()
 
     def __repr__(self):
         r = ('NetworkScenario: %s' % self.scn_name)
@@ -234,28 +201,33 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
+        from saio.grid import (
+                    egon_pf_hv_bus,
+                    egon_pf_hv_generator,
+                    egon_pf_hv_load,
+                    egon_pf_hv_line,
+                    egon_pf_hv_link,
+                    egon_pf_hv_load,
+                    egon_pf_hv_storage,
+                    egon_pf_hv_store,
+                    egon_pf_hv_transformer
+                    )
+        index = f'{name.lower()}_id'
 
-        ormclass = self._mapped[name]
-        query = self.session.query(ormclass)
-
-        if name != carr_ormclass:
-
-            query = query.filter(
-                ormclass.scn_name == self.scn_name)
-
-        if self.version:
-            query = query.filter(ormclass.version == self.version)
-
-        # TODO: Naming is not consistent. Change in database required.
         if name == 'Transformer':
-            name = 'Trafo'
+            index = 'trafo_id'
 
-        df = pd.read_sql(query.statement,
-                         self.session.bind,
-                         index_col=name.lower() + '_id')
-        if name == 'Link':
-            df['bus0'] = df.bus0.astype(int)
-            df['bus1'] = df.bus1.astype(int)
+        df = saio.as_pandas(
+            self.session.query(
+                vars()[f'egon_pf_hv_{name.lower()}'])
+            .filter(vars()[f'egon_pf_hv_{name.lower()}'].version==self.version)
+            .filter(vars()[f'egon_pf_hv_{name.lower()}'].scn_name==self.scn_name)
+            ).set_index(index)
+
+        if name == 'Transformer':
+            df.tap_side = 0
+            df.tap_position = 0
+            df = df.drop_duplicates()
 
         if 'source' in df:
             df.source = df.source.map(self.id_to_source())
@@ -326,34 +298,11 @@ class NetworkScenario(ScenarioBase):
 
         else:
             network = pypsa.Network()
-            network.set_snapshots(self.timeindex)
+            #TODO: Adjust for egon-data
+           # network.set_snapshots(self.timeindex)
 
         timevarying_override = False
 
-        if pypsa.__version__ == '0.17.1':
-            old_to_new_name = {'Generator':
-                               {'p_min_pu_fixed': 'p_min_pu',
-                                'p_max_pu_fixed': 'p_max_pu',
-                                'source': 'carrier',
-                                'dispatch': 'former_dispatch'},
-                               'Bus':
-                               {'current_type': 'carrier'},
-                               'Transformer':
-                               {'trafo_id': 'transformer_id'},
-                               'Storage':
-                               {'p_min_pu_fixed': 'p_min_pu',
-                                'p_max_pu_fixed': 'p_max_pu',
-                                'soc_cyclic': 'cyclic_state_of_charge',
-                                'soc_initial': 'state_of_charge_initial',
-                                'source': 'carrier'}}
-
-            timevarying_override = True
-
-        else:
-
-            old_to_new_name = {'Storage':
-                               {'soc_cyclic': 'cyclic_state_of_charge',
-                                'soc_initial': 'state_of_charge_initial'}}
 
         for comp, comp_t_dict in self.config.items():
 
@@ -362,43 +311,39 @@ class NetworkScenario(ScenarioBase):
 
             df = self.fetch_by_relname(comp)
 
-            if comp in old_to_new_name:
-
-                tmp = old_to_new_name[comp]
-                df.rename(columns=tmp, inplace=True)
-
             network.import_components_from_dataframe(df, pypsa_comp_name)
 
-            if comp_t_dict:
+            # TODO: Adjust time series import
+            # if comp_t_dict:
 
-                for comp_t, columns in comp_t_dict.items():
+            #     for comp_t, columns in comp_t_dict.items():
 
-                    for col in columns:
+            #         for col in columns:
 
-                        df_series = self.series_fetch_by_relname(comp_t, col)
+            #             df_series = self.series_fetch_by_relname(comp_t, col)
 
-                        # TODO: VMagPuSet is not implemented.
-                        if timevarying_override and comp == 'Generator' \
-                        and not df_series.empty:
-                            idx = df[df.former_dispatch == 'flexible'].index
-                            idx = [i for i in idx if i in df_series.columns]
-                            df_series.drop(idx, axis=1, inplace=True)
+            #             # TODO: VMagPuSet is not implemented.
+            #             if timevarying_override and comp == 'Generator' \
+            #             and not df_series.empty:
+            #                 idx = df[df.former_dispatch == 'flexible'].index
+            #                 idx = [i for i in idx if i in df_series.columns]
+            #                 df_series.drop(idx, axis=1, inplace=True)
 
-                        try:
+            #             try:
 
-                            pypsa.io.import_series_from_dataframe(
-                                network,
-                                df_series,
-                                pypsa_comp_name,
-                                col)
+            #                 pypsa.io.import_series_from_dataframe(
+            #                     network,
+            #                     df_series,
+            #                     pypsa_comp_name,
+            #                     col)
 
-                        except (ValueError, AttributeError):
-                            print("Series %s of component %s could not be "
-                                  "imported" % (col, pypsa_comp_name))
+            #             except (ValueError, AttributeError):
+            #                 print("Series %s of component %s could not be "
+            #                       "imported" % (col, pypsa_comp_name))
 
         # populate carrier attribute in PyPSA network
-        network.import_components_from_dataframe(
-            self.fetch_by_relname(carr_ormclass), 'Carrier')
+        # network.import_components_from_dataframe(
+        #     self.fetch_by_relname(carr_ormclass), 'Carrier')
 
         self.network = network
 

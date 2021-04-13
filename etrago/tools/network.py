@@ -116,6 +116,8 @@ class Etrago():
 
             session = sessionmaker(bind=conn)
 
+            self.engine = conn
+
             self.session = session()
 
             self.check_args()
@@ -202,15 +204,12 @@ class Etrago():
         None.
 
         """
-        self.scenario = NetworkScenario(self.session,
-                                        version=self.args['gridversion'],
-                                        prefix=('EgoGridPfHv' if
-                                                self.args['gridversion'] is None
-                                                else 'EgoPfHv'),
-                                        method=self.args['method'],
-                                        start_snapshot=self.args['start_snapshot'],
-                                        end_snapshot=self.args['end_snapshot'],
-                                        scn_name=self.args['scn_name'])
+        self.scenario = NetworkScenario(
+            self.engine, self.session,
+            version=self.args['gridversion'],
+            start_snapshot=self.args['start_snapshot'],
+            end_snapshot=self.args['end_snapshot'],
+            scn_name=self.args['scn_name'])
 
         self.network = self.scenario.build_network()
 
@@ -234,7 +233,7 @@ class Etrago():
 
         self.geolocation_buses()
 
-        self.add_missing_components()
+       # self.add_missing_components()
 
         self.load_shedding()
 
