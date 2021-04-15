@@ -135,10 +135,10 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': False, # False or the value k for clustering
+    'network_clustering_kmeans': 5,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 5, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
@@ -530,8 +530,8 @@ def etrago(args):
                         version=args['gridversion'])
         network = cluster_on_extra_high_voltage(
             network, busmap, with_time=True)
-        
-    networkkmedoid=network.copy()
+    
+    networkkmedoid=network.copy() ### 
 
     # k-mean clustering
     if not args['network_clustering_kmeans'] == False:
@@ -552,10 +552,11 @@ def etrago(args):
                 network.copy() if args.get('disaggregation') else None)
         network = clustering.network.copy()
         geolocation_buses(network, session)
-        
+    
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
-        clustering2 = kmedoid_dijkstra_clustering(
+    ### calculate kmean-network and kmedoid-dijkstra-network for comparison
+        clustering_kmean, clustering_dijkstra = kmedoid_dijkstra_clustering(
                 networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=args['load_cluster'],
@@ -566,10 +567,13 @@ def etrago(args):
                 max_iter=30,
                 tol=1e-3,
                 n_jobs=-1)
-        network2 = clustering2.network.copy()
-        geolocation_buses(network2, session)
+        network_kmean = clustering_kmean.network.copy() ### 
+        network_dijkstra = clustering_dijkstra.network.copy() ###
+        geolocation_buses(network_kmean, session)
+        geolocation_buses(network_dijkstra, session)
         
-    network2=network.copy()
+    #network_kmean=network.copy() ### 
+    #network_dijkstra=network.copy() ###
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -604,7 +608,12 @@ def etrago(args):
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
-        iterate_lopf(network2,
+        ###
+        iterate_lopf(network_kmean,
+                     args,
+                     Constraints(args).functionality,
+                     method={'n_iter':4})
+        iterate_lopf(network_dijkstra,
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
@@ -689,13 +698,13 @@ def etrago(args):
     # close session
     # session.close()
 
-    return network, disaggregated_network, network2
+    return network, disaggregated_network, network_kmean, network_dijkstra
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network, disaggregated_network, network2 = etrago(args)
+    network, disaggregated_network, network_kmean, network_dijkstra = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
