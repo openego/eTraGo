@@ -90,11 +90,11 @@ args = {
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {# False or dict
-        'n_clusters': 1, # number of periods
-        'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': '', # additional constraints for storages
-        'segmentation': 100}, #False or number of segments per day
+    'snapshot_clustering': False,#{# False or dict
+        # 'n_clusters': 1, # number of periods
+        # 'how': 'daily', # type of period, currently only 'daily'
+        # 'storage_constraints': '', # additional constraints for storages
+        # 'segmentation': 100}, #False or number of segments per day
         #If segmentation used: set n_clusters as no. of snapshots divided by 24
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
@@ -103,9 +103,9 @@ args = {
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None,
-    'dsm':False #{ # False or dictionary with options
-        # 'dsm_marg_cost':5, # marginal DSM costs [EUR/MWh]
-        # 'dsm_extendable':dsm_extendable} # DSM extenable (True / False)
+    'dsm':{ # False or dictionary with options
+        'dsm_marg_cost':5, # marginal DSM costs [EUR/MWh]
+        'dsm_extendable':True} # DSM extenable (True / False)
     }
 
 
