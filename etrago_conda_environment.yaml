@@ -1,16 +1,17 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 name: etrago-env
+
 channels:
   - conda-forge
   - bioconda
-  - http://conda.anaconda.org/gurobi
 
 dependencies:
   - python==3.7
   - pip
   - spyder<5.0.0
   - shapely
+  - glpk
 
   - pip:
     - -e .
