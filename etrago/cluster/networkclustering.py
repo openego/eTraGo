@@ -170,7 +170,7 @@ def graph_from_edges(edges):
     return M
 
 
-def gen(nodes, n, graph):
+def gen(nodes, n, graph, cutoff):
     # TODO There could be a more convenient way of doing this. This generators
     # single purpose is to prepare data for multiprocessing's starmap function.
     """ Generator for applying multiprocessing.
@@ -194,10 +194,10 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i:i + n], g)
+        yield (nodes[i:i + n], g, cutoff)
 
 
-def shortest_path(paths, graph):
+def shortest_path(paths, graph, cutoff):
     """ Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
@@ -217,7 +217,7 @@ def shortest_path(paths, graph):
     df : pd.DataFrame
         DataFrame holding source and target node and the minimum path length.
     """
-
+    
     idxnames = ['source', 'target']
     idx = pd.MultiIndex.from_tuples(paths, names=idxnames)
     df = pd.DataFrame(index=idx, columns=['path_length'])
@@ -239,9 +239,12 @@ def shortest_path(paths, graph):
     for s, t in paths:
         while (df_isna.loc[(s, t), 'path_length'] == True):  
             try:
-                s_to_other = nx.single_source_dijkstra_path_length(graph, s) 
+                s_to_other = nx.single_source_dijkstra_path_length(graph, s, cutoff=cutoff) 
                 for t in idx.levels[1]: 
-                    df.loc[(s, t), 'path_length'] = s_to_other[t]  
+                    if t in s_to_other:
+                        df.loc[(s, t), 'path_length'] = s_to_other[t] 
+                    else:
+                        df.loc[(s,t),'path_length'] = np.inf
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
@@ -649,6 +652,10 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
              in lines.iterrows()]
     M = graph_from_edges(edges)
     
+    # cutoff to reduce complexity of Dijkstra's algorithm
+    cutoff = 10*dist_mean.max()
+    ### TODO: only need cutoff here instead of mean_dist
+    
     # processor count
     cpu_cores = mp.cpu_count()  
     ### TODO: Zusammenhang mit n_jobs prüfen -> als Argument setzen für Festlegung durch User
@@ -657,15 +664,14 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     # using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
-    ### TODO: CUTOFF implementieren
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, cutoff))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
-
+    import pdb;pdb.set_trace()
     # assignment of data points to closest k-medoids centers
     df.sortlevel(inplace=True) 
     mask = df.groupby(level='source')['path_length'].idxmin()
-    
+
     # Dijkstra's assignment
     df_dijkstra = df.loc[mask, :]
     df_dijkstra.reset_index(inplace=True)
@@ -712,9 +718,14 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     
     ### Untersuchung der Distanzen für CUTOFF
     ### TODO: weg
-    df_dijkstra['path_length']=df_dijkstra['path_length'].astype(float)
-    factor=pd.DataFrame(data=df_dijkstra['correction of assignment'])
-    factor['factor']=pd.Series(data=df_dijkstra['path_length'].divide(dist_mean))
+    path_medoid = pd.Series(data=df_dijkstra['path_length'].astype(float))
+    path_medoid.index=dist_mean.index
+    print('max path to medoid: '+str(path_medoid.max()))
+    print('max distance to mean: '+str(dist_mean.max()))
+    '''factor=pd.DataFrame(data=df_dijkstra['correction of assignment'])
+    factor.index=dist_mean.index
+    dist_mean.replace([0.0],[0.1],inplace=True) # to avoid inf 
+    factor['factor']=pd.Series(data=path_medoid.divide(dist_mean))
     mean_factor=factor['factor'].mean()
     max_factor=factor['factor'].max()
     min_factor=factor['factor'].min()
@@ -738,8 +749,8 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     print('max-Faktor: '+str(max_False_factor))
     print('min-Faktor: '+str(min_False_factor))
     print(' ')
-    #df_dijkstra.to_csv('df_dijkstra',index=True)
-    #dist_mean.to_csv('dist_mean',index=True)
+    df_dijkstra.to_csv('df_dijkstra',index=True)
+    dist_mean.to_csv('dist_mean',index=True)'''
     ###
     
     # creation of new busmap with final assignment (format: medoids indices)
