@@ -538,6 +538,10 @@ def load_shedding(self, **kwargs):
         self.network.add("Carrier", "load")
         start = self.network.generators.index.to_series().str.rsplit(
             ' ').str[0].astype(int).sort_values().max() + 1
+
+        if start != start:
+            start = 0
+
         index = list(range(start, start + len(self.network.buses.index)))
         self.network.import_components_from_dataframe(
             pd.DataFrame(
@@ -1432,8 +1436,8 @@ def check_args(etrago):
     """
 
 
-    assert etrago.args['scn_name'] in ['Status Quo', 'NEP 2035', 'eGo 100'],\
-        ("'scn_name' has to be in ['Status Quo', 'NEP 2035', 'eGo 100'] "
+    assert etrago.args['scn_name'] in ['Status Quo', 'eGon2035', 'eGon100RE'],\
+        ("'scn_name' has to be in ['Status Quo', 'eGon2035', 'eGon100RE'] "
          "but is " + etrago.args['scn_name'])
 
     assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
