@@ -52,7 +52,6 @@ import pypsa
 from importlib import import_module
 import pandas as pd
 from collections import OrderedDict
-import re
 import json
 import os
 import numpy as np
@@ -61,30 +60,20 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy.orm.exc import NoResultFound
     from sqlalchemy import and_, func, or_, create_engine
     import saio
+    import logging
+    logger = logging.getLogger(__name__)
 
-
-#from etrago.tools.nep import add_by_scenario, add_series_by_scenario
-
-temp_ormclass = 'TempResolution'
 carr_ormclass = 'Source'
 
-
-def load_config_file(filename='config.json'):
-    dirname = os.path.dirname(__file__)
-    path = os.path.join(dirname, filename)
-    return json.load(open(path), object_pairs_hook=OrderedDict)
 
 
 class ScenarioBase():
     """ Base class to address the dynamic provision of orm classes representing
-    powerflow components from egoio based on a configuration file
-
+    powerflow components from egoio
 
     Parameters
     ----------
 
-    config : OrderedDict
-        Dictionary with orm class names that should be accessable via _mapped.
     session : sqla.orm.session.Session
         Handles conversations with the database.
     version : str
@@ -92,16 +81,11 @@ class ScenarioBase():
     """
 
     def __init__(
-        self, engine, session, configpath='config.json', version=None):
+        self, engine, session, version=None):
 
-        global packagename
-        global temp_ormclass
         global carr_ormclass
 
-        schema = 'grid' if version else 'model_draft'
-
-        saio.register_schema(schema, engine)
-        self.config = load_config_file(configpath)['lopf']
+        saio.register_schema('grid', engine)
         self.session = session
         self.version = version
 
@@ -139,8 +123,7 @@ class NetworkScenario(ScenarioBase):
 
         saio.register_schema('grid', engine)
 
-        # TODO: Adjust for egon-data
-        #self.configure_timeindex()
+        self.configure_timeindex()
 
     def __repr__(self):
         r = ('NetworkScenario: %s' % self.scn_name)
@@ -154,16 +137,15 @@ class NetworkScenario(ScenarioBase):
         """ Construct a DateTimeIndex with the queried temporal resolution,
         start- and end_snapshot. """
 
+        from saio.grid import egon_pf_hv_temp_resolution
+
         try:
 
-            ormclass = self._mapped['TempResolution']
-            if self.version:
-                tr = self.session.query(ormclass).filter(
-                    ormclass.temp_id == self.temp_id).filter(
-                        ormclass.version == self.version).one()
-            else:
-                tr = self.session.query(ormclass).filter(
-                    ormclass.temp_id == self.temp_id).one()
+            tr = saio.as_pandas(self.session.query(
+                egon_pf_hv_temp_resolution)
+                .filter(egon_pf_hv_temp_resolution.version==self.version)
+                .filter(egon_pf_hv_temp_resolution.temp_id==self.temp_id)
+                ).squeeze()
 
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
@@ -212,6 +194,7 @@ class NetworkScenario(ScenarioBase):
                     egon_pf_hv_store,
                     egon_pf_hv_transformer
                     )
+
         index = f'{name.lower()}_id'
 
         if name == 'Transformer':
@@ -220,8 +203,10 @@ class NetworkScenario(ScenarioBase):
         df = saio.as_pandas(
             self.session.query(
                 vars()[f'egon_pf_hv_{name.lower()}'])
-            .filter(vars()[f'egon_pf_hv_{name.lower()}'].version==self.version)
-            .filter(vars()[f'egon_pf_hv_{name.lower()}'].scn_name==self.scn_name)
+            .filter(vars()[f'egon_pf_hv_{name.lower()}'].version
+                    ==self.version)
+            .filter(vars()[f'egon_pf_hv_{name.lower()}'].scn_name
+                    ==self.scn_name)
             ).set_index(index)
 
         if name == 'Transformer':
@@ -234,7 +219,7 @@ class NetworkScenario(ScenarioBase):
 
         return df
 
-    def series_fetch_by_relname(self, name, column):
+    def series_fetch_by_relname(self, network, name, pypsa_name):
         """ Construct DataFrame with component timeseries data from filtered
         table data.
 
@@ -250,96 +235,73 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
+        from saio.grid import (
+                    egon_pf_hv_bus_timeseries,
+                    egon_pf_hv_generator_timeseries,
+                    egon_pf_hv_load_timeseries,
+                    egon_pf_hv_line_timeseries,
+                    egon_pf_hv_link_timeseries,
+                    egon_pf_hv_load_timeseries,
+                    egon_pf_hv_storage_timeseries,
+                    egon_pf_hv_store_timeseries,
+                    egon_pf_hv_transformer_timeseries
+                    )
 
-        ormclass = self._mapped[name]
+        df_all = saio.as_pandas(
+            self.session.query(
+                vars()[f'egon_pf_hv_{name.lower()}_timeseries'])
+            .filter(vars()[f'egon_pf_hv_{name.lower()}_timeseries']
+                    .version==self.version)
+            .filter(vars()[f'egon_pf_hv_{name.lower()}_timeseries']
+                    .scn_name==self.scn_name)
+            )
 
-        # TODO: This is implemented in a not very robust way.
-        id_column = re.findall(r'[A-Z][^A-Z]*', name)[0] + '_' + 'id'
-        id_column = id_column.lower()
+        df_all.index = df_all.index.astype(str)
 
-        query = self.session.query(
-            getattr(ormclass, id_column),
-            getattr(ormclass, column)[self.start_snapshot: self.end_snapshot].
-            label(column)).filter(and_(
-                ormclass.scn_name == self.scn_name,
-                ormclass.temp_id == self.temp_id))
+        data_columns = df_all.columns[~df_all.columns.isin(
+            ['version', 'scn_name', f'{name.lower()}_id', 'temp_id'])]
 
-        if self.version:
-            query = query.filter(ormclass.version == self.version)
+        for column in data_columns:
 
-        df = pd.io.sql.read_sql(query.statement,
-                                self.session.bind,
-                                columns=[column],
-                                index_col=id_column)
+            if not df_all[column].isnull().all():
 
-        df.index = df.index.astype(str)
+                self.timeindex
 
-        # change of format to fit pypsa
-        df = df[column].apply(pd.Series).transpose()
+                df = df_all[column].apply(pd.Series).transpose()[
+                    self.start_snapshot-1: self.end_snapshot]
 
-        try:
-            assert not df.empty
-            df.index = self.timeindex
-        except AssertionError:
-            print("No data for %s in column %s." % (name, column))
+                df.index = self.timeindex
 
-        return df
+                pypsa.io.import_series_from_dataframe(
+                                network,
+                                df,
+                                pypsa_name,
+                                column)
+
+        return network
 
     def build_network(self, network=None, *args, **kwargs):
         """  Core method to construct PyPSA Network object.
         """
-        # TODO: build_network takes care of divergences in database design and
-        # future PyPSA changes from PyPSA's v0.6 on. This concept should be
-        # replaced, when the oedb has a revision system in place, because
-        # sometime this will break!!!
-
         if network != None:
             network = network
 
         else:
             network = pypsa.Network()
-            #TODO: Adjust for egon-data
-           # network.set_snapshots(self.timeindex)
+            network.set_snapshots(self.timeindex)
 
-        timevarying_override = False
+        for comp in ['Bus', 'Line', 'Transformer', 'Link', 'Load',
+                    'Generator', 'Storage', 'Store']:
 
+            pypsa_comp = 'StorageUnit' if comp == 'Storage' else comp
 
-        for comp, comp_t_dict in self.config.items():
-
-            # TODO: This is confusing, should be fixed in db
-            pypsa_comp_name = 'StorageUnit' if comp == 'Storage' else comp
+            logger.info(f"Importing {comp}s from database")
 
             df = self.fetch_by_relname(comp)
 
-            network.import_components_from_dataframe(df, pypsa_comp_name)
+            network.import_components_from_dataframe(df, pypsa_comp)
 
-            # TODO: Adjust time series import
-            # if comp_t_dict:
-
-            #     for comp_t, columns in comp_t_dict.items():
-
-            #         for col in columns:
-
-            #             df_series = self.series_fetch_by_relname(comp_t, col)
-
-            #             # TODO: VMagPuSet is not implemented.
-            #             if timevarying_override and comp == 'Generator' \
-            #             and not df_series.empty:
-            #                 idx = df[df.former_dispatch == 'flexible'].index
-            #                 idx = [i for i in idx if i in df_series.columns]
-            #                 df_series.drop(idx, axis=1, inplace=True)
-
-            #             try:
-
-            #                 pypsa.io.import_series_from_dataframe(
-            #                     network,
-            #                     df_series,
-            #                     pypsa_comp_name,
-            #                     col)
-
-            #             except (ValueError, AttributeError):
-            #                 print("Series %s of component %s could not be "
-            #                       "imported" % (col, pypsa_comp_name))
+            network = self.series_fetch_by_relname(network, comp, pypsa_comp)
 
         # populate carrier attribute in PyPSA network
         # network.import_components_from_dataframe(
