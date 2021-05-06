@@ -653,36 +653,46 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     M = graph_from_edges(edges)
     
     # cutoff to reduce complexity of Dijkstra's algorithm
-    cutoff = 10*dist_mean.max()
+    cutoff = 4*dist_mean.max()
     ### TODO: only need cutoff here instead of mean_dist
+    ### TODO: set CUTOFF as parameter
     
     # processor count
-    cpu_cores = mp.cpu_count()  
+    cpu_cores = mp.cpu_count() 
     ### TODO: Zusammenhang mit n_jobs prüfen -> als Argument setzen für Festlegung durch User
 
     # calculation of shortest path between original points and k-medoids centers
     # using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, cutoff))
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, cutoff=cutoff))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
-    import pdb;pdb.set_trace()
-    # assignment of data points to closest k-medoids centers
     df.sortlevel(inplace=True) 
+    
+    # check setting of CUTOFF-Parameter and exit with warning if it is too high 
+    for i in range(0,len(o_buses)):
+        x = o_buses[i]
+        count = 0
+        for j in range(0,len(df.loc[[x]])):
+            if df.loc[[x]]['path_length'].iloc[j] == np.inf:
+                count = count+1
+        if count == len(df.loc[[x]]):
+            import sys
+            sys.exit('FEHLER: CUTOFF within Dijkstras algorithm is too big; set CUTOFF to a smaller value!')
+            
+    # assignment of data points to closest k-medoids centers        
     mask = df.groupby(level='source')['path_length'].idxmin()
-
-    # Dijkstra's assignment
     df_dijkstra = df.loc[mask, :]
     df_dijkstra.reset_index(inplace=True)
-    
-    # check df for paths which are shown twice due to multiprocessing
+
+    # delete double entries in df due to multiprocessing      
     duplicated=df_dijkstra.duplicated()
     for i in range(len(duplicated)):
         if duplicated[i]==True:
             df_dijkstra = df_dijkstra.drop([i])
     df_dijkstra.index=df_kmedoid.index
-    
+
     # comparison of k-medoids busmap and Dijkstra's busmap
     # (only necessary for examination of new approach compared to k-means)
     df_dijkstra['correction of assignment']=df_dijkstra['target']
@@ -720,8 +730,10 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     ### TODO: weg
     path_medoid = pd.Series(data=df_dijkstra['path_length'].astype(float))
     path_medoid.index=dist_mean.index
+    print(' ')
     print('max path to medoid: '+str(path_medoid.max()))
     print('max distance to mean: '+str(dist_mean.max()))
+    print(' ')
     '''factor=pd.DataFrame(data=df_dijkstra['correction of assignment'])
     factor.index=dist_mean.index
     dist_mean.replace([0.0],[0.1],inplace=True) # to avoid inf 
