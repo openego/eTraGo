@@ -135,8 +135,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 50,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 50, # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 100, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -401,13 +401,19 @@ def etrago(args):
     network : `pandas.DataFrame<dataframe>`
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
-        -> clustering method: k-means clustering
+        -> clustering method: k-means Clustering (if true)
         
-    network2 : `pandas.DataFrame<dataframe>`
+    network_kmean : `pandas.DataFrame<dataframe>`
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
         -> clustering method: 
-                combination of k-medoid clustering and Dijkstra's algorithm
+                k-means Clustering (for direct comparison to network_dijkstra)
+                
+    network_dijkstra : `pandas.DataFrame<dataframe>`
+        eTraGo result network based on `PyPSA network
+        <https://www.pypsa.org/doc/components.html#network>`_
+        -> clustering method: 
+                combination of k-medoids Clustering and Dijkstra's algorithm
     """
     conn = db.connection(section=args['db'])
     Session = sessionmaker(bind=conn)
@@ -714,3 +720,12 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
+    
+    
+### zur Auswertung:
+    
+    plot_line_loading(network_dijkstra,filename='network_dijkstra.png') 
+    
+    plot_line_loading(network_kmean,filename='network_kmean.png')
+
+    
