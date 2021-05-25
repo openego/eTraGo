@@ -637,12 +637,12 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     c_buses = medoid_idx.tolist()
     
     # k-medoids assignment 
-    df_kmedoid=pd.DataFrame({'medoid_labels':busmap_kmean.values})
+    df_kmedoid=pd.DataFrame({'medoid_labels':busmap_kmean.values}, index=busmap_kmean.index)
     df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
-    for i in range(len(c_buses)):
-        df_kmedoid['medoid_indices'].replace(i,c_buses[i], inplace=True)
-    df_kmedoid['index']=busmap_kmean.index
-                
+    for index, row in df_kmedoid.iterrows():
+        label = int(row['medoid_labels'])
+        df_kmedoid['medoid_indices'].loc[index] = c_buses[label]
+             
     # list of all possible pathways
     ppathss = list(product(o_buses, c_buses))
     
@@ -653,7 +653,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     M = graph_from_edges(edges)
     
     # cutoff to reduce complexity of Dijkstra's algorithm
-    cutoff = 3*dist_mean.max()
+    cutoff = 4*dist_mean.max()
     ### TODO: only need cutoff here instead of mean_dist
     ### TODO: set CUTOFF as parameter
     
@@ -670,7 +670,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     dump(df, open('df.p', 'wb'))
     df.sortlevel(inplace=True) 
     
-    # check setting of CUTOFF-Parameter and exit with warning if it is too high 
+    '''# check setting of CUTOFF-Parameter and exit with warning if it is too high 
     for i in range(0,len(o_buses)):
         x = o_buses[i]
         count = 0
@@ -680,7 +680,8 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
         if count == len(df.loc[[x]]):
             import sys
             sys.exit("ERROR: CUTOFF within Dijkstra's algorithm is too big; set CUTOFF to a smaller value!")
-            
+    ### TODO: Diese Schleife braucht lange -> bessere Lösung?''' 
+     
     # assignment of data points to closest k-medoids centers        
     mask = df.groupby(level='source')['path_length'].idxmin()
     df_dijkstra = df.loc[mask, :]
@@ -691,13 +692,17 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     for i in range(len(duplicated)):
         if duplicated[i]==True:
             df_dijkstra = df_dijkstra.drop([i])
-    df_dijkstra.index=df_kmedoid.index
+    df_dijkstra.index=df_dijkstra['source']
+  
+    import datetime  
+    print(' ')
+    print('### Auswertung - Start')
+    print(datetime.datetime.now()) ###
 
-    # comparison of k-medoids busmap and Dijkstra's busmap
     ### zur Auswertung
+    # comparison of k-medoids busmap and Dijkstra's busmap
     print(' ')
     df_dijkstra['correction of assignment']=df_dijkstra['target']
-    df_kmedoid.index=df_kmedoid['index']
     for i in range(len(df_dijkstra)):
         index=df_dijkstra['source'].iloc[i]
         if (int(df_kmedoid['medoid_indices'].loc[index]) != int(df_dijkstra['target'].iloc[i])):
@@ -705,16 +710,17 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
         else:
             df_dijkstra['correction of assignment'].iloc[i]='False'
     dfj = df_dijkstra.copy()
-    dfj.index = df_kmedoid.index
     dfj['kmedoid'] = df_kmedoid['medoid_indices']
     dfj = dfj[dfj['correction of assignment']=='True']   
     
     print("Anzahl der veränderten Zuordnung des Clusters durch Dijkstra's Algorithmus: "+str(len(dfj))) 
+    print('(einfach gezählt)')
     m = len(dfj) / len(c_buses)
     print("Mittlere Anzahl der veränderten Zuordnung pro Cluster: "+str(m))
-    for i in dfj['kmedoid']:
+    for i in medoid_idx:
         dfjj=dfj[dfj['kmedoid']==i]
-        print('Änderung des durch k-means Clustering festgelegten Clusters '+str(i)+': '+str(len(dfjj))+' mal')
+        if len(dfjj)>0:
+            print('Änderung des durch k-means Clustering festgelegten Clusters (Label) '+str(medoid_idx[medoid_idx==str(i)].index[0])+': '+str(len(dfjj))+' mal')
     print(' ')
     
     ### zur Auswertung
@@ -724,13 +730,13 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     ### zur Auswertung: Berechnung der mittleren Pfadlängen der Originalknoten pro Cluster zu deren Medoid
     print(' ')
     print('mittlere Pfadlänge der Originalknoten pro Cluster zu deren Medoids:')
-    ### dijkstra:
+    # dijkstra:
     df_dijkstra['path_length']=df_dijkstra['path_length'].astype(float)
     df_clusterpaths_dijkstra=df_dijkstra.groupby(df_dijkstra['target'])
     df_clusterpaths_dijkstra=df_clusterpaths_dijkstra['path_length'].aggregate(np.mean)
     df_clusterpaths_dijkstra.to_csv('cluster_paths_dijkstra',index=True)
     print("Dijkstra's Algorithmus: "+str(df_clusterpaths_dijkstra.mean()))
-    ### kmean / kmedoid:
+    # kmean / kmedoid:
     df_kmedoid['path_length']=pd.Series(data=np.zeros)
     for i in range (0,len(df_kmedoid)):
         source=df_kmedoid.index[i]
@@ -744,38 +750,8 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     verhaltnis = df_clusterpaths_kmedoid.mean() / df_clusterpaths_dijkstra.mean()
     print('Verhältnis der mittleren Pfandlängen: '+str(verhaltnis))
     print(' ')
-    ###
-    
-    '''### zur Auswertung: Berechnung Pfadlänge zwischen Originalknoten sowie nach Clustering durch Medoids
-    ### Claras Idee
-    ppathss = list(product(o_buses, o_buses))
-    cutoff = None 
-    cpu_cores = 1
-    p = mp.Pool(cpu_cores)
-    chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, cutoff=cutoff))
-    df2 = pd.concat(container)
-    dump(df, open('df.p', 'wb'))
-    df2.sortlevel(inplace=True) 
-
-    print(' ')
-    original = df2['path_length'].sum()
-    print('gesamte Pfadlänge zwischen allen Originalknoten: '+str(original))
-    dijkstra = 0
-    for i in range(0, len(o_buses)):
-        original = o_buses[i]
-        cluster = df_dijkstra[df_dijkstra['source']==original]['target'].values[0]
-        dfo = df2.loc[cluster]
-        for i in range(0,len(dfo)):
-        # TODO ?
-    print("Pfadlänge zwischen den Originalknoten nach deren Zuordnung zum Cluster durch k-medoids Dijkstra's Algortihmus: "+str(kmedoid))
-    kmean = 
-    print('Pfadlänge zwischen den Originalknoten nach deren Zuordnung zum Cluster durch k-means Clustering: '+str(kmean))
-    print(' ')
-    ###
-    '''
         
-    ### Untersuchung der Distanzen für CUTOFF
+    ### zur Auswertung: Untersuchung der Distanzen für CUTOFF
     path_medoid = pd.Series(data=df_dijkstra['path_length'].astype(float))
     path_medoid.index=dist_mean.index
     print(' ')
@@ -783,7 +759,10 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     print('max Pfad zu Medoid: '+str(path_medoid.max()))
     print('max Distanz zu Mean: '+str(dist_mean.max()))
     print(' ')
-    ###
+    
+    print('### Auswertung - Ende')
+    print(datetime.datetime.now()) ###
+    print(' ')
     
     # creation of new busmap with final assignment (format: medoids indices)
     busmap_ind=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
@@ -791,12 +770,12 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
             
     # adaption of busmap to format with labels (necessary for aggregation)
     busmap=busmap_ind.copy()
-    for i in range (len(c_buses)):
-        busmap.replace(c_buses[i], i, inplace=True)
-    busmap=busmap.astype(str)
+    for index, item in busmap.iteritems():
+        label = medoid_idx[medoid_idx==str(item)].index[0]
+        busmap.loc[index] = str(label)
     busmap.index=list(busmap.index.astype(str))
-                    
-    return busmap, busmap_ind
+                   
+    return busmap
 
 
 def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
@@ -982,6 +961,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     # distances of data points to cluster centers
     distances = pd.DataFrame(data=kmeans.transform(network.buses.loc[buses_i, ["x", "y"]].values), 
                              index=buses_i, dtype=object)
+    
     # get distances between original buses to their mean-buses
     dist_mean = pd.Series(data=np.NaN)
     for i in range(0,len(distances)):
@@ -989,6 +969,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         dist_mean[index]=distances.iloc[i].min()
     dist_mean.dropna(inplace=True)    
     dist_mean = 90 * dist_mean # rounded factor to transform distance out of EPSG:4326 to distance in km 
+    
     # get closest point to each cluster center as new medoid
     medoid_idx = pd.Series(data=np.zeros(shape=n_clusters, dtype=int))
     for i in range(0, n_clusters):
@@ -1003,7 +984,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     # Dijkstra's algorithm to check assignment of points 
     # to clusters considering electrical distance
     
-    busmap_dijkstra, busmap_dijkstra_ind = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
+    busmap_dijkstra = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
     
     print(' ')
     print('4) start aggregation')
@@ -1044,11 +1025,30 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         clustering_dijkstra.network.buses['x'].iloc[i]=network.buses['x'].loc[medoid]     
         clustering_dijkstra.network.buses['y'].iloc[i]=network.buses['y'].loc[medoid] 
         
-        
+       
     ### zur Auswertung:
     
     import matplotlib.pyplot as plt
     import tilemapbase
+    from pyproj import Proj, transform
+    
+    def set_epsg_network(network):
+        """
+        Change EPSG from 4326 to 3857. Needed when using osm-background. 
+    
+        Parameters
+        ----------
+        network : PyPSA network container
+    
+        Returns
+        -------
+        """  
+        
+        inProj = Proj(init='epsg:4326')
+        outProj = Proj(init='epsg:3857')
+        x1,y1 = network.buses.x.values, network.buses.y.values
+        x2,y2 = transform(inProj,outProj,x1,y1)
+        network.buses.x, network.buses.y = x2, y2
     
     def plot_osm(x, y, zoom, alpha = 0.4):
         """
@@ -1083,11 +1083,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         #ax.plot(x, y, "ro-")
         return fig, ax
     
-    #osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-    #osm,ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
-    fig, axs = plt.subplots(2)
-    #axs[0] = osm
-    #axs[1] = osm
+    set_epsg_network(network)
+    osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+    osm1,ax1 = plot_osm(osm['x'], osm['y'], osm['zoom'])
     
     # dijkstra
     df = pd.DataFrame(data=busmap_dijkstra.copy())
@@ -1096,10 +1094,13 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     cluster = np.unique(busmap_dijkstra)
     for i in cluster:
         points = df[df['final_assignment']==i]
-        #ax.scatter(points['x'], points['y'], label=i, zorder=1)
-        axs[0].scatter(points['x'], points['y'], label=i)
-    #ax.title.set_text("Dijkstra's Algorithmus")  
-    axs[0].title.set_text("Dijkstra's Algorithmus")
+        ax1.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
+    ax1.title.set_text("Dijkstra's Algorithmus")  
+    osm1.savefig('Cluster_Dijkstra.png')
+    plt.close(osm1)
+    
+    #set_epsg_network(network)
+    osm2,ax2 = plot_osm(osm['x'], osm['y'], osm['zoom'])
     
     # kmedoid
     df = pd.DataFrame(data=busmap_kmean.copy())
@@ -1108,12 +1109,10 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     cluster = np.unique(busmap_kmean)
     for i in cluster:
         points = df[df[0]==i]
-        axs[1].scatter(points['x'], points['y'], label=i)
-    axs[1].title.set_text("k-means Clustering")
-    
-    fig.tight_layout()
-    fig.savefig('Cluster.png')
-    plt.close(fig)
+        ax2.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
+    ax2.title.set_text("k-means Clustering")
+    osm2.savefig('Cluster_kmeans.png')
+    plt.close(osm2)
     
     return clustering_kmean, clustering_dijkstra
 
