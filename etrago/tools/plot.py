@@ -186,7 +186,6 @@ def plot_line_loading(
     """
     
     if osm != False:
-        print('counter: '+str(set_epsg_network.counter))
         set_epsg_network.counter=0
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
