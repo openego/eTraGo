@@ -224,14 +224,14 @@ def shortest_path(paths, graph, cutoff):
     df.sort_index(inplace=True)
     
     # ursprüngliche Variante: 
-    
-    '''for s, t in paths:
+    '''
+    for s, t in paths:
         try:
             df.loc[(s, t), 'path_length'] =\
                 nx.dijkstra_path_length(graph, s, t)
         except NetworkXNoPath:
-                continue'''
-                
+                continue
+   '''             
     # neue Variante - weniger komplex:
     ### TODO: Validierung für ehv-clustering ausstehend
     
@@ -653,13 +653,18 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     M = graph_from_edges(edges)
     
     # cutoff to reduce complexity of Dijkstra's algorithm
-    cutoff = 4*dist_mean.max()
+    cutoff = None#4*dist_mean.max()
     ### TODO: only need cutoff here instead of mean_dist
     ### TODO: set CUTOFF as parameter
     
     # processor count
     cpu_cores = mp.cpu_count() 
     ### TODO: Zusammenhang mit n_jobs prüfen -> als Argument setzen für Festlegung durch User
+
+    import datetime  
+    print(' ')
+    print('### dijkstra - Start')
+    print(datetime.datetime.now()) ###
 
     # calculation of shortest path between original points and k-medoids centers
     # using multiprocessing
@@ -669,6 +674,10 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
     df.sortlevel(inplace=True) 
+    
+    print(' ')
+    print('### dijkstra - Ende')
+    print(datetime.datetime.now()) ###
     
     '''# check setting of CUTOFF-Parameter and exit with warning if it is too high 
     for i in range(0,len(o_buses)):
@@ -775,7 +784,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
         busmap.loc[index] = str(label)
     busmap.index=list(busmap.index.astype(str))
                    
-    return busmap
+    return busmap, dfj
 
 
 def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
@@ -984,7 +993,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     # Dijkstra's algorithm to check assignment of points 
     # to clusters considering electrical distance
     
-    busmap_dijkstra = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
+    busmap_dijkstra, dfj = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
     
     print(' ')
     print('4) start aggregation')
@@ -1026,11 +1035,23 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         clustering_dijkstra.network.buses['y'].iloc[i]=network.buses['y'].loc[medoid] 
         
        
-    ### zur Auswertung:
+    ### zur Auswertung: Untersuchung der Vermaschung
+    print(' ')
+    print('Anzahl der Leitungen im Originalnetz: '+str(len(network.lines)))
+    print('Anzahl der Leitungen im k-means geclusterten Netz: '+str(len(clustering_kmean.network.lines)))
+    print("Anzahl der Leitungen im k-medoids & Dijkstra's geclusterten Netz: "+str(len(clustering_dijkstra.network.lines)))
+    print('Anzahl der Leitungen pro Knoten im Originalnetz: '+str(len(network.lines)/len(network.buses)))
+    print('Anzahl der Leitungen pro repräsentativer Knoten im k-means geclusterten Netz: '+str(len(clustering_kmean.network.lines)/n_clusters))
+    print("Anzahl der Leitungen pro repräsentativer Knoten im k-medoids & Dijkstra's geclusterten Netz: "+str(len(clustering_dijkstra.network.lines)/n_clusters))
+    print(' ')
+    
+    ### zur Auswertung: grafische Darstellung der Cluster
     
     import matplotlib.pyplot as plt
     import tilemapbase
     from pyproj import Proj, transform
+    from scipy.spatial import ConvexHull
+    from matplotlib.patches import Polygon
     
     def set_epsg_network(network):
         """
@@ -1085,9 +1106,12 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     
     set_epsg_network(network)
     osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-    osm1,ax1 = plot_osm(osm['x'], osm['y'], osm['zoom'])
     
     # dijkstra
+    
+    osm1,ax1 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    osm3, ax3 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    
     df = pd.DataFrame(data=busmap_dijkstra.copy())
     df['x'] = network.buses['x']
     df['y'] = network.buses['y']
@@ -1095,14 +1119,29 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     for i in cluster:
         points = df[df['final_assignment']==i]
         ax1.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
-    ax1.title.set_text("Dijkstra's Algorithmus")  
-    osm1.savefig('Cluster_Dijkstra.png')
+        ax3.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
+
+        duplicated=points.duplicated()
+        for i in range(len(duplicated)):
+            if duplicated[i]==True:
+                index=duplicated.index[i]
+                points = points.drop([index])
+        if len(points) > 2:
+            p = points[["x","y"]].values
+            hull = ConvexHull(p)
+            for simplex in hull.simplices:
+                ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
+                 
+    osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
-    
-    #set_epsg_network(network)
-    osm2,ax2 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    osm3.savefig('Cluster_Dijkstra.png')
+    plt.close(osm3)
     
     # kmedoid
+    
+    osm2,ax2 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    osm4,ax4 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    
     df = pd.DataFrame(data=busmap_kmean.copy())
     df['x'] = network.buses['x']
     df['y'] = network.buses['y']
@@ -1110,9 +1149,40 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     for i in cluster:
         points = df[df[0]==i]
         ax2.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
-    ax2.title.set_text("k-means Clustering")
-    osm2.savefig('Cluster_kmeans.png')
+        ax4.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
+        
+        duplicated=points.duplicated()
+        for i in range(len(duplicated)):
+            if duplicated[i]==True:
+                index=duplicated.index[i]
+                points = points.drop([index])
+        if len(points) > 2:
+            p = points[["x","y"]].values
+            hull = ConvexHull(p)
+            for simplex in hull.simplices:
+                ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
+        
+    osm2.savefig('Cluster_kmeans_Borders.png')
     plt.close(osm2)
+    osm4.savefig('Cluster_kmeans.png')
+    plt.close(osm4)
+    
+    # plot differences in Clusters
+    
+    osm,ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
+    
+    ax.scatter(network.buses['x'], network.buses['y'], s=3, label=i, zorder=1, color='grey')
+    target = np.unique(dfj['target'])
+    for i in target:
+        points = dfj[dfj['target']==i]['source'].values
+        for j in points:
+            ax.scatter(network.buses['x'].loc[j], network.buses['y'].loc[j], s=3, label=j, zorder=1)
+                 
+    osm.savefig('Differences.png')
+    plt.close(osm)
+    
+    
+    
     
     return clustering_kmean, clustering_dijkstra
 
