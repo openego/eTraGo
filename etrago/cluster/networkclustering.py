@@ -1107,11 +1107,27 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     set_epsg_network(network)
     osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
     
+    # plot differences in Clusters
+    
+    osm5,ax5 = plot_osm(osm['x'], osm['y'], osm['zoom'])
+
+    ax5.scatter(network.buses['x'], network.buses['y'], s=3, label=i, zorder=1, color='grey')
+    target = np.unique(dfj['target'])
+    for i in target:
+        sources = dfj[dfj['target']==i]['source'].values
+        points = pd.DataFrame(index=range(0,len(sources)))
+        points['x'] = pd.Series()
+        points['y'] = pd.Series()
+        for i in range(0,len(sources)):
+            points['x'].iloc[i] = network.buses['x'].loc[sources[i]]
+            points['y'].iloc[i] = network.buses['y'].loc[sources[i]]
+        ax5.scatter(points['x'], points['y'], s=3, zorder=1, color='red')
+    
     # dijkstra
     
     osm1,ax1 = plot_osm(osm['x'], osm['y'], osm['zoom'])
     osm3, ax3 = plot_osm(osm['x'], osm['y'], osm['zoom'])
-    
+
     df = pd.DataFrame(data=busmap_dijkstra.copy())
     df['x'] = network.buses['x']
     df['y'] = network.buses['y']
@@ -1131,11 +1147,14 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             hull = ConvexHull(p)
             for simplex in hull.simplices:
                 ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
+                ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
                  
     osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
     osm3.savefig('Cluster_Dijkstra.png')
     plt.close(osm3)
+    osm5.savefig('Differences.png')
+    plt.close(osm5)
     
     # kmedoid
     
@@ -1166,23 +1185,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     plt.close(osm2)
     osm4.savefig('Cluster_kmeans.png')
     plt.close(osm4)
-    
-    # plot differences in Clusters
-    
-    osm,ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
-    
-    ax.scatter(network.buses['x'], network.buses['y'], s=3, label=i, zorder=1, color='grey')
-    target = np.unique(dfj['target'])
-    for i in target:
-        points = dfj[dfj['target']==i]['source'].values
-        for j in points:
-            ax.scatter(network.buses['x'].loc[j], network.buses['y'].loc[j], s=3, label=j, zorder=1)
-                 
-    osm.savefig('Differences.png')
-    plt.close(osm)
-    
-    
-    
     
     return clustering_kmean, clustering_dijkstra
 
