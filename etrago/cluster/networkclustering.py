@@ -653,7 +653,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     M = graph_from_edges(edges)
     
     # cutoff to reduce complexity of Dijkstra's algorithm
-    cutoff = 2*dist_mean.max()
+    cutoff = None#2*dist_mean.max()
     ### TODO: only need cutoff here instead of mean_dist
     ### TODO: set CUTOFF as parameter
     
