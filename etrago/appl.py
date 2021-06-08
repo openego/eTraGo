@@ -138,7 +138,7 @@ args = {
     'network_clustering_kmeans': 20,  # False or the value k for clustering
     'network_clustering_kmedoidDijkstra': 300, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
