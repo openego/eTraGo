@@ -653,7 +653,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     M = graph_from_edges(edges)
     
     # cutoff to reduce complexity of Dijkstra's algorithm
-    cutoff = None#4*dist_mean.max()
+    cutoff = 2*dist_mean.max()
     ### TODO: only need cutoff here instead of mean_dist
     ### TODO: set CUTOFF as parameter
     
@@ -1146,8 +1146,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             p = points[["x","y"]].values
             hull = ConvexHull(p)
             for simplex in hull.simplices:
-                ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
-                ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
+                ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
+                ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                  
     osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
@@ -1179,7 +1179,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             p = points[["x","y"]].values
             hull = ConvexHull(p)
             for simplex in hull.simplices:
-                ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='grey', linewidth=0.5)
+                ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
         
     osm2.savefig('Cluster_kmeans_Borders.png')
     plt.close(osm2)
