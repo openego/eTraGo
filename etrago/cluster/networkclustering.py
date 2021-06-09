@@ -784,7 +784,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
         busmap.loc[index] = str(label)
     busmap.index=list(busmap.index.astype(str))
                    
-    return busmap, dfj
+    return busmap, df_dijkstra
 
 
 def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
@@ -993,7 +993,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     # Dijkstra's algorithm to check assignment of points 
     # to clusters considering electrical distance
     
-    busmap_dijkstra, dfj = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
+    busmap_dijkstra, df_dijkstra = dijkstra(network, medoid_idx, dist_mean, busmap_kmean)
+    ### TODO: df_dijkstra nur für Auswertung
     
     print(' ')
     print('4) start aggregation')
@@ -1110,18 +1111,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     # plot differences in Clusters
     
     osm5,ax5 = plot_osm(osm['x'], osm['y'], osm['zoom'])
-
     ax5.scatter(network.buses['x'], network.buses['y'], s=3, label=i, zorder=1, color='grey')
-    target = np.unique(dfj['target'])
-    for i in target:
-        sources = dfj[dfj['target']==i]['source'].values
-        points = pd.DataFrame(index=range(0,len(sources)))
-        points['x'] = pd.Series()
-        points['y'] = pd.Series()
-        for i in range(0,len(sources)):
-            points['x'].iloc[i] = network.buses['x'].loc[sources[i]]
-            points['y'].iloc[i] = network.buses['y'].loc[sources[i]]
-        ax5.scatter(points['x'], points['y'], s=3, zorder=1, color='red')
     
     # dijkstra
     
@@ -1136,6 +1126,15 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         points = df[df['final_assignment']==i]
         ax1.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
         ax3.scatter(points['x'], points['y'], s=3, label=i, zorder=1)
+        
+        ppoints = points.copy()
+        for j in ppoints.index:
+            idx = []
+            if df_dijkstra['correction of assignment'].loc[j] == 'False':
+                idx.append(j)
+            ppoints.drop(idx, inplace=True)
+        #if len(ppoints) > 0:
+        ax5.scatter(ppoints['x'], ppoints['y'], s=3, zorder=1)
 
         duplicated=points.duplicated()
         for i in range(len(duplicated)):
@@ -1148,7 +1147,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             for simplex in hull.simplices:
                 ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                 ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
-                 
+                             
     osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
     osm3.savefig('Cluster_Dijkstra.png')
