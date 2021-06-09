@@ -24,6 +24,16 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
+###
+
+import sys
+old_stdout = sys.stdout
+
+log_file = open("prints.log","w")
+
+sys.stdout = log_file
+
+###
 
 import datetime
 import os
@@ -727,5 +737,11 @@ if __name__ == '__main__':
     plot_line_loading(network_dijkstra,filename='network_dijkstra.png') 
     
     plot_line_loading(network_kmean,filename='network_kmean.png')
+    
+###
+    
+sys.stdout = old_stdout
+
+log_file.close()
 
     
