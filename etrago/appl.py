@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
+    'db': 'local',  # database session
     'gridversion': 'v0.4.6',  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -56,14 +56,10 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 3,
-    'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver.log'},
+    'end_snapshot': 100,
+    'skip_snapshots': 5, # Number of snapshots to skip
+    'solver': 'glpk',  # glpk, cplex or gurobi
+    'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -98,7 +94,6 @@ args = {
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints'}, # additional constraints for storages
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -330,7 +325,7 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    etrago = Etrago(args, json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
@@ -343,9 +338,6 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     etrago.kmean_clustering()
-
-    # skip snapshots
-    etrago.skip_snapshots()
 
     # snapshot clustering
     etrago.snapshot_clustering()

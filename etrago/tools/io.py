@@ -160,13 +160,14 @@ class NetworkScenario(ScenarioBase):
 
     def __init__(
         self, session, scn_name='Status Quo', method='lopf',
-            start_snapshot=1, end_snapshot=20, temp_id=1, **kwargs):
+            start_snapshot=1, end_snapshot=20, temp_id=1, skip_snapshots=1,**kwargs):
 
         self.scn_name = scn_name
         self.method = method
         self.start_snapshot = start_snapshot
         self.end_snapshot = end_snapshot
         self.temp_id = temp_id
+        self.skip_snapshots = skip_snapshots
 
         super().__init__(session, **kwargs)
 
@@ -206,7 +207,8 @@ class NetworkScenario(ScenarioBase):
             periods=tr.timesteps,
             freq=tr.resolution))
 
-        self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
+        self.timeindex = timeindex[
+            self.start_snapshot - 1: self.end_snapshot: self.skip_snapshots]
         """ pandas.tseries.index.DateTimeIndex :
                 Index of snapshots or timesteps. """
 
@@ -279,23 +281,43 @@ class NetworkScenario(ScenarioBase):
             Component data.
         """
 
-        ormclass = self._mapped[name]
-
         # TODO: This is implemented in a not very robust way.
         id_column = re.findall(r'[A-Z][^A-Z]*', name)[0] + '_' + 'id'
         id_column = id_column.lower()
-
-        query = self.session.query(
-            getattr(ormclass, id_column),
-            getattr(ormclass, column)[self.start_snapshot: self.end_snapshot].
-            label(column)).filter(and_(
-                ormclass.scn_name == self.scn_name,
-                ormclass.temp_id == self.temp_id))
+        component = re.findall(r'[A-Z][^A-Z]*', name)[0].lower()
 
         if self.version:
-            query = query.filter(ormclass.version == self.version)
+            statement = (
+                f"""
+                SELECT {id_column}, (
+                    SELECT array_agg(round(x.a :: numeric, 4))
+                    FROM unnest(v.{column}[{self.start_snapshot}: {self.end_snapshot}])
+                    WITH ordinality x(a, n)
+                    WHERE x.n % {self.skip_snapshots} = 1) as {column}
 
-        df = pd.io.sql.read_sql(query.statement,
+                FROM grid.ego_pf_hv_{component}_pq_set v
+                WHERE version = '{self.version}'
+                AND scn_name = '{self.scn_name}'
+                    """
+                    )
+        else:
+            statement = (
+                f"""
+                SELECT {id_column}, (
+                    SELECT array_agg(round(x.a :: numeric, 4))
+                    FROM unnest(v.{column}[{self.start_snapshot}: {self.end_snapshot}])
+                    WITH ordinality x(a, n)
+                    WHERE x.n >= {self.start_snapshot}
+                    AND x.n <= {self.end_snapshot}
+                    AND x.n % {self.skip_snapshots} = 1) as {column}
+
+                FROM model_draft.ego_grid_pf_hv_{component}_pq_set v
+                WHERE scn_name = '{self.scn_name}'
+                    """
+                    )
+
+
+        df = pd.io.sql.read_sql(statement,
                                 self.session.bind,
                                 columns=[column],
                                 index_col=id_column)
@@ -303,7 +325,7 @@ class NetworkScenario(ScenarioBase):
         df.index = df.index.astype(str)
 
         # change of format to fit pypsa
-        df = df[column].apply(pd.Series).transpose()
+        df = df[column].apply(pd.Series).transpose().astype(float)
 
         try:
             assert not df.empty
@@ -327,6 +349,7 @@ class NetworkScenario(ScenarioBase):
         else:
             network = pypsa.Network()
             network.set_snapshots(self.timeindex)
+            network.snapshot_weightings *= self.skip_snapshots
 
         timevarying_override = False
 

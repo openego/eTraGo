@@ -258,16 +258,6 @@ def update_data_frames(network, cluster_weights, dates, hours):
 
     return network
 
-
-def skip_snapshots(self):
-    n_skip = self.args['skip_snapshots']
-
-    if n_skip:
-        self.network.snapshots = self.network.snapshots[::n_skip]
-
-        self.network.snapshot_weightings = \
-            self.network.snapshot_weightings[::n_skip] * n_skip
-
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
     # default: 4500 € / MW, high 300 €/MW

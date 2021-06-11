@@ -50,8 +50,7 @@ from etrago.tools.plot import (add_coordinates,
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_kmeans_clustering,
                                               ehv_clustering)
-from etrago.cluster.snapshot import (skip_snapshots,
-                                     snapshot_clustering)
+from etrago.cluster.snapshot import (snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.tools.execute import lopf, run_pf_post_lopf
 from etrago.tools.calc_results import calc_etrago_results
@@ -176,8 +175,6 @@ class Etrago():
 
     kmean_clustering = run_kmeans_clustering
 
-    skip_snapshots = skip_snapshots
-
     ehv_clustering = ehv_clustering
 
     snapshot_clustering = snapshot_clustering
@@ -210,7 +207,8 @@ class Etrago():
                                         method=self.args['method'],
                                         start_snapshot=self.args['start_snapshot'],
                                         end_snapshot=self.args['end_snapshot'],
-                                        scn_name=self.args['scn_name'])
+                                        scn_name=self.args['scn_name'],
+                                        skip_snapshots=self.args['skip_snapshots'])
 
         self.network = self.scenario.build_network()
 
