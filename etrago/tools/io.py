@@ -287,19 +287,32 @@ class NetworkScenario(ScenarioBase):
         component = re.findall(r'[A-Z][^A-Z]*', name)[0].lower()
 
         if self.version:
-            statement = (
-                f"""
-                SELECT {id_column}, (
-                    SELECT array_agg(round(x.a :: numeric, 4))
-                    FROM unnest(v.{column}[{self.start_snapshot}: {self.end_snapshot}])
-                    WITH ordinality x(a, n)
-                    WHERE x.n % {self.skip_snapshots} = 1) as {column}
+            if self.skip_snapshots != 1:
+                statement = (
+                    f"""
+                    SELECT {id_column}, (
+                        SELECT array_agg(round(x.a :: numeric, 4))
+                        FROM unnest(v.{column}[{self.start_snapshot}: {self.end_snapshot}])
+                        WITH ordinality x(a, n)
+                        WHERE x.n % {self.skip_snapshots} = 1) as {column}
 
-                FROM grid.ego_pf_hv_{component}_pq_set v
-                WHERE version = '{self.version}'
-                AND scn_name = '{self.scn_name}'
-                    """
-                    )
+                    FROM grid.ego_pf_hv_{component}_pq_set v
+                    WHERE version = '{self.version}'
+                    AND scn_name = '{self.scn_name}'
+                        """
+                        )
+            else:
+                statement = (
+                    f"""
+                    SELECT {id_column}, (
+                        SELECT array_agg(round(x.a :: numeric, 4))
+                        FROM unnest(v.{column}[{self.start_snapshot}: {self.end_snapshot}])
+                        WITH ordinality x(a, n)) as {column}
+                    FROM grid.ego_pf_hv_{component}_pq_set v
+                    WHERE version = '{self.version}'
+                    AND scn_name = '{self.scn_name}'
+                        """
+                        )
         else:
             statement = (
                 f"""
