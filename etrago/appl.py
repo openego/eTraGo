@@ -56,12 +56,12 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 100,
-    'skip_snapshots': 5, # Number of snapshots to skip
+    'end_snapshot': 24,
+    'skip_snapshots': 3, # Number of snapshots to skip
     'solver': 'glpk',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -75,7 +75,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 50, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
