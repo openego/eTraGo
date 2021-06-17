@@ -28,9 +28,7 @@ if 'READTHEDOCS' not in os.environ:
                                          aggregategenerators,
                                          get_clustering_from_busmap,
                                          busmap_by_kmeans, busmap_by_stubs)
-    # copied get_clustering_from_busmap from pypsa.networkclustering 
-    # because of some changes needed for clustering approach using
-    # combination of k-medoid clustering and Dijkstra's algorithm
+    
     from egoio.db_tables.model_draft import EgoGridPfHvBusmap
     
     import numpy as np
@@ -1053,6 +1051,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     from scipy.spatial import ConvexHull
     from matplotlib.patches import Polygon
     
+    plt.rcParams['figure.figsize'] = [8.0, 8.0]
+    plt.rcParams['figure.dpi'] = 300
+    
     def set_epsg_network(network):
         """
         Change EPSG from 4326 to 3857. Needed when using osm-background. 
@@ -1105,7 +1106,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         return fig, ax
     
     set_epsg_network(network)
-    osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 10}
+    osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
     
     # plot differences in Clusters
     
@@ -1147,13 +1148,10 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
                 ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                 ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                              
-    osm1.set_dpi(300)
     osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
-    osm3.set_dpi(300)
     osm3.savefig('Cluster_Dijkstra.png')
     plt.close(osm3)
-    osm5.set_dpi(300)
     osm5.savefig('Differences.png')
     plt.close(osm5)
     
@@ -1182,10 +1180,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             for simplex in hull.simplices:
                 ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
         
-    osm2.set_dpi(300)
     osm2.savefig('Cluster_kmeans_Borders.png')
     plt.close(osm2)
-    osm4.set_dpi(300)
     osm4.savefig('Cluster_kmeans.png')
     plt.close(osm4)
     
