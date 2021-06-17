@@ -789,7 +789,6 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
 
 def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
                      line_length_factor=1.25,
-                     remove_stubs=False, use_reduced_coordinates=False,
                      bus_weight_tocsv=None, bus_weight_fromcsv=None,
                      n_init=10, max_iter=300, tol=1e-4,
                      n_jobs=1):
@@ -1106,7 +1105,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         return fig, ax
     
     set_epsg_network(network)
-    osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+    osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 10}
     
     # plot differences in Clusters
     
@@ -1148,10 +1147,13 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
                 ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                 ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
                              
+    osm1.set_dpi(300)
     osm1.savefig('Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
+    osm3.set_dpi(300)
     osm3.savefig('Cluster_Dijkstra.png')
     plt.close(osm3)
+    osm5.set_dpi(300)
     osm5.savefig('Differences.png')
     plt.close(osm5)
     
@@ -1180,8 +1182,10 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             for simplex in hull.simplices:
                 ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7)
         
+    osm2.set_dpi(300)
     osm2.savefig('Cluster_kmeans_Borders.png')
     plt.close(osm2)
+    osm4.set_dpi(300)
     osm4.savefig('Cluster_kmeans.png')
     plt.close(osm4)
     
