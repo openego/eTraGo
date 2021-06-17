@@ -561,7 +561,7 @@ def etrago(args):
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
                 n_init=2500,
-                max_iter=10000,
+                max_iter=1000,
                 tol=1e-20,
                 n_jobs=-1)
         disaggregated_network = (
@@ -580,7 +580,7 @@ def etrago(args):
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
                 n_init=2500,
-                max_iter=10000,
+                max_iter=1000,
                 tol=1e-20,
                 n_jobs=-1)
         network_kmean = clustering_kmean.network.copy() ### 
