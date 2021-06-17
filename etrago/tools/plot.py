@@ -34,6 +34,11 @@ from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
 
+###
+plt.rcParams['figure.figsize'] = [8.0, 8.0]
+plt.rcParams['figure.dpi'] = 300
+###
+
 
 if 'READTHEDOCS' not in os.environ:
     from geoalchemy2.shape import to_shape
@@ -156,7 +161,7 @@ def plot_line_loading(
         filename=None,
         boundaries=[],
         arrows=False,
-        osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 10}): #6
+        osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}): #6
     """
     Plots line loading as a colored heatmap.
 
@@ -317,7 +322,6 @@ def plot_line_loading(
     if filename is None:
         plt.show()
     else:
-        plt.set_dpi(300)
         plt.savefig(filename)
         plt.close()
 
