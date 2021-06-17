@@ -156,7 +156,7 @@ def plot_line_loading(
         filename=None,
         boundaries=[],
         arrows=False,
-        osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
+        osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 10}): #6
     """
     Plots line loading as a colored heatmap.
 
@@ -262,11 +262,15 @@ def plot_line_loading(
                             [network.snapshots[timesteps]].sum()) * 100
 
     loading = load_lines_rel.append(load_links_rel)
+    
+    ll = network.plot(bus_colors='blue', title="Line loading")
 
+    '''
     ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap},
                       title="Line loading", line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
 
+    
     if not boundaries:
         v = np.linspace(min(loading), max(loading), 101)
         boundaries = [min(loading), max(loading)]
@@ -285,7 +289,7 @@ def plot_line_loading(
     
     cb_Link.remove()
     
-    cb.set_label('Line loading in %')
+    cb.set_label('Line loading in %')'''
 
     if arrows:
         ax = plt.axes()
@@ -313,6 +317,7 @@ def plot_line_loading(
     if filename is None:
         plt.show()
     else:
+        plt.set_dpi(300)
         plt.savefig(filename)
         plt.close()
 
