@@ -26,12 +26,12 @@ the function etrago.
 
 ###
 
-import sys
-old_stdout = sys.stdout
+#import sys
+#old_stdout = sys.stdout
 
-log_file = open("prints.log","w")
+#log_file = open("prints.log","w")
 
-sys.stdout = log_file
+#sys.stdout = log_file
 
 ###
 
@@ -145,8 +145,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 20,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 300, # False or the value k for clustering
+    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 500, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -560,9 +560,9 @@ def etrago(args):
                 use_reduced_coordinates=False,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,
-                n_init=2500,
-                max_iter=1000,
-                tol=1e-20,
+                n_init=10,
+                max_iter=100,
+                tol=1e-6,
                 n_jobs=-1)
         disaggregated_network = (
                 network.copy() if args.get('disaggregation') else None)
@@ -740,8 +740,8 @@ if __name__ == '__main__':
     
 ###
     
-sys.stdout = old_stdout
+#sys.stdout = old_stdout
 
-log_file.close()
+#log_file.close()
 
     
