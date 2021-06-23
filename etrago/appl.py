@@ -26,12 +26,12 @@ the function etrago.
 
 ###
 
-#import sys
-#old_stdout = sys.stdout
+import sys
+old_stdout = sys.stdout
 
-#log_file = open("prints.log","w")
+log_file = open("prints.log","w")
 
-#sys.stdout = log_file
+sys.stdout = log_file
 
 ###
 
@@ -740,8 +740,8 @@ if __name__ == '__main__':
     
 ###
     
-#sys.stdout = old_stdout
+sys.stdout = old_stdout
 
-#log_file.close()
+log_file.close()
 
     
