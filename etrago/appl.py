@@ -579,9 +579,9 @@ def etrago(args):
                 line_length_factor=1,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
-                n_init=2500,
-                max_iter=1000,
-                tol=1e-20,
+                n_init=2500,#10,
+                max_iter=1000,#100,
+                tol=1e-20,#6,
                 n_jobs=-1)
         network_kmean = clustering_kmean.network.copy() ### 
         network_dijkstra = clustering_dijkstra.network.copy() ###
