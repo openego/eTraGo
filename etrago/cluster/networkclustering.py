@@ -551,7 +551,7 @@ def kmean_clustering(network, n_clusters=10, load_cluster=False,
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
-    
+        
     # remove stubs
     if remove_stubs:
         network.determine_network_topology()
@@ -946,6 +946,67 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
+            
+    #import pdb; pdb.set_trace()
+    
+    ### remove_stubs ###
+        
+    network_stubs = network.copy()
+    remove_stubs=True ###
+    use_reduced_coordinates = True ###
+    
+    # remove stubs
+    
+    print(' ')
+    print('Anzahl der Originalknoten: '+str(len(network.buses)))
+    
+    if remove_stubs:
+        network_stubs.determine_network_topology()
+        busmap_stubs = busmap_by_stubs(network_stubs)
+        network_stubs.generators['weight'] = network_stubs.generators['p_nom']
+        aggregate_one_ports = components.one_port_components.copy()
+        aggregate_one_ports.discard('Generator')
+
+        # reset coordinates to the new reduced guys, rather than taking an
+        # average (copied from pypsa.networkclustering)
+        if use_reduced_coordinates:
+            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+            # i.e. network is changed in place!!
+            network_stubs.buses.loc[busmap_stubs.index, ['x', 'y']
+                              ] = network_stubs.buses.loc[busmap_stubs, ['x', 'y']].values
+
+        clustering_stubs = get_clustering_from_busmap(
+            network_stubs,
+            busmap_stubs,
+            aggregate_generators_weighted=True,
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=line_length_factor)
+        network_stubs = clustering_stubs.network
+        
+        print('Anzahl der Knoten nach Anwendung des remove_stubs: '+str(len(network_stubs.buses)))
+        print(' ')
+
+        weight_stubs = weight.groupby(busmap_stubs.values).sum()
+        
+        stubs_weightings=pd.Series(weight_stubs)
+        buses_stubs=network_stubs.buses.index
+        points_stubs = (network_stubs.buses.loc[buses_stubs, ["x","y"]].values
+                  .repeat(stubs_weightings.reindex(buses_stubs).astype(int), axis=0))
+
+        from importlib.util import find_spec
+        if find_spec('sklearn') is None:
+            raise ModuleNotFoundError("sklearn not found")
+        from sklearn.cluster import KMeans
+    
+        kmeans_stubs = KMeans(init='k-means++', n_clusters=n_clusters, \
+                    n_init=n_init, max_iter=max_iter, tol=tol, n_jobs=n_jobs)
+        kmeans_stubs.fit(points_stubs)
+    
+        # creation of busmap 
+        busmap_stubs = pd.Series(data=kmeans_stubs.predict(network_stubs.buses.loc[buses_stubs, ["x", "y"]]), 
+                             index=buses_stubs, dtype=object)
+        
+    ###
     
     # k-means clustering
     
@@ -1027,6 +1088,23 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = components.one_port_components.copy()
     aggregate_one_ports.discard('Generator') 
+    
+    ### k-means mit remove_stubs für Vergleich
+    busmap_stubs=busmap_stubs.astype(str)
+    busmap_stubs.index=list(busmap_stubs.index.astype(str))
+    clustering_stubs = get_clustering_from_busmap(
+        network_stubs,
+        busmap_stubs,
+        line_length_factor=line_length_factor,
+        aggregate_generators_weighted=True,        
+        aggregate_one_ports=aggregate_one_ports) 
+  
+    for i in range(len(kmeans_stubs.cluster_centers_)):
+        index = clustering_stubs.network.buses.index[i]
+        center=kmeans_stubs.cluster_centers_[int(index)]
+        clustering_stubs.network.buses['x'].loc[index]=center[0]  
+        clustering_stubs.network.buses['y'].loc[index]=center[1]
+    ###
     
     ### k-means clustering für Vergleich    
     busmap_kmean=busmap_kmean.astype(str)
@@ -1173,8 +1251,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             p = points[["x","y"]].values
             hull = ConvexHull(p)
             for simplex in hull.simplices:
-                ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=1)
-                ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=1)
+                ax1.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=3)
+                ax5.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=3)
    
     # Medoids in black
     networka = clustering_dijkstra.network.copy()
@@ -1194,15 +1272,25 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     
     osm2,ax2 = plot_osm(osm['x'], osm['y'], osm['zoom'])
     osm4,ax4 = plot_osm(osm['x'], osm['y'], osm['zoom'])
-    
     df = pd.DataFrame(data=busmap_kmean.copy())
     df['x'] = network.buses['x']
     df['y'] = network.buses['y']
     cluster = np.unique(busmap_kmean)
+    
+    # remove_stubs
+    osm6,ax6 = plot_osm(osm['x'], osm['y'], osm['zoom'])   
+    n_stubs = network_stubs.copy()
+    set_epsg_network(n_stubs)
+    df2 = pd.DataFrame(data=busmap_stubs.copy())
+    df2['x'] = n_stubs.buses['x']
+    df2['y'] = n_stubs.buses['y']
+    
     for i in cluster:
         points = df[df[0]==i]
         ax2.scatter(points['x'], points['y'], s=3, label=i, zorder=2)
         ax4.scatter(points['x'], points['y'], s=3, label=i, zorder=2)
+        points2 = df2[df2[0]==i]
+        ax6.scatter(points['x'], points['y'], s=3, label=i, zorder=4)
         
         duplicated=points.duplicated()
         for i in range(len(duplicated)):
@@ -1213,7 +1301,18 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             p = points[["x","y"]].values
             hull = ConvexHull(p)
             for simplex in hull.simplices:
-                ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=1)
+                ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=3)
+                
+        duplicated=points2.duplicated()
+        for i in range(len(duplicated)):
+            if duplicated[i]==True:
+                index=duplicated.index[i]
+                points2 = points2.drop([index])
+        if len(points2) > 2:
+            p2 = points2[["x","y"]].values
+            hull = ConvexHull(p2)
+            for simplex in hull.simplices:
+                ax6.plot(p2[simplex, 0], p2[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=5)
                 
     # Mean-Centers in black
     networkb = clustering_kmean.network.copy()
@@ -1226,6 +1325,14 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     osm4.savefig('Cluster_kmeans.png')
     plt.close(osm4)
     
-    return clustering_kmean, clustering_dijkstra
+    # remove_stubs
+    networkc = clustering_stubs.network.copy()
+    set_epsg_network(networkc)
+    ax6.scatter(networkc.buses['x'], networkc.buses['y'], s=3, label=i, color='black', zorder=10)
+    
+    osm6.savefig('Cluster_kmeans_stubs.png')
+    plt.close(osm6)
+    
+    return clustering_kmean, clustering_dijkstra, clustering_stubs, network_stubs
 
 
