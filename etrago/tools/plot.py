@@ -268,7 +268,7 @@ def plot_line_loading(
 
     loading = load_lines_rel.append(load_links_rel)
     
-    ll = network.plot(bus_colors='black', line_colors='cyan')
+    ll = network.plot(bus_colors='black', line_colors='cyan', line_widths = 0.7, bus_sizes=1)
 
     '''
     ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap},
