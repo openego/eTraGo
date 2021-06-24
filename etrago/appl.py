@@ -145,8 +145,8 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 500, # False or the value k for clustering
+    'network_clustering_kmeans': False,  # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 100, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
@@ -452,7 +452,7 @@ def etrago(args):
     network = geolocation_buses(network, session)
 
     # Set q_sets of foreign loads
-    network = set_q_foreign_loads(network, cos_phi=1)
+    network = set_q_foreign_loads(network, cos_phi=1) 
 
     # Change transmission technology and/or capacity of foreign lines
     if args['foreign_lines']['carrier'] == 'DC':
@@ -572,24 +572,29 @@ def etrago(args):
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
     ### calculate kmean-network and kmedoid-dijkstra-network for comparison
-        clustering_kmean, clustering_dijkstra = kmedoid_dijkstra_clustering(
+        clustering_kmean, clustering_dijkstra, clustering_stubs, network_stubs = kmedoid_dijkstra_clustering(
                 networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=args['load_cluster'],
                 line_length_factor=1,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
-                n_init=2500,#10,
-                max_iter=1000,#100,
-                tol=1e-20,#6,
+                n_init=2500,#2500,
+                max_iter=1000,#1000,
+                tol=1e-20,#20,
                 n_jobs=-1)
         network_kmean = clustering_kmean.network.copy() ### 
         network_dijkstra = clustering_dijkstra.network.copy() ###
+        network_stubs_kmean = clustering_stubs.network.copy() ###
         geolocation_buses(network_kmean, session)
         geolocation_buses(network_dijkstra, session)
+        geolocation_buses(network_stubs_kmean, session)
+        geolocation_buses(network_stubs, session)
         
     #network_kmean=network.copy() ### 
     #network_dijkstra=network.copy() ###
+    #network_stubs_kmean=network.copy() ###
+    #network_stubs=network.copy() ###
 
     # skip snapshots
     if args['skip_snapshots']:
@@ -630,6 +635,14 @@ def etrago(args):
                      Constraints(args).functionality,
                      method={'n_iter':4})
         iterate_lopf(network_dijkstra,
+                     args,
+                     Constraints(args).functionality,
+                     method={'n_iter':4})
+        iterate_lopf(network_stubs_kmean,
+                     args,
+                     Constraints(args).functionality,
+                     method={'n_iter':4})
+        iterate_lopf(network_stubs,
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
@@ -714,13 +727,13 @@ def etrago(args):
     # close session
     # session.close()
 
-    return network, disaggregated_network, network_kmean, network_dijkstra
+    return network, disaggregated_network, network_kmean, network_dijkstra, network_stubs_kmean, network_stubs
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network, disaggregated_network, network_kmean, network_dijkstra = etrago(args)
+    network, disaggregated_network, network_kmean, network_dijkstra, network_stubs_kmean, network_stubs = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
@@ -733,11 +746,15 @@ if __name__ == '__main__':
     
     
 ### zur Auswertung:
-    
     plot_line_loading(network_dijkstra,filename='network_dijkstra.png') 
     
     plot_line_loading(network_kmean,filename='network_kmean.png')
     
+    plot_line_loading(network_stubs_kmean,filename='network_stubs_kmean.png')
+    
+    plot_line_loading(network_stubs,filename='network_stubs.png') 
+    
+    plot_line_loading(network,filename='network_original.png')
 ###
     
 sys.stdout = old_stdout
