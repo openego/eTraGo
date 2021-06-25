@@ -425,6 +425,10 @@ def etrago(args):
         -> clustering method: 
                 combination of k-medoids Clustering and Dijkstra's algorithm
     """
+    # Set maximum number of parallel NumExpr-processes (used e.g. by pandas) 
+    os.environ['NUMEXPR_MAX_THREADS'] = '1'
+    os.environ['NUMEXPR_NUM_THREADS'] = '1'
+
     conn = db.connection(section=args['db'])
     Session = sessionmaker(bind=conn)
     session = Session()
@@ -761,4 +765,4 @@ sys.stdout = old_stdout
 
 log_file.close()
 
-    
+
