@@ -946,8 +946,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
-            
-    #import pdb; pdb.set_trace()
     
     ### remove_stubs ###
         
@@ -956,6 +954,11 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     use_reduced_coordinates = True ###
     
     # remove stubs
+    
+    import datetime ### für Auswertung
+    print(' ')
+    print('0) remove stubs')
+    print(datetime.datetime.now()) ###
     
     print(' ')
     print('Anzahl der Originalknoten: '+str(len(network.buses)))
@@ -1010,7 +1013,6 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     
     # k-means clustering
     
-    import datetime ### für Auswertung
     print(' ')
     print('1) start k-means Clustering')
     print(datetime.datetime.now()) ###
