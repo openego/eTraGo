@@ -125,7 +125,7 @@ args = {
     'method': 'lopf',  # lopf or pf
     'pf_post_lopf': False,  # perform a pf after a lopf simulation
     'start_snapshot': 1,
-    'end_snapshot': 100,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
                        'logFile': 'solver.log'},  # {} for default options
@@ -139,21 +139,21 @@ args = {
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
-    'extendable': ['storage'],  # Array of components to optimize
+    'extendable': ['network','storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'minimize_loading': False,
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': False,  # False or the value k for clustering
-    'network_clustering_kmedoidDijkstra': 10, # False or the value k for clustering
+    'network_clustering_kmedoidDijkstra': 300, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': False,  # False or the number of 'periods'
     # Simplifications:
     'parallelisation': False,  # run snapshots parallely.
-    'skip_snapshots': 2,
+    'skip_snapshots': 5,
     'line_grouping': False,  # group lines parallel lines
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
@@ -822,13 +822,13 @@ if __name__ == '__main__':
     
     # plot_line_loading
 
-    plot_line_loading(network_dijkstra,timesteps=range(0,50),filename='network_dijkstra.png') 
+    plot_line_loading(network_dijkstra,timesteps=range(0,1752),filename='network_dijkstra.png') 
     
-    plot_line_loading(network_kmean,timesteps=range(0,50),filename='network_kmean.png')
+    plot_line_loading(network_kmean,timesteps=range(0,1752),filename='network_kmean.png')
     
-    plot_line_loading(network_stubs_kmean,timesteps=range(0,50),filename='network_stubs_kmean.png')
+    plot_line_loading(network_stubs_kmean,timesteps=range(0,1752),filename='network_stubs_kmean.png')
     
-    '''# network_expansion
+    # network_expansion
     
     network_expansion(network_kmean,filename='expansion_rel_kmean.png')
     
@@ -840,7 +840,7 @@ if __name__ == '__main__':
     
     network_expansion(network_dijkstra,method='abs',filename='expansion_abs_dijkstra.png')
     
-    network_expansion(network_stubs_kmean,method='abs',filename='expansion_abs_stubs_kmean.png')'''
+    network_expansion(network_stubs_kmean,method='abs',filename='expansion_abs_stubs_kmean.png')
     
     # storage_distribution
     
@@ -857,6 +857,62 @@ if __name__ == '__main__':
     storage_expansion(network_dijkstra,filename='storage_expansion_dijkstra.png')
     
     storage_expansion(network_stubs_kmean,filename='storage_expansion_kmean_stubs.png')
+    
+    # store results
+    
+    import json
+    
+    def _enumerate_row(row):
+        row['name'] = row.name
+        return row
+    
+    def results_to_csv(network, args, path):
+        """ Function the writes the calaculation results
+        in csv-files in the desired directory. 
+    
+        Parameters
+        ----------
+        network : :class:`pypsa.Network
+            Overall container of PyPSA
+        args: dict
+            Contains calculation settings of appl.py
+        path: str
+            Choose path for csv-files
+    
+        """
+        #results_to_csv.counter += 1
+        if path == False:
+            return None
+    
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+    
+        network.export_to_csv_folder(path)
+        data = pd.read_csv(os.path.join(path, 'network.csv'))
+        data['time'] = network.results['Solver'].Time
+        data = data.apply(_enumerate_row, axis=1)
+        data.to_csv(os.path.join(path, 'network.csv'), index=False)
+    
+        #if results_to_csv.counter == 1:
+        if True:
+            with open(os.path.join(args['csv_export'], 'args.json'), 'w') as fp:
+                json.dump(args, fp)
+    
+        if hasattr(network, 'Z'):
+            file = [i for i in os.listdir(
+                path.strip('0123456789')) if i == 'Z.csv']
+            if file:
+                print('Z already calculated')
+            else:
+                network.Z.to_csv(path.strip('0123456789') + '/Z.csv', index=False)
+    
+        return
+    
+    results_to_csv(network_kmean, args, 'results/kmean/')
+    
+    results_to_csv(network_dijkstra, args, 'results/dijkstra/')
+    
+    results_to_csv(network_stubs_kmean, args, 'results/kmean_stubs/')
     
 ###
     
