@@ -1310,7 +1310,7 @@ def storage_distribution(network, scaling=1, filename=None, osm = {'x': [1,20], 
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
     for area in [msd_max, msd_median, msd_min]:
-        plt.scatter([], [], c='grey', s=area * scaling,
+        plt.scatter([], [], c='blue', s=area * scaling,
                     label='= ' + str(round(area, 0)) + ' ' + LabelUnit + ' ')
     plt.legend(markerscale=1.0,scatterpoints=1,labelspacing=0.3, title='Storage size', loc='upper left',fontsize='xx-small',title_fontsize='xx-small')
 
