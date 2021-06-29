@@ -191,9 +191,8 @@ def plot_line_loading(
     """
     
     if osm != False:
-        set_epsg_network.counter=0
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
+        #if set_epsg_network.counter == 0:
+            #set_epsg_network(network)
         plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     # TODO: replace p0 by max(p0,p1) and analogously for q0
@@ -268,11 +267,11 @@ def plot_line_loading(
 
     loading = load_lines_rel.append(load_links_rel)
     
-    ll = network.plot(bus_colors='black', line_colors='cyan', line_widths = 0.7, bus_sizes=1)
+    #ll = network.plot(bus_colors='black', line_colors='cyan', line_widths = 0.7, bus_sizes=1)
 
-    '''
-    ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap},
-                      title="Line loading", line_widths=0.55)
+    
+    ll = network.plot(line_colors=loading, line_cmap={'Line':cmap, 'Link':cmap}, bus_sizes = 0)#,
+                      # bus_sizes = 0.1, bus_colors = 'black', # title="Line loading")#, line_widths=0.55)
     # add colorbar, note mappable sliced from ll by [1]
 
     
@@ -284,9 +283,11 @@ def plot_line_loading(
         v = np.linspace(boundaries[0], boundaries[1], 101)
         
     cb = plt.colorbar(ll[1], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], #)
+                      fraction=0.046, pad=0.04)
     cb_Link = plt.colorbar(ll[2], boundaries=v,
-                      ticks=v[0:101:10])
+                      ticks=v[0:101:10], #)
+                      fraction=0.046, pad=0.04)
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     
@@ -294,7 +295,7 @@ def plot_line_loading(
     
     cb_Link.remove()
     
-    cb.set_label('Line loading in %')'''
+    cb.set_label('Line loading in %')
 
     if arrows:
         ax = plt.axes()
@@ -327,7 +328,7 @@ def plot_line_loading(
 
 
 
-def plot_line_loading_diff(networkA, networkB, timestep=0, osm = False):
+def plot_line_loading_diff(networkA, networkB, timestep=0, osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}, filename = None):
     """
     Plot difference in line loading between two networks
     (with and without switches) as color on lines
@@ -356,9 +357,9 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm = False):
                 'zoom' : resolution of osm 
     """
     if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(networkA)
-            set_epsg_network(networkB)
+        #if set_epsg_network.counter == 0:
+            #set_epsg_network(networkA)
+            #set_epsg_network(networkB)
         plot_osm(osm['x'], osm['y'], osm['zoom'])
     # new colormap to make sure 0% difference has the same color in every plot
     def shiftedColorMap(
@@ -451,12 +452,15 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm = False):
     cb = plt.colorbar(ll[1])
     cb.set_label('Difference in line loading in % of s_nom')
     
-
-
+    if filename is None:
+        plt.show()
+    else:
+        plt.savefig(filename)
+        plt.close()   
 
 def network_expansion(network, method = 'rel', ext_min=0.1,
                       ext_width=False, filename=None, boundaries=[],
-                      osm = False):
+                      osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """Plot relative or absolute network extension of AC- and DC-lines.
     
     Parameters
@@ -484,8 +488,8 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
     
     """
     if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
+        #if set_epsg_network.counter == 0:
+            #set_epsg_network(network)
         plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     cmap = plt.cm.jet
@@ -556,8 +560,8 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
                   network.links.index])))
 
     if not ext_width:
-        line_widths= pd.Series(0.8, index = array_line).append(
-                pd.Series(0.8, index = array_link))
+        line_widths= pd.Series(1.5, index = array_line).append(
+                pd.Series(1.5, index = array_link)) #0.8
         
     else: 
         line_widths= 0.5 + (extension / ext_width)
@@ -565,9 +569,9 @@ def network_expansion(network, method = 'rel', ext_min=0.1,
     ll = overlay_network.plot(
         line_colors=extension,
         line_cmap=cmap,
-        bus_sizes=0,
-        title="Optimized AC- and DC-line expansion",
-        line_widths=line_widths) 
+        bus_sizes=0)#,
+        #title="Optimized AC- and DC-line expansion",
+        #line_widths=line_widths) 
 
     if not boundaries:
         v = np.linspace(min(extension), max(extension), 101)
@@ -624,9 +628,9 @@ def network_expansion_diff (networkA,
     
     """
     if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(networkA)
-            set_epsg_network(networkB)
+        #if set_epsg_network.counter == 0:
+         #   set_epsg_network(networkA)
+          #  set_epsg_network(networkB)
         plot_osm(osm['x'], osm['y'], osm['zoom'])
         
     cmap = plt.cm.jet
@@ -1238,7 +1242,7 @@ def curtailment(network, carrier='solar', filename=None):
         plt.close()
 
 
-def storage_distribution(network, scaling=1, filename=None, osm = False):
+def storage_distribution(network, scaling=1, filename=None, osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """
     Plot storage distribution as circles on grid nodes
 
@@ -1259,12 +1263,12 @@ def storage_distribution(network, scaling=1, filename=None, osm = False):
                 'zoom' : resolution of osm 
     """
     if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
+        #if set_epsg_network.counter == 0:
+            #set_epsg_network(network)
         fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
     else:
         fig, ax = plt.subplots(1, 1)
-
+   
     stores = network.storage_units
     storage_distribution = network.storage_units.p_nom_opt[stores.index]\
             .groupby(network.storage_units.bus)\
@@ -1300,15 +1304,15 @@ def storage_distribution(network, scaling=1, filename=None, osm = False):
         network.plot(
             bus_sizes=storage_distribution * scaling,
             ax=ax,
-            line_widths=0.3,
-            title="Storage distribution")
+            line_widths=0.8)#,
+            #title="Storage distribution")
 
     # Here we create a legend:
     # we'll plot empty lists with the desired size and label
     for area in [msd_max, msd_median, msd_min]:
-        plt.scatter([], [], c='white', s=area * scaling,
-                    label='= ' + str(round(area, 0)) + LabelUnit + ' ')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size')
+        plt.scatter([], [], c='grey', s=area * scaling,
+                    label='= ' + str(round(area, 0)) + ' ' + LabelUnit + ' ')
+    plt.legend(markerscale=1.0,scatterpoints=1,labelspacing=0.3, title='Storage size', loc='upper left',fontsize='xx-small',title_fontsize='xx-small')
 
     if filename is None:
         plt.show()
@@ -1322,7 +1326,7 @@ def storage_expansion(network,
                       basemap=True,
                       scaling=1,
                       filename=None,
-                      osm = False):
+                      osm = {'x': [1,20], 'y': [47, 56], 'zoom' : 6}):
     """
     Plot storage distribution as circles on grid nodes
     Displays storage size and distribution in network.
@@ -1343,8 +1347,8 @@ def storage_expansion(network,
     """
     
     if osm != False:
-        if set_epsg_network.counter == 0:
-            set_epsg_network(network)
+        #if set_epsg_network.counter == 0:
+            #set_epsg_network(network)
         fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
     else:
         fig, ax = plt.subplots(1, 1)
@@ -1405,16 +1409,16 @@ def storage_expansion(network,
     elif network.storage_units.p_nom_opt[sbatt].sum() > 1 and\
     network.storage_units.p_nom_opt[shydr].sum() < 1:
         network.plot(bus_sizes=battery_distribution * scaling, 
-                     bus_colors='orangered', ax=ax, line_widths=0.3)
+                     bus_colors='orangered', ax=ax, line_widths=0.8)
     elif network.storage_units.p_nom_opt[sbatt].sum() < 1 and\
     network.storage_units.p_nom_opt[shydr].sum() > 1:
         network.plot(bus_sizes=hydrogen_distribution * scaling,
-                     bus_colors='teal', ax=ax, line_widths=0.3)
+                     bus_colors='teal', ax=ax, line_widths=0.8)
     else:
         network.plot(bus_sizes=battery_distribution * scaling,
-                     bus_colors='orangered', ax=ax, line_widths=0.3)
+                     bus_colors='orangered', ax=ax, line_widths=0.8)
         network.plot(bus_sizes=hydrogen_distribution * scaling,
-                     bus_colors='teal', ax=ax, line_widths=0.3)
+                     bus_colors='teal', ax=ax, line_widths=0.8)
 
     if basemap and basemap_present:
         x = network.buses["x"]
@@ -1430,12 +1434,12 @@ def storage_expansion(network,
 
     if msd_max_hyd !=0:
         plt.scatter([], [], c='teal', s=msd_max_hyd * scaling,
-                label='= ' + str(round(msd_max_hyd, 0)) + LabelUnit + ' hydrogen storage')
+                label='= ' + str(round(msd_max_hyd, 0)) + ' ' + LabelUnit + ' (hydrogen)')
     if msd_max_bat !=0:
         plt.scatter([], [], c='orangered', s=msd_max_bat * scaling,
-                label='= ' + str(round(msd_max_bat, 0)) + LabelUnit + ' battery storage')
-    plt.legend(scatterpoints=1, labelspacing=1, title='Storage size and technology', borderpad=1.3, loc=2)
-    ax.set_title("Storage expansion")
+                label='= ' + str(round(msd_max_bat, 0))+ ' ' + LabelUnit + ' (battery)')
+    plt.legend(markerscale=1.0, scatterpoints=1, labelspacing=0.3, title='Storage size', borderpad=1.3, loc=2, fontsize='xx-small',title_fontsize='xx-small')
+    #ax.set_title("Storage expansion")
 
     
     if filename is None:
