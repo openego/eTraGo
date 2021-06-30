@@ -145,7 +145,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': False,  # False or the value k for clustering
+    'network_clustering_kmeans': True,  # False or the value k for clustering
     'network_clustering_kmedoidDijkstra': 300, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
@@ -583,9 +583,9 @@ def etrago(args):
                 line_length_factor=1,
                 bus_weight_tocsv=None,
                 bus_weight_fromcsv=None,                
-                n_init=10,#2500,
-                max_iter=100,#1000,
-                tol=1e-6,#20,
+                n_init=2500,#2500,
+                max_iter=1000,#1000,
+                tol=1e-20,#20,
                 n_jobs=-1)
         network_kmean = clustering_kmean.network.copy() ### 
         network_dijkstra = clustering_dijkstra.network.copy() ###
