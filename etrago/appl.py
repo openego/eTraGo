@@ -29,7 +29,7 @@ the function etrago.
 import sys
 old_stdout = sys.stdout
 
-log_file = open("prints.log","w")
+log_file = open("Testcase22/prints.log","w")
 
 sys.stdout = log_file
 
@@ -127,8 +127,8 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5,
-                       'logFile': 'solver.log'},  # {} for default options
+    'solver_options': {'BarConvTol': 1.e-5, 'FeasibilityTol': 1.e-5, 'method':2, 'crossover':0,
+                       'logFile': 'Testcase22/solver.log'},  # {} for default options
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGo 100',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
@@ -136,7 +136,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results',  # save results as csv: False or /path/tofolder
+    'csv_export': 'Testcase22/results',  # save results as csv: False or /path/tofolder
     'db_export': False,  # export the results back to the oedb
     # Settings:
     'extendable': ['network','storage'],  # Array of components to optimize
@@ -145,7 +145,7 @@ args = {
     'ramp_limits': False,  # Choose if using ramp limit of generators
     'extra_functionality': {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': 10,  # False or the value k for clustering
+    'network_clustering_kmeans': False,  # False or the value k for clustering
     'network_clustering_kmedoidDijkstra': 300, # False or the value k for clustering
     'load_cluster': False,  # False or predefined busmap for k-means
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
@@ -576,7 +576,7 @@ def etrago(args):
     # k-medoid and Dijkstra clustering
     if not args ['network_clustering_kmedoidDijkstra'] == False:
     ### calculate kmean-network and kmedoid-dijkstra-network for comparison
-        clustering_kmean, clustering_dijkstra, clustering_stubs, network_stubs = kmedoid_dijkstra_clustering(
+        clustering_kmean, clustering_dijkstra = kmedoid_dijkstra_clustering(
                 networkkmedoid,
                 n_clusters=args['network_clustering_kmedoidDijkstra'],
                 load_cluster=args['load_cluster'],
@@ -589,11 +589,11 @@ def etrago(args):
                 n_jobs=-1)
         network_kmean = clustering_kmean.network.copy() ### 
         network_dijkstra = clustering_dijkstra.network.copy() ###
-        network_stubs_kmean = clustering_stubs.network.copy() ###
+        #network_stubs_kmean = clustering_stubs.network.copy() ###
         geolocation_buses(network_kmean, session)
         geolocation_buses(network_dijkstra, session)
-        geolocation_buses(network_stubs_kmean, session)
-        geolocation_buses(network_stubs, session)
+        #geolocation_buses(network_stubs_kmean, session)
+        #geolocation_buses(network_stubs, session)
         
     #network_kmean=network.copy() ### 
     #network_dijkstra=network.copy() ###
@@ -617,9 +617,9 @@ def etrago(args):
         network_dijkstra.snapshot_weightings = network_dijkstra.snapshot_weightings[
             ::args['skip_snapshots']] * args['skip_snapshots']      
         # k-means Clustering with remove stubs
-        network_stubs_kmean.snapshots = network_stubs_kmean.snapshots[::args['skip_snapshots']]
-        network_stubs_kmean.snapshot_weightings = network_stubs_kmean.snapshot_weightings[
-            ::args['skip_snapshots']] * args['skip_snapshots']
+        #network_stubs_kmean.snapshots = network_stubs_kmean.snapshots[::args['skip_snapshots']]
+        #network_stubs_kmean.snapshot_weightings = network_stubs_kmean.snapshot_weightings[
+            #::args['skip_snapshots']] * args['skip_snapshots']
         '''
         network.snapshots = network.snapshots[::args['skip_snapshots']]
         network.snapshot_weightings = network.snapshot_weightings[
@@ -665,12 +665,12 @@ def etrago(args):
                      args,
                      Constraints(args).functionality,
                      method={'n_iter':4})
-        print(' ')
-        print('k-means Clustering with removed stubs: ')
-        iterate_lopf(network_stubs_kmean,
-                     args,
-                     Constraints(args).functionality,
-                     method={'n_iter':4})
+        #print(' ')
+        #print('k-means Clustering with removed stubs: ')
+        #iterate_lopf(network_stubs_kmean,
+                     #args,
+                     #Constraints(args).functionality,
+                     #method={'n_iter':4})
         print(' ')
         '''iterate_lopf(network_stubs,
                      args,
@@ -703,9 +703,9 @@ def etrago(args):
         print('k-medoids Dijkstra Clustering: ')
         print_expansion_costs(network_dijkstra, args)
         print(' ')
-        print('k-means Clustering with removed stubs: ')
-        print_expansion_costs(network_stubs_kmean, args)
-        print(' ')
+        #print('k-means Clustering with removed stubs: ')
+        #print_expansion_costs(network_stubs_kmean, args)
+        #print(' ')
         
         
     if clustering:
@@ -767,13 +767,13 @@ def etrago(args):
     # close session
     # session.close()
 
-    return network, disaggregated_network, network_kmean, network_dijkstra, network_stubs_kmean, network_stubs
+    return network, disaggregated_network, network_kmean, network_dijkstra#, network_stubs_kmean, network_stubs
 
 
 if __name__ == '__main__':
     # execute etrago function
     print(datetime.datetime.now())
-    network, disaggregated_network, network_kmean, network_dijkstra, network_stubs_kmean, network_stubs = etrago(args)
+    network, disaggregated_network, network_kmean, network_dijkstra = etrago(args)
     print(datetime.datetime.now())
     # plots
     # make a line loading plot
@@ -817,46 +817,46 @@ if __name__ == '__main__':
     set_epsg_network(network)
     set_epsg_network(network_kmean)
     set_epsg_network(network_dijkstra)
-    set_epsg_network(network_stubs_kmean)
-    set_epsg_network(network_stubs)
+    #set_epsg_network(network_stubs_kmean)
+    #set_epsg_network(network_stubs)
     
     # plot_line_loading
 
-    plot_line_loading(network_dijkstra,timesteps=range(0,1752),filename='network_dijkstra.png') 
+    plot_line_loading(network_dijkstra,timesteps=range(0,1752),filename='Testcase22/network_dijkstra.png') #
     
-    plot_line_loading(network_kmean,timesteps=range(0,1752),filename='network_kmean.png')
+    plot_line_loading(network_kmean,timesteps=range(0,1752),filename='Testcase22/network_kmean.png') #
     
-    plot_line_loading(network_stubs_kmean,timesteps=range(0,1752),filename='network_stubs_kmean.png')
+    #plot_line_loading(network_stubs_kmean,timesteps=range(0,1752),filename='network_stubs_kmean.png')
     
     # network_expansion
     
-    network_expansion(network_kmean,filename='expansion_rel_kmean.png')
+    network_expansion(network_kmean,filename='Testcase22/expansion_rel_kmean.png')
     
-    network_expansion(network_dijkstra,filename='expansion_rel_dijkstra.png')
+    network_expansion(network_dijkstra,filename='Testcase22/expansion_rel_dijkstra.png')
     
-    network_expansion(network_stubs_kmean,filename='expansion_rel_stubs_kmean.png')
+    #network_expansion(network_stubs_kmean,filename='expansion_rel_stubs_kmean.png')
     
-    network_expansion(network_kmean,method='abs',filename='expansion_abs_kmean.png')
+    network_expansion(network_kmean,method='abs',filename='Testcase22/expansion_abs_kmean.png')
     
-    network_expansion(network_dijkstra,method='abs',filename='expansion_abs_dijkstra.png')
+    network_expansion(network_dijkstra,method='abs',filename='Testcase22/expansion_abs_dijkstra.png')
     
-    network_expansion(network_stubs_kmean,method='abs',filename='expansion_abs_stubs_kmean.png')
+    #network_expansion(network_stubs_kmean,method='abs',filename='expansion_abs_stubs_kmean.png')
     
     # storage_distribution
     
-    storage_distribution(network_kmean,filename='storage_kmean.png')
+    storage_distribution(network_kmean,filename='Testcase22/storage_kmean.png')
     
-    storage_distribution(network_dijkstra,filename='storage_dijkstra.png')
+    storage_distribution(network_dijkstra,filename='Testcase22/storage_dijkstra.png')
     
-    storage_distribution(network_stubs_kmean,filename='storage_kmean_stubs.png')
+    #storage_distribution(network_stubs_kmean,filename='storage_kmean_stubs.png')
     
     # storage_expansion
     
-    storage_expansion(network_kmean,filename='storage_expansion_kmean.png')
+    storage_expansion(network_kmean,filename='Testcase22/storage_expansion_kmean.png')
     
-    storage_expansion(network_dijkstra,filename='storage_expansion_dijkstra.png')
+    storage_expansion(network_dijkstra,filename='Testcase22/storage_expansion_dijkstra.png')
     
-    storage_expansion(network_stubs_kmean,filename='storage_expansion_kmean_stubs.png')
+    #storage_expansion(network_stubs_kmean,filename='storage_expansion_kmean_stubs.png')
     
     # store results
     
@@ -908,11 +908,11 @@ if __name__ == '__main__':
     
         return
     
-    results_to_csv(network_kmean, args, 'results/kmean/')
+    results_to_csv(network_kmean, args, 'Testcase22/results/kmean/')
     
-    results_to_csv(network_dijkstra, args, 'results/dijkstra/')
+    results_to_csv(network_dijkstra, args, 'Testcase22/results/dijkstra/')
     
-    results_to_csv(network_stubs_kmean, args, 'results/kmean_stubs/')
+    #results_to_csv(network_stubs_kmean, args, 'results/kmean_stubs/')
     
 ###
     
