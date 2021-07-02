@@ -753,8 +753,8 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     
     
     ### zur Auswertung
-    df_dijkstra.to_csv('df_dijkstra',index=True)
-    dfj.to_csv('df_dijkstra_True',index=True)
+    #df_dijkstra.to_csv('df_dijkstra',index=True)
+    #dfj.to_csv('df_dijkstra_True',index=True)
     
     ### zur Auswertung: Berechnung der mittleren Pfadlängen der Originalknoten pro Cluster zu deren Medoid
     print(' ')
@@ -763,7 +763,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     df_dijkstra['path_length']=df_dijkstra['path_length'].astype(float)
     df_clusterpaths_dijkstra=df_dijkstra.groupby(df_dijkstra['target'])
     df_clusterpaths_dijkstra=df_clusterpaths_dijkstra['path_length'].aggregate(np.mean)
-    df_clusterpaths_dijkstra.to_csv('cluster_paths_dijkstra',index=True)
+    #df_clusterpaths_dijkstra.to_csv('cluster_paths_dijkstra',index=True)
     print("Dijkstra's Algorithmus: "+str(df_clusterpaths_dijkstra.mean()))
     # kmean / kmedoid:
     df_kmedoid['path_length']=pd.Series(data=np.zeros)
@@ -774,7 +774,7 @@ def dijkstra(network, medoid_idx, dist_mean, busmap_kmean):
     df_kmedoid['path_length']=df_kmedoid['path_length'].astype(float)
     df_clusterpaths_kmedoid=df_kmedoid.groupby(df_kmedoid['medoid_indices'])
     df_clusterpaths_kmedoid=df_clusterpaths_kmedoid['path_length'].aggregate(np.mean)
-    df_clusterpaths_kmedoid.to_csv('cluster_paths_kmedoid',index=True)
+    #df_clusterpaths_kmedoid.to_csv('cluster_paths_kmedoid',index=True)
     print('k-medoids Clustering: '+str(df_clusterpaths_kmedoid.mean()))
     verhaltnis = df_clusterpaths_kmedoid.mean() / df_clusterpaths_dijkstra.mean()
     print('Verhältnis der mittleren Pfandlängen: '+str(verhaltnis))
@@ -949,9 +949,9 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     
     ### remove_stubs ###
         
-    network_stubs = network.copy()
-    remove_stubs=True ###
-    use_reduced_coordinates = True ###
+    #network_stubs = network.copy()
+    remove_stubs=False ###
+    #use_reduced_coordinates = True ###
     
     # remove stubs
     
@@ -1092,7 +1092,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     aggregate_one_ports.discard('Generator') 
     
     ### k-means mit remove_stubs für Vergleich
-    busmap_stubs=busmap_stubs.astype(str)
+    '''busmap_stubs=busmap_stubs.astype(str)
     busmap_stubs.index=list(busmap_stubs.index.astype(str))
     clustering_stubs = get_clustering_from_busmap(
         network_stubs,
@@ -1105,7 +1105,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
         index = clustering_stubs.network.buses.index[i]
         center=kmeans_stubs.cluster_centers_[int(index)]
         clustering_stubs.network.buses['x'].loc[index]=center[0]  
-        clustering_stubs.network.buses['y'].loc[index]=center[1]
+        clustering_stubs.network.buses['y'].loc[index]=center[1]'''
     ###
     
     ### k-means clustering für Vergleich    
@@ -1263,11 +1263,11 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     ax3.scatter(networka.buses['x'], networka.buses['y'], s=3, color='black', zorder=10)
     ax5.scatter(networka.buses['x'], networka.buses['y'], s=3, color='black', zorder=10)     
                         
-    osm1.savefig('Cluster_Dijkstra_Borders.png')
+    osm1.savefig('Testcase22/Cluster_Dijkstra_Borders.png')
     plt.close(osm1)
-    osm3.savefig('Cluster_Dijkstra.png')
+    osm3.savefig('Testcase22/Cluster_Dijkstra.png')
     plt.close(osm3)
-    osm5.savefig('Differences.png')
+    osm5.savefig('Testcase22/Differences.png')
     plt.close(osm5)
     
     # kmedoid mit Mean-Centers in black
@@ -1280,19 +1280,19 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     cluster = np.unique(busmap_kmean)
     
     # remove_stubs
-    osm6,ax6 = plot_osm(osm['x'], osm['y'], osm['zoom'])   
+    '''osm6,ax6 = plot_osm(osm['x'], osm['y'], osm['zoom'])   
     n_stubs = network_stubs.copy()
     set_epsg_network(n_stubs)
     df2 = pd.DataFrame(data=busmap_stubs.copy())
     df2['x'] = n_stubs.buses['x']
-    df2['y'] = n_stubs.buses['y']
+    df2['y'] = n_stubs.buses['y']'''
     
     for i in cluster:
         points = df[df[0]==i]
         ax2.scatter(points['x'], points['y'], s=3, label=i, zorder=2)
         ax4.scatter(points['x'], points['y'], s=3, label=i, zorder=2)
-        points2 = df2[df2[0]==i]
-        ax6.scatter(points['x'], points['y'], s=3, label=i, zorder=4)
+        #points2 = df2[df2[0]==i]
+        #ax6.scatter(points['x'], points['y'], s=3, label=i, zorder=4)
         
         duplicated=points.duplicated()
         for i in range(len(duplicated)):
@@ -1305,7 +1305,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             for simplex in hull.simplices:
                 ax2.plot(p[simplex, 0], p[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=3)
                 
-        duplicated=points2.duplicated()
+        '''duplicated=points2.duplicated()
         for i in range(len(duplicated)):
             if duplicated[i]==True:
                 index=duplicated.index[i]
@@ -1314,7 +1314,7 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
             p2 = points2[["x","y"]].values
             hull = ConvexHull(p2)
             for simplex in hull.simplices:
-                ax6.plot(p2[simplex, 0], p2[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=5)
+                ax6.plot(p2[simplex, 0], p2[simplex, 1], ls='-', color='black', linewidth=0.7, zorder=5)'''
                 
     # Mean-Centers in black
     networkb = clustering_kmean.network.copy()
@@ -1322,19 +1322,19 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     ax2.scatter(networkb.buses['x'], networkb.buses['y'], s=3, label=i, color='black', zorder=10)
     ax4.scatter(networkb.buses['x'], networkb.buses['y'], s=3, label=i, color='black', zorder=10)
         
-    osm2.savefig('Cluster_kmeans_Borders.png')
+    osm2.savefig('Testcase22/Cluster_kmeans_Borders.png')
     plt.close(osm2)
-    osm4.savefig('Cluster_kmeans.png')
+    osm4.savefig('Testcase22/Cluster_kmeans.png')
     plt.close(osm4)
     
     # remove_stubs
-    networkc = clustering_stubs.network.copy()
+    '''networkc = clustering_stubs.network.copy()
     set_epsg_network(networkc)
     ax6.scatter(networkc.buses['x'], networkc.buses['y'], s=3, label=i, color='black', zorder=10)
     
-    osm6.savefig('Cluster_kmeans_stubs.png')
-    plt.close(osm6)
+    osm6.savefig('Testcase22/Cluster_kmeans_stubs.png')
+    plt.close(osm6)'''
     
-    return clustering_kmean, clustering_dijkstra, clustering_stubs, network_stubs
+    return clustering_kmean, clustering_dijkstra#, clustering_stubs, network_stubs
 
 
