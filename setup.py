@@ -23,19 +23,21 @@ setup(
     include_package_data=True,
     install_requires=['egoio == 0.4.7',
                       'scikit-learn',
-                      'sqlalchemy == 1.2.0',
+                      'sqlalchemy == 1.3.16',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
-                      'tsam==0.9.9',
+                      'tsam == 0.9.9',
                       'shapely',
                       'oedialect',
                       'pyproj == 2.0.2',
                       'tilemapbase == 0.4.5',
-                      'pypsa == 0.17.1'],
+                      'pypsa == 0.17.1',
+                      'setuptools >= 54.2.0'],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
-            'sphinx_rtd_theme']},
+            'sphinx_rtd_theme'],
+        'gurobipy':['gurobipy']},
     package_data={
         'etrago': [
             os.path.join('tools', '*.json')]

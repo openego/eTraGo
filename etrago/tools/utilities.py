@@ -1464,3 +1464,17 @@ def check_args(etrago):
                            "not yet implemented without pyomo. "
                            "args['method']['pyomo'] is set to True.")
             etrago.args['method']['pyomo'] = True
+
+    if not etrago.args['method']['pyomo']:
+        try:
+            import gurobipy
+        except ModuleNotFoundError:
+            print(
+                "If you want to use nomopyomo you need to use the "
+                "solver gurobi and the package gurobipy. "
+                "You can find more information and installation "
+                "instructions for gurobi here: "
+                "https://support.gurobi.com/hc/en-us/articles/360044290292-How-do-I-install-Gurobi-for-Python- "
+                "For installation of gurobipy use pip.")
+            raise
+
