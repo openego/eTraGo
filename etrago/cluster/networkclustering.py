@@ -206,9 +206,8 @@ def shortest_path(paths, graph, cutoff):
     graph : :class:`networkx.classes.multigraph.MultiGraph
         Graph representation of an electrical grid.
         
-    medoid_dijkstra : boolean
-        marks if function is called within clustering approach using 
-        a k-medoids clustering and a Dijkstra's algorithm.
+    cutoff : int
+        reduction of complexity pf calculation by stopping calculation of paths by this length
 
     Returns
     -------
@@ -221,7 +220,7 @@ def shortest_path(paths, graph, cutoff):
     df = pd.DataFrame(index=idx, columns=['path_length'])
     df.sort_index(inplace=True)
     
-    # ursprüngliche Variante: 
+        # ursprüngliche Variante: 
     '''
     for s, t in paths:
         try:
@@ -1016,7 +1015,8 @@ def kmedoid_dijkstra_clustering(network, n_clusters=10, load_cluster=False,
     print(' ')
     print('1) start k-means Clustering')
     print(datetime.datetime.now()) ###
-            
+    
+    # set bus weightings        
     bus_weightings=pd.Series(weight)
     buses_i=network.buses.index
     points = (network.buses.loc[buses_i, ["x","y"]].values
