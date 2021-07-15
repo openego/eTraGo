@@ -783,7 +783,7 @@ def kmean_clustering(etrago):
     """
 
     network = etrago.network
-    kmean_settings = etrago.args["network_clustering_kmeans"]
+    kmean_settings = etrago.args["network_clustering"]
 
     def weighting_for_scenario(x, save=None):
         """ """
@@ -936,7 +936,7 @@ def kmean_clustering(etrago):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["kmeans_busmap"]:
+    if not kmean_settings["busmap"]:
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
@@ -949,7 +949,7 @@ def kmean_clustering(etrago):
             "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"
         )
     else:
-        df = pd.read_csv(kmean_settings["kmeans_busmap"])
+        df = pd.read_csv(kmean_settings["busmap"])
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
@@ -1020,9 +1020,9 @@ def select_elec_network(etrago):
     return elec_network
 
 
-def run_kmeans_clustering(self):
+def run_spatial_clustering(self):
 
-    if self.args["network_clustering_kmeans"]["active"]:
+    if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
 
@@ -1042,6 +1042,6 @@ def run_kmeans_clustering(self):
         self.network.generators.control[self.network.generators.control == ""] = "PV"
         logger.info(
             "Network clustered to {} buses with k-means algorithm.".format(
-                self.args["network_clustering_kmeans"]["n_clusters"]
+                self.args["network_clustering"]["n_clusters"]
             )
         )
