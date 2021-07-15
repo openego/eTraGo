@@ -77,10 +77,11 @@ args = {
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': {
+    'network_clustering': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
-        'kmeans_busmap': False, # False or path/to/busmap.csv
+        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
+        'n_clusters': 100, # number of resulting nodes
+        'busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
@@ -270,22 +271,26 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans :dict
-         {'active': True, 'n_clusters': 10, 'kmeans_busmap': False,
-          'line_length_factor': 1.25, 'remove_stubs': False,
-          'use_reduced_coordinates': False, 'bus_weight_tocsv': None,
-          'bus_weight_fromcsv': None, 'n_init': 10, 'max_iter': 300,
-          'tol': 1e-4, 'n_jobs': 1},
+    network_clustering :dict
+         {'active': True, method: 'kmedoids-dijkstra', 'n_clusters': 10, 
+          'kmeans_busmap': False,'line_length_factor': 1.25, 
+          'remove_stubs': False, 'use_reduced_coordinates': False, 
+          'bus_weight_tocsv': None,'bus_weight_fromcsv': None, 
+          'n_init': 10, 'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
         generation and load at each node.
+        With ``'method'`` you can choose between two clustering methods: 
+        k-means Clustering considering geopraphical locations of buses or 
+        k-medoids Dijkstra Clustering considering electrical distances between buses.
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with ``'line_grouping = True'``.
+        This function doesn't work together with 
+        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
     network_clustering_ehv : bool
         False,
@@ -341,8 +346,8 @@ def run_etrago(args, json_path):
     # ehv network clustering
     etrago.ehv_clustering()
 
-    # k-mean clustering
-    etrago.kmean_clustering()
+    # spatial clustering
+    etrago.spatial_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
