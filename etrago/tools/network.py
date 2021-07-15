@@ -48,7 +48,7 @@ from etrago.tools.utilities import (set_branch_capacity,
 from etrago.tools.plot import (add_coordinates,
                                plot_grid)
 from etrago.tools.extendable import extendable
-from etrago.cluster.networkclustering import (run_kmeans_clustering,
+from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
@@ -174,7 +174,7 @@ class Etrago():
 
     plot_grid = plot_grid
 
-    kmean_clustering = run_kmeans_clustering
+    spatial_clustering = run_spatial_clustering
 
     skip_snapshots = skip_snapshots
 
