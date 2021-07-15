@@ -65,7 +65,7 @@ args = {
         'crossover':0,
         'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'Status Quo',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGon2035',  # a scenario: Status Quo, NEP 2035, eGo 100
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
