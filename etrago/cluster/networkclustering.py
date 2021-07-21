@@ -227,17 +227,6 @@ def shortest_path(paths, graph):
     idx = pd.MultiIndex.from_tuples(paths, names=idxnames)
     df = pd.DataFrame(index=idx, columns=['path_length'])
     df.sort_index(inplace=True)
-
-    '''
-    for s, t in paths:
-
-        try:
-            df.loc[(s, t), 'path_length'] = \
-                nx.dijkstra_path_length(graph, s, t)
-
-        except NetworkXNoPath:
-            continue
-    '''
         
     df_isna = df.isnull()
     for s, t in paths:
@@ -246,7 +235,7 @@ def shortest_path(paths, graph):
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s) 
                 for t in idx.levels[1]: 
                     if t in s_to_other:
-                        df.loc[(s, t), 'path_length'] = s_to_other[t] 
+                        df.loc[(s,t), 'path_length'] = s_to_other[t] 
                     else:
                         df.loc[(s,t),'path_length'] = np.inf
             except NetworkXNoPath:
@@ -352,20 +341,22 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
-    # prepare data for export
+    ###
+    '''# prepare data for export
 
     df['scn_name'] = scn_name
-    df['version'] = etrago.args['gridversion']
+    df['version'] = etrago.args['gridversion']'''
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
-
+    
+    '''
     for i, d in df.reset_index().iterrows():
         etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
 
-    etrago.session.commit()
+    etrago.session.commit()'''
 
-    return
+    return df ### return nothing
 
 
 def busmap_from_psql(etrago):
@@ -401,18 +392,20 @@ def busmap_from_psql(etrago):
 
         return dict(query.all())
 
-    busmap = fetch()
+    #busmap = fetch() ###
 
     # TODO: Or better try/except/finally
-    if not busmap:
+    if True: ###
+    #if not busmap:
         print('Busmap does not exist and will be created.\n')
 
         cpu_cores = input('cpu_cores (default 4): ') or '4'
-
-        busmap_by_shortest_path(etrago, scn_name,
+        
+        ### busmap =
+        busmap = busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
-        busmap = fetch()
+        #busmap = fetch()
 
     return busmap
 
@@ -611,18 +604,30 @@ def kmean_clustering(etrago):
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
-
+    
     # k-mean clustering
     if not kmean_settings['busmap']:
-        busmap = busmap_by_kmeans(
-            network,
-            bus_weightings=pd.Series(weight),
-            n_clusters=kmean_settings['n_clusters'],
-            n_init=kmean_settings['n_init'],
-            max_iter=kmean_settings['max_iter'],
-            tol=kmean_settings['tol'],
-            n_jobs=kmean_settings['n_jobs'])
+        
+        bus_weightings=pd.Series(weight)
+        buses_i=network.buses.index
+        points = (network.buses.loc[buses_i, ["x","y"]].values
+                  .repeat(bus_weightings.reindex(buses_i).astype(int), axis=0))
+        
+        # k-means clustering
+        
+        kmeans = KMeans(init='k-means++', n_clusters=kmean_settings['n_clusters'], \
+                    n_init=kmean_settings['n_init'], max_iter=kmean_settings['max_iter'], 
+                    tol=kmean_settings['tol'], n_jobs=kmean_settings['n_jobs'])
+        kmeans.fit(points)
+        
+        busmap = pd.Series(data=kmeans.predict(network.buses.loc[buses_i, ["x", "y"]]), 
+                         index=buses_i, dtype=object)
+        
+        busmap=busmap.astype(str)
+        busmap.index=list(busmap.index.astype(str))
+        busmap.index.name='bus_id'
         busmap.to_csv('kmeans_busmap_' + str(kmean_settings['n_clusters']) + '_result.csv')
+        
     else:
         df = pd.read_csv(kmean_settings['busmap'])
         df=df.astype(str)
@@ -649,14 +654,20 @@ def kmean_clustering(etrago):
                               'capital_cost': np.mean},
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings['line_length_factor'])
+    
+    for i in range(len(kmeans.cluster_centers_)):
+        index = clustering.network.buses.index[i]
+        center=kmeans.cluster_centers_[int(index)]
+        clustering.network.buses['x'].loc[index]=center[0]  
+        clustering.network.buses['y'].loc[index]=center[1]   
 
     return clustering
 
 def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
-    """ Function for combination of k-medoids clustering and Dijkstra's algorithm.
+    """ Function for combination of k-medoids Clustering and Dijkstra's algorithm.
     Creates a busmap assigning the nodes of a original network 
     to the nodes of a clustered network 
-    considering the electrical distance based on Dijkstra's shortest path. 
+    considering the electrical distances based on Dijkstra's shortest path. 
     Parameters
     ----------
     network : pypsa.Network object
@@ -694,7 +705,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
              in lines.iterrows()]
     M = graph_from_edges(edges)
     
-    # processor count
+    '''# processor count
     cpu_cores = mp.cpu_count()-1
 
     # calculation of shortest path between original points and k-medoids centers
@@ -703,7 +714,8 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
-    dump(df, open('df.p', 'wb'))
+    dump(df, open('df.p', 'wb'))'''
+    df=shortest_path(ppathss,M)
      
     # assignment of data points to closest k-medoids centers
     df['path_length']=pd.to_numeric(df['path_length'])    
@@ -717,74 +729,6 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
         if duplicated[i]==True:
             df_dijkstra = df_dijkstra.drop([i])
     df_dijkstra.index=df_dijkstra['source']
-    
-    ###############################Auswertung##################################
-    
-    df_dijkstra['correction of assignment']=df_dijkstra['target']
-    for i in range(len(df_dijkstra)):
-        index=df_dijkstra['source'].iloc[i]
-        if (int(df_kmedoid['medoid_indices'].loc[index]) != int(df_dijkstra['target'].iloc[i])):
-            df_dijkstra['correction of assignment'].iloc[i]='True'
-        else:
-            df_dijkstra['correction of assignment'].iloc[i]='False'
-    dfj = df_dijkstra.copy()
-    dfj['kmedoid'] = df_kmedoid['medoid_indices']
-    original = pd.Series(index=medoid_idx.values) # Anzahl der Originalknoten pro Cluster
-    for i in medoid_idx:
-        dfo = dfj[dfj['kmedoid']==i]
-        original.loc[i] = len(dfo)
-    dfj = dfj[dfj['correction of assignment']=='True']   
-    
-    print(' ')
-    print("Anzahl der veränderten Zuordnungen durch Dijkstra's Algorithmus: "+str(len(dfj))) 
-    pro = (len(dfj) / len(network.buses))*100
-    print('Anteil der veränderten Knoten an den Originalknoten in Prozent: '+str(pro))
-    print(' ')
-    prozent = pd.Series(index=medoid_idx.values)
-    anzahl = pd.Series(index=medoid_idx.values)
-    x=0
-    for i in medoid_idx:
-        dfjj=dfj[dfj['kmedoid']==i]
-        if len(dfjj)>0:
-            x=x+1
-            anzahl.loc[i] = len(dfjj)
-            print('Änderung des durch k-means Clustering festgelegten Clusters (Label) '+str(medoid_idx[medoid_idx==str(i)].index[0])+': '+str(len(dfjj))+' mal')
-            print('Anzahl der Originalknoten in diesem Cluster: '+str(original.loc[i]))
-            prozent.loc[i] = (len(dfjj) / original.loc[i]) *100
-            print('Anteil der veränderten Buses an den Originalbusses im Cluster: '+str(prozent.loc[i]))
-    print(' ')
-    print('Anzahl der durch Änderungen betroffene Cluster: '+str(x)+' (von) '+str(len(medoid_idx))+' Clustern insgesamt')
-    print('Knotenanzahl in Durchschnittscluster: '+str(original.mean()))
-    print('Mittlere Anzahl der veränderten Knoten pro Cluster (nur veränderte Cluster): '+str((anzahl.mean())))
-    print('Durchschnittlicher Anteil der veränderten Knoten pro Cluster (nur veränderte Cluster) in Prozent: '+str((prozent.mean())))
-    m = len(dfj) / len(c_buses)
-    print("Mittlere Anzahl der veränderten Zuordnung pro Cluster (alle Cluster): "+str(m)) 
-    prozent.fillna(0,inplace=True)
-    print('Durchschnittlicher Anteil der veränderten Knoten pro Cluster (alle Cluster) in Prozent: '+str((prozent.mean())))
-
-    print(' ')
-    print('mittlere Pfadlänge der Originalknoten pro Cluster zu deren Medoids:')
-    # dijkstra:
-    df_dijkstra['path_length']=df_dijkstra['path_length'].astype(float)
-    df_clusterpaths_dijkstra=df_dijkstra.groupby(df_dijkstra['target'])
-    df_clusterpaths_dijkstra=df_clusterpaths_dijkstra['path_length'].aggregate(np.mean)
-    #df_clusterpaths_dijkstra.to_csv('cluster_paths_dijkstra',index=True)
-    print("Dijkstra's Algorithmus: "+str(df_clusterpaths_dijkstra.mean()))
-    # kmean / kmedoid:
-    df_kmedoid['path_length']=pd.Series(data=np.zeros)
-    for i in range (0,len(df_kmedoid)):
-        source=df_kmedoid.index[i]
-        target=df_kmedoid['medoid_indices'].iloc[i]
-        df_kmedoid['path_length'].iloc[i]=df['path_length'].loc[str(source)].loc[df.loc[str(source)].index==str(target)].values[0]
-    df_kmedoid['path_length']=df_kmedoid['path_length'].astype(float)
-    df_clusterpaths_kmedoid=df_kmedoid.groupby(df_kmedoid['medoid_indices'])
-    df_clusterpaths_kmedoid=df_clusterpaths_kmedoid['path_length'].aggregate(np.mean)
-    #df_clusterpaths_kmedoid.to_csv('cluster_paths_kmedoid',index=True)
-    print('k-medoids Clustering: '+str(df_clusterpaths_kmedoid.mean()))
-    verhaltnis = df_clusterpaths_kmedoid.mean() / df_clusterpaths_dijkstra.mean()
-    print('Verhältnis der mittleren Pfandlängen: '+str(verhaltnis))
-        
-    ###############################Auswertung##################################
     
     # creation of new busmap with final assignment (format: medoids indices)
     busmap_ind=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
@@ -800,10 +744,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     return busmap
         
 def kmedoids_dijkstra_clustering(etrago):
-    """ Function of the k-medoids dijkstra clustering approach. Maps an original
+    """ Function of the k-medoids Dijkstra Clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
-    This approach considers the electrical distances between the network's buses
-    to assign them to clusters.
+    This approach conducts a k-medoids Clustering followd by a Dijkstra's algortihm
+    assigning the original buses considering their electrical distances to the 
+    identified medoids.
 
     Parameters
     ----------
@@ -819,12 +764,6 @@ def kmedoids_dijkstra_clustering(etrago):
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
         to get new line lengths.
-
-    remove_stubs: boolean
-        Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
-
-    use_reduced_coordinates: boolean
-        If True, do not average cluster coordinates, but take from busmap.
 
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
@@ -945,40 +884,8 @@ def kmedoids_dijkstra_clustering(etrago):
 
     # remove stubs
     if settings['remove_stubs']:
-        network.determine_network_topology()
-        busmap = busmap_by_stubs(network)
-        network.generators['weight'] = network.generators['p_nom']
-        aggregate_one_ports = network.one_port_components.copy()
-        aggregate_one_ports.discard('Generator')
 
-        # reset coordinates to the new reduced guys, rather than taking an
-        # average (copied from pypsa.networkclustering)
-        if settings['use_reduced_coordinates']:
-            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
-            # i.e. network is changed in place!!
-            network.buses.loc[busmap.index, ['x', 'y']
-                              ] = network.buses.loc[busmap, ['x', 'y']].values
-
-        clustering = get_clustering_from_busmap(
-            network,
-            busmap,
-            aggregate_generators_weighted=True,
-            one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
-                                             'capital_cost': np.mean,
-                                             'efficiency': np.mean,
-                                             'efficiency_dispatch': np.mean,
-                                             'standing_loss': np.mean,
-                                             'efficiency_store': np.mean,
-                                             'p_min_pu': np.min}},
-            generator_strategies={'p_nom_min':np.min,
-                              'p_nom_opt': np.sum,
-                              'marginal_cost': np.mean,
-                              'capital_cost': np.mean},
-            aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=settings['line_length_factor'])
-        network = clustering.network
-
-        weight = weight.groupby(busmap.values).sum()
+        logger.info('options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering')
 
     # k-mean clustering
     if not settings['busmap']:
@@ -1058,13 +965,13 @@ def run_spatial_clustering(self):
 
         if self.args['network_clustering']['method'] == 'kmeans':
 
-            logger.info('Start k-mean clustering')
+            logger.info('Start k-means Clustering')
 
             self.clustering = kmean_clustering(self)
             
         elif self.args['network_clustering']['method'] == 'kmedoids-dijkstra':
             
-            logger.info('Start k-medoids dijkstra clustering')
+            logger.info('Start k-medoids Dijkstra Clustering')
 
             self.clustering = kmedoids_dijkstra_clustering(self)            
 
