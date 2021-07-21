@@ -79,11 +79,11 @@ args = {
     # Clustering:
     'network_clustering': {
         'active': True, # choose if clustering is activated
-        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
+        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
         'n_clusters': 100, # number of resulting nodes
         'busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
+        'remove_stubs': False, # remove stubs before kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
@@ -91,7 +91,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -285,12 +285,12 @@ def run_etrago(args, json_path):
         k-medoids Dijkstra Clustering considering electrical distances between buses.
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
-        Option ``'remove_stubs'`` reduces the overestimating of line meshes.
+        Option ``'remove_stubs'`` reduces the overestimating of line meshes
+        and is only reasonable with k-means Clustering.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with 
-        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
+        This function doesn't work together with ``'line_grouping = True'``.
 
     network_clustering_ehv : bool
         False,
