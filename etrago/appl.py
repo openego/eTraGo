@@ -65,7 +65,7 @@ args = {
         'crossover':0,
         'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'eGon2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -163,12 +163,9 @@ def run_etrago(args, json_path):
         Current options: angles, cycles, kirchhoff, ptdf
 
     scn_name : str
-        'Status Quo',
-        Choose your scenario. Currently, there are three different
-        scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not
-        want to use the full German dataset, you can use the excerpt of
-        Schleswig-Holstein by adding the acronym SH to the scenario
-        name (e.g. 'SH Status Quo').
+        'eGon2035',
+        Choose your scenario. Currently, there are two different
+        scenarios: 'eGon2035', 'eGon100RE'.
 
    scn_extension : NoneType or list
        None,

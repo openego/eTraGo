@@ -299,6 +299,11 @@ class NetworkScenario(ScenarioBase):
 
             df = self.fetch_by_relname(comp)
 
+            # Drop columns with only NaN values
+            df = df.drop(df.isnull().all()[df.isnull().all()].index, axis=1)
+            if pypsa_comp == 'Generator':
+                df.sign=1
+
             network.import_components_from_dataframe(df, pypsa_comp)
 
             network = self.series_fetch_by_relname(network, comp, pypsa_comp)
