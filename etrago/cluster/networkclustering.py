@@ -324,6 +324,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # post processing
     # df.sortlevel(inplace=True)
+    df['path_length']=pd.to_numeric(df['path_length'])    
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
 
