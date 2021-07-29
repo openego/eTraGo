@@ -323,7 +323,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     dump(df, open('df.p', 'wb'))
 
     # post processing
-    df.sortlevel(inplace=True)
+    # df.sortlevel(inplace=True)
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
 
@@ -721,7 +721,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
              in lines.iterrows()]
     M = graph_from_edges(edges)
     
-    '''# processor count
+    # processor count
     cpu_cores = mp.cpu_count()-1
 
     # calculation of shortest path between original points and k-medoids centers
@@ -730,8 +730,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
-    dump(df, open('df.p', 'wb'))'''
-    df=shortest_path(ppathss,M)
+    dump(df, open('df.p', 'wb'))
      
     # assignment of data points to closest k-medoids centers
     df['path_length']=pd.to_numeric(df['path_length'])    
