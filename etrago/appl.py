@@ -384,3 +384,6 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
+    
+    ### 
+    etrago.plot_grid('line_loading',filename='ehv_dijkstra_100')

@@ -1395,6 +1395,8 @@ def plot_grid(self,
 
     # Set line colors
     if line_colors == 'line_loading':
+        line_widths = 50
+        link_widths = 50
         title = 'Mean loading from ' + str(network.snapshots[timesteps[0]])+\
         ' to ' + str(network.snapshots[timesteps[-1]])
         rep_snapshots = network.snapshot_weightings\

@@ -227,6 +227,20 @@ def shortest_path(paths, graph):
     idx = pd.MultiIndex.from_tuples(paths, names=idxnames)
     df = pd.DataFrame(index=idx, columns=['path_length'])
     df.sort_index(inplace=True)
+    
+    ############ alte Version
+    
+    for s, t in paths:
+        try:
+            df.loc[(s, t), 'path_length'] = \
+                nx.dijkstra_path_length(graph, s, t)
+
+        except NetworkXNoPath:
+            continue
+        
+    df.to_csv('df_alt.csv')
+    #########################
+    
         
     df_isna = df.isnull()
     for s, t in paths:
@@ -241,6 +255,8 @@ def shortest_path(paths, graph):
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
+            
+    df.to_csv('df_neu.csv') ###
 
     return df
 
@@ -280,12 +296,12 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     None
     """
 
-    # cpu_cores = mp.cpu_count()
+    # cpu_cores = mp.cpu_count() 
 
     # data preperation
     s_buses = buses_grid_linked(etrago.network, fromlvl)
     lines = connected_grid_lines(etrago.network, s_buses)
-    transformer = connected_transformer(network, s_buses)
+    transformer = connected_transformer(etrago.network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
     # temporary end points, later replaced by bus1 pendant
@@ -399,7 +415,7 @@ def busmap_from_psql(etrago):
     #if not busmap:
         print('Busmap does not exist and will be created.\n')
 
-        cpu_cores = input('cpu_cores (default 4): ') or '4'
+        cpu_cores = mp.cpu_count() #input('cpu_cores (default 4): ') or '4' ###
         
         ### busmap =
         busmap = busmap_by_shortest_path(etrago, scn_name,
