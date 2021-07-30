@@ -335,7 +335,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # append to busmap buses only connected to transformer
     transformer = etrago.network.transformers
-    idx = list(set(buses_of_vlvl(network, fromlvl)).
+    idx = list(set(buses_of_vlvl(etrago.network, fromlvl)).
                symmetric_difference(set(s_buses)))
     mask = transformer.bus0.isin(idx)
 
