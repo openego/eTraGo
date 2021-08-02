@@ -409,8 +409,9 @@ def busmap_from_psql(etrago):
 
         return dict(query.all())
 
-    busmap_online = fetch() ### ohne online
-    pd.DataFrame.from_dict(busmap_online) ###
+    busmap = fetch() 
+    busmap_online = pd.DataFrame.from_dict(busmap,index=range(0,len(busmap))) ###
+    busmap_online.to_csv('busmap_online.csv') ###
 
     # TODO: Or better try/except/finally
     if True: ###
@@ -423,7 +424,8 @@ def busmap_from_psql(etrago):
         busmap = busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
-        pd.DataFrame.from_dict(busmap_neu) ###
+        busmap_neu = pd.DataFrame.from_dict(busmap,index=range(0,len(busmap))) ###
+        busmap_neu.to_csv('busmap_neu.csv') ###
         #busmap = fetch()
 
     return busmap
