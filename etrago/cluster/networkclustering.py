@@ -327,6 +327,8 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df['path_length']=pd.to_numeric(df['path_length'])    
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
+    
+    df.to_csv('df_neu_2.csv') ###
 
     # rename temporary endpoints
     df.reset_index(inplace=True)
@@ -358,13 +360,14 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
-    ###
     # prepare data for export
 
     '''df['scn_name'] = scn_name
     df['version'] = etrago.args['gridversion']'''
 
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
+    df.index=df['bus0'] ###
+    df.to_csv('df_neu_3.csv') ### 
     df=df.to_dict() ###
     '''df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
     
@@ -424,7 +427,7 @@ def busmap_from_psql(etrago):
         busmap = busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
-        busmap_neu = pd.DataFrame.from_dict(busmap,orient='index') ###
+        busmap_neu = pd.DataFrame.from_dict(busmap) ###
         busmap_neu.to_csv('busmap_neu.csv') ###
         #busmap = fetch()
 
