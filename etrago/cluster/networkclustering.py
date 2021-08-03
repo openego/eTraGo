@@ -361,15 +361,19 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
-
-    '''df['scn_name'] = scn_name
-    df['version'] = etrago.args['gridversion']'''
-
-    df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
-    df.index=df['bus0'] ###
+    
+    df.drop('path_length',axis=1,inplace=True) ###
+    df.index=df['source'] ###
+    df.drop('source',axis=1,inplace=True) ###
+    df.rename(columns={'target':'0'}) ###
     df.to_csv('df_neu_3.csv') ### 
     df=df.to_dict() ###
-    '''df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
+
+    '''df['scn_name'] = scn_name
+    df['version'] = etrago.args['gridversion']
+
+    df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
+    df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
     
     for i, d in df.reset_index().iterrows():
         etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
