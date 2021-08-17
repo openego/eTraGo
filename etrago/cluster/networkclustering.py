@@ -206,7 +206,7 @@ def gen(nodes, n, graph):
         yield (nodes[i:i + n], g)
 
 
-def shortest_path(paths, graph):
+def shortest_path(paths, graph, alt=False):
     """ Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
@@ -239,6 +239,7 @@ def shortest_path(paths, graph):
             continue
         
     df.to_csv('df_alt.csv')
+    df_alt=df.copy()
     #########################
     
         
@@ -258,7 +259,10 @@ def shortest_path(paths, graph):
             
     df.to_csv('df_neu.csv') ###
     
-    return df
+    if alt==True: ###
+        return df_alt
+    else: ###
+        return df
 
 
 def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
@@ -328,6 +332,19 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
     
+    ###
+    container2 = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True))
+    df_alt = pd.concat(container2)
+    dump(df_alt, open('df.p', 'wb'))
+
+    # post processing
+    # df.sortlevel(inplace=True)
+    df_alt['path_length']=pd.to_numeric(df_alt['path_length'])    
+    mask = df_alt.groupby(level='source')['path_length'].idxmin()
+    df_alt = df_alt.loc[mask, :]
+    ###
+    
+    df_alt.to_csv('df_alt_2.csv') ###
     df.to_csv('df_neu_2.csv') ###
 
     # rename temporary endpoints
