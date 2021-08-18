@@ -179,7 +179,7 @@ def graph_from_edges(edges):
     return M
 
 
-def gen(nodes, n, graph):
+def gen(nodes, n, graph, alt): ###
     # TODO There could be a more convenient way of doing this. This generators
     # single purpose is to prepare data for multiprocessing's starmap function.
     """ Generator for applying multiprocessing.
@@ -203,10 +203,10 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i:i + n], g)
+        yield (nodes[i:i + n], g, alt) ###
 
 
-def shortest_path(paths, graph, alt=False):
+def shortest_path(paths, graph, alt):
     """ Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
@@ -322,7 +322,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     # applying multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppaths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
+    container = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=False)) ### (suche 'alt')
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
@@ -333,7 +333,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = df.loc[mask, :]
     
     ###
-    container2 = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True))
+    container2 = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True)) ###
     df_alt = pd.concat(container2)
     dump(df_alt, open('df.p', 'wb'))
 
@@ -757,7 +757,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     # using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, alt=False)) ###
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
      
