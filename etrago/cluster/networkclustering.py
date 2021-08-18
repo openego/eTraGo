@@ -322,7 +322,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     # applying multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppaths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=False)) ### (suche 'alt')
+    container = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True)) ### (suche 'alt')
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
