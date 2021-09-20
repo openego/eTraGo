@@ -184,15 +184,15 @@ class NetworkScenario(ScenarioBase):
             Component data.
         """
         from saio.grid import (
-                    egon_pf_hv_bus,
-                    egon_pf_hv_generator,
-                    egon_pf_hv_load,
-                    egon_pf_hv_line,
-                    egon_pf_hv_link,
-                    egon_pf_hv_load,
-                    egon_pf_hv_storage,
-                    egon_pf_hv_store,
-                    egon_pf_hv_transformer
+                    egon_etrago_bus,
+                    egon_etrago_generator,
+                    egon_etrago_load,
+                    egon_etrago_line,
+                    egon_etrago_link,
+                    egon_etrago_load,
+                    egon_etrago_storage,
+                    egon_etrago_store,
+                    egon_etrago_transformer
                     )
 
         index = f'{name.lower()}_id'
