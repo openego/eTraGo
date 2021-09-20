@@ -137,15 +137,20 @@ class NetworkScenario(ScenarioBase):
         """ Construct a DateTimeIndex with the queried temporal resolution,
         start- and end_snapshot. """
 
-        from saio.grid import egon_pf_hv_temp_resolution
+        from saio.grid import egon_etrago_temp_resolution
 
         try:
-
-            tr = saio.as_pandas(self.session.query(
-                egon_pf_hv_temp_resolution)
-                .filter(egon_pf_hv_temp_resolution.version==self.version)
-                .filter(egon_pf_hv_temp_resolution.temp_id==self.temp_id)
-                ).squeeze()
+            if self.version:
+                tr = saio.as_pandas(self.session.query(
+                    egon_etrago_temp_resolution)
+                    .filter(egon_etrago_temp_resolution.version==self.version)
+                    .filter(egon_etrago_temp_resolution.temp_id==self.temp_id)
+                    ).squeeze()
+            else:
+                tr = saio.as_pandas(self.session.query(
+                    egon_etrago_temp_resolution)
+                    .filter(egon_etrago_temp_resolution.temp_id==self.temp_id)
+                    ).squeeze()
 
         except (KeyError, NoResultFound):
             print('temp_id %s does not exist.' % self.temp_id)
@@ -200,14 +205,16 @@ class NetworkScenario(ScenarioBase):
         if name == 'Transformer':
             index = 'trafo_id'
 
-        df = saio.as_pandas(
-            self.session.query(
-                vars()[f'egon_pf_hv_{name.lower()}'])
-            .filter(vars()[f'egon_pf_hv_{name.lower()}'].version
-                    ==self.version)
-            .filter(vars()[f'egon_pf_hv_{name.lower()}'].scn_name
-                    ==self.scn_name)
-            ).set_index(index)
+        query = self.session.query(
+            vars()[f'egon_etrago_{name.lower()}']).filter(
+                vars()[f'egon_etrago_{name.lower()}'].scn_name
+                        ==self.scn_name)
+
+        if self.version:
+            query = query.filter(vars()[f'egon_etrago_{name.lower()}'].version
+                        ==self.version)
+
+        df = saio.as_pandas(query).set_index(index)
 
         if name == 'Transformer':
             df.tap_side = 0
@@ -236,36 +243,46 @@ class NetworkScenario(ScenarioBase):
             Component data.
         """
         from saio.grid import (
-                    egon_pf_hv_bus_timeseries,
-                    egon_pf_hv_generator_timeseries,
-                    egon_pf_hv_load_timeseries,
-                    egon_pf_hv_line_timeseries,
-                    egon_pf_hv_link_timeseries,
-                    egon_pf_hv_load_timeseries,
-                    egon_pf_hv_storage_timeseries,
-                    egon_pf_hv_store_timeseries,
-                    egon_pf_hv_transformer_timeseries
+                    egon_etrago_bus_timeseries,
+                    egon_etrago_generator_timeseries,
+                    egon_etrago_load_timeseries,
+                    egon_etrago_line_timeseries,
+                    egon_etrago_link_timeseries,
+                    egon_etrago_load_timeseries,
+                    egon_etrago_storage_timeseries,
+                    egon_etrago_store_timeseries,
+                    egon_etrago_transformer_timeseries
                     )
 
-        df_all = saio.as_pandas(
-            self.session.query(
-                vars()[f'egon_pf_hv_{name.lower()}_timeseries'])
-            .filter(vars()[f'egon_pf_hv_{name.lower()}_timeseries']
-                    .version==self.version)
-            .filter(vars()[f'egon_pf_hv_{name.lower()}_timeseries']
+        key_columns = ['scn_name', f'{name.lower()}_id', 'temp_id']
+
+        query = self.session.query(
+                vars()[f'egon_etrago_{name.lower()}_timeseries']).filter(
+                    vars()[f'egon_etrago_{name.lower()}_timeseries']
                     .scn_name==self.scn_name)
-            )
+        if self.version:
+            query = query.filter(
+                vars()[f'egon_etrago_{name.lower()}_timeseries']
+                .version==self.version)
+            key_columns.append(['version'])
+
+        df_all = saio.as_pandas(query)
+
+        # Rename index column for transformers
+        if name == 'Transformer':
+            df_all.set_index('trafo_id', inplace=True)
+
+        else:
+            df_all.set_index(f'{name.lower()}_id', inplace=True)
 
         df_all.index = df_all.index.astype(str)
 
-        data_columns = df_all.columns[~df_all.columns.isin(
-            ['version', 'scn_name', f'{name.lower()}_id', 'temp_id'])]
+        data_columns = df_all.columns[~df_all.columns.isin(key_columns)]
 
         for column in data_columns:
 
-            if not df_all[column].isnull().all():
 
-                self.timeindex
+            if not df_all[column].isnull().all():
 
                 df = df_all[column].apply(pd.Series).transpose()[
                     self.start_snapshot-1: self.end_snapshot]
