@@ -229,7 +229,9 @@ class Etrago():
         None.
 
         """
-        self.add_coordinates()
+
+        if not 'y' in self.network.buses.columns:
+            self.add_coordinates()
 
         self.geolocation_buses()
 
