@@ -1389,6 +1389,7 @@ def set_line_voltages(self):
         self.network.buses.v_nom)
     self.network.links['v_nom'] = self.network.links.bus0.map(
         self.network.buses.v_nom)
+
 def set_branch_capacity(etrago):
 
     """
@@ -1436,8 +1437,8 @@ def check_args(etrago):
     """
 
 
-    assert etrago.args['scn_name'] in ['Status Quo', 'eGon2035', 'eGon100RE'],\
-        ("'scn_name' has to be in ['Status Quo', 'eGon2035', 'eGon100RE'] "
+    assert etrago.args['scn_name'] in ['eGon2035', 'eGon100RE'],\
+        ("'scn_name' has to be in ['eGon2035', 'eGon100RE'] "
          "but is " + etrago.args['scn_name'])
 
     assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
