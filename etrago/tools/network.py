@@ -41,7 +41,6 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_q_foreign_loads,
                                     foreign_links,
                                     crossborder_capacity,
-                                    set_line_voltages,
                                     convert_capital_costs,
                                     get_args_setting,
                                     export_to_csv)
@@ -156,8 +155,6 @@ class Etrago():
 
     set_random_noise = set_random_noise
 
-    set_line_voltages = set_line_voltages
-
     set_q_foreign_loads = set_q_foreign_loads
 
     foreign_links = foreign_links
@@ -240,8 +237,6 @@ class Etrago():
         self.load_shedding()
 
         self.set_random_noise(0.01)
-
-        self.set_line_voltages()
 
         self.set_q_foreign_loads(cos_phi=1)
 

@@ -1376,20 +1376,6 @@ def crossborder_capacity(self):
                 network.links.loc[i_links, 'p_nom'] = \
                     weighting_links[i_links] * cap_per_country[country]
 
-def set_line_voltages(self):
-    """
-    Adds voltage level to AC-lines
-
-    Returns
-    -------
-    None.
-
-    """
-    self.network.lines['v_nom'] = self.network.lines.bus0.map(
-        self.network.buses.v_nom)
-    self.network.links['v_nom'] = self.network.links.bus0.map(
-        self.network.buses.v_nom)
-
 def set_branch_capacity(etrago):
 
     """
