@@ -45,8 +45,8 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'oedb',  # database session
-    'gridversion': 'v0.4.6',  # None for model_draft or Version number
+    'db': 'egon-data',  # database session
+    'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
@@ -65,7 +65,7 @@ args = {
         'crossover':0,
         'logFile': 'solver.log'},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'NEP 2035',  # a scenario: Status Quo, NEP 2035, eGo 100
+    'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
     'scn_extension': None,  # None or array of extension scenarios
     'scn_decommissioning': None,  # None or decommissioning scenario
@@ -164,12 +164,9 @@ def run_etrago(args, json_path):
         Current options: angles, cycles, kirchhoff, ptdf
 
     scn_name : str
-        'Status Quo',
-        Choose your scenario. Currently, there are three different
-        scenarios: 'Status Quo', 'NEP 2035', 'eGo100'. If you do not
-        want to use the full German dataset, you can use the excerpt of
-        Schleswig-Holstein by adding the acronym SH to the scenario
-        name (e.g. 'SH Status Quo').
+        'eGon2035',
+        Choose your scenario. Currently, there are two different
+        scenarios: 'eGon2035', 'eGon100RE'.
 
    scn_extension : NoneType or list
        None,
@@ -343,26 +340,28 @@ def run_etrago(args, json_path):
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
-    # ehv network clustering
+    etrago.network.generators = etrago.network.generators[etrago.network.generators.bus.isin(etrago.network.buses.index)]
+
+    # # ehv network clustering
     etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # # skip snapshots
+    # etrago.skip_snapshots()
 
-    # snapshot clustering
-    etrago.snapshot_clustering()
+    # # snapshot clustering
+    # etrago.snapshot_clustering()
 
-    # start linear optimal powerflow calculations
-    etrago.lopf()
+    # # start linear optimal powerflow calculations
+    # etrago.lopf()
 
-    # TODO: check if should be combined with etrago.lopf()
-    etrago.pf_post_lopf()
+    # # TODO: check if should be combined with etrago.lopf()
+    # etrago.pf_post_lopf()
 
-    # spaital disaggregation
-    etrago.disaggregation()
+    # # spaital disaggregation
+    # etrago.disaggregation()
 
     # calculate central etrago results
     # etrago.calc_results()
