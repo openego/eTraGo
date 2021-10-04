@@ -182,7 +182,7 @@ def graph_from_edges(edges):
     return M
 
 
-def gen(nodes, n, graph, alt): ###
+def gen(nodes, n, graph): 
     # TODO There could be a more convenient way of doing this. This generators
     # single purpose is to prepare data for multiprocessing's starmap function.
     """ Generator for applying multiprocessing.
@@ -206,10 +206,10 @@ def gen(nodes, n, graph, alt): ###
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i:i + n], g, alt) ###
+        yield (nodes[i:i + n], g)
 
 
-def shortest_path(paths, graph, alt):
+def shortest_path(paths, graph):
     """ Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
@@ -229,27 +229,11 @@ def shortest_path(paths, graph, alt):
     idxnames = ['source', 'target']
     idx = pd.MultiIndex.from_tuples(paths, names=idxnames)
     df = pd.DataFrame(index=idx, columns=['path_length'])
-    df.sort_index(inplace=True)
-    
-    ############ alte Version
-    
-    df_alt = df.copy() ###
-    
-    for s, t in paths:
-        try:
-            df_alt.loc[(s, t), 'path_length'] = \
-                nx.dijkstra_path_length(graph, s, t)
-
-        except NetworkXNoPath:
-            continue
-        
-    df_alt.to_csv('df_alt.csv')
-    #########################
-    
+    df.sort_index(inplace=True) 
         
     df_isna = df.isnull()
     for s, t in paths:
-        while (df_isna.loc[(s, t), 'path_length'] == True):  
+        while (df_isna.loc[(s, t), 'path_length'] == True):
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s) 
                 for t in idx.levels[1]: 
@@ -260,13 +244,8 @@ def shortest_path(paths, graph, alt):
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
-            
-    df.to_csv('df_neu.csv') ###
-    
-    if alt==True: ###
-        return df_alt
-    else: ###
-        return df
+
+    return df
 
 
 def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
@@ -326,14 +305,11 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     # applying multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppaths) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True)) ### (suche 'alt')
+    container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
 
-    # post processing
-
-    # df.sortlevel(inplace=True)
-    # df['path_length']=pd.to_numeric(df['path_length'])  ###  
+    # post processing 
 
     df.sort_index(inplace=True)
     df = df.fillna(10000000)
@@ -341,25 +317,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
     
-    ###
-    container2 = p.starmap(shortest_path, gen(ppaths, chunksize, M, alt=True)) ###
-    df_alt = pd.concat(container2)
-    dump(df_alt, open('df.p', 'wb'))
-
-    # post processing
-    # df.sortlevel(inplace=True)
-    
-    df_alt.sort_index(inplace=True)
-    df_alt = df.fillna(10000000)
-    
-    # df_alt['path_length']=pd.to_numeric(df_alt['path_length'])    
-    mask = df_alt.groupby(level='source')['path_length'].idxmin()
-    df_alt = df_alt.loc[mask, :]
-    ###
-    
-    df_alt.to_csv('df_alt_2.csv') ###
-    df.to_csv('df_neu_2.csv') ###
-
     # rename temporary endpoints
     df.reset_index(inplace=True)
     df.target = df.target.map(dict(zip(etrago.network.transformers.bus0,
@@ -382,7 +339,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     buses = etrago.network.buses[etrago.network.buses.carrier=='AC']
     mask = buses.index.isin(df.source)
 
-
     assert (buses[~mask].v_nom.astype(int).isin(tolvl)).all()
 
     tofill = pd.DataFrame([buses.index[~mask]] * 2).transpose()
@@ -392,13 +348,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
 
     # prepare data for export
-    
-    df.drop('path_length',axis=1,inplace=True) ###
-    df.index=df['source'] ###
-    df.drop('source',axis=1,inplace=True) ###
-    df.rename(columns={'target':'0'}) ###
-    df.to_csv('df_neu_3.csv') ### 
-    df=df.to_dict() ###
 
     df['scn_name'] = scn_name
     df['version'] = etrago.args['gridversion']
@@ -409,18 +358,8 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
-    ### Ersatz für egon-data Schnittstelle
-    '''
-    for i, d in df.reset_index().iterrows():
-        etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
-
-    etrago.session.commit()'''
-    ###
-
     df.to_sql('egon_etrago_hv_busmap', con=etrago.engine,
                             schema='grid', if_exists='append')
-
-    return df ### return nothing
 
 
 def busmap_from_psql(etrago):
@@ -464,23 +403,18 @@ def busmap_from_psql(etrago):
         return dict(query.all())
     
     busmap = fetch() 
-    busmap_online = pd.DataFrame.from_dict(busmap,orient='index') ###
-    busmap_online.to_csv('busmap_online.csv') ###
 
     # TODO: Or better try/except/finally
-    if True: ###
-    #if not busmap:
+    if not busmap:
         print('Busmap does not exist and will be created.\n')
 
-        cpu_cores = mp.cpu_count() #input('cpu_cores (default 4): ') or '4' ###
+        cpu_cores = input('cpu_cores (default 4): ') or '4' 
         
-        ### busmap =
-        busmap = busmap_by_shortest_path(etrago, scn_name,
+        busmap_by_shortest_path(etrago, scn_name,
                                 fromlvl=[110], tolvl=[220, 380, 400, 450],
                                 cpu_cores=int(cpu_cores))
-        busmap_neu = pd.DataFrame.from_dict(busmap) ###
-        busmap_neu.to_csv('busmap_neu.csv') ###
-        #busmap = fetch()
+        
+        busmap = fetch()
 
     return busmap
 
@@ -540,9 +474,9 @@ def kmean_clustering(etrago):
         Container for all network components.
     """
 
-
     network = etrago.network
     kmean_settings = etrago.args['network_clustering']
+    
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -641,8 +575,7 @@ def kmean_clustering(etrago):
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=network.buses, save=False)
-
-
+    
     # remove stubs
     if kmean_settings['remove_stubs']:
         network.determine_network_topology()
@@ -718,7 +651,7 @@ def kmean_clustering(etrago):
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             'efficiency': np.mean,
+                                             #'efficiency': np.mean, # TODO
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
@@ -744,13 +677,13 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     to the nodes of a clustered network 
     considering the electrical distances based on Dijkstra's shortest path. 
     Parameters
-    ----------
+  centers 
+       ----------
     network : pypsa.Network object
         Container for all network components.
         
     medoid_idx : pd.Series
-        Indices of k-medoids centers 
-    
+        Indices of k-medoids
     busmap_kmedoid: pd.Series
         Busmap based on k-medoids clustering
     Returns
@@ -773,7 +706,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
              
     # list of all possible pathways
     ppathss = list(product(o_buses, c_buses))
-    
+
     # graph creation
     lines = network.lines
     edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
@@ -787,15 +720,15 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     # using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
-    container = p.starmap(shortest_path, gen(ppathss, chunksize, M, alt=False)) ###
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
     dump(df, open('df.p', 'wb'))
-     
+    
     # assignment of data points to closest k-medoids centers
-    df['path_length']=pd.to_numeric(df['path_length'])    
+    df['path_length']=pd.to_numeric(df['path_length'])  
     mask = df.groupby(level='source')['path_length'].idxmin()
     df_dijkstra = df.loc[mask, :]
-    df_dijkstra.reset_index(inplace=True)
+    df_dijkstra.reset_index(inplace=True)    
 
     # delete double entries in df due to multiprocessing      
     duplicated=df_dijkstra.duplicated()
@@ -806,8 +739,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     
     # creation of new busmap with final assignment (format: medoids indices)
     busmap_ind=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
-    busmap_ind.index=df_dijkstra['source']
-            
+    busmap_ind.index=df_dijkstra['source']   
     # adaption of busmap to format with labels (necessary for aggregation)
     busmap=busmap_ind.copy()
     for index, item in busmap.iteritems():
@@ -853,9 +785,21 @@ def kmedoids_dijkstra_clustering(etrago):
         Container for all network components.
     """
 
-
     network = etrago.network
     settings = etrago.args['network_clustering']
+    
+    ###
+    # TODO
+    # workaround because of subnetwork in SH-Testcase
+    network.determine_network_topology()
+    network.sub_networks["n_branches"] = [len(sn.branches()) for sn in network.sub_networks.obj]
+    network.sub_networks["n_buses"] = [len(sn.buses()) for sn in network.sub_networks.obj]
+    out = network.sub_networks[network.sub_networks['n_branches']==0]
+    out = out['slack_bus']
+    network.buses.drop(out.values, axis=0, inplace=True)
+    network.generators = network.generators[network.generators.bus.isin(out.tolist()) == False]
+    ###
+    
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -1001,7 +945,7 @@ def kmedoids_dijkstra_clustering(etrago):
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
-        
+      
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
@@ -1011,7 +955,7 @@ def kmedoids_dijkstra_clustering(etrago):
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             'efficiency': np.mean,
+                                             #'efficiency': np.mean, # TODO
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,

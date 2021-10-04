@@ -80,7 +80,7 @@ args = {
     'network_clustering': {
         'active': True, # choose if clustering is activated
         'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters': 100, # number of resulting nodes
+        'n_clusters': 10, # number of resulting nodes
         'busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs before kmeans clustering
@@ -341,6 +341,9 @@ def run_etrago(args, json_path):
     etrago.adjust_network()
 
     etrago.network.generators = etrago.network.generators[etrago.network.generators.bus.isin(etrago.network.buses.index)]
+    etrago.network.buses = etrago.network.buses[etrago.network.buses['carrier']=='AC']
+    etrago.network.generators = etrago.network.generators[etrago.network.generators['carrier']!='gas']
+
 
     # # ehv network clustering
     etrago.ehv_clustering()
@@ -383,6 +386,3 @@ if __name__ == '__main__':
     # plot to show extendable storages
     # storage_distribution(network)
     # extension_overlay_network(network)
-    
-    ### 
-    etrago.plot_grid('line_loading',filename='ehv_dijkstra_100')
