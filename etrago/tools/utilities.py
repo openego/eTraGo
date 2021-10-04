@@ -1430,13 +1430,12 @@ def check_args(etrago):
     assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
         ("start_snapshot after end_snapshot")
 
-    # if etrago.args['gridversion'] != None:
-    #     ormclass = getattr(import_module('egoio.db_tables.grid'),
-    #                        'EgoPfHvTempResolution')
+    if etrago.args['gridversion'] != None:
+        from saio.grid import egon_etrago_bus
 
-    #     assert etrago.args['gridversion'] in pd.read_sql(
-    #         etrago.session.query(ormclass).statement, etrago.session.bind
-    #         ).version.unique(), ("gridversion does not exist")
+        assert etrago.args['gridversion'] in pd.read_sql(
+            etrago.session.query(egon_etrago_bus).statement, etrago.session.bind
+            ).version.unique(), ("gridversion does not exist")
 
     if etrago.args['snapshot_clustering']['active']:
 
