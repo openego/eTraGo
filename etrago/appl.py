@@ -90,7 +90,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -335,30 +335,39 @@ def run_etrago(args, json_path):
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
-    etrago.network.generators = etrago.network.generators[etrago.network.generators.bus.isin(etrago.network.buses.index)]
+    # Temporary drop generators which are not attached to a bus
+    etrago.network.generators = etrago.network.generators[
+        etrago.network.generators.bus.isin(etrago.network.buses.index)]
 
-    # # ehv network clustering
+    # ehv network clustering
     etrago.ehv_clustering()
 
-    # # k-mean clustering
+    # k-mean clustering
+    # needs to be adjusted for new sectors
     # etrago.kmean_clustering()
 
-    # # skip snapshots
+    # skip snapshots
+    # needs to be adjusted for new sectors
     # etrago.skip_snapshots()
 
-    # # snapshot clustering
+    # snapshot clustering
+    # needs to be adjusted for new sectors
     # etrago.snapshot_clustering()
 
-    # # start linear optimal powerflow calculations
+    # start linear optimal powerflow calculations
+    # needs to be adjusted for new sectors
     # etrago.lopf()
 
-    # # TODO: check if should be combined with etrago.lopf()
+    # TODO: check if should be combined with etrago.lopf()
+    # needs to be adjusted for new sectors
     # etrago.pf_post_lopf()
 
-    # # spaital disaggregation
+    # spaital disaggregation
+    # needs to be adjusted for new sectors
     # etrago.disaggregation()
 
     # calculate central etrago results
+    # needs to be adjusted for new sectors
     # etrago.calc_results()
 
     return etrago
