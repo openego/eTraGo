@@ -335,10 +335,6 @@ def run_etrago(args, json_path):
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
-    # Temporary drop generators which are not attached to a bus
-    etrago.network.generators = etrago.network.generators[
-        etrago.network.generators.bus.isin(etrago.network.buses.index)]
-
     # ehv network clustering
     etrago.ehv_clustering()
 
