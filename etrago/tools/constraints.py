@@ -26,6 +26,8 @@ from pyomo.environ import Constraint
 import pandas as pd
 import pyomo.environ as po
 from pypsa.linopt import get_var, linexpr, define_constraints
+from pypsa.descriptors import expand_series
+from pypsa.pf import get_switchable_as_dense as get_as_dense
 
 logger = logging.getLogger(__name__)
 
@@ -955,6 +957,40 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
         network.model.storages,
         network.model.period_starts, rule=day_rule)
 
+def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
+
+    c = 'StorageUnit'
+
+    period_starts = snapshots[0::24]
+    period_ends = period_starts + pd.Timedelta(hours=23)
+
+    eh = expand_series(
+        network.snapshot_weightings[period_ends], network.storage_units.index) #elapsed hours
+
+    eff_stand = expand_series(1-network.df(c).standing_loss, period_ends).T
+    eff_dispatch = expand_series(network.df(c).efficiency_dispatch, period_ends).T
+    eff_store = expand_series(network.df(c).efficiency_store, period_ends).T
+
+    soc = get_var(network, c, 'state_of_charge').loc[period_ends, :]
+
+    soc_peroid_start = get_var(network, c, 'state_of_charge').loc[period_starts]
+
+    coeff_var = [(-1, soc),
+                 (-1/eff_dispatch * eh, get_var(network, c, 'p_dispatch').loc[period_ends, :]),
+                 (eff_store * eh, get_var(network, c, 'p_store').loc[period_ends, :])]
+
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+
+    def masked_term(coeff, var, cols):
+        return linexpr((coeff[cols], var[cols]))\
+               .reindex(index=axes[0], columns=axes[1], fill_value='').values
+
+    lhs += masked_term(eff_stand, soc_peroid_start, network.storage_units.index)
+
+    rhs = -get_as_dense(network, c, 'inflow', period_ends).mul(eh)
+
+    define_constraints(network, lhs, '==', rhs, 'daily_bounds')
+
 def snapshot_clustering_seasonal_storage(self, network, snapshots):
 
     sus = network.storage_units
@@ -1198,18 +1234,14 @@ class Constraints:
 
 
         if self.args['snapshot_clustering']['active']:
-            # This will bound the storage level to 0.5 max_level every 24th hour.
-            sus = network.storage_units
-            # take every first hour of the clustered days
-            network.model.period_starts = \
-                network.snapshot_weightings.index[0::24]
-
-            network.model.storages = sus.index
 
             if self.args['snapshot_clustering']['storage_constraints'] \
                 == 'daily_bounds':
 
-                snapshot_clustering_daily_bounds(self, network, snapshots)
+                    if self.args['method']['pyomo']:
+                        snapshot_clustering_daily_bounds(self, network, snapshots)
+                    else:
+                        snapshot_clustering_daily_bounds_nmp(self, network, snapshots)
 
             elif self.args['snapshot_clustering']['storage_constraints'] \
                 == 'soc_constraints':
