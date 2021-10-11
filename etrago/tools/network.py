@@ -41,7 +41,6 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_q_foreign_loads,
                                     foreign_links,
                                     crossborder_capacity,
-                                    set_line_voltages,
                                     convert_capital_costs,
                                     get_args_setting,
                                     export_to_csv)
@@ -116,6 +115,8 @@ class Etrago():
 
             session = sessionmaker(bind=conn)
 
+            self.engine = conn
+
             self.session = session()
 
             self.check_args()
@@ -153,8 +154,6 @@ class Etrago():
     load_shedding = load_shedding
 
     set_random_noise = set_random_noise
-
-    set_line_voltages = set_line_voltages
 
     set_q_foreign_loads = set_q_foreign_loads
 
@@ -202,15 +201,12 @@ class Etrago():
         None.
 
         """
-        self.scenario = NetworkScenario(self.session,
-                                        version=self.args['gridversion'],
-                                        prefix=('EgoGridPfHv' if
-                                                self.args['gridversion'] is None
-                                                else 'EgoPfHv'),
-                                        method=self.args['method'],
-                                        start_snapshot=self.args['start_snapshot'],
-                                        end_snapshot=self.args['end_snapshot'],
-                                        scn_name=self.args['scn_name'])
+        self.scenario = NetworkScenario(
+            self.engine, self.session,
+            version=self.args['gridversion'],
+            start_snapshot=self.args['start_snapshot'],
+            end_snapshot=self.args['end_snapshot'],
+            scn_name=self.args['scn_name'])
 
         self.network = self.scenario.build_network()
 
@@ -230,17 +226,17 @@ class Etrago():
         None.
 
         """
-        self.add_coordinates()
+
+        if not 'y' in self.network.buses.columns:
+            self.add_coordinates()
 
         self.geolocation_buses()
 
-        self.add_missing_components()
+       # self.add_missing_components()
 
         self.load_shedding()
 
         self.set_random_noise(0.01)
-
-        self.set_line_voltages()
 
         self.set_q_foreign_loads(cos_phi=1)
 

@@ -28,8 +28,6 @@ if 'READTHEDOCS' not in os.environ:
                                          aggregategenerators,
                                          get_clustering_from_busmap,
                                          busmap_by_kmeans, busmap_by_stubs)
-    from egoio.db_tables.model_draft import EgoGridPfHvBusmap
-
     from itertools import product
     import networkx as nx
     import multiprocessing as mp
@@ -90,6 +88,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c = Network()
 
+    network.buses = network.buses[network.buses.carrier=='AC']
+
     buses = aggregatebuses(
         network, busmap, {
             'x': _leading(
@@ -124,6 +124,9 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
+
+    network.generators = network.generators[~network.generators.carrier.isin(
+        ['gas', 'solar_thermal_collector', 'geo_thermal'])]
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                     custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
                                        'weight': np.sum, 'p_nom': np.sum,
@@ -138,7 +141,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
-        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean, 'efficiency': np.mean,
+        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
                              'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
                              'p_min_pu': np.min}}
         new_df, new_pnl = aggregateoneport(
@@ -279,7 +282,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     # data preperation
     s_buses = buses_grid_linked(etrago.network, fromlvl)
     lines = connected_grid_lines(etrago.network, s_buses)
-    transformer = connected_transformer(network, s_buses)
+    transformer = connected_transformer(etrago.network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
     # temporary end points, later replaced by bus1 pendant
@@ -301,7 +304,10 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     dump(df, open('df.p', 'wb'))
 
     # post processing
-    df.sortlevel(inplace=True)
+    df.sort_index(inplace=True)
+    df = df.fillna(10000000)
+
+
     mask = df.groupby(level='source')['path_length'].idxmin()
     df = df.loc[mask, :]
 
@@ -312,7 +318,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # append to busmap buses only connected to transformer
     transformer = etrago.network.transformers
-    idx = list(set(buses_of_vlvl(network, fromlvl)).
+    idx = list(set(buses_of_vlvl(etrago.network, fromlvl)).
                symmetric_difference(set(s_buses)))
     mask = transformer.bus0.isin(idx)
 
@@ -324,10 +330,11 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, toappend], ignore_index=True, axis=0)
 
     # append all other buses
-    buses = etrago.network.buses
+    buses = etrago.network.buses[etrago.network.buses.carrier=='AC']
     mask = buses.index.isin(df.source)
 
-    assert set(buses[~mask].v_nom) == set(tolvl)
+
+    assert (buses[~mask].v_nom.astype(int).isin(tolvl)).all()
 
     tofill = pd.DataFrame([buses.index[~mask]] * 2).transpose()
     tofill.columns = ['source', 'target']
@@ -340,13 +347,14 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df['scn_name'] = scn_name
     df['version'] = etrago.args['gridversion']
 
+    if not df.version.any():
+        df.version = 'testcase'
+
     df.rename(columns={'source': 'bus0', 'target': 'bus1'}, inplace=True)
     df.set_index(['scn_name', 'bus0', 'bus1'], inplace=True)
 
-    for i, d in df.reset_index().iterrows():
-        etrago.session.add(EgoGridPfHvBusmap(**d.to_dict()))
-
-    etrago.session.commit()
+    df.to_sql('egon_etrago_hv_busmap', con=etrago.engine,
+                            schema='grid', if_exists='append')
 
     return
 
@@ -375,12 +383,19 @@ def busmap_from_psql(etrago):
     scn_name=(etrago.args['scn_name'] if etrago.args['scn_extension']==None
                         else etrago.args['scn_name']+'_ext_'+'_'.join(
                                 etrago.args['scn_extension']))
+
+    from saio.grid import egon_etrago_hv_busmap
+
+    filter_version = etrago.args['gridversion']
+
+    if not filter_version:
+        filter_version = 'testcase'
     def fetch():
 
         query = etrago.session.query(
-            EgoGridPfHvBusmap.bus0, EgoGridPfHvBusmap.bus1).\
-            filter(EgoGridPfHvBusmap.scn_name == scn_name).\
-            filter(EgoGridPfHvBusmap.version == etrago.args['gridversion'])
+            egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1).\
+            filter(egon_etrago_hv_busmap.scn_name == scn_name).\
+            filter(egon_etrago_hv_busmap.version == filter_version)
 
         return dict(query.all())
 
@@ -409,7 +424,7 @@ def ehv_clustering(self):
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
         self.network = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=True)
+            self.network, busmap, with_time=False)
 
         logger.info('Network clustered to EHV-grid')
 

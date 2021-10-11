@@ -22,6 +22,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=['egoio == 0.4.7',
+                      'saio',
                       'scikit-learn',
                       'sqlalchemy == 1.3.16',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
