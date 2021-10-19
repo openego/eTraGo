@@ -63,6 +63,83 @@ def _leading(busmap, df):
         return df.loc[ix, x.name]
     return leader
 
+def adjust_no_electric_network(network, busmap):
+    
+    # network2 is supposed to contain all the no electrical buses and links
+    network2 = network.copy()
+    network2.buses = network2.buses[(network2.buses['carrier'] == 'central_heat') |
+                                  (network2.buses['carrier'] == 'rural_heat') |
+                                  (network2.buses['carrier'] == 'H2') |
+                                  (network2.buses['carrier'] == 'dsm-cts') |
+                                  (network2.buses['carrier'] == 'dsm-ind-osm') |
+                                  (network2.buses['carrier'] == 'dsm-ind-sites')]
+    
+    network2.links = network2.links[(network2.links['carrier'] == 'central_heat_pump') |
+                                  (network2.links['carrier'] == 'individual_heat_pump') |
+                                  (network2.links['carrier'] == 'power-to-H2') |
+                                  (network2.links['carrier'] == 'dsm-cts') |
+                                  (network2.links['carrier'] == 'dsm-ind-osm') |
+                                  (network2.links['carrier'] == 'dsm-ind-sites')]
+    
+    #no_elec_to_eHV maps the no electrical buses to the closest eHV bus
+    no_elec_to_eHV = {}
+    #new_buses contains the names of all the new no electrical buses
+    new_buses = {}
+    #busmap2 maps all the no electrical buses to the new buses based on the
+    #eHV network
+    busmap2 = {}
+    max_id = network.buses.index.to_series().apply(int).max()
+    
+    for link in network2.links.index:
+        heat_bus = network2.links.loc[link, 'bus1']
+        bus_hv = network2.links.loc[link, 'bus0']
+        if network2.links.loc[link, 'carrier'] == 'central_heat_pump':
+            carry = 'central_heat'
+        elif network2.links.loc[link, 'carrier'] == 'individual_heat_pump':
+            carry = 'rural_heat'
+        elif network2.links.loc[link, 'carrier'] == 'power-to-H2':
+            carry = 'H2'
+        else:
+            carry = network2.links.loc[link, 'carrier']
+                
+        no_elec_to_eHV[heat_bus] = busmap[str(bus_hv)]
+        if busmap[str(bus_hv)] + "-" + carry not in new_buses:
+            new_buses[busmap[str(bus_hv)] + "-" + carry] = str(max_id + 1)
+            max_id = max_id + 1
+        busmap2[heat_bus] = new_buses[busmap[str(bus_hv)] + "-" + carry]
+        
+    #The new buses based on the eHV network for not electrical buses are created
+    for carry, df in network2.buses.groupby(by= 'carrier'):
+        bus_unique = []
+        for bus in df.index:
+            try:
+                if no_elec_to_eHV[bus] not in bus_unique:
+                    bus_unique.append(no_elec_to_eHV[bus])
+            except:
+                print(f'Bus {bus} has no connexion to electricity network')
+        
+        for eHV_bus in bus_unique:    
+            new_bus = pd.Series({
+                'scn_name': network.buses.at[eHV_bus, 'scn_name'],
+                'v_nom': np.nan,
+                'carrier': carry,
+                'x': network.buses.at[eHV_bus, 'x'],
+                'y': network.buses.at[eHV_bus, 'y'],
+                'geom': network.buses.at[eHV_bus, 'geom'],
+                'type': "",
+                'v_mag_pu_set': 1,
+                'v_mag_pu_min': 0,
+                'v_mag_pu_max': np.inf,
+                'control': "PV",
+                'sub_network': "",
+                'country_code': network.buses.at[eHV_bus, 'country_code']},
+                 name= new_buses[eHV_bus + "-" + carry],)
+            network.buses = network.buses.append(new_bus)
+    #busmap now includes the not electrical buses and their corresponding new
+    #buses to be maped.
+    busmap = {**busmap, **busmap2} 
+    
+    return network, busmap
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """ Main function of the EHV-Clustering approach. Creates a new clustered
@@ -87,82 +164,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """
 
     network_c = Network()  
-    network2 = network.copy()
 
-    network2.buses = network2.buses[(network2.buses['carrier'] == 'central_heat') |
-                                  (network2.buses['carrier'] == 'rural_heat') |
-                                  (network2.buses['carrier'] == 'gas') |
-                                  (network2.buses['carrier'] == 'dsm-cts') |
-                                  (network2.buses['carrier'] == 'dsm-ind-osm') |
-                                  (network2.buses['carrier'] == 'dsm-ind-sites')]
-    
-    network2.links = network2.links[(network2.links['carrier'] == 'central_heat_pump') |
-                                  (network2.links['carrier'] == 'individual_heat_pump') |
-                                  (network2.links['carrier'] == 'power-to-gas') |
-                                  (network2.links['carrier'] == 'dsm-cts') |
-                                  (network2.links['carrier'] == 'dsm-ind-osm') |
-                                  (network2.links['carrier'] == 'dsm-ind-sites')]
-    
-    busmap_heat = {}
-    AC_to_other = {}
-    busmap2 = {}
-    max_id = network.buses.index.to_series().apply(int).max() + 1
-    for link in network2.links.index:
-##################################### TASK ####################################
-# Once the position of bus0 and bus1 in power-to-gas is corrected, this if
-# statement must be deleted
-        if network2.links.loc[link, 'carrier'] == "power-to-gas":
-            temp = network2.links.loc[link, 'bus1']
-            network2.links.loc[link, 'bus1'] = network2.links.loc[link, 'bus0']
-            network2.links.loc[link, 'bus0'] = temp
-##################################### TASK ####################################
-        heat_bus = network2.links.loc[link, 'bus1']
-        bus_hv = network2.links.loc[link, 'bus0']
-        if network2.links.loc[link, 'carrier'] == 'central_heat_pump':
-            carry = 'central_heat'
-        elif network2.links.loc[link, 'carrier'] == 'individual_heat_pump':
-            carry = 'rural_heat'
-        elif network2.links.loc[link, 'carrier'] == 'power-to-gas':
-            carry = 'gas'
-        else:
-            carry = network2.links.loc[link, 'carrier']
-                
-
-        busmap_heat[heat_bus] = busmap[str(bus_hv)]
-        if busmap[str(bus_hv)] + "-" + carry not in AC_to_other:
-            AC_to_other[busmap[str(bus_hv)] + "-" + carry] = str(max_id)
-            max_id = max_id + 1
-        busmap2[heat_bus] = AC_to_other[busmap[str(bus_hv)] + "-" + carry]
-
-    for carry, df in network2.buses.groupby(by= 'carrier'):
-        bus_unique = []
-        for bus in df.index:
-            try:
-                if busmap_heat[bus] not in bus_unique:
-                    bus_unique.append(busmap_heat[bus])
-            except:
-                print(f'Bus {bus} has no connexion to electricity network')
-        
-        for eHV_bus in bus_unique:    
-            new_bus = pd.Series({
-                'scn_name': network.buses.at[eHV_bus, 'scn_name'],
-                'v_nom': np.nan,
-                'carrier': carry,
-                'x': network.buses.at[eHV_bus, 'x'],
-                'y': network.buses.at[eHV_bus, 'y'],
-                'geom': network.buses.at[eHV_bus, 'geom'],
-                'type': "",
-                'v_mag_pu_set': 1,
-                'v_mag_pu_min': 0,
-                'v_mag_pu_max': np.inf,
-                'control': "PV",
-                'sub_network': "",
-                'country_code': network.buses.at[eHV_bus, 'country_code']},
-                 name= AC_to_other[eHV_bus + "-" + carry],)
-            network.buses = network.buses.append(new_bus)
-    busmap = {**busmap, **busmap2} 
-    
-
+    network, busmap = adjust_no_electric_network(network, busmap)
 
     buses = aggregatebuses(
         network, busmap, {
@@ -217,7 +220,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     for one_port in aggregate_one_ports:
         one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
                              'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                             'p_min_pu': np.min}}
+                             'p_min_pu': np.min}, 'Store': {'marginal_cost': np.mean, 'capital_cost': np.mean,
+                             'standing_loss': np.mean, 'e_nom': np.sum}}
         new_df, new_pnl = aggregateoneport(
             network, busmap, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
@@ -496,139 +500,9 @@ def ehv_clustering(self):
 
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
-        network_full = self.network.copy()
         self.network = cluster_on_extra_high_voltage(
             self.network, busmap, with_time=False)
-##############################################################################
-        #network.gas_and_heat_clustering(network_full, busmap)
-##############################################################################
-
         logger.info('Network clustered to EHV-grid')
-
-######################## Cross sector clustering #############################
-def gas_and_heat_clustering(self, network, busmap):
-    #network = etrago.network.copy()
-    network2 = network_orig.copy()
-    network_c = Network()
-    
-    network2.buses = network2.buses[(network2.buses['carrier'] == 'central_heat') |
-                                  (network2.buses['carrier'] == 'rural_heat') |
-                                  (network2.buses['carrier'] == 'gas')]
-    
-    network2.links = network2.links[(network2.links['carrier'] == 'central_heat_pump') |
-                                  (network2.links['carrier'] == 'individual_heat_pump') |
-                                  (network2.links['carrier'] == 'power-to-gas')]
-    
-    busmap_heat = {}
-    for link in network2.links.index:
-##################################### TASK ####################################
-# Once the position of bus0 and bus1 in power-to-gas is corrected, this if
-# statement must be deleted leaving just the first condition.
-        if network2.links.loc[link, 'carrier'] == "power-to-gas":
-            temp = network2.links.loc[link, 'bus1']
-            network2.links.loc[link, 'bus1'] = network2.links.loc[link, 'bus0']
-            network2.links.loc[link, 'bus0'] = temp
-       
-        heat_bus = network2.links.loc[link, 'bus1']
-        bus_hv = network2.links.loc[link, 'bus0']
-##################################### TASK ####################################
-        busmap_heat[heat_bus] = busmap[str(bus_hv)]
-        
-    for carry, df in network.buses.groupby(by= 'carrier'):
-        bus_unique = []
-        for bus in df.index:
-            try:
-                if busmap_heat[bus] not in bus_unique:
-                    bus_unique.append(busmap_heat[bus])
-            except:
-                print(f'Bus {bus} has no connexion to electricity network')
-        max_id = etrago.network2.buses.index.to_series().apply(int).max() + 1
-        for eHV_bus in bus_unique:    
-            new_bus = pd.Series({
-                'scn_name': etrago.network2.buses.at[eHV_bus, 'scn_name'],
-                'v_nom': np.nan,
-                'carrier': carry,
-                'x': etrago.network2.buses.at[eHV_bus, 'x'],
-                'y': etrago.network2.buses.at[eHV_bus, 'y'],
-                'geom': etrago.network2.buses.at[eHV_bus, 'geom'],
-                'type': "",
-                'v_mag_pu_set': 1,
-                'v_mag_pu_min': 0,
-                'v_mag_pu_max': np.inf,
-                'control': "PV",
-                'sub_network': "",
-                'country_code': etrago.network2.buses.at[eHV_bus, 'country_code']},
-                 name= max_id,)
-            etrago.network2.buses = etrago.network.buses.append(new_bus)
-        
-    # dealing with all other components
-    aggregate_one_ports = network.one_port_components.copy()
-    aggregate_one_ports.discard('Generator')
-
-    for one_port in aggregate_one_ports:
-        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
-                             'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                             'p_min_pu': np.min}}
-        new_df, new_pnl = aggregateoneport(
-            network, busmap, component=one_port, with_time=with_time,
-            custom_strategies=one_port_strategies.get(one_port, {}))
-        io.import_components_from_dataframe(network_c, new_df, one_port)
-        for attr, df in iteritems(new_pnl):
-            io.import_series_from_dataframe(network_c, df, one_port, attr)
-
-"""  
-    #links_gas = links[(links['carrier'] == 'power-to-gas') | 
-    #                  (links['carrier'] == 'gas')]
-    
-    # map all the heat nodes to their eHV substation
-    links_heat['bus0'] = links_heat['bus0'].apply(str)
-    links_heat['eHV'] = links_heat['bus0'].map(busmap)
-    
-    hv_bus = [*busmap.keys()]
-    for i in range(len(hv_bus)):
-        hv_bus[i] = int(hv_bus[i])
-        
-    links2 = links[-links['bus0'].isin(hv_bus)]
-    
-    
-
-from egoio.tools import db
-
-# Connect to egon-data
-conn = db.connection(section=args['db'])
-sql = "SELECT * FROM grid.egon_etrago_link"
-links = pd.read_sql(sql, conn)
-
-sql = "SELECT * FROM grid.egon_etrago_link"
-links = pd.read_sql(sql, conn)
-
-sql = "SELECT * FROM supply.egon_power_plants"
-power_plants = pd.read_sql(sql, conn)
-
-links_gas = links[(links['carrier'] == 'power-to-gas') | 
-                  (links['carrier'] == 'gas')]
-
-links_heat = links[(links['carrier'] == 'central_heat_pump') | 
-                  (links['carrier'] == 'individual_heat_pump')]
-
-# map all the heat nodes to their eHV substation
-links_heat['bus0'] = links_heat['bus0'].apply(str)
-links_heat['eHV'] = links_heat['bus0'].map(busmap)
-
-hv_bus = [*busmap.keys()]
-for i in range(len(hv_bus)):
-    hv_bus[i] = int(hv_bus[i])
-    
-links2 = links[-links['bus0'].isin(hv_bus)]
-"""
-######################## Cross sector clustering #############################
-
-
-
-
-
-
-
 
 def kmean_clustering(etrago):
     """ Main function of the k-mean clustering approach. Maps an original

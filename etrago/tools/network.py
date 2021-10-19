@@ -38,6 +38,7 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     geolocation_buses,
                                     check_args,
                                     load_shedding,
+                                    set_q_national_loads,
                                     set_q_foreign_loads,
                                     foreign_links,
                                     crossborder_capacity,
@@ -154,6 +155,8 @@ class Etrago():
     load_shedding = load_shedding
 
     set_random_noise = set_random_noise
+    
+    set_q_national_loads = set_q_national_loads
 
     set_q_foreign_loads = set_q_foreign_loads
 
@@ -237,6 +240,8 @@ class Etrago():
         self.load_shedding()
 
         self.set_random_noise(0.01)
+        
+        self.set_q_national_loads(cos_phi=0.9)
 
         self.set_q_foreign_loads(cos_phi=1)
 
