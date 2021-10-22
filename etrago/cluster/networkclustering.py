@@ -136,10 +136,25 @@ def adjust_no_electric_network(network, busmap):
                  name= new_buses[eHV_bus + "-" + carry],)
             network.buses = network.buses.append(new_bus)
     #busmap now includes the not electrical buses and their corresponding new
-    #buses to be maped.
-    busmap = {**busmap, **busmap2} 
+    #buses to be mapped.
+    
+    for CH4_bus in network.buses[network.buses['carrier'] == 'CH4'].index:
+        busmap2[CH4_bus] = CH4_bus
+    
+    busmap = {**busmap, **busmap2}
     
     return network, busmap
+
+
+def _make_consense_links(x):
+    v = x.iat[0]
+    assert ((x == v).all() or x.isnull().all()), (
+        f"No consense in table links column {x.name}: \n {x}")
+    return v
+
+
+def nan_links(x):
+    return np.nan
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """ Main function of the EHV-Clustering approach. Creates a new clustered
@@ -180,8 +195,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     
     # keep attached links
     links = network.links.copy()
-    mask = links.bus0.isin(buses.index)
-    links = links.loc[mask, :]
+    dc_links = links[links['carrier'] == 'AC']
+    links = links[links['carrier'] != 'AC']
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -228,7 +243,41 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
-
+    
+    # Dealing with links
+    network2 = network.copy()
+    network2.links.bus0 = network2.links.bus0.map(busmap)
+    network2.links.bus1 = network2.links.bus1.map(busmap)
+    network2.links.dropna(subset= ['bus0', 'bus1'], inplace= True)
+    network2.links['topo'] = np.nan
+    
+    strategies={'scn_name': _make_consense_links,
+                'bus0': _make_consense_links,
+                'bus1': _make_consense_links,
+                'carrier': _make_consense_links,
+                'efficiency_fixed': _make_consense_links,
+                'p_nom': np.sum,
+                'p_nom_extendable': _make_consense_links,
+                'p_nom_max': np.sum,
+                'capital_cost': np.mean,
+                'length': np.mean,
+                'geom': nan_links,
+                'topo': nan_links,
+                'type': nan_links,
+                'efficiency': np.mean,
+                'p_nom_min': np.min,
+                'p_set': np.mean,
+                'p_min_pu':np.min,
+                'p_max_pu': np.max,
+                'marginal_cost': np.mean,
+                'terrain_factor': _make_consense_links,
+                'p_nom_opt': np.mean,
+                'country': _make_consense_links}
+    
+    network_c.links = network2.links.groupby(['bus0', 'bus1', 'carrier']).agg(strategies)
+    network_c.links = network_c.links.append(dc_links)
+    network_c.links = network_c.links.reset_index(drop=True)
+    
     network_c.determine_network_topology()
 
     return network_c
