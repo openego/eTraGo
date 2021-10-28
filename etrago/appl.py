@@ -50,13 +50,13 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': True}, # set if pyomo is used for model building
+        'pyomo': False}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 3,
+    'end_snapshot': 240,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -93,8 +93,8 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
-        'active': False, # choose if clustering is activated
-        'n_clusters': 2, # number of periods
+        'active': True, # choose if clustering is activated
+        'n_clusters': 5, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints'}, # additional constraints for storages
     # Simplifications:
@@ -337,6 +337,10 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
+    
+    etrago.network.storage_units.efficiency_dispatch = 1
+    etrago.network.storage_units.efficiency_store = 1
+    etrago.network.storage_units.standing_loss = 0
 
     # ehv network clustering
     etrago.ehv_clustering()
