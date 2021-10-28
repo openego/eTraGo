@@ -91,12 +91,20 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {
-        'active': False, # choose if clustering is activated
-        'n_clusters': 2, # number of periods
+# <<<<<<< HEAD
+#     'disaggregation': None,  # None, 'mini' or 'uniform'
+#     'snapshot_clustering': {
+#         'active': False, # choose if clustering is activated
+#         'n_clusters': 2, # number of periods
+# =======
+    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'snapshot_clustering': {# False or dict
+        'n_clusters': 1, # number of periods
+
         'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
+        'storage_constraints': '', # additional constraints for storages
+        'segmentation': 100}, #False or number of segments per day
+        #If segmentation used: set n_clusters as no. of snapshots divided by 24
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
