@@ -193,6 +193,9 @@ def run(network, n_clusters=None, how='daily',
     network.cluster_ts = df_i_h
 
     update_data_frames(network, cluster_weights, dates, hours)
+    
+    network.snapshots = network.snapshots.sort_values()
+    network.snapshot_weightings = network.snapshot_weightings.sort_values()
 
     return network
 
