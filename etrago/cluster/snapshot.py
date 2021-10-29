@@ -200,24 +200,16 @@ def run(network, n_clusters=None, how='daily',
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
-    if normed:
-        normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
-        normed_loads.columns = 'L' + normed_loads.columns
-        normed_renewables = network.generators_t.p_max_pu
-        normed_renewables.columns = 'G' + normed_renewables.columns
-
-        df = pd.concat([normed_renewables,
-                        normed_loads], axis=1)
-    else:
-        loads = network.loads_t.p_set.copy()
-        loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_max_pu.mul(
+    
+    loads = network.loads_t.p_set.copy()
+    loads.columns = 'L' + loads.columns
+    renewables = network.generators_t.p_max_pu.mul(
                 network.generators.p_nom[
                 network.generators_t.p_max_pu.columns], axis = 1).copy()
-        renewables.columns = 'G' + renewables.columns
-        residual_load=pd.DataFrame()
-        residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
-        df = pd.concat([renewables, loads, residual_load], axis=1)
+    renewables.columns = 'G' + renewables.columns
+    residual_load=pd.DataFrame()
+    residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
+    df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
 
