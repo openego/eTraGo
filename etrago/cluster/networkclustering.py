@@ -550,7 +550,7 @@ def ehv_clustering(self):
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
         self.network = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=False)
+            self.network, busmap, with_time=True)
         logger.info('Network clustered to EHV-grid')
 
 def kmean_clustering(etrago):
