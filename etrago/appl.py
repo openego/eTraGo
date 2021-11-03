@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 3,
+    'end_snapshot': 72,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -91,20 +91,15 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-# <<<<<<< HEAD
-#     'disaggregation': None,  # None, 'mini' or 'uniform'
-#     'snapshot_clustering': {
-#         'active': False, # choose if clustering is activated
-#         'n_clusters': 2, # number of periods
-# =======
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {# False or dict
+        'type':'consecutive', #'consecutive' or 'classical'
         'n_clusters': 1, # number of periods
-
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': '', # additional constraints for storages
-        'segmentation': 100}, #False or number of segments per day
-        #If segmentation used: set n_clusters as no. of snapshots divided by 24
+        'segmentation': 24, #False or number of segments per day - only relevant for consecutive clustering
+        'csv_export': False }, #False or folder name '/results'},
+        # If segmentation used: set n_clusters as no. of snapshots divided by 24
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -298,15 +293,26 @@ def run_etrago(args, json_path):
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         sub-station, taking into account the shortest distance on power lines.
 
-    snapshot_clustering : dict
-        {'active': True, 'n_clusters': 2, 'how': 'daily',
-         'storage_constraints': 'soc_constraints'},
+    snapshot_clustering : False or dict
         State if you want to cluster the snapshots and run the optimization
-        only on a subset of snapshot periods. The 'n_clusters' value defines
-        the number of periods which will be clustered to.
-        With 'how' you can choose the period, currently 'daily' is the only
-        option. Choose 'daily_bounds' or 'soc_constraints' to add extra
+        only on a subset of snapshot periods.
+        Current options are:
+            'type':'consecutive' or 'classical, 
+            'n_clusters': int
+                 The 'n_clusters' value defines the number of periods which 
+                 will be clustered to.
+            'how': 'daily',
+                 the period, currently 'daily' is the only option
+            'storage_constraints': 'soc_constraints',
+                additional constraints for storages
+            'segmentation': 24
+                False or number of segments per day - only relevant for consecutive clustering
+            'csv_export': False or folder name
+        
+        With 'how' you can choose . Choose 'daily_bounds' or 'soc_constraints' to add extra
         contraints for the SOC of storage units.
+    
+        #If segmentation used: set n_clusters as no. of snapshots divided by 24
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -352,11 +358,11 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     # needs to be adjusted for new sectors
-    # etrago.skip_snapshots()
+    etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    # etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors

@@ -1437,7 +1437,7 @@ def check_args(etrago):
             etrago.session.query(egon_etrago_bus).statement, etrago.session.bind
             ).version.unique(), ("gridversion does not exist")
 
-    if etrago.args['snapshot_clustering']['active']:
+    if etrago.args['snapshot_clustering'] != False:
 
         assert etrago.args['end_snapshot']/\
             etrago.args['start_snapshot'] % 24 == 0,\

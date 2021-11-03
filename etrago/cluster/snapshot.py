@@ -46,16 +46,27 @@ __author__ = "Simon Hilpert"
 def snapshot_clustering(self):
     """
     """
-    if self.args['snapshot_clustering']['active']:
+    if self.args['snapshot_clustering'] != False:
 
-        self.network = run(network=self.network.copy(),
+        if self.args['snapshot_clustering']['type'] == 'consecutive' :
+            
+            self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
                       how=self.args['snapshot_clustering']['how'],
                       normed=False,
                       segmented_to = self.args['snapshot_clustering']['segmentation'],
                       csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
                       )
-
+            
+        elif self.args['snapshot_clustering']['type'] == 'classical' :
+            
+            self.network = run(network=self.network.copy(),
+                      n_clusters=self.args['snapshot_clustering']['n_clusters'],
+                      how=self.args['snapshot_clustering']['how'],
+                      normed=False,
+                      )
+        else :
+                 raise ValueError("Type of clustering should be 'classical' or 'consecutive'")
 
 
 def tsam_cluster(timeseries_df,
@@ -70,11 +81,12 @@ def tsam_cluster(timeseries_df,
     ----------
     df : pd.DataFrame
         DataFrame with timeseries to cluster
+    noTypicalPeriods: Number of typical Periods (or clusters)
+    how: {'daily', 'weekly'}
     extremePeriodMethod: {'None','append','new_cluster_center',
                            'replace_cluster_center'}, default: 'None'
-        Method how to integrate extreme Periods
-        into to the typical period profiles.
-        None: No integration at all.
+        Method how to integrate extreme Periods into to the typical period profiles.
+        'None': No integration at all.
         'append': append typical Periods to cluster centers
         'new_cluster_center': add the extreme period as additional cluster
             center. It is checked then for all Periods if they fit better
@@ -82,17 +94,19 @@ def tsam_cluster(timeseries_df,
         'replace_cluster_center': replaces the cluster center of the
             cluster where the extreme period belongs to with the periodly
             profile of the extreme period. (Worst case system design)
-         'segmentation': Is given by the run-function, can be True or False
-        'segment_no': Only is used when segmentation is true, the number of segments per day (cannot exceed 24)
+    segmentation: Is given by the run-function, can be True or False
+    segment_no: Only used when segmentation is true, the number of segments per day (cannot exceed 24)
+    segm_hoursperperiod: Only used when segmentation is true, the number of segments per period
 
     Returns
     -------
+    df_cluster
+    cluster_weights
+    dates
+    hours
+    df_i_h
     timeseries : pd.DataFrame
                 Clustered timeseries, only used if segmentation is True
-                cluster_weights:
-                clusterOrder:
-                clusterCenterIndices:
-                [to be filled in]
     """
 
     if how == 'daily':
@@ -102,8 +116,6 @@ def tsam_cluster(timeseries_df,
         hours = 168
         period = ' weeks'
 
-#    print('Snapshot clustering to ' + str(typical_periods) + period +
-#          ' using extreme period method: ' + extremePeriodMethod)
     
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
@@ -122,7 +134,7 @@ def tsam_cluster(timeseries_df,
         segmentation = segmentation,
         noSegments = segment_no)
     print('Snapshot clustering to ' + str(typical_periods) + period +
-          ' using extreme period method: ' + extremePeriodMethod + ', Segmentation ' + str(segmentation))
+          ', using extreme period method: ' + extremePeriodMethod + ', Segmentation ' + str(segmentation))
 
 
     timeseries_creator = aggregation.createTypicalPeriods()
@@ -150,12 +162,8 @@ def tsam_cluster(timeseries_df,
             del timeseries['Unnamed: 0']
         if 'Segment Step' in timeseries.columns:
             del timeseries['Segment Step']
-        print(timeseries)
+        print('with sementation', timeseries)
         
-  
-
-
-#    timeseries = aggregation.createTypicalPeriods() # If we see correctly, this line was included in the code before but the output was not further used
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices
@@ -234,27 +242,27 @@ def run(network, n_clusters=None, how='daily',
     """
     """
     if segmented_to is not False:
-        segment_no=segmented_to
-        segmentation=True
+        segment_no = segmented_to
+        segmentation = True
     else:
-        segment_no=24
-        segmentation=False 
+        segment_no = 24
+        segmentation = False 
     
 
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
                 prepare_pypsa_timeseries(network),
-                typical_periods=n_clusters,
+                typical_periods = n_clusters,
                 how='daily',
                 extremePeriodMethod = 'None',
-                segmentation=segmentation,
-                segment_no=segment_no,
-                segm_hoursperperiod=network.snapshots.size)
+                segmentation = segmentation,
+                segment_no = segment_no,
+                segm_hoursperperiod = network.snapshots.size)
     
     ###### can be deleted later, just helpful to see how time steps were clustered ######### 
     if csv_export is not False:
         if not os.path.exists(csv_export):
-            os.makedirs(csv_export, exist_ok=True)  
+            os.makedirs(csv_export, exist_ok=True)
         timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
     ########################
 
