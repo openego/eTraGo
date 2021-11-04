@@ -1443,11 +1443,16 @@ def check_args(etrago):
             etrago.args['start_snapshot'] % 24 == 0,\
             ("Please select snapshots covering whole days when choosing "
              "snapshot clustering")
-
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
-            (24 *etrago.args['snapshot_clustering']['n_clusters']),\
-            ("Number of selected days is smaller than number of "
-             "representitive snapshots")
+        
+        if etrago.args['snapshot_clustering']['type'] != 'segmentation':
+            assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
+                (24 *etrago.args['snapshot_clustering']['n_clusters']),\
+                ("Number of selected days is smaller than number of representative snapshots")
+                
+        elif etrago.args['snapshot_clustering']['type'] == 'segmentation':
+            assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
+                (etrago.args['snapshot_clustering']['segmentation']),\
+                ("Number of segments is higher than number of snapshots")
 
         if not etrago.args['method']['pyomo']:
             logger.warning("Snapshot clustering constraints are "

@@ -48,10 +48,10 @@ def snapshot_clustering(self):
     """
     if self.args['snapshot_clustering'] != False:
 
-        if self.args['snapshot_clustering']['type'] == 'consecutive' :
+        if self.args['snapshot_clustering']['type'] == 'segmentation' :
             
             self.network = run(network=self.network.copy(),
-                      n_clusters=self.args['snapshot_clustering']['n_clusters'],
+                      n_clusters=1,
                       how=self.args['snapshot_clustering']['how'],
                       normed=False,
                       segmented_to = self.args['snapshot_clustering']['segmentation'],
@@ -63,10 +63,10 @@ def snapshot_clustering(self):
             self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
                       how=self.args['snapshot_clustering']['how'],
-                      normed=False,
+                      normed=False
                       )
         else :
-                 raise ValueError("Type of clustering should be 'classical' or 'consecutive'")
+                 raise ValueError("Type of clustering should be 'classical' or 'segmentation'")
 
 
 def tsam_cluster(timeseries_df,
@@ -74,14 +74,14 @@ def tsam_cluster(timeseries_df,
                  how='daily',
                  extremePeriodMethod = 'None',
                  segmentation = False,
-                 segment_no = 24,
+                 segment_no = 10,
                  segm_hoursperperiod = 24):
     """
     Parameters
     ----------
     df : pd.DataFrame
         DataFrame with timeseries to cluster
-    noTypicalPeriods: Number of typical Periods (or clusters)
+    typical_periods: Number of typical Periods (or clusters)
     how: {'daily', 'weekly'}
     extremePeriodMethod: {'None','append','new_cluster_center',
                            'replace_cluster_center'}, default: 'None'
@@ -95,8 +95,8 @@ def tsam_cluster(timeseries_df,
             cluster where the extreme period belongs to with the periodly
             profile of the extreme period. (Worst case system design)
     segmentation: Is given by the run-function, can be True or False
-    segment_no: Only used when segmentation is true, the number of segments per day (cannot exceed 24)
-    segm_hoursperperiod: Only used when segmentation is true, the number of segments per period
+    segment_no: Only used when segmentation is true, the number of segments
+    segm_hoursperperiod: Only used when segmentation is true, defines the length of a cluster period
 
     Returns
     -------
@@ -133,8 +133,16 @@ def tsam_cluster(timeseries_df,
         clusterMethod='hierarchical',
         segmentation = segmentation,
         noSegments = segment_no)
-    print('Snapshot clustering to ' + str(typical_periods) + period +
-          ', using extreme period method: ' + extremePeriodMethod + ', Segmentation ' + str(segmentation))
+    
+    if segmentation:
+        print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
+              'Using extreme period method: ' + extremePeriodMethod + '\n' + 
+              'Segmentation: ' + str(segmentation))
+    
+    else:
+        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' + 
+          'Using extreme period method: ' + extremePeriodMethod + '\n' + 
+          'Segmentation: ' + str(segmentation))
 
 
     timeseries_creator = aggregation.createTypicalPeriods()
@@ -162,7 +170,7 @@ def tsam_cluster(timeseries_df,
             del timeseries['Unnamed: 0']
         if 'Segment Step' in timeseries.columns:
             del timeseries['Segment Step']
-        print('with sementation', timeseries)
+        #print(timeseries)
         
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
@@ -244,11 +252,11 @@ def run(network, n_clusters=None, how='daily',
     if segmented_to is not False:
         segment_no = segmented_to
         segmentation = True
+        csv_export = csv_export
     else:
         segment_no = 24
         segmentation = False 
     
-
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
                 prepare_pypsa_timeseries(network),

@@ -93,13 +93,11 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {# False or dict
-        'type':'consecutive', #'consecutive' or 'classical'
-        'n_clusters': 1, # number of periods
+        'type':'classical', #'segmentation' or 'classical'
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': '', # additional constraints for storages
-        'segmentation': 24, #False or number of segments per day - only relevant for consecutive clustering
-        'csv_export': False }, #False or folder name '/results'},
-        # If segmentation used: set n_clusters as no. of snapshots divided by 24
+        'n_clusters': 5, #  number of periods - only relevant for classical clustering
+        'segmentation': 100}, # number of segments - only relevant for segmentation
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -150,6 +148,8 @@ def run_etrago(args, json_path):
     end_snapshot : int
         2,
         End hour of the scenario year to be calculated.
+        If temporal clustering is used, the selected snapshots should cover 
+        whole days.
 
     solver : str
         'glpk',
@@ -297,23 +297,21 @@ def run_etrago(args, json_path):
         State if you want to cluster the snapshots and run the optimization
         only on a subset of snapshot periods.
         Current options are:
-            'type':'consecutive' or 'classical, 
-            'n_clusters': int
-                 The 'n_clusters' value defines the number of periods which 
-                 will be clustered to.
+            'type':'segmentation' or 'classical,
             'how': 'daily',
                  the period, currently 'daily' is the only option
             'storage_constraints': 'soc_constraints',
                 additional constraints for storages
-            'segmentation': 24
-                False or number of segments per day - only relevant for consecutive clustering
-            'csv_export': False or folder name
-        
-        With 'how' you can choose . Choose 'daily_bounds' or 'soc_constraints' to add extra
-        contraints for the SOC of storage units.
-    
-        #If segmentation used: set n_clusters as no. of snapshots divided by 24
-
+            Only relevant for classical clustering
+                'n_clusters': int
+                     The 'n_clusters' value defines the number of periods 
+                     which will be clustered to, the number of selected days 
+                     should  be higher than number of representitive snapshots
+            Only relevant for segmentation
+                'segmentation': int
+                    Number of segments for the whole time serie, 
+                    this value shouldn't be superior than the number of snapshots
+                
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
