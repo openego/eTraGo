@@ -26,7 +26,6 @@ Leander Kotzur is used.
 
 Remaining questions/tasks:
 
-- Does it makes sense to cluster normed values?
 - Include scaling method for yearly sums
 """
 
@@ -50,8 +49,7 @@ def snapshot_clustering(self):
 
         self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
-                      how=self.args['snapshot_clustering']['how'],
-                      normed=False)
+                      how=self.args['snapshot_clustering']['how'])
 
 
 
@@ -178,8 +176,7 @@ def tsam_cluster(timeseries_df,
     return df_cluster, cluster_weights, dates, hours, df_i_h
 
 
-def run(network, n_clusters=None, how='daily',
-        normed=False):
+def run(network, n_clusters=None, how='daily'):
     """
     """
 
@@ -197,7 +194,7 @@ def run(network, n_clusters=None, how='daily',
     return network
 
 
-def prepare_pypsa_timeseries(network, normed=False):
+def prepare_pypsa_timeseries(network):
     """
     """
     
