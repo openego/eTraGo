@@ -217,8 +217,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network.generators.control = "PV"
     network.generators['weight'] = 1
 
-    #network.generators = network.generators[~network.generators.carrier.isin(
-    #    ['gas', 'solar_thermal_collector', 'geo_thermal'])]
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                     custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
                                        'weight': np.sum, 'p_nom': np.sum,
@@ -550,7 +548,7 @@ def ehv_clustering(self):
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
         self.network = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=False)
+            self.network, busmap, with_time=True)
         logger.info('Network clustered to EHV-grid')
 
 def kmean_clustering(etrago):

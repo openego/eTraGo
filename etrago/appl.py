@@ -327,7 +327,7 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    etrago = Etrago(args, json_path= None)
+    etrago = Etrago(args, json_path)
  
     # import network from database
     etrago.build_network_from_db()
