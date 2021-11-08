@@ -439,6 +439,34 @@ def foreign_links(self):
 
         self.geolocation_buses()
 
+    
+def set_q_national_loads(self, cos_phi=1):
+    """
+    Set q component of national loads based on the p component and cos_phi
+    
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+    Overall container of PyPSA
+    cos_phi : float
+    Choose ration of active and reactive power of foreign loads
+
+    Returns
+    -------
+    network : :class:`pypsa.Network
+    Overall container of PyPSA
+
+    """
+    network = self.network
+
+    national_buses = network.buses[network.buses.country_code == 'DE']
+
+    network.loads_t['q_set'][network.loads.index[
+        network.loads.bus.astype(str).isin(national_buses.index)]] = \
+        network.loads_t['p_set'][network.loads.index[
+            network.loads.bus.astype(str).isin(
+                national_buses.index)]] * math.tan(math.acos(cos_phi)) 
+        
 
 def set_q_foreign_loads(self, cos_phi=1):
     """Set reative power timeseries of loads in neighbouring countries
