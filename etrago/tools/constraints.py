@@ -1149,8 +1149,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
             p_nom = m.storage_p_nom[s]
         else:
             p_nom = network.storage_units.p_nom[s]
-            
-        import pdb; pdb.set_trace()
 
         return (m.state_of_charge_intra[s, intra_hour] +
                 m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]

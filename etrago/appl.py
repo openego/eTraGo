@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 240,
+    'end_snapshot': 3,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -93,8 +93,8 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
-        'active': True, # choose if clustering is activated
-        'n_clusters': 5, # number of periods
+        'active': False, # choose if clustering is activated
+        'n_clusters': 2, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints'}, # additional constraints for storages
     # Simplifications:
@@ -337,10 +337,6 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-    
-    etrago.network.storage_units.efficiency_dispatch = 1
-    etrago.network.storage_units.efficiency_store = 1
-    etrago.network.storage_units.standing_loss = 0
 
     # ehv network clustering
     etrago.ehv_clustering()

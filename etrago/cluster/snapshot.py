@@ -154,7 +154,7 @@ def tsam_cluster(timeseries_df,
     for i in representative_day:
         last_hour = i * hours + hours - 1
         last_hour_datetime.append(timeseries_df.index[last_hour])
-        first_hour = i * hours + hours - hours
+        first_hour = i * hours 
         first_hour_datetime.append(timeseries_df.index[first_hour])
 
     #create a dataframe (index=nr. of day in a year/candidate)
@@ -192,7 +192,7 @@ def run(network, n_clusters=None, how='daily',
                 prepare_pypsa_timeseries(network),
                 typical_periods=n_clusters,
                 how='daily',
-                extremePeriodMethod = 'None') 
+                extremePeriodMethod = 'None')
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 
