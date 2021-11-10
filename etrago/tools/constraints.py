@@ -1104,14 +1104,25 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
     network.model.total_storage_constraint = po.Constraint(
         sus.index, network.snapshots, rule=total_state_of_charge)
     
+    elapsed_hours = 1
+    
     if simplified == True: 
         
         def simplified_lower(m,s,h):
             
-            intra_min = min(m.state_of_charge_intra[s, :])
+            date = network.snapshots[
+                network.snapshots.dayofyear -1 ==
+                network.cluster['RepresentativeDay'][h.dayofyear]]
+            
+            intra_min = 0
+            
+            for hour in date: 
+                intra = m.state_of_charge_intra[s,hour] 
+                if intra < intra_min:
+                    intra_min = intra
             
             return (m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
-                    * (1 - network.storage_units.at[s, 'standing_loss'])**24
+                    * (1 - network.storage_units.at[s, 'standing_loss']*elapsed_hours)**24
                     + intra_min >= 0)
 
         network.model.simplified_lower = po.Constraint(
@@ -1120,7 +1131,16 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
         
         def simplified_upper(m,s,h):
             
-            intra_max = max(m.state_of_charge_intra[s, :])
+            date = network.snapshots[
+                network.snapshots.dayofyear -1 ==
+                network.cluster['RepresentativeDay'][h.dayofyear]]
+            
+            intra_max = 0
+            
+            for hour in date: 
+                intra = m.state_of_charge_intra[s,hour] 
+                if intra > intra_max:
+                    intra_max = intra
             
             if network.storage_units.p_nom_extendable[s]:
                 p_nom = m.storage_p_nom[s]
@@ -1130,7 +1150,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
             return (m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
                     + intra_max <= p_nom)
             
-
         network.model.simplified_upper = po.Constraint(
             sus.index, network.cluster_ts.index,
             rule=simplified_upper)
@@ -1157,8 +1176,7 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
     
             return(m.state_of_charge_intra[s, intra_hour] +
                    m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
-                   # * (1 - network.storage_units.at
-                   # [s, 'standing_loss']*elapsed_hours)**24
+                   * (1 - network.storage_units.at[s, 'standing_loss']*elapsed_hours)**24
                    >= 0)
     
         network.model.state_of_charge_lower = po.Constraint(
@@ -1170,6 +1188,7 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
         network.model.del_component('state_of_charge_upper_index_1')
     
         def state_of_charge_upper(m, s, h):
+            
             date = str(network.snapshots[
                 network.snapshots.dayofyear -1 ==
                 network.cluster['RepresentativeDay'][h.dayofyear]][0]).split(' ')[0]
@@ -1185,8 +1204,7 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
     
             return (m.state_of_charge_intra[s, intra_hour] +
                     m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
-                    # * (1 - network.storage_units.at[s,
-                    # 'standing_loss']*elapsed_hours)**24
+                    * (1 - network.storage_units.at[s,'standing_loss']*elapsed_hours)**24
                     <= p_nom * network.storage_units.at[s, 'max_hours'])
         
         network.model.state_of_charge_upper = po.Constraint(
