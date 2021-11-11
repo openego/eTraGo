@@ -1245,7 +1245,7 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
     network.model.cyclic_storage_constraint = po.Constraint(
         sus.index, rule=cyclic_state_of_charge)
 
-def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
+def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
 
     sus = n.storage_units
 
@@ -1253,18 +1253,39 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
 
     period_starts = sns[0::24]
 
-
     candidates = \
         n.cluster.index.get_level_values(0).unique()
 
-
-
     soc_total = get_var(n, c, 'state_of_charge')
+    
+    import pdb; pdb.set_trace()
+    
+    if simplified == True:
+        
+        intra_min =
+        intra_max = 
+        
+        if sus.p_nom_extendable:
+                p_nom = m.storage_p_nom
+        else:
+                p_nom = sus.p_nom
+        ds = p_nom * sus['max_hours']
+        
+        inter_lower = ds - intra_max
+        
+        inter_upper = - intra_min / ((1 - sus['standing_loss'])**24)
+                    
+        # inter_soc
+        # Set lower and upper bound for soc_inter
+        lb = pd.DataFrame(index=candidates, columns=sus.index, data=inter_lower)
+        ub = pd.DataFrame(index=candidates, columns=sus.index, data=inter_upper)
+        
+    else:
 
-    # inter_soc
-    # Set lower and upper bound for soc_inter
-    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
-    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+        # inter_soc
+        # Set lower and upper bound for soc_inter
+        lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+        ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
 
     # Create soc_inter variable for each storage and each day
     define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
@@ -1293,7 +1314,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
     eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
-    
+
     dispatch = get_var(n, c, 'p_dispatch').loc[first_hour].set_index(candidates)
     store = get_var(n, c, 'p_store').loc[first_hour].set_index(candidates)
     next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
@@ -1373,13 +1394,13 @@ class Constraints:
                     if self.args['method']['pyomo']:
                         snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=False)
                     else:
-                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots)
+                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots, simplified=False)
             elif self.args['snapshot_clustering']['storage_constraints'] \
                 == 'soc_constraints_simplified':
                     if self.args['method']['pyomo']:
                         snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=True)
                     else:
-                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots)
+                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots, simplified=True)
 
             else:
                 logger.error('snapshot clustering constraints must be in' +
