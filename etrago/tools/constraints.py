@@ -992,6 +992,7 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
 
     define_constraints(network, lhs, '==', rhs, 'daily_bounds')
 
+### TODO: simplified nicht als Argument ?
 def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
 
     sus = network.storage_units
@@ -1105,8 +1106,15 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
         sus.index, network.snapshots, rule=total_state_of_charge)
     
     elapsed_hours = 1
+    ### TODO: elapsed_hours für weighting
+    ### -> Berechnung bei pyomo
+    ### -> Einfügen sinnvoll? 
     
     if simplified == True: 
+        
+        ### TODO: siehe Oriol?
+        ### TODO: intra <= intra_max
+        ### TODO: intra >= intra_min
         
         def simplified_lower(m,s,h):
             
@@ -1244,7 +1252,14 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
 
     network.model.cyclic_storage_constraint = po.Constraint(
         sus.index, rule=cyclic_state_of_charge)
+    
+### TODO: cyclic_state_of_charge:
+    ### -> in pyomo gelöscht, hier dafür überschrieben
+    ### -> 19b fehlt allerdings trotzdem...
 
+### TODO: simplified nicht als Argument ?
+### TODO: SOC_cyclic und SOC_boundaries in pypsa/linopf?
+### TODO: siehe papysa/linopf oder online-Dokumenation mit ähnlichen Gleichungen
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
 
     sus = n.storage_units
@@ -1261,6 +1276,9 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
     import pdb; pdb.set_trace()
     
     if simplified == True:
+        
+        ### TODO: intra <= intra_max
+        ### TODO: intra >= intra_min
         
         intra_min =
         intra_max = 
