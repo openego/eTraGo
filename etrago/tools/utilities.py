@@ -1477,12 +1477,6 @@ def check_args(etrago):
             ("Number of selected days is smaller than number of "
              "representitive snapshots")
 
-        if not etrago.args['method']['pyomo']:
-            logger.warning("Snapshot clustering constraints are "
-                           "not yet implemented without pyomo. "
-                           "args['method']['pyomo'] is set to True.")
-            etrago.args['method']['pyomo'] = True
-
     if not etrago.args['method']['pyomo']:
         try:
             import gurobipy
