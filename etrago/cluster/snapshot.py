@@ -46,27 +46,24 @@ __author__ = "Simon Hilpert"
 def snapshot_clustering(self):
     """
     """
-    if self.args['snapshot_clustering'] != False:
+    if self.args['snapshot_clustering']['active'] == True:
 
-        if self.args['snapshot_clustering']['type'] == 'segmentation' :
+        if self.args['snapshot_clustering']['method'] == 'segmentation' :
             
             self.network = run(network=self.network.copy(),
                       n_clusters=1,
-                      how=self.args['snapshot_clustering']['how'],
-                      normed=False,
-                      segmented_to = self.args['snapshot_clustering']['segmentation'],
+                      segmented_to = self.args['snapshot_clustering']['n_segments'],
                       csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
                       )
             
-        elif self.args['snapshot_clustering']['type'] == 'classical' :
+        elif self.args['snapshot_clustering']['method'] == 'typical_periods' :
             
             self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
-                      how=self.args['snapshot_clustering']['how'],
-                      normed=False
+                      how=self.args['snapshot_clustering']['how']
                       )
         else :
-                 raise ValueError("Type of clustering should be 'classical' or 'segmentation'")
+                 raise ValueError("Type of clustering should be 'typical_periods' or 'segmentation'")
 
 
 def tsam_cluster(timeseries_df,
@@ -116,7 +113,6 @@ def tsam_cluster(timeseries_df,
         hours = 168
         period = ' weeks'
 
-    
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
     else:
@@ -245,8 +241,7 @@ def tsam_cluster(timeseries_df,
     return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries
 
 
-def run(network, n_clusters=None, how='daily',
-        normed=False, segmented_to=False, csv_export=False):
+def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=False):
     """
     """
     if segmented_to is not False:
@@ -274,7 +269,6 @@ def run(network, n_clusters=None, how='daily',
         timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
     ########################
 
-        
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 
