@@ -97,7 +97,7 @@ args = {
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
         'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
-        'n_clusters': 5, #  number of periods - only relevant for classical clustering  - only relevant for 'typical_periods'
+        'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
