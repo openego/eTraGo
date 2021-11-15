@@ -1465,17 +1465,22 @@ def check_args(etrago):
             etrago.session.query(egon_etrago_bus).statement, etrago.session.bind
             ).version.unique(), ("gridversion does not exist")
 
-    if etrago.args['snapshot_clustering']['active']:
+    if etrago.args['snapshot_clustering']['active'] != False:
 
         assert etrago.args['end_snapshot']/\
             etrago.args['start_snapshot'] % 24 == 0,\
             ("Please select snapshots covering whole days when choosing "
              "snapshot clustering")
-
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
-            (24 *etrago.args['snapshot_clustering']['n_clusters']),\
-            ("Number of selected days is smaller than number of "
-             "representitive snapshots")
+        
+        if etrago.args['snapshot_clustering']['method'] == 'typical_periods':
+            assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
+                (24 *etrago.args['snapshot_clustering']['n_clusters']),\
+                ("Number of selected days is smaller than number of representative snapshots")
+                
+        elif etrago.args['snapshot_clustering']['method'] == 'segmentation':
+            assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] + 1 >= \
+                (etrago.args['snapshot_clustering']['n_segments']),\
+                ("Number of segments is higher than number of snapshots")
 
     if not etrago.args['method']['pyomo']:
         try:
