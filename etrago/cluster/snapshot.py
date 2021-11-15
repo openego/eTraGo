@@ -211,17 +211,21 @@ def tsam_cluster(timeseries_df,
     for i in clusterOrder:
         representative_day.append(dic_clusterCenterIndices[i])
 
-    #get list of last hour of representative days
+    #get list of last and first hour of representative days
     last_hour_datetime=[]
+    first_hour_datetime=[]
     for i in representative_day:
         last_hour = i * hours + hours - 1
         last_hour_datetime.append(timeseries_df.index[last_hour])
+        first_hour = i * hours 
+        first_hour_datetime.append(timeseries_df.index[first_hour])
 
     #create a dataframe (index=nr. of day in a year/candidate)
     df_cluster =  pd.DataFrame({
                         'Cluster': clusterOrder, #Cluster of the day
                         'RepresentativeDay': representative_day, #representative day of the cluster
-                        'last_hour_RepresentativeDay': last_hour_datetime}) #last hour of the cluster
+                        'last_hour_RepresentativeDay': last_hour_datetime,
+                        'first_hour_RepresentativeDay': first_hour_datetime}) #last hour of the cluster
     df_cluster.index = df_cluster.index + 1
     df_cluster.index.name = 'Candidate'
 

@@ -25,7 +25,10 @@ import logging
 from pyomo.environ import Constraint
 import pandas as pd
 import pyomo.environ as po
-from pypsa.linopt import get_var, linexpr, define_constraints
+import numpy as np
+from pypsa.linopt import get_var, linexpr, define_constraints, define_variables
+from pypsa.descriptors import expand_series
+from pypsa.pf import get_switchable_as_dense as get_as_dense
 
 logger = logging.getLogger(__name__)
 
@@ -930,6 +933,340 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                                    '<=', arg[cntr][c][1]*potential,
                                    'Generator', 'max_flh_' + g)
 
+
+def snapshot_clustering_daily_bounds(self, network, snapshots):
+    # This will bound the storage level to 0.5 max_level every 24th hour.
+    sus = network.storage_units
+    # take every first hour of the clustered days
+    network.model.period_starts = \
+        network.snapshot_weightings.index[0::24]
+
+    network.model.storages = sus.index
+
+    print('Setting daily_bounds constraint')
+
+    def day_rule(m, s, p):
+        """
+        Sets the soc of the every first hour to the
+        soc of the last hour of the day (i.e. + 23 hours)
+        """
+        return (m.state_of_charge[s, p] ==
+                m.state_of_charge[s, p + pd.Timedelta(hours=23
+                                                      )])
+
+    network.model.period_bound = Constraint(
+        network.model.storages,
+        network.model.period_starts, rule=day_rule)
+
+def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
+
+    c = 'StorageUnit'
+
+    period_starts = snapshots[0::24]
+    period_ends = period_starts + pd.Timedelta(hours=23)
+
+    eh = expand_series(
+        network.snapshot_weightings[period_ends], network.storage_units.index) #elapsed hours
+
+    eff_stand = expand_series(1-network.df(c).standing_loss, period_ends).T
+    eff_dispatch = expand_series(network.df(c).efficiency_dispatch, period_ends).T
+    eff_store = expand_series(network.df(c).efficiency_store, period_ends).T
+
+    soc = get_var(network, c, 'state_of_charge').loc[period_ends, :]
+
+    soc_peroid_start = get_var(network, c, 'state_of_charge').loc[period_starts]
+
+    coeff_var = [(-1, soc),
+                 (-1/eff_dispatch * eh, get_var(network, c, 'p_dispatch').loc[period_ends, :]),
+                 (eff_store * eh, get_var(network, c, 'p_store').loc[period_ends, :])]
+
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+
+    def masked_term(coeff, var, cols):
+        return linexpr((coeff[cols], var[cols]))\
+               .reindex(index=axes[0], columns=axes[1], fill_value='').values
+
+    lhs += masked_term(eff_stand, soc_peroid_start, network.storage_units.index)
+
+    rhs = -get_as_dense(network, c, 'inflow', period_ends).mul(eh)
+
+    define_constraints(network, lhs, '==', rhs, 'daily_bounds')
+
+def snapshot_clustering_seasonal_storage(self, network, snapshots):
+
+    sus = network.storage_units
+
+    network.model.period_starts = \
+        network.snapshot_weightings.index[0::24]
+
+    network.model.storages = sus.index
+
+    candidates = \
+        network.cluster.index.get_level_values(0).unique()
+
+    # create set for inter-temp constraints and variables
+    network.model.candidates = po.Set(
+        initialize=candidates, ordered=True)
+
+    # create intra soc variable for each storage and each hour
+    network.model.state_of_charge_intra = po.Var(
+        sus.index, network.snapshots)
+
+    def intra_soc_rule(m, s, h):
+        """
+        Sets soc_inter of first hour of every day to 0. Other hours
+        are set by technical coherences of storage units
+
+        According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018, equation no. 18
+        """
+
+        if h.hour == 0:
+            expr = (m.state_of_charge_intra[s, h] == 0)
+        else:
+            expr = (
+                m.state_of_charge_intra[s, h] ==
+                m.state_of_charge_intra[s, h-pd.DateOffset(hours=1)]
+                * (1 - network.storage_units.at[s, 'standing_loss'])
+                -(m.storage_p_dispatch[s, h-pd.DateOffset(hours=1)]/
+                  network.storage_units.at[s, 'efficiency_dispatch'] -
+                  network.storage_units.at[s, 'efficiency_store'] *
+                  m.storage_p_store[s, h-pd.DateOffset(hours=1)]))
+        return expr
+
+    network.model.soc_intra = po.Constraint(
+        network.model.storages, network.snapshots,
+        rule=intra_soc_rule)
+
+    # create inter soc variable for each storage and each candidate
+    network.model.state_of_charge_inter = po.Var(
+        sus.index, network.model.candidates,
+        within=po.NonNegativeReals)
+
+    def inter_storage_soc_rule(m, s, i):
+        """
+        Define the state_of_charge_inter as the state_of_charge_inter of
+        the day before minus the storage losses plus the state_of_charge_intra
+        of one hour after the last hour of the representative day.
+        For the last reperesentive day, the soc_inter is the same as
+        the first day due to cyclic soc condition
+
+        According to:
+        L. Kotzur et al: 'Time series aggregation for energy system design:
+        Modeling seasonal storage', 2018, equation no. 19
+        """
+
+        if i == network.model.candidates[-1]:
+            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            expr = po.Constraint.Skip
+
+        else:
+            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
+            expr = (
+                m.state_of_charge_inter[s, i+1] ==
+                m.state_of_charge_inter[s, i]
+                * (1 - network.storage_units.at[s, 'standing_loss'])**24
+                + m.state_of_charge_intra[s, last_hour]\
+                    * (1 - network.storage_units.at[s, 'standing_loss'])\
+                    -(m.storage_p_dispatch[s, last_hour]/\
+                    network.storage_units.at[s, 'efficiency_dispatch'] -
+                      network.storage_units.at[s, 'efficiency_store'] *
+                      m.storage_p_store[s, last_hour]))
+
+        return expr
+
+    network.model.inter_storage_soc_constraint = po.Constraint(
+        sus.index, network.model.candidates,
+        rule=inter_storage_soc_rule)
+
+    #new definition of the state_of_charge used in pypsa
+    network.model.del_component('state_of_charge_constraint')
+    network.model.del_component('state_of_charge_constraint_index')
+    network.model.del_component('state_of_charge_constraint_index_0')
+    network.model.del_component('state_of_charge_constraint_index_1')
+
+    def total_state_of_charge(m, s, h):
+        """
+        Define the state_of_charge as the sum of state_of_charge_inter
+        and state_of_charge_intra
+
+        According to:
+        L. Kotzur et al: 'Time series aggregation for energy system design:
+        Modeling seasonal storage', 2018
+        """
+
+        return(m.state_of_charge[s, h] ==
+               m.state_of_charge_intra[s, h] + m.state_of_charge_inter[
+                   s, network.cluster_ts['Candidate_day'][h]])
+
+    network.model.total_storage_constraint = po.Constraint(
+        sus.index, network.snapshots, rule=total_state_of_charge)
+
+    def state_of_charge_lower(m, s, h):
+        """
+        Define the state_of_charge as the sum of state_of_charge_inter
+        and state_of_charge_intra
+
+        According to:
+        L. Kotzur et al: 'Time series aggregation for energy system design:
+        Modeling seasonal storage', 2018
+        """
+
+      # Choose datetime of representive day
+        date = str(network.snapshots[
+            network.snapshots.dayofyear -1 ==
+            network.cluster['RepresentativeDay'][h.dayofyear]][0]).split(' ')[0]
+        hour = str(h).split(' ')[1]
+
+        intra_hour = pd.to_datetime(date + ' ' + hour)
+
+        return(m.state_of_charge_intra[s, intra_hour] +
+               m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
+               # * (1 - network.storage_units.at
+               # [s, 'standing_loss']*elapsed_hours)**24
+               >= 0)
+
+    network.model.state_of_charge_lower = po.Constraint(
+        sus.index, network.cluster_ts.index, rule=state_of_charge_lower)
+
+    network.model.del_component('state_of_charge_upper')
+    network.model.del_component('state_of_charge_upper_index')
+    network.model.del_component('state_of_charge_upper_index_0')
+    network.model.del_component('state_of_charge_upper_index_1')
+
+    def state_of_charge_upper(m, s, h):
+        date = str(network.snapshots[
+            network.snapshots.dayofyear -1 ==
+            network.cluster['RepresentativeDay'][h.dayofyear]][0]).split(' ')[0]
+
+        hour = str(h).split(' ')[1]
+
+        intra_hour = pd.to_datetime(date + ' ' + hour)
+
+        if network.storage_units.p_nom_extendable[s]:
+            p_nom = m.storage_p_nom[s]
+        else:
+            p_nom = network.storage_units.p_nom[s]
+
+        return (m.state_of_charge_intra[s, intra_hour] +
+                m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
+                # * (1 - network.storage_units.at[s,
+                # 'standing_loss']*elapsed_hours)**24
+                <= p_nom * network.storage_units.at[s, 'max_hours'])
+
+    network.model.state_of_charge_upper = po.Constraint(
+        sus.index, network.cluster_ts.index,
+        rule=state_of_charge_upper)
+
+    def cyclic_state_of_charge(m, s):
+        """
+        Defines cyclic condition like pypsas 'state_of_charge_contraint'.
+        There are small differences to original results.
+        """
+        last_day = network.cluster.index[-1]
+
+        last_calc_hour = network.cluster[
+            'last_hour_RepresentativeDay'][last_day]
+
+        last_inter = m.state_of_charge_inter[s, last_day]
+
+        last_intra = m.state_of_charge_intra[s, last_calc_hour]
+
+        first_day = network.cluster.index[0]
+
+        first_calc_hour = network.cluster[
+            'last_hour_RepresentativeDay'][first_day] - pd.DateOffset(hours=23)
+
+        first_inter = m.state_of_charge_inter[s, first_day]
+
+        first_intra = m.state_of_charge_intra[s, first_calc_hour]
+
+        return  (first_intra + first_inter == \
+               ((last_intra + last_inter)
+                * (1 - network.storage_units.at[s, 'standing_loss'])
+                -(m.storage_p_dispatch[s, last_calc_hour]/
+                  network.storage_units.at[s, 'efficiency_dispatch']
+                  -m.storage_p_store[s, last_calc_hour] *
+                  network.storage_units.at[s, 'efficiency_store'])))
+
+    network.model.cyclic_storage_constraint = po.Constraint(
+        sus.index, rule=cyclic_state_of_charge)
+
+def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
+
+    sus = n.storage_units
+
+    c = 'StorageUnit'
+
+    period_starts = sns[0::24]
+
+
+    candidates = \
+        n.cluster.index.get_level_values(0).unique()
+
+
+
+    soc_total = get_var(n, c, 'state_of_charge')
+
+    # inter_soc
+    # Set lower and upper bound for soc_inter
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+
+    # Create soc_inter variable for each storage and each day
+    define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
+    
+    # Define soc_intra
+    # Set lower and upper bound for soc_intra
+    lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
+
+    # Set soc_intra to 0 at first hour of every day
+    lb.loc[period_starts, :] = 0
+    ub.loc[period_starts, :] = 0
+
+    # Create intra soc variable for each storage and each hour
+    define_variables(n, lb, ub, 'StorageUnit', 'soc_intra')
+    soc_intra = get_var(n, c, 'soc_intra')
+
+    last_hour = n.cluster["last_hour_RepresentativeDay"].values
+    first_hour = n.cluster["first_hour_RepresentativeDay"].values
+
+    soc_inter = get_var(n, c, 'soc_inter')
+    next_soc_inter = soc_inter.shift(-1).fillna(soc_inter.loc[candidates[0]])
+    
+    last_soc_intra = soc_intra.loc[last_hour].set_index(candidates)
+
+    eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
+    eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
+    eff_store = expand_series(n.df(c).efficiency_store, candidates).T
+    
+    dispatch = get_var(n, c, 'p_dispatch').loc[first_hour].set_index(candidates)
+    store = get_var(n, c, 'p_store').loc[first_hour].set_index(candidates)
+    next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
+    next_store = store.shift(-1).fillna(dispatch.loc[candidates[0]])
+
+    coeff_var = [(-1, next_soc_inter),
+                 (eff_stand.pow(24), soc_inter),
+                 (eff_stand, last_soc_intra),
+                 (-1/eff_dispatch, next_dispatch),
+                 (eff_store, next_store)]
+
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+
+    define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
+
+    coeff_var = [(-1, soc_total),
+                 (1, soc_intra),
+                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))
+                 ]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
+
+
 class Constraints:
 
     def __init__(self, args):
@@ -971,227 +1308,22 @@ class Constraints:
 
 
         if self.args['snapshot_clustering']['active']:
-                # This will bound the storage level to 0.5 max_level every 24th hour.
-                sus = network.storage_units
-                # take every first hour of the clustered days
-                network.model.period_starts = \
-                    network.snapshot_weightings.index[0::24]
 
-                network.model.storages = sus.index
+            if self.args['snapshot_clustering']['storage_constraints'] \
+                == 'daily_bounds':
 
-                if self.args['snapshot_clustering']['storage_constraints'] \
-                    == 'daily_bounds':
+                    if self.args['method']['pyomo']:
+                        snapshot_clustering_daily_bounds(self, network, snapshots)
+                    else:
+                        snapshot_clustering_daily_bounds_nmp(self, network, snapshots)
 
-                    print('Setting daily_bounds constraint')
+            elif self.args['snapshot_clustering']['storage_constraints'] \
+                == 'soc_constraints':
+                    if self.args['method']['pyomo']:
+                        snapshot_clustering_seasonal_storage(self, network, snapshots)
+                    else:
+                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots)
 
-                    def day_rule(m, s, p):
-                        """
-                        Sets the soc of the every first hour to the
-                        soc of the last hour of the day (i.e. + 23 hours)
-                        """
-                        return (m.state_of_charge[s, p] ==
-                                m.state_of_charge[s, p + pd.Timedelta(hours=23
-                                                                      )])
-
-                    network.model.period_bound = Constraint(
-                        network.model.storages,
-                        network.model.period_starts, rule=day_rule)
-
-                elif self.args['snapshot_clustering']['storage_constraints'] \
-                    == 'soc_constraints':
-                    candidates = \
-                        network.cluster.index.get_level_values(0).unique()
-
-                    # create set for inter-temp constraints and variables
-                    network.model.candidates = po.Set(
-                        initialize=candidates, ordered=True)
-
-                    # create intra soc variable for each storage and each hour
-                    network.model.state_of_charge_intra = po.Var(
-                        sus.index, network.snapshots)
-
-                    def intra_soc_rule(m, s, h):
-                        """
-                        Sets soc_inter of first hour of every day to 0. Other hours
-                        are set by technical coherences of storage units
-
-                        According to:
-                        L. Kotzur et al: 'Time series aggregation for energy
-                        system design:
-                        Modeling seasonal storage', 2018, equation no. 18
-                        """
-
-                        if h.hour == 0:
-                            expr = (m.state_of_charge_intra[s, h] == 0)
-                        else:
-                            expr = (
-                                m.state_of_charge_intra[s, h] ==
-                                m.state_of_charge_intra[s, h-pd.DateOffset(hours=1)]
-                                * (1 - network.storage_units.at[s, 'standing_loss'])
-                                -(m.storage_p_dispatch[s, h-pd.DateOffset(hours=1)]/
-                                  network.storage_units.at[s, 'efficiency_dispatch'] -
-                                  network.storage_units.at[s, 'efficiency_store'] *
-                                  m.storage_p_store[s, h-pd.DateOffset(hours=1)]))
-                        return expr
-
-                    network.model.soc_intra = po.Constraint(
-                        network.model.storages, network.snapshots,
-                        rule=intra_soc_rule)
-
-                    # create inter soc variable for each storage and each candidate
-                    network.model.state_of_charge_inter = po.Var(
-                        sus.index, network.model.candidates,
-                        within=po.NonNegativeReals)
-
-                    def inter_storage_soc_rule(m, s, i):
-                        """
-                        Define the state_of_charge_inter as the state_of_charge_inter of
-                        the day before minus the storage losses plus the state_of_charge_intra
-                        of one hour after the last hour of the representative day.
-                        For the last reperesentive day, the soc_inter is the same as
-                        the first day due to cyclic soc condition
-
-                        According to:
-                        L. Kotzur et al: 'Time series aggregation for energy system design:
-                        Modeling seasonal storage', 2018, equation no. 19
-                        """
-
-                        if i == network.model.candidates[-1]:
-                            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
-                            expr = po.Constraint.Skip
-
-                        else:
-                            last_hour = network.cluster["last_hour_RepresentativeDay"][i]
-                            expr = (
-                                m.state_of_charge_inter[s, i+1] ==
-                                m.state_of_charge_inter[s, i]
-                                * (1 - network.storage_units.at[s, 'standing_loss'])**24
-                                + m.state_of_charge_intra[s, last_hour]\
-                                    * (1 - network.storage_units.at[s, 'standing_loss'])\
-                                    -(m.storage_p_dispatch[s, last_hour]/\
-                                    network.storage_units.at[s, 'efficiency_dispatch'] -
-                                      network.storage_units.at[s, 'efficiency_store'] *
-                                      m.storage_p_store[s, last_hour]))
-
-                        return expr
-
-                    network.model.inter_storage_soc_constraint = po.Constraint(
-                        sus.index, network.model.candidates,
-                        rule=inter_storage_soc_rule)
-
-                    #new definition of the state_of_charge used in pypsa
-                    network.model.del_component('state_of_charge_constraint')
-                    network.model.del_component('state_of_charge_constraint_index')
-                    network.model.del_component('state_of_charge_constraint_index_0')
-                    network.model.del_component('state_of_charge_constraint_index_1')
-
-                    def total_state_of_charge(m, s, h):
-                        """
-                        Define the state_of_charge as the sum of state_of_charge_inter
-                        and state_of_charge_intra
-
-                        According to:
-                        L. Kotzur et al: 'Time series aggregation for energy system design:
-                        Modeling seasonal storage', 2018
-                        """
-
-                        return(m.state_of_charge[s, h] ==
-                               m.state_of_charge_intra[s, h] + m.state_of_charge_inter[
-                                   s, network.cluster_ts['Candidate_day'][h]])
-
-                    network.model.total_storage_constraint = po.Constraint(
-                        sus.index, network.snapshots, rule=total_state_of_charge)
-
-                    def state_of_charge_lower(m, s, h):
-                        """
-                        Define the state_of_charge as the sum of state_of_charge_inter
-                        and state_of_charge_intra
-
-                        According to:
-                        L. Kotzur et al: 'Time series aggregation for energy system design:
-                        Modeling seasonal storage', 2018
-                        """
-
-                      # Choose datetime of representive day
-                        date = str(network.snapshots[
-                            network.snapshots.dayofyear -1 ==
-                            network.cluster['RepresentativeDay'][h.dayofyear]][0]).split(' ')[0]
-                        hour = str(h).split(' ')[1]
-
-                        intra_hour = pd.to_datetime(date + ' ' + hour)
-
-                        return(m.state_of_charge_intra[s, intra_hour] +
-                               m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
-                               # * (1 - network.storage_units.at
-                               # [s, 'standing_loss']*elapsed_hours)**24
-                               >= 0)
-
-                    network.model.state_of_charge_lower = po.Constraint(
-                        sus.index, network.cluster_ts.index, rule=state_of_charge_lower)
-
-                    network.model.del_component('state_of_charge_upper')
-                    network.model.del_component('state_of_charge_upper_index')
-                    network.model.del_component('state_of_charge_upper_index_0')
-                    network.model.del_component('state_of_charge_upper_index_1')
-
-                    def state_of_charge_upper(m, s, h):
-                        date = str(network.snapshots[
-                            network.snapshots.dayofyear -1 ==
-                            network.cluster['RepresentativeDay'][h.dayofyear]][0]).split(' ')[0]
-
-                        hour = str(h).split(' ')[1]
-
-                        intra_hour = pd.to_datetime(date + ' ' + hour)
-
-                        if network.storage_units.p_nom_extendable[s]:
-                            p_nom = m.storage_p_nom[s]
-                        else:
-                            p_nom = network.storage_units.p_nom[s]
-
-                        return (m.state_of_charge_intra[s, intra_hour] +
-                                m.state_of_charge_inter[s, network.cluster_ts['Candidate_day'][h]]
-                                # * (1 - network.storage_units.at[s,
-                                # 'standing_loss']*elapsed_hours)**24
-                                <= p_nom * network.storage_units.at[s, 'max_hours'])
-
-                    network.model.state_of_charge_upper = po.Constraint(
-                        sus.index, network.cluster_ts.index,
-                        rule=state_of_charge_upper)
-
-                    def cyclic_state_of_charge(m, s):
-                        """
-                        Defines cyclic condition like pypsas 'state_of_charge_contraint'.
-                        There are small differences to original results.
-                        """
-                        last_day = network.cluster.index[-1]
-
-                        last_calc_hour = network.cluster[
-                            'last_hour_RepresentativeDay'][last_day]
-
-                        last_inter = m.state_of_charge_inter[s, last_day]
-
-                        last_intra = m.state_of_charge_intra[s, last_calc_hour]
-
-                        first_day = network.cluster.index[0]
-
-                        first_calc_hour = network.cluster[
-                            'last_hour_RepresentativeDay'][first_day] - pd.DateOffset(hours=23)
-
-                        first_inter = m.state_of_charge_inter[s, first_day]
-
-                        first_intra = m.state_of_charge_intra[s, first_calc_hour]
-
-                        return  (first_intra + first_inter == \
-                               ((last_intra + last_inter)
-                                * (1 - network.storage_units.at[s, 'standing_loss'])
-                                -(m.storage_p_dispatch[s, last_calc_hour]/
-                                  network.storage_units.at[s, 'efficiency_dispatch']
-                                  -m.storage_p_store[s, last_calc_hour] *
-                                  network.storage_units.at[s, 'efficiency_store'])))
-
-                    network.model.cyclic_storage_constraint = po.Constraint(
-                        sus.index, rule=cyclic_state_of_charge)
-
-                else:
-                    logger.error('snapshot clustering constraints must be in' +
-                                 ' [daily_bounds, soc_constraints]')
+            else:
+                logger.error('snapshot clustering constraints must be in' +
+                             ' [daily_bounds, soc_constraints]')

@@ -50,7 +50,7 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': True}, # set if pyomo is used for model building
+        'pyomo': False}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
@@ -334,7 +334,7 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
     """
     etrago = Etrago(args, json_path)
-
+ 
     # import network from database
     etrago.build_network_from_db()
 
