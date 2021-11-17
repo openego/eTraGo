@@ -79,7 +79,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 2, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -94,8 +94,10 @@ args = {
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': True, # choose if clustering is activated
-        'method':'typical_periods', # 'typical_periods' or 'segmentation'
-        'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
+        'method':'segmentation', # 'typical_periods' or 'segmentation'
+        'extreme_periods': 'new_cluster_center', # optional adding of extreme period
+        # TODO: add in documentation? 
+        'how': 'daily', # type of period - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation

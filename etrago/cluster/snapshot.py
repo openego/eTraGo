@@ -50,16 +50,19 @@ def snapshot_clustering(self):
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
             
             self.network = run(network=self.network.copy(),
+                      extreme_periods = self.args['snapshot_clustering']['extreme_periods'],
                       n_clusters=1,
                       segmented_to = self.args['snapshot_clustering']['n_segments'],
-                      csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
+                      csv_export = self.args['csv_export'] ### can be deleted later, just helpful to see how time steps were clustered
                       )
             
         elif self.args['snapshot_clustering']['method'] == 'typical_periods' :
             
             self.network = run(network=self.network.copy(),
+                      extreme_periods = self.args['snapshot_clustering']['extreme_periods'],
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
-                      how=self.args['snapshot_clustering']['how']
+                      how=self.args['snapshot_clustering']['how'],
+                      csv_export = self.args['csv_export'] ### can be deleted later
                       )
         else :
                  raise ValueError("Type of clustering should be 'typical_periods' or 'segmentation'")
@@ -111,12 +114,15 @@ def tsam_cluster(timeseries_df,
     if how == 'weekly':
         hours = 168
         period = ' weeks'
+    if how == 'hourly':
+        hours = 1
+        period = ' hours'
 
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
     else:
         hoursPerPeriod = hours
-
+    
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -124,10 +130,10 @@ def tsam_cluster(timeseries_df,
         addPeakMin = ['residual_load'],
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
-        hoursPerPeriod=hoursPerPeriod,
+        hoursPerPeriod=hoursPerPeriod, 
         clusterMethod='hierarchical',
-        segmentation = segmentation,
-        noSegments = segment_no)
+        segmentation = segmentation, 
+        noSegments = segment_no) 
     
     if segmentation:
         print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
@@ -244,32 +250,58 @@ def tsam_cluster(timeseries_df,
     return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries
 
 
-def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=False):
+def run(network, extreme_periods=None, n_clusters=None, how='daily', segmented_to=False, csv_export=False):
     """
     """
     if segmented_to is not False:
         segment_no = segmented_to
         segmentation = True
+        extreme = extreme_periods
+        extreme_periods = 'None'
         csv_export = csv_export
     else:
         segment_no = 24
         segmentation = False 
+        
+    ts = prepare_pypsa_timeseries(network)
     
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
-                prepare_pypsa_timeseries(network),
+                ts,
                 typical_periods = n_clusters,
-                how='daily',
-                extremePeriodMethod = 'None',
+                how=how,
+                extremePeriodMethod = extreme_periods,
                 segmentation = segmentation,
                 segment_no = segment_no,
                 segm_hoursperperiod = network.snapshots.size)
     
-    ###### can be deleted later, just helpful to see how time steps were clustered ######### 
+    import pdb; pdb.set_trace()
+    
+    # for segmentation: optional adding of extreme periods
+    if segmentation == True and extreme != 'None':
+        max_val = ts['residual_load'].idxmax()
+        min_val = ts['residual_load'].idxmin()
+        if max_val not in timeseries.index.get_level_values('dates'):
+            line = 
+            
+        if min_val not in timeseries.index.get_level_values('dates'):
+            
+        
+    
+    ###### can be deleted later, just helpful to see how time steps were clustered ###
     if csv_export is not False:
         if not os.path.exists(csv_export):
             os.makedirs(csv_export, exist_ok=True)
-        timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
+        if segmentation != False:
+            timeseries.to_csv('timeseries_segmentation=' + str(segment_no) + '.csv') 
+        else:
+            if how=='daily':
+                howie='days'
+            elif how=='weekly':
+                howie='weeks'
+            elif how=='hourly':
+                howie='hours'
+            df_cluster.to_csv('cluster_typical-periods=' + str(n_clusters) + howie + '.csv')
     ########################
 
     network.cluster = df_cluster
