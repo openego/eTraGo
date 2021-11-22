@@ -89,6 +89,9 @@ def tsam_cluster(timeseries_df,
     if how == 'weekly':
         hours = 168
         period = ' weeks'
+    if how == 'hourly':
+        hours = 1
+        period = ' hours'
 
     print('Snapshot clustering to ' + str(typical_periods) + period +
           ' using extreme period method: ' + extremePeriodMethod)
@@ -96,7 +99,7 @@ def tsam_cluster(timeseries_df,
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
-        extremePeriodMethod = extremePeriodMethod,
+        extremePeriodMethod = extremePeriodMethod, 
         addPeakMin = ['residual_load'],
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
@@ -106,7 +109,7 @@ def tsam_cluster(timeseries_df,
 
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
-    clusterOrder =aggregation.clusterOrder
+    clusterOrder = aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices
 
     if extremePeriodMethod  == 'new_cluster_center':
@@ -142,7 +145,7 @@ def tsam_cluster(timeseries_df,
 
     #get list of representative days
     representative_day=[]
-
+    
     #cluster:medoid des jeweiligen Clusters
     dic_clusterCenterIndices = dict(enumerate(clusterCenterIndices))
     for i in clusterOrder:
@@ -186,13 +189,12 @@ def run(network, n_clusters=None, how='daily',
         normed=False):
     """
     """
-
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h= tsam_cluster(
                 prepare_pypsa_timeseries(network),
                 typical_periods=n_clusters,
-                how='daily',
-                extremePeriodMethod = 'None') #'new_cluster_center'
+                how=how,
+                extremePeriodMethod = 'new_cluster_center') #'new_cluster_center'
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 

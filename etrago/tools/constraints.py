@@ -1273,20 +1273,42 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
 
     soc_total = get_var(n, c, 'state_of_charge')
     
-    import pdb; pdb.set_trace()
+    # Define soc_intra
+    # Set lower and upper bound for soc_intra
+    lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
+    
+    # Set soc_intra to 0 at first hour of every day
+    lb.loc[period_starts, :] = 0
+    ub.loc[period_starts, :] = 0
+
+    # Create intra soc variable for each storage and each hour
+    define_variables(n, lb, ub, 'StorageUnit', 'soc_intra')
+    soc_intra = get_var(n, c, 'soc_intra')
     
     if simplified == True:
         
-        ### TODO: intra <= intra_max
-        ### TODO: intra >= intra_min
+        intra_min = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_min')
+        intra_max = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_max')
         
-        intra_min =
-        intra_max = 
+        define_constraints(n, intra_min, '<=', soc_intra, 'StorageUnit', 'define_intra_min')
+        define_constraints(n, intra_max, '>=', soc_intra, 'StorageUnit', 'define_intra_max')
         
-        if sus.p_nom_extendable:
-                p_nom = m.storage_p_nom
-        else:
-                p_nom = sus.p_nom
+        p_nom=pd.Series(data=np.zeros(len(sus)), index=sus.index)
+        
+        ### TODO: p_nom_opt? 
+        #p_nom_opt = get_var(n, c, 'p_nom_opt')
+        p_nom_opt = sus.p_nom_opt
+        
+        for row in p_nom.iteritems():
+
+            if sus.p_nom_extendable[row[0]]:
+                p_nom[row[0]] = p_nom_opt[row[0]]
+            else:
+                p_nom[row[0]] = sus.p_nom[row[0]]
+      
+        import pdb; pdb.set_trace()
+            
         ds = p_nom * sus['max_hours']
         
         inter_lower = ds - intra_max
@@ -1307,19 +1329,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
 
     # Create soc_inter variable for each storage and each day
     define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
-    
-    # Define soc_intra
-    # Set lower and upper bound for soc_intra
-    lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
-    ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
-
-    # Set soc_intra to 0 at first hour of every day
-    lb.loc[period_starts, :] = 0
-    ub.loc[period_starts, :] = 0
-
-    # Create intra soc variable for each storage and each hour
-    define_variables(n, lb, ub, 'StorageUnit', 'soc_intra')
-    soc_intra = get_var(n, c, 'soc_intra')
 
     last_hour = n.cluster["last_hour_RepresentativeDay"].values
     first_hour = n.cluster["first_hour_RepresentativeDay"].values

@@ -1454,10 +1454,10 @@ def check_args(etrago):
             ("Please select snapshots covering whole days when choosing "
              "snapshot clustering")
 
-        assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
-            (24 *etrago.args['snapshot_clustering']['n_clusters']),\
-            ("Number of selected days is smaller than number of "
-             "representitive snapshots")
+        #assert etrago.args['end_snapshot']-etrago.args['start_snapshot'] > \
+            #(24 *etrago.args['snapshot_clustering']['n_clusters']),\
+            #("Number of selected days is smaller than number of "
+             #"representitive snapshots")
 
     if not etrago.args['method']['pyomo']:
         try:
