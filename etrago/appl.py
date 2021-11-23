@@ -96,7 +96,7 @@ args = {
         'active': True, # choose if clustering is activated
         'method':'segmentation', # 'typical_periods' or 'segmentation'
         'extreme_periods': 'new_cluster_center', # optional adding of extreme period
-        # TODO: add in documentation? 
+        # TODO: add in documentation? -> classical: append, new_cluster_center; segmentation: only append
         'how': 'daily', # type of period - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
