@@ -82,7 +82,7 @@ args = {
         'n_clusters': 2, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
+        'remove_stubs': False, # remove stubs before kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
@@ -94,8 +94,8 @@ args = {
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': True, # choose if clustering is activated
-        'method':'segmentation', # 'typical_periods' or 'segmentation'
-        'extreme_periods': 'new_cluster_center', # optional adding of extreme period
+        'method':'typical_periods', # 'typical_periods' or 'segmentation'
+        'extreme_periods': 'None', # optional adding of extreme period
         # TODO: add in documentation? -> classical: append, new_cluster_center; segmentation: only append
         'how': 'daily', # type of period - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
@@ -352,7 +352,7 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     # needs to be adjusted for new sectors
-    etrago.skip_snapshots()
+    # etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors

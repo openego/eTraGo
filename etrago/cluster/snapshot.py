@@ -137,7 +137,7 @@ def tsam_cluster(timeseries_df,
     
     if segmentation:
         print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
-              'Using extreme period method: ' + 'append (only possible method for segmentation)' + '\n' + 
+              'Using extreme period method: ' + extremePeriodMethod +' (append only possible method for segmentation)' + '\n' + 
               'Segmentation: ' + str(segmentation))
     
     else:
