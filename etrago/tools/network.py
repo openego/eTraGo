@@ -45,8 +45,7 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     convert_capital_costs,
                                     get_args_setting,
                                     export_to_csv)
-from etrago.tools.plot import (add_coordinates,
-                               plot_grid)
+from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_kmeans_clustering,
                                               ehv_clustering)
@@ -146,8 +145,6 @@ class Etrago():
 
     check_args = check_args
 
-    add_coordinates = add_coordinates
-
     geolocation_buses = geolocation_buses
 
     add_missing_components = add_missing_components
@@ -229,9 +226,6 @@ class Etrago():
         None.
 
         """
-
-        if not 'y' in self.network.buses.columns:
-            self.add_coordinates()
 
         self.geolocation_buses()
 
