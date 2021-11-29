@@ -1455,7 +1455,7 @@ def check_args(etrago):
         ("'scn_name' has to be in ['eGon2035', 'eGon100RE'] "
          "but is " + etrago.args['scn_name'])
 
-    assert etrago.args['start_snapshot'] < etrago.args['end_snapshot'],\
+    assert etrago.args['start_snapshot'] <= etrago.args['end_snapshot'],\
         ("start_snapshot after end_snapshot")
 
     if etrago.args['gridversion'] != None:
