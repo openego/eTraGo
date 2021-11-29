@@ -459,7 +459,9 @@ def set_q_national_loads(self, cos_phi=1):
     """
     network = self.network
 
-    national_buses = network.buses[network.buses.country_code == 'DE']
+    national_buses = network.buses[
+        (network.buses.country_code == 'DE')&
+        (network.buses.carrier == 'AC')]
 
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(national_buses.index)]] = \
@@ -803,7 +805,8 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     network.lines.loc[(network.lines.v_nom == 380),
                       'capital_cost'] = cost380 * network.lines.length
 
-    network.links.loc[network.links.p_nom_extendable,
+    network.links.loc[(network.links.p_nom_extendable)
+                      & (network.links.carrier == "DC"),
                       'capital_cost'] = costDC * network.links.length
 
     return network
@@ -1071,10 +1074,10 @@ def convert_capital_costs(self, p=0.05, T=40):
     """
 
     network = self.network
-    start_snapshot = self.args['start_snapshot']
-    end_snapshot = self.args['end_snapshot']
+    n_snapshots = self.args['end_snapshot'] - self.args['start_snapshot'] + 1
+    
     # Add costs for DC-converter
-    network.links.capital_cost = network.links.capital_cost + 400000
+    network.links.loc[network.links.carrier=='DC', 'capital_cost'] += 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))
@@ -1082,22 +1085,19 @@ def convert_capital_costs(self, p=0.05, T=40):
     # Apply function on lines, links, trafos and storages
     # Storage costs are already annuized yearly
     network.lines.loc[network.lines.s_nom_extendable == True,
-                      'capital_cost'] = (
-                          network.lines.capital_cost /
-                          (PVA * (8760 / (end_snapshot - start_snapshot + 1))))
+                      'capital_cost'] /= PVA * (8760 / n_snapshots)
+    
     network.links.loc[network.links.p_nom_extendable == True,
-                      'capital_cost'] = network.links.capital_cost /\
-        (PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+                      'capital_cost'] /= PVA * (8760 / n_snapshots)
+    
     network.transformers.loc[
-        network.transformers.s_nom_extendable == True, 'capital_cost'] = \
-        network.transformers.capital_cost /(
-            PVA * (8760 / (end_snapshot - start_snapshot + 1)))
+        network.transformers.s_nom_extendable == True, 
+        'capital_cost'] /= PVA * (8760 / n_snapshots)
+    
     network.storage_units.loc[
-        network.storage_units.p_nom_extendable == True, 'capital_cost'] = \
-        network.storage_units.capital_cost / \
-            (8760 / (end_snapshot - start_snapshot + 1))
-
-
+        network.storage_units.p_nom_extendable == True,
+        'capital_cost'] /= PVA * (8760 / n_snapshots)
+    
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
 
     """

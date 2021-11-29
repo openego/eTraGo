@@ -91,11 +91,15 @@ def extendable(self, line_max):
                 network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
-            network.links.p_nom_extendable = True
-            network.links.p_nom_min = network.links.p_nom
-            network.links.p_nom_max = float("inf")
+            network.links.loc[
+                network.links.carrier=='DC', 'p_nom_extendable'] = True
+            network.links.loc[
+                network.links.carrier=='DC', 'p_nom_min'] = network.links.p_nom
+            network.links.loc[
+                network.links.carrier=='DC', 'p_nom_max'] = float("inf")
             if not line_max == None:
-                network.links.p_nom_max =\
+                network.links.loc[
+                    network.links.carrier=='DC', 'p_nom_max'] =\
                 line_max * network.links.p_nom
 
             else:
