@@ -95,7 +95,15 @@ def tsam_cluster(timeseries_df,
 
     print('Snapshot clustering to ' + str(typical_periods) + period +
           ' using extreme period method: ' + extremePeriodMethod)
-
+    
+    import pdb; pdb.set_trace()
+    # TODO: check weightDict to choose timeseries for clustering and adding of extreme periods
+    
+    x=timeseries_df.drop(labels = timeseries_df.index, axis=0)
+    x = x.append(pd.Series(1, index=x.columns), ignore_index=True)
+    x.loc[0]['residual_load'] = 0
+    x = x.to_dict()
+    
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -104,7 +112,8 @@ def tsam_cluster(timeseries_df,
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
         hoursPerPeriod=hours,
-        clusterMethod='hierarchical')
+        clusterMethod='hierarchical',
+        weightDict = x)
 
 
     timeseries = aggregation.createTypicalPeriods()

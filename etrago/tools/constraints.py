@@ -1144,7 +1144,7 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified):
                 network.cluster['RepresentativeDay'][h.dayofyear]]
             
             intra_max = 0
-            
+
             for hour in date: 
                 intra = m.state_of_charge_intra[s,hour] 
                 if intra > intra_max:
@@ -1294,22 +1294,21 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified):
         define_constraints(n, intra_min, '<=', soc_intra, 'StorageUnit', 'define_intra_min')
         define_constraints(n, intra_max, '>=', soc_intra, 'StorageUnit', 'define_intra_max')
         
-        p_nom=pd.Series(data=np.zeros(len(sus)), index=sus.index)
+        # TODO: nicht Zeiger auf Variablen und Werte in eine Series, 
+        # stattdessen aufteilen für extendable und nicht extendable Speicher
         
-        ### TODO: p_nom_opt? 
-        #p_nom_opt = get_var(n, c, 'p_nom_opt')
-        p_nom_opt = sus.p_nom_opt
-        
-        for row in p_nom.iteritems():
-
-            if sus.p_nom_extendable[row[0]]:
-                p_nom[row[0]] = p_nom_opt[row[0]]
-            else:
-                p_nom[row[0]] = sus.p_nom[row[0]]
-      
         import pdb; pdb.set_trace()
+        
+        ds=pd.Series(data=sus.p_nom, index=sus.index)
+        
+        p_nom_opt = get_var(n, c, 'p_nom')
+        
+        for row in ds.iteritems():
+
+            if row[1] == 0:
+                ds[row[0]] = p_nom_opt[row[0]]
             
-        ds = p_nom * sus['max_hours']
+        ds = ds * sus['max_hours']
         
         inter_lower = ds - intra_max
         
