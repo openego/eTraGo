@@ -335,7 +335,43 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
+    
+    
+    # Manually fix problems from eGon-data    
+    etrago.network.loads.sign = -1
+    
+    etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
+    
+    for c in ['p_min_pu', 'efficiency', 'p_max_pu']:
+        
+        etrago.network.links_t[c] = etrago.network.links_t[c].drop(
+            etrago.network.links_t[c].loc[:, etrago.network.links_t[c].isnull().all()].columns, 
+            axis='columns')
+    
+    
+    # Manually drop sectors, only used for debugging    
+    #['AC', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',  'rural_heat', 'dsm-cts', 'dsm-ind-osm', 'dsm-ind-sites'],
+    # etrago.network.buses.drop(etrago.network.buses[~
+    #     etrago.network.buses.carrier.isin(
+    #         ['AC',
+    #          'dsm-cts', 'dsm-ind-osm', 'dsm-ind-sites',
+    #           'CH4', 'H2_grid', 'H2_saltcavern',
+    #           'rual_heat', 'central_heat'
+    #           ])].index, inplace=True)
 
+    # etrago.network.loads.drop(
+    #     etrago.network.loads[~etrago.network.loads.bus.isin(etrago.network.buses.index)].index, inplace=True)
+
+    # etrago.network.generators.drop(
+    #     etrago.network.generators[~etrago.network.generators.bus.isin(etrago.network.buses.index)].index, inplace=True)
+    # etrago.network.stores.drop(
+        # etrago.network.stores[~etrago.network.stores.bus.isin(etrago.network.buses.index)].index, inplace=True)
+   
+    etrago.network.links.drop(
+        etrago.network.links[~etrago.network.links.bus0.isin(etrago.network.buses.index)].index, inplace=True)
+    etrago.network.links.drop(
+        etrago.network.links[~etrago.network.links.bus1.isin(etrago.network.buses.index)].index, inplace=True)
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
