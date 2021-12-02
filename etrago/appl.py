@@ -50,20 +50,15 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': False}, # set if pyomo is used for model building
+        'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 240,
+    'end_snapshot': 1,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver.log'},
+    'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -73,7 +68,7 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -93,7 +88,7 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
-        'active': True, # choose if clustering is activated
+        'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
         'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
@@ -102,7 +97,7 @@ args = {
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
-    'load_shedding': False,  # meet the demand at value of loss load cost
+    'load_shedding': True,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None}
