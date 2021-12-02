@@ -53,6 +53,20 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
+def filter_links_by_carrier(self, carrier, like=True):
+    
+    if isinstance(carrier, str):
+        if like:
+            df = self.network.links[
+                self.network.links.carrier.str.contains(carrier)]
+        else:
+            df = self.network.links[
+                self.network.links.carrier == carrier]
+    elif isinstance(carrier, list):
+        df = self.network.links[
+            self.network.links.carrier.isin(carrier)]
+    return df
+    
 def buses_of_vlvl(network, voltage_level):
     """ Get bus-ids of given voltage level(s).
 
@@ -772,7 +786,7 @@ def group_parallel_lines(network):
     return
 
 
-def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
+def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """ Set capital costs for extendable lines in respect to PyPSA [€/MVA]
 
     Parameters
@@ -795,6 +809,8 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
     -------
 
     """
+    
+    network = self.network
 
     network.lines.loc[(network.lines.v_nom == 110),
                       'capital_cost'] = cost110 * network.lines.length
@@ -806,13 +822,13 @@ def set_line_costs(network, cost110=230, cost220=290, cost380=85, costDC=375):
                       'capital_cost'] = cost380 * network.lines.length
 
     network.links.loc[(network.links.p_nom_extendable)
-                      & (network.links.carrier == "DC"),
+                      & (network.links.index.isin(self.dc_lines().index)),
                       'capital_cost'] = costDC * network.links.length
 
     return network
 
 
-def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
+def set_trafo_costs(self, cost110_220=7500, cost110_380=17333,
                     cost220_380=14166):
     """ Set capital costs for extendable transformers in respect
     to PyPSA [€/MVA]
@@ -829,7 +845,9 @@ def set_trafo_costs(network, cost110_220=7500, cost110_380=17333,
     cost220_380 : capital costs for 220/380kV transformer
                 default: 14166€/MVA, source: NEP 2025
 
-    """
+    """    
+    
+    network = self.network
     network.transformers["v_nom0"] = network.transformers.bus0.map(
         network.buses.v_nom)
     network.transformers["v_nom1"] = network.transformers.bus1.map(
@@ -1077,7 +1095,7 @@ def convert_capital_costs(self, p=0.05, T=40):
     n_snapshots = self.args['end_snapshot'] - self.args['start_snapshot'] + 1
     
     # Add costs for DC-converter
-    network.links.loc[network.links.carrier=='DC', 'capital_cost'] += 400000
+    network.links.loc[self.dc_lines().index, 'capital_cost'] += 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))
