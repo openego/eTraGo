@@ -41,9 +41,7 @@ if 'READTHEDOCS' not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
 
-    from etrago import Etrago
-    
-    ### TODO: assert in utilities l. 1457 ff. 
+    from etrago import Etrago 
 
 args = {
     # Setup and Configuration:
@@ -97,8 +95,10 @@ args = {
     'snapshot_clustering': {
         'active': True, # choose if clustering is activated
         'n_clusters': 5, # number of periods
-        'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
+        'how': 'hourly', # type of period, currently only 'daily'
+        'storage_constraints': 'soc_constraints'}, # additional constraints for storages ### soc_constraints_simplified
+                            ### TODO: assert in utilities l. 1457 ff.
+                            ### TODO: Aufruf der Constraints in constraints.py ganz unten
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -340,6 +340,7 @@ def run_etrago(args, json_path):
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
     
+    ### TODO
     etrago.network.storage_units.efficiency_dispatch = 1
     etrago.network.storage_units.efficiency_store = 1
     etrago.network.storage_units.standing_loss = 0

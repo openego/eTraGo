@@ -96,14 +96,6 @@ def tsam_cluster(timeseries_df,
     print('Snapshot clustering to ' + str(typical_periods) + period +
           ' using extreme period method: ' + extremePeriodMethod)
     
-    import pdb; pdb.set_trace()
-    # TODO: check weightDict to choose timeseries for clustering and adding of extreme periods
-    
-    x=timeseries_df.drop(labels = timeseries_df.index, axis=0)
-    x = x.append(pd.Series(1, index=x.columns), ignore_index=True)
-    x.loc[0]['residual_load'] = 0
-    x = x.to_dict()
-    
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -112,9 +104,7 @@ def tsam_cluster(timeseries_df,
         addPeakMax = ['residual_load'],
         rescaleClusterPeriods=False,
         hoursPerPeriod=hours,
-        clusterMethod='hierarchical',
-        weightDict = x)
-
+        clusterMethod='hierarchical')
 
     timeseries = aggregation.createTypicalPeriods()
     cluster_weights = aggregation.clusterPeriodNoOccur
@@ -152,31 +142,49 @@ def tsam_cluster(timeseries_df,
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index
 
-    #get list of representative days
-    representative_day=[]
+    #get list of representative periods
+    representative_period=[]
     
     #cluster:medoid des jeweiligen Clusters
     dic_clusterCenterIndices = dict(enumerate(clusterCenterIndices))
     for i in clusterOrder:
-        representative_day.append(dic_clusterCenterIndices[i])
-
-    #get list of last and first hour of representative days
-    last_hour_datetime=[]
-    first_hour_datetime=[]
-    for i in representative_day:
-        last_hour = i * hours + hours - 1
-        last_hour_datetime.append(timeseries_df.index[last_hour])
-        first_hour = i * hours + hours - hours
-        first_hour_datetime.append(timeseries_df.index[first_hour])
-
-    #create a dataframe (index=nr. of day in a year/candidate)
-    df_cluster =  pd.DataFrame({
-                        'Cluster': clusterOrder, #Cluster of the day
-                        'RepresentativeDay': representative_day, #representative day of the cluster
-                        'last_hour_RepresentativeDay': last_hour_datetime,
-                        'first_hour_RepresentativeDay': first_hour_datetime}) #last hour of the cluster
-    df_cluster.index = df_cluster.index + 1
-    df_cluster.index.name = 'Candidate'
+        representative_period.append(dic_clusterCenterIndices[i])
+    
+    if how == 'hourly':
+        
+        hour_datetime = []
+        
+        for i in representative_period:
+            hour_datetime.append(timeseries_df.index[i])
+    
+        #create a dataframe (index=nr. of day in a year/candidate)
+        df_cluster =  pd.DataFrame({
+                            'Cluster': clusterOrder, #Cluster of the day
+                            'RepresentativeHour': representative_period, #representative day of the cluster
+                            'Hour': hour_datetime})
+        df_cluster.index = df_cluster.index + 1
+        df_cluster.index.name = 'Candidate'
+         
+    else: 
+        
+        #get list of last and first hour of representative days
+        last_hour_datetime=[]
+        first_hour_datetime=[]
+    
+        for i in representative_period:
+            last_hour = i * hours + hours - 1
+            last_hour_datetime.append(timeseries_df.index[last_hour])
+            first_hour = i * hours + hours - hours
+            first_hour_datetime.append(timeseries_df.index[first_hour])
+    
+        #create a dataframe (index=nr. of day in a year/candidate)
+        df_cluster =  pd.DataFrame({
+                            'Cluster': clusterOrder, #Cluster of the day
+                            'RepresentativeDay': representative_period, #representative day of the cluster
+                            'last_hour_RepresentativeDay': last_hour_datetime,
+                            'first_hour_RepresentativeDay': first_hour_datetime}) #last hour of the cluster
+        df_cluster.index = df_cluster.index + 1
+        df_cluster.index.name = 'Candidate'
 
     #create a dataframe each timeseries (h) and its candiddate day (i) df_i_h
     nr_day = []
