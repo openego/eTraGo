@@ -408,13 +408,19 @@ def prepare_pypsa_timeseries(network):
     """
     
     loads = network.loads_t.p_set.copy()
+    el_loads = network.loads[network.loads.carrier=='AC']
+    el_loads = loads[list(el_loads.index)]
     loads.columns = 'L' + loads.columns
+                                     
     renewables = network.generators_t.p_max_pu.mul(
                 network.generators.p_nom[
                 network.generators_t.p_max_pu.columns], axis = 1).copy()
+    el_renewables = network.generators[network.generators.p_max_pu != 1]
+    el_renewables = renewables[list(el_renewables.index)]
     renewables.columns = 'G' + renewables.columns
+    
     residual_load=pd.DataFrame()
-    residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
+    residual_load['residual_load']=el_loads.sum(axis=1)-el_renewables.sum(axis=1)
     df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
