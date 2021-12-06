@@ -122,6 +122,7 @@ def calc_etrago_results(self):
         None.
 
         """
+        import pdb; pdb.set_trace()
         self.results = pd.DataFrame(columns=['unit', 'value'],
                                     index=['annual system costs',
                                            'annual_investment_costs',
@@ -163,8 +164,8 @@ def calc_etrago_results(self):
                 _calc_storage_expansion(self).sum()
             self.results.value['battery_storage_expansion'] = \
                 _calc_storage_expansion(self)['extendable_battery_storage']
-            self.results.value['hydrogen_storage_expansion'] = \
-                _calc_storage_expansion(self)['extendable_hydrogen_storage']
+            #self.results.value['hydrogen_storage_expansion'] = \
+               # _calc_storage_expansion(self)['extendable_hydrogen_storage']
 
         if 'network' in self.args['extendable']:
             self.results.value['abs_network_expansion']

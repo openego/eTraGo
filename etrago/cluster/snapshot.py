@@ -136,14 +136,12 @@ def tsam_cluster(timeseries_df,
         noSegments = segment_no) 
     
     if segmentation:
-        print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
-              'Using extreme period method: ' + extremePeriodMethod +' (append only possible method for segmentation)' + '\n' + 
-              'Segmentation: ' + str(segmentation))
+        print('Snapshot Clustering to ' + str(segment_no) + ' Segments' + '\n' +
+              'using extreme period method: ' + extremePeriodMethod +' (append only possible method for segmentation)')
     
     else:
-        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' + 
-          'Using extreme period method: ' + extremePeriodMethod + '\n' + 
-          'Segmentation: ' + str(segmentation))
+        print('Snapshot Clustering to ' + str(typical_periods) + period + '\n' + 
+          'using extreme period method: ' + extremePeriodMethod)
 
 
     timeseries_creator = aggregation.createTypicalPeriods()
@@ -406,6 +404,8 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
 def prepare_pypsa_timeseries(network):
     """
     """
+    
+    import pdb; pdb.set_trace()
     
     loads = network.loads_t.p_set.copy()
     el_loads = network.loads[network.loads.carrier=='AC']
