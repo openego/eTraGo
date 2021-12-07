@@ -314,6 +314,11 @@ def extendable(self, line_max):
             network.lines.loc[network.lines.scn_name == (
                 'extension_' + self.args['scn_extension'][i]
             ), 'capital_cost'] = network.lines.capital_cost
+            
+    if 'p2g' in self.args['extendable']:
+        network.links.loc[
+            (network.links.carrier == 'power-to-H2') | 
+            (network.links.carrier =='H2-to-power'), 'p_nom_extendable']= True
 
     network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
         network.lines.s_nom

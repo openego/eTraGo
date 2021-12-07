@@ -45,11 +45,11 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'etrago',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 1, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
@@ -68,12 +68,12 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['network', 'p2g'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
-        'active': True, # choose if clustering is activated
+        'active': False, # choose if clustering is activated
         'n_clusters': 10, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
@@ -340,7 +340,7 @@ def run_etrago(args, json_path):
     # Manually fix problems from eGon-data    
     etrago.network.loads.sign = -1
     
-    etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
+    etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 1000
     
     for c in ['p_min_pu', 'efficiency', 'p_max_pu']:
         
@@ -389,7 +389,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    # etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
