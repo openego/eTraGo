@@ -1105,9 +1105,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
         sus.index, network.snapshots, rule=total_state_of_charge)
     
     elapsed_hours = 1
-    ### TODO: elapsed_hours für weighting
-    ### -> Berechnung: siehe pyomo/linopf oder daily_bounds
-    ### -> Einfügen sinnvoll? 
     
     def state_of_charge_lower(m, s, h):
         """
@@ -1197,9 +1194,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
 
     network.model.cyclic_storage_constraint = po.Constraint(
         sus.index, rule=cyclic_state_of_charge)  
-### TODO: cyclic_state_of_charge:
-    ### -> in pyomo gelöscht, hier dafür überschrieben
-    ### -> 19b fehlt allerdings trotzdem...
 
 def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):  
 
@@ -1339,12 +1333,11 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
                  (1, soc_intra),
                  (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))
                  ]
+    
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
     define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
-### TODO: SOC_cyclic und SOC_boundaries in pypsa/linopf?
-
-# TODO    
+  
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):  
     
     sus = n.storage_units
@@ -1353,15 +1346,8 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
                 
     candidates = n.cluster.index.get_level_values(0).unique()
     
-    cluster = n.cluster.copy()
-    cluster.set_index('Hour', inplace=True)
-    cluster = cluster.loc[~cluster.index.duplicated(), :]
-    
     lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
     ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
-    
-    ### TODO: upper bound einsetzen? 
-    ### -> ist auch in daily_nmp NICHT extra constraint... 
     
     define_variables(n, lb, ub, c, 'soc_all')
     soc_all = get_var(n, c, 'soc_all')
@@ -1372,34 +1358,19 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
 
-    dispatch = get_var(n, c, 'p_dispatch').copy()
-    dispatch['RepresentativeHour'] = cluster['RepresentativeHour']
-    dispatch.set_index('RepresentativeHour', inplace=True)
+    dispatch = get_var(n, c, 'p_dispatch')
+    dispatch = dispatch.loc[n.cluster.Hour]
+    dispatch.index = range(1,len(dispatch.index)+1)
     
-    dis = pd.DataFrame(index=n.cluster.index.values, columns=dispatch.columns)
-    
-    for index, row in dis.iterrows():
-        rep = n.cluster.loc[index]['RepresentativeHour']
-        dis.loc[index] = dispatch.loc[rep]
-    
-    store = get_var(n, c, 'p_store').copy()
-    store['RepresentativeHour'] = cluster['RepresentativeHour']
-    store.set_index('RepresentativeHour', inplace=True)
-    
-    sto = pd.DataFrame(index=n.cluster.index.values, columns=store.columns)
-    
-    for index, row in sto.iterrows():
-        rep = n.cluster.loc[index]['RepresentativeHour']
-        sto.loc[index] = store.loc[rep]
-    
-    import pdb; pdb.set_trace()
-    ### TODO: Fehler?! 
-    ### -> vllt statt for-Schleife wie für eff_ mit expand_series()?
+    store = get_var(n, c, 'p_store')
+    store = store.loc[n.cluster.Hour]
+    store.index = range(1,len(store.index)+1)
+
     
     coeff_var = [(-1, next_soc_all),
              (eff_stand, soc_all),
-             (-1/eff_dispatch, dis),
-             (eff_store, sto)]
+             (-1/eff_dispatch, dispatch),
+             (eff_store, store)]
     
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
@@ -1407,21 +1378,17 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     
     soc = get_var(n, c, 'state_of_charge')
     
-    import pdb; pdb.set_trace()
-    ### TODO: fertigstellen...
+    soc_all = soc_all[soc_all.index.isin(n.cluster['RepresentativeHour'])]
+    soc_all['name'] = soc.index
+    soc_all.set_index('name', inplace=True)
+
+    coeff_var = [(-1, soc_all),
+             (1, soc)]
     
-    def soc_equals_soc_all(m,s,h):
-        
-        hour = (h.dayofyear -1)*24 + h.hour
-        
-        return (m.state_of_charge_all[s,hour] == 
-                m.state_of_charge[s,h])
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
     
-    network.model.soc_equals_soc_all = po.Constraint(
-            network.model.storages, network.snapshots, 
-            rule = soc_equals_soc_all)
+    define_constraints(n, lhs, '==', 0, c, 'soc_all_equals_soc_constraints')
          
-    
 def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
 
     sus = n.storage_units
@@ -1434,6 +1401,14 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
         n.cluster.index.get_level_values(0).unique()
 
     soc_total = get_var(n, c, 'state_of_charge')
+                
+    # inter_soc
+    # Set lower and upper bound for soc_inter
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+
+    # Create soc_inter variable for each storage and each day
+    define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
     
     # Define soc_intra
     # Set lower and upper bound for soc_intra
@@ -1447,40 +1422,6 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
     # Create intra soc variable for each storage and each hour
     define_variables(n, lb, ub, 'StorageUnit', 'soc_intra')
     soc_intra = get_var(n, c, 'soc_intra')
-        
-    intra_min = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_min')
-    intra_max = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_max')
-    
-    define_constraints(n, intra_min, '<=', soc_intra, 'StorageUnit', 'define_intra_min')
-    define_constraints(n, intra_max, '>=', soc_intra, 'StorageUnit', 'define_intra_max')
-    
-    # TODO: nicht Zeiger auf Variablen und Werte in eine Series, 
-    # stattdessen aufteilen für extendable und nicht extendable Speicher
-    
-    import pdb; pdb.set_trace()
-    
-    ds=pd.Series(data=sus.p_nom, index=sus.index)
-    
-    p_nom_opt = get_var(n, c, 'p_nom')
-    
-    for row in ds.iteritems():
-
-        if row[1] == 0:
-            ds[row[0]] = p_nom_opt[row[0]]
-        
-    ds = ds * sus['max_hours']
-    
-    inter_lower = ds - intra_max
-    
-    inter_upper = - intra_min / ((1 - sus['standing_loss'])**24)
-                
-    # inter_soc
-    # Set lower and upper bound for soc_inter
-    lb = pd.DataFrame(index=candidates, columns=sus.index, data=inter_lower)
-    ub = pd.DataFrame(index=candidates, columns=sus.index, data=inter_upper)
-
-    # Create soc_inter variable for each storage and each day
-    define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
 
     last_hour = n.cluster["last_hour_RepresentativeDay"].values
     first_hour = n.cluster["first_hour_RepresentativeDay"].values
@@ -1508,6 +1449,66 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
     define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
+    
+    ##########################################################################
+    
+    # TODO: boundaries müssen in pypsa gelöscht werden... ? 
+    # so vielleicht nicht, da extra constraints und nicht nur lb/ub
+    # denke schon, weil sonst nicht vereinfacht...
+    
+    # TODO: Fehler?
+    
+    import pdb; pdb.set_trace()
+    
+    # Create intra_min and intra_max for simplified boundaries of soc_inter
+    
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    
+    intra_min = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_min')
+    intra_max = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_max')
+    
+    define_constraints(n, soc_intra, '<=', intra_max.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns), c, 'intra_max_constraint')
+    define_constraints(n, soc_intra, '>=', intra_min.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns), c, 'intra_min_constraint')
+    
+    # Define lower bound 
+    
+    coeff_var = [(eff_stand.pow(24), soc_inter),
+                  (1, intra_min)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'simplified_lower_bound')
+    
+    # Define upper bound
+    
+    # a) for extendable storages
+    
+    p_nom_opt = get_var(n, c, 'p_nom')
+    p_nom_opt = expand_series(p_nom_opt, candidates).T
+    max_hours = sus[sus.p_nom_extendable==True].max_hours
+    max_hours = expand_series(max_hours, candidates).T
+    
+    coeff_var = [(1, soc_inter.drop(sus[sus.p_nom_extendable==False].index, axis=1)),
+                 (1, intra_max.drop(sus[sus.p_nom_extendable==False].index, axis=1)),
+                 (-1*max_hours, p_nom_opt)]
+    
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '<=', 0, c, 'simplified_upper_bound_ext')
+    
+    # b) for not extendable storages
+    
+    p_nom = sus[sus.p_nom_extendable==False].p_nom
+    p_nom = expand_series(p_nom, candidates).T
+    max_hours = sus[sus.p_nom_extendable==False].max_hours
+    max_hours = expand_series(max_hours, candidates).T
+    upper_bound = max_hours*p_nom
+    
+    coeff_var = [(1, soc_inter.drop(sus[sus.p_nom_extendable==True].index, axis=1)),
+                 (1, intra_max.drop(sus[sus.p_nom_extendable==True].index, axis=1))]
+    
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '<=', upper_bound, c, 'simplified_upper_bound_non_ext')
+    
+    ##########################################################################
 
     coeff_var = [(-1, soc_total),
                  (1, soc_intra),

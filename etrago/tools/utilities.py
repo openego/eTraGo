@@ -1037,7 +1037,6 @@ def convert_capital_costs(self, p=0.05, T=40):
     -------
 
     """
-
     network = self.network
     start_snapshot = self.args['start_snapshot']
     end_snapshot = self.args['end_snapshot']

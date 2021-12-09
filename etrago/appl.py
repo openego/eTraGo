@@ -95,8 +95,8 @@ args = {
     'snapshot_clustering': {
         'active': True, # choose if clustering is activated
         'n_clusters': 5, # number of periods
-        'how': 'hourly', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages ### soc_constraints_simplified
+        'how': 'daily', # type of period, currently only 'daily'
+        'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
                             ### TODO: assert in utilities l. 1457 ff.
                             ### TODO: Aufruf der Constraints in constraints.py ganz unten
     # Simplifications:
