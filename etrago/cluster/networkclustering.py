@@ -42,7 +42,7 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy import or_, exists
     import numpy as np
     import logging
-    
+    import pdb
     logger = logging.getLogger(__name__)
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
@@ -67,19 +67,11 @@ def adjust_no_electric_network(network, busmap):
     
     # network2 is supposed to contain all the no electrical buses and links
     network2 = network.copy()
-    network2.buses = network2.buses[(network2.buses['carrier'] == 'central_heat') |
-                                  (network2.buses['carrier'] == 'rural_heat') |
-                                  (network2.buses['carrier'] == 'H2') |
-                                  (network2.buses['carrier'] == 'dsm-cts') |
-                                  (network2.buses['carrier'] == 'dsm-ind-osm') |
-                                  (network2.buses['carrier'] == 'dsm-ind-sites')]
-    
-    network2.links = network2.links[(network2.links['carrier'] == 'central_heat_pump') |
-                                  (network2.links['carrier'] == 'individual_heat_pump') |
-                                  (network2.links['carrier'] == 'power-to-H2') |
-                                  (network2.links['carrier'] == 'dsm-cts') |
-                                  (network2.links['carrier'] == 'dsm-ind-osm') |
-                                  (network2.links['carrier'] == 'dsm-ind-sites')]
+    network2.buses = network2.buses[(network2.buses['carrier'] != 'AC') &
+                                  (network2.buses['carrier'] != 'CH4') &
+                                  (network2.buses['carrier'] != 'H2_grid') &
+                                  (network2.buses['carrier'] != 'H2_saltcavern')]
+    #pdb.set_trace()
     
     #no_elec_to_eHV maps the no electrical buses to the closest eHV bus
     no_elec_to_eHV = {}
@@ -90,23 +82,33 @@ def adjust_no_electric_network(network, busmap):
     busmap2 = {}
     max_id = network.buses.index.to_series().apply(int).max()
     
-    for link in network2.links.index:
-        heat_bus = network2.links.loc[link, 'bus1']
-        bus_hv = network2.links.loc[link, 'bus0']
-        if network2.links.loc[link, 'carrier'] == 'central_heat_pump':
-            carry = 'central_heat'
-        elif network2.links.loc[link, 'carrier'] == 'individual_heat_pump':
-            carry = 'rural_heat'
-        elif network2.links.loc[link, 'carrier'] == 'power-to-H2':
-            carry = 'H2'
-        else:
-            carry = network2.links.loc[link, 'carrier']
-                
-        no_elec_to_eHV[heat_bus] = busmap[str(bus_hv)]
+    for bus_ne in network2.buses.index:
+        bus_hv = -1
+        if len(network2.links[network2.links['bus1'] == bus_ne]) > 0:
+            df = network2.links[network2.links['bus1'] == bus_ne].copy()
+            df['elec'] = df['bus0'].isin(busmap.keys())
+            df = df[df['elec'] == True]
+            if len(df) > 0:
+                bus_hv = df['bus0'][0]
+                carry = network2.buses.loc[bus_ne, 'carrier']
+        
+        if (len(network2.links[network2.links['bus0'] == bus_ne]) > 0) & (bus_hv == -1):
+            df = network2.links[network2.links['bus0'] == bus_ne].copy()
+            df['elec'] = df['bus1'].isin(busmap.keys())
+            df = df[df['elec'] == True]
+            if len(df) > 0:
+                bus_hv = df['bus1'][0]
+                carry = network2.buses.loc[bus_ne, 'carrier']
+        if bus_hv == -1:
+            print(f'Bus {bus_ne} has no connexion to electricity network')
+            busmap2[bus_ne] = bus_ne
+            continue
+    
+        no_elec_to_eHV[bus_ne] = busmap[str(bus_hv)]
         if busmap[str(bus_hv)] + "-" + carry not in new_buses:
             new_buses[busmap[str(bus_hv)] + "-" + carry] = str(max_id + 1)
             max_id = max_id + 1
-        busmap2[heat_bus] = new_buses[busmap[str(bus_hv)] + "-" + carry]
+        busmap2[bus_ne] = new_buses[busmap[str(bus_hv)] + "-" + carry]
         
     #The new buses based on the eHV network for not electrical buses are created
     for carry, df in network2.buses.groupby(by= 'carrier'):
