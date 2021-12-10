@@ -277,7 +277,7 @@ def kmean_clustering_gas_grid(etrago):
             "capital_cost": np.mean,
         },
         aggregate_generators_weighted=False,
-        line_length_factor=kmean_settings["line_length_factor"],
+        line_length_factor=kmean_gas_settings["line_length_factor"],
     )
 
     # Adjust initial network
