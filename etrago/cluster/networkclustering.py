@@ -69,8 +69,8 @@ def adjust_no_electric_network(network, busmap):
     network2 = network.copy()
     network2.buses = network2.buses[(network2.buses['carrier'] != 'AC') &
                                   (network2.buses['carrier'] != 'CH4') &
-                                  (network2.buses['carrier'] != 'H2_grid') &
-                                  (network2.buses['carrier'] != 'H2_saltcavern')]
+                                  # (network2.buses['carrier'] != 'H2_saltcavern') &
+                                  (network2.buses['carrier'] != 'H2_grid')]
     #pdb.set_trace()
     
     #no_elec_to_eHV maps the no electrical buses to the closest eHV bus

@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'egon-data_dn',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -80,6 +80,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 10, # number of resulting nodes
+        'n_clusters_gas': 4, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -90,7 +91,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True, #False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': True, # choose if clustering is activated
@@ -342,6 +343,7 @@ def run_etrago(args, json_path):
     etrago.adjust_network()
 
     # ehv network clustering
+    etrago.kmean_clustering_gas()
     etrago.ehv_clustering()
 
     # k-mean clustering
@@ -350,11 +352,11 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     # needs to be adjusted for new sectors
-    etrago.skip_snapshots()
+    # etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    # etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
