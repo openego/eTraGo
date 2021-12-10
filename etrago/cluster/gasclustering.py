@@ -283,7 +283,7 @@ def kmean_clustering_gas_grid(etrago):
     # Adjust initial network
     # Delete clustered components (old version)
     network.buses = network.buses[
-        (network.buses["carrier"] != "AC") & (network.buses["carrier"] != "H2_grid")
+        (network.buses["carrier"] != "CH4") & (network.buses["carrier"] != "H2_grid")
     ]
     network.links = network.links[
         (network.links["carrier"] != "CH4")
