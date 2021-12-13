@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'CI-db',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -327,20 +327,22 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    etrago = Etrago(args, json_path)
+    #etrago = Etrago(args, json_path)
  
     # import network from database
-    etrago.build_network_from_db()
+    #etrago.build_network_from_db()
+    
+    etrago = Etrago(csv_folder_name='etrago_CI')
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
     # ehv network clustering
-    etrago.ehv_clustering()
+    #etrago.ehv_clustering()
 
     # k-mean clustering
     # needs to be adjusted for new sectors
-    # etrago.kmean_clustering()
+    #etrago.kmean_clustering()
 
     # skip snapshots
     # needs to be adjusted for new sectors

@@ -600,12 +600,14 @@ def kmean_clustering(etrago):
         """
         # define weighting based on conventional 'old' generator spatial
         # distribution
+        pdb.set_trace()
         non_conv_types = {
                 'biomass',
                 'wind_onshore',
                 'wind_offshore',
-                'solar',
-                'geothermal',
+                'pv',
+                'solar_rooftop',
+                'geo_thermal',
                 'load shedding',
                 'extendable_storage'}
         # Attention: network.generators.carrier.unique()
@@ -731,8 +733,9 @@ def kmean_clustering(etrago):
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
-
+    
     # k-mean clustering
+    #network = network
     if not kmean_settings['kmeans_busmap']:
         busmap = busmap_by_kmeans(
             network,
