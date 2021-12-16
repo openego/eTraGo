@@ -102,6 +102,8 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
         # TODO: utilities.py ll 1468 ff AssertionErrors
+        # TODO: network.py l 254 extendable einkommentieren!
+        # TODO: calc_results.py - Anpassungen an neue Modellierung
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating

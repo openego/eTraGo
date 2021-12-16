@@ -251,7 +251,7 @@ class Etrago():
 
         self.set_branch_capacity()
 
-        self.extendable(line_max=4)
+        #self.extendable(line_max=4)
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
