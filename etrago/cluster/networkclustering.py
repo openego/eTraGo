@@ -600,7 +600,7 @@ def kmean_clustering(etrago):
         """
         # define weighting based on conventional 'old' generator spatial
         # distribution
-        pdb.set_trace()
+
         non_conv_types = {
                 'biomass',
                 'wind_onshore',
@@ -755,13 +755,14 @@ def kmean_clustering(etrago):
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
+    breakpoint()
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             'efficiency': np.mean,
+                                             'efficiency_store': np.mean,
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
@@ -775,14 +776,49 @@ def kmean_clustering(etrago):
 
     return clustering
 
+def select_elec_network(etrago):
+    
+    elec_network = etrago.network.copy()
+    elec_network.buses = elec_network.buses[elec_network.buses.carrier == 'AC']
+    elec_network.generators = elec_network.generators[
+        elec_network.generators.bus.isin(elec_network.buses.index)]
+    elec_network.loads = elec_network.loads[
+        elec_network.loads.bus.isin(elec_network.buses.index)]
+    elec_network.loads_t.p_set = (elec_network.loads_t.p_set.T[
+        elec_network.loads_t.p_set.T.index.isin(elec_network.loads.bus)]).T
+    elec_network.loads_t.q_set = (elec_network.loads_t.q_set.T[
+        elec_network.loads_t.q_set.T.index.isin(elec_network.loads.bus)]).T
+    elec_network.storage_units = elec_network.storage_units[
+        elec_network.storage_units.bus.isin(elec_network.buses.index)]
+
+    network = etrago.network.copy()
+    no_elec_network = Network()
+    no_elec_network.buses = network.buses[network.buses.carrier != 'AC']
+    no_elec_network.generators = network.generators[
+        ~network.generators.bus.isin(elec_network.buses.index)]
+    no_elec_network.loads = network.loads[
+        ~network.loads.bus.isin(elec_network.buses.index)]
+    no_elec_network.loads_t.p_set = (network.loads_t.p_set.T[
+        ~network.loads_t.p_set.T.index.isin(elec_network.loads.bus)]).T
+    no_elec_network.loads_t.q_set = (network.loads_t.q_set.T[
+        ~network.loads_t.q_set.T.index.isin(elec_network.loads.bus)]).T
+    no_elec_network.storage_units = network.storage_units[
+        ~network.storage_units.bus.isin(elec_network.buses.index)]
+    
+
+    return elec_network, no_elec_network
+    
+
 def run_kmeans_clustering(self):
 
     if self.args['network_clustering_kmeans']['active']:
+        
+        self.network, no_elec_network = select_elec_network(self)
 
         self.network.generators.control = "PV"
 
         logger.info('Start k-mean clustering')
-
+        breakpoint()
         self.clustering = kmean_clustering(self)
 
         if self.args['disaggregation'] != None:

@@ -303,7 +303,9 @@ def buses_by_country(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
-
+    ########### There are foreign busses assign to 2 different countries#######
+    foreign_buses = foreign_buses[~foreign_buses.index.duplicated()]
+    ########### There are foreign busses assign to 2 different countries#######
     network.buses['country_code'] = foreign_buses[foreign_buses.index.isin(
         network.buses.index)]
     network.buses['country_code'].fillna('DE', inplace=True)
@@ -460,7 +462,6 @@ def set_q_national_loads(self, cos_phi=1):
     network = self.network
 
     national_buses = network.buses[network.buses.country_code == 'DE']
-
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(national_buses.index)]] = \
         network.loads_t['p_set'][network.loads.index[
