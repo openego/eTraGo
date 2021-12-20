@@ -1201,16 +1201,16 @@ def set_random_noise(self, sigma=0.01):
         seed = self.args['generator_noise']
         s = np.random.RandomState(seed)
         network.generators.marginal_cost[network.generators.bus.isin(
-            network.buses.index[network.buses.country_code == 'DE'])] += \
+            network.buses.index[network.buses.country == 'DE'])] += \
                 abs(s.normal(0, sigma, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
-                        network.buses.country_code == 'DE'])])))
+                        network.buses.country == 'DE'])])))
 
         network.generators.marginal_cost[network.generators.bus.isin(
-            network.buses.index[network.buses.country_code != 'DE'])] += \
+            network.buses.index[network.buses.country != 'DE'])] += \
                 abs(s.normal(0, sigma, len(network.generators.marginal_cost[
                     network.generators.bus.isin(network.buses.index[
-                        network.buses.country_code == 'DE'])]))).max()
+                        network.buses.country == 'DE'])]))).max()
 
 def set_line_country_tags(network):
     """
