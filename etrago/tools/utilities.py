@@ -32,16 +32,6 @@ import math
 from pyomo.environ import (Var, Constraint, PositiveReals)
 from importlib import import_module
 
-geopandas = True
-try:
-    import geopandas as gpd
-    from shapely.geometry import Point
-    import geoalchemy2
-    from egoio.db_tables.model_draft import RenpassGisParameterRegion
-
-except:
-    geopandas = False
-
 logger = logging.getLogger(__name__)
 
 
@@ -132,96 +122,48 @@ def geolocation_buses(self):
     """
     network = self.network
 
-    if geopandas:
-        # Start db connetion
-        # get renpassG!S scenario data
-
-        RenpassGISRegion = RenpassGisParameterRegion
-
-        # Define regions
-        region_id = ['DE', 'DK', 'FR', 'BE', 'LU', 'AT',
-                     'NO', 'PL', 'CH', 'CZ', 'SE', 'NL']
-
-        query = self.session.query(RenpassGISRegion.gid,
-                                   RenpassGISRegion.u_region_id,
-                                   RenpassGISRegion.stat_level,
-                                   RenpassGISRegion.geom,
-                                   RenpassGISRegion.geom_point)
-
-        # get regions by query and filter
-        Regions = [(gid, u_region_id, stat_level, geoalchemy2.shape.to_shape(
-            geom), geoalchemy2.shape.to_shape(geom_point))
-                   for gid, u_region_id, stat_level,
-                   geom, geom_point in query.filter(RenpassGISRegion.u_region_id.
-                                                    in_(region_id)).all()]
-
-        crs = {'init': 'epsg:4326'}
-        # transform lon lat to shapely Points and create GeoDataFrame
-        points = [Point(xy) for xy in zip(network.buses.x, network.buses.y)]
-        bus = gpd.GeoDataFrame(network.buses, crs=crs, geometry=points)
-        # Transform Countries Polygons as Regions
-        region = pd.DataFrame(
-            Regions, columns=['id', 'country', 'stat_level', 'Polygon',
-                              'Point'])
-        re = gpd.GeoDataFrame(region, crs=crs, geometry=region['Polygon'])
-        # join regions and buses by geometry which intersects
-        busC = gpd.sjoin(bus, re, how='inner', op='intersects')
-        # busC
-        # Drop non used columns
-        busC = busC.drop(['index_right', 'Point', 'id', 'Polygon',
-                          'stat_level', 'geometry'], axis=1)
-        # add busC to eTraGo.buses
-        network.buses['country_code'] = busC['country']
-        network.buses.country_code[network.buses.country_code.isnull()] = 'DE'
-        # close session
-        self.session.close()
-
-    else:
-
-        buses_by_country(network)
-
     transborder_lines_0 = network.lines[network.lines['bus0'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
     transborder_lines_1 = network.lines[network.lines['bus1'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
 
     #set country tag for lines
     network.lines.loc[transborder_lines_0, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_0, 'bus0'].\
-                          values, 'country_code'].values
+                          values, 'country'].values
 
     network.lines.loc[transborder_lines_1, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_1, 'bus1'].\
-                          values, 'country_code'].values
+                          values, 'country'].values
     network.lines['country'].fillna('DE', inplace=True)
     doubles = list(set(transborder_lines_0.intersection(transborder_lines_1)))
     for line in doubles:
         c_bus0 = network.buses.loc[network.lines.loc[line, 'bus0'],
-                                   'country_code']
+                                   'country']
         c_bus1 = network.buses.loc[network.lines.loc[line, 'bus1'],
-                                   'country_code']
+                                   'country']
         network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
 
     transborder_links_0 = network.links[network.links['bus0'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
     transborder_links_1 = network.links[network.links['bus1'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
 
     #set country tag for links
     network.links.loc[transborder_links_0, 'country'] = \
         network.buses.loc[network.links.loc[transborder_links_0, 'bus0'].\
-                          values, 'country_code'].values
+                          values, 'country'].values
 
     network.links.loc[transborder_links_1, 'country'] = \
         network.buses.loc[network.links.loc[transborder_links_1, 'bus1'].\
-                          values, 'country_code'].values
+                          values, 'country'].values
     network.links['country'].fillna('DE', inplace=True)
     doubles = list(set(transborder_links_0.intersection(transborder_links_1)))
     for link in doubles:
         c_bus0 = network.buses.loc[
-            network.links.loc[link, 'bus0'], 'country_code']
+            network.links.loc[link, 'bus0'], 'country']
         c_bus1 = network.buses.loc[
-            network.links.loc[link, 'bus1'], 'country_code']
+            network.links.loc[link, 'bus1'], 'country']
         network.links.loc[link, 'country'] = '{}{}'.format(c_bus0, c_bus1)
 
     return network
@@ -502,7 +444,7 @@ def set_q_foreign_loads(self, cos_phi=1):
     """
     network = self.network
 
-    foreign_buses = network.buses[network.buses.country_code != 'DE']
+    foreign_buses = network.buses[network.buses.country != 'DE']
 
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
