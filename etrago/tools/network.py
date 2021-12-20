@@ -240,8 +240,6 @@ class Etrago():
 
         self.geolocation_buses()
 
-       # self.add_missing_components()
-
         self.load_shedding()
 
         self.set_random_noise(0.01)
