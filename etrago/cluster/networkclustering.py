@@ -70,27 +70,24 @@ def adjust_no_electric_network(network, busmap):
     network2.buses = network2.buses[(network2.buses['carrier'] != 'AC') &
                                   (network2.buses['carrier'] != 'CH4') &
                                   (network2.buses['carrier'] != 'H2_grid') &
+                                  (network2.buses['carrier'] != 'H2') &
                                   (network2.buses['carrier'] != 'H2_saltcavern')]
-    #pdb.set_trace()
-    
+
     #no_elec_to_eHV maps the no electrical buses to the closest eHV bus
     no_elec_to_eHV = {}
-    #new_buses contains the names of all the new no electrical buses
-    new_buses = {}
     #busmap2 maps all the no electrical buses to the new buses based on the
     #eHV network
     busmap2 = {}
-    max_id = network.buses.index.to_series().apply(int).max()
     
     for bus_ne in network2.buses.index:
         bus_hv = -1
+        carry = network2.buses.loc[bus_ne, 'carrier']
         if len(network2.links[network2.links['bus1'] == bus_ne]) > 0:
             df = network2.links[network2.links['bus1'] == bus_ne].copy()
             df['elec'] = df['bus0'].isin(busmap.keys())
             df = df[df['elec'] == True]
             if len(df) > 0:
                 bus_hv = df['bus0'][0]
-                carry = network2.buses.loc[bus_ne, 'carrier']
         
         if (len(network2.links[network2.links['bus0'] == bus_ne]) > 0) & (bus_hv == -1):
             df = network2.links[network2.links['bus0'] == bus_ne].copy()
@@ -98,18 +95,18 @@ def adjust_no_electric_network(network, busmap):
             df = df[df['elec'] == True]
             if len(df) > 0:
                 bus_hv = df['bus1'][0]
-                carry = network2.buses.loc[bus_ne, 'carrier']
+
         if bus_hv == -1:
             print(f'Bus {bus_ne} has no connexion to electricity network')
-            busmap2[bus_ne] = bus_ne
+            new_bus = pd.Series(network2.buses.loc[bus_ne, :],
+                                name = str(bus_ne) + "-" + str(carry))
+            network.buses = network.buses.append(new_bus)
+            busmap2[bus_ne] = str(bus_ne) + "-" + str(carry)
             continue
     
         no_elec_to_eHV[bus_ne] = busmap[str(bus_hv)]
-        if busmap[str(bus_hv)] + "-" + carry not in new_buses:
-            new_buses[busmap[str(bus_hv)] + "-" + carry] = str(max_id + 1)
-            max_id = max_id + 1
-        busmap2[bus_ne] = new_buses[busmap[str(bus_hv)] + "-" + carry]
-        
+        busmap2[bus_ne] = str(busmap[str(bus_hv)]) + '-' + str(carry)
+   
     #The new buses based on the eHV network for not electrical buses are created
     for carry, df in network2.buses.groupby(by= 'carrier'):
         bus_unique = []
@@ -135,13 +132,19 @@ def adjust_no_electric_network(network, busmap):
                 'control': "PV",
                 'sub_network': "",
                 'country_code': network.buses.at[eHV_bus, 'country_code']},
-                 name= new_buses[eHV_bus + "-" + carry],)
+                 name= str(eHV_bus) + "-" + str(carry))
             network.buses = network.buses.append(new_bus)
     #busmap now includes the not electrical buses and their corresponding new
     #buses to be mapped.
     
-    for CH4_bus in network.buses[network.buses['carrier'] == 'CH4'].index:
-        busmap2[CH4_bus] = CH4_bus
+    for gas_bus in network.buses[(network.buses['carrier'] == 'CH4') |
+                                  (network.buses['carrier'] == 'H2_grid') |
+                                  (network.buses['carrier'] == 'H2')].index:
+        carry = network.buses.loc[gas_bus, 'carrier']
+        new_bus = pd.Series(network.buses.loc[gas_bus, :],
+                            name = str(gas_bus) + "-" + str(carry))
+        network.buses = network.buses.append(new_bus)
+        busmap2[gas_bus] = str(gas_bus) + "-" + str(carry)
     
     busmap = {**busmap, **busmap2}
     
@@ -755,14 +758,13 @@ def kmean_clustering(etrago):
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-    breakpoint()
+    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             'efficiency_store': np.mean,
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
@@ -804,9 +806,65 @@ def select_elec_network(etrago):
         ~network.loads_t.q_set.T.index.isin(elec_network.loads.bus)]).T
     no_elec_network.storage_units = network.storage_units[
         ~network.storage_units.bus.isin(elec_network.buses.index)]
-    
 
     return elec_network, no_elec_network
+    
+def cluster_not_electrical(etrago, no_elec_network):
+    busmap = etrago.clustering.busmap
+    busmap2 = {}
+    breakpoint()
+    
+    for no_elec_bus in no_elec_network.buses.index:
+        if no_elec_bus.split('-')[0] in busmap.keys():
+            busmap2[no_elec_bus] =  busmap[no_elec_bus.split('-')[0]]
+        else:
+            busmap2[no_elec_bus] = no_elec_bus
+    
+    for kmean_bus in etrago.network.buses.index:
+        busmap2[kmean_bus] = kmean_bus
+    
+    buses_gas = no_elec_network.buses[
+        (no_elec_network.buses['carrier'] == 'CH4') |
+        (no_elec_network.buses['carrier'] == 'H2_grid') |
+        (no_elec_network.buses['carrier'] == 'H2')].copy()
+    
+    buses_no_gas = no_elec_network.buses[
+        (no_elec_network.buses['carrier'] != 'CH4') &
+        (no_elec_network.buses['carrier'] != 'H2_grid') &
+        (no_elec_network.buses['carrier'] != 'H2')].copy()
+    
+    #The new buses based on the k-mean clustering for not electrical buses are created
+    for carry, df in buses_no_gas.groupby(by= 'carrier'):
+        bus_unique = []
+        for bus in df.index:
+            try:
+                if busmap[bus] not in bus_unique:
+                    bus_unique.append(str(busmap[bus]))
+            except:
+                print(f'Bus {bus} has no connexion to electricity network')
+                busmap2[bus] = bus
+        
+        for kmean_bus in bus_unique:    
+            new_bus = pd.Series({
+                'v_nom': np.nan,
+                'carrier': carry,
+                'x': etrago.network.buses.at[kmean_bus, 'x'],
+                'y': etrago.network.buses.at[kmean_bus, 'y'],
+                'geom': etrago.network.buses.at[kmean_bus, 'geom'],
+                'type': "",
+                'v_mag_pu_set': 1,
+                'v_mag_pu_min': 0,
+                'v_mag_pu_max': np.inf,
+                'control': "PV",
+                'sub_network': "",
+                'country_code': etrago.network.buses.at[kmean_bus, 'country_code']},
+                 name= str(kmean_bus) + "-" + str(carry))
+            no_elec_network.buses = no_elec_network.buses.append(new_bus)
+    #busmap now includes the not electrical buses and their corresponding new
+    #buses to be mapped.
+    
+    for gas_bus in buses_gas.index:
+        busmap2[gas_bus] = gas_bus      
     
 
 def run_kmeans_clustering(self):
@@ -818,7 +876,7 @@ def run_kmeans_clustering(self):
         self.network.generators.control = "PV"
 
         logger.info('Start k-mean clustering')
-        breakpoint()
+
         self.clustering = kmean_clustering(self)
 
         if self.args['disaggregation'] != None:
@@ -829,6 +887,8 @@ def run_kmeans_clustering(self):
         self.geolocation_buses()
 
         self.network.generators.control[self.network.generators.control == ''] = 'PV'
+
+        self.network = cluster_not_electrical(self, no_elec_network)
 
         logger.info("Network clustered to {} buses with k-means algorithm."
                     .format(self.args['network_clustering_kmeans']['n_clusters']))
