@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 240,
+    'end_snapshot': 20,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -73,7 +73,7 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize 
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -94,9 +94,9 @@ args = {
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 5, # number of periods
-        'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
+        'n_clusters': 20, # number of periods
+        'how': 'hourly', # type of period, currently only 'daily'
+        'storage_constraints': 'soc_constraints'}, # additional constraints for storages ### soc_constraints_simplified
                             ### TODO: assert in utilities l. 1457 ff.
                             ### TODO: Aufruf der Constraints in constraints.py ganz unten
     # Simplifications:

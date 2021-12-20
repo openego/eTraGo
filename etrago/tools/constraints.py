@@ -1214,8 +1214,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
 
     def set_soc_all(m,s,h):
         
-        import pdb; pdb.set_trace()
-        
         if h == self.args['start_snapshot']:
             prev = network.cluster.index.get_level_values(0)[-1]-1+self.args['start_snapshot']
  
@@ -1237,8 +1235,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
             network.model.storages, candidates-1+self.args['start_snapshot'], rule = set_soc_all)
     
     def soc_equals_soc_all(m,s,h):
-        
-        import pdb; pdb.set_trace()
         
         hour = (h.dayofyear -1)*24 + h.hour
         
@@ -1340,6 +1336,8 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
   
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):  
     
+    import pdb; pdb.set_trace()
+    
     sus = n.storage_units
 
     c = 'StorageUnit'
@@ -1359,18 +1357,12 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
 
     dispatch = get_var(n, c, 'p_dispatch')
-    dispatch = dispatch.loc[n.cluster.Hour]
-    dispatch.index = range(1,len(dispatch.index)+1)
-    
     store = get_var(n, c, 'p_store')
-    store = store.loc[n.cluster.Hour]
-    store.index = range(1,len(store.index)+1)
 
-    
     coeff_var = [(-1, next_soc_all),
              (eff_stand, soc_all),
-             (-1/eff_dispatch, dispatch),
-             (eff_store, store)]
+             (-1/eff_dispatch, dispatch.loc[n.cluster.Hour].set_index(soc_all.index)),
+             (eff_store, store.loc[n.cluster.Hour].set_index(soc_all.index))]
     
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
@@ -1378,12 +1370,12 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     
     soc = get_var(n, c, 'state_of_charge')
     
-    soc_all = soc_all[soc_all.index.isin(n.cluster['RepresentativeHour'])]
-    soc_all['name'] = soc.index
-    soc_all.set_index('name', inplace=True)
+    # TODO: Constraints verhindern Speichernutzung? 
+    # -> daher viele Szenarien infeasable? 
+    # -> Überprüfung durch Vergleich mit Lösen mit pyomo möglich?
 
-    coeff_var = [(-1, soc_all),
-             (1, soc)]
+    coeff_var = [(-1, soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)]), 
+             (1, soc.set_index(soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)].index))]
     
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
     

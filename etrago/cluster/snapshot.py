@@ -211,7 +211,7 @@ def run(network, n_clusters=None, how='daily',
                 prepare_pypsa_timeseries(network),
                 typical_periods=n_clusters,
                 how=how,
-                extremePeriodMethod = 'new_cluster_center') #'new_cluster_center'
+                extremePeriodMethod = 'None') 
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 
