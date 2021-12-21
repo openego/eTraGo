@@ -303,9 +303,9 @@ def buses_by_country(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
-    ########### There are foreign busses assign to 2 different countries#######
+    ########### There are foreign busses assigned to 2 different countries#######
     foreign_buses = foreign_buses[~foreign_buses.index.duplicated()]
-    ########### There are foreign busses assign to 2 different countries#######
+    ########### There are foreign busses assigned to 2 different countries#######
     network.buses['country_code'] = foreign_buses[foreign_buses.index.isin(
         network.buses.index)]
     network.buses['country_code'].fillna('DE', inplace=True)

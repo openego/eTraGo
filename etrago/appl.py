@@ -342,7 +342,6 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     # needs to be adjusted for new sectors
-
     etrago.kmean_clustering()
 
     # skip snapshots
