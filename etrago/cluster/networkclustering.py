@@ -223,7 +223,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
-
+    
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                                           custom_strategies={'p_nom_min': np.min, 'p_nom_max': np.min,
                                                              'weight': np.sum, 'p_nom': np.sum,
@@ -820,13 +820,13 @@ def select_elec_network(etrago):
     return elec_network, no_elec_network
 
 
-def cluster_not_electrical(etrago, no_elec_network):
+def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     busmap = etrago.clustering.busmap
     busmap2 = {}
-    breakpoint()
+
     for no_elec_bus in no_elec_network.buses.index:
         if no_elec_bus.split('-')[0] in busmap.keys():
-            busmap2[no_elec_bus] = busmap[no_elec_bus.split('-')[0]]
+            busmap2[no_elec_bus] = busmap[no_elec_bus.split('-')[0]] + '-' + no_elec_network.buses.loc[no_elec_bus, 'carrier']
         else:
             busmap2[no_elec_bus] = no_elec_bus
 
@@ -849,7 +849,7 @@ def cluster_not_electrical(etrago, no_elec_network):
         for bus in df.index:
             try:
                 if busmap[bus.split('-')[0]] not in bus_unique:
-                    bus_unique.append(str(busmap2[bus]))
+                    bus_unique.append(busmap2[bus].split('-')[0])
             except:
                 print(f'Bus {bus} has no connexion to electricity network')
 
@@ -873,12 +873,12 @@ def cluster_not_electrical(etrago, no_elec_network):
 
     for gas_bus in buses_gas.index:
         busmap2[gas_bus] = gas_bus
-        
+    
+    network_orig = etrago.network.copy()
     network = etrago.network.copy()
     network_c = Network()
-######## Pending: Put the electrical and not electrical networks together #####
-########          Aggregare buses, links... using the busmap2 dic. ############
-    breakpoint()
+
+    
     io.import_components_from_dataframe(
         network, no_elec_network.buses, "Bus")
     io.import_components_from_dataframe(
@@ -896,10 +896,10 @@ def cluster_not_electrical(etrago, no_elec_network):
         no_elec_network.loads_t.q_set)
 
     buses = aggregatebuses(
-        network, busmap, {
+        network, busmap2, {
             'x': _leading(
-                busmap, network.buses), 'y': _leading(
-                busmap, network.buses)})
+                busmap2, network.buses), 'y': _leading(
+                busmap2, network.buses)})
 
     # keep attached lines
     lines = network.lines.copy()
@@ -915,22 +915,22 @@ def cluster_not_electrical(etrago, no_elec_network):
     transformers = network.transformers.copy()
     mask = transformers.bus0.isin(buses.index)
     transformers = transformers.loc[mask, :]
-
+    
     io.import_components_from_dataframe(network_c, buses, "Bus")
     io.import_components_from_dataframe(network_c, lines, "Line")
     io.import_components_from_dataframe(network_c, links, "Link")
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
-
+    
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
-
+    
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
-
-    new_df, new_pnl = aggregategenerators(network, busmap, with_time,
+    
+    new_df, new_pnl = aggregategenerators(network, busmap2, with_time,
                                           custom_strategies={'p_nom_min': np.min, 'p_nom_max': np.min,
                                                              'weight': np.sum, 'p_nom': np.sum,
                                                              'p_nom_opt': np.sum, 'marginal_cost':
@@ -956,11 +956,12 @@ def cluster_not_electrical(etrago, no_elec_network):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
 
     # Dealing with links
-    network2 = network.copy()
-    network2.links.bus0 = network2.links.bus0.map(busmap)
-    network2.links.bus1 = network2.links.bus1.map(busmap)
-    network2.links.dropna(subset=['bus0', 'bus1'], inplace=True)
-    network2.links['topo'] = np.nan
+    busmap = {**busmap, **busmap2}
+    network_c.links = no_elec_network.links.copy()
+    network_c.links.bus0 = network_c.links.bus0.map(busmap)
+    network_c.links.bus1 = network_c.links.bus1.map(busmap)
+    network_c.links.dropna(subset=['bus0', 'bus1'], inplace=True)
+    network_c.links['topo'] = np.nan
 
     strategies = {'scn_name': _make_consense_links,
                   'bus0': _make_consense_links,
@@ -985,12 +986,13 @@ def cluster_not_electrical(etrago, no_elec_network):
                   'p_nom_opt': np.mean,
                   'country': _make_consense_links}
 
-    network_c.links = network2.links.groupby(
+    network_c.links = network_c.links.groupby(
         ['bus0', 'bus1', 'carrier']).agg(strategies)
     network_c.links = network_c.links.append(dc_links)
     network_c.links = network_c.links.reset_index(drop=True)
 
     network_c.determine_network_topology()
+    breakpoint()
 def run_kmeans_clustering(self):
 
     if self.args['network_clustering_kmeans']['active']:
@@ -1012,7 +1014,7 @@ def run_kmeans_clustering(self):
 
         self.network.generators.control[self.network.generators.control == ''] = 'PV'
 
-        self.network = cluster_not_electrical(self, no_elec_network)
+        self.network = cluster_not_electrical(self, no_elec_network, with_time=True)
 
         logger.info("Network clustered to {} buses with k-means algorithm."
                     .format(self.args['network_clustering_kmeans']['n_clusters']))
