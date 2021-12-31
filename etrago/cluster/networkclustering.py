@@ -784,21 +784,28 @@ def kmean_clustering(etrago):
 
 
 def select_elec_network(etrago):
-    
+
     elec_network = etrago.network.copy()
     elec_network.buses = elec_network.buses[elec_network.buses.carrier == 'AC']
     elec_network.links = elec_network.links[(elec_network.links.carrier == 'AC') |
                                             (elec_network.links.carrier == 'DC')]
+    
     elec_network.generators = elec_network.generators[
         elec_network.generators.bus.isin(elec_network.buses.index)]
+    
     elec_network.loads = elec_network.loads[
         elec_network.loads.bus.isin(elec_network.buses.index)]
-    elec_network.loads_t.p_set = (elec_network.loads_t.p_set.T[
-        elec_network.loads_t.p_set.T.index.isin(elec_network.loads.bus)]).T
-    elec_network.loads_t.q_set = (elec_network.loads_t.q_set.T[
-        elec_network.loads_t.q_set.T.index.isin(elec_network.loads.bus)]).T
+    
+    for attr in elec_network.loads_t:
+        elec_network.loads_t[attr] = (elec_network.loads_t[attr].T[
+        elec_network.loads_t[attr].T.index.isin(elec_network.loads.bus)]).T
+
     elec_network.storage_units = elec_network.storage_units[
         elec_network.storage_units.bus.isin(elec_network.buses.index)]
+    
+    for attr in elec_network.storage_units_t:
+        elec_network.storage_units_t[attr] = (elec_network.storage_units_t[attr].T[
+        elec_network.storage_units_t[attr].T.index.isin(elec_network.storage_units.bus)]).T
 
 
     network = etrago.network.copy()
@@ -806,27 +813,36 @@ def select_elec_network(etrago):
     no_elec_network.buses = network.buses[network.buses.carrier != 'AC']
     no_elec_network.links = network.links[(network.links.carrier != 'AC') &
                                           (network.links.carrier != 'DC')]
+    
     no_elec_network.generators = network.generators[
         ~network.generators.bus.isin(elec_network.buses.index)]
+    
     no_elec_network.loads = network.loads[
         ~network.loads.bus.isin(elec_network.buses.index)]
-    no_elec_network.loads_t.p_set = (network.loads_t.p_set.T[
-        ~network.loads_t.p_set.T.index.isin(elec_network.loads.bus)]).T
-    no_elec_network.loads_t.q_set = (network.loads_t.q_set.T[
-        ~network.loads_t.q_set.T.index.isin(elec_network.loads.bus)]).T
+    
+    for attr in no_elec_network.loads_t:
+        no_elec_network.loads_t[attr] = (network.loads_t[attr].T[
+        ~network.loads_t[attr].T.index.isin(elec_network.loads.bus)]).T
+    
     no_elec_network.storage_units = network.storage_units[
         ~network.storage_units.bus.isin(elec_network.buses.index)]
+    
+    for attr in network.storage_units_t:
+        no_elec_network.storage_units_t[attr] = (network.storage_units_t[attr].T[
+        ~network.storage_units_t[attr].T.index.isin(elec_network.storage_units.bus)]).T
 
     return elec_network, no_elec_network
 
 
 def cluster_not_electrical(etrago, no_elec_network, with_time=True):
+
     busmap = etrago.clustering.busmap
     busmap2 = {}
 
     for no_elec_bus in no_elec_network.buses.index:
         if no_elec_bus.split('-')[0] in busmap.keys():
-            busmap2[no_elec_bus] = busmap[no_elec_bus.split('-')[0]] + '-' + no_elec_network.buses.loc[no_elec_bus, 'carrier']
+            busmap2[no_elec_bus] = busmap[no_elec_bus.split('-')[0]] + '-' + \
+            no_elec_network.buses.loc[no_elec_bus, 'carrier']
         else:
             busmap2[no_elec_bus] = no_elec_bus
 
@@ -878,7 +894,7 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     network = etrago.network.copy()
     network_c = Network()
 
-    
+    # Merge the electrical and the not electrical networks
     io.import_components_from_dataframe(
         network, no_elec_network.buses, "Bus")
     io.import_components_from_dataframe(
@@ -889,11 +905,19 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         network, no_elec_network.loads, "Load")
     io.import_components_from_dataframe(
         network, no_elec_network.storage_units, "StorageUnit")
-
-    network.loads_t.p_set = network.loads_t.p_set.join(
-        no_elec_network.loads_t.p_set)
-    network.loads_t.q_set = network.loads_t.q_set.join(
-        no_elec_network.loads_t.q_set)
+    
+    for attr in no_elec_network.loads_t:
+        network.loads_t[attr] = network.loads_t[attr].join(
+            no_elec_network.loads_t[attr])
+    
+    for attr in no_elec_network.storage_units_t:
+        network.storage_units_t[attr] = network.storage_units_t[attr].join(
+            no_elec_network.storage_units_t[attr])
+    
+#    network_c.loads_t.p_set = network.loads_t.p_set.join(
+#        no_elec_network.loads_t.p_set)
+#    network_c.loads_t.q_set = network.loads_t.q_set.join(
+#        no_elec_network.loads_t.q_set)
 
     buses = aggregatebuses(
         network, busmap2, {
@@ -927,8 +951,8 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
     
     # dealing with generators
-    network.generators.control = "PV"
-    network.generators['weight'] = 1
+    network_c.generators.control = "PV"
+    network_c.generators['weight'] = 1
     
     new_df, new_pnl = aggregategenerators(network, busmap2, with_time,
                                           custom_strategies={'p_nom_min': np.min, 'p_nom_max': np.min,
@@ -942,20 +966,26 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     # dealing with all other components
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-
+    
     for one_port in aggregate_one_ports:
         one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
                                                'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
                                                'p_min_pu': np.min}, 'Store': {'marginal_cost': np.mean, 'capital_cost': np.mean,
                                                                               'standing_loss': np.mean, 'e_nom': np.sum}}
         new_df, new_pnl = aggregateoneport(
-            network, busmap, component=one_port, with_time=with_time,
+            network, busmap2, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
-
+    breakpoint()
     # Dealing with links
+    
+    #delete the reference of the kmean buses to themself in order to avoid
+    #confussion with former buses with the same name
+    for i in range(etrago.args["network_clustering_kmeans"]["n_clusters"]):
+        del busmap2[str(i)]
+        
     busmap = {**busmap, **busmap2}
     network_c.links = no_elec_network.links.copy()
     network_c.links.bus0 = network_c.links.bus0.map(busmap)
@@ -990,9 +1020,10 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         ['bus0', 'bus1', 'carrier']).agg(strategies)
     network_c.links = network_c.links.append(dc_links)
     network_c.links = network_c.links.reset_index(drop=True)
-
-    network_c.determine_network_topology()
     breakpoint()
+    network_c.determine_network_topology()
+    
+    return network_c
 def run_kmeans_clustering(self):
 
     if self.args['network_clustering_kmeans']['active']:

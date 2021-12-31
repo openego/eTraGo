@@ -336,18 +336,51 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-
+    breakpoint()
     # ehv network clustering
     etrago.ehv_clustering()
-
+    breakpoint()    
     # k-mean clustering
     # needs to be adjusted for new sectors
     etrago.kmean_clustering()
-
+    breakpoint()
     # skip snapshots
     # needs to be adjusted for new sectors
     # etrago.skip_snapshots()
-
+    orig = {}
+    orig['load_P']=etrago.network.loads_t.p_set.sum().sum()
+    orig['load_Q']=etrago.network.loads_t.q_set.sum().sum()
+    orig['gen']=etrago.network.generators.p_nom.sum()
+    orig['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
+    orig['storage']=etrago.network.storage_units.p_nom.sum()
+    orig['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
+    
+    ehv = {}
+    ehv['load_P']=etrago.network.loads_t.p_set.sum().sum()
+    ehv['load_Q']=etrago.network.loads_t.q_set.sum().sum()
+    ehv['gen']=etrago.network.generators.p_nom.sum()
+    ehv['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
+    ehv['storage']=etrago.network.storage_units.p_nom.sum()
+    ehv['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
+    
+    kmean = {}
+    kmean['load_P']=etrago.network.loads_t.p_set.sum().sum()
+    kmean['load_Q']=etrago.network.loads_t.q_set.sum().sum()
+    kmean['gen']=etrago.network.generators.p_nom.sum()
+    kmean['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
+    kmean['storage']=etrago.network.storage_units.p_nom.sum()
+    kmean['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
+    
+    kmean2 = {}
+    kmean2['load_P_c']= network_c.loads_t.p_set.sum().sum()
+    kmean2['load_Q_c']=network_c.loads_t.q_set.sum().sum()
+    
+    kmean2['load_P_elec']= etrago.network.loads_t.p_set.sum().sum()
+    kmean2['load_Q_elec']= etrago.network.loads_t.q_set.sum().sum()
+    
+    kmean2['load_P_no']= no_elec_network.loads_t.p_set.sum().sum()
+    kmean2['load_Q_no']= no_elec_network.loads_t.q_set.sum().sum()
+    
     # snapshot clustering
     # needs to be adjusted for new sectors
     # etrago.snapshot_clustering()
