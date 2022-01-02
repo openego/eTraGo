@@ -56,14 +56,9 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 3,
+    'end_snapshot': 1,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': { # {} for default options, specific for solver
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver.log'},
+    'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -73,7 +68,7 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network', 'storage'],  # Array of components to optimize
+    'extendable': ['network'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -91,16 +86,18 @@ args = {
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
-    'disaggregation': None,  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {
+    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
-        'n_clusters': 2, # number of periods
-        'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages
+        'method':'typical_periods', # 'typical_periods' or 'segmentation'
+        'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
+        'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
+        'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
+        'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
-    'load_shedding': False,  # meet the demand at value of loss load cost
+    'load_shedding': True,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None}
@@ -147,6 +144,8 @@ def run_etrago(args, json_path):
     end_snapshot : int
         2,
         End hour of the scenario year to be calculated.
+        If temporal clustering is used, the selected snapshots should cover 
+        whole days.
 
     solver : str
         'glpk',
@@ -223,7 +222,6 @@ def run_etrago(args, json_path):
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
 
-
     generator_noise : bool or int
         State if you want to apply a small random noise to the marginal costs
         of each generator in order to prevent an optima plateau. To reproduce
@@ -267,7 +265,7 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans :dict
+    network_clustering_kmeans : dict
          {'active': True, 'n_clusters': 10, 'kmeans_busmap': False,
           'line_length_factor': 1.25, 'remove_stubs': False,
           'use_reduced_coordinates': False, 'bus_weight_tocsv': None,
@@ -291,15 +289,18 @@ def run_etrago(args, json_path):
         sub-station, taking into account the shortest distance on power lines.
 
     snapshot_clustering : dict
-        {'active': True, 'n_clusters': 2, 'how': 'daily',
-         'storage_constraints': 'soc_constraints'},
-        State if you want to cluster the snapshots and run the optimization
-        only on a subset of snapshot periods. The 'n_clusters' value defines
-        the number of periods which will be clustered to.
-        With 'how' you can choose the period, currently 'daily' is the only
-        option. Choose 'daily_bounds' or 'soc_constraints' to add extra
-        contraints for the SOC of storage units.
-
+        {'active': False, 'method':'typical_periods', 'how': 'daily', 
+         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+        State if you want to apply a temporal clustering and run the optimization
+        only on a subset of snapshot periods.
+        You can choose between a method clustering to typical periods, e.g. days
+        or a method clustering to segments of adjacent hours. 
+        With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
+        the length of the periods, constraints considering the storages and the number
+        of clusters for the usage of the method typical_periods.
+        With ``'n_segments'`` you choose the number of segments for the usage of
+        the method segmentation.
+                
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
@@ -336,54 +337,55 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-    breakpoint()
+
+    # Manually fix problems from eGon-data    
+    etrago.network.loads.sign = -1
+    
+    etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
+    
+    for c in ['p_min_pu', 'efficiency', 'p_max_pu']:
+        
+        etrago.network.links_t[c] = etrago.network.links_t[c].drop(
+            etrago.network.links_t[c].loc[:, etrago.network.links_t[c].isnull().all()].columns, 
+            axis='columns')
+    
+    
+    # Manually drop sectors, only used for debugging    
+    #['AC', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',  'rural_heat', 'dsm-cts', 'dsm-ind-osm', 'dsm-ind-sites'],
+    # etrago.network.buses.drop(etrago.network.buses[~
+    #     etrago.network.buses.carrier.isin(
+    #         ['AC',
+    #          'dsm-cts', 'dsm-ind-osm', 'dsm-ind-sites',
+    #           'CH4', 'H2_grid', 'H2_saltcavern',
+    #           'rual_heat', 'central_heat'
+    #           ])].index, inplace=True)
+
+    # etrago.network.loads.drop(
+    #     etrago.network.loads[~etrago.network.loads.bus.isin(etrago.network.buses.index)].index, inplace=True)
+
+    # etrago.network.generators.drop(
+    #     etrago.network.generators[~etrago.network.generators.bus.isin(etrago.network.buses.index)].index, inplace=True)
+    # etrago.network.stores.drop(
+        # etrago.network.stores[~etrago.network.stores.bus.isin(etrago.network.buses.index)].index, inplace=True)
+   
+    etrago.network.links.drop(
+        etrago.network.links[~etrago.network.links.bus0.isin(etrago.network.buses.index)].index, inplace=True)
+    etrago.network.links.drop(
+        etrago.network.links[~etrago.network.links.bus1.isin(etrago.network.buses.index)].index, inplace=True)
+    
     # ehv network clustering
     etrago.ehv_clustering()
-    breakpoint()    
+
     # k-mean clustering
-    # needs to be adjusted for new sectors
     etrago.kmean_clustering()
-    breakpoint()
+    
     # skip snapshots
     # needs to be adjusted for new sectors
-    # etrago.skip_snapshots()
-    orig = {}
-    orig['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    orig['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    orig['gen']=etrago.network.generators.p_nom.sum()
-    orig['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    orig['storage']=etrago.network.storage_units.p_nom.sum()
-    orig['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    ehv = {}
-    ehv['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    ehv['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    ehv['gen']=etrago.network.generators.p_nom.sum()
-    ehv['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    ehv['storage']=etrago.network.storage_units.p_nom.sum()
-    ehv['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    kmean = {}
-    kmean['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    kmean['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    kmean['gen']=etrago.network.generators.p_nom.sum()
-    kmean['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    kmean['storage']=etrago.network.storage_units.p_nom.sum()
-    kmean['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    kmean2 = {}
-    kmean2['load_P_c']= network_c.loads_t.p_set.sum().sum()
-    kmean2['load_Q_c']=network_c.loads_t.q_set.sum().sum()
-    
-    kmean2['load_P_elec']= etrago.network.loads_t.p_set.sum().sum()
-    kmean2['load_Q_elec']= etrago.network.loads_t.q_set.sum().sum()
-    
-    kmean2['load_P_no']= no_elec_network.loads_t.p_set.sum().sum()
-    kmean2['load_Q_no']= no_elec_network.loads_t.q_set.sum().sum()
-    
+    etrago.skip_snapshots()
+
     # snapshot clustering
     # needs to be adjusted for new sectors
-    # etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
@@ -393,7 +395,7 @@ def run_etrago(args, json_path):
     # needs to be adjusted for new sectors
     # etrago.pf_post_lopf()
 
-    # spaital disaggregation
+    # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
 
