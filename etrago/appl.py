@@ -338,14 +338,7 @@ def run_etrago(args, json_path):
 
     # Manually fix problems from eGon-data
     etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
-    
-    for c in ['p_min_pu', 'efficiency', 'p_max_pu']:
-        
-        etrago.network.links_t[c] = etrago.network.links_t[c].drop(
-            etrago.network.links_t[c].loc[:, etrago.network.links_t[c].isnull().all()].columns, 
-            axis='columns')
-    
-    
+
     # Manually drop sectors, only used for debugging    
     #['AC', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',  'rural_heat', 'dsm-cts', 'dsm-ind-osm', 'dsm-ind-sites'],
     # etrago.network.buses.drop(etrago.network.buses[~
