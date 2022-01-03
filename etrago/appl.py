@@ -335,11 +335,8 @@ def run_etrago(args, json_path):
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-    
-    
-    # Manually fix problems from eGon-data    
-    etrago.network.loads.sign = -1
-    
+
+    # Manually fix problems from eGon-data
     etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
     
     for c in ['p_min_pu', 'efficiency', 'p_max_pu']:
