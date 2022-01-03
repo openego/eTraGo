@@ -47,7 +47,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     export_to_csv,
                                     filter_links_by_carrier,
                                     set_line_costs,
-                                    set_trafo_costs)
+                                    set_trafo_costs,
+                                    drop_sectors)
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_kmeans_clustering,
@@ -200,6 +201,8 @@ class Etrago():
     
     set_trafo_costs = set_trafo_costs
     
+    drop_sectors = drop_sectors
+
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
     

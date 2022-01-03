@@ -1460,3 +1460,45 @@ def check_args(etrago):
                 "For installation of gurobipy use pip.")
             raise
 
+def drop_sectors(self, drop_carriers):
+    """
+    Manually drop secors from eTraGo network, used for debugging
+
+    Parameters
+    ----------
+    drop_carriers : array
+        List of sectors that will be dropped.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    self.network.buses.drop(self.network.buses[
+        self.network.buses.carrier.isin(
+            drop_carriers)].index, inplace=True)
+
+    self.network.loads.drop(
+        self.network.loads[~self.network.loads.bus.isin(
+            self.network.buses.index)].index, inplace=True)
+
+    self.network.generators.drop(
+        self.network.generators[~self.network.generators.bus.isin(
+            self.network.buses.index)].index, inplace=True)
+
+    self.network.stores.drop(
+        self.network.stores[~self.network.stores.bus.isin(
+            self.network.buses.index)].index, inplace=True)
+
+    self.network.storage_units.drop(
+        self.network.storage_units[~self.network.storage_units.bus.isin(
+            self.network.buses.index)].index, inplace=True)
+
+    self.network.links.drop(
+        self.network.links[~self.network.links.bus0.isin(
+            self.network.buses.index)].index, inplace=True)
+
+    self.network.links.drop(
+        self.network.links[~self.network.links.bus1.isin(
+            self.network.buses.index)].index, inplace=True)
