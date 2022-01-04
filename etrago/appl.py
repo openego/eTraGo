@@ -338,6 +338,8 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
+    
+    #etrago = Etrago(csv_folder_name='etrago_CI')
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
@@ -348,7 +350,8 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     # needs to be adjusted for new sectors
-    # etrago.kmean_clustering()
+
+    etrago.kmean_clustering()
 
     # skip snapshots
     # needs to be adjusted for new sectors
