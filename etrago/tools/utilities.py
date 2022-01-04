@@ -361,21 +361,13 @@ def foreign_links(self):
     if self.args['foreign_lines']['carrier'] == 'DC':
         network = self.network
 
-        foreign_buses = network.buses[network.buses.country_code != 'DE']
+        foreign_buses = network.buses[(network.buses.country != 'DE') &
+                                      (network.buses.carrier.isin(
+                                          ['AC', 'DC']))]
 
         foreign_lines = network.lines[network.lines.bus0.astype(str).isin(
             foreign_buses.index) | network.lines.bus1.astype(str).isin(
                 foreign_buses.index)]
-
-        foreign_links = network.links[network.links.bus0.astype(str).isin(
-            foreign_buses.index) | network.links.bus1.astype(str).isin(
-                foreign_buses.index)]
-
-        network.links = network.links.drop(
-            network.links.index[
-                network.links.index.isin(foreign_links.index)
-                & network.links.bus0.isin(network.links.bus1)
-                & (network.links.bus0 > network.links.bus1)])
 
         foreign_links = network.links[
             network.links.bus0.astype(str).isin(foreign_buses.index) |
