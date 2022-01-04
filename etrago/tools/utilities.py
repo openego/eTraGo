@@ -1317,16 +1317,18 @@ def crossborder_capacity(self):
             weighting = network.lines.loc[network.lines.country != 'DE', 's_nom'].\
                     groupby(network.lines.country).transform(lambda x: x/x.sum())
 
-        weighting_links = network.links.loc[network.links.country != 'DE', 'p_nom'].\
-                    groupby(network.links.country).transform(lambda x: x/x.sum())
-        network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+        dc_lines = self.dc_lines()
+
+        weighting_links = dc_lines.loc[dc_lines.country != 'DE', 'p_nom'].\
+                    groupby(dc_lines.country).transform(lambda x: x/x.sum()).fillna(0.)
+
         for country in cap_per_country:
 
             index_HV = network.lines[(network.lines.country == country) &(
                 network.lines.v_nom == 110)].index
             index_eHV = network.lines[(network.lines.country == country) &(
                 network.lines.v_nom > 110)].index
-            index_links = network.links[network.links.country == country].index
+            index_links = dc_lines[dc_lines.country == country].index
 
             if not network.lines[network.lines.country == country].empty:
                 network.lines.loc[index_HV, 's_nom'] = weighting[index_HV] * \
@@ -1335,12 +1337,12 @@ def crossborder_capacity(self):
                 network.lines.loc[index_eHV, 's_nom'] = \
                         weighting[index_eHV] * cap_per_country[country]
 
-            if not network.links[network.links.country == country].empty:
+            if not dc_lines[dc_lines.country == country].empty:
                 network.links.loc[index_links, 'p_nom'] = \
                                     weighting_links[index_links] * cap_per_country\
                                     [country]
             if country == 'SE':
-                network.links.loc[network.links.country == country, 'p_nom'] =\
+                network.links.loc[dc_lines[dc_lines.country == country].index, 'p_nom'] =\
                     cap_per_country[country]
 
             if not network.lines[network.lines.country == (country+country)].empty:
@@ -1355,8 +1357,8 @@ def crossborder_capacity(self):
                 network.lines.loc[i_eHV, 's_nom'] = \
                                     weighting[i_eHV] * cap_per_country[country]
 
-            if not network.links[network.links.country == (country+country)].empty:
-                i_links = network.links[network.links.country ==
+            if not dc_lines[dc_lines.country == (country+country)].empty:
+                i_links = dc_lines[dc_lines.country ==
                                         (country+country)].index
                 network.links.loc[i_links, 'p_nom'] = \
                     weighting_links[i_links] * cap_per_country[country]
