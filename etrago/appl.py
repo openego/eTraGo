@@ -80,7 +80,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 10, # number of resulting nodes
-        'n_clusters_gas': 4, # number of resulting nodes
+        'n_clusters_gas': 17, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering

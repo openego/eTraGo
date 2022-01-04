@@ -12,6 +12,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
     import pypsa.io as io
     from etrago.tools.utilities import *
+    from egoio.tools import db
     from pypsa import Network
     from pypsa.networkclustering import (  # aggregategenerators, , busmap_by_stubs,
         aggregatebuses,
@@ -20,6 +21,28 @@ if "READTHEDOCS" not in os.environ:
         haversine_pts,
     )
     from six import iteritems
+
+
+def select_dataframe(sql, conn, index_col=None):
+    """Select data from local database as pandas.DataFrame
+    Parameters
+    ----------
+    sql : str
+        SQL query to be executed.
+    index_col : str, optional
+        Column(s) to set as index(MultiIndex). The default is None.
+    Returns
+    -------
+    df : pandas.DataFrame
+        Data returned from SQL statement.
+    """
+
+    df = pd.read_sql(sql, conn, index_col=index_col)
+
+    if df.size == 0:
+        print(f"WARNING: No data returned by statement: \n {sql}")
+
+    return df
 
 
 def get_clustering_from_busmap(
@@ -150,18 +173,30 @@ def kmean_clustering_gas_grid(etrago):
         Container for the gas network components.
     """
 
+    # Download H2-CH4 correspondance table
+    engine = db.connection(section=etrago.args["db"])
+    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
+    df_correspondance_H2_CH4 = select_dataframe(sql, engine)
+    H2_grid_nodes = df_correspondance_H2_CH4["bus_H2"].tolist()
+    H2_grid_nodes_s = [str(x) for x in H2_grid_nodes]
+    print(H2_grid_nodes_s)
+
     # network_ch4 is supposed to contain all the gas buses (CH4 and H2) linked to the CH4 grid (eGon2035) """and links (CH4 pipes and H2-CH4 connections)"""
     network = etrago.network.copy()
     network_ch4 = etrago.network.copy()
-    network_ch4.buses = network_ch4.buses[(network_ch4.buses["carrier"] == "CH4")]
-    # (network_ch4.buses['carrier'] == 'H2_grid')]
+
+    network_ch4.buses = network_ch4.buses[
+        (network_ch4.buses["carrier"] == "CH4")
+        | (network_ch4.buses["carrier"] == "H2_grid")
+    ]
+
     network_ch4.links = network_ch4.links[
         (network_ch4.links["carrier"] == "CH4")
-        | (network_ch4.links["carrier"] == "power-to-H2")
-        | (network_ch4.links["carrier"] == "H2-to-power")
-        | (network_ch4.links["carrier"] == "CH4-to-H2")
-        | (network_ch4.links["carrier"] == "H2-feedin")
-        | (network_ch4.links["carrier"] == "CH4-to-H2")
+        | (network_ch4.links["carrier"] == "power_to_H2")
+        | (network_ch4.links["carrier"] == "H2_to_power")
+        | (network_ch4.links["carrier"] == "CH4_to_H2")
+        | (network_ch4.links["carrier"] == "H2_feedin")
+        | (network_ch4.links["carrier"] == "CH4_to_H2")
     ]
 
     network_ch4.generators = network_ch4.generators[
@@ -169,10 +204,17 @@ def kmean_clustering_gas_grid(etrago):
     ]
     network_ch4.stores = network_ch4.stores[
         (network_ch4.stores["carrier"] == "CH4")
-        | (network_ch4.stores["carrier"] == "H2_overground")
+        | (
+            (network_ch4.stores["carrier"] == "H2_overground")
+            & (network_ch4.stores["bus"].isin(H2_grid_nodes_s))
+        )  # won't be necessary anymore with changes of datamodel (no overground storages for saltcavern H2 buses)
     ]
     network_ch4.loads = network_ch4.loads[
-        (network_ch4.loads["carrier"] == "CH4") | (network_ch4.loads["carrier"] == "H2")
+        (network_ch4.loads["carrier"] == "CH4")
+        | (
+            (network_ch4.loads["carrier"] == "H2")
+            & (network_ch4.loads["bus"].isin(H2_grid_nodes_s))
+        )
     ]
 
     kmean_gas_settings = etrago.args["network_clustering_kmeans"]
@@ -287,19 +329,30 @@ def kmean_clustering_gas_grid(etrago):
     ]
     network.links = network.links[
         (network.links["carrier"] != "CH4")
-        & (network.links["carrier"] != "power-to-H2")
-        & (network.links["carrier"] != "H2-to-power")
-        & (network.links["carrier"] != "CH4-to-H2")
-        & (network.links["carrier"] != "H2-feedin")
-        & (network.links["carrier"] != "CH4-to-H2")
+        & (network.links["carrier"] != "power_to_H2")
+        & (network.links["carrier"] != "H2_to_power")
+        & (network.links["carrier"] != "CH4_to_H2")
+        & (network.links["carrier"] != "H2_feedin")
+        & (network.links["carrier"] != "CH4_to_H2")
     ]
     network.generators = network.generators[(network.generators["carrier"] != "CH4")]
-    network.stores = network_ch4.stores[
-        (network.stores["carrier"] != "CH4")
-        & (network.stores["carrier"] != "H2_overground")
+
+    network.stores = network.stores[
+        (
+            (network.stores["carrier"] != "CH4")
+            & (network.stores["carrier"] != "H2_overground")
+        )
+        | (
+            (network.stores["carrier"] == "H2_overground")
+            & ~(network.stores["bus"].isin(H2_grid_nodes_s))
+        )
     ]
-    network.loads = network_ch4.loads[
-        (network.loads["carrier"] != "CH4") & (network.loads["carrier"] != "H2")
+    network.loads = network.loads[
+        ((network.loads["carrier"] != "CH4") & (network.loads["carrier"] != "H2"))
+        | (
+            (network.loads["carrier"] == "H2")
+            & ~(network.loads["bus"].isin(H2_grid_nodes_s))
+        )
     ]
 
     # Add clustered components
