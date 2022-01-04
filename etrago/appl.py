@@ -336,9 +336,6 @@ def run_etrago(args, json_path):
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
-    # Manually fix problems from eGon-data
-    etrago.network.links.p_nom[etrago.network.links.p_nom.isnull()] = 10000
-
     # ehv network clustering
     etrago.ehv_clustering()
 
