@@ -11,16 +11,13 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa.io as io
-    from etrago.tools.utilities import *
     from egoio.tools import db
     from pypsa import Network
-    from pypsa.networkclustering import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-        haversine_pts,
-    )
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
+                                         busmap_by_kmeans, haversine_pts)
     from six import iteritems
+
+    from etrago.tools.utilities import *
 
 
 def select_dataframe(sql, conn, index_col=None):
@@ -73,12 +70,11 @@ def get_clustering_from_busmap(
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
         network_c.set_snapshots(network.snapshots)
 
-    if carrier == 'CH4':
+    if carrier == "CH4":
         one_port_components = ["Generator", "Load", "Store"]
-    elif carrier == 'H2':
+    elif carrier == "H2":
         one_port_components = ["Load", "Store"]
-    print(one_port_components)# network.one_port_components.copy()
-
+    print(one_port_components)  # network.one_port_components.copy()
 
     for one_port in one_port_components:
         one_port_components.remove(one_port)
@@ -243,11 +239,11 @@ def kmean_clustering_gas_grid(etrago):
     busmap_ch4.to_csv(
         "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
     )
-    
+
     network_ch4_c = get_clustering_from_busmap(
         network_ch4,
         busmap_ch4,
-        carrier='CH4',
+        carrier="CH4",
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
@@ -308,7 +304,7 @@ def kmean_clustering_gas_grid(etrago):
     network_h2_c = get_clustering_from_busmap(
         network_h2,
         busmap_h2,
-        carrier='H2',
+        carrier="H2",
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
