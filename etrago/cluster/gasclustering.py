@@ -14,7 +14,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.tools.utilities import *
     from egoio.tools import db
     from pypsa import Network
-    from pypsa.networkclustering import (  # aggregategenerators, , busmap_by_stubs,
+    from pypsa.networkclustering import (
         aggregatebuses,
         aggregateoneport,
         busmap_by_kmeans,
@@ -56,31 +56,29 @@ def get_clustering_from_busmap(
     # aggregate_one_ports={},
     aggregate_generators_carriers=None,
     one_port_strategies=dict(),
-    generator_strategies=dict(),
-):  # ,
-    # bus_strategies=dict(),
+):
+    """Adapation of the get_clustering_from_busmap from pypsa (mainly removing the clustering of the lines)
+    Returns
+    -------
+    network_c : pypsa.Network object
+        Clustered CH4 grid.
+    """
 
     network_c = Network()
-
     buses = aggregatebuses(network, busmap, bus_strategies)
-    # buses_H2 = network.buses[(network.buses['carrier'] == 'H2_grid')]
-
     io.import_components_from_dataframe(network_c, buses, "Bus")
 
     if with_time:
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
         network_c.set_snapshots(network.snapshots)
 
-    # # keep attached links
-    # links = network.links.copy()
-    # links = links[links['carrier'] != 'CH4']
-    # io.import_components_from_dataframe(network, links, "Link")
-
-    one_port_components = [
-        "Generator",
-        "Load",
-        "Store",
-    ]  # network.one_port_components.copy()
+    one_port_components = network.one_port_components.copy()
+    print(one_port_components)
+    # [
+    #     "Generator",
+    #     "Load",
+    #     "Store",
+    # ]  # network.one_port_components.copy()
 
     for one_port in one_port_components:
         one_port_components.remove(one_port)
@@ -139,7 +137,6 @@ def get_clustering_from_busmap(
 
     network_c.determine_network_topology()
 
-    # pdb.set_trace()
     return network_c
 
 
@@ -177,46 +174,34 @@ def kmean_clustering_gas_grid(etrago):
     engine = db.connection(section=etrago.args["db"])
     sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
     df_correspondance_H2_CH4 = select_dataframe(sql, engine)
+    df_correspondance_H2_CH4["bus_CH4"] = df_correspondance_H2_CH4["bus_CH4"].astype(
+        str
+    )
+    df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
     H2_grid_nodes = df_correspondance_H2_CH4["bus_H2"].tolist()
     H2_grid_nodes_s = [str(x) for x in H2_grid_nodes]
-    print(H2_grid_nodes_s)
 
-    # network_ch4 is supposed to contain all the gas buses (CH4 and H2) linked to the CH4 grid (eGon2035) """and links (CH4 pipes and H2-CH4 connections)"""
+    # Create network_ch4
+    # network_ch4  contains all the CH4 components (buses, links, generators, stores and load)
     network = etrago.network.copy()
     network_ch4 = etrago.network.copy()
 
-    network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4")
-        | (network_ch4.buses["carrier"] == "H2_grid")
-    ]
+    network_ch4.buses = network_ch4.buses[(network_ch4.buses["carrier"] == "CH4")]
 
     network_ch4.links = network_ch4.links[
         (network_ch4.links["carrier"] == "CH4")
-        | (network_ch4.links["carrier"] == "power_to_H2")
-        | (network_ch4.links["carrier"] == "H2_to_power")
-        | (network_ch4.links["carrier"] == "CH4_to_H2")
-        | (network_ch4.links["carrier"] == "H2_feedin")
-        | (network_ch4.links["carrier"] == "CH4_to_H2")
+        | (network_ch4.links["carrier"] == "central_gas_boiler")
+        | (network_ch4.links["carrier"] == "CHP")
+        | (network_ch4.links["carrier"] == "OCGT")
     ]
 
     network_ch4.generators = network_ch4.generators[
         (network_ch4.generators["carrier"] == "CH4")
     ]
-    network_ch4.stores = network_ch4.stores[
-        (network_ch4.stores["carrier"] == "CH4")
-        | (
-            (network_ch4.stores["carrier"] == "H2_overground")
-            & (network_ch4.stores["bus"].isin(H2_grid_nodes_s))
-        )  # won't be necessary anymore with changes of datamodel (no overground storages for saltcavern H2 buses)
-    ]
-    network_ch4.loads = network_ch4.loads[
-        (network_ch4.loads["carrier"] == "CH4")
-        | (
-            (network_ch4.loads["carrier"] == "H2")
-            & (network_ch4.loads["bus"].isin(H2_grid_nodes_s))
-        )
-    ]
+    network_ch4.stores = network_ch4.stores[(network_ch4.stores["carrier"] == "CH4")]
+    network_ch4.loads = network_ch4.loads[(network_ch4.loads["carrier"] == "CH4")]
 
+    # Cluster network_ch4
     kmean_gas_settings = etrago.args["network_clustering_kmeans"]
 
     def weighting_for_scenario(x, save=None):
@@ -243,46 +228,9 @@ def kmean_clustering_gas_grid(etrago):
     else:
         weight_ch4 = weighting_for_scenario(x=network_ch4.buses, save=False)
 
-    # TODO: Adapt for gas if relevant
-    # # remove stubs
-    # if kmean_settings['remove_stubs']:
-    #     network.determine_network_topology()
-    #     busmap = busmap_by_stubs(network)
-    #     network.generators['weight'] = network.generators['p_nom']
-    #     aggregate_one_ports = network.one_port_components.copy()
-    #     aggregate_one_ports.discard('Generator')
-
-    #     # reset coordinates to the new reduced guys, rather than taking an
-    #     # average (copied from pypsa.networkclustering)
-    #     if kmean_settings['use_reduced_coordinates']:
-    #         # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
-    #         # i.e. network is changed in place!!
-    #         network.buses.loc[busmap.index, ['x', 'y']
-    #                           ] = network.buses.loc[busmap, ['x', 'y']].values
-
-    #     clustering = get_clustering_from_busmap(
-    #         network,
-    #         busmap,
-    #         aggregate_generators_weighted=True,
-    #         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
-    #                                          'capital_cost': np.mean,
-    #                                          'efficiency': np.mean,
-    #                                          'efficiency_dispatch': np.mean,
-    #                                          'standing_loss': np.mean,
-    #                                          'efficiency_store': np.mean,
-    #                                          'p_min_pu': np.min}},
-    #         generator_strategies={'p_nom_min':np.min,
-    #                           'p_nom_opt': np.sum,
-    #                           'marginal_cost': np.mean,
-    #                           'capital_cost': np.mean},
-    #         aggregate_one_ports=aggregate_one_ports,
-    #         line_length_factor=kmean_settings['line_length_factor'])
-    #     network = clustering.network
-
-    #     weight = weight.groupby(busmap.values).sum()
-
     weight_ch4_s = weight_ch4.squeeze()
-    # k-mean clustering for CH4
+
+    # Creation of the busmap
     busmap_ch4 = busmap_by_kmeans(
         network_ch4,
         bus_weightings=weight_ch4_s,  # pd.Series(weight_ch4),
@@ -293,10 +241,9 @@ def kmean_clustering_gas_grid(etrago):
         n_jobs=kmean_gas_settings["n_jobs"],
     )
     busmap_ch4.to_csv(
-        "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters"]) + "_result.csv"
+        "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
     )
-
-    network_c = get_clustering_from_busmap(
+    network_ch4_c = get_clustering_from_busmap(
         network_ch4,
         busmap_ch4,
         one_port_strategies={
@@ -312,11 +259,65 @@ def kmean_clustering_gas_grid(etrago):
                 "e_nom_max": np.sum,
             },
         },
-        generator_strategies={
-            "p_nom_min": np.min,
-            "p_nom_opt": np.sum,
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
+        aggregate_generators_weighted=False,
+        line_length_factor=kmean_gas_settings["line_length_factor"],
+    )
+
+    # Create H2 busmap
+    busmap_ch4 = busmap_ch4.rename("CH4_nodes_c")
+    busmap_h2 = pd.concat([df_correspondance_H2_CH4, busmap_ch4], axis=1, join="inner")
+    CH4_clusters = busmap_h2["CH4_nodes_c"].tolist()
+    CH4_clusters_unique = list(set(CH4_clusters))
+    H2_clusters = range(
+        kmean_gas_settings["n_clusters_gas"],
+        (kmean_gas_settings["n_clusters_gas"] + len(set(CH4_clusters))),
+    )
+    corr = pd.DataFrame(
+        list(zip(CH4_clusters_unique, H2_clusters)),
+        columns=["CH4_nodes_c", "H2_clusters"],
+    )
+    busmap_h2 = busmap_h2.merge(corr, on="CH4_nodes_c", how="inner")
+    busmap_h2 = busmap_h2.drop(columns=["scn_name", "CH4_nodes_c"]).set_index(
+        ["bus_H2"]
+    )
+    busmap_h2 = busmap_h2.squeeze()
+
+    # Cluster H2 components
+    network_h2 = etrago.network.copy()
+    network_h2.buses = network_h2.buses[(network_h2.buses["carrier"] == "H2_grid")]
+    network_h2.links = network_h2.links[
+        (network_h2.links["carrier"] == "power_to_H2")
+        | (network_h2.links["carrier"] == "H2_to_power")
+        | (network_h2.links["carrier"] == "CH4_to_H2")
+        | (network_h2.links["carrier"] == "H2_feedin")
+        | (network_h2.links["carrier"] == "CH4_to_H2")
+    ]
+    network_h2.stores = network_h2.stores[
+        (network_h2.stores["carrier"] == "H2_overground")
+        & (
+            network_h2.stores["bus"].isin(H2_grid_nodes_s)
+        )  # condition could be remove when datamodel is updated
+    ]
+    network_h2.loads = network_h2.loads[
+        (network_h2.loads["carrier"] == "H2")
+        & (network_h2.loads["bus"].isin(H2_grid_nodes_s))
+    ]
+
+    network_h2_c = get_clustering_from_busmap(
+        network_h2,
+        busmap_h2,
+        one_port_strategies={
+            "Generator": {
+                "marginal_cost": np.mean,
+                "capital_cost": np.mean,
+                "p_nom_min": np.min,
+            },
+            "Store": {
+                "marginal_cost": np.mean,
+                "capital_cost": np.mean,
+                "e_nom": np.sum,
+                "e_nom_max": np.sum,
+            },
         },
         aggregate_generators_weighted=False,
         line_length_factor=kmean_gas_settings["line_length_factor"],
@@ -329,6 +330,9 @@ def kmean_clustering_gas_grid(etrago):
     ]
     network.links = network.links[
         (network.links["carrier"] != "CH4")
+        & (network.links["carrier"] != "central_gas_boiler")
+        & (network.links["carrier"] != "CHP")
+        & (network.links["carrier"] != "OCGT")
         & (network.links["carrier"] != "power_to_H2")
         & (network.links["carrier"] != "H2_to_power")
         & (network.links["carrier"] != "CH4_to_H2")
@@ -344,7 +348,9 @@ def kmean_clustering_gas_grid(etrago):
         )
         | (
             (network.stores["carrier"] == "H2_overground")
-            & ~(network.stores["bus"].isin(H2_grid_nodes_s))
+            & ~(
+                network.stores["bus"].isin(H2_grid_nodes_s)
+            )  # condition could be remove when datamodel is updated
         )
     ]
     network.loads = network.loads[
@@ -356,11 +362,15 @@ def kmean_clustering_gas_grid(etrago):
     ]
 
     # Add clustered components
-    io.import_components_from_dataframe(network, network_c.buses, "Bus")
-    io.import_components_from_dataframe(network, network_c.links, "Link")
-    io.import_components_from_dataframe(network, network_c.stores, "Store")
-    io.import_components_from_dataframe(network, network_c.loads, "Load")
-    io.import_components_from_dataframe(network, network_c.generators, "Generator")
+    io.import_components_from_dataframe(network, network_ch4_c.buses, "Bus")
+    io.import_components_from_dataframe(network, network_h2_c.buses, "Bus")
+    io.import_components_from_dataframe(network, network_ch4_c.links, "Link")
+    io.import_components_from_dataframe(network, network_h2_c.links, "Link")
+    io.import_components_from_dataframe(network, network_ch4_c.stores, "Store")
+    io.import_components_from_dataframe(network, network_h2_c.stores, "Store")
+    io.import_components_from_dataframe(network, network_ch4_c.loads, "Load")
+    io.import_components_from_dataframe(network, network_h2_c.loads, "Load")
+    io.import_components_from_dataframe(network, network_ch4_c.generators, "Generator")
 
     return network
 
