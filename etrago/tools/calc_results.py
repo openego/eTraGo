@@ -219,7 +219,7 @@ def calc_etrago_results(self):
             store_expansion = _calc_store_expansion(self) ###
             self.results.value['store_expansion'] = store_expansion.sum() ###
             self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
-            self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('heat')].sum() ###
+            self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('Heat')].sum() ###
 
         if 'network' in self.args['extendable']:
             lines, links = _calc_network_expansion(self) ###
