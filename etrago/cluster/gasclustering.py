@@ -48,6 +48,7 @@ def select_dataframe(sql, conn, index_col=None):
 def get_clustering_from_busmap(
     network,
     busmap,
+    carrier,
     with_time=True,
     line_length_factor=1.0,
     bus_strategies=dict(),
@@ -57,7 +58,7 @@ def get_clustering_from_busmap(
     aggregate_generators_carriers=None,
     one_port_strategies=dict(),
 ):
-    """Adapation of the get_clustering_from_busmap from pypsa (mainly removing the clustering of the lines)
+    """Adapation of the get_clustering_from_busmap from pypsa (mainly removing the clustering of the lines and adjusting the one_port_components)
     Returns
     -------
     network_c : pypsa.Network object
@@ -72,13 +73,12 @@ def get_clustering_from_busmap(
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
         network_c.set_snapshots(network.snapshots)
 
-    one_port_components = network.one_port_components.copy()
-    print(one_port_components)
-    # [
-    #     "Generator",
-    #     "Load",
-    #     "Store",
-    # ]  # network.one_port_components.copy()
+    if carrier == 'CH4':
+        one_port_components = ["Generator", "Load", "Store"]
+    elif carrier == 'H2':
+        one_port_components = ["Load", "Store"]
+    print(one_port_components)# network.one_port_components.copy()
+
 
     for one_port in one_port_components:
         one_port_components.remove(one_port)
@@ -243,9 +243,11 @@ def kmean_clustering_gas_grid(etrago):
     busmap_ch4.to_csv(
         "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
     )
+    
     network_ch4_c = get_clustering_from_busmap(
         network_ch4,
         busmap_ch4,
+        carrier='CH4',
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
@@ -306,6 +308,7 @@ def kmean_clustering_gas_grid(etrago):
     network_h2_c = get_clustering_from_busmap(
         network_h2,
         busmap_h2,
+        carrier='H2',
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
