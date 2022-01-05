@@ -30,7 +30,7 @@ setup(
                       'tsam == 1.1.0',
                       'shapely',
                       'oedialect',
-                      'pyproj == 2.0.2',
+                      'pyproj == 3.2.1',
                       'tilemapbase == 0.4.5',
                       'pypsa == 0.17.1',
                       'setuptools >= 54.2.0'],
