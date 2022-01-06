@@ -258,7 +258,7 @@ def extendable(self, line_max):
 
     if 'foreign_storage' in self.args['extendable']:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
-            network.buses.index[network.buses.country_code != 'DE'])) & (
+            network.buses.index[network.buses.country != 'DE'])) & (
                 network.storage_units.carrier.isin(
                     ['battery_storage', 'hydrogen_storage']))] = True
 

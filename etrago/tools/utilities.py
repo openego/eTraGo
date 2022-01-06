@@ -260,9 +260,9 @@ def buses_by_country(network):
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
 
-    network.buses['country_code'] = foreign_buses[foreign_buses.index.isin(
+    network.buses['country'] = foreign_buses[foreign_buses.index.isin(
         network.buses.index)]
-    network.buses['country_code'].fillna('DE', inplace=True)
+    network.buses['country'].fillna('DE', inplace=True)
 
     return foreign_buses
 
@@ -286,7 +286,7 @@ def clip_foreign(network):
 
     # get foreign buses by country
 
-    foreign_buses = network.buses[network.buses.country_code != 'DE']
+    foreign_buses = network.buses[network.buses.country != 'DE']
     network.buses = network.buses.drop(
         network.buses.loc[foreign_buses.index].index)
 
@@ -1222,17 +1222,17 @@ def set_line_country_tags(network):
     """
 
     transborder_lines_0 = network.lines[network.lines['bus0'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
     transborder_lines_1 = network.lines[network.lines['bus1'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
     #set country tag for lines
     network.lines.loc[transborder_lines_0, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_0, 'bus0']\
-                          .values, 'country_code'].values
+                          .values, 'country'].values
 
     network.lines.loc[transborder_lines_1, 'country'] = \
         network.buses.loc[network.lines.loc[transborder_lines_1, 'bus1']\
-                          .values, 'country_code'].values
+                          .values, 'country'].values
     network.lines['country'].fillna('DE', inplace=True)
     doubles = list(set(transborder_lines_0.intersection(transborder_lines_1)))
     for line in doubles:
@@ -1241,18 +1241,18 @@ def set_line_country_tags(network):
         network.lines.loc[line, 'country'] = '{}{}'.format(c_bus0, c_bus1)
 
     transborder_links_0 = network.links[network.links['bus0'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
     transborder_links_1 = network.links[network.links['bus1'].isin(
-        network.buses.index[network.buses['country_code'] != 'DE'])].index
+        network.buses.index[network.buses['country'] != 'DE'])].index
 
     #set country tag for links
     network.links.loc[transborder_links_0, 'country'] = \
         network.buses.loc[network.links.loc[transborder_links_0, 'bus0']\
-                          .values, 'country_code'].values
+                          .values, 'country'].values
 
     network.links.loc[transborder_links_1, 'country'] = \
         network.buses.loc[network.links.loc[transborder_links_1, 'bus1']\
-                          .values, 'country_code'].values
+                          .values, 'country'].values
     network.links['country'].fillna('DE', inplace=True)
     doubles = list(set(transborder_links_0.intersection(transborder_links_1)))
     for link in doubles:
