@@ -281,11 +281,14 @@ class NetworkScenario(ScenarioBase):
 
         for column in data_columns:
 
-
             if not df_all[column].isnull().all():
 
                 df = df_all[column].apply(pd.Series).transpose()[
                     self.start_snapshot-1: self.end_snapshot]
+
+                # Drop empty columns
+                df.drop(df.loc[:,df.isnull().all()].columns,
+                        axis='columns', inplace=True)
 
                 df.index = self.timeindex
 

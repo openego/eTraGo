@@ -34,6 +34,7 @@ if 'READTHEDOCS' not in os.environ:
     from math import ceil
     import pandas as pd
     from networkx import NetworkXNoPath
+    from sklearn.cluster import KMeans
     from pickle import dump
     from pypsa import Network
     import pypsa.io as io
@@ -42,7 +43,6 @@ if 'READTHEDOCS' not in os.environ:
     from sqlalchemy import or_, exists
     import numpy as np
     import logging
-    from sklearn.cluster import KMeans
 
     logger = logging.getLogger(__name__)
 
@@ -64,6 +64,98 @@ def _leading(busmap, df):
         return df.loc[ix, x.name]
     return leader
 
+def adjust_no_electric_network(network, busmap):
+    
+    # network2 is supposed to contain all the no electrical buses and links
+    network2 = network.copy()
+    network2.buses = network2.buses[(network2.buses['carrier'] == 'central_heat') |
+                                  (network2.buses['carrier'] == 'rural_heat') |
+                                  (network2.buses['carrier'] == 'H2') |
+                                  (network2.buses['carrier'] == 'dsm-cts') |
+                                  (network2.buses['carrier'] == 'dsm-ind-osm') |
+                                  (network2.buses['carrier'] == 'dsm-ind-sites')]
+    
+    network2.links = network2.links[(network2.links['carrier'] == 'central_heat_pump') |
+                                  (network2.links['carrier'] == 'individual_heat_pump') |
+                                  (network2.links['carrier'] == 'power-to-H2') |
+                                  (network2.links['carrier'] == 'dsm-cts') |
+                                  (network2.links['carrier'] == 'dsm-ind-osm') |
+                                  (network2.links['carrier'] == 'dsm-ind-sites')]
+    
+    #no_elec_to_eHV maps the no electrical buses to the closest eHV bus
+    no_elec_to_eHV = {}
+    #new_buses contains the names of all the new no electrical buses
+    new_buses = {}
+    #busmap2 maps all the no electrical buses to the new buses based on the
+    #eHV network
+    busmap2 = {}
+    max_id = network.buses.index.to_series().apply(int).max()
+    
+    for link in network2.links.index:
+        heat_bus = network2.links.loc[link, 'bus1']
+        bus_hv = network2.links.loc[link, 'bus0']
+        if network2.links.loc[link, 'carrier'] == 'central_heat_pump':
+            carry = 'central_heat'
+        elif network2.links.loc[link, 'carrier'] == 'individual_heat_pump':
+            carry = 'rural_heat'
+        elif network2.links.loc[link, 'carrier'] == 'power-to-H2':
+            carry = 'H2'
+        else:
+            carry = network2.links.loc[link, 'carrier']
+                
+        no_elec_to_eHV[heat_bus] = busmap[str(bus_hv)]
+        if busmap[str(bus_hv)] + "-" + carry not in new_buses:
+            new_buses[busmap[str(bus_hv)] + "-" + carry] = str(max_id + 1)
+            max_id = max_id + 1
+        busmap2[heat_bus] = new_buses[busmap[str(bus_hv)] + "-" + carry]
+        
+    #The new buses based on the eHV network for not electrical buses are created
+    for carry, df in network2.buses.groupby(by= 'carrier'):
+        bus_unique = []
+        for bus in df.index:
+            try:
+                if no_elec_to_eHV[bus] not in bus_unique:
+                    bus_unique.append(no_elec_to_eHV[bus])
+            except:
+                print(f'Bus {bus} has no connexion to electricity network')
+        
+        for eHV_bus in bus_unique:    
+            new_bus = pd.Series({
+                'scn_name': network.buses.at[eHV_bus, 'scn_name'],
+                'v_nom': np.nan,
+                'carrier': carry,
+                'x': network.buses.at[eHV_bus, 'x'],
+                'y': network.buses.at[eHV_bus, 'y'],
+                'geom': network.buses.at[eHV_bus, 'geom'],
+                'type': "",
+                'v_mag_pu_set': 1,
+                'v_mag_pu_min': 0,
+                'v_mag_pu_max': np.inf,
+                'control': "PV",
+                'sub_network': "",
+                'country': network.buses.at[eHV_bus, 'country']},
+                 name= new_buses[eHV_bus + "-" + carry],)
+            network.buses = network.buses.append(new_bus)
+    #busmap now includes the not electrical buses and their corresponding new
+    #buses to be mapped.
+    
+    for CH4_bus in network.buses[network.buses['carrier'] == 'CH4'].index:
+        busmap2[CH4_bus] = CH4_bus
+    
+    busmap = {**busmap, **busmap2}
+    
+    return network, busmap
+
+
+def _make_consense_links(x):
+    v = x.iat[0]
+    assert ((x == v).all() or x.isnull().all()), (
+        f"No consense in table links column {x.name}: \n {x}")
+    return v
+
+
+def nan_links(x):
+    return np.nan
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """ Main function of the EHV-Clustering approach. Creates a new clustered
@@ -87,9 +179,9 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         Container for all network components of the clustered network.
     """
 
-    network_c = Network()
+    network_c = Network()  
 
-    network.buses = network.buses[network.buses.carrier=='AC']
+    network, busmap = adjust_no_electric_network(network, busmap)
 
     buses = aggregatebuses(
         network, busmap, {
@@ -101,11 +193,11 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask, :]
-
+    
     # keep attached links
     links = network.links.copy()
-    mask = links.bus0.isin(buses.index)
-    links = links.loc[mask, :]
+    dc_links = links[links['carrier'] == 'AC']
+    links = links[links['carrier'] != 'AC']
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -126,8 +218,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network.generators.control = "PV"
     network.generators['weight'] = 1
 
-    network.generators = network.generators[~network.generators.carrier.isin(
-        ['gas', 'solar_thermal_collector', 'geo_thermal'])]
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                     custom_strategies={'p_nom_min':np.min,'p_nom_max': np.min,
                                        'weight': np.sum, 'p_nom': np.sum,
@@ -144,19 +234,54 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     for one_port in aggregate_one_ports:
         one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
                              'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                             'p_min_pu': np.min}}
+                             'p_min_pu': np.min}, 'Store': {'marginal_cost': np.mean, 'capital_cost': np.mean,
+                             'standing_loss': np.mean, 'e_nom': np.sum}}
         new_df, new_pnl = aggregateoneport(
             network, busmap, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
-
+    
+    # Dealing with links
+    network2 = network.copy()
+    network2.links.bus0 = network2.links.bus0.map(busmap)
+    network2.links.bus1 = network2.links.bus1.map(busmap)
+    network2.links.dropna(subset= ['bus0', 'bus1'], inplace= True)
+    network2.links['topo'] = np.nan
+    
+    strategies={'scn_name': _make_consense_links,
+                'bus0': _make_consense_links,
+                'bus1': _make_consense_links,
+                'carrier': _make_consense_links,
+                'efficiency_fixed': _make_consense_links,
+                'p_nom': np.sum,
+                'p_nom_extendable': _make_consense_links,
+                'p_nom_max': np.sum,
+                'capital_cost': np.mean,
+                'length': np.mean,
+                'geom': nan_links,
+                'topo': nan_links,
+                'type': nan_links,
+                'efficiency': np.mean,
+                'p_nom_min': np.min,
+                'p_set': np.mean,
+                'p_min_pu':np.min,
+                'p_max_pu': np.max,
+                'marginal_cost': np.mean,
+                'terrain_factor': _make_consense_links,
+                'p_nom_opt': np.mean,
+                'country': _make_consense_links}
+    
+    network_c.links = network2.links.groupby(['bus0', 'bus1', 'carrier']).agg(strategies)
+    network_c.links = network_c.links.append(dc_links)
+    network_c.links = network_c.links.reset_index(drop=True)
+    
     network_c.determine_network_topology()
 
     return network_c
 
-
+  
 def graph_from_edges(edges):
     """ Constructs an undirected multigraph from a list containing data on
     weighted edges.
@@ -420,7 +545,6 @@ def busmap_from_psql(etrago):
 
 def ehv_clustering(self):
 
-
     if self.args['network_clustering_ehv']:
 
         logger.info('Start ehv clustering')
@@ -428,10 +552,8 @@ def ehv_clustering(self):
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
         self.network = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=False)
-
+            self.network, busmap, with_time=True)
         logger.info('Network clustered to EHV-grid')
-
 
 def kmean_clustering(etrago):
     """ Function of the k-mean clustering approach. Maps an original
@@ -651,7 +773,6 @@ def kmean_clustering(etrago):
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             #'efficiency': np.mean, # TODO
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
@@ -955,7 +1076,6 @@ def kmedoids_dijkstra_clustering(etrago):
         aggregate_generators_weighted=True,
         one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
                                              'capital_cost': np.mean,
-                                             #'efficiency': np.mean, # TODO
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
