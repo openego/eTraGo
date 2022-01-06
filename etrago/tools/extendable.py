@@ -22,6 +22,8 @@
 Extendable.py defines function to set PyPSA-components extendable.
 """
 from etrago.tools.utilities import (
+        set_line_costs,
+        set_trafo_costs,
         convert_capital_costs,
         find_snapshots,
         buses_by_country)
@@ -89,22 +91,18 @@ def extendable(self, line_max):
                 network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
-            network.links.loc[
-                network.links.carrier=='DC', 'p_nom_extendable'] = True
-            network.links.loc[
-                network.links.carrier=='DC', 'p_nom_min'] = network.links.p_nom
-            network.links.loc[
-                network.links.carrier=='DC', 'p_nom_max'] = float("inf")
+            network.links.p_nom_extendable = True
+            network.links.p_nom_min = network.links.p_nom
+            network.links.p_nom_max = float("inf")
             if not line_max == None:
-                network.links.loc[
-                    network.links.carrier=='DC', 'p_nom_max'] =\
+                network.links.p_nom_max =\
                 line_max * network.links.p_nom
 
             else:
                 network.links.p_nom_max = float("inf")
 
-        network = self.set_line_costs()
-        network = self.set_trafo_costs()
+        network = set_line_costs(network)
+        network = set_trafo_costs(network)
 
     if 'german_network' in self.args['extendable']:
         buses = network.buses[~network.buses.index.isin(

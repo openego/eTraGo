@@ -27,7 +27,7 @@ setup(
                       'sqlalchemy == 1.3.16',
                       'geoalchemy2 >= 0.3.0, <=0.4.0',
                       'matplotlib == 3.0.3',
-                      'tsam == 1.1.0',
+                      'tsam == 0.9.9',
                       'shapely',
                       'oedialect',
                       'pyproj == 2.0.2',
