@@ -564,13 +564,9 @@ def load_shedding(self, **kwargs):
         marginal_cost = kwargs.get('marginal_cost', marginal_cost_def)
         p_nom = kwargs.get('p_nom', p_nom_def)
         
-        import pdb; pdb.set_trace()
-        self.network.generators['no'] = range(0,len(self.network.generators))
-        start = self.network.generators['no'].max()+1
-        
         self.network.add("Carrier", "load")
-        #start = self.network.generators.index.to_series().str.rsplit(
-            #' ').str[0].astype(int).sort_values().max() + 1
+        start = self.network.generators.index.to_series().str.rsplit(
+            ' ').str[0].astype(int).sort_values().max() + 1
 
         if start != start:
             start = 0
