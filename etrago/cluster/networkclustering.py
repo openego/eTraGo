@@ -132,7 +132,7 @@ def adjust_no_electric_network(network, busmap):
                 'v_mag_pu_max': np.inf,
                 'control': "PV",
                 'sub_network': "",
-                'country_code': network.buses.at[eHV_bus, 'country_code']},
+                'country': network.buses.at[eHV_bus, 'country']},
                  name= new_buses[eHV_bus + "-" + carry],)
             network.buses = network.buses.append(new_bus)
     #busmap now includes the not electrical buses and their corresponding new
