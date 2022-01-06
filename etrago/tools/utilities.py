@@ -32,7 +32,7 @@ import math
 from pyomo.environ import (Var, Constraint, PositiveReals)
 from importlib import import_module
 
-geopandas = True
+geopandas = False
 try:
     import geopandas as gpd
     from shapely.geometry import Point
