@@ -251,12 +251,16 @@ def kmean_clustering_gas_grid(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
-    busmap = pd.concat([busmap_ch4, busmap_h2]).astype(int)
+    busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
+    busmap.index = busmap.index.astype(str)
     missing_idx = list(network.buses[~network.buses.index.isin(busmap.index)].index)
+    print(missing_idx)
     next_bus_id = network.buses.index.astype(int).max() + 1
-    new_gas_buses = [str(x + next_bus_id) for x in busmap]
+    new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
+    print(new_gas_buses)
     
     busmap_idx = list(busmap.index) + missing_idx
+    print(busmap_idx)
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index = busmap_idx)
     
@@ -270,45 +274,6 @@ def kmean_clustering_gas_grid(etrago):
 
     # H2 and CH4 components
     network_gas = etrago.network.copy()
-
-    # buses are all buses from network!
-
-    # # select gas technologies
-    # network_gas.links = network_gas.links[
-    #     # H2 to AC
-    #     (network_gas.links["carrier"] == "power_to_H2")
-    #     | (network_gas.links["carrier"] == "H2_to_power")
-    #     # H2 to CH4
-    #     | (network_gas.links["carrier"] == "CH4_to_H2")
-    #     | (network_gas.links["carrier"] == "H2_feedin")
-    #     | (network_gas.links["carrier"] == "H2_to_CH4")
-    #     # CH4 to AC
-    #     | (network_gas.links["carrier"] == "central_gas_boiler")
-    #     | (network_gas.links["carrier"] == "CHP")
-    #     | (network_gas.links["carrier"] == "OCGT")
-    #     # CH4 pipelines
-    #     | (network_gas.links["carrier"] == "CH4")
-    # ]
-
-    # # generators
-    # network_gas.generators = network_gas.generators[
-    #     (network_gas.generators["carrier"] == "CH4")
-    # ]
-
-    # # stores
-    # # exclude H2_saltcavern buses for now
-    # network_gas.stores = network_gas.stores[
-    #     (network_gas.stores["carrier"] == "CH4")
-    #     | ((network_gas.stores["carrier"] == "H2_overground")
-    #     & (network_gas.stores["bus"].isin(H2_grid_nodes_s)))
-    # ]
-
-    # # loads
-    # network_gas.loads = network_gas.loads[
-    #     (network_gas.loads["carrier"] == "CH4")
-    #     | ((network_gas.stores["carrier"] == "H2")
-    #     & (network_gas.stores["bus"].isin(H2_grid_nodes_s)))
-    # ]
 
     network_gasgrid_c = get_clustering_from_busmap(
         network_gas,
@@ -336,13 +301,6 @@ def kmean_clustering_gas_grid(etrago):
 
     for data, name in zip([network_gasgrid_c.links, network_gasgrid_c.buses], ["links_", "buses_"]):
         data.to_csv(name + 'clustered.csv')
-
-    # # Add clustered components
-    # io.import_components_from_dataframe(network, network_gasgrid_c.buses, "Bus")
-    # io.import_components_from_dataframe(network, network_gasgrid_c.links, "Link")
-    # io.import_components_from_dataframe(network, network_gasgrid_c.stores, "Store")
-    # io.import_components_from_dataframe(network, network_gasgrid_c.loads, "Load")
-    # io.import_components_from_dataframe(network, network_gasgrid_c.generators, "Generator")
 
     return network
 
