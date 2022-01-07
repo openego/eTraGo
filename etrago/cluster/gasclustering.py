@@ -298,6 +298,7 @@ def kmean_clustering_gas_grid(etrago):
     network_gasgrid_c = get_clustering_from_busmap(
         network_gas,
         busmap,
+        bus_strategies={'country': 'first'},
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
