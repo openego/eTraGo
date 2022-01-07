@@ -65,7 +65,6 @@ def get_clustering_from_busmap(
     network_c = Network()
 
     buses = aggregatebuses(network, busmap, bus_strategies)
-    print(buses)
     io.import_components_from_dataframe(network_c, buses, "Bus")
 
     if with_time:
@@ -108,21 +107,36 @@ def get_clustering_from_busmap(
         .loc[lambda df: df.bus0 != df.bus1]
     )
 
-    print(new_links)
+    new_links["link_id"] = new_links.index
 
-    new_links["length"] = np.where(
-        new_links.length.notnull() & (new_links.length > 0),
-        line_length_factor
-        * haversine_pts(
-            buses.loc[new_links["bus0"], ["x", "y"]],
-            buses.loc[new_links["bus1"], ["x", "y"]],
-        ),
-        0,
-    )
-    if scale_link_capital_costs:
-        new_links["capital_cost"] *= (new_links.length / network.links.length).fillna(1)
+    strategies = {
+        'bus0': 'first',
+        'bus1': 'first',
+        "carrier": 'first',
+        "p_nom": 'sum',
+        "length": 'mean',
+    }
+    strategies.update({col: 'first' for col in new_links.columns if col not in strategies})
 
-    io.import_components_from_dataframe(network_c, new_links, "Link")
+    gas_carriers = ["CH4", "H2_to_CH4", "CH4_to_H2", "H2_feedin", "H2_to_power", "power_to_H2"]
+
+    gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
+
+    combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
+    combinations.reset_index(drop=True, inplace=True)
+
+    combinations["buscombination"] = combinations[["bus0", "bus1"]].apply(sorted, axis=1).apply(lambda x: tuple(x))
+
+    strategies.update({col: 'first' for col in combinations.columns if col not in strategies})
+
+    combinations_final = combinations.groupby(["buscombination", "carrier"]).agg(strategies)
+    combinations_final.set_index("link_id", inplace=True)
+
+    io.import_components_from_dataframe(network_c, combinations_final, "Link")
+
+    non_gas_links = new_links[~new_links["carrier"].isin(gas_carriers)].copy()
+
+    io.import_components_from_dataframe(network_c, non_gas_links, "Link")
 
     if with_time:
         for attr, df in iteritems(network.links_t):
@@ -254,19 +268,15 @@ def kmean_clustering_gas_grid(etrago):
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
     busmap.index = busmap.index.astype(str)
     missing_idx = list(network.buses[~network.buses.index.isin(busmap.index)].index)
-    print(missing_idx)
     next_bus_id = network.buses.index.astype(int).max() + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
-    print(new_gas_buses)
-    
+
     busmap_idx = list(busmap.index) + missing_idx
-    print(busmap_idx)
     busmap_values = new_gas_buses + missing_idx
-    busmap = pd.Series(busmap_values, index = busmap_idx)
-    
+    busmap = pd.Series(busmap_values, index=busmap_idx)
+
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
-    print(busmap)
 
     busmap.to_csv(
         "kmeans_gasgrid_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
@@ -297,7 +307,6 @@ def kmean_clustering_gas_grid(etrago):
         aggregate_generators_weighted=False,
         line_length_factor=kmean_gas_settings["line_length_factor"],
     )
-    pdb.set_trace()
 
     for data, name in zip([network_gasgrid_c.links, network_gasgrid_c.buses], ["links_", "buses_"]):
         data.to_csv(name + 'clustered.csv')
