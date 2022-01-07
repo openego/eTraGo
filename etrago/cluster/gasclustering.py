@@ -11,11 +11,13 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa.io as io
-    import geopandas as gpd
     from egoio.tools import db
     from pypsa import Network
-    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
-                                         busmap_by_kmeans, haversine_pts)
+    from pypsa.networkclustering import (
+        aggregatebuses,
+        aggregateoneport,
+        busmap_by_kmeans,
+    )
     from six import iteritems
 
     from etrago.tools.utilities import *
@@ -47,19 +49,16 @@ def get_clustering_from_busmap(
     network,
     busmap,
     with_time=True,
-    line_length_factor=1.0,
     bus_strategies=dict(),
-    scale_link_capital_costs=True,
-    aggregate_generators_weighted=False,
-    # aggregate_one_ports={},
-    aggregate_generators_carriers=None,
     one_port_strategies=dict(),
 ):
-    """Adapation of the get_clustering_from_busmap from pypsa (mainly removing the clustering of the lines and adjusting the one_port_components)
+    """Cluster the gas grid according to the busmap and aggregate the gas
+    related technologies described as links, and the one port components
+    (stores, generators and loads).
     Returns
     -------
     network_c : pypsa.Network object
-        Clustered CH4 grid.
+        Clustered gas grid and aggregated gas related technologies.
     """
 
     network_c = Network()
@@ -110,31 +109,52 @@ def get_clustering_from_busmap(
     new_links["link_id"] = new_links.index
 
     strategies = {
-        'bus0': 'first',
-        'bus1': 'first',
-        "carrier": 'first',
-        "p_nom": 'sum',
-        "length": 'mean',
+        "bus0": "first",
+        "bus1": "first",
+        "carrier": "first",
+        "p_nom": "sum",
+        "length": "mean",
     }
-    strategies.update({col: 'first' for col in new_links.columns if col not in strategies})
+    strategies.update(
+        {col: "first" for col in new_links.columns if col not in strategies}
+    )
 
-    gas_carriers = ["CH4", "H2_to_CH4", "CH4_to_H2", "H2_feedin", "H2_to_power", "power_to_H2"]
+    gas_carriers = [
+        "CH4",
+        "H2_to_CH4",
+        "CH4_to_H2",
+        "H2_feedin",
+        "H2_to_power",
+        "power_to_H2",
+    ]
 
     gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
 
     combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
     combinations.reset_index(drop=True, inplace=True)
 
-    combinations["buscombination"] = combinations[["bus0", "bus1"]].apply(sorted, axis=1).apply(lambda x: tuple(x))
+    combinations["buscombination"] = (
+        combinations[["bus0", "bus1"]].apply(sorted, axis=1).apply(lambda x: tuple(x))
+    )
 
-    strategies.update({col: 'first' for col in combinations.columns if col not in strategies})
+    strategies.update(
+        {col: "first" for col in combinations.columns if col not in strategies}
+    )
 
-    combinations_final = combinations.groupby(["buscombination", "carrier"]).agg(strategies)
+    combinations_final = combinations.groupby(["buscombination", "carrier"]).agg(
+        strategies
+    )
+
     combinations_final.set_index("link_id", inplace=True)
+    combinations_final = combinations_final.drop(columns="buscombination")
 
     io.import_components_from_dataframe(network_c, combinations_final, "Link")
 
-    non_gas_links = new_links[~new_links["carrier"].isin(gas_carriers)].copy()
+    non_gas_links = (
+        new_links[~new_links["carrier"].isin(gas_carriers)]
+        .copy()
+        .drop(columns="link_id")
+    )
 
     io.import_components_from_dataframe(network_c, non_gas_links, "Link")
 
@@ -157,17 +177,8 @@ def kmean_clustering_gas_grid(etrago):
     ----------
     network : :class:`pypsa.Network
         Container for all network components.
-    n_clusters : int
-        Desired number of clusters.
-    load_cluster : boolean
-        Loads cluster coordinates from a former calculation.
-    line_length_factor : float
-        Factor to multiply the crow-flies distance between new buses in order
-        to get new line lengths.
-    remove_stubs: boolean
-        Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
-    use_reduced_coordinates: boolean
-        If True, do not average cluster coordinates, but take from busmap.
+    n_clusters_gas : int
+        Desired number of gas clusters.
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
         and save it to a csv file.
@@ -188,20 +199,16 @@ def kmean_clustering_gas_grid(etrago):
         str
     )
     df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
-    H2_grid_nodes = df_correspondance_H2_CH4["bus_H2"].tolist()
-    H2_grid_nodes_s = [str(x) for x in H2_grid_nodes]
 
-    # Create network_ch4
-    # network_ch4  contains all the CH4 components (buses, links, generators, stores and load)
+    # Create network_ch4 (grid nodes in order to create the busmap basis)
     network = etrago.network.copy()
     network_ch4 = etrago.network.copy()
 
     for data, name in zip([network_ch4.links, network_ch4.buses], ["links_", "buses_"]):
-        gpd.GeoDataFrame(data, geometry="geom", crs=4326).to_csv(name + 'not_clustered.csv')
+        pd.DataFrame(data).to_csv(name + "not_clustered.csv")
 
     network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4") &
-        (network_ch4.buses["country"] == "DE")
+        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
     ]
 
     # Cluster network_ch4
@@ -236,17 +243,18 @@ def kmean_clustering_gas_grid(etrago):
     # Creation of the busmap
     busmap_ch4 = busmap_by_kmeans(
         network_ch4,
-        bus_weightings=weight_ch4_s,  # pd.Series(weight_ch4),
+        bus_weightings=weight_ch4_s,
         n_clusters=kmean_gas_settings["n_clusters_gas"],
         n_init=kmean_gas_settings["n_init"],
         max_iter=kmean_gas_settings["max_iter"],
         tol=kmean_gas_settings["tol"],
-        # n_jobs=kmean_gas_settings["n_jobs"],
+        n_jobs=kmean_gas_settings["n_jobs"],
     )
 
     busmap_h2 = pd.concat(
         [df_correspondance_H2_CH4, busmap_ch4.rename("CH4_nodes_c")],
-        axis=1, join="inner"
+        axis=1,
+        join="inner",
     )
 
     CH4_clusters = busmap_h2["CH4_nodes_c"].tolist()
@@ -279,7 +287,9 @@ def kmean_clustering_gas_grid(etrago):
     busmap.index = busmap.index.astype(str)
 
     busmap.to_csv(
-        "kmeans_gasgrid_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
+        "kmeans_gasgrid_busmap_"
+        + str(kmean_gas_settings["n_clusters_gas"])
+        + "_result.csv"
     )
 
     # H2 and CH4 components
@@ -304,12 +314,12 @@ def kmean_clustering_gas_grid(etrago):
                 "p_set": np.sum,
             },
         },
-        aggregate_generators_weighted=False,
-        line_length_factor=kmean_gas_settings["line_length_factor"],
     )
 
-    for data, name in zip([network_gasgrid_c.links, network_gasgrid_c.buses], ["links_", "buses_"]):
-        data.to_csv(name + 'clustered.csv')
+    for data, name in zip(
+        [network_gasgrid_c.links, network_gasgrid_c.buses], ["links_", "buses_"]
+    ):
+        data.to_csv(name + "clustered.csv")
 
     return network
 

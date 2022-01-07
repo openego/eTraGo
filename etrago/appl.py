@@ -341,12 +341,12 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.kmean_clustering_gas()
-    etrago.ehv_clustering()
+    # etrago.ehv_clustering()
 
     # k-mean clustering
     # needs to be adjusted for new sectors
 
-    etrago.kmean_clustering()
+    # etrago.kmean_clustering()
 
     # skip snapshots
     # needs to be adjusted for new sectors
