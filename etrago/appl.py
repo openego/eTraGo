@@ -346,12 +346,12 @@ def run_etrago(args, json_path):
     
     ###
     # TODO
-    # workaround because needs to be adapted to other sectors 
-    etrago.network.generators = etrago.network.generators[etrago.network.generators.bus.isin(etrago.network.buses.index)]
+    # workaround because spatial clustering still needs to be adapted to other sectors 
     etrago.network.buses = etrago.network.buses[etrago.network.buses['carrier']=='AC']
     etrago.network.generators = etrago.network.generators[etrago.network.generators['carrier']!='CH4']
     etrago.network.generators = etrago.network.generators[etrago.network.generators['carrier']!='solar_thermal_collector']
     etrago.network.generators = etrago.network.generators[etrago.network.generators['carrier']!='geo_thermal']
+    etrago.network.generators = etrago.network.generators[etrago.network.generators.bus.isin(etrago.network.buses.index)]
     ###
 
     # k-mean clustering
