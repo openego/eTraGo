@@ -68,12 +68,12 @@ def _get_crossborder_components(network, cntr='all'):
         Index of dc-lines from Germany to foreign country
 
     """
-    buses_de = network.buses.index[network.buses.country_code == 'DE']
+    buses_de = network.buses.index[network.buses.country == 'DE']
 
     if cntr == 'all':
-        buses_for = network.buses.index[network.buses.country_code != 'DE']
+        buses_for = network.buses.index[network.buses.country != 'DE']
     else:
-        buses_for = network.buses.index[network.buses.country_code == cntr]
+        buses_for = network.buses.index[network.buses.country == cntr]
 
     cb0 = network.lines.index[(network.lines.bus0.isin(buses_for))
                               & (network.lines.bus1.isin(buses_de))]
@@ -366,9 +366,9 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
     """
 
-    buses_de = network.buses.index[network.buses.country_code == 'DE']
+    buses_de = network.buses.index[network.buses.country == 'DE']
 
-    countries = network.buses.country_code.unique()
+    countries = network.buses.country.unique()
 
     export_per_country = pd.DataFrame(
         data=self.args['extra_functionality']['cross_border_flow_per_country']
@@ -424,9 +424,9 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
     """
 
-    buses_de = network.buses.index[network.buses.country_code == 'DE']
+    buses_de = network.buses.index[network.buses.country == 'DE']
 
-    countries = network.buses.country_code.unique()
+    countries = network.buses.country.unique()
 
     export_per_country = pd.DataFrame(
         data=self.args['extra_functionality']['cross_border_flow_per_country']
@@ -514,7 +514,7 @@ def _generation_potential(network, carrier, cntr='all'):
         gens = network.generators.index[
             (network.generators.carrier == carrier) &
             (network.generators.bus.astype(str).isin(
-                network.buses.index[network.buses.country_code == cntr]))]
+                network.buses.index[network.buses.country == cntr]))]
     if carrier in ['wind_onshore', 'wind_offshore', 'solar']:
         potential = (network.generators.p_nom[gens]*\
                              network.generators_t.p_max_pu[gens].mul(
@@ -847,7 +847,7 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
             gens = network.generators.index[
                 (network.generators.carrier == c) &
                 (network.generators.bus.astype(str).isin(
-                    network.buses.index[network.buses.country_code == cntr]))]
+                    network.buses.index[network.buses.country == cntr]))]
             for g in gens:
                 if c in ['wind_onshore', 'wind_offshore', 'solar']:
                     potential = (network.generators.p_nom[g]*
@@ -912,7 +912,7 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
             gens = network.generators.index[
                 (network.generators.carrier == c) &
                 (network.generators.bus.astype(str).isin(
-                    network.buses.index[network.buses.country_code == cntr]))]
+                    network.buses.index[network.buses.country == cntr]))]
             for g in gens:
                 if c in ['wind_onshore', 'wind_offshore', 'solar']:
                     potential = (network.generators.p_nom[g]*
