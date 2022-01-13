@@ -119,13 +119,19 @@ def get_clustering_from_busmap(
         {col: "first" for col in new_links.columns if col not in strategies}
     )
 
-    gas_carriers = [
+    gas_carriers = [   # This list should be replace by an automatic selection
         "CH4",
         "H2_to_CH4",
         "CH4_to_H2",
         "H2_feedin",
         "H2_to_power",
         "power_to_H2",
+        "central_gas_CHP",
+        "central_gas_CHP_heat",
+        "industrial_gas_CHP",
+        "rural_gas_boiler",
+        "central_gas_boiler",
+        "OCGT"
     ]
 
     gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
