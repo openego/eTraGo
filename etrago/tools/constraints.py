@@ -1195,16 +1195,14 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
         sus.index, rule=cyclic_state_of_charge)
 
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
-
-    sus = n.storage_units
     
     candidates = \
         n.cluster.index.get_level_values(0).unique()
-        
     period_starts = sns[0::24]
     
     ######################### Storage Unit ###################################
-
+    
+    sus = n.storage_units
     c = 'StorageUnit'
 
     soc_total = get_var(n, c, 'state_of_charge')
@@ -1213,7 +1211,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     # Set lower and upper bound for soc_inter
     lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
     ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
-
     # Create soc_inter variable for each storage and each day
     define_variables(n, lb, ub, c, 'soc_inter')
     
@@ -1221,11 +1218,9 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     # Set lower and upper bound for soc_intra
     lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
     ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
-
     # Set soc_intra to 0 at first hour of every day
     lb.loc[period_starts, :] = 0
     ub.loc[period_starts, :] = 0
-
     # Create intra soc variable for each storage and each hour
     define_variables(n, lb, ub, c, 'soc_intra')
     soc_intra = get_var(n, c, 'soc_intra')
@@ -1252,21 +1247,18 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
                  (eff_stand, last_soc_intra),
                  (-1/eff_dispatch, next_dispatch),
                  (eff_store, next_store)]
-
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
-
     define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
 
     coeff_var = [(-1, soc_total),
                  (1, soc_intra),
-                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))
-                 ]
+                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
-
     define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
     
     ############################# Store ######################################
 
+    sus = n.stores
     c = 'Store'
 
     soc_total_store = get_var(n, c, 'e')
@@ -1275,7 +1267,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     # Set lower and upper bound for soc_inter
     lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
     ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
-
     # Create soc_inter variable for each storage and each day
     define_variables(n, lb, ub, c, 'soc_inter_store')
     
@@ -1283,11 +1274,9 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     # Set lower and upper bound for soc_intra
     lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
     ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
-
     # Set soc_intra to 0 at first hour of every day
     lb.loc[period_starts, :] = 0
     ub.loc[period_starts, :] = 0
-
     # Create intra soc variable for each storage and each hour
     define_variables(n, lb, ub, c, 'soc_intra_store')
     soc_intra_store = get_var(n, c, 'soc_intra_store')
@@ -1299,35 +1288,23 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     next_soc_inter_store = soc_inter_store.shift(-1).fillna(soc_inter_store.loc[candidates[0]])
     
     last_soc_intra_store = soc_intra_store.loc[last_hour].set_index(candidates)
-    
-    import pdb; pdb.set_trace()
 
     eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
-    eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
-    eff_store = expand_series(n.df(c).efficiency_store, candidates).T
     
-    dispatch = get_var(n, c, 'p_dispatch').loc[first_hour].set_index(candidates)
-    store = get_var(n, c, 'p_store').loc[first_hour].set_index(candidates)
+    dispatch = get_var(n, c, 'p').loc[first_hour].set_index(candidates)
     next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
-    next_store = store.shift(-1).fillna(dispatch.loc[candidates[0]])
 
-    coeff_var = [(-1, next_soc_inter),
-                 (eff_stand.pow(24), soc_inter),
-                 (eff_stand, last_soc_intra),
-                 (-1/eff_dispatch, next_dispatch),
-                 (eff_store, next_store)]
-
+    coeff_var = [(-1, next_soc_inter_store),
+                 (eff_stand.pow(24), soc_inter_store),
+                 (eff_stand, last_soc_intra_store)]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints_store')
 
-    define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
-
-    coeff_var = [(-1, soc_total),
-                 (1, soc_intra),
-                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))
-                 ]
+    coeff_var = [(-1, soc_total_store),
+                 (1, soc_intra_store),
+                 (1, soc_inter_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
-
-    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints_store')
 
 
 class Constraints:
@@ -1348,7 +1325,6 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
-
         for constraint in self.args['extra_functionality'].keys():
             try:
                 type(network.model)
@@ -1368,7 +1344,6 @@ class Constraints:
                                 format(constraint))
                 except:
                     logger.warning("Constraint {} not defined".format(constraint))
-
 
         if self.args['snapshot_clustering']['active']:
 
