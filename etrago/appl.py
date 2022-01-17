@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'egon-data4',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -85,7 +85,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
@@ -333,11 +333,13 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
     
+    etrago.network.loads.sign = -1
+    
+    #breakpoint()
     #etrago = Etrago(csv_folder_name='etrago_CI')
-
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-    breakpoint()
+    #breakpoint()
     # ehv network clustering
     etrago.ehv_clustering()
     breakpoint()    

@@ -66,13 +66,12 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(network, busmap):
 
-    # network2 is supposed to contain all the no electrical buses and links
+    # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
     network2.buses = network2.buses[(network2.buses['carrier'] != 'AC') &
                                     (network2.buses['carrier'] != 'CH4') &
                                     (network2.buses['carrier'] != 'H2_grid') &
-                                    (network2.buses['carrier'] != 'H2') &
-                                    (network2.buses['carrier'] != 'H2_saltcavern')]
+                                    (network2.buses['carrier'] != 'H2_ind_load')]
 
     # no_elec_to_eHV maps the no electrical buses to the closest eHV bus
     no_elec_to_eHV = {}
@@ -166,6 +165,10 @@ def _make_consense_links(x):
 def nan_links(x):
     return np.nan
 
+def ext_storage(x):
+    v = any(x[x == True])
+    return v
+
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """ Main function of the EHV-Clustering approach. Creates a new clustered
@@ -227,7 +230,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # dealing with generators
     network.generators.control = "PV"
     network.generators['weight'] = 1
-    
+
     new_df, new_pnl = aggregategenerators(network, busmap, with_time,
                                           custom_strategies={'p_nom_min': np.min, 'p_nom_max': np.min,
                                                              'weight': np.sum, 'p_nom': np.sum,
@@ -242,10 +245,17 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     aggregate_one_ports.discard('Generator')
 
     for one_port in aggregate_one_ports:
-        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
-                                               'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                                               'p_min_pu': np.min}, 'Store': {'marginal_cost': np.mean, 'capital_cost': np.mean,
-                                                                              'standing_loss': np.mean, 'e_nom': np.sum}}
+        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean,
+                                               'capital_cost': np.mean,
+                                               'efficiency_dispatch': np.mean,
+                                               'standing_loss': np.mean,
+                                               'efficiency_store': np.mean,
+                                               'p_min_pu': np.min,
+                                               'p_nom_extendable': ext_storage},
+                               'Store': {'marginal_cost': np.mean,
+                                         'capital_cost': np.mean,
+                                         'standing_loss': np.mean,
+                                         'e_nom': np.sum}}
         new_df, new_pnl = aggregateoneport(
             network, busmap, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
@@ -435,6 +445,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # applying multiprocessing
     p = mp.Pool(cpu_cores)
+    breakpoint()
     chunksize = ceil(len(ppaths) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
@@ -733,7 +744,8 @@ def kmean_clustering(etrago):
                                                  'efficiency_dispatch': np.mean,
                                                  'standing_loss': np.mean,
                                                  'efficiency_store': np.mean,
-                                                 'p_min_pu': np.min}},
+                                                 'p_min_pu': np.min,
+                                                 'p_nom_extendable': ext_storage}},
             generator_strategies={'p_nom_min': np.min,
                                   'p_nom_opt': np.sum,
                                   'marginal_cost': np.mean,
@@ -776,7 +788,8 @@ def kmean_clustering(etrago):
                                              'efficiency_dispatch': np.mean,
                                              'standing_loss': np.mean,
                                              'efficiency_store': np.mean,
-                                             'p_min_pu': np.min}},
+                                             'p_min_pu': np.min,
+                                             'p_nom_extendable': ext_storage}},      
         generator_strategies={'p_nom_min': np.min,
                               'p_nom_opt': np.sum,
                               'marginal_cost': np.mean,
@@ -918,11 +931,6 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         network.storage_units_t[attr] = network.storage_units_t[attr].join(
             no_elec_network.storage_units_t[attr])
     
-#    network_c.loads_t.p_set = network.loads_t.p_set.join(
-#        no_elec_network.loads_t.p_set)
-#    network_c.loads_t.q_set = network.loads_t.q_set.join(
-#        no_elec_network.loads_t.q_set)
-
     buses = aggregatebuses(
         network, busmap2, {
             'x': _leading(
@@ -972,10 +980,18 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     aggregate_one_ports.discard('Generator')
     
     for one_port in aggregate_one_ports:
-        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean, 'capital_cost': np.mean,
-                                               'efficiency_dispatch': np.mean, 'standing_loss': np.mean, 'efficiency_store': np.mean,
-                                               'p_min_pu': np.min}, 'Store': {'marginal_cost': np.mean, 'capital_cost': np.mean,
-                                                                              'standing_loss': np.mean, 'e_nom': np.sum}}
+        one_port_strategies = {'StorageUnit': {'marginal_cost': np.mean,
+                                               'capital_cost': np.mean,
+                                               'efficiency_dispatch': np.mean,
+                                               'standing_loss': np.mean,
+                                               'efficiency_store': np.mean,
+                                               'p_min_pu': np.min,
+                                               'p_nom_extendable': ext_storage},
+                               'Store': {'marginal_cost': np.mean,
+                                         'capital_cost': np.mean,
+                                         'standing_loss': np.mean,
+                                         'e_nom': np.sum}}
+        
         new_df, new_pnl = aggregateoneport(
             network, busmap2, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
