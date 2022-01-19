@@ -622,7 +622,7 @@ def kmean_clustering(etrago):
         """
         # define weighting based on conventional 'old' generator spatial
         # distribution
-
+        
         non_conv_types = {
             'biomass',
             'wind_onshore',
@@ -897,8 +897,7 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
                 'v_mag_pu_min': 0,
                 'v_mag_pu_max': np.inf,
                 'control': "PV",
-                'sub_network': "",
-                'country_code': etrago.network.buses.at[kmean_bus, 'country_code']},
+                'sub_network': "" },
                 name=str(kmean_bus) + "-" + str(carry))
             no_elec_network.buses = no_elec_network.buses.append(new_bus)
     # busmap now includes the not electrical buses and their corresponding new
@@ -998,7 +997,7 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
-    breakpoint()
+
     # Dealing with links
     
     #delete the reference of the kmean buses to themself in order to avoid
@@ -1040,7 +1039,7 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
         ['bus0', 'bus1', 'carrier']).agg(strategies)
     network_c.links = network_c.links.append(dc_links)
     network_c.links = network_c.links.reset_index(drop=True)
-    breakpoint()
+
     network_c.determine_network_topology()
     
     return network_c
@@ -1058,14 +1057,15 @@ def run_kmeans_clustering(self):
 
         if self.args['disaggregation'] != None:
             self.disaggregated_network = self.network.copy()
-
+        
         self.network = self.clustering.network.copy()
+        
+        self.network = cluster_not_electrical(self, no_elec_network, with_time=True)
+
+        buses_by_country(self.network)
 
         self.geolocation_buses()
 
         self.network.generators.control[self.network.generators.control == ''] = 'PV'
-
-        self.network = cluster_not_electrical(self, no_elec_network, with_time=True)
-
         logger.info("Network clustered to {} buses with k-means algorithm."
                     .format(self.args['network_clustering_kmeans']['n_clusters']))

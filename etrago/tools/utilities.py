@@ -189,7 +189,9 @@ def buses_by_country(network):
                        data="PL")
     czech = pd.Series(index=network.
                       buses[(network.buses['x'] < 17) &
-                            (network.buses['x'] > 15.1)].index,
+                            (network.buses['x'] > 15.1) &
+                            (network.buses['y'] > 49) & 
+                            (network.buses['y'] < 51)].index,
                       data="CZ")
     denmark = pd.Series(index=network.
                         buses[((network.buses['y'] < 60) &
@@ -259,6 +261,10 @@ def buses_by_country(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
+    
+    #################### NOT DEFINITIVE ###############################
+    foreign_buses = foreign_buses[~foreign_buses.index.duplicated()]
+    #################### NOT DEFINITIVE ###############################
 
     network.buses['country'] = foreign_buses[foreign_buses.index.isin(
         network.buses.index)]
