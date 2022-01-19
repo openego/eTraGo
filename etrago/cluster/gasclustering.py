@@ -14,9 +14,10 @@ if "READTHEDOCS" not in os.environ:
     from egoio.tools import db
     from pypsa import Network
     from pypsa.networkclustering import (
-        aggregatebuses,
+        # aggregatebuses,
         aggregateoneport,
         busmap_by_kmeans,
+        get_buses_linemap_and_lines,
     )
     from six import iteritems
 
@@ -48,6 +49,7 @@ def select_dataframe(sql, conn, index_col=None):
 def get_clustering_from_busmap(
     network,
     busmap,
+    line_length_factor=1.0,
     with_time=True,
     bus_strategies=dict(),
     one_port_strategies=dict(),
@@ -63,8 +65,12 @@ def get_clustering_from_busmap(
 
     network_c = Network()
 
-    buses = aggregatebuses(network, busmap, bus_strategies)
+    # buses = aggregatebuses(network, busmap, bus_strategies)
+    buses, linemap, linemap_p, linemap_n, lines = get_buses_linemap_and_lines(
+        network, busmap, line_length_factor, bus_strategies
+    )
     io.import_components_from_dataframe(network_c, buses, "Bus")
+    io.import_components_from_dataframe(network_c, lines, "Line")
 
     if with_time:
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
@@ -119,7 +125,7 @@ def get_clustering_from_busmap(
         {col: "first" for col in new_links.columns if col not in strategies}
     )
 
-    gas_carriers = [   # This list should be replace by an automatic selection
+    gas_carriers = [  # This list should be replace by an automatic selection
         "CH4",
         "H2_to_CH4",
         "CH4_to_H2",
@@ -131,7 +137,7 @@ def get_clustering_from_busmap(
         "industrial_gas_CHP",
         "rural_gas_boiler",
         "central_gas_boiler",
-        "OCGT"
+        "OCGT",
     ]
 
     gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
@@ -207,8 +213,9 @@ def kmean_clustering_gas_grid(etrago):
     df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
 
     # Create network_ch4 (grid nodes in order to create the busmap basis)
-    network = etrago.network.copy()
-    network_ch4 = etrago.network.copy()
+    network_ch4 = Network()
+    buses_ch4 = etrago.network.buses
+    io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
     for data, name in zip([network_ch4.links, network_ch4.buses], ["links_", "buses_"]):
         pd.DataFrame(data).to_csv(name + "not_clustered.csv")
@@ -281,8 +288,10 @@ def kmean_clustering_gas_grid(etrago):
 
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
     busmap.index = busmap.index.astype(str)
-    missing_idx = list(network.buses[~network.buses.index.isin(busmap.index)].index)
-    next_bus_id = network.buses.index.astype(int).max() + 1
+    missing_idx = list(
+        etrago.network.buses[~etrago.network.buses.index.isin(busmap.index)].index
+    )
+    next_bus_id = etrago.network.buses.index.astype(int).max() + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
@@ -299,12 +308,13 @@ def kmean_clustering_gas_grid(etrago):
     )
 
     # H2 and CH4 components
-    network_gas = etrago.network.copy()
+    # network_gas = etrago.network.copy()
 
     network_gasgrid_c = get_clustering_from_busmap(
-        network_gas,
+        etrago.network,
         busmap,
-        bus_strategies={'country': 'first'},
+        line_length_factor=kmean_gas_settings["line_length_factor"],
+        bus_strategies={"country": "first"},
         one_port_strategies={
             "Generator": {
                 "marginal_cost": np.mean,
@@ -328,7 +338,7 @@ def kmean_clustering_gas_grid(etrago):
     ):
         data.to_csv(name + "clustered.csv")
 
-    return network
+    return network_gasgrid_c
 
 
 def run_kmeans_clustering_gas(self):
