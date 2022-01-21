@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 1,
+    'end_snapshot': 16,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -74,7 +74,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 25, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -95,7 +95,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
+    'skip_snapshots': 5, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': True,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -332,62 +332,22 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-    
+
     etrago.network.loads.sign = -1
-    
-    #breakpoint()
-    #etrago = Etrago(csv_folder_name='etrago_CI')
-    # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-    #breakpoint()
+
     # ehv network clustering
     etrago.ehv_clustering()
-    breakpoint()    
-    # k-mean clustering
-    # needs to be adjusted for new sectors
-    etrago.kmean_clustering()
-    breakpoint()
 
-    orig = {}
-    orig['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    orig['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    orig['gen']=etrago.network.generators.p_nom.sum()
-    orig['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    orig['storage']=etrago.network.storage_units.p_nom.sum()
-    orig['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    ehv = {}
-    ehv['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    ehv['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    ehv['gen']=etrago.network.generators.p_nom.sum()
-    ehv['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    ehv['storage']=etrago.network.storage_units.p_nom.sum()
-    ehv['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    kmean = {}
-    kmean['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    kmean['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    kmean['gen']=etrago.network.generators.p_nom.sum()
-    kmean['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    kmean['storage']=etrago.network.storage_units.p_nom.sum()
-    kmean['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-    
-    kmean2 = {}
-    kmean2['load_P_c']= network_c.loads_t.p_set.sum().sum()
-    kmean2['load_Q_c']=network_c.loads_t.q_set.sum().sum()
-    
-    kmean2['load_P_elec']= etrago.network.loads_t.p_set.sum().sum()
-    kmean2['load_Q_elec']= etrago.network.loads_t.q_set.sum().sum()
-    
-    kmean2['load_P_no']= no_elec_network.loads_t.p_set.sum().sum()
-    kmean2['load_Q_no']= no_elec_network.loads_t.q_set.sum().sum()
+    # k-mean clustering
+    etrago.kmean_clustering()
 
     # skip snapshots    
-    etrago.skip_snapshots()
+    #etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors

@@ -97,7 +97,6 @@ def adjust_no_electric_network(network, busmap):
                 bus_hv = df['bus1'][0]
 
         if bus_hv == -1:
-            print(f'Bus {bus_ne} has no connexion to electricity network')
             new_bus = pd.Series(network2.buses.loc[bus_ne, :],
                                 name=str(bus_ne) + "-" + str(carry))
             network.buses = network.buses.append(new_bus)
@@ -107,15 +106,16 @@ def adjust_no_electric_network(network, busmap):
         no_elec_to_eHV[bus_ne] = busmap[str(bus_hv)]
         busmap2[bus_ne] = str(busmap[str(bus_hv)]) + '-' + str(carry)
 
+    no_elec_conex = []
     # The new buses based on the eHV network for not electrical buses are created
     for carry, df in network2.buses.groupby(by='carrier'):
         bus_unique = []
         for bus in df.index:
-            try:
+            if bus in no_elec_to_eHV.keys():
                 if no_elec_to_eHV[bus] not in bus_unique:
                     bus_unique.append(no_elec_to_eHV[bus])
-            except:
-                print(f'Bus {bus} has no connexion to electricity network')
+            else:
+                no_elec_conex.append(bus)
 
         for eHV_bus in bus_unique:
             new_bus = pd.Series({
@@ -134,16 +134,14 @@ def adjust_no_electric_network(network, busmap):
                 'country': network.buses.at[eHV_bus, 'country']},
                 name=str(eHV_bus) + "-" + str(carry))
 
-                #'country': network.buses.at[eHV_bus, 'country']},
-                # name= new_buses[eHV_bus + "-" + carry],)
-
             network.buses = network.buses.append(new_bus)
-    # busmap now includes the not electrical buses and their corresponding new
-    # buses to be mapped.
 
-    for gas_bus in network.buses[(network.buses['carrier'] == 'CH4') |
-                                 (network.buses['carrier'] == 'H2_grid') |
-                                 (network.buses['carrier'] == 'H2')].index:
+    if no_elec_conex:
+        print(f'These buses has no connexion to electricity network: {no_elec_conex}')
+
+    for gas_bus in network.buses[(network.buses['carrier'] == 'H2_grid') |
+                                 (network.buses['carrier'] == 'H2_ind_load') |
+                                 (network.buses['carrier'] == 'CH4')].index:
         carry = network.buses.loc[gas_bus, 'carrier']
         new_bus = pd.Series(network.buses.loc[gas_bus, :],
                             name=str(gas_bus) + "-" + str(carry))
@@ -622,16 +620,21 @@ def kmean_clustering(etrago):
         """
         # define weighting based on conventional 'old' generator spatial
         # distribution
-        
         non_conv_types = {
             'biomass',
+            'central_biomass_CHP',
+            'industrial_biomass_CHP',
             'wind_onshore',
             'wind_offshore',
-            'pv',
+            'solar',
             'solar_rooftop',
             'geo_thermal',
             'load shedding',
-            'extendable_storage'}
+            'extendable_storage',
+            'other_renewable',
+            'reservoir',
+            'run_of_river',
+            'pumped_hydro'}
         # Attention: network.generators.carrier.unique()
         gen = (network.generators.loc[(network.generators.carrier
                                        .isin(non_conv_types) == False)]
@@ -733,7 +736,7 @@ def kmean_clustering(etrago):
             # i.e. network is changed in place!!
             network.buses.loc[busmap.index, ['x', 'y']
                               ] = network.buses.loc[busmap, ['x', 'y']].values
-
+        
         clustering = get_clustering_from_busmap(
             network,
             busmap,
@@ -778,7 +781,7 @@ def kmean_clustering(etrago):
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
-
+    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
@@ -869,22 +872,23 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     buses_gas = no_elec_network.buses[
         (no_elec_network.buses['carrier'] == 'CH4') |
         (no_elec_network.buses['carrier'] == 'H2_grid') |
-        (no_elec_network.buses['carrier'] == 'H2')].copy()
+        (no_elec_network.buses['carrier'] == 'H2_ind_load')].copy()
 
     buses_no_gas = no_elec_network.buses[
         (no_elec_network.buses['carrier'] != 'CH4') &
         (no_elec_network.buses['carrier'] != 'H2_grid') &
-        (no_elec_network.buses['carrier'] != 'H2')].copy()
-
+        (no_elec_network.buses['carrier'] != 'H2_ind_load')].copy()
+    
+    no_elec_conex = []
     # The new buses based on the k-mean clustering for not electrical buses are created
     for carry, df in buses_no_gas.groupby(by='carrier'):
         bus_unique = []
         for bus in df.index:
-            try:
+            if bus.split('-')[0] in busmap.keys():
                 if busmap[bus.split('-')[0]] not in bus_unique:
                     bus_unique.append(busmap2[bus].split('-')[0])
-            except:
-                print(f'Bus {bus} has no connexion to electricity network')
+            else:
+                no_elec_conex.append(bus)
 
         for kmean_bus in bus_unique:
             new_bus = pd.Series({
@@ -902,7 +906,9 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
             no_elec_network.buses = no_elec_network.buses.append(new_bus)
     # busmap now includes the not electrical buses and their corresponding new
     # buses to be mapped.
-
+    
+    print(f'These buses has no connexion to electricity network: {no_elec_conex}')
+    
     for gas_bus in buses_gas.index:
         busmap2[gas_bus] = gas_bus
     
