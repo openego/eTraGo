@@ -105,7 +105,8 @@ args = {
     'comments': None,
     'dsm':{ # False or dictionary with options
         'dsm_marg_cost':5, # marginal DSM costs [EUR/MWh]
-        'dsm_extendable':True} # DSM extenable (True / False)
+        'dsm_extendable':True, # DSM extenable (True / False)
+        'dsm_potential_path':''} # enter path to DSM potential data here
     }
 
 
