@@ -627,8 +627,7 @@ def kmean_clustering(etrago):
         busmap = busmap.append(busmap_sub)
     
         # import sub-sector network
-        #sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_test-2/2035/pypsa_format_sum/'
-        sub_csv_path = '/srv/ES2050/enera_region4flex/dsmlib_pypsa_export_2035/results/2011_with_fix_c/2035/pypsa_format_sum/'
+        sub_csv_path = etrago.args['dsm']['dsm_potential_path']
         sub_network = Network(import_name=sub_csv_path)
     
         #### manipulate dsm parameters
