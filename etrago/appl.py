@@ -373,6 +373,7 @@ if __name__ == '__main__':
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
+    etrago.session.close()
     # plots
     # make a line loading plot
     # plot_line_loading(network)
