@@ -255,7 +255,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
                                'Store': {'marginal_cost': np.mean,
                                          'capital_cost': np.mean,
                                          'standing_loss': np.mean,
-                                         'e_nom': np.sum}}
+                                         'e_nom': np.sum,
+                                         'e_nom_max': np.sum,}}
         new_df, new_pnl = aggregateoneport(
             network, busmap, component=one_port, with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}))
