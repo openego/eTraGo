@@ -147,7 +147,9 @@ def create_gas_busmap(etrago):
     missing_idx = list(
         etrago.network.buses[~etrago.network.buses.index.isin(busmap.index)].index
     )
-    next_bus_id = etrago.network.buses.index.astype(int).max() + 1
+    # breakpoint()
+    # next_bus_id = etrago.network.buses.index.astype(int).max() + 1
+    next_bus_id = len(etrago.network.buses.index)
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
@@ -353,27 +355,27 @@ def kmean_clustering_gas_grid(etrago, with_time=True):
         gas_busmap,
         bus_strategies={
             "country": "first",
-            "scn_name": "first",
-            "v_mag_pu_set_fixed": "first",
+            # "scn_name": "first",
+            # "v_mag_pu_set_fixed": "first",
         },
         one_port_strategies={
             "Generator": {
-                "scn_name": "first",
+                # "scn_name": "first",
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "p_nom_max": np.max,
                 "p_nom_min": np.min,
             },
             "Store": {
-                "scn_name": "first",
-                "carrier": "first",
+                # "scn_name": "first",
+                # "carrier": "first",
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "e_nom": np.sum,
                 "e_nom_max": np.sum,
             },
             "Load": {
-                "scn_name": "first",
+                # "scn_name": "first",
                 "p_set": np.sum,
             },
         },
