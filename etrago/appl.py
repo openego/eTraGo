@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 1,
+    'end_snapshot': 16,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -86,7 +86,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6, # affects clustering algorithm, only change when neccesary
         'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': True, #False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
@@ -96,7 +96,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
+    'skip_snapshots': 5, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -333,28 +333,23 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-    
-    #etrago = Etrago(csv_folder_name='etrago_CI')
 
-    # adjust network, e.g. set (n-1)-security factor
+    etrago.network.loads.sign = -1
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
 
     # k-mean clustering
-    # needs to be adjusted for new sectors
-
     etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
 
-    # skip snapshots
-    # needs to be adjusted for new sectors
-    # etrago.skip_snapshots()
+    # skip snapshots    
+    #etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    # etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
