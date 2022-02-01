@@ -332,16 +332,17 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-
-    etrago.network.loads.sign = -1
+    
     etrago.adjust_network()
-
-    # ehv network clustering
-    breakpoint()
-    etrago.ehv_clustering()
-    breakpoint()
-    # k-mean clustering
+    etrago.network.loads.sign = -1
     #breakpoint()
+    
+    # ehv network clustering
+    #breakpoint()
+    etrago.ehv_clustering()
+
+    # k-mean clustering
+    breakpoint()
     etrago.kmean_clustering()
 
     ehv = {}

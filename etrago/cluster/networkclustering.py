@@ -74,7 +74,7 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(network, busmap):
-    
+
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
     network2.buses = network2.buses[
@@ -89,7 +89,9 @@ def adjust_no_electric_network(network, busmap):
         columns=["cluster", "carrier", "new_bus"]
     ).set_index("new_bus")
     
+
     max_bus = max([int(item) for item in network.buses.index.to_list()])
+        
     no_elec_conex = []
     # busmap2 maps all the no electrical buses to the new buses based on the
     # eHV network
@@ -117,36 +119,40 @@ def adjust_no_electric_network(network, busmap):
             busmap2[bus_ne] = str(bus_ne)
             no_elec_conex.append(bus_ne)
             continue
-        
-        if ((no_elec_to_cluster.cluster == busmap[bus_hv]) &
-            (no_elec_to_cluster.carrier == carry)).any():
-            
+
+        if (
+            (no_elec_to_cluster.cluster == busmap[bus_hv])
+            & (no_elec_to_cluster.carrier == carry)
+        ).any():
+
             bus_cluster = no_elec_to_cluster[
-                (no_elec_to_cluster.cluster == busmap[bus_hv]) &
-                (no_elec_to_cluster.carrier == carry)].index[0]
+                (no_elec_to_cluster.cluster == busmap[bus_hv])
+                & (no_elec_to_cluster.carrier == carry)
+            ].index[0]
         else:
-            bus_cluster = str(max_bus+1)
+            bus_cluster = str(max_bus + 1)
             max_bus = max_bus + 1
-            new = pd.Series({'cluster': busmap[bus_hv], 'carrier': carry},
-                            name= bus_cluster)
+            new = pd.Series(
+                {"cluster": busmap[bus_hv], "carrier": carry}, name=bus_cluster
+            )
             no_elec_to_cluster = no_elec_to_cluster.append(new)
-        
+
         busmap2[bus_ne] = bus_cluster
-        
+
     if no_elec_conex:
         print(f"These buses has no connexion to electricity network: {no_elec_conex}")
-    
-    
+
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
         | (network.buses["carrier"] == "H2_ind_load")
-        | (network.buses["carrier"] == "CH4")].index:
-        
+        | (network.buses["carrier"] == "CH4")
+    ].index:
+
         busmap2[gas_bus] = gas_bus
 
     busmap = {**busmap, **busmap2}
-    
+
     # The new buses based on the eHV network for not electrical buses are created
     for no_elec_bus in no_elec_to_cluster.index:
         cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
@@ -674,6 +680,7 @@ def kmean_clustering(etrago):
         """ """
         # define weighting based on conventional 'old' generator spatial
         # distribution
+
         non_conv_types = {
             "biomass",
             "central_biomass_CHP",
@@ -892,34 +899,37 @@ def select_elec_network(etrago):
     elec_network.links = elec_network.links[
         (elec_network.links.carrier == "AC") | (elec_network.links.carrier == "DC")
     ]
-
+    # Dealing with generators
     elec_network.generators = elec_network.generators[
         elec_network.generators.bus.isin(elec_network.buses.index)
     ]
 
+    for attr in elec_network.generators_t:
+        elec_network.generators_t[attr] = elec_network.generators_t[attr].loc[
+            :,
+            elec_network.generators_t[attr].columns.isin(elec_network.generators.index),
+        ]
+
+    # Dealing with loads
     elec_network.loads = elec_network.loads[
         elec_network.loads.bus.isin(elec_network.buses.index)
     ]
 
     for attr in elec_network.loads_t:
-        elec_network.loads_t[attr] = (
-            elec_network.loads_t[attr].T[
-                elec_network.loads_t[attr].T.index.isin(elec_network.loads.bus)
-            ]
-        ).T
+        elec_network.loads_t[attr] = elec_network.loads_t[attr].loc[
+            :, elec_network.loads_t[attr].columns.isin(elec_network.loads.index)
+        ]
 
+    # Dealing with storage_units
     elec_network.storage_units = elec_network.storage_units[
         elec_network.storage_units.bus.isin(elec_network.buses.index)
     ]
 
     for attr in elec_network.storage_units_t:
-        elec_network.storage_units_t[attr] = (
-            elec_network.storage_units_t[attr].T[
-                elec_network.storage_units_t[attr].T.index.isin(
-                    elec_network.storage_units.bus
-                )
-            ]
-        ).T
+        elec_network.storage_units_t[attr] = elec_network.storage_units_t[attr].\
+            loc[:, elec_network.storage_units_t[attr].columns.isin(
+                elec_network.storage_units.index),
+        ]
 
     network = etrago.network.copy()
     no_elec_network = Network()
@@ -931,30 +941,37 @@ def select_elec_network(etrago):
     no_elec_network.generators = network.generators[
         ~network.generators.bus.isin(elec_network.buses.index)
     ]
+    
+    for attr in no_elec_network.generators_t:
+        no_elec_network.generators_t[attr] = network.generators_t[attr].loc[
+            :, network.generators_t[attr].columns.
+                isin(no_elec_network.generators.index),
+        ]
 
     no_elec_network.loads = network.loads[
         ~network.loads.bus.isin(elec_network.buses.index)
     ]
 
     for attr in no_elec_network.loads_t:
-        no_elec_network.loads_t[attr] = (
-            network.loads_t[attr].T[
-                ~network.loads_t[attr].T.index.isin(elec_network.loads.bus)
-            ]
-        ).T
+        no_elec_network.loads_t[attr] = network.loads_t[attr].loc[
+            :, network.loads_t[attr].columns.
+                isin(no_elec_network.loads.index),
+        ]
 
     no_elec_network.storage_units = network.storage_units[
         ~network.storage_units.bus.isin(elec_network.buses.index)
     ]
 
     for attr in network.storage_units_t:
-        no_elec_network.storage_units_t[attr] = (
-            network.storage_units_t[attr].T[
-                ~network.storage_units_t[attr].T.index.isin(
-                    elec_network.storage_units.bus
-                )
-            ]
-        ).T
+        no_elec_network.storage_units_t[attr] = network.storage_units_t[attr].loc[
+            :, network.storage_units_t[attr].columns.
+                isin(no_elec_network.storage_units.index),
+        ]
+    
+
+    no_elec_network.snapshots = network.snapshots
+    no_elec_network.set_snapshots(network.snapshots)
+    no_elec_network.snapshot_weightings = network.snapshot_weightings.copy()
 
     return elec_network, no_elec_network
 
@@ -962,120 +979,27 @@ def select_elec_network(etrago):
 def cluster_not_electrical(etrago, no_elec_network, with_time=True):
 
     busmap = etrago.clustering.busmap
+    
+    buses_id = etrago.network.buses.index.append(no_elec_network.buses.index)
+    max_bus_id = max([int(item) for item in buses_id.to_list()]) + 1
+    
+    network, busmap = adjust_no_electric_network(no_elec_network, busmap, max_bus = max_bus_id)
     breakpoint()
-
-    busmap2 = {}
-
-    for no_elec_bus in no_elec_network.buses.index:
-        if no_elec_bus.split("-")[0] in busmap.keys():
-            busmap2[no_elec_bus] = (
-                busmap[no_elec_bus.split("-")[0]]
-                + "-"
-                + no_elec_network.buses.loc[no_elec_bus, "carrier"]
-            )
-        else:
-            busmap2[no_elec_bus] = no_elec_bus
-
-    for kmean_bus in etrago.network.buses.index:
-        busmap2[kmean_bus] = kmean_bus
-
-    buses_gas = no_elec_network.buses[
-        (no_elec_network.buses["carrier"] == "CH4")
-        | (no_elec_network.buses["carrier"] == "H2_grid")
-        | (no_elec_network.buses["carrier"] == "H2_ind_load")
-    ].copy()
-
-    buses_no_gas = no_elec_network.buses[
-        (no_elec_network.buses["carrier"] != "CH4")
-        & (no_elec_network.buses["carrier"] != "H2_grid")
-        & (no_elec_network.buses["carrier"] != "H2_ind_load")
-    ].copy()
-
-    no_elec_conex = []
-    # The new buses based on the k-mean clustering for not electrical buses are created
-    for carry, df in buses_no_gas.groupby(by="carrier"):
-        bus_unique = []
-        for bus in df.index:
-            if bus.split("-")[0] in busmap.keys():
-                if busmap[bus.split("-")[0]] not in bus_unique:
-                    bus_unique.append(busmap2[bus].split("-")[0])
-            else:
-                no_elec_conex.append(bus)
-
-        for kmean_bus in bus_unique:
-            new_bus = pd.Series(
-                {
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": etrago.network.buses.at[kmean_bus, "x"],
-                    "y": etrago.network.buses.at[kmean_bus, "y"],
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                },
-                name=str(kmean_bus) + "-" + str(carry),
-            )
-            no_elec_network.buses = no_elec_network.buses.append(new_bus)
-    # busmap now includes the not electrical buses and their corresponding new
-    # buses to be mapped.
-
-    print(f"These buses has no connexion to electricity network: {no_elec_conex}")
-
-    for gas_bus in buses_gas.index:
-        busmap2[gas_bus] = gas_bus
-
-    network = etrago.network.copy()
-    network_c = Network()
-
-    # Merge the electrical and the not electrical networks
-    io.import_components_from_dataframe(network, no_elec_network.buses, "Bus")
-    io.import_components_from_dataframe(network, no_elec_network.links, "Link")
-    io.import_components_from_dataframe(
-        network, no_elec_network.generators, "Generator"
-    )
-    io.import_components_from_dataframe(network, no_elec_network.loads, "Load")
-    io.import_components_from_dataframe(
-        network, no_elec_network.storage_units, "StorageUnit"
-    )
-
-    for attr in no_elec_network.loads_t:
-        network.loads_t[attr] = network.loads_t[attr].join(
-            no_elec_network.loads_t[attr]
-        )
-
-    for attr in no_elec_network.storage_units_t:
-        network.storage_units_t[attr] = network.storage_units_t[attr].join(
-            no_elec_network.storage_units_t[attr]
-        )
-
     buses = aggregatebuses(
         network,
-        busmap2,
-        {"x": _leading(busmap2, network.buses), "y": _leading(busmap2, network.buses)},
+        busmap,
+        {"x": _leading(busmap, network.buses), "y": _leading(busmap, network.buses)},
     )
-
-    # keep attached lines
-    lines = network.lines.copy()
-    mask = lines.bus0.isin(buses.index)
-    lines = lines.loc[mask, :]
 
     # keep attached links
     links = network.links.copy()
     dc_links = links[links["carrier"] == "AC"]
     links = links[links["carrier"] != "AC"]
 
-    # keep attached transformer
-    transformers = network.transformers.copy()
-    mask = transformers.bus0.isin(buses.index)
-    transformers = transformers.loc[mask, :]
+    network_c = Network()
 
     io.import_components_from_dataframe(network_c, buses, "Bus")
-    io.import_components_from_dataframe(network_c, lines, "Line")
     io.import_components_from_dataframe(network_c, links, "Link")
-    io.import_components_from_dataframe(network_c, transformers, "Transformer")
 
     if with_time:
         network_c.snapshots = network.snapshots
@@ -1085,10 +1009,10 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     # dealing with generators
     network_c.generators.control = "PV"
     network_c.generators["weight"] = 1
-
+    breakpoint()
     new_df, new_pnl = aggregategenerators(
         network,
-        busmap2,
+        busmap,
         with_time,
         custom_strategies={
             "p_nom_min": np.min,
@@ -1129,7 +1053,7 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
 
         new_df, new_pnl = aggregateoneport(
             network,
-            busmap2,
+            busmap,
             component=one_port,
             with_time=with_time,
             custom_strategies=one_port_strategies.get(one_port, {}),
@@ -1143,9 +1067,8 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     # delete the reference of the kmean buses to themself in order to avoid
     # confussion with former buses with the same name
     for i in range(etrago.args["network_clustering_kmeans"]["n_clusters"]):
-        del busmap2[str(i)]
+        del busmap[str(i)]
 
-    busmap = {**busmap, **busmap2}
     network_c.links = no_elec_network.links.copy()
     network_c.links.bus0 = network_c.links.bus0.map(busmap)
     network_c.links.bus1 = network_c.links.bus1.map(busmap)
@@ -1184,15 +1107,41 @@ def cluster_not_electrical(etrago, no_elec_network, with_time=True):
     network_c.links = network_c.links.reset_index(drop=True)
 
     network_c.determine_network_topology()
-
+    breakpoint()
     return network_c
 
+
+def merge_elec_and_no_elec_networks(etrago, no_elec_network):
+
+    network = etrago.network.copy()
+
+    # Merge the electrical and the not electrical networks
+    io.import_components_from_dataframe(network, no_elec_network.buses, "Bus")
+    io.import_components_from_dataframe(network, no_elec_network.links, "Link")
+    io.import_components_from_dataframe(
+        network, no_elec_network.generators, "Generator"
+    )
+    io.import_components_from_dataframe(network, no_elec_network.loads, "Load")
+    io.import_components_from_dataframe(
+        network, no_elec_network.storage_units, "StorageUnit"
+    )
+
+    for attr in no_elec_network.loads_t:
+        network.loads_t[attr] = network.loads_t[attr].join(
+            no_elec_network.loads_t[attr]
+        )
+
+    for attr in no_elec_network.storage_units_t:
+        network.storage_units_t[attr] = network.storage_units_t[attr].join(
+            no_elec_network.storage_units_t[attr]
+        )
+    return network
 
 def run_kmeans_clustering(self):
 
     if self.args["network_clustering_kmeans"]["active"]:
 
-        self.network, no_elec_network = select_elec_network(self)
+        #self.network, no_elec_network = select_elec_network(self)
 
         self.network.generators.control = "PV"
 
