@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 16,
+    'end_snapshot': 10,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -74,7 +74,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 20, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -335,26 +335,13 @@ def run_etrago(args, json_path):
     
     etrago.adjust_network()
     etrago.network.loads.sign = -1
-    #breakpoint()
     
     # ehv network clustering
-    #breakpoint()
     etrago.ehv_clustering()
 
     # k-mean clustering
-    breakpoint()
-    etrago.kmean_clustering()
-
-    ehv = {}
-    ehv['load_P']=etrago.network.loads_t.p_set.sum().sum()
-    ehv['load_Q']=etrago.network.loads_t.q_set.sum().sum()
-    ehv['gen']=etrago.network.generators.p_nom.sum()
-    ehv['gen_t']=etrago.network.generators_t.p_max_pu.sum().sum()
-    ehv['storage']=etrago.network.storage_units.p_nom.sum()
-    ehv['storage_t']=etrago.network.storage_units_t.p_set.sum().sum()
-
-
-
+    #etrago.kmean_clustering()
+      
     # skip snapshots    
     #etrago.skip_snapshots()
 
