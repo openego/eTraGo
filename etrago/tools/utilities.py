@@ -446,15 +446,20 @@ def set_q_foreign_loads(self, cos_phi=1):
     """
     network = self.network
 
-    foreign_buses = network.buses[network.buses.country != 'DE']
+    foreign_buses = network.buses[(network.buses.country != 'DE')&
+                                  (network.buses.carrier == 'AC')]
 
     network.loads_t['q_set'][network.loads.index[
-        network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
+        network.loads.bus.astype(str).isin(foreign_buses.index)].astype(int)] = \
         network.loads_t['p_set'][network.loads.index[
             network.loads.bus.astype(str).isin(
                 foreign_buses.index)]] * math.tan(math.acos(cos_phi))
 
     network.generators.control[network.generators.control == 'PQ'] = 'PV'
+    
+    # To avoid problem when the index of the load is the weather year, the column
+    # names were temporaray set to int and changed back to str
+    network.loads_t['q_set'].columns = network.loads_t['q_set'].columns.astype(str)
 
 
 def connected_grid_lines(network, busids):

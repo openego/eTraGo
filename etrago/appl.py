@@ -332,7 +332,7 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-    
+
     etrago.adjust_network()
     etrago.network.loads.sign = -1
     
