@@ -7,16 +7,15 @@ import os
 
 if "READTHEDOCS" not in os.environ:
 
+    from collections import Counter
+
     import numpy as np
     import pandas as pd
     import pypsa.io as io
     from egoio.tools import db
     from pypsa import Network
-    from pypsa.networkclustering import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-    )
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
+                                         busmap_by_kmeans)
     from six import iteritems
 
     from etrago.tools.utilities import *
@@ -121,7 +120,6 @@ def create_gas_busmap(etrago):
         axis=1,
         join="inner",
     )
-
     CH4_clusters = busmap_h2["CH4_nodes_c"].tolist()
     CH4_clusters_unique = list(set(CH4_clusters))
     H2_clusters = range(
@@ -140,16 +138,18 @@ def create_gas_busmap(etrago):
 
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
 
-    ##### This part could be change to select only buses involved in links with gas buses #####
     # breakpoint()
     # print(busmap.index)
     busmap.index = busmap.index.astype(str)
     missing_idx = list(
-        etrago.network.buses[~etrago.network.buses.index.isin(busmap.index)].index
+        etrago.network.buses[
+            (~etrago.network.buses.index.isin(busmap.index))
+            & (etrago.network.buses["carrier"] != "H2_ind_load")
+        ].index
     )
     # breakpoint()
-    # next_bus_id = etrago.network.buses.index.astype(int).max() + 1
-    next_bus_id = len(etrago.network.buses.index)
+    next_bus_id = etrago.network.buses.index.astype(int).max() + 1
+    # next_bus_id = len(etrago.network.buses.index)
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
@@ -159,12 +159,67 @@ def create_gas_busmap(etrago):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    ### End of This part could be change to select only buses involved in links with gas buses ###
+    # H2_ind_load part
+    H2_ind_buses = etrago.network.buses[
+        (etrago.network.buses["carrier"] == "H2_ind_load")
+    ]
+    print(H2_ind_buses)
 
-    busmap.to_csv(
+    H2_ind_load_original_links = etrago.network.links[
+        (etrago.network.links["carrier"] == "H2_ind_load")
+    ]
+    print(H2_ind_load_original_links)
+
+    print(busmap)
+    clustered_H2_non_ind = []
+    for index, row in H2_ind_load_original_links.iterrows():
+        clustered_H2_non_ind.append(busmap[row["bus0"]])
+
+    H2_ind_load_original_links["clustered_H2_non_ind"] = clustered_H2_non_ind
+    print(H2_ind_load_original_links)
+    print("\n")
+
+    comb = []
+    for index, row in H2_ind_buses.iterrows():
+        df_combinaison = H2_ind_load_original_links[
+            H2_ind_load_original_links["bus1"] == index
+        ]
+        combinaison = tuple(sorted(df_combinaison["clustered_H2_non_ind"].tolist()))
+        comb.append(combinaison)
+
+    H2_ind_buses["comb"] = comb
+    print(H2_ind_buses)
+    print("\n")
+
+    counts = Counter(comb)
+    non_unique_comb = [value for value, count in counts.items() if count > 1]
+
+    new_bus_id = dict()
+    for index, row in H2_ind_buses[
+        ~H2_ind_buses["comb"].isin(non_unique_comb)
+    ].iterrows():
+        new_bus_id[index] = index
+
+    next_bus_id = busmap.index.astype(int).max() + 2 * len(non_unique_comb) + 1
+    print(next_bus_id)
+    for i in non_unique_comb:
+        c = H2_ind_buses[H2_ind_buses["comb"] == i].index.tolist()
+        new_bus_id[c[0]] = next_bus_id
+        new_bus_id[c[1]] = next_bus_id
+        next_bus_id += 1
+
+    print(new_bus_id)
+    print("\n")
+
+    busmap = {**busmap, **new_bus_id}
+    print(busmap)
+
+    df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
+    df_bm.to_csv(
         "kmeans_gasgrid_busmap_"
         + str(kmean_gas_settings["n_clusters_gas"])
-        + "_result.csv"
+        + "_result.csv",
+        index=False,
     )
 
     return busmap
