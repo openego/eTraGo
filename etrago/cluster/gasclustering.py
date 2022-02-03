@@ -53,22 +53,14 @@ def create_gas_busmap(etrago):
 
     Parameters
     ----------
+    network : pypsa.Network
+        The buses must have coordinates x,y.
     Returns
     -------
     busmap : pandas.Series
         Mapping of network.buses to k-means clusters (indexed by
         non-negative integers).
     """
-
-    # Download H2-CH4 correspondance table
-    engine = db.connection(section=etrago.args["db"])
-    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
-    df_correspondance_H2_CH4 = select_dataframe(sql, engine)
-    df_correspondance_H2_CH4["bus_CH4"] = df_correspondance_H2_CH4["bus_CH4"].astype(
-        str
-    )
-    df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
-
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
     buses_ch4 = etrago.network.buses
@@ -78,7 +70,7 @@ def create_gas_busmap(etrago):
         (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
     ]
 
-    # Cluster network_ch4
+    # Cluster ch4 buses
     kmean_gas_settings = etrago.args["network_clustering_kmeans"]
 
     def weighting_for_scenario(x, save=None):
@@ -118,6 +110,14 @@ def create_gas_busmap(etrago):
         n_jobs=kmean_gas_settings["n_jobs"],
     )
 
+    # Add H2_grid buses to busmap
+    engine = db.connection(section=etrago.args["db"])
+    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
+    df_correspondance_H2_CH4 = select_dataframe(sql, engine)
+    df_correspondance_H2_CH4["bus_CH4"] = df_correspondance_H2_CH4["bus_CH4"].astype(
+        str
+    )
+    df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
     busmap_h2 = pd.concat(
         [df_correspondance_H2_CH4, busmap_ch4.rename("CH4_nodes_c")],
         axis=1,
@@ -139,14 +139,9 @@ def create_gas_busmap(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
-    # buses_h2_salt = etrago.network.buses[
-    #     etrago.network.buses["carrier"] == "H2_saltcavern"
-    # ]
-
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
 
-    # breakpoint()
-    # print(busmap.index)
+    # Add all other buses except H2_ind_load to busmap
     busmap.index = busmap.index.astype(str)
     missing_idx = list(
         etrago.network.buses[
@@ -154,20 +149,17 @@ def create_gas_busmap(etrago):
             & (etrago.network.buses["carrier"] != "H2_ind_load")
         ].index
     )
-    # breakpoint()
     next_bus_id = etrago.network.buses.index.astype(int).max() + 1
-    # next_bus_id = len(etrago.network.buses.index)
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
-    # busmap.loc[buses_h2_salt.index] = 12121212
 
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    # H2_ind_load part
+    # Add H2_ind_load buses to busmap
     H2_ind_buses = etrago.network.buses[
         (etrago.network.buses["carrier"] == "H2_ind_load")
     ]
@@ -241,7 +233,6 @@ def get_clustering_from_busmap(
     new_buses.index.name = "bus_id"
 
     io.import_components_from_dataframe(network_gasgrid_c, new_buses, "Bus")
-    # network_gasgrid_c.buses.to_csv("network_gasgrid_c_buses.csv")
 
     if with_time:
         network_gasgrid_c.snapshot_weightings = network.snapshot_weightings.copy()
@@ -288,10 +279,6 @@ def get_clustering_from_busmap(
     new_links["link_id"] = new_links.index
 
     strategies = {
-        # "p_min_pu_fixed": "min",
-        # "p_max_pu_fixed": "max",
-        # "p_set_fixed": "mean",
-        # "marginal_cost_fixed": "mean",
         "p_nom": "sum",
         "length": "mean",
     }
@@ -320,7 +307,6 @@ def get_clustering_from_busmap(
     combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
     combinations.reset_index(drop=True, inplace=True)
 
-    print(combinations[["bus0", "bus1"]])
     combinations["buscombination"] = combinations[["bus0", "bus1"]].apply(
         lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
     )
@@ -352,7 +338,7 @@ def get_clustering_from_busmap(
     return network_gasgrid_c
 
 
-def kmean_clustering_gas_grid(etrago, with_time=True):
+def kmean_clustering_gas_grid(etrago):
     """Main function of the k-mean clustering approach. Maps the original gas
     network to a new one with adjustable number of nodes and new coordinates.
     Parameters
@@ -407,27 +393,21 @@ def kmean_clustering_gas_grid(etrago, with_time=True):
         gas_busmap,
         bus_strategies={
             "country": "first",
-            # "scn_name": "first",
-            # "v_mag_pu_set_fixed": "first",
         },
         one_port_strategies={
             "Generator": {
-                # "scn_name": "first",
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "p_nom_max": np.max,
                 "p_nom_min": np.min,
             },
             "Store": {
-                # "scn_name": "first",
-                # "carrier": "first",
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "e_nom": np.sum,
                 "e_nom_max": np.sum,
             },
             "Load": {
-                # "scn_name": "first",
                 "p_set": np.sum,
             },
         },

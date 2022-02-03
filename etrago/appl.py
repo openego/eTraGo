@@ -338,7 +338,7 @@ def run_etrago(args, json_path):
     etrago.network.loads.sign = -1
     
     # ehv network clustering
-    etrago.ehv_clustering()
+    # etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()

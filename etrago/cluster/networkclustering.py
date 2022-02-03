@@ -898,6 +898,9 @@ def kmean_clustering(etrago):
         network,
         busmap,
         aggregate_generators_weighted=True,
+        bus_strategies={
+            "v_mag_pu_set": "first",
+            },
         one_port_strategies={
             "StorageUnit": {
                 "marginal_cost": np.mean,
@@ -928,7 +931,7 @@ def kmean_clustering(etrago):
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
-        "efficiency_fixed": _make_consense_links,
+        # "efficiency_fixed": _make_consense_links,
         "p_nom": np.sum,
         "p_nom_extendable": _make_consense_links,
         "p_nom_max": np.sum,
