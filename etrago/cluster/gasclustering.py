@@ -139,9 +139,9 @@ def create_gas_busmap(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
-    buses_h2_salt = etrago.network.buses[
-        etrago.network.buses["carrier"] == "H2_saltcavern"
-    ]
+    # buses_h2_salt = etrago.network.buses[
+    #     etrago.network.buses["carrier"] == "H2_saltcavern"
+    # ]
 
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
 
@@ -162,7 +162,7 @@ def create_gas_busmap(etrago):
     busmap_idx = list(busmap.index) + missing_idx
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
-    busmap.loc[buses_h2_salt.index] = 12121212
+    # busmap.loc[buses_h2_salt.index] = 12121212
 
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
@@ -171,21 +171,16 @@ def create_gas_busmap(etrago):
     H2_ind_buses = etrago.network.buses[
         (etrago.network.buses["carrier"] == "H2_ind_load")
     ]
-    print(H2_ind_buses)
 
     H2_ind_load_original_links = etrago.network.links[
         (etrago.network.links["carrier"] == "H2_ind_load")
     ]
-    print(H2_ind_load_original_links)
 
-    print(busmap)
     clustered_H2_non_ind = []
     for index, row in H2_ind_load_original_links.iterrows():
         clustered_H2_non_ind.append(busmap[row["bus0"]])
 
     H2_ind_load_original_links["clustered_H2_non_ind"] = clustered_H2_non_ind
-    print(H2_ind_load_original_links)
-    print("\n")
 
     comb = []
     for index, row in H2_ind_buses.iterrows():
@@ -196,8 +191,6 @@ def create_gas_busmap(etrago):
         comb.append(combinaison)
 
     H2_ind_buses["comb"] = comb
-    print(H2_ind_buses)
-    print("\n")
 
     counts = Counter(comb)
     non_unique_comb = [value for value, count in counts.items() if count > 1]
@@ -209,18 +202,13 @@ def create_gas_busmap(etrago):
         new_bus_id[index] = index
 
     next_bus_id = busmap.values.astype(int).max() + 1
-    print(next_bus_id)
     for i in non_unique_comb:
         c = H2_ind_buses[H2_ind_buses["comb"] == i].index.tolist()
         new_bus_id[c[0]] = next_bus_id
         new_bus_id[c[1]] = next_bus_id
         next_bus_id += 1
 
-    print(new_bus_id)
-    print("\n")
-
     busmap = {**busmap, **new_bus_id}
-    print(busmap)
 
     df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
     df_bm.to_csv(
@@ -300,10 +288,10 @@ def get_clustering_from_busmap(
     new_links["link_id"] = new_links.index
 
     strategies = {
-        "p_min_pu_fixed": "min",
-        "p_max_pu_fixed": "max",
-        "p_set_fixed": "mean",
-        "marginal_cost_fixed": "mean",
+        # "p_min_pu_fixed": "min",
+        # "p_max_pu_fixed": "max",
+        # "p_set_fixed": "mean",
+        # "marginal_cost_fixed": "mean",
         "p_nom": "sum",
         "length": "mean",
     }

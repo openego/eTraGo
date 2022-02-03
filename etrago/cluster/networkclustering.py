@@ -321,6 +321,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
                 "capital_cost": np.mean,
                 "standing_loss": np.mean,
                 "e_nom": np.sum,
+                'e_nom_max': np.sum,
             },
         }
         new_df, new_pnl = aggregateoneport(
@@ -906,6 +907,10 @@ def kmean_clustering(etrago):
                 "efficiency_store": np.mean,
                 "p_min_pu": np.min,
                 "p_nom_extendable": ext_storage,
+            },
+            "Store": {
+                "e_nom": np.sum,
+                "e_nom_max": np.sum,
             }
         },
         generator_strategies={
