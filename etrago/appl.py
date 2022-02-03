@@ -338,10 +338,10 @@ def run_etrago(args, json_path):
     etrago.adjust_network()
 
     # ehv network clustering
-    etrago.ehv_clustering()
+    # etrago.ehv_clustering()
 
     # k-mean clustering
-    etrago.kmean_clustering()
+    # etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
 
     # skip snapshots    

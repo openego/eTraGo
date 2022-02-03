@@ -14,8 +14,11 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
     from egoio.tools import db
     from pypsa import Network
-    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
-                                         busmap_by_kmeans)
+    from pypsa.networkclustering import (
+        aggregatebuses,
+        aggregateoneport,
+        busmap_by_kmeans,
+    )
     from six import iteritems
 
     from etrago.tools.utilities import *
@@ -136,6 +139,10 @@ def create_gas_busmap(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
+    buses_h2_salt = etrago.network.buses[
+        etrago.network.buses["carrier"] == "H2_saltcavern"
+    ]
+
     busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
 
     # breakpoint()
@@ -155,6 +162,7 @@ def create_gas_busmap(etrago):
     busmap_idx = list(busmap.index) + missing_idx
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
+    busmap.loc[buses_h2_salt.index] = 12121212
 
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
@@ -200,7 +208,7 @@ def create_gas_busmap(etrago):
     ].iterrows():
         new_bus_id[index] = index
 
-    next_bus_id = busmap.index.astype(int).max() + 2 * len(non_unique_comb) + 1
+    next_bus_id = busmap.values.astype(int).max() + 1
     print(next_bus_id)
     for i in non_unique_comb:
         c = H2_ind_buses[H2_ind_buses["comb"] == i].index.tolist()
@@ -324,8 +332,9 @@ def get_clustering_from_busmap(
     combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
     combinations.reset_index(drop=True, inplace=True)
 
-    combinations["buscombination"] = (
-        combinations[["bus0", "bus1"]].apply(sorted, axis=1).apply(lambda x: tuple(x))
+    print(combinations[["bus0", "bus1"]])
+    combinations["buscombination"] = combinations[["bus0", "bus1"]].apply(
+        lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
     )
 
     strategies.update(
