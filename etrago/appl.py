@@ -332,7 +332,7 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-
+    
     etrago.adjust_network()
     etrago.network.loads.sign = -1
     
@@ -340,7 +340,7 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
 
     # k-mean clustering
-    #etrago.kmean_clustering()
+    etrago.kmean_clustering()
       
     # skip snapshots    
     #etrago.skip_snapshots()

@@ -1005,7 +1005,7 @@ def run_kmeans_clustering(self):
             self.disaggregated_network = self.network.copy()
 
         self.network = self.clustering.network.copy()
-        #buses_by_country must be modify to work with Geopandas
+
         buses_by_country(self.network)
 
         self.geolocation_buses()
