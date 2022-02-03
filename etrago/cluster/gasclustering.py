@@ -358,33 +358,6 @@ def kmean_clustering_gas_grid(etrago):
     network : pypsa.Network object
         Container for the gas network components.
     """
-    for data, name in zip(
-        [
-            etrago.network.links,
-            etrago.network.buses,
-            etrago.network.generators,
-            etrago.network.stores,
-            etrago.network.loads,
-            etrago.network.storage_units,
-            etrago.network.shunt_impedances,
-            etrago.network.lines,
-            etrago.network.transformers,
-        ],
-        [
-            "links",
-            "buses",
-            "generators",
-            "stores",
-            "loads",
-            "storage_units",
-            "shunt_impedances",
-            "lines",
-            "transformers",
-        ],
-    ):
-        pd.DataFrame(data).to_csv(
-            "network_not_clustered/" + name + "_not_clustered.csv"
-        )
 
     gas_busmap = create_gas_busmap(etrago)
 
@@ -429,32 +402,6 @@ def kmean_clustering_gas_grid(etrago):
     )
 
     network_gasgrid_c.determine_network_topology()
-
-    for data, name in zip(
-        [
-            network_gasgrid_c.links,
-            network_gasgrid_c.buses,
-            network_gasgrid_c.generators,
-            network_gasgrid_c.stores,
-            network_gasgrid_c.loads,
-            network_gasgrid_c.storage_units,
-            network_gasgrid_c.shunt_impedances,
-            network_gasgrid_c.lines,
-            network_gasgrid_c.transformers,
-        ],
-        [
-            "links",
-            "buses",
-            "generators",
-            "stores",
-            "loads",
-            "storage_units",
-            "shunt_impedances",
-            "lines",
-            "transformers",
-        ],
-    ):
-        pd.DataFrame(data).to_csv("network_clustered/" + name + "_clustered.csv")
 
     return network_gasgrid_c
 
