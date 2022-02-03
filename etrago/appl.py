@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 16,
+    'end_snapshot': 10,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -74,7 +74,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 20, # number of resulting nodes
         'n_clusters_gas': 5, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
@@ -333,16 +333,17 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-
-    etrago.network.loads.sign = -1
+    
     etrago.adjust_network()
-
+    etrago.network.loads.sign = -1
+    
     # ehv network clustering
-    # etrago.ehv_clustering()
+    etrago.ehv_clustering()
 
     # k-mean clustering
-    # etrago.kmean_clustering()
+    etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
+
 
     # skip snapshots    
     #etrago.skip_snapshots()
