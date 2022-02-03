@@ -463,7 +463,7 @@ def run_kmeans_clustering_gas(self):
 
     if self.args["network_clustering_kmeans"]["active"]:
         logger.info("Start k-mean clustering GAS")
-        self.clustering = kmean_clustering_gas_grid(self)
+        self.network = kmean_clustering_gas_grid(self)
         logger.info(
             "GAS Network clustered to {} buses with k-means algorithm.".format(
                 self.args["network_clustering_kmeans"]["n_clusters_gas"]

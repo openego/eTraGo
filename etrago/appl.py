@@ -344,7 +344,6 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
 
-
     # skip snapshots    
     #etrago.skip_snapshots()
 
