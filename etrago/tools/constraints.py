@@ -1057,11 +1057,10 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
         L. Kotzur et al: 'Time series aggregation for energy system design:
         Modeling seasonal storage', 2018, equation no. 19
         """
-
         if i == network.model.candidates[-1]:
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
-
+        
         else:
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = (
@@ -1226,7 +1225,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     soc_intra = get_var(n, c, 'soc_intra')
 
     last_hour = n.cluster["last_hour_RepresentativeDay"].values
-    first_hour = n.cluster["first_hour_RepresentativeDay"].values
 
     soc_inter = get_var(n, c, 'soc_inter')
     next_soc_inter = soc_inter.shift(-1).fillna(soc_inter.loc[candidates[0]])
@@ -1237,16 +1235,14 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
     
-    dispatch = get_var(n, c, 'p_dispatch').loc[first_hour].set_index(candidates)
-    store = get_var(n, c, 'p_store').loc[first_hour].set_index(candidates)
-    next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
-    next_store = store.shift(-1).fillna(dispatch.loc[candidates[0]])
+    dispatch = get_var(n, c, 'p_dispatch').loc[last_hour].set_index(candidates)
+    store = get_var(n, c, 'p_store').loc[last_hour].set_index(candidates)
 
     coeff_var = [(-1, next_soc_inter),
                  (eff_stand.pow(24), soc_inter),
                  (eff_stand, last_soc_intra),
-                 (-1/eff_dispatch, next_dispatch),
-                 (eff_store, next_store)]
+                 (-1/eff_dispatch, dispatch),
+                 (eff_store, store)]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
     define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
 
@@ -1282,7 +1278,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     soc_intra_store = get_var(n, c, 'soc_intra_store')
 
     last_hour = n.cluster["last_hour_RepresentativeDay"].values
-    first_hour = n.cluster["first_hour_RepresentativeDay"].values
 
     soc_inter_store = get_var(n, c, 'soc_inter_store')
     next_soc_inter_store = soc_inter_store.shift(-1).fillna(soc_inter_store.loc[candidates[0]])
@@ -1291,12 +1286,12 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
 
     eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
     
-    dispatch = get_var(n, c, 'p').loc[first_hour].set_index(candidates)
-    next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
+    power = get_var(n, c, 'p').loc[last_hour].set_index(candidates)
 
     coeff_var = [(-1, next_soc_inter_store),
                  (eff_stand.pow(24), soc_inter_store),
-                 (eff_stand, last_soc_intra_store)]
+                 (eff_stand, last_soc_intra_store),
+                  (1, power)]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
     define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints_store')
 
