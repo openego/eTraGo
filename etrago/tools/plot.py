@@ -45,23 +45,6 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
 
 
-def add_coordinates(self):
-    """
-    Add coordinates to nodes based on provided geom
-
-    Parameters
-    ----------
-    network : PyPSA network container
-
-    Returns
-    -------
-    Altered PyPSA network container ready for plotting
-    """
-    for idx, row in self.network.buses.iterrows():
-        wkt_geom = to_shape(row['geom'])
-        self.network.buses.loc[idx, 'x'] = wkt_geom.x
-        self.network.buses.loc[idx, 'y'] = wkt_geom.y
-
 def set_epsg_network(network):
     """
     Change EPSG from 4326 to 3857. Needed when using osm-background.

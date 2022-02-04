@@ -44,9 +44,12 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     crossborder_capacity,
                                     convert_capital_costs,
                                     get_args_setting,
-                                    export_to_csv)
-from etrago.tools.plot import (add_coordinates,
-                               plot_grid)
+                                    export_to_csv,
+                                    filter_links_by_carrier,
+                                    set_line_costs,
+                                    set_trafo_costs,
+                                    drop_sectors)
+from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_kmeans_clustering,
                                               ehv_clustering)
@@ -146,8 +149,6 @@ class Etrago():
 
     check_args = check_args
 
-    add_coordinates = add_coordinates
-
     geolocation_buses = geolocation_buses
 
     add_missing_components = add_missing_components
@@ -193,8 +194,18 @@ class Etrago():
     calc_results = calc_etrago_results
 
     export_to_csv = export_to_csv
+    
+    filter_links_by_carrier = filter_links_by_carrier
+    
+    set_line_costs = set_line_costs
+    
+    set_trafo_costs = set_trafo_costs
+    
+    drop_sectors = drop_sectors
 
-
+    def dc_lines(self):
+        return self.filter_links_by_carrier('DC', like=False)
+    
     def build_network_from_db(self):
 
         """ Function that imports transmission grid from chosen database
@@ -230,12 +241,7 @@ class Etrago():
 
         """
 
-        if not 'y' in self.network.buses.columns:
-            self.add_coordinates()
-
         self.geolocation_buses()
-
-       # self.add_missing_components()
 
         self.load_shedding()
 
