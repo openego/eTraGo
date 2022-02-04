@@ -1581,7 +1581,7 @@ class Constraints:
             elif self.args['snapshot_clustering']['storage_constraints'] \
                 == 'soc_constraints_simplified':
                     
-                    if self.args['method']['pyomo'] == False:
+                    if self.args['method']['pyomo'] == False and self.args['snapshot_clustering']['how'] == 'daily':
                         
                         snapshot_clustering_seasonal_storage_simplified(self, network, snapshots)
 
