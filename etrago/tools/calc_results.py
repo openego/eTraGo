@@ -75,7 +75,6 @@ def _calc_network_expansion(self): ###
             network expansion (lines and links) in MW
 
         """
-        
         lines = (self.network.lines.s_nom_opt -
                 self.network.lines.s_nom_min
                 )[self.network.lines.s_nom_extendable]
@@ -84,7 +83,20 @@ def _calc_network_expansion(self): ###
                 self.network.links.p_nom_min
                 )[self.network.links.p_nom_extendable]
         
-        return lines, links
+        ### links_new
+        links_new = [0, 0, 0, 0]
+        ext_links = self.network.links[self.network.links.p_nom_extendable]
+        
+        ll = ext_links[ext_links.index=='Methanisation']
+        links_new[0] = (ll.p_nom_opt-ll.p_nom_min).sum()
+        ll = ext_links[ext_links.index=='SMR']
+        links_new[1] = (ll.p_nom_opt-ll.p_nom_min).sum()
+        ll = ext_links[ext_links.index.str.contains('Fuel')]
+        links_new[2] = (ll.p_nom_opt-ll.p_nom_min).sum()
+        ll = ext_links[ext_links.index.str.contains('Power2H2')]
+        links_new[3] = (ll.p_nom_opt-ll.p_nom_min).sum()
+        
+        return lines, links, links_new ### links_new
 
 def calc_investment_cost(self):
         """ Function that calulates overall annualized investment costs.
@@ -183,15 +195,15 @@ def calc_etrago_results(self):
                                            #'hydrogen_storage_expansion', ###
                                            'abs_network_expansion',
                                            'abs_links_expansion', ###
+                                           'methanisation_expansion', ### 
+                                           'smr_expansion', ### 
+                                           'electrolyzer_expansion', ### 
+                                           'fuelcell_expansion', ### 
                                            'rel_network_expansion'])
                                            #'rel_links_expansion']) ###
 
         self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
-        self.results.unit[self.results.index.isin([
-            'storage_expansion', 'abs_network_expansion','abs_links_expansion', #'rel_links_expansion' ###
-            'store_expansion', 'gas_store_expansion', 'heat_store_expansion'])] = 'MW'
-            # 'battery_storage_expansion', 'hydrogen_storage_expansion'])] = 'MW'
-        # self.results.unit['abs_network_expansion'] = 'MW' ### doppelt?
+        self.results.unit[self.results.index.str.contains('expansion')] = 'MW'
         self.results.unit['rel_network_expansion'] = 'p.u.'
 
         self.results.value['ac_annual_grid_investment_costs'] = calc_investment_cost(self)[0][0]
@@ -220,10 +232,14 @@ def calc_etrago_results(self):
             self.results.value['store_expansion'] = store_expansion.sum() ###
             self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
             self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('Heat')].sum() ###
-
+        
         if 'network' in self.args['extendable']:
-            lines, links = _calc_network_expansion(self) ###
+            lines, links, links_new = _calc_network_expansion(self) ### links_new
             self.results.value['abs_network_expansion'] = lines.sum() ###
             self.results.value['abs_links_expansion'] = links.sum() ###
+            self.results.value['methanisation_expansion'] = links_new[0] ###
+            self.results.value['smr_expansion'] = links_new[1] ###
+            self.results.value['electrolyzer_expansion'] = links_new[2] ###
+            self.results.value['fuelcell_expansion'] = links_new[3] ###
             self.results.value['rel_network_expansion'] = (lines.sum() / self.network.lines.s_nom.sum()) * 100 ###
             #self.results.value['rel_links_expansion'] = (links.sum() / self.network.links[self.network.links.p_nom_extendable].p_nom.sum()) * 100
