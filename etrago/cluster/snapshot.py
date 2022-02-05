@@ -347,7 +347,7 @@ def tsam_cluster(timeseries_df,
     for i in clusterOrder:
         representative_day.append(dic_clusterCenterIndices[i])
 
-    #get list of last and first hour of representative days
+    #get list of last hour of representative days
     last_hour_datetime=[]
     for i in representative_day:
         last_hour = i * hours + hours - 1
@@ -370,6 +370,13 @@ def tsam_cluster(timeseries_df,
         while j <= hours:
             nr_day.append(i)
             j=j+1
+            
+    if len(nr_day) < len(timeseries_df):
+        diff = len(timeseries_df) - len(nr_day)
+        fill = nr_day[-1]+1
+        for i in range(0,diff):
+            nr_day.append(fill)
+            
     df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
                         'Candidate_day': nr_day})
     df_i_h.set_index('Timeseries',inplace=True)
