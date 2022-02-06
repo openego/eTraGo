@@ -107,13 +107,16 @@ def tsam_cluster(timeseries_df,
     timeseries : pd.DataFrame
                 Clustered timeseries, only used if segmentation is True
     """
-
+    
     if how == 'daily':
         hours = 24
         period = ' days'
     if how == 'weekly':
         hours = 168
         period = ' weeks'
+        timeseries_df = timeseries_df[24:8760]
+        ### if clustering to typical weeks, reduce time horizon to 52 weeks = 8736 timesteps
+        ### -> calclulate one day less
     if how == 'hourly':
         hours = 1
         period = ' hours'
@@ -335,7 +338,7 @@ def tsam_cluster(timeseries_df,
             j = j + 1
             nrhours.append(j)
             x = x + 1
-
+    
     # get the origial Datetimeindex
     dates = timeseries_df.iloc[nrhours].index
 
@@ -371,12 +374,6 @@ def tsam_cluster(timeseries_df,
             nr_day.append(i)
             j=j+1
             
-    if len(nr_day) < len(timeseries_df):
-        diff = len(timeseries_df) - len(nr_day)
-        fill = nr_day[-1]+1
-        for i in range(0,diff):
-            nr_day.append(fill)
-            
     df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
                         'Candidate_day': nr_day})
     df_i_h.set_index('Timeseries',inplace=True)
@@ -394,10 +391,12 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
     else:
         segment_no = 24
         segmentation = False 
+        
+    timeseries_df_original = prepare_pypsa_timeseries(network)
     
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
-                prepare_pypsa_timeseries(network),
+                timeseries_df_original,
                 typical_periods = n_clusters,
                 how=how,
                 extremePeriodMethod = extremePeriodMethod,
@@ -427,7 +426,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
 
-    update_data_frames(network, cluster_weights, dates, hours, timeseries, segmentation)
+    update_data_frames(network, cluster_weights, dates, hours, timeseries, segmentation, how, timeseries_df_original)
 
     return network
 
@@ -455,7 +454,7 @@ def prepare_pypsa_timeseries(network):
     return df
 
 
-def update_data_frames(network, cluster_weights, dates, hours, timeseries, segmentation):
+def update_data_frames(network, cluster_weights, dates, hours, timeseries, segmentation, how, timeseries_df_original):
     """ Updates the snapshots, snapshots weights and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
@@ -489,12 +488,10 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
                 x += 1
         for i in range(len(network.snapshot_weightings)):
             network.snapshot_weightings[i] = snapshot_weightings[i]
-
         # put the snapshot in the right order
         network.snapshots.sort_values()
-        print(network.snapshots)
         network.snapshot_weightings.sort_index()
-        
+        print(network.snapshots)
     return network
 
 
