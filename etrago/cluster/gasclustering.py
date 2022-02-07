@@ -371,8 +371,8 @@ def kmean_clustering_gas_grid(etrago):
             "Generator": {
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
-                "p_nom_max": np.max,
-                "p_nom_min": np.min,
+                "p_nom_max": np.sum,
+                "p_nom_min": np.sum,
             },
             "Store": {
                 "marginal_cost": np.mean,
