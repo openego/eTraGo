@@ -877,7 +877,6 @@ def kmean_clustering(etrago):
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],
-            n_jobs=kmean_settings["n_jobs"],
         )
         busmap.to_csv(
             "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"

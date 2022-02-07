@@ -107,7 +107,6 @@ def create_gas_busmap(etrago):
         n_init=kmean_gas_settings["n_init"],
         max_iter=kmean_gas_settings["max_iter"],
         tol=kmean_gas_settings["tol"],
-        n_jobs=kmean_gas_settings["n_jobs"],
     )
 
     # Add H2_grid buses to busmap

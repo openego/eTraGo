@@ -84,8 +84,7 @@ args = {
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6, # affects clustering algorithm, only change when neccesary
-        'n_jobs': -1}, # affects clustering algorithm, only change when neccesary
+        'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
