@@ -221,6 +221,62 @@ def ext_storage(x):
     v = any(x[x == True])
     return v
 
+def strategies_one_ports():
+    return {
+        "StorageUnit": {
+            "marginal_cost": np.mean,
+            "capital_cost": np.mean,
+            "efficiency_dispatch": np.mean,
+            "standing_loss": np.mean,
+            "efficiency_store": np.mean,
+            "p_min_pu": np.min,
+            "p_nom_extendable": ext_storage,
+        },
+        "Store": {
+            "marginal_cost": np.mean,
+            "capital_cost": np.mean,
+            "standing_loss": np.mean,
+            "e_nom": np.sum,
+            "e_nom_min": np.sum,
+            "e_nom_max": np.sum,
+        },
+    }
+
+def strategies_generators():
+    return {
+        "p_nom_min": np.min,
+        "p_nom_max": np.min,
+        "weight": np.sum,
+        "p_nom": np.sum,
+        "p_nom_opt": np.sum,
+        "marginal_cost": np.mean,
+        "capital_cost": np.mean,
+    }
+
+def strategies_links():
+    return {
+        "scn_name": _make_consense_links,
+        "bus0": _make_consense_links,
+        "bus1": _make_consense_links,
+        "carrier": _make_consense_links,
+        "p_nom": np.sum,
+        "p_nom_extendable": _make_consense_links,
+        "p_nom_max": np.sum,
+        "capital_cost": np.mean,
+        "length": np.mean,
+        "geom": nan_links,
+        "topo": nan_links,
+        "type": nan_links,
+        "efficiency": np.mean,
+        "p_nom_min": np.min,
+        "p_set": np.mean,
+        "p_min_pu": np.min,
+        "p_max_pu": np.max,
+        "marginal_cost": np.mean,
+        "terrain_factor": _make_consense_links,
+        "p_nom_opt": np.mean,
+        "country": _make_consense_links,
+    }
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """Main function of the EHV-Clustering approach. Creates a new clustered
@@ -287,15 +343,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         network,
         busmap,
         with_time,
-        custom_strategies={
-            "p_nom_min": np.min,
-            "p_nom_max": np.min,
-            "weight": np.sum,
-            "p_nom": np.sum,
-            "p_nom_opt": np.sum,
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-        },
+        custom_strategies = strategies_generators()
     )
     io.import_components_from_dataframe(network_c, new_df, "Generator")
     for attr, df in iteritems(new_pnl):
@@ -306,23 +354,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     aggregate_one_ports.discard("Generator")
 
     for one_port in aggregate_one_ports:
-        one_port_strategies = {
-            "StorageUnit": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "efficiency_dispatch": np.mean,
-                "standing_loss": np.mean,
-                "efficiency_store": np.mean,
-                "p_min_pu": np.min,
-                "p_nom_extendable": ext_storage,
-            },
-            "Store": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "standing_loss": np.mean,
-                "e_nom": np.sum,
-            },
-        }
+        one_port_strategies = strategies_one_ports()
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
@@ -341,30 +373,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network2.links.dropna(subset=["bus0", "bus1"], inplace=True)
     network2.links["topo"] = np.nan
 
-    strategies = {
-        "scn_name": _make_consense_links,
-        "bus0": _make_consense_links,
-        "bus1": _make_consense_links,
-        "carrier": _make_consense_links,
-        "efficiency_fixed": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
-        "p_nom_max": np.sum,
-        "capital_cost": np.mean,
-        "length": np.mean,
-        "geom": nan_links,
-        "topo": nan_links,
-        "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.min,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
-        "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
-        "country": _make_consense_links,
-    }
+    strategies = strategies_links()
 
     network_c.links = network2.links.groupby(["bus0", "bus1", "carrier"]).agg(
         strategies
@@ -842,24 +851,8 @@ def kmean_clustering(etrago):
             network,
             busmap,
             aggregate_generators_weighted=True,
-            one_port_strategies={
-                "StorageUnit": {
-                    "marginal_cost": np.mean,
-                    "capital_cost": np.mean,
-                    "efficiency": np.mean,
-                    "efficiency_dispatch": np.mean,
-                    "standing_loss": np.mean,
-                    "efficiency_store": np.mean,
-                    "p_min_pu": np.min,
-                    "p_nom_extendable": ext_storage,
-                }
-            },
-            generator_strategies={
-                "p_nom_min": np.min,
-                "p_nom_opt": np.sum,
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-            },
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies= strategies_generators(),
             aggregate_one_ports=aggregate_one_ports,
             line_length_factor=kmean_settings["line_length_factor"],
         )
@@ -896,51 +889,13 @@ def kmean_clustering(etrago):
         network,
         busmap,
         aggregate_generators_weighted=True,
-        one_port_strategies={
-            "StorageUnit": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "efficiency_dispatch": np.mean,
-                "standing_loss": np.mean,
-                "efficiency_store": np.mean,
-                "p_min_pu": np.min,
-                "p_nom_extendable": ext_storage,
-            }
-        },
-        generator_strategies={
-            "p_nom_min": np.min,
-            "p_nom_opt": np.sum,
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-        },
+        one_port_strategies=strategies_one_ports(),
+        generator_strategies= strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
     )
     
-    strategies = {
-        "scn_name": _make_consense_links,
-        "bus0": _make_consense_links,
-        "bus1": _make_consense_links,
-        "carrier": _make_consense_links,
-        "efficiency_fixed": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
-        "p_nom_max": np.sum,
-        "capital_cost": np.mean,
-        "length": np.mean,
-        "geom": nan_links,
-        "topo": nan_links,
-        "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.min,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
-        "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
-        "country": nan_links,
-    }
+    strategies = strategies_links()
     #Dealing with links
     clustering.network.links = clustering.network.links.groupby(
         ["bus0", "bus1", "carrier"]).agg(strategies)
