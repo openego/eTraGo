@@ -1197,7 +1197,11 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     
     candidates = \
         n.cluster.index.get_level_values(0).unique()
-    period_starts = sns[0::24]
+        
+    if self.args['snapshot_clustering']['how'] == 'weekly': 
+        period_starts = sns[0::168]
+    else: 
+        period_starts = sns[0::24]
     
     ######################### Storage Unit ###################################
     
