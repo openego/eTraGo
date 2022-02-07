@@ -328,19 +328,27 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
-    etrago = Etrago(args, json_path)
+    etrago = Etrago(args, json_path=None)
  
     # import network from database
     etrago.build_network_from_db()
 
     etrago.adjust_network()
+    etrago.network.lines.type = ''
+    etrago.network.links.capital_cost.fillna(0., inplace=True)
+    etrago.network.links.marginal_cost.fillna(0., inplace=True)
+    etrago.network.links.p_nom.fillna(0., inplace=True)
+    etrago.network.links.p_nom_min.fillna(0., inplace=True)
+    etrago.network.links.p_nom_max.fillna(0., inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
+    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     
     # ehv network clustering
     etrago.ehv_clustering()
 
     # k-mean clustering
-    #etrago.kmean_clustering()
+    etrago.kmean_clustering()
       
     # skip snapshots    
     #etrago.skip_snapshots()
