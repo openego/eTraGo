@@ -12,7 +12,6 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa.io as io
-    from egoio.tools import db
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -22,28 +21,6 @@ if "READTHEDOCS" not in os.environ:
     from six import iteritems
 
     from etrago.tools.utilities import *
-
-
-def select_dataframe(sql, conn, index_col=None):
-    """Select data from local database as pandas.DataFrame
-    Parameters
-    ----------
-    sql : str
-        SQL query to be executed.
-    index_col : str, optional
-        Column(s) to set as index(MultiIndex). The default is None.
-    Returns
-    -------
-    df : pandas.DataFrame
-        Data returned from SQL statement.
-    """
-
-    df = pd.read_sql(sql, conn, index_col=index_col)
-
-    if df.size == 0:
-        print(f"WARNING: No data returned by statement: \n {sql}")
-
-    return df
 
 
 def create_gas_busmap(etrago):
@@ -110,9 +87,12 @@ def create_gas_busmap(etrago):
     )
 
     # Add H2_grid buses to busmap
-    engine = db.connection(section=etrago.args["db"])
-    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
-    df_correspondance_H2_CH4 = select_dataframe(sql, engine)
+    df_correspondance_H2_CH4 = etrago.network.links[
+        (etrago.network.links["carrier"] == "H2_feedin")
+    ]
+    df_correspondance_H2_CH4 = df_correspondance_H2_CH4[
+        ["bus0", "bus1", "scn_name"]
+    ].rename(columns={"bus0": "bus_H2", "bus1": "bus_CH4"})
     df_correspondance_H2_CH4["bus_CH4"] = df_correspondance_H2_CH4["bus_CH4"].astype(
         str
     )
