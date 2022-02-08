@@ -995,9 +995,14 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
 def snapshot_clustering_seasonal_storage(self, network, snapshots):
 
     sus = network.storage_units
-
-    network.model.period_starts = \
-        network.snapshot_weightings.index[0::24]
+    
+    
+    if self.args['snapshot_clustering']['how'] == 'weekly': 
+        network.model.period_starts = \
+            network.snapshot_weightings.index[0::168]
+    else: 
+        network.model.period_starts = \
+            network.snapshot_weightings.index[0::24]
 
     network.model.storages = sus.index
 
@@ -1269,8 +1274,11 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     sus = n.storage_units
 
     c = 'StorageUnit'
-
-    period_starts = sns[0::24]
+    
+    if self.args['snapshot_clustering']['how'] == 'weekly': 
+        period_starts = sns[0::168]
+    else: 
+        period_starts = sns[0::24]
 
     candidates = \
         n.cluster.index.get_level_values(0).unique()
@@ -1387,7 +1395,10 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
 
     c = 'StorageUnit'
 
-    period_starts = sns[0::24]
+    if self.args['snapshot_clustering']['how'] == 'weekly': 
+        period_starts = sns[0::168]
+    else: 
+        period_starts = sns[0::24]
 
     candidates = \
         n.cluster.index.get_level_values(0).unique()
@@ -1582,11 +1593,11 @@ class Constraints:
                 == 'soc_constraints_simplified':
                     
                     if self.args['method']['pyomo'] == False and self.args['snapshot_clustering']['how'] == 'daily':
-                        
                         snapshot_clustering_seasonal_storage_simplified(self, network, snapshots)
 
                     else:
-                        logger.error('simplified method only possible for daily snapshot clustering without pyomo')
+                        logger.error('snapshot_clustering with soc_constraints: ' +
+                                     'simplified method only possible for daily snapshot clustering without pyomo')
                         
             else:
                 logger.error('snapshot clustering constraints must be in' +
