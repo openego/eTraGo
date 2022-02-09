@@ -128,7 +128,7 @@ def create_gas_busmap(etrago):
             & (etrago.network.buses["carrier"] != "H2_ind_load")
         ].index
     )
-    next_bus_id = etrago.network.buses.index.astype(int).max() + 1
+    next_bus_id = highestNumber(etrago.network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
@@ -138,48 +138,9 @@ def create_gas_busmap(etrago):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    # Add H2_ind_load buses to busmap
-    H2_ind_buses = etrago.network.buses[
-        (etrago.network.buses["carrier"] == "H2_ind_load")
-    ]
+    busmap_H2_ind_buses = aggregate_two_port_tails(etrago.network, busmap, "H2_ind_load")
 
-    H2_ind_load_original_links = etrago.network.links[
-        (etrago.network.links["carrier"] == "H2_ind_load")
-    ]
-
-    clustered_H2_non_ind = []
-    for index, row in H2_ind_load_original_links.iterrows():
-        clustered_H2_non_ind.append(busmap[row["bus0"]])
-
-    H2_ind_load_original_links["clustered_H2_non_ind"] = clustered_H2_non_ind
-
-    comb = []
-    for index, row in H2_ind_buses.iterrows():
-        df_combinaison = H2_ind_load_original_links[
-            H2_ind_load_original_links["bus1"] == index
-        ]
-        combinaison = tuple(sorted(df_combinaison["clustered_H2_non_ind"].tolist()))
-        comb.append(combinaison)
-
-    H2_ind_buses["comb"] = comb
-
-    counts = Counter(comb)
-    non_unique_comb = [value for value, count in counts.items() if count > 1]
-
-    new_bus_id = dict()
-    for index, row in H2_ind_buses[
-        ~H2_ind_buses["comb"].isin(non_unique_comb)
-    ].iterrows():
-        new_bus_id[index] = index
-
-    next_bus_id = busmap.values.astype(int).max() + 1
-    for i in non_unique_comb:
-        c = H2_ind_buses[H2_ind_buses["comb"] == i].index.tolist()
-        new_bus_id[c[0]] = next_bus_id
-        new_bus_id[c[1]] = next_bus_id
-        next_bus_id += 1
-
-    busmap = {**busmap, **new_bus_id}
+    busmap = {**busmap, **busmap_H2_ind_buses}
 
     df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
     df_bm.to_csv(
@@ -188,6 +149,58 @@ def create_gas_busmap(etrago):
         + "_result.csv",
         index=False,
     )
+
+    return busmap
+
+
+def highestNumber(numbers):
+    """Return the highest number in a list of mixed types."""
+
+    highest = 0
+    for number in numbers:
+        try:
+            num = int(number)
+            if num > highest:
+                highest = num
+        except ValueError:
+            pass
+
+    return highest
+
+
+def aggregate_two_port_tails(network, busmap, carrier):
+    """Create busmap for technologies that are connected to n clustered technologies."""
+
+    next_bus_id = highestNumber(busmap.values) + 1
+    buses = network.buses[network.buses["carrier"] == carrier]
+    connected_links = network.links.loc[
+        network.links["bus1"].isin(buses.index)
+    ]
+
+    busmap = busmap.to_dict()
+    connected_links["bus0_clustered"] = connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
+    connected_links["bus1_clustered"] = connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+
+    clusters = pd.Series()
+    checked = []
+    for bus_id in buses.index:
+        clusters.loc[bus_id] = tuple(
+            sorted(
+                connected_links.loc[
+                    connected_links["bus1_clustered"] == bus_id,
+                    "bus0_clustered"
+                ].tolist()
+            )
+        )
+
+    duplicates = clusters.unique()
+
+    busmap = {}
+    for i in range(len(duplicates)):
+        cluster = clusters[clusters == duplicates[i]].index.tolist()
+        if len(cluster) > 1:
+            for bus_id in cluster:
+                busmap[bus_id] = next_bus_id + i
 
     return busmap
 
