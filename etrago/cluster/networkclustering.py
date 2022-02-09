@@ -88,10 +88,9 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     no_elec_to_cluster = pd.DataFrame(
         columns=["cluster", "carrier", "new_bus"]
     ).set_index("new_bus")
-    
 
     max_bus = max([int(item) for item in network.buses.index.to_list()])
-        
+
     no_elec_conex = []
     # busmap2 maps all the no electrical buses to the new buses based on the
     # eHV network
@@ -140,7 +139,10 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         busmap2[bus_ne] = bus_cluster
 
     if no_elec_conex:
-        print(f"These buses has no connexion to electricity network: {no_elec_conex}")
+        logger.info(
+            f"""There are {len(no_elec_conex)} buses that have no direct
+            connexion to the electric network"""
+        )
 
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
@@ -154,7 +156,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     busmap = {**busmap, **busmap2}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met == 'k-mean':
+    if cluster_met == "k-mean":
         for no_elec_bus in no_elec_to_cluster.index:
             cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
             carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
@@ -177,7 +179,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
                 name=no_elec_bus,
             )
             network.buses = network.buses.append(new_bus)
-    
+
     else:
         for no_elec_bus in no_elec_to_cluster.index:
             cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
@@ -222,6 +224,66 @@ def ext_storage(x):
     return v
 
 
+def strategies_one_ports():
+    return {
+        "StorageUnit": {
+            "marginal_cost": np.mean,
+            "capital_cost": np.mean,
+            "efficiency_dispatch": np.mean,
+            "standing_loss": np.mean,
+            "efficiency_store": np.mean,
+            "p_min_pu": np.min,
+            "p_nom_extendable": ext_storage,
+        },
+        "Store": {
+            "marginal_cost": np.mean,
+            "capital_cost": np.mean,
+            "standing_loss": np.mean,
+            "e_nom": np.sum,
+            "e_nom_min": np.sum,
+            "e_nom_max": np.sum,
+        },
+    }
+
+
+def strategies_generators():
+    return {
+        "p_nom_min": np.min,
+        "p_nom_max": np.min,
+        "weight": np.sum,
+        "p_nom": np.sum,
+        "p_nom_opt": np.sum,
+        "marginal_cost": np.mean,
+        "capital_cost": np.mean,
+    }
+
+
+def strategies_links():
+    return {
+        "scn_name": _make_consense_links,
+        "bus0": _make_consense_links,
+        "bus1": _make_consense_links,
+        "carrier": _make_consense_links,
+        "p_nom": np.sum,
+        "p_nom_extendable": _make_consense_links,
+        "p_nom_max": np.sum,
+        "capital_cost": np.mean,
+        "length": np.mean,
+        "geom": nan_links,
+        "topo": nan_links,
+        "type": nan_links,
+        "efficiency": np.mean,
+        "p_nom_min": np.min,
+        "p_set": np.mean,
+        "p_min_pu": np.min,
+        "p_max_pu": np.max,
+        "marginal_cost": np.mean,
+        "terrain_factor": _make_consense_links,
+        "p_nom_opt": np.mean,
+        "country": _make_consense_links,
+    }
+
+
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     """Main function of the EHV-Clustering approach. Creates a new clustered
     pypsa.Network given a busmap mapping all bus_ids to other bus_ids of the
@@ -246,7 +308,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c = Network()
 
-    network, busmap = adjust_no_electric_network(network, busmap, cluster_met= 'ehv')
+    network, busmap = adjust_no_electric_network(network, busmap, cluster_met="ehv")
 
     buses = aggregatebuses(
         network,
@@ -261,8 +323,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     # keep attached links
     links = network.links.copy()
-    dc_links = links[links["carrier"] == "AC"]
-    links = links[links["carrier"] != "AC"]
+    dc_links = links[links["carrier"] == "DC"]
+    links = links[links["carrier"] != "DC"]
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -284,18 +346,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network.generators["weight"] = 1
 
     new_df, new_pnl = aggregategenerators(
-        network,
-        busmap,
-        with_time,
-        custom_strategies={
-            "p_nom_min": np.min,
-            "p_nom_max": np.min,
-            "weight": np.sum,
-            "p_nom": np.sum,
-            "p_nom_opt": np.sum,
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-        },
+        network, busmap, with_time, custom_strategies=strategies_generators()
     )
     io.import_components_from_dataframe(network_c, new_df, "Generator")
     for attr, df in iteritems(new_pnl):
@@ -306,23 +357,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     aggregate_one_ports.discard("Generator")
 
     for one_port in aggregate_one_ports:
-        one_port_strategies = {
-            "StorageUnit": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "efficiency_dispatch": np.mean,
-                "standing_loss": np.mean,
-                "efficiency_store": np.mean,
-                "p_min_pu": np.min,
-                "p_nom_extendable": ext_storage,
-            },
-            "Store": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "standing_loss": np.mean,
-                "e_nom": np.sum,
-            },
-        }
+        one_port_strategies = strategies_one_ports()
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
@@ -341,30 +376,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     network2.links.dropna(subset=["bus0", "bus1"], inplace=True)
     network2.links["topo"] = np.nan
 
-    strategies = {
-        "scn_name": _make_consense_links,
-        "bus0": _make_consense_links,
-        "bus1": _make_consense_links,
-        "carrier": _make_consense_links,
-        "efficiency_fixed": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
-        "p_nom_max": np.sum,
-        "capital_cost": np.mean,
-        "length": np.mean,
-        "geom": nan_links,
-        "topo": nan_links,
-        "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.min,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
-        "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
-        "country": _make_consense_links,
-    }
+    strategies = strategies_links()
 
     network_c.links = network2.links.groupby(["bus0", "bus1", "carrier"]).agg(
         strategies
@@ -517,7 +529,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # applying multiprocessing
     p = mp.Pool(cpu_cores)
- 
+
     chunksize = ceil(len(ppaths) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
@@ -842,32 +854,16 @@ def kmean_clustering(etrago):
             network,
             busmap,
             aggregate_generators_weighted=True,
-            one_port_strategies={
-                "StorageUnit": {
-                    "marginal_cost": np.mean,
-                    "capital_cost": np.mean,
-                    "efficiency": np.mean,
-                    "efficiency_dispatch": np.mean,
-                    "standing_loss": np.mean,
-                    "efficiency_store": np.mean,
-                    "p_min_pu": np.min,
-                    "p_nom_extendable": ext_storage,
-                }
-            },
-            generator_strategies={
-                "p_nom_min": np.min,
-                "p_nom_opt": np.sum,
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-            },
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies=strategies_generators(),
             aggregate_one_ports=aggregate_one_ports,
             line_length_factor=kmean_settings["line_length_factor"],
         )
         network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
-    
-    # k-mean clustering   
+
+    # k-mean clustering
     if not kmean_settings["kmeans_busmap"]:
         busmap = busmap_by_kmeans(
             elec_network,
@@ -876,7 +872,6 @@ def kmean_clustering(etrago):
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],
-            n_jobs=kmean_settings["n_jobs"],
         )
         busmap.to_csv(
             "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"
@@ -886,9 +881,9 @@ def kmean_clustering(etrago):
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
-    
-    network, busmap = adjust_no_electric_network(network, busmap, cluster_met= 'k-mean')
-    
+
+    network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")
+
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
@@ -897,54 +892,17 @@ def kmean_clustering(etrago):
         network,
         busmap,
         aggregate_generators_weighted=True,
-        one_port_strategies={
-            "StorageUnit": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "efficiency_dispatch": np.mean,
-                "standing_loss": np.mean,
-                "efficiency_store": np.mean,
-                "p_min_pu": np.min,
-                "p_nom_extendable": ext_storage,
-            }
-        },
-        generator_strategies={
-            "p_nom_min": np.min,
-            "p_nom_opt": np.sum,
-            "marginal_cost": np.mean,
-            "capital_cost": np.mean,
-        },
+        one_port_strategies=strategies_one_ports(),
+        generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
     )
-    
-    strategies = {
-        "scn_name": _make_consense_links,
-        "bus0": _make_consense_links,
-        "bus1": _make_consense_links,
-        "carrier": _make_consense_links,
-        "efficiency_fixed": _make_consense_links,
-        "p_nom": np.sum,
-        "p_nom_extendable": _make_consense_links,
-        "p_nom_max": np.sum,
-        "capital_cost": np.mean,
-        "length": np.mean,
-        "geom": nan_links,
-        "topo": nan_links,
-        "type": nan_links,
-        "efficiency": np.mean,
-        "p_nom_min": np.min,
-        "p_set": np.mean,
-        "p_min_pu": np.min,
-        "p_max_pu": np.max,
-        "marginal_cost": np.mean,
-        "terrain_factor": _make_consense_links,
-        "p_nom_opt": np.mean,
-        "country": nan_links,
-    }
-    #Dealing with links
+
+    strategies = strategies_links()
+    # Dealing with links
     clustering.network.links = clustering.network.links.groupby(
-        ["bus0", "bus1", "carrier"]).agg(strategies)
+        ["bus0", "bus1", "carrier"]
+    ).agg(strategies)
     clustering.network.links = clustering.network.links.reset_index(drop=True)
 
     return clustering
@@ -984,12 +942,15 @@ def select_elec_network(etrago):
     ]
 
     for attr in elec_network.storage_units_t:
-        elec_network.storage_units_t[attr] = elec_network.storage_units_t[attr].\
-            loc[:, elec_network.storage_units_t[attr].columns.isin(
-                elec_network.storage_units.index),
+        elec_network.storage_units_t[attr] = elec_network.storage_units_t[attr].loc[
+            :,
+            elec_network.storage_units_t[attr].columns.isin(
+                elec_network.storage_units.index
+            ),
         ]
-            
+
     return elec_network
+
 
 def run_kmeans_clustering(self):
 
