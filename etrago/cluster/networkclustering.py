@@ -324,7 +324,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     # keep attached links
     links = network.links.copy()
     dc_links = links[links["carrier"] == "DC"]
-    links = links[links["carrier"] != "AC"]
+    links = links[links["carrier"] != "DC"]
 
     # keep attached transformer
     transformers = network.transformers.copy()
