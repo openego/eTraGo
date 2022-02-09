@@ -189,7 +189,9 @@ def buses_by_country(network):
                        data="PL")
     czech = pd.Series(index=network.
                       buses[(network.buses['x'] < 17) &
-                            (network.buses['x'] > 15.1)].index,
+                            (network.buses['x'] > 15.1) &
+                            (network.buses['y'] > 49) & 
+                            (network.buses['y'] < 51)].index,
                       data="CZ")
     denmark = pd.Series(index=network.
                         buses[((network.buses['y'] < 60) &
@@ -259,6 +261,10 @@ def buses_by_country(network):
     foreign_buses = foreign_buses.append([poland, czech, denmark, sweden,
                                           austria, switzerland,
                                           netherlands, luxembourg, france])
+    
+    #################### NOT DEFINITIVE ###############################
+    foreign_buses = foreign_buses[~foreign_buses.index.duplicated()]
+    #################### NOT DEFINITIVE ###############################
 
     network.buses['country'] = foreign_buses[foreign_buses.index.isin(
         network.buses.index)]
@@ -410,8 +416,7 @@ def set_q_national_loads(self, cos_phi=1):
     national_buses = network.buses[
         (network.buses.country == 'DE')&
         (network.buses.carrier == 'AC')]
-    
-   
+
     network.loads_t['q_set'][network.loads.index[
         network.loads.bus.astype(str).isin(national_buses.index)].astype(int)] = \
         network.loads_t['p_set'][network.loads.index[
@@ -441,15 +446,20 @@ def set_q_foreign_loads(self, cos_phi=1):
     """
     network = self.network
 
-    foreign_buses = network.buses[network.buses.country != 'DE']
+    foreign_buses = network.buses[(network.buses.country != 'DE')&
+                                  (network.buses.carrier == 'AC')]
 
     network.loads_t['q_set'][network.loads.index[
-        network.loads.bus.astype(str).isin(foreign_buses.index)]] = \
+        network.loads.bus.astype(str).isin(foreign_buses.index)].astype(int)] = \
         network.loads_t['p_set'][network.loads.index[
             network.loads.bus.astype(str).isin(
                 foreign_buses.index)]] * math.tan(math.acos(cos_phi))
 
     network.generators.control[network.generators.control == 'PQ'] = 'PV'
+    
+    # To avoid problem when the index of the load is the weather year, the column
+    # names were temporaray set to int and changed back to str
+    network.loads_t['q_set'].columns = network.loads_t['q_set'].columns.astype(str)
 
 
 def connected_grid_lines(network, busids):

@@ -249,7 +249,7 @@ class Etrago():
         
         self.set_q_national_loads(cos_phi=0.9)
 
-        self.set_q_foreign_loads(cos_phi=1)
+        self.set_q_foreign_loads(cos_phi=0.9)
 
         self.foreign_links()
 

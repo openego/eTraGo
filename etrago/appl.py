@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 1,
+    'end_snapshot': 10,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -74,7 +74,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 10, # number of resulting nodes
+        'n_clusters': 20, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -95,7 +95,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
+    'skip_snapshots': 5, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': True,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -333,23 +333,29 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
-
+    etrago.network.lines.type = ''
+    etrago.network.links.capital_cost.fillna(0., inplace=True)
+    etrago.network.links.marginal_cost.fillna(0., inplace=True)
+    etrago.network.links.p_nom.fillna(0., inplace=True)
+    etrago.network.links.p_nom_min.fillna(0., inplace=True)
+    etrago.network.links.p_nom_max.fillna(0., inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
+    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
+    etrago.network.loads.sign = -1
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
     # k-mean clustering
-    # needs to be adjusted for new sectors
-    # etrago.kmean_clustering()
-
-    # skip snapshots
-    # needs to be adjusted for new sectors
-    etrago.skip_snapshots()
+    etrago.kmean_clustering()
+      
+    # skip snapshots    
+    #etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
