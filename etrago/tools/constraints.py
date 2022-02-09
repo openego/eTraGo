@@ -1206,8 +1206,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     candidates = \
         n.cluster.index.get_level_values(0).unique()
 
-
-
     soc_total = get_var(n, c, 'state_of_charge')
 
     # inter_soc
@@ -1232,7 +1230,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     soc_intra = get_var(n, c, 'soc_intra')
 
     last_hour = n.cluster["last_hour_RepresentativeDay"].values
-    first_hour = n.cluster["first_hour_RepresentativeDay"].values
 
     soc_inter = get_var(n, c, 'soc_inter')
     next_soc_inter = soc_inter.shift(-1).fillna(soc_inter.loc[candidates[0]])
@@ -1243,16 +1240,14 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
     
-    dispatch = get_var(n, c, 'p_dispatch').loc[first_hour].set_index(candidates)
-    store = get_var(n, c, 'p_store').loc[first_hour].set_index(candidates)
-    next_dispatch =  dispatch.shift(-1).fillna(dispatch.loc[candidates[0]])
-    next_store = store.shift(-1).fillna(dispatch.loc[candidates[0]])
+    dispatch = get_var(n, c, 'p_dispatch').loc[last_hour].set_index(candidates)
+    store = get_var(n, c, 'p_store').loc[last_hour].set_index(candidates)
 
     coeff_var = [(-1, next_soc_inter),
                  (eff_stand.pow(24), soc_inter),
                  (eff_stand, last_soc_intra),
-                 (-1/eff_dispatch, next_dispatch),
-                 (eff_store, next_store)]
+                 (-1/eff_dispatch, dispatch),
+                 (eff_store, store)]
 
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
