@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data_db',  # database session
+    'db': 'egon-data',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -334,10 +334,18 @@ def run_etrago(args, json_path):
     etrago.build_network_from_db()
     
     etrago.adjust_network()
+    etrago.network.lines.type = ''
+    etrago.network.links.capital_cost.fillna(0., inplace=True)
+    etrago.network.links.marginal_cost.fillna(0., inplace=True)
+    etrago.network.links.p_nom.fillna(0., inplace=True)
+    etrago.network.links.p_nom_min.fillna(0., inplace=True)
+    etrago.network.links.p_nom_max.fillna(0., inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
+    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     
     # ehv network clustering
-    # etrago.ehv_clustering()
+    etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
