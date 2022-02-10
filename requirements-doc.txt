@@ -4,7 +4,7 @@
 sphinx_rtd_theme
 pandas >= 0.25, <= 0.25
 pypsa >= 0.11.0, <= 0.11.0
-numpy == 1.16.2
+numpy == 1.21.0
 numpydoc == 0.7.0
 sqlalchemy
 geoalchemy2
