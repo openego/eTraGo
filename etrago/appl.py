@@ -104,7 +104,7 @@ args = {
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None,
     'dsm':{ # False or dictionary with options
-        'dsm_marg_cost':5, # marginal DSM costs [EUR/MWh]
+        'dsm_marg_cost':False, # either False (use marginal DSM costs as imported), or set specific marginal DSM cost value [EUR/MWh]
         'dsm_extendable':True, # DSM extenable (True / False)
         'dsm_potential_path':''} # enter path to DSM potential data here
     }
