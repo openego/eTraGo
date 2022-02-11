@@ -2,7 +2,7 @@
 # Copyright 2016-2018  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
-# DLR-Institute for Networked Energy Systems
+# DLR Institute of Networked Energy Systems
 
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Affero General Public License as
@@ -34,7 +34,7 @@ __copyright__ = (
     "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
     "DLR-Institute for Networked Energy Systems")
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
+__author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp, wheitkoetter"
 
 
 if 'READTHEDOCS' not in os.environ:
