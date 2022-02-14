@@ -74,7 +74,7 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(network, busmap, cluster_met):
-    breakpoint()
+    
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
     network2.buses = network2.buses[
@@ -87,6 +87,13 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
+
+    map_carrier = {
+        "H2_saltcavern": "power_to_H2",
+        "dsm-ind-osm": "dsm-ind-osm",
+        "dsm-cts": "dsm-cts",
+        "dsm-ind-sites": "dsm-ind-sites",
+    }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
     no_elec_to_cluster = pd.DataFrame(
@@ -104,19 +111,23 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         bus_hv = -1
         carry = network2.buses.loc[bus_ne, "carrier"]
 
-        if len(network2.links[network2.links["bus1"] == bus_ne]) > 0:
-            df = network2.links[network2.links["bus1"] == bus_ne].copy()
+        if (
+            len(
+                network2.links[
+                    (network2.links["bus1"] == bus_ne)
+                    & (network2.links["carrier"] == map_carrier[carry])
+                ]
+            )
+            > 0
+        ):
+            df = network2.links[
+                (network2.links["bus1"] == bus_ne)
+                & (network2.links["carrier"] == map_carrier[carry])
+            ].copy()
             df["elec"] = df["bus0"].isin(busmap.keys())
             df = df[df["elec"] == True]
             if len(df) > 0:
                 bus_hv = df["bus0"][0]
-
-        if (len(network2.links[network2.links["bus0"] == bus_ne]) > 0) & (bus_hv == -1):
-            df = network2.links[network2.links["bus0"] == bus_ne].copy()
-            df["elec"] = df["bus1"].isin(busmap.keys())
-            df = df[df["elec"] == True]
-            if len(df) > 0:
-                bus_hv = df["bus1"][0]
 
         if bus_hv == -1:
             busmap2[bus_ne] = str(bus_ne)
@@ -153,10 +164,10 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         (network.buses["carrier"] == "H2_grid")
         | (network.buses["carrier"] == "H2_ind_load")
         | (network.buses["carrier"] == "CH4")
-        | (network2.buses["carrier"] == "rural_heat")
-        | (network2.buses["carrier"] == "rural_heat_store")
-        | (network2.buses["carrier"] == "central_heat")
-        | (network2.buses["carrier"] == "central_heat_store")
+        | (network.buses["carrier"] == "rural_heat")
+        | (network.buses["carrier"] == "rural_heat_store")
+        | (network.buses["carrier"] == "central_heat")
+        | (network.buses["carrier"] == "central_heat_store")
     ].index:
 
         busmap2[gas_bus] = gas_bus
@@ -900,7 +911,6 @@ def kmean_clustering(etrago):
         network,
         busmap,
         aggregate_generators_weighted=True,
-
         one_port_strategies=strategies_one_ports(),
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,

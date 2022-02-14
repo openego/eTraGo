@@ -343,13 +343,13 @@ def run_etrago(args, json_path):
     etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
-    
+   
     # ehv network clustering
-    # etrago.ehv_clustering()
+    etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
-    
+
     # k-mean clustering for gas and related sectors
     etrago.kmean_clustering_gas()
 
