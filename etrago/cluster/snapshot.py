@@ -89,6 +89,9 @@ def tsam_cluster(timeseries_df,
     if how == 'weekly':
         hours = 168
         period = ' weeks'
+        timeseries_df = timeseries_df[24:8760]
+        ### if clustering to typical weeks, reduce time horizon to 52 weeks = 8736 timesteps
+        ### -> calclulate one day less
     if how == 'hourly':
         hours = 1
         period = ' hours'
