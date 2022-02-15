@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'end_snapshot': 240,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -94,11 +94,13 @@ args = {
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 20, # number of periods
+        'n_clusters': 5, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
-        'storage_constraints': 'soc_constraints'}, # additional constraints for storages ### soc_constraints_simplified
+        'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
                             ### TODO: assert in utilities l. 1457 ff.
                             ### TODO: Aufruf der Constraints in constraints.py ganz unten
+                            ### TODO: Verluste auf 0 gesetzt für Überprüfung
+                            ### TODO: 2-Level Ansatz & parallelization unten entfernen
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
@@ -363,7 +365,6 @@ def run_etrago(args, json_path):
     links_upper = etrago.network.links_t.mu_upper.copy()
     links_p0 = etrago.network.links_t.p0.copy()
     links_p1 = etrago.network.links_t.p1.copy()
-    links_p2 = etrago.network.links_t.p2.copy()
     stun_p = etrago.network.storage_units_t.p.copy()
     stun_p_dispatch = etrago.network.storage_units_t.p_dispatch.copy()
     stun_p_store = etrago.network.storage_units_t.p_store.copy()
@@ -402,8 +403,12 @@ def run_etrago(args, json_path):
     print(datetime.datetime.now())
     print(' ')
     
-    ##########################################################################
+    etrago.calc_results()
+    print(etrago.results)
+    print(etrago.network.storage_units_t.p)
     
+    ##########################################################################
+    '''
     # drop dispatch from LOPF1
     
     etrago.network.generators_t.p = gen_p
@@ -415,7 +420,6 @@ def run_etrago(args, json_path):
     etrago.network.links_t.mu_upper = links_upper
     etrago.network.links_t.p0 = links_p0
     etrago.network.links_t.p1 = links_p1
-    etrago.network.links_t.p2 = links_p2
     etrago.network.storage_units_t.p = stun_p
     etrago.network.storage_units_t.p_dispatch = stun_p_dispatch
     etrago.network.storage_units_t.p_store = stun_p_store
@@ -439,7 +443,10 @@ def run_etrago(args, json_path):
     etrago.network.stores['e_nom_extendable'] = False
     etrago.network.links['p_nom'] = etrago.network.links['p_nom_opt']
     etrago.network.links['p_nom_extendable'] = False
+    
     etrago.args['extendable'] = []
+    etrago.args['snapshot_clustering']['active']=False
+    etrago.args['skip_snapshots']=False
     
     # use original timeseries
     
@@ -460,6 +467,9 @@ def run_etrago(args, json_path):
     print(datetime.datetime.now())
     print(' ')
     
+    etrago.calc_results()
+    print(etrago.results)
+    '''
     ##########################################################################
 
     # TODO: check if should be combined with etrago.lopf()

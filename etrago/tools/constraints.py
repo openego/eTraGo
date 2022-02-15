@@ -1226,7 +1226,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
             prev = h - 1
  
         cluster_hour = network.cluster['Hour'][h+1-self.args['start_snapshot']]
-        
+
         expr = (m.state_of_charge_all[s, h] == 
                  m.state_of_charge_all[s, prev] 
              * (1 - network.storage_units.at[s, 'standing_loss'])
@@ -1242,7 +1242,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     def soc_equals_soc_all(m,s,h):
         
         hour = (h.dayofyear -1)*24 + h.hour
-        
+
         return (m.state_of_charge_all[s,hour] == 
                 m.state_of_charge[s,h])
     
@@ -1344,6 +1344,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
   
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):  
     
+    # TODO: Constraints verhindern Speichernutzung? 
     import pdb; pdb.set_trace()
     
     sus = n.storage_units
@@ -1377,13 +1378,12 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     define_constraints(n, lhs, '==', 0, c, 'soc_all_constraints')
     
     soc = get_var(n, c, 'state_of_charge')
-    
-    # TODO: Constraints verhindern Speichernutzung? 
-    # -> daher viele Szenarien infeasable? 
-    # -> Überprüfung durch Vergleich mit Lösen mit pyomo möglich?
 
-    coeff_var = [(-1, soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)]), 
-             (1, soc.set_index(soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)].index))]
+    coeff_var = [(-1, soc_all[soc_all.index.isin(n.cluster['RepresentativeHour'])]), 
+             (1, soc.set_index(soc_all[soc_all.index.isin(n.cluster['RepresentativeHour'])].index))]
+
+    #coeff_var = [(-1, soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)]), 
+             #(1, soc.set_index(soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)].index))]
     
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
     
