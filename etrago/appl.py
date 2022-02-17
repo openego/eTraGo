@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 1200,
+    'end_snapshot': 240,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -93,7 +93,7 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
-        'active': False, # choose if clustering is activated
+        'active': True, # choose if clustering is activated
         'n_clusters': 5, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
@@ -102,7 +102,7 @@ args = {
                             ### TODO: Verluste auf 0 gesetzt für Überprüfung
                             ### TODO: 2-Level Ansatz & parallelization unten entfernen
     # Simplifications:
-    'skip_snapshots': 7, # False or number of snapshots to skip
+    'skip_snapshots': False, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -336,10 +336,10 @@ def run_etrago(args, json_path):
     """
 
     ### TODO
-    import sys
-    old_stdout = sys.stdout
-    log_file = open('console.log',"w")
-    sys.stdout = log_file
+    #import sys
+    #old_stdout = sys.stdout
+    #log_file = open('console.log',"w")
+    #sys.stdout = log_file
     
     etrago = Etrago(args, json_path)
 
@@ -355,7 +355,7 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.standing_loss = 0
     
     ##########################################################################
-    
+    '''
     # save original timeseries
     
     original_snapshots = etrago.network.snapshots
@@ -382,7 +382,7 @@ def run_etrago(args, json_path):
     bus_p = etrago.network.buses_t.p.copy()
     bus_vang = etrago.network.buses_t.v_ang.copy()
     loads = etrago.network.loads_t.p.copy()
-    
+    '''
     ##########################################################################
 
     # ehv network clustering
@@ -418,7 +418,7 @@ def run_etrago(args, json_path):
     print(etrago.network.storage_units_t.p)
     
     ##########################################################################
-    
+    '''
     # drop dispatch from LOPF1
     
     etrago.network.generators_t.p = gen_p
@@ -515,7 +515,7 @@ def run_etrago(args, json_path):
     etrago_test.calc_results()
     print(etrago_test.results)
     ###
-    
+    '''
     ##########################################################################
 
     # TODO: check if should be combined with etrago.lopf()
@@ -528,8 +528,8 @@ def run_etrago(args, json_path):
     # etrago.calc_results()
     
     ### TODO
-    sys.stdout = old_stdout 
-    log_file.close() 
+    #sys.stdout = old_stdout 
+    #log_file.close() 
 
     return etrago
 

@@ -1455,11 +1455,8 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
     
     ##########################################################################
     
-    # TODO: boundaries müssen in pypsa gelöscht werden... ? 
-    # so vielleicht nicht, da extra constraints und nicht nur lb/ub
-    # denke schon, weil sonst nicht vereinfacht...
-    
-    # TODO: Fehler?
+    # TODO: boundaries müssen in pypsa gelöscht werden... 
+    # -> pypsa opf ll 516-529
     
     import pdb; pdb.set_trace()
     
@@ -1471,8 +1468,15 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
     intra_min = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_min')
     intra_max = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_max')
     
-    define_constraints(n, soc_intra, '<=', intra_max.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns), c, 'intra_max_constraint')
-    define_constraints(n, soc_intra, '>=', intra_min.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns), c, 'intra_min_constraint')
+    coeff_var = [(1, intra_max.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns)),
+                  (-1, soc_intra)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_max_constraint')
+    
+    coeff_var = [(1, soc_intra),
+                  (-1, intra_min.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_min_constraint')
     
     # Define lower bound 
     
