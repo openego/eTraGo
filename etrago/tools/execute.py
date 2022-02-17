@@ -90,7 +90,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
-def run_lopf(etrago, extra_functionality, method):
+def run_lopf(etrago, extra_functionality, method, snapshots=None):
     """ Function that performs lopf with or without pyomo
 
 
@@ -126,6 +126,7 @@ def run_lopf(etrago, extra_functionality, method):
     else:
         status, termination_condition = network_lopf(
             etrago.network,
+            snapshots = snapshots,
             solver_name=etrago.args['solver'],
             solver_options=etrago.args['solver_options'],
             extra_functionality=extra_functionality,
@@ -139,7 +140,7 @@ def run_lopf(etrago, extra_functionality, method):
     print("Time for LOPF [min]:", round(z, 2))
 
 def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
-                 ):
+                 snapshots = None):
 
     """
     Run optimization of lopf. If network extension is included, the specified
@@ -175,7 +176,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
             for i in range(1, (1+n_iter)):
 
-                run_lopf(etrago, extra_functionality, method)
+                run_lopf(etrago, extra_functionality, method, snapshots)
 
                 if args['csv_export'] != False:
                     path = args['csv_export'] + '/lopf_iteration_'+ str(i)
@@ -191,7 +192,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
         if 'threshold' in method:
 
-            run_lopf(etrago, extra_functionality, method)
+            run_lopf(etrago, extra_functionality, method, snapshots)
 
             diff_obj = network.objective*method['threshold']/100
 
@@ -209,7 +210,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                                                  l_snom_pre, t_snom_pre)
                 pre = network.objective
 
-                run_lopf(etrago, extra_functionality, method)
+                run_lopf(etrago, extra_functionality, method, snapshots)
 
                 i += 1
 
@@ -222,7 +223,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                     break
 
     else:
-        run_lopf(etrago, extra_functionality, method)
+        run_lopf(etrago, extra_functionality, method, snapshots)
 
     if args['csv_export'] != False:
         path = args['csv_export']
@@ -235,7 +236,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
     return network
 
-def lopf(self):
+def lopf(self, snapshots=None):
     """ Functions that runs lopf accordning to arguments
 
     Returns
@@ -248,7 +249,8 @@ def lopf(self):
 
     iterate_lopf(self,
                      Constraints(self.args).functionality,
-                     method=self.args['method'])
+                     method=self.args['method'], 
+                     snapshots = snapshots)
 
     y = time.time()
     z = (y - x) / 60

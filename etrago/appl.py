@@ -56,7 +56,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 240,
+    'end_snapshot': 1200,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': { # {} for default options, specific for solver
         'BarConvTol': 1.e-5,
@@ -93,7 +93,7 @@ args = {
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
-        'active': True, # choose if clustering is activated
+        'active': False, # choose if clustering is activated
         'n_clusters': 5, # number of periods
         'how': 'daily', # type of period, currently only 'daily'
         'storage_constraints': 'soc_constraints_simplified'}, # additional constraints for storages ### soc_constraints_simplified
@@ -102,7 +102,7 @@ args = {
                             ### TODO: Verluste auf 0 gesetzt für Überprüfung
                             ### TODO: 2-Level Ansatz & parallelization unten entfernen
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
+    'skip_snapshots': 7, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -334,6 +334,13 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
+
+    ### TODO
+    import sys
+    old_stdout = sys.stdout
+    log_file = open('console.log',"w")
+    sys.stdout = log_file
+    
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -390,6 +397,7 @@ def run_etrago(args, json_path):
     # snapshot clustering
     etrago.snapshot_clustering()
     
+    ### TODO
     print(' ')
     print('Start LOPF Level 1')
     print(datetime.datetime.now())
@@ -398,17 +406,19 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     etrago.lopf()
     
+    ### TODO
     print(' ')
     print('Stop LOPF Level 1')
     print(datetime.datetime.now())
     print(' ')
     
+    ### TODO
     etrago.calc_results()
     print(etrago.results)
     print(etrago.network.storage_units_t.p)
     
     ##########################################################################
-    '''
+    
     # drop dispatch from LOPF1
     
     etrago.network.generators_t.p = gen_p
@@ -453,6 +463,10 @@ def run_etrago(args, json_path):
     etrago.network.snapshots = original_snapshots
     etrago.network.snapshot_weightings = original_weighting
     
+    ### TODO
+    etrago_test = Etrago(args, json_path)
+    etrago_test.network = etrago.network.copy()
+    
     # dispatch optimization with fully complex timeseries
     
     print(' ')
@@ -460,16 +474,48 @@ def run_etrago(args, json_path):
     print(datetime.datetime.now())
     print(' ')
     
-    etrago.lopf()
+    ##### parallelization #####
     
+    group_size = 120
+
+    for i in range(int((args['end_snapshot'] - args['start_snapshot'] + 1)
+        / group_size)):
+        
+        if i > 0:
+            etrago.network.storage_units.state_of_charge_initial = etrago.network.\
+                storage_units_t.state_of_charge.loc[etrago.network.snapshots[group_size * i - 1]]
+        
+        snapshots = etrago.network.snapshots[group_size * i:group_size * i + group_size]
+        
+        etrago.lopf(snapshots=snapshots) ### TODO: snapshots in lopf-functions
+        
+        etrago.network.lines.s_nom = etrago.network.lines.s_nom_opt
+    
+    ### TODO     
+    print(' ')
+    print('Stop 1 LOPF Level 2')
+    print(datetime.datetime.now())
+    print(' ')
+    etrago.calc_results()
+    print(etrago.results)
+    ###
+
+    ##### parallelization #####
+    
+    ### TODO
+    print(' ')
+    print('Start2 LOPF Level 2')
+    print(datetime.datetime.now())
+    print(' ')
+    etrago_test.lopf()
     print(' ')
     print('Stop LOPF Level 2')
     print(datetime.datetime.now())
     print(' ')
+    etrago_test.calc_results()
+    print(etrago_test.results)
+    ###
     
-    etrago.calc_results()
-    print(etrago.results)
-    '''
     ##########################################################################
 
     # TODO: check if should be combined with etrago.lopf()
@@ -480,6 +526,10 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     # etrago.calc_results()
+    
+    ### TODO
+    sys.stdout = old_stdout 
+    log_file.close() 
 
     return etrago
 
