@@ -141,7 +141,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connexion to the electric network"""
+            connection to the electric network"""
         )
 
     # Add the gas buses to the busmap and map them to themself
