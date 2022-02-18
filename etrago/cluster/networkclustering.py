@@ -283,6 +283,8 @@ def strategies_links():
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
         "country": _make_consense_links,
+        "build_year": np.mean,
+        "lifetime": np.mean
     }
 
 def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
@@ -309,10 +311,7 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
         carriers = network.links.carrier.unique()
     
     links_agg_b = network.links.carrier.isin(carriers)
-    attrs = network.components["Link"]["attrs"]
     links = network.links.loc[links_agg_b]
-    columns = (set(attrs.index[attrs.static & attrs.status.str.startswith('Input')]) |
-               {'weight'}) & set(links.columns) - {'control'}
     grouper = [links.bus0, links.bus1, links.carrier]
 
     def normed_or_uniform(x):
@@ -326,7 +325,11 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
     new_df.index = _flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat([new_df,
                         network.links.loc[~links_agg_b]], axis=0, sort=False)
-    breakpoint()
+    new_df['new_id'] = np.arange(len(new_df)).astype(str)
+    cluster_id = new_df['new_id'].to_dict()
+    new_df.set_index('new_id', inplace= True)
+    new_df.index = new_df.index.rename('Link')
+
     new_pnl = dict()
     if with_time:
         for attr, df in network.links_t.items():
@@ -338,9 +341,10 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
                 pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
                 new_pnl[attr] = pd.concat([df.loc[:, ~pnl_links_agg_b], pnl_df], axis=1, sort=False)
+                new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
             else:
                 new_pnl[attr] = network.links_t[attr]
-
+    
     return new_df, new_pnl
 
 
@@ -380,7 +384,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     lines = network.lines.copy()
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask, :]
-
 
     # keep attached transformer
     transformers = network.transformers.copy()
@@ -451,20 +454,11 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
     
     
-    new_df, new_pnl = group_links(network_c)
+    network_c.links,network_c.links_t = group_links(network_c)
 
     network_c.determine_network_topology()
 
     return network_c
-
-
-
-
-
-
-
-
-
 
 
 def graph_from_edges(edges):
@@ -975,13 +969,9 @@ def kmean_clustering(etrago):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
     )
-
-    strategies = strategies_links()
-    # Dealing with links
-    clustering.network.links = clustering.network.links.groupby(
-        ["bus0", "bus1", "carrier"]
-    ).agg(strategies)
-    clustering.network.links = clustering.network.links.reset_index(drop=True)
+    
+    clustering.network.links, clustering.network.links_t =\
+        group_links(clustering.network)
 
     return clustering
 
