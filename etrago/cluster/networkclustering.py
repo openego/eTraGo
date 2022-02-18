@@ -889,7 +889,7 @@ def kmean_clustering(etrago):
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-    network.buses["v_nom"] = 380.0
+    network.buses["v_nom"][network.buses.carrier == 'AC'] = 380.0
 
     elec_network = select_elec_network(etrago)
 

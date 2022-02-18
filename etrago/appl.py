@@ -348,7 +348,7 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
 
     # k-mean clustering
-    #etrago.kmean_clustering()
+    etrago.kmean_clustering()
     
     # skip snapshots    
     #etrago.skip_snapshots()
