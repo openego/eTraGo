@@ -1192,6 +1192,75 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots):
 
     network.model.cyclic_storage_constraint = po.Constraint(
         sus.index, rule=cyclic_state_of_charge)
+        
+def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):  
+
+    network.model.del_component('state_of_charge_all')
+    network.model.del_component('state_of_charge_all_index')
+    network.model.del_component('state_of_charge_all_index_0')
+    network.model.del_component('state_of_charge_all_index_1')
+    network.model.del_component('state_of_charge_constraint')
+    network.model.del_component('state_of_charge_constraint_index')
+    network.model.del_component('state_of_charge_constraint_index_0')
+    network.model.del_component('state_of_charge_constraint_index_1')
+                
+    candidates = network.cluster.index.get_level_values(0).unique()
+    network.model.state_of_charge_all = po.Var(
+            network.storage_units.index, candidates-1+self.args['start_snapshot'], 
+            within=po.NonNegativeReals)
+    network.model.storages = network.storage_units.index
+
+    def set_soc_all(m,s,h):
+        
+        if h == self.args['start_snapshot']:
+            prev = network.cluster.index.get_level_values(0)[-1]-1+self.args['start_snapshot']
+ 
+        else: 
+            prev = h - 1
+ 
+        cluster_hour = network.cluster['Hour'][h+1-self.args['start_snapshot']]
+
+        expr = (m.state_of_charge_all[s, h] == 
+                 m.state_of_charge_all[s, prev] 
+             * (1 - network.storage_units.at[s, 'standing_loss'])
+             -(m.storage_p_dispatch[s,cluster_hour]/
+                         network.storage_units.at[s, 'efficiency_dispatch'] -
+                         network.storage_units.at[s, 'efficiency_store'] * 
+                         m.storage_p_store[s,cluster_hour]))
+        return expr
+
+    network.model.soc_all = po.Constraint(
+            network.model.storages, candidates-1+self.args['start_snapshot'], rule = set_soc_all)
+    
+    def soc_equals_soc_all(m,s,h):
+        
+        hour = (h.dayofyear -1)*24 + h.hour
+
+        return (m.state_of_charge_all[s,hour] == 
+                m.state_of_charge[s,h])
+    
+    network.model.soc_equals_soc_all = po.Constraint(
+            network.model.storages, network.snapshots, 
+            rule = soc_equals_soc_all)
+    
+    network.model.del_component('state_of_charge_upper')
+    network.model.del_component('state_of_charge_upper_index')
+    network.model.del_component('state_of_charge_upper_index_0')
+    network.model.del_component('state_of_charge_upper_index_1')
+
+    def state_of_charge_upper(m,s,h):
+
+        if network.storage_units.p_nom_extendable[s]:
+            p_nom = m.storage_p_nom[s]
+        else:
+            p_nom = network.storage_units.p_nom[s]
+
+        return (m.state_of_charge_all[s,h] 
+                    <= p_nom * network.storage_units.at[s,'max_hours']) 
+         
+    network.model.state_of_charge_upper = po.Constraint(
+             network.storage_units.index,  candidates-1+self.args['start_snapshot'],
+             rule = state_of_charge_upper)
 
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
     
@@ -1304,7 +1373,326 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
                  (1, soc_inter_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
     define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints_store')
+    
+def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):  
+    
+    # TODO: Constraints verhindern Speichernutzung? 
+    
+    sus = n.storage_units
+    c = 'StorageUnit'
+                
+    candidates = n.cluster.index.get_level_values(0).unique()
+    
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    
+    define_variables(n, lb, ub, c, 'soc_all')
+    soc_all = get_var(n, c, 'soc_all')
+    next_soc_all = soc_all.shift(-1).fillna(soc_all.loc[candidates[0]])
+    
+    eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
+    eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
+    eff_store = expand_series(n.df(c).efficiency_store, candidates).T
 
+    dispatch = get_var(n, c, 'p_dispatch')
+    store = get_var(n, c, 'p_store')
+
+    coeff_var = [(-1, next_soc_all),
+             (eff_stand, soc_all),
+             (-1/eff_dispatch, dispatch.loc[n.cluster.Hour].set_index(soc_all.index)),
+             (eff_store, store.loc[n.cluster.Hour].set_index(soc_all.index))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_all_constraints')
+    
+    soc = get_var(n, c, 'state_of_charge')
+
+    coeff_var = [(-1, soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)]), 
+             (1, soc.set_index(soc_all[soc_all.index.isin(n.cluster['RepresentativeHour']+1)].index))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_all_equals_soc_constraints')
+    
+    ############################# Store ######################################
+    
+    sus = n.stores
+    c = 'Store'
+    
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+
+    define_variables(n, lb, ub, c, 'soc_all_store')
+    soc_all_store = get_var(n, c, 'soc_all_store')
+    next_soc_all_store = soc_all_store.shift(-1).fillna(soc_all_store.loc[candidates[0]])
+    
+    eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
+    power = get_var(n, c, 'p')
+
+    coeff_var = [(-1, next_soc_all_store),
+             (eff_stand, soc_all_store),
+             (1, power.loc[n.cluster.Hour].set_index(soc_all_store.index))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_all_constraints_store')
+    
+    soc_store = get_var(n, c, 'e')
+    coeff_var = [(-1, soc_all_store[soc_all_store.index.isin(n.cluster['RepresentativeHour']+1)]), 
+             (1, soc_store.set_index(soc_all_store[soc_all_store.index.isin(n.cluster['RepresentativeHour']+1)].index))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    
+    define_constraints(n, lhs, '==', 0, c, 'soc_all_equals_soc_constraints_store')
+    
+def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
+
+    candidates = \
+        n.cluster.index.get_level_values(0).unique()
+        
+    if self.args['snapshot_clustering']['how'] == 'weekly': 
+        period_starts = sns[0::168]
+    else: 
+        period_starts = sns[0::24]
+    
+    ######################### Storage Unit ###################################
+    
+    sus = n.storage_units
+    c = 'StorageUnit'
+
+    soc_total = get_var(n, c, 'state_of_charge')
+
+    # inter_soc
+    # Set lower and upper bound for soc_inter
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    # Create soc_inter variable for each storage and each day
+    define_variables(n, lb, ub, c, 'soc_inter')
+    
+    # Define soc_intra
+    # Set lower and upper bound for soc_intra
+    lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
+    # Set soc_intra to 0 at first hour of every day
+    lb.loc[period_starts, :] = 0
+    ub.loc[period_starts, :] = 0
+    # Create intra soc variable for each storage and each hour
+    define_variables(n, lb, ub, c, 'soc_intra')
+    soc_intra = get_var(n, c, 'soc_intra')
+
+    last_hour = n.cluster["last_hour_RepresentativeDay"].values
+
+    soc_inter = get_var(n, c, 'soc_inter')
+    next_soc_inter = soc_inter.shift(-1).fillna(soc_inter.loc[candidates[0]])
+    
+    last_soc_intra = soc_intra.loc[last_hour].set_index(candidates)
+
+    eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
+    eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
+    eff_store = expand_series(n.df(c).efficiency_store, candidates).T
+    
+    dispatch = get_var(n, c, 'p_dispatch').loc[last_hour].set_index(candidates)
+    store = get_var(n, c, 'p_store').loc[last_hour].set_index(candidates)
+
+    coeff_var = [(-1, next_soc_inter),
+                 (eff_stand.pow(24), soc_inter),
+                 (eff_stand, last_soc_intra),
+                 (-1/eff_dispatch, dispatch),
+                 (eff_store, store)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints')
+    
+    ##### simplified
+    
+    # TODO: boundaries müssen in pypsa gelöscht werden... 
+    # -> pypsa opf ll 516-529
+    
+    #import pdb; pdb.set_trace()
+    
+    # Create intra_min and intra_max for simplified boundaries of soc_inter
+    
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    
+    intra_min = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_min')
+    intra_max = define_variables(n, lb, ub, 'StorageUnit', 'soc_intra_max')
+    
+    coeff_var = [(1, intra_max.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns)),
+                  (-1, soc_intra)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_max_constraint')
+    
+    coeff_var = [(1, soc_intra),
+                  (-1, intra_min.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_min_constraint')
+    
+    # Define lower bound 
+    
+    coeff_var = [(eff_stand.pow(24), soc_inter),
+                  (1, intra_min)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'simplified_lower_bound')
+    
+    # Define upper bound
+    
+    # a) for extendable storages
+    if len(sus[sus.p_nom_extendable==True]) > 0:
+
+    	p_nom_opt = get_var(n, c, 'p_nom')
+    	p_nom_opt = expand_series(p_nom_opt, candidates).T
+    	max_hours = sus[sus.p_nom_extendable==True].max_hours
+    	max_hours = expand_series(max_hours, candidates).T
+    
+    	coeff_var = [(1, soc_inter.drop(sus[sus.p_nom_extendable==False].index, axis=1)),
+		 (1, intra_max.drop(sus[sus.p_nom_extendable==False].index, axis=1)),
+		 (-1*max_hours, p_nom_opt)]
+    
+    	lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    	define_constraints(n, lhs, '<=', 0, c, 'simplified_upper_bound_ext')
+    
+    # b) for not extendable storages
+    
+    p_nom = sus[sus.p_nom_extendable==False].p_nom
+    p_nom = expand_series(p_nom, candidates).T
+    max_hours = sus[sus.p_nom_extendable==False].max_hours
+    max_hours = expand_series(max_hours, candidates).T
+    upper_bound = max_hours*p_nom
+
+    coeff_var = [(1, soc_inter.drop(sus[sus.p_nom_extendable==True].index, axis=1)),
+                 (1, intra_max.drop(sus[sus.p_nom_extendable==True].index, axis=1))]
+    
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '<=', upper_bound, c, 'simplified_upper_bound_non_ext')
+    
+    ##### simplified
+
+    coeff_var = [(-1, soc_total),
+                 (1, soc_intra),
+                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
+    
+    ############################# Store ######################################
+
+    sus = n.stores
+    c = 'Store'
+
+    soc_total_store = get_var(n, c, 'e')
+
+    # inter_soc
+    # Set lower and upper bound for soc_inter
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    # Create soc_inter variable for each storage and each day
+    define_variables(n, lb, ub, c, 'soc_inter_store')
+    
+    # Define soc_intra
+    # Set lower and upper bound for soc_intra
+    lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=sns, columns=sus.index, data=np.inf)
+    # Set soc_intra to 0 at first hour of every day
+    lb.loc[period_starts, :] = 0
+    ub.loc[period_starts, :] = 0
+    # Create intra soc variable for each storage and each hour
+    define_variables(n, lb, ub, c, 'soc_intra_store')
+    soc_intra_store = get_var(n, c, 'soc_intra_store')
+
+    last_hour = n.cluster["last_hour_RepresentativeDay"].values
+
+    soc_inter_store = get_var(n, c, 'soc_inter_store')
+    next_soc_inter_store = soc_inter_store.shift(-1).fillna(soc_inter_store.loc[candidates[0]])
+    
+    last_soc_intra_store = soc_intra_store.loc[last_hour].set_index(candidates)
+
+    eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
+    
+    power = get_var(n, c, 'p').loc[last_hour].set_index(candidates)
+
+    coeff_var = [(-1, next_soc_inter_store),
+                 (eff_stand.pow(24), soc_inter_store),
+                 (eff_stand, last_soc_intra_store),
+                  (1, power)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_inter_constraints_store')
+
+    coeff_var = [(-1, soc_total_store),
+                 (1, soc_intra_store),
+                 (1, soc_inter_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints_store')
+
+    coeff_var = [(-1, soc_total),
+                 (1, soc_intra),
+                 (1, soc_inter.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))
+                 ]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints')
+    
+    ##### simplified
+    
+    # TODO: boundaries müssen in pypsa gelöscht werden... 
+    # -> pypsa opf ll 618-642 ?
+    
+    #import pdb; pdb.set_trace()
+    
+    # Create intra_min and intra_max for simplified boundaries of soc_inter
+    
+    lb = pd.DataFrame(index=candidates, columns=sus.index, data=-np.inf)
+    ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
+    
+    intra_min_store = define_variables(n, lb, ub, 'Store', 'soc_intra_min')
+    intra_max_store = define_variables(n, lb, ub, 'Store', 'soc_intra_max')
+    
+    coeff_var = [(1, intra_max_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns)),
+                  (-1, soc_intra_store)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_max_constraint_store')
+    
+    coeff_var = [(1, soc_intra_store),
+                  (-1, intra_min_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'intra_min_constraint_store')
+    
+    # Define lower bound 
+    
+    coeff_var = [(eff_stand.pow(24), soc_inter_store),
+                  (1, intra_min_store)]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '>=', 0, c, 'simplified_lower_bound_store')
+    
+    # Define upper bound
+    
+    # a) for extendable stores
+    
+    if len(sus[sus.e_nom_extendable==True]) > 0:
+    
+    	e_nom_opt = get_var(n, c, 'e_nom')
+    	e_nom_opt = expand_series(e_nom_opt, candidates).T
+    
+    	coeff_var = [(1, soc_inter_store.drop(sus[sus.e_nom_extendable==False].index, axis=1)),
+                 (1, intra_max_store.drop(sus[sus.e_nom_extendable==False].index, axis=1)),
+                 (-1, e_nom_opt)]
+    
+    	lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    	define_constraints(n, lhs, '<=', 0, c, 'simplified_upper_bound_ext_store')
+    
+    # b) for not extendable stores
+
+    e_nom = sus[sus.e_nom_extendable==False].e_nom
+    e_nom = expand_series(e_nom, candidates).T
+    upper_bound = e_nom
+    
+    coeff_var = [(1, soc_inter_store.drop(sus[sus.e_nom_extendable==True].index, axis=1)),
+                 (1, intra_max_store.drop(sus[sus.e_nom_extendable==True].index, axis=1))]
+    
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '<=', upper_bound, c, 'simplified_upper_bound_non_ext_store')
+    
+    ##### simplified
+
+    coeff_var = [(-1, soc_total_store),
+                 (1, soc_intra_store),
+                 (1, soc_inter_store.loc[n.cluster_ts.loc[sns, 'Candidate_day']].set_index(sns))]
+    lhs, *axes = linexpr(*coeff_var, return_axes=True)
+    define_constraints(n, lhs, '==', 0, c, 'soc_intra_constraints_store')
+    
+    
 
 class Constraints:
 
@@ -1356,10 +1744,30 @@ class Constraints:
 
             elif self.args['snapshot_clustering']['storage_constraints'] \
                 == 'soc_constraints':
+                    
                     if self.args['method']['pyomo']:
-                        snapshot_clustering_seasonal_storage(self, network, snapshots)
+                        
+                        if self.args['snapshot_clustering']['how'] == 'hourly':
+                            snapshot_clustering_seasonal_storage_hourly(self, network, snapshots)
+                        else:
+                            snapshot_clustering_seasonal_storage(self, network, snapshots)
+                            
                     else:
-                        snapshot_clustering_seasonal_storage_nmp(self, network, snapshots)
+                    
+                        if self.args['snapshot_clustering']['how'] == 'hourly':
+                            snapshot_clustering_seasonal_storage_hourly_nmp(self, network, snapshots)
+                        else:
+                            snapshot_clustering_seasonal_storage_nmp(self, network, snapshots)
+                         
+            elif self.args['snapshot_clustering']['storage_constraints'] \
+                == 'soc_constraints_simplified':
+                    
+                    if self.args['method']['pyomo'] == False and self.args['snapshot_clustering']['how'] == 'daily':
+                        snapshot_clustering_seasonal_storage_simplified(self, network, snapshots)
+
+                    else:
+                        logger.error('snapshot_clustering with soc_constraints: ' +
+                                     'simplified method only possible for daily snapshot clustering without pyomo')
 
             else:
                 logger.error('snapshot clustering constraints must be in' +
