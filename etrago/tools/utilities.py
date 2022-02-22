@@ -58,7 +58,6 @@ def filter_links_by_carrier(self, carrier, like=True):
         df = self.network.links[self.network.links.carrier.isin(carrier)]
     return df
 
-
 def buses_of_vlvl(network, voltage_level):
     """Get bus-ids of given voltage level(s).
 
