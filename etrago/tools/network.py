@@ -241,23 +241,23 @@ class Etrago():
 
         """
 
-        #self.geolocation_buses()
+        self.geolocation_buses()
 
         self.load_shedding()
 
-        #self.set_random_noise(0.01)
+        self.set_random_noise(0.01)
         
-        #self.set_q_national_loads(cos_phi=0.9)
+        self.set_q_national_loads(cos_phi=0.9)
 
-        #self.set_q_foreign_loads(cos_phi=1)
+        self.set_q_foreign_loads(cos_phi=0.9)
 
-        #self.foreign_links()
+        self.foreign_links()
 
-        #self.crossborder_capacity()
+        self.crossborder_capacity()
 
         self.set_branch_capacity()
 
-        #self.extendable(line_max=4)
+        self.extendable(line_max=4)
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

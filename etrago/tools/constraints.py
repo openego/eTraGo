@@ -1378,10 +1378,12 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     
     # TODO: Constraints verhindern Speichernutzung? 
     
+    candidates = n.cluster.index.get_level_values(0).unique()
+    
+    ######################### Storage Unit ###################################
+    
     sus = n.storage_units
     c = 'StorageUnit'
-                
-    candidates = n.cluster.index.get_level_values(0).unique()
     
     lb = pd.DataFrame(index=candidates, columns=sus.index, data=0)
     ub = pd.DataFrame(index=candidates, columns=sus.index, data=np.inf)
@@ -1531,6 +1533,7 @@ def snapshot_clustering_seasonal_storage_simplified(self, n, sns):
     # Define upper bound
     
     # a) for extendable storages
+    
     if len(sus[sus.p_nom_extendable==True]) > 0:
 
     	p_nom_opt = get_var(n, c, 'p_nom')
