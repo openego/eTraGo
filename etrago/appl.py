@@ -358,16 +358,18 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
 
+    etrago.args['load_shedding']=True
+    etrago.load_shedding()
     # skip snapshots    
-    #etrago.skip_snapshots()
+    etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    #etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    # etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
