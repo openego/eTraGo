@@ -28,6 +28,7 @@ the function etrago.
 import datetime
 import os
 import os.path
+import numpy as np
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -332,18 +333,24 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
+
     
-    etrago.adjust_network()
     etrago.network.lines.type = ''
-    etrago.network.links.capital_cost.fillna(0., inplace=True)
-    etrago.network.links.marginal_cost.fillna(0., inplace=True)
-    etrago.network.links.p_nom.fillna(0., inplace=True)
-    etrago.network.links.p_nom_min.fillna(0., inplace=True)
-    etrago.network.links.p_nom_max.fillna(0., inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
-    
+    etrago.network.links.capital_cost.fillna(0, inplace=True)
+    etrago.network.links.p_nom_min.fillna(0, inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
+    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.links.p_nom.fillna(0, inplace=True)
+    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
+    etrago.network.stores.e_nom.fillna(0, inplace=True)
+
+    etrago.adjust_network()
+
+    # Set marginal costs for gas feed-in
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
     # ehv network clustering
     etrago.ehv_clustering()
 
