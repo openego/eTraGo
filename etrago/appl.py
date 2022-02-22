@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session 
+    'db': 'egon-data-backup-2',  # database session 
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -337,7 +337,10 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
     
+    # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
+    
+    ###
     etrago.network.lines.type = ''
     etrago.network.links.capital_cost.fillna(0., inplace=True)
     etrago.network.links.marginal_cost.fillna(0., inplace=True)
@@ -347,6 +350,7 @@ def run_etrago(args, json_path):
     etrago.network.transformers.tap_ratio.fillna(1, inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
+    ###
     
     # ehv network clustering
     etrago.ehv_clustering()
@@ -361,7 +365,6 @@ def run_etrago(args, json_path):
     etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
     etrago.lopf()
 
     # check if should be combined with etrago.lopf()
