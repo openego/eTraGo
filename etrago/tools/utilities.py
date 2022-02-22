@@ -806,11 +806,11 @@ def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
         cost380 * network.lines.length
     )
 
-    '''network.links.loc[
+    network.links.loc[
         (network.links.p_nom_extendable)
         & (network.links.index.isin(self.dc_lines().index)),
         "capital_cost",
-    ] = (costDC * network.links.length)'''
+    ] = (costDC * network.links.length)
 
     return network
 
@@ -1106,7 +1106,7 @@ def convert_capital_costs(self, p=0.05, T=40):
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
     # Add costs for DC-converter
-    #network.links.loc[self.dc_lines().index, "capital_cost"] += 400000
+    network.links.loc[self.dc_lines().index, "capital_cost"] += 400000
 
     # Calculate present value of an annuity (PVA)
     PVA = (1 / p) - (1 / (p * (1 + p) ** T))

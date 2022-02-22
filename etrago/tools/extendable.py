@@ -88,7 +88,7 @@ def extendable(self, line_max):
             else:
                 network.transformers.s_nom_max = float("inf")
 
-        '''if not network.links.empty:
+        if not network.links.empty:
             network.links.loc[
                 network.links.carrier=='DC', 'p_nom_extendable'] = True
             network.links.loc[
@@ -101,7 +101,7 @@ def extendable(self, line_max):
                 line_max * network.links.p_nom
 
             else:
-                network.links.p_nom_max = float("inf")'''
+                network.links.p_nom_max = float("inf")
 
         network = self.set_line_costs()
         network = self.set_trafo_costs()
