@@ -88,7 +88,7 @@ def extendable(self, line_max):
             else:
                 network.transformers.s_nom_max = float("inf")
 
-        if not network.links.empty:
+        '''if not network.links.empty:
             network.links.loc[
                 network.links.carrier=='DC', 'p_nom_extendable'] = True
             network.links.loc[
@@ -101,7 +101,7 @@ def extendable(self, line_max):
                 line_max * network.links.p_nom
 
             else:
-                network.links.p_nom_max = float("inf")
+                network.links.p_nom_max = float("inf")'''
 
         network = self.set_line_costs()
         network = self.set_trafo_costs()
@@ -166,8 +166,8 @@ def extendable(self, line_max):
                     (network.links.bus1.isin(buses.index)),
                     'p_nom_max'] = float("inf")
 
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
+        network = self.set_line_costs(network)
+        network = self.set_trafo_costs(network)
 
     if 'foreign_network' in self.args['extendable']:
         buses = network.buses[network.buses.index.isin(
@@ -228,14 +228,14 @@ def extendable(self, line_max):
                     (network.links.bus1.isin(buses.index)),
                     'p_nom_max'] = float("inf")
 
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
+        network = self.set_line_costs(network)
+        network = self.set_trafo_costs(network)
 
     if 'transformers' in self.args['extendable']:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
-        network = set_trafo_costs(network)
+        network = self.set_trafo_costs(network)
 
     if 'storages' in self.args['extendable'] or 'storage' in self.args['extendable']:
         if not network.storage_units.carrier[
