@@ -297,23 +297,9 @@ def get_clustering_from_busmap(
     gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
 
     combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
-    combinations.reset_index(drop=True, inplace=True)
+    combinations.set_index("link_id", inplace=True)
 
-    combinations["buscombination"] = combinations[["bus0", "bus1"]].apply(
-        lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
-    )
-
-    strategies.update(
-        {col: "first" for col in combinations.columns if col not in strategies}
-    )
-
-    combinations_final = combinations.groupby(["buscombination", "carrier"]).agg(
-        strategies
-    )
-
-    combinations_final.set_index("link_id", inplace=True)
-    combinations_final = combinations_final.drop(columns="buscombination")
-    io.import_components_from_dataframe(network_gasgrid_c, combinations_final, "Link")
+    io.import_components_from_dataframe(network_gasgrid_c, combinations, "Link")
 
     non_gas_links = (
         new_links[~new_links["carrier"].isin(gas_carriers)]

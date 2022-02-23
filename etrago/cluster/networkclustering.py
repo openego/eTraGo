@@ -74,7 +74,7 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(network, busmap, cluster_met):
-    
+
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
     network2.buses = network2.buses[
@@ -156,7 +156,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connexion to the electric network"""
+            connection to the electric network"""
         )
 
     # Add the gas buses to the busmap and map them to themself
@@ -299,7 +299,7 @@ def strategies_links():
         "marginal_cost": np.mean,
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
-        "country": _make_consense_links,
+        "country": nan_links,
     }
 
 
@@ -919,7 +919,6 @@ def kmean_clustering(etrago):
 
     strategies = strategies_links()
     # Dealing with links
-
     clustering.network.links = clustering.network.links.groupby(
         ["bus0", "bus1", "carrier"]
     ).agg(strategies)
