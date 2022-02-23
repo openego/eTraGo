@@ -45,7 +45,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'etrago',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -344,6 +344,16 @@ def run_etrago(args, json_path):
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     
+    from etrago.tools.utilities import drop_sectors
+    
+    # drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'central_heat', 
+    #                                   'rural_heat', 'central_heat_store', 
+    #                                   'rural_heat_store'])
+    drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'central_heat', 
+                                        'rural_heat', 'central_heat_store', 
+                                        'rural_heat_store', 
+                                        'dsm-cts', 'dsm-ind-osm', 
+                                        'dsm-ind-sites'])
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -359,7 +369,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    # etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
