@@ -269,7 +269,7 @@ def strategies_links():
         "p_nom": np.sum,
         "p_nom_extendable": _make_consense_links,
         "p_nom_max": np.sum,
-        "capital_cost": np.sum,
+        "capital_cost": np.mean,
         "length": np.mean,
         "geom": nan_links,
         "topo": nan_links,
