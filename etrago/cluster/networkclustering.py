@@ -41,6 +41,7 @@ if "READTHEDOCS" not in os.environ:
     from math import ceil
     import pandas as pd
     from networkx import NetworkXNoPath
+    from sklearn.cluster import KMeans
     from pickle import dump
     from pypsa import Network
     import pypsa.io as io
@@ -49,7 +50,6 @@ if "READTHEDOCS" not in os.environ:
     from sqlalchemy import or_, exists
     import numpy as np
     import logging
-    import pdb
 
     logger = logging.getLogger(__name__)
 
@@ -1020,15 +1020,353 @@ def select_elec_network(etrago):
     return elec_network
 
 
+def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
+    """ Function for combination of k-medoids Clustering and Dijkstra's algorithm.
+    Creates a busmap assigning the nodes of a original network 
+    to the nodes of a clustered network 
+    considering the electrical distances based on Dijkstra's shortest path. 
+    Parameters
+  centers 
+       ----------
+    network : pypsa.Network object
+        Container for all network components.
+        
+    medoid_idx : pd.Series
+        Indices of k-medoids
+    busmap_kmedoid: pd.Series
+        Busmap based on k-medoids clustering
+    Returns
+    -------
+    busmap (format: with labels)
+    """
+    
+    # original data
+    o_buses = network.buses.index
+    # k-medoids centers
+    medoid_idx=medoid_idx.astype('str')
+    c_buses = medoid_idx.tolist()
+    
+    # k-medoids assignment 
+    df_kmedoid=pd.DataFrame({'medoid_labels':busmap_kmedoid.values}, index=busmap_kmedoid.index)
+    df_kmedoid['medoid_indices']=df_kmedoid['medoid_labels']
+    for index, row in df_kmedoid.iterrows():
+        label = int(row['medoid_labels'])
+        df_kmedoid['medoid_indices'].loc[index] = c_buses[label]
+             
+    # list of all possible pathways
+    ppathss = list(product(o_buses, c_buses))
+
+    # graph creation
+    lines = network.lines
+    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row
+             in lines.iterrows()]
+    M = graph_from_edges(edges)
+    
+    # processor count
+    cpu_cores = mp.cpu_count()-1
+
+    # calculation of shortest path between original points and k-medoids centers
+    # using multiprocessing
+    p = mp.Pool(cpu_cores)
+    chunksize = ceil(len(ppathss) / cpu_cores)
+    container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
+    df = pd.concat(container)
+    dump(df, open('df.p', 'wb'))
+    
+    # assignment of data points to closest k-medoids centers
+    df['path_length']=pd.to_numeric(df['path_length'])  
+    mask = df.groupby(level='source')['path_length'].idxmin()
+    df_dijkstra = df.loc[mask, :]
+    df_dijkstra.reset_index(inplace=True)    
+
+    # delete double entries in df due to multiprocessing      
+    duplicated=df_dijkstra.duplicated()
+    for i in range(len(duplicated)):
+        if duplicated[i]==True:
+            df_dijkstra = df_dijkstra.drop([i])
+    df_dijkstra.index=df_dijkstra['source']
+    
+    # creation of new busmap with final assignment (format: medoids indices)
+    busmap_ind=pd.Series(df_dijkstra['target'], dtype=object).rename("final_assignment", inplace=True)
+    busmap_ind.index=df_dijkstra['source']   
+    # adaption of busmap to format with labels (necessary for aggregation)
+    busmap=busmap_ind.copy()
+    for index, item in busmap.iteritems():
+        label = medoid_idx[medoid_idx==str(item)].index[0]
+        busmap.loc[index] = str(label)
+    busmap.index=list(busmap.index.astype(str))
+                   
+    return busmap
+        
+def kmedoids_dijkstra_clustering(etrago):
+    """ Function of the k-medoids Dijkstra Clustering approach. Maps an original
+    network to a new one with adjustable number of nodes and new coordinates.
+    This approach conducts a k-medoids Clustering followd by a Dijkstra's algortihm
+    assigning the original buses considering their electrical distances to the 
+    identified medoids.
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Container for all network components.
+    n_clusters : int
+        Desired number of clusters.
+    load_cluster : boolean
+        Loads cluster coordinates from a former calculation.
+    line_length_factor : float
+        Factor to multiply the crow-flies distance between new buses in order
+        to get new line lengths.
+    bus_weight_tocsv : str
+        Creates a bus weighting based on conventional generation and load
+        and save it to a csv file.
+    bus_weight_fromcsv : str
+        Loads a bus weighting from a csv file to apply it to the clustering
+        algorithm.
+    Returns
+    -------
+    network : pypsa.Network object
+        Container for all network components.
+    """
+
+    network = etrago.network.copy()
+    settings = etrago.args['network_clustering']
+    
+    ###
+    # TODO
+    # workaround because of subnetwork in SH-Testcase
+    network.determine_network_topology()
+    network.sub_networks["n_branches"] = [len(sn.branches()) for sn in network.sub_networks.obj]
+    network.sub_networks["n_buses"] = [len(sn.buses()) for sn in network.sub_networks.obj]
+    out = network.sub_networks[network.sub_networks['n_branches']==0]
+    out = out['slack_bus']
+    network.buses.drop(out.values, axis=0, inplace=True)
+    network.generators = network.generators[network.generators.bus.isin(out.tolist()) == False]
+    ###
+    
+    def weighting_for_scenario(x, save=None):
+        """
+        """
+        # define weighting based on conventional 'old' generator spatial
+        # distribution
+        non_conv_types = {
+                'biomass',
+                'wind_onshore',
+                'wind_offshore',
+                'solar',
+                'geothermal',
+                'load shedding',
+                'extendable_storage'}
+        # Attention: network.generators.carrier.unique()
+        gen = (network.generators.loc[(network.generators.carrier
+                                   .isin(non_conv_types) == False)]
+           .groupby('bus').p_nom.sum()
+                                .reindex(network.buses.index, fill_value=0.) +
+           network.storage_units
+                                .loc[(network.storage_units.carrier
+                                      .isin(non_conv_types) == False)]
+                  .groupby('bus').p_nom.sum()
+                  .reindex(network.buses.index, fill_value=0.))
+
+        load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
+
+        b_i = x.index
+        g = normed(gen.reindex(b_i, fill_value=0))
+        l = normed(load.reindex(b_i, fill_value=0))
+
+        w = g + l
+        weight = ((w * (100000. / w.max())).astype(int)
+                  ).reindex(network.buses.index, fill_value=1)
+
+        if save:
+            weight.to_csv(save)
+
+        return weight
+
+    def normed(x):
+        return (x / x.sum()).fillna(0.)
+
+    # prepare k-mean
+    # k-means clustering (first try)
+    network.generators.control = "PV"
+    network.storage_units.control[network.storage_units.carrier == \
+                                  'extendable_storage'] = "PV"
+
+    # problem our lines have no v_nom. this is implicitly defined by the
+    # connected buses:
+    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
+
+    # adjust the electrical parameters of the lines which are not 380.
+    lines_v_nom_b = network.lines.v_nom != 380
+
+    voltage_factor = (network.lines.loc[lines_v_nom_b, 'v_nom'] / 380.)**2
+
+    network.lines.loc[lines_v_nom_b, 'x'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'r'] *= 1/voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'b'] *= voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'g'] *= voltage_factor
+
+    network.lines.loc[lines_v_nom_b, 'v_nom'] = 380.
+
+    trafo_index = network.transformers.index
+    transformer_voltages = \
+        pd.concat([network.transformers.bus0.map(network.buses.v_nom),
+                   network.transformers.bus1.map(network.buses.v_nom)], axis=1)
+
+    network.import_components_from_dataframe(
+        network.transformers.loc[:, [
+                'bus0', 'bus1', 'x', 's_nom', 'capital_cost', 'sub_network', 's_max_pu']]
+        .assign(x=network.transformers.x * (380. /
+                transformer_voltages.max(axis=1))**2, length = 1)
+        .set_index('T' + trafo_index),
+        'Line')
+    network.transformers.drop(trafo_index, inplace=True)
+
+    for attr in network.transformers_t:
+        network.transformers_t[attr] = network.transformers_t[attr]\
+            .reindex(columns=[])
+
+    network.buses['v_nom'] = 380.#########################################################
+    
+    etrago.network = network.copy()
+    network_elec = select_elec_network(etrago)
+    
+    # State whether to create a bus weighting and save it, create or not save
+    # it, or use a bus weighting from a csv file
+    if settings['bus_weight_tocsv'] is not None:
+        weight = weighting_for_scenario(
+            x=network_elec.buses,
+            save=settings['bus_weight_tocsv'])
+    elif settings['bus_weight_fromcsv'] is not None:
+        weight = pd.Series.from_csv(settings['bus_weight_fromcsv'])
+        weight.index = weight.index.astype(str)
+    else:
+        weight = weighting_for_scenario(x=network_elec.buses, save=False)
+
+
+    # remove stubs
+    if settings['remove_stubs']:
+
+        logger.info('options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering')
+
+    # k-mean clustering
+    if not settings['busmap']:
+        
+        bus_weightings=pd.Series(weight)
+        buses_i=network_elec.buses.index
+        points = (network_elec.buses.loc[buses_i, ["x","y"]].values
+                  .repeat(bus_weightings.reindex(buses_i).astype(int), axis=0))
+        
+        # k-means clustering
+        
+        kmeans = KMeans(init='k-means++', n_clusters=settings['n_clusters'], \
+                    n_init=settings['n_init'], max_iter=settings['max_iter'], 
+                    tol=settings['tol'], n_jobs=settings['n_jobs'])
+        kmeans.fit(points)
+        
+        busmap = pd.Series(data=kmeans.predict(network_elec.buses.loc[buses_i, ["x", "y"]]), 
+                         index=buses_i, dtype=object)
+        
+        # identify medoids per cluster -> k-medoids clustering
+        
+        distances = pd.DataFrame(data=kmeans.transform(network_elec.buses.loc[buses_i, ["x", "y"]].values), 
+                             index=buses_i, dtype=object)
+        
+        medoid_idx = pd.Series(data=np.zeros(shape=settings['n_clusters'], dtype=int))
+        for i in range(0, settings['n_clusters']):
+            dist = pd.to_numeric(distances[i])
+            index=int(dist.idxmin())
+            medoid_idx[i]=index
+            
+        # dijkstra's algorithm
+            
+        busmap = dijkstras_algorithm(network_elec, medoid_idx, busmap)
+        busmap.index.name='bus_id'
+        busmap.to_csv('kmedoids_dijkstra_busmap_' + str(settings['n_clusters']) + '_result.csv')
+        
+    else:
+        df = pd.read_csv(settings['busmap'])
+        df=df.astype(str)
+        df = df.set_index('bus_id')
+        busmap = df.squeeze('columns')
+      
+    network.generators['weight'] = network.generators['p_nom']
+    aggregate_one_ports = network.one_port_components.copy()
+    aggregate_one_ports.discard('Generator')
+    clustering = get_clustering_from_busmap(
+        network,
+        busmap,
+        aggregate_generators_weighted=True,
+        one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
+                                             'capital_cost': np.mean,
+                                             'efficiency_dispatch': np.mean,
+                                             'standing_loss': np.mean,
+                                             'efficiency_store': np.mean,
+                                             'p_min_pu': np.min}},
+        generator_strategies={'p_nom_min':np.min,
+                              'p_nom_opt': np.sum,
+                              'marginal_cost': np.mean,
+                              'capital_cost': np.mean},
+        aggregate_one_ports=aggregate_one_ports,
+        line_length_factor=settings['line_length_factor'])
+    
+    for i in range(len(medoid_idx)):
+        index=int(clustering.network.buses.index[i])
+        medoid=str(medoid_idx.loc[index])
+        clustering.network.buses['x'].iloc[i]=network.buses['x'].loc[medoid]     
+        clustering.network.buses['y'].iloc[i]=network.buses['y'].loc[medoid]
+
+    return clustering
+
+def run_spatial_clustering(self):
+
+    if self.args['network_clustering']['active']:
+
+        self.network.generators.control = "PV"
+
+        if self.args['network_clustering']['method'] == 'kmeans':
+
+            logger.info('Start k-means Clustering')
+
+            self.clustering = kmean_clustering(self)
+            
+        elif self.args['network_clustering']['method'] == 'kmedoids-dijkstra':
+            
+            logger.info('Start k-medoids Dijkstra Clustering')
+
+            self.clustering = kmedoids_dijkstra_clustering(self)            
+
+        if self.args['disaggregation'] != None:
+                self.disaggregated_network = self.network.copy()
+
+        self.network = self.clustering.network.copy()
+
+        self.geolocation_buses()
+
+        self.network.generators.control[self.network.generators.control == ''] = 'PV'
+
+        logger.info("Network clustered to {} buses with k-means algorithm."
+                    .format(self.args['network_clustering']['n_clusters']))
+
+
 def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
+        
+        if self.args['network_clustering']['method'] == 'kmeans':
 
-        logger.info("Start k-mean clustering")
+            logger.info("Start k-mean clustering")
 
-        self.clustering = kmean_clustering(self)
+            self.clustering = kmean_clustering(self)
+
+        elif self.args['network_clustering']['method'] == 'kmedoids-dijkstra':
+            
+            logger.info('Start k-medoids Dijkstra Clustering')
+            #breakpoint()
+            self.clustering = kmedoids_dijkstra_clustering(self)         
 
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()

@@ -75,7 +75,7 @@ args = {
     'network_clustering': {
         'active': True, # choose if clustering is activated
         'n_clusters': 20, # number of resulting nodes
-        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
+        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
         'busmap': False, # False or path/to/busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
