@@ -214,8 +214,8 @@ def get_clustering_from_busmap(
     io.import_components_from_dataframe(network_gasgrid_c, new_buses, "Bus")
 
     if with_time:
-        network_gasgrid_c.snapshot_weightings = network.snapshot_weightings.copy()
         network_gasgrid_c.set_snapshots(network.snapshots)
+        network_gasgrid_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # Aggregate one port components
     one_port_components = ["Generator", "Load", "Store"]
