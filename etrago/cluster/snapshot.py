@@ -493,7 +493,7 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
         network.snapshot_weightings = pd.Series(data = timeseries.index.get_level_values(2).values,
             index = timeseries.index.get_level_values(0))
         network.snapshots = timeseries.index.get_level_values(0)
-        print(network.snapshots)
+
     else:
         network.snapshots = dates
         network.snapshot_weightings = network.snapshot_weightings.loc[dates]
@@ -508,10 +508,12 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
             network.snapshot_weightings['objective'][i] = snapshot_weightings[i]
             network.snapshot_weightings['stores'][i] = snapshot_weightings[i]
             network.snapshot_weightings['generators'][i] = snapshot_weightings[i]
+
         # put the snapshot in the right order
         network.snapshots.sort_values()
         network.snapshot_weightings.sort_index()
         print(network.snapshots)
+        
     return network
 
 
