@@ -261,6 +261,8 @@ class Etrago():
 
         self.extendable(line_max=4)
 
+        self.convert_capital_costs()
+
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
 
