@@ -336,6 +336,7 @@ def run_etrago(args, json_path):
 
     
     etrago.network.lines.type = ''
+    etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     etrago.network.links.capital_cost.fillna(0, inplace=True)
@@ -346,8 +347,8 @@ def run_etrago(args, json_path):
     etrago.network.links.efficiency.fillna(1., inplace=True)
     etrago.network.links.marginal_cost.fillna(0., inplace=True)
     etrago.network.links.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links.p_max_pu.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom.fillna(0, inplace=True)
+    etrago.network.links.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
     etrago.network.stores.capital_cost.fillna(0, inplace=True)
@@ -357,7 +358,8 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
-    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
+    etrago.network.lines.v_ang_min.fillna(0., inplace=True)    
+    etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
 
     etrago.adjust_network()
