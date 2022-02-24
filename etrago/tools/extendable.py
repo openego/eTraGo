@@ -112,8 +112,6 @@ def extendable(self, line_max):
             else:
                 network.links.p_nom_max = float("inf")
 
-        network = self.set_line_costs()
-        network = self.set_trafo_costs()
 
     if 'german_network' in self.args['extendable']:
         buses = network.buses[~network.buses.index.isin(
@@ -175,8 +173,6 @@ def extendable(self, line_max):
                     (network.links.bus1.isin(buses.index)),
                     'p_nom_max'] = float("inf")
 
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
 
     if 'foreign_network' in self.args['extendable']:
         buses = network.buses[network.buses.index.isin(
@@ -237,14 +233,13 @@ def extendable(self, line_max):
                     (network.links.bus1.isin(buses.index)),
                     'p_nom_max'] = float("inf")
 
-        network = set_line_costs(network)
-        network = set_trafo_costs(network)
+
 
     if 'transformers' in self.args['extendable']:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
-        network = set_trafo_costs(network)
+
 
     if 'storages' in self.args['extendable'] or 'storage' in self.args['extendable']:
         if not network.storage_units.carrier[
@@ -324,19 +319,6 @@ def extendable(self, line_max):
                 'extension_' + self.args['scn_extension'][i]
             ), 'capital_cost'] = network.lines.capital_cost
 
-    network.lines.s_nom_min[network.lines.s_nom_extendable == False] =\
-        network.lines.s_nom
-
-    network.transformers.s_nom_min[network.transformers.s_nom_extendable == \
-        False] = network.transformers.s_nom
-
-    network.lines.s_nom_max[network.lines.s_nom_extendable == False] =\
-        network.lines.s_nom
-
-    network.transformers.s_nom_max[network.transformers.s_nom_extendable == \
-        False] = network.transformers.s_nom
-
-    self.convert_capital_costs()        
 
     return network
 
@@ -395,8 +377,7 @@ def extension_preselection(etrago, method, days=3):
     network.transformers.loc[:, 's_nom_min'] = network.transformers.s_nom
     network.transformers.loc[:, 's_nom_max'] = np.inf
 
-    network = set_line_costs(network)
-    network = set_trafo_costs(network)
+
     network = convert_capital_costs(network, 1, 1)
     extended_lines = network.lines.index[network.lines.s_nom_opt >
                                          network.lines.s_nom]
@@ -433,8 +414,6 @@ def extension_preselection(etrago, method, days=3):
         = np.inf
 
     network.snapshot_weightings = weighting
-    network = set_line_costs(network)
-    network = set_trafo_costs(network)
     network = convert_capital_costs(network, args['start_snapshot'],
                                     args['end_snapshot'])
 
