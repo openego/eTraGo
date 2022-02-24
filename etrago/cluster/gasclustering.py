@@ -40,6 +40,7 @@ def create_gas_busmap(etrago):
     """
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
+
     buses_ch4 = etrago.network.buses
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
@@ -118,14 +119,12 @@ def create_gas_busmap(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
-    busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
+    busmap = pd.concat([busmap_ch4, busmap_h2])
 
     # Add all other buses except H2_ind_load to busmap
-    busmap.index = busmap.index.astype(str)
     missing_idx = list(
         etrago.network.buses[
             (~etrago.network.buses.index.isin(busmap.index))
-            & (etrago.network.buses["carrier"] != "H2_ind_load")
         ].index
     )
     next_bus_id = highestNumber(etrago.network.buses.index) + 1
@@ -135,12 +134,14 @@ def create_gas_busmap(etrago):
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
+    for carrier, skip in zip(["H2_ind_load", "central_heat", "rural_heat"], [None, "central_heat_store", "rural_heat_store"]):
+        busmap_sector_coupling = aggregate_sector_coupling(etrago.network, busmap, carrier, skip)
+
+        for key, value in busmap_sector_coupling.items():
+            busmap.loc[key] = value
+
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
-
-    busmap_H2_ind_buses = aggregate_two_port_tails(etrago.network, busmap, "H2_ind_load")
-
-    busmap = {**busmap, **busmap_H2_ind_buses}
 
     df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
     df_bm.to_csv(
@@ -168,13 +169,17 @@ def highestNumber(numbers):
     return highest
 
 
-def aggregate_two_port_tails(network, busmap, carrier):
+def aggregate_sector_coupling(network, busmap, carrier, skip_carrier):
     """Create busmap for technologies that are connected to n clustered technologies."""
 
     next_bus_id = highestNumber(busmap.values) + 1
     buses = network.buses[network.buses["carrier"] == carrier]
+    skip_buses = network.buses[network.buses["carrier"] == skip_carrier]
+
     connected_links = network.links.loc[
         network.links["bus1"].isin(buses.index)
+        & ~network.links["bus1"].isin(skip_buses.index)
+        & ~network.links["bus0"].isin(skip_buses.index)
     ]
 
     busmap = busmap.to_dict()
@@ -387,6 +392,9 @@ def kmean_clustering_gas_grid(etrago):
 def run_kmeans_clustering_gas(self):
 
     if self.args["network_clustering_kmeans"]["active"]:
+
+        self.network.generators.control = "PV"
+
         logger.info("Start k-mean clustering GAS")
         self.network = kmean_clustering_gas_grid(self)
         logger.info(

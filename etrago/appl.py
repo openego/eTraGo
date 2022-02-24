@@ -371,8 +371,6 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
     etrago.kmean_clustering_gas()
-    s
-
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
