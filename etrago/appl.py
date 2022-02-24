@@ -84,6 +84,7 @@ args = {
         'n_clusters': 50, # number of resulting nodes
         'n_clusters_gas': 10, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
+        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs before kmeans clustering
         'use_reduced_coordinates': False, #
