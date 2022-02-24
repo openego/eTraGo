@@ -879,7 +879,7 @@ def kmean_clustering(etrago):
     else:
         df = pd.read_csv(kmean_settings["kmeans_busmap"])
         df = df.astype(str)
-        df = df.set_index("bus_id")
+        df = df.set_index("Bus")
         busmap = df.squeeze("columns")
 
     network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")

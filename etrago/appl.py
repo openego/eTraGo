@@ -52,7 +52,7 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': True}, # set if pyomo is used for model building
+        'pyomo': False}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
@@ -60,7 +60,12 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 10,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},
+    'solver_options': {"threads":4,
+                      "crossover": 0,
+                      "method":2,
+                      "BarConvTol":"1.e-5",
+                      "FeasibilityTol":"1.e-6",
+                      "logFile":"gurobi_eTraGo.log"},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -355,6 +360,7 @@ def run_etrago(args, json_path, path, number):
 
     # interim adaptions of data model
     etrago.network.lines.type = ''
+    etrago.network.lines.carrier='AC'
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     etrago.network.links.capital_cost.fillna(0, inplace=True)
@@ -365,8 +371,8 @@ def run_etrago(args, json_path, path, number):
     etrago.network.links.efficiency.fillna(1., inplace=True)
     etrago.network.links.marginal_cost.fillna(0., inplace=True)
     etrago.network.links.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links.p_max_pu.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom.fillna(0, inplace=True)
+    etrago.network.links.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
     etrago.network.stores.capital_cost.fillna(0, inplace=True)
@@ -376,8 +382,14 @@ def run_etrago(args, json_path, path, number):
     etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
-    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
+    etrago.network.lines.v_ang_min.fillna(0., inplace=True)    
+    etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
+    etrago.drop_sectors(['H2_ind_load', 'H2_ind_loads'])
+    
+    # delete H2-Feedin links as they are not implemented correctly yet
+    etrago.network.links = etrago.network.links[etrago.network.links.carrier != 'H2_feedin']
+    
 
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()

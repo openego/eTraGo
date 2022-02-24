@@ -518,8 +518,9 @@ def skip_snapshots(self):
     if n_skip:
         self.network.snapshots = self.network.snapshots[::n_skip]
 
-        self.network.snapshot_weightings = \
-            self.network.snapshot_weightings[::n_skip] * n_skip
+        self.network.snapshot_weightings['objective'] = n_skip
+        self.network.snapshot_weightings['stores'] = n_skip
+        self.network.snapshot_weightings['generators'] = n_skip
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
