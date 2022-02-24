@@ -78,6 +78,7 @@ args = {
         'n_clusters': 50, # number of resulting nodes
         'n_clusters_gas': 10, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
+        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
@@ -334,7 +335,6 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
