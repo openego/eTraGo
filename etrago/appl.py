@@ -69,7 +69,7 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -210,6 +210,8 @@ def run_etrago(args, json_path):
         Choose components you want to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
+            'as_in_db': leaves everything as it is defined in the data coming
+                        from the database
             'network': set all lines, links and transformers extendable
             'german_network': set lines and transformers in German grid
                             extendable

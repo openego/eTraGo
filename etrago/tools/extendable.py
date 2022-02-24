@@ -66,6 +66,15 @@ def extendable(self, line_max):
         Overall container of PyPSA
     """
     network = self.network
+    
+    if not 'as_in_db' in self.args['extendable']:
+        network.lines.s_nom_extendable = False
+        network.transformers.s_nom_extendable = False
+        network.links.p_nom_extendable = False
+        network.storage_units.p_nom_extendable = False
+        network.stores.e_nom_extendable = False
+        network.generators.p_nom_extendable = False
+
 
     if 'network' in self.args['extendable']:
         network.lines.s_nom_extendable = True
