@@ -390,7 +390,6 @@ def run_etrago(args, json_path, path, number):
     # delete H2-Feedin links as they are not implemented correctly yet
     etrago.network.links = etrago.network.links[etrago.network.links.carrier != 'H2_feedin']
     
-
     # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
