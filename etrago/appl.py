@@ -24,11 +24,12 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
-
+import sys
 import datetime
 import os
 import os.path
 import numpy as np
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -50,7 +51,7 @@ args = {
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
@@ -69,7 +70,7 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['network', 'storage'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -87,7 +88,7 @@ args = {
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
@@ -108,7 +109,7 @@ args = {
                       'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
     'comments': None}
 
-def run_etrago(args, json_path):
+def run_etrago(args, json_path, path, number):
     """The etrago function works with following arguments:
 
 
@@ -333,11 +334,26 @@ def run_etrago(args, json_path):
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
     """
+    
+    # to procede in loop
+    if path == 'skip_snapshots':
+        args['skip_snapshots'] = number
+    elif path == 'typical_days' or path == 'typical_hours' or path == 'typical_weeks' or path == 'segmentation':
+        args['snapshot_clustering']['active'] = True
+        if args['snapshot_clustering']['method'] == 'typical_periods':
+            args['snapshot_clustering']['n_clusters'] = number
+        elif args['snapshot_clustering']['method'] == 'segmentation':
+            args['snapshot_clustering']['n_segments'] = number
+        
+    path = path +'/'+ str(number) +'/'
+    
+    
     etrago = Etrago(args, json_path)
  
     # import network from database
     etrago.build_network_from_db()
 
+    # interim adaptions of data model
     etrago.network.lines.type = ''
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
@@ -363,6 +379,7 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
 
+    # adjust network, e.g. set (n-1)-security factor
     etrago.adjust_network()
 
     # Set marginal costs for gas feed-in
@@ -378,14 +395,169 @@ def run_etrago(args, json_path):
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
+    
+    ###########################################################################
+    
+    # preparations for 2-Level Approach
+    
+    # save original timeseries
+    original_snapshots = etrago.network.snapshots
+    original_weighting = etrago.network.snapshot_weightings
+    
+    # save format for dispatch using original timeseries
+    gen_p = etrago.network.generators_t.p.copy()
+    lines_lower = etrago.network.lines_t.mu_lower.copy()
+    lines_upper = etrago.network.lines_t.mu_upper.copy()
+    lines_p0 = etrago.network.lines_t.p0.copy()
+    lines_p1 = etrago.network.lines_t.p1.copy()
+    links_lower = etrago.network.links_t.mu_lower.copy()
+    links_upper = etrago.network.links_t.mu_upper.copy()
+    links_p0 = etrago.network.links_t.p0.copy()
+    links_p1 = etrago.network.links_t.p1.copy()
+    stun_p = etrago.network.storage_units_t.p.copy()
+    stun_p_dispatch = etrago.network.storage_units_t.p_dispatch.copy()
+    stun_p_store = etrago.network.storage_units_t.p_store.copy()
+    stun_state_of_charge = etrago.network.storage_units_t.state_of_charge.copy()
+    store_e = etrago.network.stores_t.e.copy()
+    store_p = etrago.network.stores_t.p.copy()
+    bus_price = etrago.network.buses_t.marginal_price.copy()
+    bus_p = etrago.network.buses_t.p.copy()
+    bus_vang = etrago.network.buses_t.v_ang.copy()
+    loads = etrago.network.loads_t.p.copy()
+    
+    ###########################################################################
+    
+    print(' ')
+    print('Start Time Series Aggregation')
+    t1 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
+    
     # skip snapshots    
     etrago.skip_snapshots()
+    if args['skip_snapshots'] != False:
+        print(' ')
+        print(etrago.network.snapshots)
+        print(' ')
+    args['csv_export'] = path+'/results/level1/'
 
     # snapshot clustering
     etrago.snapshot_clustering()
+    
+    print(' ')
+    print('Stop Time Series Aggregation')
+    t2 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
+
+    print(' ')
+    print('Start LOPF Level 1')
+    t3 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
 
     # start linear optimal powerflow calculations
     etrago.lopf()
+    
+    print(' ')
+    print('Stop LOPF Level 1')
+    t4 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
+    
+    # save results of this optimization
+    etrago.export_to_csv(path+'Level-1')
+    
+    # calculate central etrago results
+    etrago.calc_results()
+    print(' ')
+    print(etrago.results)
+    etrago.results.to_csv(path+'results-1')
+    print(' ') 
+    
+    ###########################################################################
+    
+    # LOPF Level 2
+    
+    args['csv_export'] = path+'/results/level2/'
+    
+    # drop dispatch from LOPF1
+    
+    etrago.network.generators_t.p = gen_p
+    etrago.network.lines_t.mu_lower = lines_lower
+    etrago.network.lines_t.mu_upper = lines_upper
+    etrago.network.lines_t.p0 = lines_p0
+    etrago.network.lines_t.p1 = lines_p1
+    etrago.network.links_t.mu_lower = links_lower
+    etrago.network.links_t.mu_upper = links_upper
+    etrago.network.links_t.p0 = links_p0
+    etrago.network.links_t.p1 = links_p1
+    etrago.network.storage_units_t.p = stun_p
+    etrago.network.storage_units_t.p_dispatch = stun_p_dispatch
+    etrago.network.storage_units_t.p_store = stun_p_store
+    etrago.network.storage_units_t.state_of_charge = stun_state_of_charge
+    etrago.network.storage_units_t.soc_intra = etrago.network.storage_units_t.state_of_charge.copy()
+    etrago.network.stores_t.e = store_e
+    etrago.network.stores_t.p = store_p
+    etrago.network.stores_t.soc_intra_store = etrago.network.stores_t.e.copy()
+    etrago.network.buses_t.marginal_price = bus_price
+    etrago.network.buses_t.p = bus_p
+    etrago.network.buses_t.v_ang = bus_vang
+    etrago.network.loads_t.p = loads
+    
+    # use network and storage expansion from LOPF 1
+    
+    etrago.network.lines['s_nom'] = etrago.network.lines['s_nom_opt']
+    etrago.network.lines['s_nom_extendable'] = False
+    
+    etrago.network.storage_units['p_nom'] = etrago.network.storage_units['p_nom_opt']
+    etrago.network.storage_units['p_nom_extendable'] = False
+    
+    etrago.network.stores['e_nom'] = etrago.network.stores['e_nom_opt']
+    etrago.network.stores['e_nom_extendable'] = False
+    
+    etrago.network.links['p_nom'] = etrago.network.links['p_nom_opt']
+    etrago.network.links['p_nom_extendable'] = False
+    
+    etrago.args['extendable'] = []
+    
+    # use original timeseries
+    
+    etrago.network.snapshots = original_snapshots
+    etrago.network.snapshot_weightings = original_weighting
+    
+    etrago.args['snapshot_clustering']['active']=False
+    etrago.args['skip_snapshots']=False
+    
+    print(' ')
+    print('Start LOPF Level 2')
+    t5 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
+    
+    # optimization of dispatch with complex timeseries
+    etrago.lopf()
+    
+    print(' ')
+    print('Stop LOPF Level 2')
+    t6 = datetime.datetime.now()
+    print(datetime.datetime.now())
+    print(' ')
+    
+    # save results of this optimization
+    etrago.export_to_csv(path+'Level-2')
+    
+    # calculate central etrago results
+    etrago.calc_results()
+    print(' ')
+    print(etrago.results)
+    etrago.results.to_csv(path+'results-2')
+    print(' ')
+    
+    ###########################################################################
+    
+    t = pd.Series([t1, t2, t3, t4, t5, t6]) 
+    t.to_csv(path+'time')
 
     # check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
@@ -396,17 +568,90 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    etrago.calc_results()
+    #etrago.calc_results()
 
     return etrago
 
+###############################################################################
 
-if __name__ == '__main__':
+# räumliche Auflösung
+args['network_clustering_kmeans']['active'] = True
+args['network_clustering_kmeans']['n_clusters'] = 10
+args['network_clustering_kmeans']['gas_clusters'] = 10
+args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_10_result.csv'
+
+# TODO: herantasten räumliche Auflösung...
+# Start: 100 / 30, dann 150/50 usw. 
+
+
+# zeitliche Auflösung
+args['snapshot_clustering']['active'] = False
+args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
+args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'new_cluster_center'
+args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
+args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
+args['skip_snapshots'] = True
+
+skip_snapshots = [6] # 6, 5, 4, 3
+
+typical_days = [60] # 60, 80, 100, 120, 140
+
+segmentation = [1000] # 1000, 1500, 2000, 2500, 3000
+
+if args['snapshot_clustering']['active'] == True and args['skip_snapshots'] == True:
+    raise ValueError("Decide for temporal aggregation method!")
+elif args['snapshot_clustering']['active'] == False and args['skip_snapshots'] == False:
+    loop = [0]
+    path = 'original'
+if args['snapshot_clustering']['active'] == True:
+    if args['snapshot_clustering']['method'] == 'typical_periods':
+        loop = typical_days
+        path = 'typical_days'
+    elif args['snapshot_clustering']['method'] == 'segmentation':
+        loop = segmentation
+        path = 'segmentation'
+elif args['skip_snapshots'] == True:
+    loop = skip_snapshots
+    path = 'skip_snapshots'
+    
+for no in loop:
+
+    old_stdout = sys.stdout
+    path_log = path +'/'+ str(no)
+    os.makedirs(path_log, exist_ok=True)
+    #log_file = open(path_log+'/console.log',"w")
+    #sys.stdout = log_file
+    
+    print(' ')
+    print('pyomo:')
+    print(args['method'])
+    print('snapshot_clustering:')
+    print(args['snapshot_clustering'])
+    print(args['snapshot_clustering']['method'])
+    print(args['snapshot_clustering']['how'])
+    print(args['snapshot_clustering']['extreme_periods'])
+    print('skip_snapshots:')
+    print(args['skip_snapshots'])
+    print(' ') 
+    
+    print(' ')
+    print('Calculation using: '+ path)
+    print('with number = '+ str(no))
+    print(' ')
+    
+    etrago = run_etrago(args=args, json_path=None, path = path, number=no)
+    
+    #sys.stdout = old_stdout
+    #log_file.close()
+
+###############################################################################
+
+#if __name__ == '__main__':
     # execute etrago function
-    print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
-    print(datetime.datetime.now())
-    etrago.session.close()
+    #print(datetime.datetime.now())
+    #etrago = run_etrago(args, json_path=None, path=path)
+    #print(datetime.datetime.now())
+    #etrago.session.close()
     # plots
     # make a line loading plot
     # plot_line_loading(network)

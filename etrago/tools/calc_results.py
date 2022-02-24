@@ -87,13 +87,13 @@ def _calc_network_expansion(self): ###
         links_new = [0, 0, 0, 0]
         ext_links = self.network.links[self.network.links.p_nom_extendable]
         
-        ll = ext_links[ext_links.index=='Methanisation']
+        ll = ext_links[ext_links.carrier.str.contains('H2_to_CH4')]
         links_new[0] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.index=='SMR']
+        ll = ext_links[ext_links.carrier.str.contains('CH4_to_H2')]
         links_new[1] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.index.str.contains('Fuel')]
+        ll = ext_links[ext_links.index.str.contains('H2_to_power')]
         links_new[2] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.index.str.contains('Power2H2')]
+        ll = ext_links[ext_links.carrier.str.contains('power_to_H2')]
         links_new[3] = (ll.p_nom_opt-ll.p_nom_min).sum()
         
         return lines, links, links_new ### links_new
@@ -201,7 +201,7 @@ def calc_etrago_results(self):
                                            'fuelcell_expansion', ### 
                                            'rel_network_expansion'])
                                            #'rel_links_expansion']) ###
-
+        import pdb; pdb.set_trace()
         self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
         self.results.unit[self.results.index.str.contains('expansion')] = 'MW'
         self.results.unit['rel_network_expansion'] = 'p.u.'
@@ -219,7 +219,7 @@ def calc_etrago_results(self):
         self.results.value['annual_marginal_costs'] = calc_marginal_cost(self)
 
         self.results.value['annual system costs'] = \
-            self.results.value['annual_investment_costs'] + calc_marginal_cost(self)
+            self.results.value['annual_investment_costs'] + self.results.value['annual_marginal_costs']
 
         if 'storage' in self.args['extendable']:
             self.results.value['storage_expansion'] = \
@@ -230,8 +230,8 @@ def calc_etrago_results(self):
                # _calc_storage_expansion(self)['extendable_hydrogen_storage'] ###
             store_expansion = _calc_store_expansion(self) ###
             self.results.value['store_expansion'] = store_expansion.sum() ###
-            self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
-            self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('Heat')].sum() ###
+            #self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
+            #self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('Heat')].sum() ###
         
         if 'network' in self.args['extendable']:
             lines, links, links_new = _calc_network_expansion(self) ### links_new
