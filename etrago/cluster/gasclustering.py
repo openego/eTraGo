@@ -135,8 +135,9 @@ def create_gas_busmap(etrago):
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
     for carrier, skip in zip(["H2_ind_load", "central_heat", "rural_heat"], [None, "central_heat_store", "rural_heat_store"]):
-        busmap_sector_coupling = aggregate_sector_coupling(etrago.network, busmap, carrier, skip)
-
+        busmap_sector_coupling = aggregate_sector_coupling(etrago.network, busmap, ["CH4", "AC"], carrier, skip)
+        # busmap_sector_coupling = aggregate_sector_coupling(etrago.network, busmap, ["CH4"], carrier, skip)
+        # busmap_sector_coupling = aggregate_sector_coupling(etrago.network, busmap, ["AC"], carrier, skip)
         for key, value in busmap_sector_coupling.items():
             busmap.loc[key] = value
 
@@ -169,26 +170,65 @@ def highestNumber(numbers):
     return highest
 
 
-def aggregate_sector_coupling(network, busmap, carrier, skip_carrier):
+def aggregate_sector_coupling(network, busmap, carrier_based, carrier_to_cluster, carrier_to_skip):
     """Create busmap for technologies that are connected to n clustered technologies."""
 
     next_bus_id = highestNumber(busmap.values) + 1
-    buses = network.buses[network.buses["carrier"] == carrier]
-    skip_buses = network.buses[network.buses["carrier"] == skip_carrier]
+    buses_clustered = network.buses[network.buses["carrier"].isin(carrier_based)]
+    buses_to_cluster = network.buses[network.buses["carrier"] == carrier_to_cluster]
+    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_skip]
 
     connected_links = network.links.loc[
-        network.links["bus1"].isin(buses.index)
-        & ~network.links["bus1"].isin(skip_buses.index)
-        & ~network.links["bus0"].isin(skip_buses.index)
+        network.links["bus0"].isin(buses_clustered.index)
+        & network.links["bus1"].isin(buses_to_cluster.index)
+        & ~network.links["bus1"].isin(buses_to_skip.index)
+        & ~network.links["bus0"].isin(buses_to_skip.index)
     ]
 
     busmap = busmap.to_dict()
     connected_links["bus0_clustered"] = connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
     connected_links["bus1_clustered"] = connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
 
+    # cluster sector coupling technologies
+    if len(carrier_based) > 1:
+        busmap = _multi_carrier_based(buses_to_cluster, connected_links, next_bus_id)
+    else:
+        busmap = _single_carrier_based(connected_links, next_bus_id)
+
+    # cluster appedices
+    skipped_links = network.links.loc[
+        (network.links["bus1"].isin(buses_to_skip.index)
+        & network.links["bus0"].isin(buses_to_cluster.index))
+        |
+        (network.links["bus0"].isin(buses_to_cluster.index)
+        & network.links["bus1"].isin(buses_to_skip.index))
+    ]
+
+    # map skipped buses after clustering
+    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap).fillna(skipped_links["bus0"])
+    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap).fillna(skipped_links["bus1"])
+
+    busmap_series = pd.Series(busmap)
+    next_bus_id = highestNumber(busmap_series.values) + 1
+
+    # create clusters for skipped buses
+    clusters = busmap_series.unique()
+    for i in range(len(clusters)):
+        buses = skipped_links.loc[skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"]
+        for bus_id in buses:
+            busmap[bus_id] = next_bus_id + i
+        buses = skipped_links.loc[skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"]
+        for bus_id in buses:
+            busmap[bus_id] = next_bus_id + i
+
+    return busmap
+
+
+
+def _multi_carrier_based(buses_to_cluster, connected_links, next_bus_id):
+
     clusters = pd.Series()
-    checked = []
-    for bus_id in buses.index:
+    for bus_id in buses_to_cluster.index:
         clusters.loc[bus_id] = tuple(
             sorted(
                 connected_links.loc[
@@ -206,6 +246,19 @@ def aggregate_sector_coupling(network, busmap, carrier, skip_carrier):
         if len(cluster) > 1:
             for bus_id in cluster:
                 busmap[bus_id] = next_bus_id + i
+
+    return busmap
+
+
+def _single_carrier_based(connected_links, next_bus_id):
+
+    busmap = {}
+    clusters = connected_links["bus0_clustered"].unique()
+    for i in range(len(clusters)):
+        buses = connected_links.loc[
+            connected_links["bus0_clustered"] == clusters[i], "bus1_clustered"
+        ].unique()
+        busmap.update({bus: next_bus_id + i for bus in buses})
 
     return busmap
 
