@@ -88,18 +88,10 @@ args = {
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
     'sector_coupled_clustering': {
         'active': True, # choose if clustering is activated
-        'carrier_data': {
-            'H2_ind_load': { # key: name of the carrier for the buses to cluster
+        'carrier_data': { # select carriers affected by sector coupling
+            'H2_ind_load': {
                 'base': ['H2_grid'],
-                # list of carriers, that clustering should be topologically
-                # based on
                 'skip': None,
-                # list of carriers, that are skipped in topological bus
-                # clustering, but will be aggregated on the clustered buses in
-                # a second step. E.g. every central_heat bus has a respective
-                # central_heat_store bus. central_heat will be clustered as
-                # provided in the config, and the central_heat_store will be
-                # aggregated on the clustered central_heat buses afterwards
             },
             'central_heat': {
                 'base': ['CH4'],
@@ -109,7 +101,7 @@ args = {
                 'base': ['CH4'],
                 'skip': 'rural_heat_store'
             },
-        }, # add necessary information for sector coupled carriers
+        },
     },
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
@@ -307,6 +299,21 @@ def run_etrago(args, json_path):
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
         This function doesn't work together with ``'line_grouping = True'``.
+
+    sector_coupled_clustering : nested dict
+        {'active': True, 'carrier_data': {
+         'H2_ind_load': {'base': ['H2_grid'], 'skip': None, },
+         'central_heat': {'base': ['CH4'], 'skip': 'central_heat_store'},
+         'rural_heat': {'base': ['CH4'], 'skip': 'rural_heat_store'}}
+        }
+        State if you want to apply clustering of sector coupled carriers, such
+        as central_heat or rural_heat. The approach builds on already clustered
+        buses (e.g. CH4 and AC) and builds clusters around the topology of the
+        buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
+        ``'H2_ind_load'``. Connections (via links) of the selected buses to
+        buses of the carrier specified in ``'skip'`` are ignored in the
+        clustering and aggregated based on the newly clustered buses in a
+        following step.
 
     network_clustering_ehv : bool
         False,
