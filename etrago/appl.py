@@ -89,12 +89,20 @@ args = {
     'sector_coupled_clustering': {
         'active': True, # choose if clustering is activated
         'carrier_data': {
-            'H2_ind_load': {
-                'base': ['H2_grid', 'H2_saltcavern'],
+            'H2_ind_load': { # key: name of the carrier for the buses to cluster
+                'base': ['H2_grid'],
+                # list of carriers, that clustering should be topologically
+                # based on
                 'skip': None,
+                # list of carriers, that are skipped in topological bus
+                # clustering, but will be aggregated on the clustered buses in
+                # a second step. E.g. every central_heat bus has a respective
+                # central_heat_store bus. central_heat will be clustered as
+                # provided in the config, and the central_heat_store will be
+                # aggregated on the clustered central_heat buses afterwards
             },
             'central_heat': {
-                'base': ['AC', 'CH4'],
+                'base': ['CH4'],
                 'skip': 'central_heat_store'
             },
             'rural_heat': {
