@@ -86,6 +86,23 @@ args = {
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
+    'sector_coupled_clustering': {
+        'active': True, # choose if clustering is activated
+        'carrier_data': {
+            'H2_ind_load': {
+                'base': ['H2_grid', 'H2_saltcavern'],
+                'skip': None,
+            },
+            'central_heat': {
+                'base': ['AC', 'CH4'],
+                'skip': 'central_heat_store'
+            },
+            'rural_heat': {
+                'base': ['CH4'],
+                'skip': 'rural_heat_store'
+            },
+        }, # add necessary information for sector coupled carriers
+    },
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
