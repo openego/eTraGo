@@ -143,7 +143,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connexion to the electric network"""
+            connection to the electric network"""
         )
 
     # Add the gas buses to the busmap and map them to themself
@@ -951,7 +951,7 @@ def kmean_clustering(etrago):
     else:
         df = pd.read_csv(kmean_settings["kmeans_busmap"])
         df = df.astype(str)
-        df = df.set_index("bus_id")
+        df = df.set_index("Bus")
         busmap = df.squeeze("columns")
 
     network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")
