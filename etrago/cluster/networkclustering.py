@@ -90,9 +90,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
 
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
-        "dsm-ind-osm": "dsm-ind-osm",
-        "dsm-cts": "dsm-cts",
-        "dsm-ind-sites": "dsm-ind-sites",
+        "dsm": "dsm",
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
