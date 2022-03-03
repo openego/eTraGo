@@ -132,7 +132,7 @@ def tsam_cluster(timeseries_df,
     weight = pd.Series(data=1, index=timeseries_df.columns)
     weight['residual_load'] = 0 
     weight = weight.to_dict()
-    
+
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -451,7 +451,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
 def prepare_pypsa_timeseries(network):
     """
     """
-    
+    import pdb; pdb.set_trace()
     loads = network.loads_t.p_set.copy()
     el_loads = network.loads[network.loads.carrier=='AC']
     el_loads = loads[list(el_loads.index)]
@@ -460,8 +460,7 @@ def prepare_pypsa_timeseries(network):
     renewables = network.generators_t.p_max_pu.mul(
                 network.generators.p_nom[
                 network.generators_t.p_max_pu.columns], axis = 1).copy()
-    el_renewables = network.generators[network.generators.carrier == 'wind'] # TODO: für Minibsp, aber Erweiterung in etrago 
-    el_renewables = renewables[list(el_renewables.index)]
+    el_renewables = renewables.loc[:, renewables.columns.str.contains('thermal', na=False)==False]
     renewables.columns = 'G' + renewables.columns
     
     residual_load=pd.DataFrame()
@@ -490,9 +489,10 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
     """
     
     if segmentation is True:
+        network.snapshots = timeseries.index.get_level_values(0)
+        network.snapshot_weightings = network.snapshot_weightings.loc[timeseries.index.get_level_values(0)]
         network.snapshot_weightings = pd.Series(data = timeseries.index.get_level_values(2).values,
             index = timeseries.index.get_level_values(0))
-        network.snapshots = timeseries.index.get_level_values(0)
 
     else:
         network.snapshots = dates
@@ -514,10 +514,13 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
         network.snapshot_weightings.sort_index()
         print(network.snapshots)
         
+    import pdb; pdb.set_trace()
+        
     return network
 
 
 def skip_snapshots(self):
+
     n_skip = self.args['skip_snapshots']
 
     if n_skip:

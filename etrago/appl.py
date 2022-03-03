@@ -47,7 +47,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data-backup-2',  # database session 
+    'db': 'backup-SH',  # database session 
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -58,13 +58,13 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 10,
+    'end_snapshot': 48,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {"threads":4,
                       "crossover": 0,
                       "method":2,
-                      "BarConvTol":"1.e-5",
-                      "FeasibilityTol":"1.e-6",
+                      "BarConvTol":1.e-5,
+                      "FeasibilityTol":1.e-6,
                       "logFile":"gurobi_eTraGo.log"},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
@@ -360,6 +360,8 @@ def run_etrago(args, json_path, path, number):
     etrago.build_network_from_db()
 
     # interim adaptions of data model
+    etrago.network.lines.lifetime = 40.0
+    etrago.network.storage_units.lifetime = 27.5
     etrago.network.lines.type = ''
     etrago.network.lines.carrier='AC'
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
@@ -591,24 +593,28 @@ args['network_clustering_kmeans']['active'] = True
 args['network_clustering_kmeans']['n_clusters'] = 10
 args['network_clustering_kmeans']['gas_clusters'] = 10
 args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_10_result.csv'
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_10_result.csv'
+
+# TODO: Überprüfe TSAM
 
 # TODO: herantasten räumliche Auflösung...
 # Start: 100 / 30, dann 150/50 usw. 
 
+# TODO: snapshots anpassen: 1 - 8760
 
 # zeitliche Auflösung
-args['snapshot_clustering']['active'] = False
+args['snapshot_clustering']['active'] = True
 args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
 args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'new_cluster_center'
 args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
-args['skip_snapshots'] = True
+args['skip_snapshots'] = False
 
-skip_snapshots = [6] # 6, 5, 4, 3
+skip_snapshots = [5] # 6, 5, 4, 3
 
-typical_days = [60] # 60, 80, 100, 120, 140
+typical_days = [2] # 60, 80, 100, 120, 140
 
-segmentation = [1000] # 1000, 1500, 2000, 2500, 3000
+segmentation = [10] # 1000, 1500, 2000, 2500, 3000
 
 if args['snapshot_clustering']['active'] == True and args['skip_snapshots'] == True:
     raise ValueError("Decide for temporal aggregation method!")

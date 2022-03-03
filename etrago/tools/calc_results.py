@@ -230,8 +230,8 @@ def calc_etrago_results(self):
                # _calc_storage_expansion(self)['extendable_hydrogen_storage'] ###
             store_expansion = _calc_store_expansion(self) ###
             self.results.value['store_expansion'] = store_expansion.sum() ###
-            #self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
-            #self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('Heat')].sum() ###
+            self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
+            self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('heat')].sum() ###
         
         if 'network' in self.args['extendable']:
             lines, links, links_new = _calc_network_expansion(self) ### links_new
