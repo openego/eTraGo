@@ -58,7 +58,6 @@ def filter_links_by_carrier(self, carrier, like=True):
         df = self.network.links[self.network.links.carrier.isin(carrier)]
     return df
 
-
 def buses_of_vlvl(network, voltage_level):
     """Get bus-ids of given voltage level(s).
 
@@ -1090,15 +1089,13 @@ def add_missing_components(self):
     return network
 
 
-def convert_capital_costs(self, p=0.05, T=40):
-    """Convert capital_costs to fit to pypsa and caluculated time
+def convert_capital_costs(self):
+    """Convert capital_costs to fit to considered timesteps
 
     Parameters
     ----------
     etrago : :class:`etrago.Etrago
         Transmission grid object
-    p : interest rate, default 0.05
-    T : number of periods, default 40 years (source: StromNEV Anlage 1)
     -------
 
     """
@@ -1106,29 +1103,29 @@ def convert_capital_costs(self, p=0.05, T=40):
     network = self.network
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
-    # Add costs for DC-converter
-    network.links.loc[self.dc_lines().index, "capital_cost"] += 400000
+    # Costs are already annuized yearly in the datamodel
+    # adjust to number of considered snapshots
 
-    # Calculate present value of an annuity (PVA)
-    PVA = (1 / p) - (1 / (p * (1 + p) ** T))
+    network.lines.loc[
+        network.lines.s_nom_extendable == True, "capital_cost"
+        ] *= 8760 / n_snapshots
 
-    # Apply function on lines, links, trafos and storages
-    # Storage costs are already annuized yearly
-    network.lines.loc[network.lines.s_nom_extendable == True, "capital_cost"] /= PVA * (
-        8760 / n_snapshots
-    )
-
-    network.links.loc[network.links.p_nom_extendable == True, "capital_cost"] /= PVA * (
-        8760 / n_snapshots
-    )
+    network.links.loc[
+        network.links.p_nom_extendable == True, "capital_cost"
+        ] *= 8760 / n_snapshots
 
     network.transformers.loc[
         network.transformers.s_nom_extendable == True, "capital_cost"
-    ] /= PVA * (8760 / n_snapshots)
+    ] *= 8760 / n_snapshots
 
     network.storage_units.loc[
         network.storage_units.p_nom_extendable == True, "capital_cost"
-    ] /= PVA * (8760 / n_snapshots)
+    ] *=  (8760 / n_snapshots)
+
+    network.stores.loc[
+        network.stores.e_nom_extendable == True, "capital_cost"
+    ] *=  (8760 / n_snapshots)
+
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):

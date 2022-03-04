@@ -31,7 +31,7 @@ setup(
                       'shapely',
                       'oedialect',
                       'tilemapbase == 0.4.5',
-                      'pypsa == 0.17.1',
+                      'pypsa == 0.19.1',
                       'setuptools >= 54.2.0',
                       'geopandas',
                       'rtree'],
