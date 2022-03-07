@@ -50,7 +50,7 @@ args = {
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 1, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
@@ -368,14 +368,16 @@ def run_etrago(args, json_path):
 
     from etrago.tools.utilities import drop_sectors
     
+    to_drop = etrago.network.buses.carrier.unique()
+    
     # drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'central_heat', 
     #                                   'rural_heat', 'central_heat_store', 
     #                                   'rural_heat_store'])
-    drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'central_heat', 
-                                        'rural_heat', 'central_heat_store', 
-                                        'rural_heat_store', 
-                                        'dsm-cts', 'dsm-ind-osm', 
-                                        'dsm-ind-sites'])
+    drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'H2_ind_load', 'H2_saltcavern',
+                                      #'central_heat', 
+                                      'central_heat_store', 
+                                      'rural_heat_store', 'rural_heat',
+                                       'dsm'])
 
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
