@@ -360,6 +360,7 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
+    etrago.network.storage_units.lifetime = np.inf
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)    
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
@@ -391,6 +392,7 @@ def run_etrago(args, json_path):
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
+
     # skip snapshots    
     etrago.skip_snapshots()
 

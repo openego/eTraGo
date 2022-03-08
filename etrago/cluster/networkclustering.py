@@ -32,6 +32,8 @@ if "READTHEDOCS" not in os.environ:
         get_clustering_from_busmap,
         busmap_by_kmeans,
         busmap_by_stubs,
+        _make_consense,
+        _flatten_multiindex,
     )
     from itertools import product
     import networkx as nx
@@ -280,8 +282,70 @@ def strategies_links():
         "marginal_cost": np.mean,
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
-        "country": nan_links,
+        "country": _make_consense_links,
+        "build_year": np.mean,
+        "lifetime": np.mean
     }
+
+def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
+    """
+    Aggregate network.links and network.links_t after any kind of clustering
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    with_time : bool
+        says if the network object contains timedependent series.
+    carriers : list of strings
+        Describe which typed of carriers should be aggregated. The default is None.
+    strategies : dictionary
+        custom strategies to perform the aggregation
+
+    Returns
+    -------
+    new_df : links aggregated based on bus0, bus1 and carrier
+    new_pnl : links time series aggregated
+    """
+    if carriers is None:
+        carriers = network.links.carrier.unique()
+    
+    links_agg_b = network.links.carrier.isin(carriers)
+    links = network.links.loc[links_agg_b]
+    grouper = [links.bus0, links.bus1, links.carrier]
+
+    def normed_or_uniform(x):
+        return x/x.sum() if x.sum(skipna=False) > 0 else pd.Series(1./len(x), x.index)
+    
+    weighting = links.p_nom.groupby(grouper, axis=0).transform(normed_or_uniform)
+    links['capital_cost'] *= weighting
+    strategies = strategies_links()    
+    strategies.update(cus_strateg)
+    new_df = links.groupby(grouper, axis=0).agg(strategies)
+    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    new_df = pd.concat([new_df,
+                        network.links.loc[~links_agg_b]], axis=0, sort=False)
+    new_df['new_id'] = np.arange(len(new_df)).astype(str)
+    cluster_id = new_df['new_id'].to_dict()
+    new_df.set_index('new_id', inplace= True)
+    new_df.index = new_df.index.rename('Link')
+
+    new_pnl = dict()
+    if with_time:
+        for attr, df in network.links_t.items():
+            pnl_links_agg_b = df.columns.to_series().map(links_agg_b)
+            df_agg = df.loc[:, pnl_links_agg_b]
+            if not df_agg.empty:
+                if attr in ['efficiency', 'p_max_pu', 'p_min_pu']:
+                    df_agg = df_agg.multiply(weighting.loc[df_agg.columns], axis=1)
+                pnl_df = df_agg.groupby(grouper, axis=1).sum()
+                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
+                new_pnl[attr] = pd.concat([df.loc[:, ~pnl_links_agg_b], pnl_df], axis=1, sort=False)
+                new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
+            else:
+                new_pnl[attr] = network.links_t[attr]
+    
+    return new_df, new_pnl
 
 
 def cluster_on_extra_high_voltage(network, busmap, with_time=True):
@@ -321,11 +385,6 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     mask = lines.bus0.isin(buses.index)
     lines = lines.loc[mask, :]
 
-    # keep attached links
-    links = network.links.copy()
-    dc_links = links[links["carrier"] == "DC"]
-    links = links[links["carrier"] != "DC"]
-
     # keep attached transformer
     transformers = network.transformers.copy()
     mask = transformers.bus0.isin(buses.index)
@@ -333,14 +392,39 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     io.import_components_from_dataframe(network_c, buses, "Bus")
     io.import_components_from_dataframe(network_c, lines, "Line")
-    io.import_components_from_dataframe(network_c, links, "Link")
     io.import_components_from_dataframe(network_c, transformers, "Transformer")
+    
+    # Dealing with links
+    links = network.links.copy()
+    dc_links = links[links["carrier"] == "DC"]
+    links = links[links["carrier"] != "DC"]
+    
+    new_links = (links.assign(bus0=links.bus0.map(busmap),
+                              bus1=links.bus1.map(busmap))
+                    .dropna(subset=['bus0', 'bus1'])
+                    .loc[lambda df: df.bus0 != df.bus1])
+    
+    new_links = new_links.append(dc_links)
+    new_links["topo"] = np.nan
+    io.import_components_from_dataframe(network_c, new_links, "Link")
 
     if with_time:
         network_c.snapshots = network.snapshots
         network_c.set_snapshots(network.snapshots)
         network_c.snapshot_weightings = network.snapshot_weightings.copy()
-
+        
+        for attr, df in network.lines_t.items():
+            mask = df.columns[df.columns.isin(lines.index)]
+            df = df.loc[:, mask]
+            if not df.empty:
+                io.import_series_from_dataframe(network_c, df, "Line", attr)
+            
+        for attr, df in network.links_t.items():
+            mask = df.columns[df.columns.isin(links.index)]
+            df = df.loc[:, mask]
+            if not df.empty:
+                io.import_series_from_dataframe(network_c, df, "Link", attr)
+    
     # dealing with generators
     network.generators.control = "PV"
     network.generators["weight"] = 1
@@ -368,21 +452,9 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
-
-    # Dealing with links
-    network2 = network.copy()
-    network2.links.bus0 = network2.links.bus0.map(busmap)
-    network2.links.bus1 = network2.links.bus1.map(busmap)
-    network2.links.dropna(subset=["bus0", "bus1"], inplace=True)
-    network2.links["topo"] = np.nan
-
-    strategies = strategies_links()
-
-    network_c.links = network2.links.groupby(["bus0", "bus1", "carrier"]).agg(
-        strategies
-    )
-    network_c.links = network_c.links.append(dc_links)
-    network_c.links = network_c.links.reset_index(drop=True)
+    
+    
+    network_c.links,network_c.links_t = group_links(network_c)
 
     network_c.determine_network_topology()
 
@@ -817,7 +889,7 @@ def kmean_clustering(etrago):
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-    network.buses["v_nom"] = 380.0
+    network.buses["v_nom"][network.buses.carrier == 'AC'] = 380.0
 
     elec_network = select_elec_network(etrago)
 
@@ -897,13 +969,9 @@ def kmean_clustering(etrago):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
     )
-
-    strategies = strategies_links()
-    # Dealing with links
-    clustering.network.links = clustering.network.links.groupby(
-        ["bus0", "bus1", "carrier"]
-    ).agg(strategies)
-    clustering.network.links = clustering.network.links.reset_index(drop=True)
+    
+    clustering.network.links, clustering.network.links_t =\
+        group_links(clustering.network)
 
     return clustering
 
