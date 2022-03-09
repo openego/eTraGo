@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'egon-data-4',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -74,9 +74,9 @@ args = {
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
-        'active': True, # choose if clustering is activated
-        'n_clusters': 50, # number of resulting nodes
-        'n_clusters_gas': 10, # number of resulting nodes in Germany
+        'active': False, # choose if clustering is activated
+        'n_clusters': 30, # number of resulting nodes
+        'n_clusters_gas': 5, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -87,7 +87,7 @@ args = {
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
@@ -336,7 +336,7 @@ def run_etrago(args, json_path):
  
     # import network from database
     etrago.build_network_from_db()
-
+    
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
@@ -370,6 +370,7 @@ def run_etrago(args, json_path):
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
+
     # ehv network clustering
     etrago.ehv_clustering()
 
