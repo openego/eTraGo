@@ -98,14 +98,13 @@ args = {
     'snapshot_clustering': { 
         'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
-        'extreme_periods': 'None', # optional adding of extreme period
+        'extreme_periods': 'replace_cluster_center', # optional adding of extreme period
         # TODO: add in documentation? -> classical: append, new_cluster_center; segmentation: only append
         'how': 'daily', # type of period - only relevant for 'typical_periods'
         'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
         # TODO: utilities.py ll 1468 ff AssertionErrors
-        # TODO: network.py l 254 extendable einkommentieren!
         # TODO: calc_results.py - Anpassungen an neue Modellierung
     # Simplifications:
     'skip_snapshots': False, # False or number of snapshots to skip
@@ -604,10 +603,10 @@ args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_10_r
 
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = True
-args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
-args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'new_cluster_center'
+args['snapshot_clustering']['method'] = 'segmentation' # 'typical_periods', 'segmentation'
+args['snapshot_clustering']['extreme_periods'] = 'replace_cluster_center' # 'None', 'append', 'replace_cluster_center'
 args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
-args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
+args['snapshot_clustering']['storage_constraints'] = '' # 'soc_constraints'
 args['skip_snapshots'] = False
 
 skip_snapshots = [5] # 6, 5, 4, 3
