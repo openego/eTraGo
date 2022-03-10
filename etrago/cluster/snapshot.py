@@ -148,8 +148,7 @@ def tsam_cluster(timeseries_df,
     
     if segmentation:
         print('Snapshot Clustering to ' + str(segment_no) + ' Segments' + '\n' +
-              'using extreme period method: ' + extremePeriodMethod +' (append only possible method for segmentation)')
-    
+              'using extreme period method: ' + extremePeriodMethod)    
     else:
         print('Snapshot Clustering to ' + str(typical_periods) + period + '\n' + 
           'using extreme period method: ' + extremePeriodMethod)
@@ -203,111 +202,157 @@ def tsam_cluster(timeseries_df,
             max_val['SegmentDuration'] = 1
             max_val['dates'] = max_val.name
             max_val = pd.DataFrame(max_val).transpose()
-            max_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-            timeseries = timeseries.append(max_val)
-            timeseries = timeseries.sort_values(by='dates')
             
-            # split up segment in which the extreme timestep was added 
-            i=-1
-            for date in timeseries.index.get_level_values('dates'):
-                if date < maxi:
-                    i = i+1
-                else:
-                    timeseries['SegmentDuration_Extreme']=timeseries.index.get_level_values('SegmentDuration')
-                    old_row = timeseries.iloc[i].copy()
-                    old_row = pd.DataFrame(old_row).transpose()
-                    
-                    delta_t = timeseries.index.get_level_values('dates')[i+1]-timeseries.index.get_level_values('dates')[i]
-                    delta_t = delta_t.total_seconds()/3600
-                    timeseries['SegmentDuration_Extreme'].iloc[i]=delta_t
-                    
-                    timeseries_df['row_no']=range(0,len(timeseries_df))
-                    new_row = int(timeseries_df.loc[maxi]['row_no'])+1
-                    new_date = timeseries_df[timeseries_df.row_no==new_row].index
-                    
-                    if new_date.isin(timeseries.index.get_level_values('dates')):
-                        timeseries['dates'] = timeseries.index.get_level_values('dates')
-                        timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
-                        timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
-                        timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
-                        timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-                        break
-                    else:                     
-                        new_row = timeseries_df.iloc[new_row].copy()
-                        new_row.drop('row_no', inplace=True)
-                        new_row['SegmentNo'] = len(timeseries)
-                        new_row['SegmentDuration'] = old_row['SegmentDuration_Extreme'][0] - delta_t - 1
-                        new_row['dates'] = new_row.name
-                        new_row = pd.DataFrame(new_row).transpose()
-                        new_row.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-                        for col in new_row.columns:
-                            new_row[col][0] = old_row[col][0]
+            if extremePeriodMethod == 'append':
+                
+                max_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                timeseries = timeseries.append(max_val)
+                timeseries = timeseries.sort_values(by='dates')
+                
+                # split up segment in which the extreme timestep was added 
+                i=-1
+                for date in timeseries.index.get_level_values('dates'):
+                    if date < maxi:
+                        i = i+1
+                    else:
+                        timeseries['SegmentDuration_Extreme']=timeseries.index.get_level_values('SegmentDuration')
+                        old_row = timeseries.iloc[i].copy()
+                        old_row = pd.DataFrame(old_row).transpose()
                         
-                        timeseries['dates'] = timeseries.index.get_level_values('dates')
-                        timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
-                        timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
-                        timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
-                        timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-                        timeseries = timeseries.append(new_row)
+                        delta_t = timeseries.index.get_level_values('dates')[i+1]-timeseries.index.get_level_values('dates')[i]
+                        delta_t = delta_t.total_seconds()/3600
+                        timeseries['SegmentDuration_Extreme'].iloc[i]=delta_t
+                        
+                        timeseries_df['row_no']=range(0,len(timeseries_df))
+                        new_row = int(timeseries_df.loc[maxi]['row_no'])+1
+                        new_date = timeseries_df[timeseries_df.row_no==new_row].index
+                        
+                        if new_date.isin(timeseries.index.get_level_values('dates')):
+                            timeseries['dates'] = timeseries.index.get_level_values('dates')
+                            timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
+                            timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
+                            timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
+                            timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            break
+                        else:                     
+                            new_row = timeseries_df.iloc[new_row].copy()
+                            new_row.drop('row_no', inplace=True)
+                            new_row['SegmentNo'] = len(timeseries)
+                            new_row['SegmentDuration'] = old_row['SegmentDuration_Extreme'][0] - delta_t - 1
+                            new_row['dates'] = new_row.name
+                            new_row = pd.DataFrame(new_row).transpose()
+                            new_row.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            for col in new_row.columns:
+                                new_row[col][0] = old_row[col][0]
+                            
+                            timeseries['dates'] = timeseries.index.get_level_values('dates')
+                            timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
+                            timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
+                            timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
+                            timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            timeseries = timeseries.append(new_row)
+                            timeseries = timeseries.sort_values(by='dates')
+                            break
+                    
+            elif extremePeriodMethod == 'replace_cluster_center':
+                
+                # replace segment in which the extreme timestep was added 
+                i=-1
+                for date in timeseries.index.get_level_values('dates'):
+                    if date < maxi:
+                        i = i+1
+                    else:
+                        if i ==-1:
+                            i=0
+                        max_val['SegmentDuration'] = timeseries.index.get_level_values('SegmentDuration')[i]
+                        max_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                        timeseries.drop(timeseries.index[i], inplace=True)
+                        timeseries = timeseries.append(max_val)
                         timeseries = timeseries.sort_values(by='dates')
                         break
+                
+            else:
+                raise ValueError("Choose 'append' or 'replace_cluster_center' for consideration of extreme periods with segmentation method")
     
         # add timestep if it is not already calculated
         if mini not in timeseries.index.get_level_values('dates'):
-            
+
             # identifiy timestep, adapt it to timeseries-df and add it
             min_val = timeseries_df.loc[mini].copy()
             min_val['SegmentNo'] = len(timeseries)+1
             min_val['SegmentDuration'] = 1
             min_val['dates'] = min_val.name
             min_val = pd.DataFrame(min_val).transpose()
-            min_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-            timeseries = timeseries.append(min_val)
-            timeseries = timeseries.sort_values(by='dates')
             
-            # split up segment in which the extreme timestep was added 
-            i=-1
-            for date in timeseries.index.get_level_values('dates'):
-                if date < mini:
-                    i = i+1
-                else:
-                    timeseries['SegmentDuration_Extreme']=timeseries.index.get_level_values('SegmentDuration')
-                    old_row = timeseries.iloc[i].copy()
-                    old_row = pd.DataFrame(old_row).transpose()
-                    
-                    delta_t = timeseries.index.get_level_values('dates')[i+1]-timeseries.index.get_level_values('dates')[i]
-                    delta_t = delta_t.total_seconds()/3600
-                    timeseries['SegmentDuration_Extreme'].iloc[i]=delta_t
-
-                    timeseries_df['row_no']=range(0,len(timeseries_df))
-                    new_row = int(timeseries_df.loc[mini]['row_no'])+1
-                    new_date = timeseries_df[timeseries_df.row_no==new_row].index
-                    
-                    if new_date.isin(timeseries.index.get_level_values('dates')):
-                        timeseries['dates'] = timeseries.index.get_level_values('dates')
-                        timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
-                        timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
-                        timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
-                        timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+            if extremePeriodMethod == 'append': 
+                
+                min_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                timeseries = timeseries.append(min_val)
+                timeseries = timeseries.sort_values(by='dates')
+                
+                # split up segment in which the extreme timestep was added 
+                i=-1
+                for date in timeseries.index.get_level_values('dates'):
+                    if date < mini:
+                        i = i+1
+                    else:
+                        timeseries['SegmentDuration_Extreme']=timeseries.index.get_level_values('SegmentDuration')
+                        old_row = timeseries.iloc[i].copy()
+                        old_row = pd.DataFrame(old_row).transpose()
+                        
+                        delta_t = timeseries.index.get_level_values('dates')[i+1]-timeseries.index.get_level_values('dates')[i]
+                        delta_t = delta_t.total_seconds()/3600
+                        timeseries['SegmentDuration_Extreme'].iloc[i]=delta_t
+    
+                        timeseries_df['row_no']=range(0,len(timeseries_df))
+                        new_row = int(timeseries_df.loc[mini]['row_no'])+1
+                        new_date = timeseries_df[timeseries_df.row_no==new_row].index
+                        
+                        if new_date.isin(timeseries.index.get_level_values('dates')):
+                            timeseries['dates'] = timeseries.index.get_level_values('dates')
+                            timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
+                            timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
+                            timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
+                            timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            break
+                        else: 
+                            new_row = timeseries_df.iloc[new_row].copy()
+                            new_row.drop('row_no', inplace=True)
+                            new_row['SegmentNo'] = len(timeseries)+1
+                            new_row['SegmentDuration'] = old_row['SegmentDuration_Extreme'][0] - delta_t - 1
+                            new_row['dates'] = new_row.name
+                            new_row = pd.DataFrame(new_row).transpose()
+                            new_row.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            for col in new_row.columns:
+                                new_row[col][0] = old_row[col][0]
+                            timeseries['dates'] = timeseries.index.get_level_values('dates')
+                            timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
+                            timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
+                            timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
+                            timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                            timeseries = timeseries.append(new_row)
+                            timeseries = timeseries.sort_values(by='dates')
                         break
-                    else: 
-                        new_row = timeseries_df.iloc[new_row].copy()
-                        new_row.drop('row_no', inplace=True)
-                        new_row['SegmentNo'] = len(timeseries)+1
-                        new_row['SegmentDuration'] = old_row['SegmentDuration_Extreme'][0] - delta_t - 1
-                        new_row['dates'] = new_row.name
-                        new_row = pd.DataFrame(new_row).transpose()
-                        new_row.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-                        for col in new_row.columns:
-                            new_row[col][0] = old_row[col][0]
-                        timeseries['dates'] = timeseries.index.get_level_values('dates')
-                        timeseries['SegmentNo'] = timeseries.index.get_level_values('SegmentNo')
-                        timeseries['SegmentDuration'] = timeseries['SegmentDuration_Extreme']
-                        timeseries.drop('SegmentDuration_Extreme', axis=1, inplace=True)
-                        timeseries.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
-                        timeseries = timeseries.append(new_row)
+                    
+            elif extremePeriodMethod == 'replace_cluster_center':
+                
+                # replace segment in which the extreme timestep was added 
+                i=-1
+                for date in timeseries.index.get_level_values('dates'):
+                    if date < mini:
+                        i = i+1
+                    else:
+                        if i ==-1:
+                            i=0
+                        min_val['SegmentDuration'] = timeseries.index.get_level_values('SegmentDuration')[i]
+                        min_val.set_index(['dates', 'SegmentNo', 'SegmentDuration'],inplace=True)
+                        timeseries.drop(timeseries.index[i], inplace=True)
+                        timeseries = timeseries.append(min_val)
                         timeseries = timeseries.sort_values(by='dates')
-                    break
+                        break
+                    
+            else:
+                raise ValueError("Choose 'append' or 'replace_cluster_center' for consideration of extreme periods with segmentation method")
     
     if segmentation != True:
 
@@ -394,6 +439,8 @@ def tsam_cluster(timeseries_df,
     df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
                         'Candidate_day': nr_day})
     df_i_h.set_index('Timeseries',inplace=True)
+    
+    import pdb; pdb.set_trace()
 
     return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries
 
@@ -453,18 +500,15 @@ def prepare_pypsa_timeseries(network):
     """
     import pdb; pdb.set_trace()
     loads = network.loads_t.p_set.copy()
-    el_loads = network.loads[network.loads.carrier=='AC']
-    el_loads = loads[list(el_loads.index)]
     loads.columns = 'L' + loads.columns
                                      
     renewables = network.generators_t.p_max_pu.mul(
                 network.generators.p_nom[
                 network.generators_t.p_max_pu.columns], axis = 1).copy()
-    el_renewables = renewables.loc[:, renewables.columns.str.contains('thermal', na=False)==False]
     renewables.columns = 'G' + renewables.columns
     
     residual_load=pd.DataFrame()
-    residual_load['residual_load']=el_loads.sum(axis=1)-el_renewables.sum(axis=1)
+    residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
     df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
