@@ -69,15 +69,16 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['network'],  # Array of components to optimize
+    'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 50, # number of resulting nodes
-        'n_clusters_gas': 10, # number of resulting nodes in Germany
+        'n_clusters': 30, # number of resulting nodes
+        'n_clusters_gas': 5, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
+        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
@@ -103,7 +104,7 @@ args = {
             },
         },
     },
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -227,6 +228,8 @@ def run_etrago(args, json_path):
         Choose components you want to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
+            'as_in_db': leaves everything as it is defined in the data coming
+                        from the database
             'network': set all lines, links and transformers extendable
             'german_network': set lines and transformers in German grid
                             extendable
@@ -365,9 +368,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-
-
     etrago.network.lines.type = ''
+    etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     etrago.network.links.capital_cost.fillna(0, inplace=True)
@@ -378,8 +380,8 @@ def run_etrago(args, json_path):
     etrago.network.links.efficiency.fillna(1., inplace=True)
     etrago.network.links.marginal_cost.fillna(0., inplace=True)
     etrago.network.links.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links.p_max_pu.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom.fillna(0, inplace=True)
+    etrago.network.links.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
     etrago.network.stores.capital_cost.fillna(0, inplace=True)
@@ -389,7 +391,9 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
+    etrago.network.storage_units.lifetime = np.inf
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
+    etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
 
     etrago.adjust_network()
@@ -397,15 +401,18 @@ def run_etrago(args, json_path):
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
+
     # ehv network clustering
     etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
+
     etrago.kmean_clustering_gas()
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
+
     # skip snapshots
     etrago.skip_snapshots()
 

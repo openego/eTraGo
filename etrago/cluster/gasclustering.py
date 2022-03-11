@@ -78,14 +78,28 @@ def create_gas_busmap(etrago):
     weight_ch4_s = weight_ch4.squeeze()
 
     # Creation of the busmap
-    busmap_ch4 = busmap_by_kmeans(
+
+    if not kmean_gas_settings["kmeans_gas_busmap"]:
+        
+        busmap_ch4 = busmap_by_kmeans(
         network_ch4,
         bus_weightings=weight_ch4_s,
         n_clusters=kmean_gas_settings["n_clusters_gas"],
         n_init=kmean_gas_settings["n_init"],
         max_iter=kmean_gas_settings["max_iter"],
         tol=kmean_gas_settings["tol"],
-    )
+        )
+        
+        busmap_ch4.to_csv(
+            "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
+        )
+   
+    else:
+        
+        df = pd.read_csv(kmean_gas_settings["kmeans_gas_busmap"])
+        df = df.astype(str)
+        df = df.set_index("Bus")
+        busmap_ch4 = df.squeeze("columns")
 
     # Add H2_grid buses to busmap
     df_correspondance_H2_CH4 = etrago.network.links[
@@ -348,8 +362,8 @@ def get_clustering_from_busmap(
     io.import_components_from_dataframe(network_gasgrid_c, new_buses, "Bus")
 
     if with_time:
-        network_gasgrid_c.snapshot_weightings = network.snapshot_weightings.copy()
         network_gasgrid_c.set_snapshots(network.snapshots)
+        network_gasgrid_c.snapshot_weightings = network.snapshot_weightings.copy()
 
     # Aggregate one port components
     one_port_components = ["Generator", "Load", "Store"]

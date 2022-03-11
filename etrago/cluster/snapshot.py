@@ -325,8 +325,9 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
             index = timeseries.index.get_level_values(0))
         network.snapshots = timeseries.index.get_level_values(0)
     else:
+        network.snapshots = dates
         network.snapshot_weightings = network.snapshot_weightings.loc[dates]
-        network.snapshots = network.snapshot_weightings.index
+
         snapshot_weightings = []
         for i in cluster_weights.values():
             x = 0
@@ -334,7 +335,9 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
                 snapshot_weightings.append(i)
                 x += 1
         for i in range(len(network.snapshot_weightings)):
-            network.snapshot_weightings[i] = snapshot_weightings[i]
+            network.snapshot_weightings['objective'][i] = snapshot_weightings[i]
+            network.snapshot_weightings['stores'][i] = snapshot_weightings[i]
+            network.snapshot_weightings['generators'][i] = snapshot_weightings[i]
 
         # put the snapshot in the right order
         network.snapshots.sort_values()
@@ -350,8 +353,9 @@ def skip_snapshots(self):
     if n_skip:
         self.network.snapshots = self.network.snapshots[::n_skip]
 
-        self.network.snapshot_weightings = \
-            self.network.snapshot_weightings[::n_skip] * n_skip
+        self.network.snapshot_weightings['objective'] = n_skip
+        self.network.snapshot_weightings['stores'] = n_skip
+        self.network.snapshot_weightings['generators'] = n_skip
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
