@@ -169,9 +169,6 @@ def highestInteger(potentially_numbers):
     int
         Highest integer found in series.
     """
-
-    print(potentially_numbers)
-
     highest = 0
     for number in potentially_numbers:
         try:
