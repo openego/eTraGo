@@ -1623,49 +1623,28 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    self.network.buses.drop(
-        self.network.buses[self.network.buses.carrier.isin(drop_carriers)].index,
-        inplace=True,
-    )
+    self.network.mremove('Bus',
+        self.network.buses[
+            self.network.buses.carrier.isin(drop_carriers)].index,
+        )
 
-    self.network.loads.drop(
-        self.network.loads[
-            ~self.network.loads.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+    for one_port in self.network.iterate_components(
+            ["Load", "Generator", "Store", "StorageUnit"]):
 
-    self.network.generators.drop(
-        self.network.generators[
-            ~self.network.generators.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(one_port.name,
+            one_port.df[
+                ~one_port.df.bus.isin(self.network.buses.index)].index,
+            )
 
-    self.network.stores.drop(
-        self.network.stores[
-            ~self.network.stores.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+    for two_port in self.network.iterate_components(
+            ["Line", "Link", "Transformer"]):
 
-    self.network.storage_units.drop(
-        self.network.storage_units[
-            ~self.network.storage_units.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(two_port.name,
+            two_port.df[
+                ~two_port.df.bus0.isin(self.network.buses.index)].index,
+            )
 
-    self.network.links.drop(
-        self.network.links[
-            ~self.network.links.bus0.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
-
-    self.network.links.drop(
-        self.network.links[
-            ~self.network.links.bus1.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(two_port.name,
+            two_port.df[
+                ~two_port.df.bus1.isin(self.network.buses.index)].index,
+            )
