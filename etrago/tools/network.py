@@ -53,6 +53,9 @@ from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
+from etrago.cluster.gasclustering import run_kmeans_clustering_gas
+
+
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
@@ -178,6 +181,8 @@ class Etrago():
     plot_grid = plot_grid
 
     spatial_clustering = run_spatial_clustering
+    
+    kmean_clustering_gas = run_kmeans_clustering_gas
 
     skip_snapshots = skip_snapshots
 
@@ -258,6 +263,8 @@ class Etrago():
         self.set_branch_capacity()
 
         self.extendable(line_max=4)
+
+        self.convert_capital_costs()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

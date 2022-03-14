@@ -143,7 +143,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connexion to the electric network"""
+            connection to the electric network"""
         )
 
     # Add the gas buses to the busmap and map them to themself
@@ -269,7 +269,7 @@ def strategies_links():
         "p_nom": np.sum,
         "p_nom_extendable": _make_consense_links,
         "p_nom_max": np.sum,
-        "capital_cost": np.sum,
+        "capital_cost": np.mean,
         "length": np.mean,
         "geom": nan_links,
         "topo": nan_links,
@@ -458,7 +458,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return network_c
+    return network_c.copy()
 
 
 def graph_from_edges(edges):
@@ -936,7 +936,7 @@ def kmean_clustering(etrago):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["busmap"]:
+    if not kmean_settings["kmeans_busmap"]:
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
@@ -949,9 +949,9 @@ def kmean_clustering(etrago):
             "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"
         )
     else:
-        df = pd.read_csv(kmean_settings["busmap"])
+        df = pd.read_csv(kmean_settings["kmeans_busmap"])
         df = df.astype(str)
-        df = df.set_index("bus_id")
+        df = df.set_index("Bus")
         busmap = df.squeeze("columns")
 
     network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")
