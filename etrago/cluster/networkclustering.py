@@ -458,7 +458,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return network_c
+    return network_c.copy()
 
 
 def graph_from_edges(edges):
