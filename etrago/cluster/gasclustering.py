@@ -151,7 +151,7 @@ def create_gas_busmap(etrago):
     if etrago.args["sector_coupled_clustering"]["active"]:
         for name, data in etrago.args["sector_coupled_clustering"]["carrier_data"].items():
             busmap_sector_coupling = cluster_sector_coupling(
-                etrago.network, busmap, data["base"], name, data["skip"]
+                etrago.network, busmap, data["base"], name
             )
             for key, value in busmap_sector_coupling.items():
                 busmap.loc[key] = value
@@ -195,7 +195,7 @@ def highestInteger(potentially_numbers):
     return highest
 
 
-def cluster_sector_coupling(network, busmap, carrier_based, carrier_to_cluster, carrier_to_skip):
+def cluster_sector_coupling(network, busmap, carrier_based, carrier_to_cluster):
     """Cluster sector coupling technology.
 
     The topology of the sector coupling technology must be in a way, that the
@@ -213,9 +213,6 @@ def cluster_sector_coupling(network, busmap, carrier_based, carrier_to_cluster, 
         Carriers on which the clustering of the sector coupling is based.
     carrier_to_cluster : str
         Name of the carrier which should be clustered
-    carrier_to_skip : str
-        Name of the carrier which is connected to the clustered carrier, but to
-        be left out in the first step (e.g. heat storage)
 
     Returns
     -------
@@ -225,7 +222,7 @@ def cluster_sector_coupling(network, busmap, carrier_based, carrier_to_cluster, 
     next_bus_id = highestInteger(busmap.values) + 1
     buses_clustered = network.buses[network.buses["carrier"].isin(carrier_based)]
     buses_to_cluster = network.buses[network.buses["carrier"] == carrier_to_cluster]
-    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_skip]
+    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_cluster + '_store']
 
     connected_links = network.links.loc[
         network.links["bus0"].isin(buses_clustered.index)

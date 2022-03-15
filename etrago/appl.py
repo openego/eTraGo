@@ -92,15 +92,12 @@ args = {
         'carrier_data': { # select carriers affected by sector coupling
             'H2_ind_load': {
                 'base': ['H2_grid'],
-                'skip': None,
             },
             'central_heat': {
                 'base': ['CH4'],
-                'skip': 'central_heat_store'
             },
             'rural_heat': {
                 'base': ['CH4'],
-                'skip': 'rural_heat_store'
             },
         },
     },
@@ -305,18 +302,15 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid'], 'skip': None, },
-         'central_heat': {'base': ['CH4'], 'skip': 'central_heat_store'},
-         'rural_heat': {'base': ['CH4'], 'skip': 'rural_heat_store'}}
+         'H2_ind_load': {'base': ['H2_grid']},
+         'central_heat': {'base': ['CH4']},
+         'rural_heat': {'base': ['CH4']}}
         }
         State if you want to apply clustering of sector coupled carriers, such
         as central_heat or rural_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``. Connections (via links) of the selected buses to
-        buses of the carrier specified in ``'skip'`` are ignored in the
-        clustering and aggregated based on the newly clustered buses in a
-        following step.
+        ``'H2_ind_load'``.
 
     network_clustering_ehv : bool
         False,
