@@ -48,7 +48,7 @@ def create_gas_busmap(etrago):
     ]
 
     # Cluster ch4 buses
-    kmean_gas_settings = etrago.args["network_clustering_kmeans"]
+    kmean_gas_settings = etrago.args["network_clustering"]
 
     def weighting_for_scenario(x, save=None):
         """ """
@@ -387,11 +387,11 @@ def kmean_clustering_gas_grid(etrago):
 
 def run_kmeans_clustering_gas(self):
 
-    if self.args["network_clustering_kmeans"]["active"]:
+    if self.args["network_clustering"]["active"]:
         logger.info("Start k-mean clustering GAS")
         self.network = kmean_clustering_gas_grid(self)
         logger.info(
             "GAS Network clustered to {} buses with k-means algorithm.".format(
-                self.args["network_clustering_kmeans"]["n_clusters_gas"]
+                self.args["network_clustering"]["n_clusters_gas"]
             )
         )

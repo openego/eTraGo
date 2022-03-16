@@ -158,7 +158,7 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     busmap = {**busmap, **busmap2}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met == "k-mean":
+    if cluster_met in ["k-mean", "Dijkstra"]:
         for no_elec_bus in no_elec_to_cluster.index:
             cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
             carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
@@ -1016,6 +1016,19 @@ def select_elec_network(etrago):
                 elec_network.storage_units.index
             ),
         ]
+    
+    # Dealing with stores
+    elec_network.stores = elec_network.stores[
+        elec_network.stores.bus.isin(elec_network.buses.index)
+    ]
+
+    for attr in elec_network.stores_t:
+        elec_network.stores_t[attr] = elec_network.stores_t[attr].loc[
+            :,
+            elec_network.stores_t[attr].columns.isin(
+                elec_network.stores.index
+            ),
+        ]
 
     return elec_network
 
@@ -1129,19 +1142,7 @@ def kmedoids_dijkstra_clustering(etrago):
 
     network = etrago.network.copy()
     settings = etrago.args['network_clustering']
-    
-    ###
-    # TODO
-    # workaround because of subnetwork in SH-Testcase
-    network.determine_network_topology()
-    network.sub_networks["n_branches"] = [len(sn.branches()) for sn in network.sub_networks.obj]
-    network.sub_networks["n_buses"] = [len(sn.buses()) for sn in network.sub_networks.obj]
-    out = network.sub_networks[network.sub_networks['n_branches']==0]
-    out = out['slack_bus']
-    network.buses.drop(out.values, axis=0, inplace=True)
-    network.generators = network.generators[network.generators.bus.isin(out.tolist()) == False]
-    ###
-    
+      
     def weighting_for_scenario(x, save=None):
         """
         """
@@ -1227,10 +1228,19 @@ def kmedoids_dijkstra_clustering(etrago):
         network.transformers_t[attr] = network.transformers_t[attr]\
             .reindex(columns=[])
 
-    network.buses['v_nom'] = 380.#########################################################
+    network.buses['v_nom'] = 380.
     
     etrago.network = network.copy()
     network_elec = select_elec_network(etrago)
+    lines_col = network_elec.lines.columns
+    lines_plus_dc = network_elec.lines.append(network.links[network.links.carrier == 'DC'])
+    lines_plus_dc = lines_plus_dc[lines_col]
+    network_elec.lines = lines_plus_dc.copy()
+    network.lines['carrier'] = 'AC'
+    
+    ################ erase once the aggregation function is updated ###########
+    network.lines['lifetime'] = 40.0
+    ################ erase once the aggregation function is updated ###########
     
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -1251,7 +1261,7 @@ def kmedoids_dijkstra_clustering(etrago):
         logger.info('options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering')
 
     # k-mean clustering
-    if not settings['busmap']:
+    if not settings['kmeans_busmap']:
         
         bus_weightings=pd.Series(weight)
         buses_i=network_elec.buses.index
@@ -1262,7 +1272,7 @@ def kmedoids_dijkstra_clustering(etrago):
         
         kmeans = KMeans(init='k-means++', n_clusters=settings['n_clusters'], \
                     n_init=settings['n_init'], max_iter=settings['max_iter'], 
-                    tol=settings['tol'], n_jobs=settings['n_jobs'])
+                    tol=settings['tol'])
         kmeans.fit(points)
         
         busmap = pd.Series(data=kmeans.predict(network_elec.buses.loc[buses_i, ["x", "y"]]), 
@@ -1280,13 +1290,12 @@ def kmedoids_dijkstra_clustering(etrago):
             medoid_idx[i]=index
             
         # dijkstra's algorithm
-            
         busmap = dijkstras_algorithm(network_elec, medoid_idx, busmap)
         busmap.index.name='bus_id'
         busmap.to_csv('kmedoids_dijkstra_busmap_' + str(settings['n_clusters']) + '_result.csv')
         
     else:
-        df = pd.read_csv(settings['busmap'])
+        df = pd.read_csv(settings['kmeans_busmap'])
         df=df.astype(str)
         df = df.set_index('bus_id')
         busmap = df.squeeze('columns')
@@ -1294,28 +1303,25 @@ def kmedoids_dijkstra_clustering(etrago):
     network.generators['weight'] = network.generators['p_nom']
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard('Generator')
+    
+    network, busmap = adjust_no_electric_network(network,
+                                                 busmap,
+                                                 cluster_met="Dijkstra")
+    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
         aggregate_generators_weighted=True,
-        one_port_strategies={'StorageUnit': {'marginal_cost': np.mean,
-                                             'capital_cost': np.mean,
-                                             'efficiency_dispatch': np.mean,
-                                             'standing_loss': np.mean,
-                                             'efficiency_store': np.mean,
-                                             'p_min_pu': np.min}},
-        generator_strategies={'p_nom_min':np.min,
-                              'p_nom_opt': np.sum,
-                              'marginal_cost': np.mean,
-                              'capital_cost': np.mean},
+        one_port_strategies=strategies_one_ports(),
+        generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=settings['line_length_factor'])
     
-    for i in range(len(medoid_idx)):
-        index=int(clustering.network.buses.index[i])
-        medoid=str(medoid_idx.loc[index])
-        clustering.network.buses['x'].iloc[i]=network.buses['x'].loc[medoid]     
-        clustering.network.buses['y'].iloc[i]=network.buses['y'].loc[medoid]
+    for i in clustering.network.buses[clustering.network.buses.carrier == 'AC'].index:
+        bus = int(i)
+        medoid=str(medoid_idx.loc[bus])
+        clustering.network.buses['x'].iloc[bus]=network.buses['x'].loc[medoid]     
+        clustering.network.buses['y'].iloc[bus]=network.buses['y'].loc[medoid]
 
     return clustering
 
@@ -1365,7 +1371,6 @@ def run_spatial_clustering(self):
         elif self.args['network_clustering']['method'] == 'kmedoids-dijkstra':
             
             logger.info('Start k-medoids Dijkstra Clustering')
-            #breakpoint()
             self.clustering = kmedoids_dijkstra_clustering(self)         
 
         if self.args["disaggregation"] != None:
