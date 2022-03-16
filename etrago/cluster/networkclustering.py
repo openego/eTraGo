@@ -1149,13 +1149,21 @@ def kmedoids_dijkstra_clustering(etrago):
         # define weighting based on conventional 'old' generator spatial
         # distribution
         non_conv_types = {
-                'biomass',
-                'wind_onshore',
-                'wind_offshore',
-                'solar',
-                'geothermal',
-                'load shedding',
-                'extendable_storage'}
+            "biomass",
+            "central_biomass_CHP",
+            "industrial_biomass_CHP",
+            "wind_onshore",
+            "wind_offshore",
+            "solar",
+            "solar_rooftop",
+            "geo_thermal",
+            "load shedding",
+            "extendable_storage",
+            "other_renewable",
+            "reservoir",
+            "run_of_river",
+            "pumped_hydro",
+        }
         # Attention: network.generators.carrier.unique()
         gen = (network.generators.loc[(network.generators.carrier
                                    .isin(non_conv_types) == False)]
