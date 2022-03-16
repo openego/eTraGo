@@ -410,35 +410,37 @@ def get_clustering_from_busmap(
         {col: "first" for col in new_links.columns if col not in strategies}
     )
 
-    gas_carriers = [  # This list should be replace by an automatic selection
-        "CH4",
-        "CH4_to_H2",
-        "H2_feedin",
-        "H2_ind_load",
-        "H2_to_CH4",
-        "H2_to_power",
-        "power_to_H2",
-        "central_gas_CHP",
-        "central_gas_CHP_heat",
-        "industrial_gas_CHP",
-        "rural_gas_boiler",
-        "central_gas_boiler",
-        "OCGT",
-    ]
+    # aggregate CH4 pipelines
+    # pipelines are treated differently compared to other links, since all of
+    # them will be considered bidirectional. That means, if a pipeline exists,
+    # that connects one cluster with a different one simultaneously with a
+    # pipeline that connects these two clusters in reversed order (e.g. bus0=1,
+    # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
+    pipelines = new_links.loc[new_links["carrier"] == "CH4"]
 
-    gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
+    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
+    pipeline_combinations.reset_index(drop=True, inplace=True)
+    pipeline_combinations["buscombination"] = pipeline_combinations[["bus0", "bus1"]].apply(
+        lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
+    )
+    pipeline_strategies = strategies.copy()
+    pipeline_strategies.update(
+        {col: "first" for col in pipeline_combinations.columns if col not in strategies}
+    )
+    pipelines_final = pipeline_combinations.groupby(["buscombination", "carrier"]).agg(
+        pipeline_strategies
+    )
 
-    combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
+    pipelines_final.set_index("link_id", inplace=True)
+    pipelines_final.drop(columns="buscombination", inplace=True)
+    io.import_components_from_dataframe(network_gasgrid_c, pipelines_final, "Link")
+
+    # aggregate remaining links
+    not_pipelines = new_links.loc[new_links["carrier"] != "CH4"]
+    combinations = not_pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
     combinations.set_index("link_id", inplace=True)
 
     io.import_components_from_dataframe(network_gasgrid_c, combinations, "Link")
-
-    non_gas_links = (
-        new_links[~new_links["carrier"].isin(gas_carriers)]
-        .copy()
-        .drop(columns="link_id")
-    )
-    io.import_components_from_dataframe(network_gasgrid_c, non_gas_links, "Link")
 
     if with_time:
         for attr, df in iteritems(network.links_t):
