@@ -87,9 +87,23 @@ args = {
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
+    'sector_coupled_clustering': {
+        'active': True, # choose if clustering is activated
+        'carrier_data': { # select carriers affected by sector coupling
+            'H2_ind_load': {
+                'base': ['H2_grid'],
+            },
+            'central_heat': {
+                'base': ['CH4'],
+            },
+            'rural_heat': {
+                'base': ['CH4'],
+            },
+        },
+    },
     'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': { 
+    'snapshot_clustering': {
         'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
         'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
@@ -146,7 +160,7 @@ def run_etrago(args, json_path):
     end_snapshot : int
         2,
         End hour of the scenario year to be calculated.
-        If temporal clustering is used, the selected snapshots should cover 
+        If temporal clustering is used, the selected snapshots should cover
         whole days.
 
     solver : str
@@ -286,6 +300,18 @@ def run_etrago(args, json_path):
         in sklearn-package (sklearn/cluster/k_means_.py).
         This function doesn't work together with ``'line_grouping = True'``.
 
+    sector_coupled_clustering : nested dict
+        {'active': True, 'carrier_data': {
+         'H2_ind_load': {'base': ['H2_grid']},
+         'central_heat': {'base': ['CH4']},
+         'rural_heat': {'base': ['CH4']}}
+        }
+        State if you want to apply clustering of sector coupled carriers, such
+        as central_heat or rural_heat. The approach builds on already clustered
+        buses (e.g. CH4 and AC) and builds clusters around the topology of the
+        buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
+        ``'H2_ind_load'``.
+
     network_clustering_ehv : bool
         False,
         Choose if you want to cluster the full HV/EHV dataset down to only the
@@ -293,18 +319,18 @@ def run_etrago(args, json_path):
         sub-station, taking into account the shortest distance on power lines.
 
     snapshot_clustering : dict
-        {'active': False, 'method':'typical_periods', 'how': 'daily', 
+        {'active': False, 'method':'typical_periods', 'how': 'daily',
          'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
         You can choose between a method clustering to typical periods, e.g. days
-        or a method clustering to segments of adjacent hours. 
+        or a method clustering to segments of adjacent hours.
         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
         the length of the periods, constraints considering the storages and the number
         of clusters for the usage of the method typical_periods.
         With ``'n_segments'`` you choose the number of segments for the usage of
         the method segmentation.
-                
+
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
@@ -333,10 +359,9 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
     """
     etrago = Etrago(args, json_path)
- 
+
     # import network from database
     etrago.build_network_from_db()
-    
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
@@ -361,7 +386,7 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
     etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0., inplace=True)    
+    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
 
@@ -394,7 +419,7 @@ def run_etrago(args, json_path):
     etrago.args['load_shedding']=True
     etrago.load_shedding()
 
-    # skip snapshots    
+    # skip snapshots
     etrago.skip_snapshots()
 
     # snapshot clustering

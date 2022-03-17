@@ -40,6 +40,7 @@ def create_gas_busmap(etrago):
     """
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
+
     buses_ch4 = etrago.network.buses
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
@@ -132,68 +133,31 @@ def create_gas_busmap(etrago):
     )
     busmap_h2 = busmap_h2.squeeze()
 
-    busmap = pd.concat([busmap_ch4, busmap_h2]).astype(str)
+    busmap = pd.concat([busmap_ch4, busmap_h2])
 
     # Add all other buses except H2_ind_load to busmap
-    busmap.index = busmap.index.astype(str)
     missing_idx = list(
         etrago.network.buses[
             (~etrago.network.buses.index.isin(busmap.index))
-            & (etrago.network.buses["carrier"] != "H2_ind_load")
         ].index
     )
-    next_bus_id = etrago.network.buses.index.astype(int).max() + 1
+    next_bus_id = highestInteger(etrago.network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
     busmap_values = new_gas_buses + missing_idx
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
+    if etrago.args["sector_coupled_clustering"]["active"]:
+        for name, data in etrago.args["sector_coupled_clustering"]["carrier_data"].items():
+            busmap_sector_coupling = cluster_sector_coupling(
+                etrago.network, busmap, data["base"], name
+            )
+            for key, value in busmap_sector_coupling.items():
+                busmap.loc[key] = value
+
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
-
-    # Add H2_ind_load buses to busmap
-    H2_ind_buses = etrago.network.buses[
-        (etrago.network.buses["carrier"] == "H2_ind_load")
-    ]
-
-    H2_ind_load_original_links = etrago.network.links[
-        (etrago.network.links["carrier"] == "H2_ind_load")
-    ]
-
-    clustered_H2_non_ind = []
-    for index, row in H2_ind_load_original_links.iterrows():
-        clustered_H2_non_ind.append(busmap[row["bus0"]])
-
-    H2_ind_load_original_links["clustered_H2_non_ind"] = clustered_H2_non_ind
-
-    comb = []
-    for index, row in H2_ind_buses.iterrows():
-        df_combinaison = H2_ind_load_original_links[
-            H2_ind_load_original_links["bus1"] == index
-        ]
-        combinaison = tuple(sorted(df_combinaison["clustered_H2_non_ind"].tolist()))
-        comb.append(combinaison)
-
-    H2_ind_buses["comb"] = comb
-
-    counts = Counter(comb)
-    non_unique_comb = [value for value, count in counts.items() if count > 1]
-
-    new_bus_id = dict()
-    for index, row in H2_ind_buses[
-        ~H2_ind_buses["comb"].isin(non_unique_comb)
-    ].iterrows():
-        new_bus_id[index] = index
-
-    next_bus_id = busmap.values.astype(int).max() + 1
-    for i in non_unique_comb:
-        c = H2_ind_buses[H2_ind_buses["comb"] == i].index.tolist()
-        new_bus_id[c[0]] = next_bus_id
-        new_bus_id[c[1]] = next_bus_id
-        next_bus_id += 1
-
-    busmap = {**busmap, **new_bus_id}
 
     df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
     df_bm.to_csv(
@@ -202,6 +166,173 @@ def create_gas_busmap(etrago):
         + "_result.csv",
         index=False,
     )
+
+    return busmap
+
+
+def highestInteger(potentially_numbers):
+    """Fetch the highest number of a series with mixed types
+
+    Parameters
+    ----------
+    potentially_numbers : pandas.core.series.Series
+        Series with mixed dtypes, potentially containing numbers.
+
+    Returns
+    -------
+    int
+        Highest integer found in series.
+    """
+    highest = 0
+    for number in potentially_numbers:
+        try:
+            num = int(number)
+            if num > highest:
+                highest = num
+        except ValueError:
+            pass
+
+    return highest
+
+
+def cluster_sector_coupling(network, busmap, carrier_based, carrier_to_cluster):
+    """Cluster sector coupling technology.
+
+    The topology of the sector coupling technology must be in a way, that the
+    links connected to other sectors do only point inwards. E.g. for the heat
+    sector, heat generating technologies from electricity or gas only point to
+    the heat sector and not vice-versa.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        PyPSA network instance.
+    busmap : pandas.Series
+        Series with lookup table for clustered buses.
+    carrier_based : list
+        Carriers on which the clustering of the sector coupling is based.
+    carrier_to_cluster : str
+        Name of the carrier which should be clustered
+
+    Returns
+    -------
+    dict
+        Busmap for the sector coupling cluster.
+    """
+    next_bus_id = highestInteger(busmap.values) + 1
+    buses_clustered = network.buses[network.buses["carrier"].isin(carrier_based)]
+    buses_to_cluster = network.buses[network.buses["carrier"] == carrier_to_cluster]
+    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_cluster + '_store']
+
+    connected_links = network.links.loc[
+        network.links["bus0"].isin(buses_clustered.index)
+        & network.links["bus1"].isin(buses_to_cluster.index)
+        & ~network.links["bus1"].isin(buses_to_skip.index)
+        & ~network.links["bus0"].isin(buses_to_skip.index)
+    ]
+
+    busmap = busmap.to_dict()
+    connected_links["bus0_clustered"] = connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
+    connected_links["bus1_clustered"] = connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+
+    # cluster sector coupling technologies
+    if len(carrier_based) > 1:
+        busmap = sc_multi_carrier_based(buses_to_cluster, connected_links)
+    else:
+        busmap = sc_single_carrier_based(connected_links)
+
+    busmap = {bus_id: bus_num + next_bus_id for bus_id, bus_num in busmap.items()}
+
+    # cluster appedices
+    skipped_links = network.links.loc[
+        (network.links["bus1"].isin(buses_to_skip.index)
+        & network.links["bus0"].isin(buses_to_cluster.index))
+        |
+        (network.links["bus0"].isin(buses_to_cluster.index)
+        & network.links["bus1"].isin(buses_to_skip.index))
+    ]
+
+    # map skipped buses after clustering
+    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap).fillna(skipped_links["bus0"])
+    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap).fillna(skipped_links["bus1"])
+
+    busmap_series = pd.Series(busmap)
+    next_bus_id = highestInteger(busmap_series.values) + 1
+
+    # create clusters for skipped buses
+    clusters = busmap_series.unique()
+    for i in range(len(clusters)):
+        buses = skipped_links.loc[skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"]
+        for bus_id in buses:
+            busmap[bus_id] = next_bus_id + i
+        buses = skipped_links.loc[skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"]
+        for bus_id in buses:
+            busmap[bus_id] = next_bus_id + i
+
+    return busmap
+
+
+
+def sc_multi_carrier_based(buses_to_cluster, connected_links):
+    """Create busmap for sector coupled carrier based on multiple other carriers.
+
+    Parameters
+    ----------
+    buses_to_cluster : pandas.Series
+        Series containing the buses of the sector coupled carrier which are
+        to be clustered.
+    connected_links : pandas.DataFrame
+        Links that connect from the buses with other carriers to the
+        buses of the sector coupled carrier.
+
+    Returns
+    -------
+    dict
+        Busmap for the sector cupled carrier.
+    """
+    clusters = pd.Series()
+    for bus_id in buses_to_cluster.index:
+        clusters.loc[bus_id] = tuple(
+            sorted(
+                connected_links.loc[
+                    connected_links["bus1_clustered"] == bus_id,
+                    "bus0_clustered"
+                ].tolist()
+            )
+        )
+
+    duplicates = clusters.unique()
+
+    busmap = {}
+    for i in range(len(duplicates)):
+        cluster = clusters[clusters == duplicates[i]].index.tolist()
+        if len(cluster) > 1:
+            busmap.update({bus: i for bus in cluster})
+
+    return busmap
+
+
+def sc_single_carrier_based(connected_links):
+    """Create busmap for sector coupled carrier based on single other carrier.
+
+    Parameters
+    ----------
+    connected_links : pandas.DataFrame
+        Links that connect from the buses with other carrier to the
+        buses of the sector coupled carrier.
+
+    Returns
+    -------
+    dict
+        Busmap for the sector cupled carrier.
+    """
+    busmap = {}
+    clusters = connected_links["bus0_clustered"].unique()
+    for i in range(len(clusters)):
+        buses = connected_links.loc[
+            connected_links["bus0_clustered"] == clusters[i], "bus1_clustered"
+        ].unique()
+        busmap.update({bus: i for bus in buses})
 
     return busmap
 
@@ -279,35 +410,37 @@ def get_clustering_from_busmap(
         {col: "first" for col in new_links.columns if col not in strategies}
     )
 
-    gas_carriers = [  # This list should be replace by an automatic selection
-        "CH4",
-        "CH4_to_H2",
-        "H2_feedin",
-        "H2_ind_load",
-        "H2_to_CH4",
-        "H2_to_power",
-        "power_to_H2",
-        "central_gas_CHP",
-        "central_gas_CHP_heat",
-        "industrial_gas_CHP",
-        "rural_gas_boiler",
-        "central_gas_boiler",
-        "OCGT",
-    ]
+    # aggregate CH4 pipelines
+    # pipelines are treated differently compared to other links, since all of
+    # them will be considered bidirectional. That means, if a pipeline exists,
+    # that connects one cluster with a different one simultaneously with a
+    # pipeline that connects these two clusters in reversed order (e.g. bus0=1,
+    # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
+    pipelines = new_links.loc[new_links["carrier"] == "CH4"]
 
-    gas_links = new_links[new_links["carrier"].isin(gas_carriers)].copy()
+    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
+    pipeline_combinations.reset_index(drop=True, inplace=True)
+    pipeline_combinations["buscombination"] = pipeline_combinations[["bus0", "bus1"]].apply(
+        lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
+    )
+    pipeline_strategies = strategies.copy()
+    pipeline_strategies.update(
+        {col: "first" for col in pipeline_combinations.columns if col not in strategies}
+    )
+    pipelines_final = pipeline_combinations.groupby(["buscombination", "carrier"]).agg(
+        pipeline_strategies
+    )
 
-    combinations = gas_links.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
+    pipelines_final.set_index("link_id", inplace=True)
+    pipelines_final.drop(columns="buscombination", inplace=True)
+    io.import_components_from_dataframe(network_gasgrid_c, pipelines_final, "Link")
+
+    # aggregate remaining links
+    not_pipelines = new_links.loc[new_links["carrier"] != "CH4"]
+    combinations = not_pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
     combinations.set_index("link_id", inplace=True)
 
     io.import_components_from_dataframe(network_gasgrid_c, combinations, "Link")
-
-    non_gas_links = (
-        new_links[~new_links["carrier"].isin(gas_carriers)]
-        .copy()
-        .drop(columns="link_id")
-    )
-    io.import_components_from_dataframe(network_gasgrid_c, non_gas_links, "Link")
 
     if with_time:
         for attr, df in iteritems(network.links_t):
@@ -388,6 +521,9 @@ def kmean_clustering_gas_grid(etrago):
 def run_kmeans_clustering_gas(self):
 
     if self.args["network_clustering_kmeans"]["active"]:
+
+        self.network.generators.control = "PV"
+
         logger.info("Start k-mean clustering GAS")
         self.network = kmean_clustering_gas_grid(self)
         logger.info(
