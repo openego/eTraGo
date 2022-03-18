@@ -156,6 +156,8 @@ def tsam_cluster(timeseries_df,
 
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
+    
+    RMSE = aggregation.accuracyIndicators()
 
     #If Segmentation is True, insert 'Dates' and 'SegmentNo' column in timeseries
     if segmentation is True:
@@ -442,7 +444,7 @@ def tsam_cluster(timeseries_df,
     
     import pdb; pdb.set_trace()
 
-    return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries
+    return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries, RMSE
 
 
 def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segmented_to=False, csv_export=False):
@@ -459,7 +461,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
     timeseries_df_original = prepare_pypsa_timeseries(network)
     
     # calculate clusters
-    df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
+    df_cluster, cluster_weights, dates, hours, df_i_h, timeseries, RMSE = tsam_cluster(
                 timeseries_df_original,
                 typical_periods = n_clusters,
                 how=how,
@@ -474,6 +476,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
             os.makedirs(csv_export, exist_ok=True)
         if segmentation != False:
             timeseries.to_csv('segmentation/timeseries_segmentation=' + str(segment_no) + '.csv') 
+            RMSE.to_csv('segmentation/RMSE_' + str(segment_no) + '.csv')
         else:
             if how=='daily':
                 howie='days'
@@ -485,6 +488,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
                 howie='hours'
                 path='typical_hours'
             df_cluster.to_csv(path+'/cluster_typical-periods=' + str(n_clusters) + howie + '.csv')
+            RMSE.to_csv(path+'/RMSE_' + str(n_clusters) + '.csv')
     ########################
 
     network.cluster = df_cluster
@@ -564,7 +568,25 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
 
 def skip_snapshots(self):
-
+    
+    ts_orig = prepare_pypsa_timeseries(self.network)
+    weight = pd.Series(data=1, index=ts_orig.columns)
+    weight['residual_load'] = 0 
+    weight = weight.to_dict()
+    
+    ts_orig = tsam.TimeSeriesAggregation(
+        ts_orig,
+        noTypicalPeriods=365,
+        rescaleClusterPeriods=False,
+        hoursPerPeriod=24, 
+        clusterMethod='hierarchical',
+        weightDict = weight)
+    
+    ts_orig._preProcessTimeSeries()
+    ts_orig = ts_orig.normalizedTimeSeries.drop(['residual_load'], axis=1)
+    
+    ###########################################################################
+    
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
@@ -573,6 +595,48 @@ def skip_snapshots(self):
         self.network.snapshot_weightings['objective'] = n_skip
         self.network.snapshot_weightings['stores'] = n_skip
         self.network.snapshot_weightings['generators'] = n_skip
+        
+    ###########################################################################
+    
+    ts_df = ts_orig.copy()
+    
+    count1=0
+    count2=0
+    for index, row in ts_df.iterrows():
+        if count1 > 0:
+            ts_df.loc[index] = ts_orig.iloc[count2].values
+            count1=count1+1
+            if count1 >= n_skip:
+                count1=0
+                count2=count2+n_skip
+        else:
+            count1=count1+1
+    
+    indicatorRaw = {
+        'RMSE': {},
+        'RMSE_duration': {},
+        'MAE': {}}  # 'Silhouette score':{},
+
+    import numpy as np
+    from sklearn.metrics import mean_squared_error, mean_absolute_error
+
+    for column in ts_orig.columns:
+        origTS = ts_orig[column]
+        predTS = ts_df[column]
+        indicatorRaw['RMSE'][column] = np.sqrt(
+            mean_squared_error(origTS, predTS))
+        indicatorRaw['RMSE_duration'][column] = np.sqrt(mean_squared_error(
+            origTS.sort_values(ascending=False).reset_index(drop=True),
+            predTS.sort_values(ascending=False).reset_index(drop=True)))
+        indicatorRaw['MAE'][column] = mean_absolute_error(origTS, predTS)
+    RMSE = pd.DataFrame(indicatorRaw)
+    csv_export = self.args['csv_export']
+    path = 'skip_snapshots/RMSE_'
+    if not os.path.exists(csv_export):
+        os.makedirs(csv_export, exist_ok=True)
+        
+    if n_skip:
+        RMSE.to_csv(path + str(n_skip) + '.csv')
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):

@@ -58,7 +58,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 48,
+    'end_snapshot': 480,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {"threads":4,
                       "crossover": 0,
@@ -602,12 +602,12 @@ args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_10_r
 # TODO: snapshots anpassen: 1 - 8760
 
 # zeitliche Auflösung
-args['snapshot_clustering']['active'] = True
-args['snapshot_clustering']['method'] = 'segmentation' # 'typical_periods', 'segmentation'
-args['snapshot_clustering']['extreme_periods'] = 'replace_cluster_center' # 'None', 'append', 'replace_cluster_center'
+args['snapshot_clustering']['active'] = False
+args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
+args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
 args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
-args['snapshot_clustering']['storage_constraints'] = '' # 'soc_constraints'
-args['skip_snapshots'] = False
+args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
+args['skip_snapshots'] = True
 
 skip_snapshots = [5] # 6, 5, 4, 3
 
