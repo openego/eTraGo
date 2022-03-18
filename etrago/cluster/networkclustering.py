@@ -1052,7 +1052,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     -------
     busmap (format: with labels)
     """
-    
+
     # original data
     o_buses = network.buses.index
     # k-medoids centers
@@ -1237,7 +1237,7 @@ def kmedoids_dijkstra_clustering(etrago):
             .reindex(columns=[])
 
     network.buses['v_nom'] = 380.
-    
+
     etrago.network = network.copy()
     network_elec = select_elec_network(etrago)
     lines_col = network_elec.lines.columns
@@ -1335,37 +1335,6 @@ def kmedoids_dijkstra_clustering(etrago):
 
 def run_spatial_clustering(self):
 
-    if self.args['network_clustering']['active']:
-
-        self.network.generators.control = "PV"
-
-        if self.args['network_clustering']['method'] == 'kmeans':
-
-            logger.info('Start k-means Clustering')
-
-            self.clustering = kmean_clustering(self)
-            
-        elif self.args['network_clustering']['method'] == 'kmedoids-dijkstra':
-            
-            logger.info('Start k-medoids Dijkstra Clustering')
-
-            self.clustering = kmedoids_dijkstra_clustering(self)            
-
-        if self.args['disaggregation'] != None:
-                self.disaggregated_network = self.network.copy()
-
-        self.network = self.clustering.network.copy()
-
-        self.geolocation_buses()
-
-        self.network.generators.control[self.network.generators.control == ''] = 'PV'
-
-        logger.info("Network clustered to {} buses with k-means algorithm."
-                    .format(self.args['network_clustering']['n_clusters']))
-
-
-def run_spatial_clustering(self):
-
     if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
@@ -1392,7 +1361,7 @@ def run_spatial_clustering(self):
 
         self.network.generators.control[self.network.generators.control == ""] = "PV"
         logger.info(
-            "Network clustered to {} buses with k-means algorithm.".format(
+            "Network clustered to {} buses with " + self.args['network_clustering']['method']+".".format(
                 self.args["network_clustering"]["n_clusters"]
             )
         )
