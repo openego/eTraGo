@@ -177,8 +177,11 @@ def _reconnect_stores(n, base_carrier, mix_carrier):
     """
     # select and duplicate all CH4 stores
     # reconnect copied stores to mix_buses
-    # recalculate capacity (???)
-    pass
+    stores = n.stores[n.stores["carrier"] == base_carrier].copy()
+    stores["carrier"] = mix_carrier
+    stores.index = stores["bus"] + " " + mix_carrier
+    stores["bus"] += "_" + mix_carrier
+    n.import_components_from_dataframe(stores, "Store")
 
 
 def compressor_modeling():
@@ -186,15 +189,18 @@ def compressor_modeling():
     """
     pass
 
+
 def H2_pipeline_modeling():
     """
     """
     pass
 
+
 def H2_retrofit_modeling():
     """
     """
     pass
+
 
 def generate_extra_functionalities():
     """
