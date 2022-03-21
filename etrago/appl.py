@@ -389,6 +389,11 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
+    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
+                                       # PyPSA network clustering function 
+                                       # is changed (taking the mean) or our 
+                                       # data model is altered, which will 
+                                       # happen in the next data creation run
 
     etrago.adjust_network()
 
