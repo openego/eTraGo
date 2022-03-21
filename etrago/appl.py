@@ -369,7 +369,9 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)    
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
-
+    ############# erase once the lines aggregation function is updated #########
+    etrago.network.lines['lifetime'] = 40.0
+    ############# erase once the lines aggregation function is updated #########
     etrago.adjust_network()
 
     # Set marginal costs for gas feed-in

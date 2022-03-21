@@ -1241,14 +1241,15 @@ def kmedoids_dijkstra_clustering(etrago):
     etrago.network = network.copy()
     network_elec = select_elec_network(etrago)
     lines_col = network_elec.lines.columns
+    
+    # The Dijkstra clustering works using the shortest electrical path between
+    # buses. In some cases, a bus has just DC connections, which are considered
+    # links. Therefore it is necessary to include temporarily the DC links
+    # into the lines table.
     lines_plus_dc = network_elec.lines.append(network.links[network.links.carrier == 'DC'])
     lines_plus_dc = lines_plus_dc[lines_col]
     network_elec.lines = lines_plus_dc.copy()
     network.lines['carrier'] = 'AC'
-    
-    ################ erase once the aggregation function is updated ###########
-    network.lines['lifetime'] = 40.0
-    ################ erase once the aggregation function is updated ###########
     
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -1315,7 +1316,6 @@ def kmedoids_dijkstra_clustering(etrago):
     network, busmap = adjust_no_electric_network(network,
                                                  busmap,
                                                  cluster_met="Dijkstra")
-    
     clustering = get_clustering_from_busmap(
         network,
         busmap,
