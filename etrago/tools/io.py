@@ -315,7 +315,10 @@ class NetworkScenario(ScenarioBase):
 
             pypsa_comp = 'StorageUnit' if comp == 'Storage' else comp
 
-            logger.info(f"Importing {comp}s from database")
+            if comp[-1] == 's':
+                logger.info(f"Importing {comp}es from database")
+            else:
+                logger.info(f"Importing {comp}s from database")
 
             df = self.fetch_by_relname(comp)
 
