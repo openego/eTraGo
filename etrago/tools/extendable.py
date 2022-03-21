@@ -264,7 +264,7 @@ def extendable(self, line_max):
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
             network.buses.index[network.buses.country != 'DE'])) & (
                 network.storage_units.carrier.isin(
-                    ['battery_storage', 'hydrogen_storage']))] = True
+                    ['battery']))] = True
 
         network.storage_units.loc[
             network.storage_units.p_nom_max.isnull(), 'p_nom_max'] = \
