@@ -76,7 +76,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 30, # number of resulting nodes
-        'n_clusters_gas': 5, # number of resulting nodes in Germany
+        'n_clusters_gas': 30, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
