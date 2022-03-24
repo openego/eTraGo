@@ -324,6 +324,7 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
 
         # remove already clustered buses
         buses_to_cluster = buses_to_cluster[~buses_to_cluster.index.isin(busmap_sc.keys())]
+        buses_clustered = network.buses[network.buses["carrier"] == base]
 
         connected_links = network.links.loc[
             network.links["bus0"].isin(buses_clustered.index)
