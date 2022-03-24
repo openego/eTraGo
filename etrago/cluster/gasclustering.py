@@ -343,10 +343,17 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
             busmap_by_base[bus_id] = bus_num + next_bus_id
 
         next_bus_id = bus_num + next_bus_id
-
         busmap_sc.update(busmap_by_base)
 
-        breakpoint()
+
+    buses_to_cluster = buses_to_cluster[~buses_to_cluster.index.isin(busmap_sc.keys())]
+
+    if len(buses_to_cluster) > 0:
+        msg = (
+            "The following buses are not added to any cluster: " +
+            buses_to_cluster.index.to_string()
+        )
+        logger.warning(msg)
 
     # cluster appedices
     skipped_links = network.links.loc[
