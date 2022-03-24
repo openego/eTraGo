@@ -285,8 +285,6 @@ def simultaneous_sector_coupling(network, busmap, carrier_based, carrier_to_clus
         for bus_id in buses:
             busmap[bus_id] = next_bus_id + i
 
-    breakpoint()
-
     return busmap
 
 
@@ -345,13 +343,12 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
         next_bus_id = bus_num + next_bus_id + 1
         busmap_sc.update(busmap_by_base)
 
-
     buses_to_cluster = buses_to_cluster[~buses_to_cluster.index.isin(busmap_sc.keys())]
 
     if len(buses_to_cluster) > 0:
         msg = (
             "The following buses are not added to any cluster: " +
-            buses_to_cluster.index.to_string()
+            str(buses_to_cluster.index)
         )
         logger.warning(msg)
 
