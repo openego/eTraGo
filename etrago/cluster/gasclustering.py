@@ -342,7 +342,7 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
 
             busmap_by_base[bus_id] = bus_num + next_bus_id
 
-        next_bus_id = bus_num + next_bus_id
+        next_bus_id = bus_num + next_bus_id + 1
         busmap_sc.update(busmap_by_base)
 
 
