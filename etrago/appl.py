@@ -90,14 +90,17 @@ args = {
     'sector_coupled_clustering': {
         'active': True, # choose if clustering is activated
         'carrier_data': { # select carriers affected by sector coupling
-            'H2_ind_load': {
-                'base': ['H2_grid'],
-            },
-            'central_heat': {
-                'base': ['CH4'],
-            },
+            # 'H2_ind_load': {
+            #     'base': ['H2_grid'],
+            #     'strategy': 'consecutive'
+            # },
+            # 'central_heat': {
+            #     'base': ['CH4', 'AC'],
+            #     'strategy': 'consecutive'
+            # },
             'rural_heat': {
-                'base': ['CH4'],
+                'base': ['CH4', 'AC'],
+                'strategy': 'consecutive'
             },
         },
     },
@@ -402,7 +405,7 @@ def run_etrago(args, json_path):
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
 
     # ehv network clustering
-    etrago.ehv_clustering()
+    # etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
