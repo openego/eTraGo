@@ -179,14 +179,14 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(network):
+def buses_by_country(etrago):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    etrago : Etrago object
         Overall container of PyPSA
 
     Returns
@@ -195,7 +195,6 @@ def buses_by_country(network):
     """
 
     countries = {
-        "Germany": "DE",
         "Poland": "PL",
         "Czechia": "CZ",
         "Denmark": "DK",
@@ -209,12 +208,23 @@ def buses_by_country(network):
         "United Kingdom": "GB",
         "Norway": "NO",
         "Finland": "FI",
+        "Germany": "DE",
     }
 
+    #read Germany borders from egon-data
+    query = "SELECT * FROM boundaries.vg250_lan"
+    con = etrago.engine    
+    germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
+   
     path = gpd.datasets.get_path("naturalearth_lowres")
     shapes = gpd.read_file(path)
     shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
-    geobuses = network.buses.copy()
+    
+    #Use Germany borders from egon-data if not using the SH test case
+    if len(germany_sh.gen.unique()) > 1:
+        shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
+        
+    geobuses = etrago.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
     )
@@ -223,7 +233,7 @@ def buses_by_country(network):
 
     for country in countries:
         geobuses["country"][
-            network.buses.index.isin(
+            etrago.network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -236,9 +246,9 @@ def buses_by_country(network):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    network.buses = geobuses.drop(columns="geom")
+    etrago.network.buses = geobuses.drop(columns="geom")
 
-    buses_country = network.buses["country"].copy()
+    buses_country = etrago.network.buses["country"].copy()
 
     return buses_country
 
