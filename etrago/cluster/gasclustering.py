@@ -44,12 +44,27 @@ def create_gas_busmap(etrago):
     buses_ch4 = etrago.network.buses
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
-    network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
-    ]
+    num_neighboring_country = (
+        (network_ch4.buses["carrier"] == "CH4")
+        & (network_ch4.buses["country"] == "DE")
+    ).sum()
 
     # Cluster ch4 buses
     kmean_gas_settings = etrago.args["network_clustering_kmeans"]
+
+    if num_neighboring_country >= kmean_gas_settings["n_clusters_gas"]:
+        msg = (
+            "The number of clusters for the gas sector ("
+            + str(kmean_gas_settings["n_clusters_gas"]) +
+            ") must be higher than the number of neighboring contry gas buses ("
+            + str(num_neighboring_country) + ")."
+        )
+        raise ValueError(msg)
+
+    network_ch4.buses = network_ch4.buses[
+        (network_ch4.buses["carrier"] == "CH4")
+        & (network_ch4.buses["country"] == "DE")
+    ]
 
     def weighting_for_scenario(x, save=None):
         """ """
@@ -84,7 +99,7 @@ def create_gas_busmap(etrago):
         busmap_ch4 = busmap_by_kmeans(
         network_ch4,
         bus_weightings=weight_ch4_s,
-        n_clusters=kmean_gas_settings["n_clusters_gas"],
+        n_clusters=kmean_gas_settings["n_clusters_gas"] - num_neighboring_country - 1,
         n_init=kmean_gas_settings["n_init"],
         max_iter=kmean_gas_settings["max_iter"],
         tol=kmean_gas_settings["tol"],
