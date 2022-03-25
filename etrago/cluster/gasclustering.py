@@ -54,8 +54,10 @@ def create_gas_busmap(etrago):
 
     if num_neighboring_country >= kmean_gas_settings["n_clusters_gas"]:
         msg = (
-            "The number of clusters for the gas sector must be higher than "
-            "the number of neighboring contry gas buses."
+            "The number of clusters for the gas sector ("
+            + kmean_gas_settings["n_clusters_gas"] + ") must be higher than "
+            "the number of neighboring contry gas buses ("
+            + str(num_neighboring_country) + ")."
         )
         raise ValueError(msg)
 
@@ -97,7 +99,7 @@ def create_gas_busmap(etrago):
         busmap_ch4 = busmap_by_kmeans(
         network_ch4,
         bus_weightings=weight_ch4_s,
-        n_clusters=kmean_gas_settings["n_clusters_gas"] - num_neighboring_country,
+        n_clusters=kmean_gas_settings["n_clusters_gas"] - num_neighboring_country - 1,
         n_init=kmean_gas_settings["n_init"],
         max_iter=kmean_gas_settings["max_iter"],
         tol=kmean_gas_settings["tol"],
