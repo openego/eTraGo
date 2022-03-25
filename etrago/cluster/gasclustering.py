@@ -156,10 +156,10 @@ def create_gas_busmap(etrago):
                 busmap_sector_coupling = consecutive_sector_coupling(
                     etrago.network, busmap, data["base"], name,
                 )
-            elif strategy == "simultanous":
+            elif strategy == "simultaneous":
                 if len(data["base"]) < 2:
                     msg = (
-                        "To apply simultanous clustering for the " + name +
+                        "To apply simultaneous clustering for the " + name +
                         " buses, at least 2 base buses must be selected."
                     )
                     raise ValueError(msg)
@@ -362,10 +362,10 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
     ]
 
     # map skipped buses after clustering
-    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap).fillna(skipped_links["bus0"])
-    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap).fillna(skipped_links["bus1"])
+    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap_sc).fillna(skipped_links["bus0"])
+    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap_sc).fillna(skipped_links["bus1"])
 
-    busmap_series = pd.Series(busmap)
+    busmap_series = pd.Series(busmap_sc)
     next_bus_id = highestInteger(busmap_series.values) + 1
 
     # create clusters for skipped buses
@@ -373,12 +373,12 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
     for i in range(len(clusters)):
         buses = skipped_links.loc[skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"]
         for bus_id in buses:
-            busmap[bus_id] = next_bus_id + i
+            busmap_sc[bus_id] = next_bus_id + i
         buses = skipped_links.loc[skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"]
         for bus_id in buses:
-            busmap[bus_id] = next_bus_id + i
+            busmap_sc[bus_id] = next_bus_id + i
 
-    return busmap
+    return busmap_sc
 
 
 def sc_multi_carrier_based(buses_to_cluster, connected_links):
