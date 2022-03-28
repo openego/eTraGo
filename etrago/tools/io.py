@@ -197,13 +197,16 @@ class NetworkScenario(ScenarioBase):
                     egon_etrago_load,
                     egon_etrago_storage,
                     egon_etrago_store,
-                    egon_etrago_transformer
+                    egon_etrago_transformer,
+                    egon_etrago_carrier
                     )
 
         index = f'{name.lower()}_id'
 
         if name == 'Transformer':
             index = 'trafo_id'
+        if name == 'Carrier':
+            index = 'name'
 
         query = self.session.query(
             vars()[f'egon_etrago_{name.lower()}']).filter(
@@ -311,7 +314,7 @@ class NetworkScenario(ScenarioBase):
             network.set_snapshots(self.timeindex)
 
         for comp in ['Bus', 'Line', 'Transformer', 'Link', 'Load',
-                    'Generator', 'Storage', 'Store']:
+                    'Generator', 'Storage', 'Store', 'Carrier']:
 
             pypsa_comp = 'StorageUnit' if comp == 'Storage' else comp
 
@@ -328,8 +331,11 @@ class NetworkScenario(ScenarioBase):
                 df.sign=1
 
             network.import_components_from_dataframe(df, pypsa_comp)
-
-            network = self.series_fetch_by_relname(network, comp, pypsa_comp)
+            
+            if comp == 'Carrier':
+                pass
+            else:
+                network = self.series_fetch_by_relname(network, comp, pypsa_comp)
 
         # populate carrier attribute in PyPSA network
         # network.import_components_from_dataframe(

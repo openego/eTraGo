@@ -648,29 +648,29 @@ def calc_storage_expansion_per_bus(network):
     """
 
     batteries = network.storage_units[network.storage_units.carrier ==
-                                      'extendable_battery_storage']
-    hydrogen = network.storage_units[network.storage_units.carrier ==
-                                     'extendable_hydrogen_storage']
+                                      'battery']
+    #hydrogen = network.storage_units[network.storage_units.carrier ==
+    #                                 'extendable_hydrogen_storage']
     battery_distribution =\
         network.storage_units.p_nom_opt[batteries.index].groupby(
             network.storage_units.bus).sum().reindex(
                 network.buses.index, fill_value=0.)
-    hydrogen_distribution =\
-        network.storage_units.p_nom_opt[hydrogen.index].groupby(
-            network.storage_units.bus).sum().reindex(
-                network.buses.index, fill_value=0.)
-    index = [(idx, 'battery_storage') for idx in network.buses.index]
-    index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
+    #hydrogen_distribution =\
+    #    network.storage_units.p_nom_opt[hydrogen.index].groupby(
+    #        network.storage_units.bus).sum().reindex(
+    #            network.buses.index, fill_value=0.)
+    index = [(idx, 'battery') for idx in network.buses.index]
+    #index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(index=pd.MultiIndex.from_tuples(
         index, names=['bus', 'carrier']), dtype=float)
 
-    dist.iloc[dist.index.get_level_values('carrier') == 'battery_storage'] = \
+    dist.iloc[dist.index.get_level_values('carrier') == 'battery'] = \
             battery_distribution.sort_index().values
-    dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
-            hydrogen_distribution.sort_index().values
-    network.carriers.color['hydrogen_storage'] = 'orange'
-    network.carriers.color['battery_storage'] = 'blue'
+    #dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
+    #        hydrogen_distribution.sort_index().values
+    #network.carriers.color['hydrogen_storage'] = 'orange'
+    network.carriers.color['battery'] = 'blue'
 
     return dist
 
