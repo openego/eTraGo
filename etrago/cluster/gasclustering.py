@@ -46,7 +46,7 @@ def create_gas_busmap(etrago):
 
     num_neighboring_country = (
         (network_ch4.buses["carrier"] == "CH4")
-        & (network_ch4.buses["country"] == "DE")
+        & (network_ch4.buses["country"] != "DE")
     ).sum()
 
     # Cluster ch4 buses
