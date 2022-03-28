@@ -46,20 +46,20 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'etrago',  # database session
+    'db': 'egon-data-local',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 1, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': True}, # set if pyomo is used for model building
+        'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'pyomo': False}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 10,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},
+    'solver_options': {'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,'logFile':'solver.log','threads':4,'method':2, 'crossover':0}, # 'BarHomogeneous': 1},#'NumericFocus':2
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -67,16 +67,16 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/onlyAC_300_foreignstorageendo',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
-    'generator_noise': 789456,  # apply generator noise, False or seed number
+    'generator_noise': False,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 30, # number of resulting nodes
-        'n_clusters_gas': 5, # number of resulting nodes in Germany
+        'n_clusters': 300, # number of resulting nodes
+        'n_clusters_gas': 30, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -101,7 +101,7 @@ args = {
             },
         },
     },
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -111,7 +111,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
+    'skip_snapshots': 3, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -389,6 +389,9 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
+    etrago.network.lines.lifetime = 40
+    etrago.network.lines.s_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.lines.x = etrago.network.lines.x/100
 
     etrago.adjust_network()
 
@@ -400,11 +403,11 @@ def run_etrago(args, json_path):
     #                                   'rural_heat', 'central_heat_store', 
     #                                   'rural_heat_store'])
     drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'H2_ind_load', 'H2_saltcavern',
-                                      #'central_heat', 
+                                      'central_heat', 
                                       'central_heat_store', 
                                       'rural_heat_store', 'rural_heat',
-                                       'dsm'])
-
+                                      'dsm'])
+    #import pdb; pdb.set_trace()
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
@@ -414,17 +417,32 @@ def run_etrago(args, json_path):
 
     # k-mean clustering
     etrago.kmean_clustering()
-    #etrago.kmean_clustering_gas()
 
-    etrago.args['load_shedding']=True
-    etrago.load_shedding()
+    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
+
+    for t in etrago.network.iterate_components():
+        if 'marginal_cost' in t.df:
+            np.random.seed(174)
+            t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
+
+        
+    #etrago.kmean_clustering_gas()
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
+
+
+
+
+    #etrago.args['load_shedding']=True
+    #etrago.load_shedding()
 
     # skip snapshots
     etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
