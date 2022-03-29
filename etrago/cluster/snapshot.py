@@ -133,6 +133,8 @@ def tsam_cluster(timeseries_df,
     weight['residual_load'] = 0 
     weight = weight.to_dict()
 
+    import pdb; pdb.set_trace()
+
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -569,27 +571,32 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
 def skip_snapshots(self):
     
-    ts_orig = prepare_pypsa_timeseries(self.network)
-    weight = pd.Series(data=1, index=ts_orig.columns)
-    weight['residual_load'] = 0 
-    weight = weight.to_dict()
-    
-    ts_orig = tsam.TimeSeriesAggregation(
-        ts_orig,
-        noTypicalPeriods=365,
-        rescaleClusterPeriods=False,
-        hoursPerPeriod=24, 
-        clusterMethod='hierarchical',
-        weightDict = weight)
-    
-    ts_orig._preProcessTimeSeries()
-    ts_orig = ts_orig.normalizedTimeSeries.drop(['residual_load'], axis=1)
-    
-    ###########################################################################
+    ##########################################################################
     
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
+        
+    ##########################################################################
+    
+        ts_orig = prepare_pypsa_timeseries(self.network)
+        weight = pd.Series(data=1, index=ts_orig.columns)
+        weight['residual_load'] = 0 
+        weight = weight.to_dict()
+        
+        ts_orig = tsam.TimeSeriesAggregation(
+            ts_orig,
+            noTypicalPeriods=365,
+            rescaleClusterPeriods=False,
+            hoursPerPeriod=24, 
+            clusterMethod='hierarchical',
+            weightDict = weight)
+        
+        ts_orig._preProcessTimeSeries()
+        ts_orig = ts_orig.normalizedTimeSeries.drop(['residual_load'], axis=1)
+    
+    ##########################################################################
+
         self.network.snapshots = self.network.snapshots[::n_skip]
 
         self.network.snapshot_weightings['objective'] = n_skip
@@ -598,45 +605,45 @@ def skip_snapshots(self):
         
     ###########################################################################
     
-    ts_df = ts_orig.copy()
-    
-    count1=0
-    count2=0
-    for index, row in ts_df.iterrows():
-        if count1 > 0:
-            ts_df.loc[index] = ts_orig.iloc[count2].values
-            count1=count1+1
-            if count1 >= n_skip:
-                count1=0
-                count2=count2+n_skip
-        else:
-            count1=count1+1
-    
-    indicatorRaw = {
-        'RMSE': {},
-        'RMSE_duration': {},
-        'MAE': {}}  # 'Silhouette score':{},
-
-    import numpy as np
-    from sklearn.metrics import mean_squared_error, mean_absolute_error
-
-    for column in ts_orig.columns:
-        origTS = ts_orig[column]
-        predTS = ts_df[column]
-        indicatorRaw['RMSE'][column] = np.sqrt(
-            mean_squared_error(origTS, predTS))
-        indicatorRaw['RMSE_duration'][column] = np.sqrt(mean_squared_error(
-            origTS.sort_values(ascending=False).reset_index(drop=True),
-            predTS.sort_values(ascending=False).reset_index(drop=True)))
-        indicatorRaw['MAE'][column] = mean_absolute_error(origTS, predTS)
-    RMSE = pd.DataFrame(indicatorRaw)
-    csv_export = self.args['csv_export']
-    path = 'skip_snapshots/RMSE_'
-    if not os.path.exists(csv_export):
-        os.makedirs(csv_export, exist_ok=True)
+        ts_df = ts_orig.copy()
         
-    if n_skip:
-        RMSE.to_csv(path + str(n_skip) + '.csv')
+        count1=0
+        count2=0
+        for index, row in ts_df.iterrows():
+            if count1 > 0:
+                ts_df.loc[index] = ts_orig.iloc[count2].values
+                count1=count1+1
+                if count1 >= n_skip:
+                    count1=0
+                    count2=count2+n_skip
+            else:
+                count1=count1+1
+        
+        indicatorRaw = {
+            'RMSE': {},
+            'RMSE_duration': {},
+            'MAE': {}}  # 'Silhouette score':{},
+    
+        import numpy as np
+        from sklearn.metrics import mean_squared_error, mean_absolute_error
+    
+        for column in ts_orig.columns:
+            origTS = ts_orig[column]
+            predTS = ts_df[column]
+            indicatorRaw['RMSE'][column] = np.sqrt(
+                mean_squared_error(origTS, predTS))
+            indicatorRaw['RMSE_duration'][column] = np.sqrt(mean_squared_error(
+                origTS.sort_values(ascending=False).reset_index(drop=True),
+                predTS.sort_values(ascending=False).reset_index(drop=True)))
+            indicatorRaw['MAE'][column] = mean_absolute_error(origTS, predTS)
+        RMSE = pd.DataFrame(indicatorRaw)
+        csv_export = self.args['csv_export']
+        path = 'skip_snapshots/RMSE_'
+        if not os.path.exists(csv_export):
+            os.makedirs(csv_export, exist_ok=True)
+            
+        if n_skip:
+            RMSE.to_csv(path + str(n_skip) + '.csv')
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
