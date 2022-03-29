@@ -92,12 +92,15 @@ args = {
         'carrier_data': { # select carriers affected by sector coupling
             'H2_ind_load': {
                 'base': ['H2_grid'],
+                'strategy': 'consecutive'
             },
             'central_heat': {
-                'base': ['CH4'],
+                'base': ['CH4', 'AC'],
+                'strategy': 'consecutive'
             },
             'rural_heat': {
-                'base': ['CH4'],
+                'base': ['CH4', 'AC'],
+                'strategy': 'consecutive'
             },
         },
     },
