@@ -408,7 +408,7 @@ def run_etrago(args, json_path):
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
 
     # ehv network clustering
-    # etrago.ehv_clustering()
+    etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
