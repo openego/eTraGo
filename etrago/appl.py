@@ -59,7 +59,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,'logFile':'solver.log','threads':4,'method':2, 'crossover':0}, # 'BarHomogeneous': 1},#'NumericFocus':2
+    'solver_options': {'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,'logFile':'solver.log','threads':4, 'method':2, 'crossover':0}, # 'BarHomogeneous': 1},#'NumericFocus':2
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/onlyAC_300_foreignstorageendo',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/onlyAC_300_foreignstorageendo_method2',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': False,  # apply generator noise, False or seed number
@@ -111,7 +111,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': 3, # False or number of snapshots to skip
+    'skip_snapshots': 5, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
@@ -392,6 +392,14 @@ def run_etrago(args, json_path):
     etrago.network.lines.lifetime = 40
     etrago.network.lines.s_nom_max.fillna(np.inf, inplace=True)
     etrago.network.lines.x = etrago.network.lines.x/100
+    
+    for t in etrago.network.iterate_components():
+        if 'p_nom_max' in t.df:
+            t.df['p_nom_max'].fillna(np.inf, inplace=True)
+    
+    for t in etrago.network.iterate_components():
+        if 'p_nom_min' in t.df:
+                        t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
 
@@ -446,7 +454,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    #etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
