@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/onlyAC_300_foreignstorageendo_method2',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/onlyAC_300_31032022',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': False,  # apply generator noise, False or seed number
@@ -366,33 +366,34 @@ def run_etrago(args, json_path):
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True)
-    etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.links.capital_cost.fillna(0, inplace=True) # 0 capital_cost does not make a lot of sense
+    etrago.network.links.p_nom_min.fillna(0, inplace=True) # rather try to set p_nom and then 0
+    etrago.network.transformers.tap_ratio.fillna(1., inplace=True) 
+    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True) 
+    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True) 
     etrago.network.links.efficiency.fillna(1., inplace=True)
-    etrago.network.links.marginal_cost.fillna(0., inplace=True)
+    etrago.network.links.marginal_cost.fillna(0., inplace=True) 
     etrago.network.links.p_min_pu.fillna(0., inplace=True)
     etrago.network.links.p_max_pu.fillna(1., inplace=True)
     etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True)
+    etrago.network.stores.capital_cost.fillna(0, inplace=True) # not a very good value
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
     etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
+    etrago.network.storage_units.capital_cost.fillna(0., inplace=True) # not a god value
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
-    etrago.network.storage_units.lifetime = np.inf
+    etrago.network.storage_units.lifetime = np.inf # not a good value
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
     etrago.network.lines.lifetime = 40
-    etrago.network.lines.s_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
     etrago.network.lines.x = etrago.network.lines.x/100
-    
+    etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
+
     for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
             t.df['p_nom_max'].fillna(np.inf, inplace=True)
@@ -426,7 +427,13 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
 
-    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
+    for t in etrago.network.iterate_components():
+        if 'p_nom_max' in t.df:
+            t.df['p_nom_max'].fillna(np.inf, inplace=True)
+
+    for t in etrago.network.iterate_components():
+            if 'p_nom_min' in t.df:
+                t.df['p_nom_min'].fillna(0., inplace=True)
 
     for t in etrago.network.iterate_components():
         if 'marginal_cost' in t.df:
@@ -454,7 +461,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    #etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
