@@ -47,7 +47,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'backup-SH',  # database session 
+    'db': 'egon-data-local',  # database session 
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -60,11 +60,11 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {"threads":4,
-                      "crossover": 0,
-                      "method":2,
+    'solver_options': {"threads": 4,
+                       "method":2,
+                       "crossover": 0,
                       "BarConvTol":1.e-5,
-                      "FeasibilityTol":1.e-6,
+                      "FeasibilityTol":1.e-5,
                       "logFile":"gurobi_eTraGo.log"},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
@@ -421,8 +421,22 @@ def run_etrago(args, json_path, path, number):
                                        # is changed (taking the mean) or our 
                                        # data model is altered, which will 
                                        # happen in the next data creation run
+    # von Ulfs Branch
+    #etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
+    etrago.network.lines.x = etrago.network.lines.x/100
+    etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)                                       
+    for t in etrago.network.iterate_components():
+        if 'p_nom_max' in t.df:
+            t.df['p_nom_max'].fillna(np.inf, inplace=True)
+    
+    for t in etrago.network.iterate_components():
+        if 'p_nom_min' in t.df:
+                        t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
+    
+    import pdb; pdb.set_trace()
+    # TODO: check extendable components
 
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
@@ -433,13 +447,27 @@ def run_etrago(args, json_path, path, number):
 
     # k-mean clustering
     etrago.kmean_clustering()
-
+    
     etrago.kmean_clustering_gas()
     
-    # TODO: load_shedding?
-    etrago.args['load_shedding']=True
-    etrago.load_shedding()
+    for t in etrago.network.iterate_components():
+        if 'p_nom_max' in t.df:
+            t.df['p_nom_max'].fillna(np.inf, inplace=True)
+
+    for t in etrago.network.iterate_components():
+        if 'p_nom_min' in t.df:
+                t.df['p_nom_min'].fillna(0., inplace=True)
     
+    for t in etrago.network.iterate_components():
+        if 'marginal_cost' in t.df:
+            np.random.seed(174)
+            t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
+    import pdb; pdb.set_trace() 
+    # TODO: check those fixes by ulf : are those necessary?     
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
+
     ###########################################################################
     
     # preparations for 2-Level Approach
@@ -566,8 +594,10 @@ def run_etrago(args, json_path, path, number):
     etrago.network.links['p_nom'] = etrago.network.links['p_nom_opt']
     etrago.network.links['p_nom_extendable'] = False
     
-    # TODO: extendable?
     etrago.args['extendable'] = []
+    
+    import pdb; pdb.set_trace()
+    # TODO: check extendable components
     
     # use original timeseries
     
@@ -629,8 +659,7 @@ args['network_clustering_kmeans']['gas_clusters'] = 30
 args['network_clustering_kmeans']['kmeans_busmap'] = False # 'kmeans_busmap_70_result.csv'
 args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
 
-# TODO: args extendable?
-args['load_shedding'] = False # TODO
+args['load_shedding'] = False 
 args['method']['pyomo'] = True
 args['method']['n_iter'] = 5 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
 args['solver_options'] = {}
