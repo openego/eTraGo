@@ -52,13 +52,13 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': False}, # set if pyomo is used for model building
+        'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 480,
+    'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {"threads":4,
                       "crossover": 0,
@@ -452,7 +452,6 @@ def run_etrago(args, json_path, path, number):
         print(' ')
         print(etrago.network.snapshots)
         print(' ')
-    args['csv_export'] = path+'/results/level1/'
 
     # snapshot clustering
     etrago.snapshot_clustering()
@@ -462,6 +461,9 @@ def run_etrago(args, json_path, path, number):
     t2 = datetime.datetime.now()
     print(datetime.datetime.now())
     print(' ')
+    
+    args['csv_export'] = path+'/results/level1/'
+    args['lp_file'] = path+'/lp-level1/'
 
     print(' ')
     print('Start LOPF Level 1')
@@ -492,7 +494,8 @@ def run_etrago(args, json_path, path, number):
     
     # LOPF Level 2
     
-    args['csv_export'] = path+'/results/level2/'
+    etrago.args['snapshot_clustering']['active']=False
+    etrago.args['skip_snapshots']=False
     
     # drop dispatch from LOPF1
     
@@ -539,8 +542,8 @@ def run_etrago(args, json_path, path, number):
     etrago.network.snapshots = original_snapshots
     etrago.network.snapshot_weightings = original_weighting
     
-    etrago.args['snapshot_clustering']['active']=False
-    etrago.args['skip_snapshots']=False
+    args['csv_export'] = path+'/results/level2/'
+    args['lp_file'] = path+'/lp-level2/'
     
     print(' ')
     print('Start LOPF Level 2')
@@ -589,25 +592,35 @@ def run_etrago(args, json_path, path, number):
 
 # räumliche Auflösung
 args['network_clustering_kmeans']['active'] = True
-args['network_clustering_kmeans']['n_clusters'] = 10
-args['network_clustering_kmeans']['gas_clusters'] = 10
-args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_10_result.csv'
-args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_10_result.csv'
+args['network_clustering_kmeans']['n_clusters'] = 70
+args['network_clustering_kmeans']['gas_clusters'] = 30
+args['network_clustering_kmeans']['kmeans_busmap'] = False # 'kmeans_busmap_70_result.csv'
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
 
 # TODO: Überprüfe TSAM
 
 # TODO: herantasten räumliche Auflösung...
 # Start: 100 / 30, dann 150/50 usw. 
 
-# TODO: snapshots anpassen: 1 - 8760
+args['load_shedding'] = False
+args['method']['pyomo'] = True
+args['method']['n_iter'] = 5 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
+args['solver_options'] = {}
+
+args['snapshot_clustering']['active'] = False # True, False
+args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
+args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
+args['snapshot_clustering']['how'] = 'weekly' # 'daily', 'hourly'
+args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', ''
+args['skip_snapshots'] = True # True, False
 
 # zeitliche Auflösung
-args['snapshot_clustering']['active'] = False
+args['snapshot_clustering']['active'] = True
 args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
 args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
 args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
-args['skip_snapshots'] = True
+args['skip_snapshots'] = False
 
 skip_snapshots = [5] # 6, 5, 4, 3
 
