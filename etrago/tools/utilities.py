@@ -1088,15 +1088,13 @@ def add_missing_components(self):
     return network
 
 
-def convert_capital_costs(self, p=0.05, T=40):
-    """Convert capital_costs to fit to pypsa and caluculated time
+def convert_capital_costs(self):
+    """Convert capital_costs to fit to considered timesteps
 
     Parameters
     ----------
     etrago : :class:`etrago.Etrago
         Transmission grid object
-    p : interest rate, default 0.05
-    T : number of periods, default 40 years (source: StromNEV Anlage 1)
     -------
 
     """
@@ -1104,33 +1102,28 @@ def convert_capital_costs(self, p=0.05, T=40):
     network = self.network
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
-    # Add costs for DC-converter
-    network.links.loc[self.dc_lines().index, "capital_cost"] += 400000
+    # Costs are already annuized yearly in the datamodel
+    # adjust to number of considered snapshots
 
-    # Calculate present value of an annuity (PVA)
-    PVA = (1 / p) - (1 / (p * (1 + p) ** T))
+    network.lines.loc[
+        network.lines.s_nom_extendable == True, "capital_cost"
+        ] *= 8760 / n_snapshots
 
-    # Apply function on lines, links, trafos and storages
-    # Storage costs are already annuized yearly
-    network.lines.loc[network.lines.s_nom_extendable == True, "capital_cost"] /= PVA * (
-        8760 / n_snapshots
-    )
-
-    network.links.loc[network.links.p_nom_extendable == True, "capital_cost"] /= PVA * (
-        8760 / n_snapshots
-    )
+    network.links.loc[
+        network.links.p_nom_extendable == True, "capital_cost"
+        ] *= 8760 / n_snapshots
 
     network.transformers.loc[
         network.transformers.s_nom_extendable == True, "capital_cost"
-    ] /= PVA * (8760 / n_snapshots)
+    ] *= 8760 / n_snapshots
 
     network.storage_units.loc[
         network.storage_units.p_nom_extendable == True, "capital_cost"
-    ] /= PVA * (8760 / n_snapshots)
-    
+    ] *=  (8760 / n_snapshots)
+
     network.stores.loc[
         network.stores.e_nom_extendable == True, "capital_cost"
-    ] /= PVA * (8760 / n_snapshots)
+    ] *=  (8760 / n_snapshots)
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
@@ -1628,49 +1621,28 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    self.network.buses.drop(
-        self.network.buses[self.network.buses.carrier.isin(drop_carriers)].index,
-        inplace=True,
-    )
+    self.network.mremove('Bus',
+        self.network.buses[
+            self.network.buses.carrier.isin(drop_carriers)].index,
+        )
 
-    self.network.loads.drop(
-        self.network.loads[
-            ~self.network.loads.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+    for one_port in self.network.iterate_components(
+            ["Load", "Generator", "Store", "StorageUnit"]):
 
-    self.network.generators.drop(
-        self.network.generators[
-            ~self.network.generators.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(one_port.name,
+            one_port.df[
+                ~one_port.df.bus.isin(self.network.buses.index)].index,
+            )
 
-    self.network.stores.drop(
-        self.network.stores[
-            ~self.network.stores.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+    for two_port in self.network.iterate_components(
+            ["Line", "Link", "Transformer"]):
 
-    self.network.storage_units.drop(
-        self.network.storage_units[
-            ~self.network.storage_units.bus.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(two_port.name,
+            two_port.df[
+                ~two_port.df.bus0.isin(self.network.buses.index)].index,
+            )
 
-    self.network.links.drop(
-        self.network.links[
-            ~self.network.links.bus0.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
-
-    self.network.links.drop(
-        self.network.links[
-            ~self.network.links.bus1.isin(self.network.buses.index)
-        ].index,
-        inplace=True,
-    )
+        self.network.mremove(two_port.name,
+            two_port.df[
+                ~two_port.df.bus1.isin(self.network.buses.index)].index,
+            )
