@@ -933,6 +933,101 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                                    '<=', arg[cntr][c][1]*potential,
                                    'Generator', 'max_flh_' + g)
 
+def add_chp_constraints_nmp(n):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network container
+    Returns
+    -------
+    None.
+    """
+
+    #backpressure limit
+    c_m = 0.75
+
+    #marginal loss for each additional generation of heat
+    c_v = 0.15
+    electric_bool = (n.links.carrier=="CHP_el")
+    heat_bool = (n.links.carrier =="CHP_heat")
+
+    electric = n.links.index[electric_bool]
+    heat = n.links.index[heat_bool]
+
+    n.links.loc[heat,"efficiency"] = (n.links.loc[electric,"efficiency"]/c_v).values
+
+    if not electric.empty:
+        link_p = get_var(n, "Link", "p")
+        #backpressure
+        lhs = linexpr(
+            (c_m*n.links.loc[heat,"efficiency"],
+             link_p[heat]),
+            (-n.links.loc[ electric ,"efficiency"].values,
+             link_p[ electric ].values))
+
+        define_constraints(n, lhs, "<=", 0, 'chplink', 'backpressure')
+
+        #top_iso_fuel_line
+        lhs, *ax = linexpr((1,link_p[heat]),
+                      (1,link_p[electric].values),
+                      return_axes=True)
+        define_constraints(n, lhs, "<=", n.links.loc[electric].p_nom, 'chplink','top_iso_fuel_line_fix', axes=ax)
+
+def add_chp_constraints(network,snapshots):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+    Parameters
+    ----------
+    network : pypsa.Network
+        Network container
+    snapshots : pandas.DataFrame
+        Timesteps to optimize
+    Returns
+    -------
+    None.
+    """
+    #backpressure limit
+    c_m = 0.75
+
+    #marginal loss for each additional generation of heat
+    c_v = 0.15
+
+    electric_bool = (network.links.carrier=="CHP_el")
+    heat_bool = (network.links.carrier =="CHP_heat")
+
+    electric = network.links.index[electric_bool]
+    heat = network.links.index[heat_bool]
+
+    network.links.loc[heat,"efficiency"] = (network.links.loc[electric,"efficiency"]/c_v).values
+
+    for i in range(len(electric)):
+
+        #Guarantees c_m p_b1  \leq p_g1
+        def backpressure(model,snapshot):
+            return (
+                c_m*network.links.at[heat[i],"efficiency"]*
+                model.link_p[heat[i],snapshot]
+                <= network.links.at[electric[i],"efficiency"]*
+                model.link_p[electric[i],snapshot] )
+
+        setattr(network.model, "backpressure" + str(i),
+            Constraint(list(snapshots), rule=backpressure))
+
+        #Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
+        def top_iso_fuel_line(model,snapshot):
+            return (
+                model.link_p[heat[i],snapshot]
+                + model.link_p[electric[i],snapshot]
+                <= network.links.at[electric[i], "p_nom"]
+                )
+        setattr(network.model, "top_iso_fuel_line" + str(i),
+            Constraint(list(snapshots), rule=top_iso_fuel_line))
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     # This will bound the storage level to 0.5 max_level every 24th hour.
@@ -1851,6 +1946,11 @@ class Constraints:
                                 format(constraint))
                 except:
                     logger.warning("Constraint {} not defined".format(constraint))
+                 
+        if self.args['method']['pyomo']:
+            add_chp_constraints(network,snapshots)
+        else:
+            add_chp_constraints_nmp(network)
 
         if self.args['snapshot_clustering']['active']:
 
