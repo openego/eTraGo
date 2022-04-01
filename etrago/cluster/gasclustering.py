@@ -572,6 +572,7 @@ def get_clustering_from_busmap(
     new_links["link_id"] = new_links.index
 
     strategies = strategies_links()
+    strategies["link_id"] = "first"
 
     # aggregate CH4 pipelines
     # pipelines are treated differently compared to other links, since all of
