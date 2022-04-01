@@ -51,7 +51,7 @@ args = {
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
         'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': False}, # set if pyomo is used for model building
+        'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/onlyAC_300_31032022',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/onlyAC_300_01042022',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': False,  # apply generator noise, False or seed number
@@ -391,8 +391,16 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
     etrago.network.lines.lifetime = 40
     etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
-    etrago.network.lines.x = etrago.network.lines.x/100
+    etrago.network.links.p_nom_max = etrago.network.links.p_nom_min * 4
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
+
+    etrago.network.generators.loc[~etrago.network.generators.carrier.isin(['run_of_river', 'solar', 'solar_rooftop', 'wind_onshore','other_renewable', 'reservoir', 'wind_offshore']), 'marginal_cost']= 60
+    etrago.network.generators.loc['coal', 'marginal_cost']= 40
+    etrago.network.generators.loc['lignite', 'marginal_cost']= 35
+    etrago.network.generators.loc['nuclear', 'marginal_cost']= 30
+    etrago.network.generators.loc[etrago.network.generators.carrier.isin(['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP']), 'marginal_cost']= 20
+
+    etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
 
     for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
@@ -403,6 +411,9 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
+
+    etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] = etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x']/100
+
 
     from etrago.tools.utilities import drop_sectors
     
