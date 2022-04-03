@@ -504,7 +504,7 @@ def run(network, extremePeriodMethod='None', n_clusters=None, how='daily', segme
 def prepare_pypsa_timeseries(network):
     """
     """
-    import pdb; pdb.set_trace()
+
     loads = network.loads_t.p_set.copy()
     loads.columns = 'L' + loads.columns
                                      

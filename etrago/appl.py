@@ -110,7 +110,7 @@ args = {
             },
         },
     },
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -383,7 +383,6 @@ def run_etrago(args, json_path, path, number):
         
     path = path +'/'+ str(number) +'/'
     
-    
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -434,9 +433,6 @@ def run_etrago(args, json_path, path, number):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    
-    import pdb; pdb.set_trace()
-    # TODO: check extendable components
 
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
@@ -462,8 +458,7 @@ def run_etrago(args, json_path, path, number):
         if 'marginal_cost' in t.df:
             np.random.seed(174)
             t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
-    import pdb; pdb.set_trace() 
-    # TODO: check those fixes by ulf : are those necessary?     
+    
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
@@ -656,12 +651,12 @@ def run_etrago(args, json_path, path, number):
 args['network_clustering_kmeans']['active'] = True
 args['network_clustering_kmeans']['n_clusters'] = 70
 args['network_clustering_kmeans']['gas_clusters'] = 30
-args['network_clustering_kmeans']['kmeans_busmap'] = False # 'kmeans_busmap_70_result.csv'
-args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
+args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv'
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv'
 
 args['load_shedding'] = False 
 args['method']['pyomo'] = True
-args['method']['n_iter'] = 5 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
+args['method']['n_iter'] = 1 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
 args['solver_options'] = {}
 
 args['snapshot_clustering']['active'] = False # True, False
@@ -672,18 +667,18 @@ args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_co
 args['skip_snapshots'] = True # True, False
 
 # zeitliche Auflösung
-args['snapshot_clustering']['active'] = True
+args['snapshot_clustering']['active'] = False
 args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
 args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
 args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
-args['skip_snapshots'] = False
+args['skip_snapshots'] = True
 
-skip_snapshots = [5] # 6, 5, 4, 3
+skip_snapshots = [300]# [10, 5, 3] 
 
-typical_days = [2] # 60, 80, 100, 120, 140
+#typical_days = [2] # 60, 80, 100, 120, 140
 
-segmentation = [10] # 1000, 1500, 2000, 2500, 3000
+segmentation = [880, 1700, 2900] # 
 
 if args['snapshot_clustering']['active'] == True and args['skip_snapshots'] == True:
     raise ValueError("Decide for temporal aggregation method!")
