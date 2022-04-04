@@ -946,6 +946,7 @@ def kmean_clustering(etrago):
             generator_strategies=strategies_generators(),
             aggregate_one_ports=aggregate_one_ports,
             line_length_factor=kmean_settings["line_length_factor"],
+            scale_link_capital_costs=False
         )
         network = clustering.network
 
