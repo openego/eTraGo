@@ -81,7 +81,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 30, # number of resulting nodes
+        'n_clusters': 70, # number of resulting nodes
         'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
@@ -431,6 +431,15 @@ def run_etrago(args, json_path, path, number):
     for t in etrago.network.iterate_components():
         if 'p_nom_min' in t.df:
                         t.df['p_nom_min'].fillna(0., inplace=True)
+                        
+    # marginale Kosten von Generatoren
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='gas'] = 41
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='CH4'] = 41
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='lignite'] = 17
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='oil'] = 69
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='nuclear'] = 6
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier.str.contains('biomass')] = 41
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='other_non_renewable'] = 69
 
     etrago.adjust_network()
 
@@ -651,32 +660,25 @@ def run_etrago(args, json_path, path, number):
 args['network_clustering_kmeans']['active'] = True
 args['network_clustering_kmeans']['n_clusters'] = 70
 args['network_clustering_kmeans']['gas_clusters'] = 30
-args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv'
-args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv'
+args['network_clustering_kmeans']['kmeans_busmap'] = False #'kmeans_busmap_70_result.csv'
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
 
 args['load_shedding'] = False 
 args['method']['pyomo'] = True
 args['method']['n_iter'] = 1 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
 args['solver_options'] = {}
 
-args['snapshot_clustering']['active'] = False # True, False
-args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
-args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
-args['snapshot_clustering']['how'] = 'weekly' # 'daily', 'hourly'
-args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', ''
-args['skip_snapshots'] = True # True, False
-
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = False
 args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'
 args['snapshot_clustering']['extreme_periods'] = 'None' # 'None', 'append', 'replace_cluster_center'
-args['snapshot_clustering']['how'] = 'daily' # 'daily', 'hourly'
-args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints'
+args['snapshot_clustering']['how'] = 'daily' # 'daily', 'weekly', 'monthly'
+args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', 'soc_constraints_simplified', ''
 args['skip_snapshots'] = True
 
 skip_snapshots = [300]# [10, 5, 3] 
 
-#typical_days = [2] # 60, 80, 100, 120, 140
+typical_days = [40, 70, 120] #
 
 segmentation = [880, 1700, 2900] # 
 
