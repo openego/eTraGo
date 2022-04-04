@@ -335,7 +335,6 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
         return x/x.sum() if x.sum(skipna=False) > 0 else pd.Series(1./len(x), x.index)
     
     weighting = links.p_nom.groupby(grouper, axis=0).transform(normed_or_uniform)
-    links['capital_cost'] *= weighting
     strategies = strategies_links()    
     strategies.update(cus_strateg)
     new_df = links.groupby(grouper, axis=0).agg(strategies)
@@ -799,7 +798,7 @@ def kmean_clustering(etrago):
         Container for all network components.
     """
 
-    network = etrago.network
+    network = etrago.network.copy()
     kmean_settings = etrago.args["network_clustering_kmeans"]
 
     def weighting_for_scenario(x, save=None):
@@ -985,8 +984,9 @@ def kmean_clustering(etrago):
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
+        scale_link_capital_costs=False
     )
-    
+
     clustering.network.links, clustering.network.links_t =\
         group_links(clustering.network)
 
