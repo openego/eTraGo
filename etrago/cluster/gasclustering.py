@@ -351,6 +351,7 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
 
         # cluster sector coupling technologies
         busmap_by_base = sc_single_carrier_based(connected_links)
+        bus_num = 0
         for bus_id, bus_num in busmap_by_base.items():
 
             busmap_by_base[bus_id] = bus_num + next_bus_id
