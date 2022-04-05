@@ -47,7 +47,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data-local',  # database session 
+    'db': 'backup-SH',  # database session 
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -60,12 +60,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 8760,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {"threads": 4,
-                       "method":2,
-                       "crossover": 0,
-                      "BarConvTol":1.e-5,
-                      "FeasibilityTol":1.e-5,
-                      "logFile":"gurobi_eTraGo.log"},
+    'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -81,8 +76,8 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 70, # number of resulting nodes
-        'n_clusters_gas': 30, # number of resulting nodes
+        'n_clusters': 30, # number of resulting nodes
+        'n_clusters_gas': 15, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -111,7 +106,7 @@ args = {
         },
     },
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
@@ -389,7 +384,7 @@ def run_etrago(args, json_path, path, number):
     etrago.build_network_from_db()
 
     etrago.network.lines.type = ''
-    etrago.network.lines.carrier='AC'
+    etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
     etrago.network.links.capital_cost.fillna(0, inplace=True)
@@ -526,7 +521,7 @@ def run_etrago(args, json_path, path, number):
     print(' ')
     
     args['csv_export'] = path+'/results/level1/'
-    args['lp_file'] = path+'/lp-level1/'
+    args['lp_file'] = path+'/lp-level1/' 
 
     print(' ')
     print('Start LOPF Level 1')
@@ -663,10 +658,15 @@ args['network_clustering_kmeans']['gas_clusters'] = 30
 args['network_clustering_kmeans']['kmeans_busmap'] = False #'kmeans_busmap_70_result.csv'
 args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
 
-args['load_shedding'] = False 
+args['load_shedding'] = True 
 args['method']['pyomo'] = True
 args['method']['n_iter'] = 1 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
-args['solver_options'] = {}
+args['solver_options'] =  {"threads": 4,
+                           "method":2,
+                           "crossover": 0,
+                           "BarConvTol":1.e-5,
+                           "FeasibilityTol":1.e-5,
+                           "logFile":"gurobi_eTraGo.log"}
 
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = False
@@ -676,7 +676,7 @@ args['snapshot_clustering']['how'] = 'daily' # 'daily', 'weekly', 'monthly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', 'soc_constraints_simplified', ''
 args['skip_snapshots'] = True
 
-skip_snapshots = [300]# [10, 5, 3] 
+skip_snapshots = [300] # [10, 5, 3] 
 
 typical_days = [40, 70, 120] #
 

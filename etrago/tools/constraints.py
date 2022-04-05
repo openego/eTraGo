@@ -2285,9 +2285,9 @@ class Constraints:
                     
                     if self.args['method']['pyomo']:
                         
-                        if self.args['snapshot_clustering']['how'] == 'hourly':
-                            snapshot_clustering_seasonal_storage_hourly(self, network, snapshots)
-                        else:
+                        #if self.args['snapshot_clustering']['how'] == 'hourly':
+                           # snapshot_clustering_seasonal_storage_hourly(self, network, snapshots)
+                        #else:
                             snapshot_clustering_seasonal_storage(self, network, snapshots)
                             
                     else:
