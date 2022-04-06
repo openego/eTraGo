@@ -79,24 +79,18 @@ def _calc_network_expansion(self): ###
                 self.network.lines.s_nom_min
                 )[self.network.lines.s_nom_extendable]
         
-        links = (self.network.links.p_nom_opt -
-                self.network.links.p_nom_min
-                )[self.network.links.p_nom_extendable]
+        links_dc = self.network.links[self.network.links.carrier=='DC']
+        
+        links_dc = (links_dc.p_nom_opt -
+                links_dc.p_nom_min
+                )[links_dc.p_nom_extendable]
         
         ### links_new
-        links_new = [0, 0, 0, 0]
         ext_links = self.network.links[self.network.links.p_nom_extendable]
+        ext_links = ext_links[ext_links.carrier!='DC']
+        links_new = (ext_links.p_nom_opt-ext_links.p_nom_min).sum()
         
-        ll = ext_links[ext_links.carrier.str.contains('H2_to_CH4')]
-        links_new[0] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.carrier.str.contains('CH4_to_H2')]
-        links_new[1] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.index.str.contains('H2_to_power')]
-        links_new[2] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        ll = ext_links[ext_links.carrier.str.contains('power_to_H2')]
-        links_new[3] = (ll.p_nom_opt-ll.p_nom_min).sum()
-        
-        return lines, links, links_new ### links_new
+        return lines, links_dc, links_new ### links_new
 
 def calc_investment_cost(self):
         """ Function that calulates overall annualized investment costs.
@@ -132,8 +126,12 @@ def calc_investment_cost(self):
                                  )*ext_lines.capital_cost).sum()
 
         if not ext_links.empty:
-            network_costs[1] = ((ext_links.p_nom_opt-ext_links.p_nom_min
-                                 )*ext_links.capital_cost).sum()
+            ext_links_dc = ext_links[ext_links.carrier=='DC']
+            network_costs[0] = ((ext_links_dc.p_nom_opt-ext_links.p_nom_min
+                                 )*ext_links_dc.capital_cost).sum()
+            ext_links_sector = ext_links[ext_links.carrier!='DC']
+            network_costs[1] = ((ext_links_sector.p_nom_opt-ext_links.p_nom_min
+                                 )*ext_links_sector.capital_cost).sum()
 
         if not ext_trafos.empty:
             network_costs[0] = network_costs[0]+((
@@ -182,7 +180,7 @@ def calc_etrago_results(self):
                                            'annual_investment_costs',
                                            'annual_marginal_costs',
                                            'annual_grid_investment_costs',
-                                           'ac_annual_grid_investment_costs',
+                                           'ac_dc_annual_grid_investment_costs',
                                            'link_annual_grid_investment_costs', ### dc statt link
                                            'annual_storage_investment_costs',
                                            'annual_store_investment_costs', ###
@@ -194,19 +192,16 @@ def calc_etrago_results(self):
                                            'heat_store_expansion',
                                            #'hydrogen_storage_expansion', ###
                                            'abs_network_expansion',
-                                           'abs_links_expansion', ###
-                                           'methanisation_expansion', ### 
-                                           'smr_expansion', ### 
-                                           'electrolyzer_expansion', ### 
-                                           'fuelcell_expansion', ### 
+                                           'abs_links_dc_expansion', ###
+                                           'abs_links_new_expansion' ###
                                            'rel_network_expansion'])
                                            #'rel_links_expansion']) ###
-        import pdb; pdb.set_trace()
+                                           
         self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
         self.results.unit[self.results.index.str.contains('expansion')] = 'MW'
         self.results.unit['rel_network_expansion'] = 'p.u.'
 
-        self.results.value['ac_annual_grid_investment_costs'] = calc_investment_cost(self)[0][0]
+        self.results.value['ac_dc_annual_grid_investment_costs'] = calc_investment_cost(self)[0][0]
         self.results.value['link_annual_grid_investment_costs'] = calc_investment_cost(self)[0][1] ### dc statt link
         self.results.value['annual_grid_investment_costs'] = sum(calc_investment_cost(self)[0])
 
@@ -221,7 +216,7 @@ def calc_etrago_results(self):
         self.results.value['annual system costs'] = \
             self.results.value['annual_investment_costs'] + self.results.value['annual_marginal_costs']
 
-        if 'storage' in self.args['extendable']:
+        if 'as_in_db' in self.args['extendable']:
             self.results.value['storage_expansion'] = \
                 _calc_storage_expansion(self).sum()
             #self.results.value['battery_storage_expansion'] = \
@@ -233,13 +228,10 @@ def calc_etrago_results(self):
             self.results.value['gas_store_expansion'] = store_expansion[store_expansion.index.str.contains('H2')].sum() ###
             self.results.value['heat_store_expansion'] = store_expansion[store_expansion.index.str.contains('heat')].sum() ###
         
-        if 'network' in self.args['extendable']:
-            lines, links, links_new = _calc_network_expansion(self) ### links_new
+        if 'as_in_db' in self.args['extendable']:
+            lines, links_dc, links_new = _calc_network_expansion(self) ### links_new
             self.results.value['abs_network_expansion'] = lines.sum() ###
-            self.results.value['abs_links_expansion'] = links.sum() ###
-            self.results.value['methanisation_expansion'] = links_new[0] ###
-            self.results.value['smr_expansion'] = links_new[1] ###
-            self.results.value['electrolyzer_expansion'] = links_new[2] ###
-            self.results.value['fuelcell_expansion'] = links_new[3] ###
+            self.results.value['abs_links_dc_expansion'] = links_dc.sum() ###
+            self.results.value['abs_links_new_expansion'] = links_new.sum() ###
             self.results.value['rel_network_expansion'] = (lines.sum() / self.network.lines.s_nom.sum()) * 100 ###
             #self.results.value['rel_links_expansion'] = (links.sum() / self.network.links[self.network.links.p_nom_extendable].p_nom.sum()) * 100
