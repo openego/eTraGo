@@ -1107,23 +1107,23 @@ def convert_capital_costs(self):
 
     network.lines.loc[
         network.lines.s_nom_extendable == True, "capital_cost"
-        ] *= 8760 / n_snapshots
+        ] *= n_snapshots / 8760
 
     network.links.loc[
         network.links.p_nom_extendable == True, "capital_cost"
-        ] *= 8760 / n_snapshots
+        ] *= n_snapshots / 8760
 
     network.transformers.loc[
         network.transformers.s_nom_extendable == True, "capital_cost"
-    ] *= 8760 / n_snapshots
+    ] *= n_snapshots  / 8760
 
     network.storage_units.loc[
         network.storage_units.p_nom_extendable == True, "capital_cost"
-    ] *=  (8760 / n_snapshots)
+    ] *= n_snapshots  / 8760
 
     network.stores.loc[
         network.stores.e_nom_extendable == True, "capital_cost"
-    ] *=  (8760 / n_snapshots)
+    ] *=n_snapshots  / 8760
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
