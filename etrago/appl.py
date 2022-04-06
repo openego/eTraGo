@@ -47,7 +47,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'backup-SH',  # database session 
+    'db': 'egon-data-local',  # database session 
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -77,7 +77,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 30, # number of resulting nodes
-        'n_clusters_gas': 15, # number of resulting nodes
+        'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -382,6 +382,45 @@ def run_etrago(args, json_path, path, number):
 
     # import network from database
     etrago.build_network_from_db()
+    
+        # import network from database
+    etrago.build_network_from_db()
+    etrago.network.lines.type = ''
+    etrago.network.lines.carrier.fillna('AC', inplace=True)
+    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
+    etrago.network.loads.sign = -1
+    etrago.network.links.capital_cost.fillna(0, inplace=True)
+    etrago.network.links.p_nom_min.fillna(0, inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
+    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.links.efficiency.fillna(1., inplace=True)
+    etrago.network.links.marginal_cost.fillna(0., inplace=True)
+    etrago.network.links.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links.p_nom.fillna(0.1, inplace=True)
+    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
+    etrago.network.stores.e_nom.fillna(0, inplace=True)
+    etrago.network.stores.capital_cost.fillna(0, inplace=True)
+    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
+    etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
+    etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
+    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
+    etrago.network.storage_units.lifetime = np.inf
+    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
+    etrago.network.links.terrain_factor.fillna(1., inplace=True)
+    etrago.network.lines.v_ang_max.fillna(1., inplace=True)
+    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
+                                       # PyPSA network clustering function 
+                                       # is changed (taking the mean) or our 
+                                       # data model is altered, which will 
+                                       # happen in the next data creation run
+    etrago.network.lines.x /= (etrago.network.lines.v_nom*1000)**2 / (100 * 10e6)
+        # only temporal fix until the data model is altered, which will happen in the next data creation run
+    
+    '''
 
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
@@ -434,7 +473,7 @@ def run_etrago(args, json_path, path, number):
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='oil'] = 69
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='nuclear'] = 6
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier.str.contains('biomass')] = 41
-    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='other_non_renewable'] = 69
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='other_non_renewable'] = 69'''
 
     etrago.adjust_network()
 
@@ -443,14 +482,14 @@ def run_etrago(args, json_path, path, number):
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
 
     # ehv network clustering
-    etrago.ehv_clustering()
+    #etrago.ehv_clustering()
 
     # k-mean clustering
     etrago.kmean_clustering()
     
     etrago.kmean_clustering_gas()
     
-    for t in etrago.network.iterate_components():
+    '''for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
             t.df['p_nom_max'].fillna(np.inf, inplace=True)
 
@@ -465,7 +504,10 @@ def run_etrago(args, json_path, path, number):
     
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True'''
+    
+    etrago.args['load_shedding']=True
+    etrago.load_shedding()
 
     ###########################################################################
     
@@ -495,6 +537,8 @@ def run_etrago(args, json_path, path, number):
     bus_p = etrago.network.buses_t.p.copy()
     bus_vang = etrago.network.buses_t.v_ang.copy()
     loads = etrago.network.loads_t.p.copy()
+    trafo_p0 = etrago.network.transformers_t.p0.copy()
+    trafo_p1 = etrago.network.transformers_t.p1.copy()
     
     ###########################################################################
     
@@ -520,14 +564,16 @@ def run_etrago(args, json_path, path, number):
     print(datetime.datetime.now())
     print(' ')
     
-    args['csv_export'] = path+'/results/level1/'
-    args['lp_file'] = path+'/lp-level1/' 
+    etrago.args['csv_export'] = path+'results/level1/'
+    #etrago.args['lpfile'] = path+'lp-level1.lp' 
 
     print(' ')
     print('Start LOPF Level 1')
     t3 = datetime.datetime.now()
     print(datetime.datetime.now())
     print(' ')
+    
+    import pdb; pdb.set_trace()
 
     # start linear optimal powerflow calculations
     etrago.lopf()
@@ -549,7 +595,7 @@ def run_etrago(args, json_path, path, number):
     print(' ') 
     
     ###########################################################################
-    
+
     # LOPF Level 2
     
     etrago.args['snapshot_clustering']['active']=False
@@ -578,11 +624,16 @@ def run_etrago(args, json_path, path, number):
     etrago.network.buses_t.p = bus_p
     etrago.network.buses_t.v_ang = bus_vang
     etrago.network.loads_t.p = loads
+    etrago.network.transformers_t.p0 = trafo_p0
+    etrago.network.transformers_t.p0 = trafo_p1
     
     # use network and storage expansion from LOPF 1
     
     etrago.network.lines['s_nom'] = etrago.network.lines['s_nom_opt']
     etrago.network.lines['s_nom_extendable'] = False
+    
+    etrago.network.transformers['s_nom'] = ['s_nom_opt']
+    etrago.network.transformers.s_nom_extendable = False
     
     etrago.network.storage_units['p_nom'] = etrago.network.storage_units['p_nom_opt']
     etrago.network.storage_units['p_nom_extendable'] = False
@@ -595,16 +646,13 @@ def run_etrago(args, json_path, path, number):
     
     etrago.args['extendable'] = []
     
-    import pdb; pdb.set_trace()
-    # TODO: check extendable components
-    
     # use original timeseries
     
     etrago.network.snapshots = original_snapshots
     etrago.network.snapshot_weightings = original_weighting
     
-    args['csv_export'] = path+'/results/level2/'
-    args['lp_file'] = path+'/lp-level2/'
+    etrago.args['csv_export'] = path+'results/level2/'
+    #etrago.args['lpfile'] = path+'lp-level2.lp'
     
     print(' ')
     print('Start LOPF Level 2')
@@ -654,19 +702,20 @@ def run_etrago(args, json_path, path, number):
 # räumliche Auflösung
 args['network_clustering_kmeans']['active'] = True
 args['network_clustering_kmeans']['n_clusters'] = 70
-args['network_clustering_kmeans']['gas_clusters'] = 30
-args['network_clustering_kmeans']['kmeans_busmap'] = False #'kmeans_busmap_70_result.csv'
-args['network_clustering_kmeans']['kmeans_gas_busmap'] = False # 'kmeans_ch4_busmap_30_result.csv'
+args['network_clustering_kmeans']['n_clusters_gas'] = 30
+args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv'
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv'
 
-args['load_shedding'] = True 
+args['load_shedding'] = False # wird später extra aufgerufen 
 args['method']['pyomo'] = True
-args['method']['n_iter'] = 1 # bei 5 nur noch Änderungen im 100 Euro-Bereich, siehe auch Abschlussbericht
-args['solver_options'] =  {"threads": 4,
-                           "method":2,
-                           "crossover": 0,
-                           "BarConvTol":1.e-5,
-                           "FeasibilityTol":1.e-5,
-                           "logFile":"gurobi_eTraGo.log"}
+args['method']['n_iter'] = 2
+args['solver_options'] =  {
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'logFile': 'solver_70ac.log'
+        }
 
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = False
@@ -676,7 +725,7 @@ args['snapshot_clustering']['how'] = 'daily' # 'daily', 'weekly', 'monthly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', 'soc_constraints_simplified', ''
 args['skip_snapshots'] = True
 
-skip_snapshots = [300] # [10, 5, 3] 
+skip_snapshots = [3000] # [10, 5, 3] 
 
 typical_days = [40, 70, 120] #
 
