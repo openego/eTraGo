@@ -383,8 +383,8 @@ def run_etrago(args, json_path, path, number):
     # import network from database
     etrago.build_network_from_db()
     
-        # import network from database
-    etrago.build_network_from_db()
+    # hot fixes
+    
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
@@ -420,43 +420,6 @@ def run_etrago(args, json_path, path, number):
     etrago.network.lines.x /= (etrago.network.lines.v_nom*1000)**2 / (100 * 10e6)
         # only temporal fix until the data model is altered, which will happen in the next data creation run
     
-    '''
-
-    etrago.network.lines.type = ''
-    etrago.network.lines.carrier.fillna('AC', inplace=True)
-    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
-    etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True)
-    etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.efficiency.fillna(1., inplace=True)
-    etrago.network.links.marginal_cost.fillna(0., inplace=True)
-    etrago.network.links.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links.p_nom.fillna(0.1, inplace=True)
-    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
-    etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
-    etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
-    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
-    etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
-    etrago.network.links.terrain_factor.fillna(1., inplace=True)
-    etrago.network.lines.v_ang_max.fillna(1., inplace=True)
-    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
-                                       # PyPSA network clustering function 
-                                       # is changed (taking the mean) or our 
-                                       # data model is altered, which will 
-                                       # happen in the next data creation run
-    # von Ulfs Branch
-    #etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
-    etrago.network.lines.x = etrago.network.lines.x/100
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)                                       
     for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
@@ -473,7 +436,7 @@ def run_etrago(args, json_path, path, number):
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='oil'] = 69
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='nuclear'] = 6
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier.str.contains('biomass')] = 41
-    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='other_non_renewable'] = 69'''
+    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='other_non_renewable'] = 69
 
     etrago.adjust_network()
 
@@ -489,7 +452,9 @@ def run_etrago(args, json_path, path, number):
     
     etrago.kmean_clustering_gas()
     
-    '''for t in etrago.network.iterate_components():
+    # more hot fixes
+    
+    for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
             t.df['p_nom_max'].fillna(np.inf, inplace=True)
 
@@ -502,7 +467,7 @@ def run_etrago(args, json_path, path, number):
             np.random.seed(174)
             t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
     
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
+    '''etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True'''
     
@@ -699,23 +664,28 @@ def run_etrago(args, json_path, path, number):
 
 ###############################################################################
 
+# Zeithorizont
+args['start_snapshot'] = 1
+args['end_snapshot'] = 8760 ###
+
 # räumliche Auflösung
 args['network_clustering_kmeans']['active'] = True
 args['network_clustering_kmeans']['n_clusters'] = 70
 args['network_clustering_kmeans']['n_clusters_gas'] = 30
-args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv'
-args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv'
+args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv' # False
+args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv' # False
 
 args['load_shedding'] = False # wird später extra aufgerufen 
 args['method']['pyomo'] = True
-args['method']['n_iter'] = 2
+args['method']['n_iter'] = 4
 args['solver_options'] =  {
         'BarConvTol': 1.e-5,
         'FeasibilityTol': 1.e-5,
         'method':2,
         'crossover':0,
-        'logFile': 'solver_70ac.log'
+        'logFile': 'solver_70ac_30gas.log'
         }
+# 'NumericFocus':2
 
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = False
@@ -725,7 +695,9 @@ args['snapshot_clustering']['how'] = 'daily' # 'daily', 'weekly', 'monthly'
 args['snapshot_clustering']['storage_constraints'] = 'soc_constraints' # 'soc_constraints', 'soc_constraints_simplified', ''
 args['skip_snapshots'] = True
 
-skip_snapshots = [3000] # [10, 5, 3] 
+###############################################################################
+
+skip_snapshots = [10] # [10, 5, 3] 
 
 typical_days = [40, 70, 120] #
 
@@ -752,8 +724,8 @@ for no in loop:
     old_stdout = sys.stdout
     path_log = path +'/'+ str(no)
     os.makedirs(path_log, exist_ok=True)
-    #log_file = open(path_log+'/console.log',"w")
-    #sys.stdout = log_file
+    log_file = open(path_log+'/console.log',"w")
+    sys.stdout = log_file
     
     print(' ')
     print('pyomo:')
@@ -774,22 +746,7 @@ for no in loop:
     
     etrago = run_etrago(args=args, json_path=None, path = path, number=no)
     
-    #sys.stdout = old_stdout
-    #log_file.close()
+    sys.stdout = old_stdout
+    log_file.close()
 
 ###############################################################################
-
-#if __name__ == '__main__':
-    # execute etrago function
-    #print(datetime.datetime.now())
-    #etrago = run_etrago(args, json_path=None, path=path)
-    #print(datetime.datetime.now())
-    #etrago.session.close()
-    # plots
-    # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
