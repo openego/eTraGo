@@ -467,10 +467,6 @@ def run_etrago(args, json_path, path, number):
             np.random.seed(174)
             t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
     
-    '''etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True'''
-    
     etrago.args['load_shedding']=True
     etrago.load_shedding()
 
@@ -597,7 +593,7 @@ def run_etrago(args, json_path, path, number):
     etrago.network.lines['s_nom'] = etrago.network.lines['s_nom_opt']
     etrago.network.lines['s_nom_extendable'] = False
     
-    etrago.network.transformers['s_nom'] = ['s_nom_opt']
+    etrago.network.transformers['s_nom'] = etrago.network.transformers['s_nom_opt']
     etrago.network.transformers.s_nom_extendable = False
     
     etrago.network.storage_units['p_nom'] = etrago.network.storage_units['p_nom_opt']
@@ -675,6 +671,7 @@ args['network_clustering_kmeans']['n_clusters_gas'] = 30
 args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv' # False
 args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv' # False
 
+# Lösbarkeit
 args['load_shedding'] = False # wird später extra aufgerufen 
 args['method']['pyomo'] = True
 args['method']['n_iter'] = 4
@@ -685,8 +682,7 @@ args['solver_options'] =  {
         'crossover':0,
         'logFile': 'solver_70ac_30gas.log'
         }
-# 'NumericFocus':2
-
+        
 # zeitliche Auflösung
 args['snapshot_clustering']['active'] = False
 args['snapshot_clustering']['method'] = 'typical_periods' # 'typical_periods', 'segmentation'

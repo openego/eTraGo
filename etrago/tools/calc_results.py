@@ -193,7 +193,7 @@ def calc_etrago_results(self):
                                            #'hydrogen_storage_expansion', ###
                                            'abs_network_expansion',
                                            'abs_links_dc_expansion', ###
-                                           'abs_links_new_expansion' ###
+                                           'abs_links_new_expansion', ###
                                            'rel_network_expansion'])
                                            #'rel_links_expansion']) ###
                                            
