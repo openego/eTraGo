@@ -431,7 +431,6 @@ def run_etrago(args, json_path, path, number):
                         
     # marginale Kosten von Generatoren
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='gas'] = 41
-    etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='CH4'] = 41
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='lignite'] = 17
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='oil'] = 69
     etrago.network.generators.marginal_cost[etrago.network.generators.carrier=='nuclear'] = 6
@@ -533,8 +532,6 @@ def run_etrago(args, json_path, path, number):
     t3 = datetime.datetime.now()
     print(datetime.datetime.now())
     print(' ')
-    
-    import pdb; pdb.set_trace()
 
     # start linear optimal powerflow calculations
     etrago.lopf()
@@ -666,9 +663,9 @@ args['end_snapshot'] = 8760 ###
 
 # räumliche Auflösung
 args['network_clustering_kmeans']['active'] = True
-args['network_clustering_kmeans']['n_clusters'] = 70
+args['network_clustering_kmeans']['n_clusters'] = 50
 args['network_clustering_kmeans']['n_clusters_gas'] = 30
-args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_70_result.csv' # False
+args['network_clustering_kmeans']['kmeans_busmap'] = 'kmeans_busmap_50_result.csv' # False
 args['network_clustering_kmeans']['kmeans_gas_busmap'] = 'kmeans_ch4_busmap_30_result.csv' # False
 
 # Lösbarkeit
@@ -680,7 +677,7 @@ args['solver_options'] =  {
         'FeasibilityTol': 1.e-5,
         'method':2,
         'crossover':0,
-        'logFile': 'solver_70ac_30gas.log'
+        'logFile': 'solver_50ac_30gas.log'
         }
         
 # zeitliche Auflösung
@@ -693,11 +690,9 @@ args['skip_snapshots'] = True
 
 ###############################################################################
 
-skip_snapshots = [10] # [10, 5, 3] 
+skip_snapshots = [10, 5, 3] 
 
-typical_days = [40, 70, 120] #
-
-segmentation = [880, 1700, 2900] # 
+segmentation = [880, 1700, 2900] 
 
 if args['snapshot_clustering']['active'] == True and args['skip_snapshots'] == True:
     raise ValueError("Decide for temporal aggregation method!")

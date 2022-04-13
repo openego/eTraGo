@@ -153,14 +153,19 @@ def calc_marginal_cost(self):
         """
         network = self.network
         gen = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
+                
         stor = network.storage_units_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.storage_units.marginal_cost).sum()
+             + network.stores_t.e.mul(
+             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
+             network.stores.marginal_cost).sum() ###
+        
         ###
         link = abs(network.links_t.p0).mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.links.marginal_cost).sum()
         ###
         marginal_cost = gen + stor + link ### link
@@ -205,8 +210,8 @@ def calc_etrago_results(self):
         self.results.value['link_annual_grid_investment_costs'] = calc_investment_cost(self)[0][1] ### dc statt link
         self.results.value['annual_grid_investment_costs'] = sum(calc_investment_cost(self)[0])
 
-        self.results.value['annual_storage_investment_costs'] = calc_investment_cost(self)[1][0]
-        self.results.value['annual_store_investment_costs'] = calc_investment_cost(self)[1][1] ### 
+        self.results.value['annual_storage_investment_costs'] = calc_investment_cost(self)[1][1]
+        self.results.value['annual_store_investment_costs'] = calc_investment_cost(self)[1][0] ### 
         self.results.value['annual_sto_investment_costs'] = sum(calc_investment_cost(self)[1]) ###
 
         self.results.value['annual_investment_costs'] = \

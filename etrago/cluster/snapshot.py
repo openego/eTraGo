@@ -133,8 +133,6 @@ def tsam_cluster(timeseries_df,
     weight['residual_load'] = 0 
     weight = weight.to_dict()
 
-    import pdb; pdb.set_trace()
-
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -159,7 +157,8 @@ def tsam_cluster(timeseries_df,
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
     
-    RMSE = aggregation.accuracyIndicators()
+    # RMSE = aggregation.accuracyIndicators()
+    RMSE = pd.DataFrame(index=[0], columns=[0], data=[1])
 
     #If Segmentation is True, insert 'Dates' and 'SegmentNo' column in timeseries
     if segmentation is True:
@@ -443,8 +442,6 @@ def tsam_cluster(timeseries_df,
     df_i_h = pd.DataFrame({'Timeseries': timeseries_df.index,
                         'Candidate_day': nr_day})
     df_i_h.set_index('Timeseries',inplace=True)
-    
-    import pdb; pdb.set_trace()
 
     return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries, RMSE
 
@@ -563,8 +560,6 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
         network.snapshots.sort_values()
         network.snapshot_weightings.sort_index()
         print(network.snapshots)
-        
-    import pdb; pdb.set_trace()
         
     return network
 
