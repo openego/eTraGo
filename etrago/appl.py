@@ -478,27 +478,46 @@ def run_etrago(args, json_path, path, number):
     original_weighting = etrago.network.snapshot_weightings
     
     # save format for dispatch using original timeseries
+    
+    loads_pset = etrago.network.loads_t.p_set.copy()
+    loads_qset = etrago.network.loads_t.q_set.copy()
+    loads_p = etrago.network.loads_t.p.copy()
+    loads_q = etrago.network.loads_t.q.copy()
+    
+    gen_pmax = etrago.network.generators_t.p_max_pu.copy()
     gen_p = etrago.network.generators_t.p.copy()
+    
     lines_lower = etrago.network.lines_t.mu_lower.copy()
     lines_upper = etrago.network.lines_t.mu_upper.copy()
     lines_p0 = etrago.network.lines_t.p0.copy()
     lines_p1 = etrago.network.lines_t.p1.copy()
+    lines_q0 = etrago.network.lines_t.q0.copy()
+    lines_q1 = etrago.network.lines_t.q1.copy()
+    
+    links_pmin = etrago.network.links_t.p_min_pu.copy()
+    links_pmax = etrago.network.links_t.p_max_pu.copy()
+    links_eff = etrago.network.links_t.efficiency.copy()
     links_lower = etrago.network.links_t.mu_lower.copy()
     links_upper = etrago.network.links_t.mu_upper.copy()
     links_p0 = etrago.network.links_t.p0.copy()
     links_p1 = etrago.network.links_t.p1.copy()
+    
+    store_emin = etrago.network.stores_t.e_min_pu.copy()
+    store_emax = etrago.network.stores_t.e_max_pu.copy()
+    store_e = etrago.network.stores_t.e.copy()
+    store_p = etrago.network.stores_t.p.copy()
+    store_q = etrago.network.stores_t.q.copy()
+    
     stun_p = etrago.network.storage_units_t.p.copy()
     stun_p_dispatch = etrago.network.storage_units_t.p_dispatch.copy()
     stun_p_store = etrago.network.storage_units_t.p_store.copy()
+    stun_spill = etrago.network.storage_units_t.spill.copy()
     stun_state_of_charge = etrago.network.storage_units_t.state_of_charge.copy()
-    store_e = etrago.network.stores_t.e.copy()
-    store_p = etrago.network.stores_t.p.copy()
-    bus_price = etrago.network.buses_t.marginal_price.copy()
+    
     bus_p = etrago.network.buses_t.p.copy()
+    bus_price = etrago.network.buses_t.marginal_price.copy()
     bus_vang = etrago.network.buses_t.v_ang.copy()
-    loads = etrago.network.loads_t.p.copy()
-    trafo_p0 = etrago.network.transformers_t.p0.copy()
-    trafo_p1 = etrago.network.transformers_t.p1.copy()
+    bus_vmag = etrago.network.buses_t.v_mag_pu.copy()
     
     ###########################################################################
     
@@ -559,33 +578,56 @@ def run_etrago(args, json_path, path, number):
     etrago.args['snapshot_clustering']['active']=False
     etrago.args['skip_snapshots']=False
     
+    # use original timeseries
+    
+    etrago.network.snapshots = original_snapshots
+    etrago.network.snapshot_weightings = original_weighting
+    
     # drop dispatch from LOPF1
     
+    etrago.network.loads_t.p_set = loads_pset
+    etrago.network.loads_t.q_set = loads_qset
+    etrago.network.loads_t.p = loads_p
+    etrago.network.loads_t.q = loads_q
+    
+    etrago.network.generators_t.p_max_pu = gen_pmax
     etrago.network.generators_t.p = gen_p
+    
     etrago.network.lines_t.mu_lower = lines_lower
     etrago.network.lines_t.mu_upper = lines_upper
     etrago.network.lines_t.p0 = lines_p0
     etrago.network.lines_t.p1 = lines_p1
+    etrago.network.lines_t.q0 = lines_q0
+    etrago.network.lines_t.q1 = lines_q1
+    
+    etrago.network.links_t.p_min_pu = links_pmin
+    etrago.network.links_t.p_max_pu = links_pmax
+    etrago.network.links_t.efficiency = links_eff
     etrago.network.links_t.mu_lower = links_lower
     etrago.network.links_t.mu_upper = links_upper
     etrago.network.links_t.p0 = links_p0
     etrago.network.links_t.p1 = links_p1
+    
+    etrago.network.stores_t.e_min_pu = store_emin
+    etrago.network.stores_t.e_max_pu = store_emax
+    etrago.network.stores_t.e = store_e
+    etrago.network.stores_t.p = store_p
+    etrago.network.stores_t.q = store_q
+    
     etrago.network.storage_units_t.p = stun_p
     etrago.network.storage_units_t.p_dispatch = stun_p_dispatch
     etrago.network.storage_units_t.p_store = stun_p_store
+    etrago.network.storage_units_t.spill = stun_spill
     etrago.network.storage_units_t.state_of_charge = stun_state_of_charge
-    etrago.network.storage_units_t.soc_intra = etrago.network.storage_units_t.state_of_charge.copy()
-    etrago.network.stores_t.e = store_e
-    etrago.network.stores_t.p = store_p
-    etrago.network.stores_t.soc_intra_store = etrago.network.stores_t.e.copy()
-    etrago.network.buses_t.marginal_price = bus_price
+    
     etrago.network.buses_t.p = bus_p
+    etrago.network.buses_t.marginal_price = bus_price
     etrago.network.buses_t.v_ang = bus_vang
-    etrago.network.loads_t.p = loads
-    etrago.network.transformers_t.p0 = trafo_p0
-    etrago.network.transformers_t.p0 = trafo_p1
+    etrago.network.buses_t.v_mag_pu = bus_vmag
     
     # use network and storage expansion from LOPF 1
+        
+    etrago.args['extendable'] = []
     
     etrago.network.lines['s_nom'] = etrago.network.lines['s_nom_opt']
     etrago.network.lines['s_nom_extendable'] = False
@@ -601,8 +643,6 @@ def run_etrago(args, json_path, path, number):
     
     etrago.network.links['p_nom'] = etrago.network.links['p_nom_opt']
     etrago.network.links['p_nom_extendable'] = False
-    
-    etrago.args['extendable'] = []
     
     # use original timeseries
     

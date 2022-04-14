@@ -152,23 +152,25 @@ def calc_marginal_cost(self):
 
         """
         network = self.network
+        
         gen = network.generators_t.p.mul(
             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
                 
-        stor = network.storage_units_t.p.mul(
+        '''stor = network.storage_units_t.p.mul(
             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
-                network.storage_units.marginal_cost).sum()
-             + network.stores_t.e.mul(
+                network.storage_units.marginal_cost).sum() \
+             + network.stores_t.p.mul(
              network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
-             network.stores.marginal_cost).sum() ###
+             network.stores.marginal_cost).sum() ### stores'''
         
         ###
-        link = abs(network.links_t.p0).mul(
+        cost_links = network.links[network.links.carrier=='OCTG']
+        link = network.links_t.p0[cost_links.index].mul(
             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.links.marginal_cost).sum()
         ###
-        marginal_cost = gen + stor + link ### link
+        marginal_cost = gen + link ### link + stores
         return marginal_cost
 
 def calc_etrago_results(self):
