@@ -410,6 +410,22 @@ def run_etrago(args, json_path):
     #etrago.network.generators.loc['nuclear', 'marginal_cost']= 30
     #etrago.network.generators.loc[etrago.network.generators.carrier.isin(['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP']), 'marginal_cost']= 20
 
+    # Set marginal costs for conventional feed-in
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='CH4']+= 0.201*76.5
+
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='coal']+= 20.2+0.335*76.5
+
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='lignite']+= 4.0+0.393*76.5
+
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='nuclear']+= 1.7
+
+    etrago.network.generators.marginal_cost[
+        etrago.network.generators.carrier=='oil']+= 83.8 + 0.228*76.5 
+
     etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
 
     for t in etrago.network.iterate_components():
@@ -437,10 +453,6 @@ def run_etrago(args, json_path):
                                       'central_heat_store', 
                                       'rural_heat_store', 'rural_heat',
                                       'dsm'])
-    #import pdb; pdb.set_trace()
-    # Set marginal costs for gas feed-in
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
 
     # ehv network clustering
     etrago.ehv_clustering()
