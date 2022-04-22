@@ -101,6 +101,8 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 def coloring():
     colors = {'biomass': 'green',
+              'central_biomass_CHP': 'forestgreen',
+              'industrial_biomass_CHP': 'seagreen',
               'coal': 'k',
               'gas': 'orange',
               'eeg_gas': 'olive',
@@ -112,7 +114,8 @@ def coloring():
               'run_of_river': 'aqua',
               'pumped_storage': 'steelblue',
               'solar': 'yellow',
-              'uranium': 'lime',
+              'solar_rooftop': 'gold',
+              'nuclear': 'lime',
               'waste': 'sienna',
               'wind': 'blue',
               'wind_onshore': 'skyblue',
@@ -121,6 +124,7 @@ def coloring():
               'load shedding': 'red',
               'nan': 'm',
               'imports': 'salmon',
+              'other_renewable': 'aquamarine',
               '': 'm'}
     return colors
 
@@ -832,12 +836,12 @@ def nodal_gen_dispatch(
         if networkB:
             dispatch_network =\
                     network.generators_t.p[gens.index].mul(
-                        network.snapshot_weightings, axis=0).groupby(
+                        network.snapshot_weightings.generators, axis=0).groupby(
                             [network.generators.bus,
                              network.generators.carrier], axis=1).sum()
             dispatch_networkB =\
                     networkB.generators_t.p[gens.index].mul(
-                        networkB.snapshot_weightings, axis=0).groupby(
+                        networkB.snapshot_weightings.generators, axis=0).groupby(
                             [networkB.generators.bus,
                              networkB.generators.carrier],
                             axis=1).sum()
@@ -856,10 +860,9 @@ def nodal_gen_dispatch(
         elif networkB is None:
             dispatch =\
                     network.generators_t.p[gens.index].mul(
-                        network.snapshot_weightings, axis=0).sum().groupby(
+                        network.snapshot_weightings.generators, axis=0).sum().groupby(
                             [network.generators.bus,
                              network.generators.carrier]).sum()
-
     scaling = 1/(max(abs(dispatch.groupby(level=0).sum())))*scaling
     if direction != 'absolute':
         colors = coloring()
@@ -871,7 +874,8 @@ def nodal_gen_dispatch(
                   for s in dispatch.iteritems()}
         dispatch = dispatch.abs()
         subcolors = {'negative': 'red', 'positive': 'green'}
-
+    import cartopy.crs as ccrs 
+    fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
     network.plot(
         bus_sizes=dispatch * scaling,
         bus_colors=colors,
@@ -1210,15 +1214,15 @@ def plotting_colors(network):
     None.
 
     """
-    if network.carriers.columns[1] != 'co2_emissions':
-        network.carriers = network.carriers.set_index(
-            network.carriers.columns[1])
+    # if network.carriers.columns[1] != 'co2_emissions':
+    #     network.carriers = network.carriers.set_index(
+    #         network.carriers.columns[1])
     colors = coloring()
     for i in network.carriers.index:
         if i in colors.keys():
             network.carriers.color[i] = colors[i]
-    network.carriers.color['hydrogen_storage'] = 'sandybrown'
-    network.carriers.color['battery_storage'] = 'blue'
+    #network.carriers.color['hydrogen_storage'] = 'sandybrown'
+    network.carriers.color['battery'] = 'blue'
     network.carriers.color[network.carriers.color == ''] = 'grey'
 
 def calc_network_expansion(network, method='abs', ext_min=0.1):
@@ -1357,7 +1361,7 @@ def plot_grid(self,
     if disaggregated:
         network = self.disaggregated_network.copy()
     else:
-        network = self.network.copy()
+        network = self.copy()
 
     # Set colors for plotting
     plotting_colors(network)
