@@ -449,6 +449,30 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
 
     etrago.kmean_clustering_gas()
+    
+    
+    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
+    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
+    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
+    
+    # neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
+    # neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
+    
+    # de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
+    # de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
+    
+    # for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
+    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+            
+    # for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
+    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
+                        
+    # for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
+    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
+                                    
+    # for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
+    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
