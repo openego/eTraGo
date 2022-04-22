@@ -70,13 +70,13 @@ args = {
     'csv_export': 'results/onlyAC_300_04042022',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
-    'generator_noise': False,  # apply generator noise, False or seed number
+    'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 300, # number of resulting nodes
-        'n_clusters_gas': 30, # number of resulting nodes in Germany
+        'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -92,12 +92,15 @@ args = {
         'carrier_data': { # select carriers affected by sector coupling
             'H2_ind_load': {
                 'base': ['H2_grid'],
+                'strategy': 'consecutive'
             },
             'central_heat': {
-                'base': ['CH4'],
+                'base': ['CH4', 'AC'],
+                'strategy': 'consecutive'
             },
             'rural_heat': {
-                'base': ['CH4'],
+                'base': ['CH4', 'AC'],
+                'strategy': 'consecutive'
             },
         },
     },
@@ -284,14 +287,17 @@ def run_etrago(args, json_path):
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : dict
-         {'active': True, 'n_clusters': 10, 'kmeans_busmap': False,
-          'line_length_factor': 1.25, 'remove_stubs': False,
-          'use_reduced_coordinates': False, 'bus_weight_tocsv': None,
-          'bus_weight_fromcsv': None, 'n_init': 10, 'max_iter': 300,
-          'tol': 1e-4, 'n_jobs': 1},
+         {'active': True, 'n_clusters': 30, 'n_clusters_gas': 30,
+          'kmeans_busmap': False, 'line_length_factor': 1.25,
+          'remove_stubs': False, 'use_reduced_coordinates': False,
+          'bus_weight_tocsv': None, 'bus_weight_fromcsv': None, 'n_init': 10,
+          'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
-        generation and load at each node.
+        generation and load at each node. ``'n_clusters_gas'`` refers to the
+        total amount of gas buses after clustering. Note, that the number of
+        gas buses of Germanies neighboring countries is not modified. in this
+        process.
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
@@ -389,16 +395,20 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
-    etrago.network.lines.lifetime = 40
+    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
+                                       # PyPSA network clustering function 
+                                       # is changed (taking the mean) or our 
+                                       # data model is altered, which will 
+                                       # happen in the next data creation run
     etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
     etrago.network.links.p_nom_max = etrago.network.links.p_nom_min * 4
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
 
-    etrago.network.generators.loc[~etrago.network.generators.carrier.isin(['run_of_river', 'solar', 'solar_rooftop', 'wind_onshore','other_renewable', 'reservoir', 'wind_offshore']), 'marginal_cost']= 60
-    etrago.network.generators.loc['coal', 'marginal_cost']= 40
-    etrago.network.generators.loc['lignite', 'marginal_cost']= 35
-    etrago.network.generators.loc['nuclear', 'marginal_cost']= 30
-    etrago.network.generators.loc[etrago.network.generators.carrier.isin(['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP']), 'marginal_cost']= 20
+    #etrago.network.generators.loc[~etrago.network.generators.carrier.isin(['run_of_river', 'solar', 'solar_rooftop', 'wind_onshore','other_renewable', 'reservoir', 'wind_offshore']), 'marginal_cost']= 60
+    #etrago.network.generators.loc['coal', 'marginal_cost']= 40
+    #etrago.network.generators.loc['lignite', 'marginal_cost']= 35
+    #etrago.network.generators.loc['nuclear', 'marginal_cost']= 30
+    #etrago.network.generators.loc[etrago.network.generators.carrier.isin(['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP']), 'marginal_cost']= 20
 
     etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
 
@@ -412,7 +422,7 @@ def run_etrago(args, json_path):
 
     etrago.adjust_network()
 
-    etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] = etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x']/100
+    #etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] = etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x']/100
 
 
     from etrago.tools.utilities import drop_sectors
@@ -438,43 +448,7 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
 
-    for t in etrago.network.iterate_components():
-        if 'p_nom_max' in t.df:
-            t.df['p_nom_max'].fillna(np.inf, inplace=True)
-
-    for t in etrago.network.iterate_components():
-            if 'p_nom_min' in t.df:
-                t.df['p_nom_min'].fillna(0., inplace=True)
-
-    for t in etrago.network.iterate_components():
-        if 'marginal_cost' in t.df:
-            np.random.seed(174)
-            t.df['marginal_cost'] += 1e-2 + 2e-3 * (np.random.random(len(t.df)) - 0.5)
-
-        
-    #etrago.kmean_clustering_gas()
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
-    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
-
-    neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
-    neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
-
-    de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
-    de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
-
-    for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
-            
-    for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
-                        
-    for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
-                                    
-    for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
-
+    etrago.kmean_clustering_gas()
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
