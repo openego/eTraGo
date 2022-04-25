@@ -401,8 +401,9 @@ def run_etrago(args, json_path):
                                        # data model is altered, which will 
                                        # happen in the next data creation run
     etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
-    etrago.network.links.p_nom_max = etrago.network.links.p_nom_min * 4
+    etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_max'] = etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_min']  * 4
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
+
 
     #etrago.network.generators.loc[~etrago.network.generators.carrier.isin(['run_of_river', 'solar', 'solar_rooftop', 'wind_onshore','other_renewable', 'reservoir', 'wind_offshore']), 'marginal_cost']= 60
     #etrago.network.generators.loc['coal', 'marginal_cost']= 40
