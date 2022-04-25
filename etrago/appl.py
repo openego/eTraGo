@@ -400,6 +400,11 @@ def run_etrago(args, json_path):
                                        # is changed (taking the mean) or our 
                                        # data model is altered, which will 
                                        # happen in the next data creation run
+    # Length data for power_to_H2 and H2_to_power links creates numerical
+    # problems when aggregating, and it is not used in eTrago.
+    # Length is set here provisionaly to 0 for the mentioned carriers
+    etrago.network.links["length"][etrago.network.links["carrier"].isin(
+        ["power_to_H2", "H2_to_power"])] = 0
 
     etrago.adjust_network()
 
@@ -417,7 +422,7 @@ def run_etrago(args, json_path):
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
-
+    
     # skip snapshots
     etrago.skip_snapshots()
 
