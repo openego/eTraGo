@@ -1576,7 +1576,7 @@ def plot_grid(self,
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         bus_legend = 'Storage expansion'
-        bus_unit = 'TW'
+        bus_unit = 'GW'
     elif bus_colors == 'storage_distribution':
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * network.storage_units.p_nom_opt\
