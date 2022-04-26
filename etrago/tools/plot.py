@@ -64,6 +64,7 @@ def set_epsg_network(network):
     network.buses.x, network.buses.y = x2, y2
     network.epsg = 3857
     set_epsg_network.counter = set_epsg_network.counter + 1
+    
 
 
 def plot_osm(x, y, zoom, alpha=0.4):
@@ -100,32 +101,70 @@ def plot_osm(x, y, zoom, alpha=0.4):
     return fig, ax
 
 def coloring():
-    colors = {'biomass': 'green',
-              'central_biomass_CHP': 'forestgreen',
-              'industrial_biomass_CHP': 'seagreen',
-              'coal': 'k',
-              'gas': 'orange',
-              'eeg_gas': 'olive',
-              'geothermal': 'purple',
-              'lignite': 'brown',
-              'oil': 'darkgrey',
-              'other_non_renewable': 'pink',
-              'reservoir': 'navy',
-              'run_of_river': 'aqua',
-              'pumped_storage': 'steelblue',
-              'solar': 'yellow',
-              'solar_rooftop': 'gold',
-              'nuclear': 'lime',
-              'waste': 'sienna',
-              'wind': 'blue',
-              'wind_onshore': 'skyblue',
-              'wind_offshore': 'cornflowerblue',
-              'slack': 'pink',
-              'load shedding': 'red',
-              'nan': 'm',
-              'imports': 'salmon',
-              'other_renewable': 'aquamarine',
-              '': 'm'}
+
+    colors = {
+        'load': 'red',
+        'DC': 'blue',
+        'power_to_H2':"cyan",
+        'H2_overground':"cyan",
+        'H2_underground':"cyan",
+        'dsm-cts':"dodgerblue",
+        'dsm-ind-osm': "dodgerblue", 
+        'dsm-ind-sites': "dodgerblue",
+        'dsm': "dodgerblue",
+        'central_heat_pump': 'mediumpurple', 
+        'central_resistive_heater': "blueviolet", 
+        'rural_heat_pump': "violet",
+        'CH4': "yellow",
+        'CH4_to_H2': "yellowgreen",
+        'industrial_gas_CHP': "olive",
+        'rural_gas_boiler': "sandybrown",
+        'central_gas_CHP': "darkorange",
+        'central_gas_CHP_heat': "darkorange",
+        'central_gas_boiler':"saddlebrown",
+        'OCGT': "seagreen",
+        'H2_to_power': "darkcyan", 
+        'H2_feedin': "lime",
+        'H2_to_CH4': "seagreen", 
+        'H2_ind_load': "forestgreen",
+        'central_heat_store_charger': "firebrick", 
+        'central_heat_store': "firebrick", 
+        'rural_heat_store_charger': 'salmon',
+        'rural_heat_store': 'salmon',
+        'central_heat_store_discharger': "firebrick",
+        'rural_heat_store_discharger': 'salmon',
+        "rural_heat": "orange",
+        "central_heat": "orangered",
+        "H2_grid": "green",
+        "H2_saltcavern": "darkgreen",
+        'central_heat_store': "firebrick",
+        'rural_heat_store': 'salmon',
+        "AC": "blue",
+        "nuclear": "palegreen",
+        "oil": "silver",
+        "other_non_renewable": "dimgrey",
+        "other_renewable": "lightsteelblue",   
+        "reservoir": "indigo",
+        "run_of_river": "slateblue",
+        "solar": "gold",
+        "wind_offshore": "lightblue",
+        "wind_onshore": "blue",
+        "coal": "grey",
+        "lignite": "brown",
+        "biomass": "olive",
+        "solar_thermal_collector": "wheat",
+        "geo thermal": "peru",
+        "load shedding": "black",
+        'central_biomass_CHP': 'darkorange',
+        'industrial_biomass_CHP': 'darkorange',
+        'solar_rooftop': 'goldenrod',
+        'gas': 'yellow',
+        'central_biomass_CHP_heat': 'darkorange',
+        'geo_thermal':  "peru",
+        "battery": "blue",
+        "pumped_hydro": "indigo"
+        }
+
     return colors
 
 def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
@@ -652,29 +691,63 @@ def calc_storage_expansion_per_bus(network):
     """
 
     batteries = network.storage_units[network.storage_units.carrier ==
-                                      'extendable_battery_storage']
-    hydrogen = network.storage_units[network.storage_units.carrier ==
-                                     'extendable_hydrogen_storage']
+                                      'battery']
+    h2_overground = network.stores[network.stores.carrier ==
+                                      'H2_overground']
+    h2_underground = network.stores[network.stores.carrier ==
+                                      'H2_underground']
+    rural_heat = network.stores[network.stores.carrier ==
+                                      'rural_heat_store']
+    central_heat = network.stores[network.stores.carrier ==
+                                      'central_heat_store']
+    # hydrogen = network.storage_units[network.storage_units.carrier ==
+    #                                  'extendable_hydrogen_storage']
     battery_distribution =\
         network.storage_units.p_nom_opt[batteries.index].groupby(
             network.storage_units.bus).sum().reindex(
                 network.buses.index, fill_value=0.)
-    hydrogen_distribution =\
-        network.storage_units.p_nom_opt[hydrogen.index].groupby(
-            network.storage_units.bus).sum().reindex(
+    h2_over_distribution =\
+        network.stores.e_nom_opt[h2_overground.index].groupby(
+            network.stores.bus).sum().reindex(
                 network.buses.index, fill_value=0.)
-    index = [(idx, 'battery_storage') for idx in network.buses.index]
-    index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
+    h2_under_distribution =\
+        network.stores.e_nom_opt[h2_underground.index].groupby(
+            network.stores.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    rural_heat_distribution =\
+        network.stores.e_nom_opt[rural_heat.index].groupby(
+            network.stores.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    central_heat_distribution =\
+        network.stores.e_nom_opt[central_heat.index].groupby(
+            network.stores.bus).sum().reindex(
+                network.buses.index, fill_value=0.)
+    # hydrogen_distribution =\
+    #     network.storage_units.p_nom_opt[hydrogen.index].groupby(
+    #         network.storage_units.bus).sum().reindex(
+    #             network.buses.index, fill_value=0.)
+    index = [(idx, 'battery') for idx in network.buses.index]
+    for c in ['H2_overground', 'H2_underground', 'rural_heat_store', 'central_heat_store']:
+        index.extend([(idx, c) for idx in network.buses.index])
+    # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(index=pd.MultiIndex.from_tuples(
         index, names=['bus', 'carrier']), dtype=float)
 
-    dist.iloc[dist.index.get_level_values('carrier') == 'battery_storage'] = \
+    dist.iloc[dist.index.get_level_values('carrier') == 'battery'] = \
             battery_distribution.sort_index().values
-    dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
-            hydrogen_distribution.sort_index().values
-    network.carriers.color['hydrogen_storage'] = 'orange'
-    network.carriers.color['battery_storage'] = 'blue'
+    dist.iloc[dist.index.get_level_values('carrier') == 'H2_overground'] = \
+                h2_over_distribution.sort_index().values
+    dist.iloc[dist.index.get_level_values('carrier') == 'H2_underground'] = \
+                h2_under_distribution.sort_index().values
+    dist.iloc[dist.index.get_level_values('carrier') == 'rural_heat_store'] = \
+                rural_heat_distribution.sort_index().values
+    dist.iloc[dist.index.get_level_values('carrier') == 'central_heat_store'] = \
+                central_heat_distribution.sort_index().values
+    # dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
+    #         hydrogen_distribution.sort_index().values
+    # network.carriers.color['hydrogen_storage'] = 'orange'
+    # network.carriers.color['battery_storage'] = 'blue'
 
     return dist
 
@@ -1218,12 +1291,14 @@ def plotting_colors(network):
     #     network.carriers = network.carriers.set_index(
     #         network.carriers.columns[1])
     colors = coloring()
-    for i in network.carriers.index:
-        if i in colors.keys():
-            network.carriers.color[i] = colors[i]
-    #network.carriers.color['hydrogen_storage'] = 'sandybrown'
-    network.carriers.color['battery'] = 'blue'
-    network.carriers.color[network.carriers.color == ''] = 'grey'
+    for i in colors.keys():
+        network.carriers.loc[i, 'color']= colors[i]
+    #     if i in colors.keys():
+    #         network.carriers.color[i] = colors[i]
+    # network.carriers.color['hydrogen_storage'] = 'sandybrown'
+    # network.carriers.color['battery_storage'] = 'blue'
+    # network.carriers.color[network.carriers.color == ''] = 'grey'
+
 
 def calc_network_expansion(network, method='abs', ext_min=0.1):
     """ Calculates absolute or relative expansion per AC- and DC-line
@@ -1295,9 +1370,64 @@ def plot_background_grid(network, ax):
 
     """
     network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0.55,
+                     bus_sizes=0, line_widths=0.5, link_widths=0,#0.55,
                      geomap=False)
+    
+def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
+    
+    colors = coloring()
+    
+    # Plot osm map in background
+    if osm != False:
+        # if etrago.network.srid == 4326:
+        #     set_epsg_network(etrago.network)
+        fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
 
+    else:
+        fig, ax = plt.subplots(1, 1)
+
+
+    link_width=pd.Series(index=etrago.network.links.index,
+                         data = 2)
+    
+    if len(carrier_links) >0:
+    
+        link_width.loc[~etrago.network.links.carrier.isin(carrier_links)] = 0
+
+    bus_sizes=pd.Series(index=etrago.network.buses.index,
+                         data = 0.0005)
+    
+    if len(carrier_buses) >0:
+    
+        bus_sizes.loc[~etrago.network.buses.carrier.isin(carrier_buses)] = 0
+        
+    link_colors = etrago.network.links.carrier.map(colors)
+    
+    bus_colors = etrago.network.buses.carrier.map(colors)
+    
+    if 'AC' in carrier_links:
+        line_widths = 1
+    else:
+        line_widths = 0
+
+    etrago.network.plot(geomap=False,
+                        bus_sizes=bus_sizes,
+                        link_widths=link_width,
+                        line_widths=line_widths,
+                        title=carrier_links,
+                        link_colors=link_colors, 
+                        line_colors = 'lightblue',
+                        bus_colors=bus_colors,
+                        ax = ax)
+    patchList = []
+    for key in (carrier_links+carrier_buses):
+        data_key = mpatches.Patch(color=colors[key], label=key)
+        patchList.append(data_key)
+
+    ax.legend(handles=patchList,loc='lower left', ncol=1)
+    ax.autoscale()
+    
+    
 def plot_grid(self,
               line_colors,
               bus_sizes=0.02,
@@ -1361,7 +1491,7 @@ def plot_grid(self,
     if disaggregated:
         network = self.disaggregated_network.copy()
     else:
-        network = self.copy()
+        network = self.network.copy()
 
     # Set colors for plotting
     plotting_colors(network)
@@ -1369,7 +1499,7 @@ def plot_grid(self,
     # Set default values
     flow = None
     line_widths = 2
-    link_widths = 2
+    link_widths = 0
 
     # Plot osm map in background
     if osm != False:
@@ -1459,7 +1589,7 @@ def plot_grid(self,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
                       bus_colors=bus_colors,
-                      line_widths=line_widths, link_widths=link_widths,
+                      line_widths=line_widths, link_widths=0,#link_widths,
                       flow=flow,
                       title=title,
                       geomap=False)
