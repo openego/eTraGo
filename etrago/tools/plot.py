@@ -32,6 +32,11 @@ from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
 
+import cartopy
+import cartopy.crs as ccrs
+import cartopy.mpl.geoaxes
+import requests
+
 logger = logging.getLogger(__name__)
 
 if 'READTHEDOCS' not in os.environ:
@@ -1369,9 +1374,11 @@ def plot_background_grid(network, ax):
     None.
 
     """
+    
+
     network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0,#0.55,
-                     geomap=False)
+                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
+                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
     
 def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
     
@@ -1491,7 +1498,7 @@ def plot_grid(self,
     if disaggregated:
         network = self.disaggregated_network.copy()
     else:
-        network = self.network.copy()
+        network = self.copy()
 
     # Set colors for plotting
     plotting_colors(network)
@@ -1508,7 +1515,7 @@ def plot_grid(self,
         fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     else:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()}, figsize=(5, 5))
 
     # Set line colors
     if line_colors == 'line_loading':
@@ -1592,7 +1599,8 @@ def plot_grid(self,
                       line_widths=line_widths, link_widths=0,#link_widths,
                       flow=flow,
                       title=title,
-                      geomap=False)
+                      geomap=False, projection=ccrs.PlateCarree(),
+                      color_geomap=True)
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
