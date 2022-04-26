@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/onlyAC_300_04042022',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/onlyAC_300_25042022',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -464,27 +464,27 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering_gas()
     
     
-    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
-    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
-    # etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
+    etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
     
-    # neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
-    # neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
+    neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
+    neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
     
-    # de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
-    # de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
+    de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
+    de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
     
-    # for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
-    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+    for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
+        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
             
-    # for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
-    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
+    for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
+        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
                         
-    # for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
-    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
+    for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
+        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
                                     
-    # for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
-    #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+    for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
+        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
 
 
     etrago.args['load_shedding']=True
