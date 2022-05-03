@@ -366,10 +366,16 @@ def foreign_links(self):
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
 
         network.links.loc[foreign_links.index, "efficiency"] = 1
+        
+        network.links.loc[foreign_links.index, "carrier"] = "DC"
 
         network.import_components_from_dataframe(
             foreign_lines.loc[:, ["bus0", "bus1", "capital_cost", "length"]]
             .assign(p_nom=foreign_lines.s_nom)
+            .assign(p_nom_min=foreign_lines.s_nom_min)
+            .assign(p_nom_max=foreign_lines.s_nom_max)
+            .assign(p_nom_extendable=foreign_lines.s_nom_extendable)
+            .assign(p_max_pu=foreign_lines.s_max_pu)
             .assign(p_min_pu=-1)
             .set_index("N" + foreign_lines.index),
             "Link",
