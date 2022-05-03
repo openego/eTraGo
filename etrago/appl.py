@@ -438,7 +438,7 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] /= (etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'v_nom']*1000)**2 / (100 * 10e6)
+    etrago.network.lines.x /= (etrago.network.lines.v_nom*1000)**2 / (100 * 10e6)
     #etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] = etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x']/100
 
 
