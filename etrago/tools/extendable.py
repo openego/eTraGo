@@ -40,7 +40,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(self, line_max):
+def extendable(self, line_max, line_max_abs= {'380': 1000, '220': 700, '110':500, 'dc':2000}, line_max_foreign=4):
 
     """
     Function that sets selected components extendable
@@ -74,6 +74,68 @@ def extendable(self, line_max):
         network.storage_units.p_nom_extendable = False
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
+        
+    if not line_max_abs==None:
+        buses = network.buses[~network.buses.index.isin(
+            buses_by_country(network).index)]
+        # calculate the cables of the route between two buses
+        cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
+        cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
+        doubles_idx = cables.index == cables2.index
+        cables3 = cables[doubles_idx]+cables2[doubles_idx]
+        cables4 = cables3.swaplevel()
+        cables[cables3.index] = cables3
+        cables[cables4.index] = cables4
+        network.lines["total_cables"] = network.lines.apply(lambda x: cables[(x.bus0, x.bus1)], axis=1) 
+        s_nom_max_110 = line_max_abs['110'] * (network.lines["cables"]/network.lines["total_cables"])
+        s_nom_max_220 = line_max_abs['220'] \
+                      * (network.lines["cables"]/network.lines["total_cables"])
+        s_nom_max_380 = line_max_abs['380'] \
+                      * (network.lines["cables"]/network.lines["total_cables"])
+        # set the s_nom_max depending on the voltage level and the share of the route
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 110.0) &
+                      (network.lines.s_nom < s_nom_max_110),
+                      's_nom_max'] = s_nom_max_110
+
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 110.0) &
+                      (network.lines.s_nom >= s_nom_max_110),
+                      's_nom_max'] = network.lines.s_nom                          
+                      
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 220.0) &
+                      (network.lines.s_nom < s_nom_max_220),
+                      's_nom_max'] = s_nom_max_220
+
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 220.0) &
+                      (network.lines.s_nom >= s_nom_max_220),
+                      's_nom_max'] = network.lines.s_nom
+                      
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 380.0)&
+                      (network.lines.s_nom < s_nom_max_380),
+                      's_nom_max'] = s_nom_max_380
+                      
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                      (network.lines.bus1.isin(buses.index)) &
+                      (network.lines.v_nom == 380.0)&
+                      (network.lines.s_nom >= s_nom_max_380),
+                      's_nom_max'] = network.lines.s_nom      
+        
+
+    if not line_max_foreign==None:
+        foreign_buses = network.buses[network.buses.index.isin(
+            buses_by_country(network).index)]
+        network.lines.loc[network.lines.bus0.isin(foreign_buses.index) |
+                      network.lines.bus1.isin(foreign_buses.index),
+                's_nom_max'] = line_max_foreign * network.lines.s_nom
 
 
     if 'network' in self.args['extendable']:
