@@ -45,26 +45,19 @@ def create_gas_busmap(etrago):
     buses_ch4 = etrago.network.buses
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
-    num_neighboring_country = (
-        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] != "DE")
-    ).sum()
-
     # Cluster ch4 buses
     kmean_gas_settings = etrago.args["network_clustering_kmeans"]
 
-    if num_neighboring_country >= kmean_gas_settings["n_clusters_gas"]:
-        msg = (
-            "The number of clusters for the gas sector ("
-            + str(kmean_gas_settings["n_clusters_gas"])
-            + ") must be higher than the number of neighboring contry gas buses ("
-            + str(num_neighboring_country)
-            + ")."
-        )
-        raise ValueError(msg)
+    # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
+    if kmean_gas_settings["cluster_foreign_gas"] == False:
 
-    network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
-    ]
+        network_ch4.buses = network_ch4.buses[
+            (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
+        ]
+
+    else:
+        network_ch4.buses = network_ch4.buses[network_ch4.buses["carrier"] == "CH4"]
+
 
     def weighting_for_scenario(x, save=None):
         """ """
@@ -99,8 +92,7 @@ def create_gas_busmap(etrago):
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
             bus_weightings=weight_ch4_s,
-            n_clusters=kmean_gas_settings["n_clusters_gas"]
-            - num_neighboring_country,
+            n_clusters=kmean_gas_settings["n_clusters_gas"],
             n_init=kmean_gas_settings["n_init"],
             max_iter=kmean_gas_settings["max_iter"],
             tol=kmean_gas_settings["tol"],
@@ -571,6 +563,7 @@ def get_clustering_from_busmap(
     new_links["link_id"] = new_links.index
 
     strategies = strategies_links()
+    strategies["country"] = "first"
     strategies["link_id"] = "first"
 
     # aggregate CH4 pipelines
@@ -580,7 +573,6 @@ def get_clustering_from_busmap(
     # pipeline that connects these two clusters in reversed order (e.g. bus0=1,
     # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
     pipelines = new_links.loc[new_links["carrier"] == "CH4"]
-
     pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(
         strategies
     )
@@ -626,8 +618,12 @@ def kmean_clustering_gas_grid(etrago):
     ----------
     network : :class:`pypsa.Network
         Container for all network components.
+    cluster_abroad_gas : bool
+        Controls if foreign gas nodes are considered for clustering
     n_clusters_gas : int
-        Desired number of gas clusters.
+        Desired number of gas clusters. Note: The final number of gas clusters depends
+        on whether non-DE nodes are considered for clustering. If not, the total
+        number of resulting nodes is n_clusters_gas + foreign_buses (usually 12)
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
         and save it to a csv file.
