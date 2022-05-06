@@ -50,7 +50,7 @@ args = {
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 5, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/onlyAC_300_25042022',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/foreignDC_70_06052022_skip3',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -75,7 +75,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 300, # number of resulting nodes
+        'n_clusters': 70, # number of resulting nodes
         'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
@@ -114,7 +114,7 @@ args = {
         'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
         'n_segments': 5}, # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': 5, # False or number of snapshots to skip
+    'skip_snapshots': 3, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'DC', # 'DC' for modeling foreign lines as links
@@ -400,7 +400,30 @@ def run_etrago(args, json_path):
                                        # is changed (taking the mean) or our 
                                        # data model is altered, which will 
                                        # happen in the next data creation run
-    etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
+    #etrago.network.lines.s_nom_max = etrago.network.lines.s_nom_min * 4
+   
+    # create gas generators from links in order to not lose them when dropping non-electric carriers
+    gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP']
+    gen = etrago.network.generators
+
+    for i in gas_to_add:
+        gen_empty = gen.drop(gen.index)
+        gen_empty.bus = etrago.network.links[etrago.network.links.carrier == i].bus1
+        gen_empty.p_nom = etrago.network.links[etrago.network.links.carrier == i].p_nom
+        gen_empty.marginal_cost = etrago.network.links[etrago.network.links.carrier == i].marginal_cost
+        gen_empty.carrier = i
+        gen_empty.scn_name = 'eGon2035'
+        gen_empty.p_nom_extendable = False
+        gen_empty.sign = 1
+        gen_empty.p_min_pu = 0
+        gen_empty.p_max_pu = 1
+        gen_empty.control = 'PV'
+        gen_empty.fillna(0, inplace=True)
+        etrago.network.generators= etrago.network.generators.append(gen_empty, verify_integrity=True)
+
+   
+   
+   
     etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_max'] = etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_min']  * 4
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
 
@@ -412,20 +435,20 @@ def run_etrago(args, json_path):
     #etrago.network.generators.loc[etrago.network.generators.carrier.isin(['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP']), 'marginal_cost']= 20
 
     # Set marginal costs for conventional feed-in
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='CH4']+= 0.201*76.5
+#    etrago.network.generators.marginal_cost[
+ #       etrago.network.generators.carrier=='CH4']+= 0.201*76.5
+#
+#    etrago.network.generators.marginal_cost[
+#        etrago.network.generators.carrier=='coal']+= 20.2+0.335*76.5
+#
+#    etrago.network.generators.marginal_cost[
+#        etrago.network.generators.carrier=='lignite']+= 4.0+0.393*76.5
 
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='coal']+= 20.2+0.335*76.5
+#    etrago.network.generators.marginal_cost[
+ #       etrago.network.generators.carrier=='nuclear']+= 1.7
 
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='lignite']+= 4.0+0.393*76.5
-
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='nuclear']+= 1.7
-
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='oil']+= 83.8 + 0.228*76.5 
+  #  etrago.network.generators.marginal_cost[
+   #     etrago.network.generators.carrier=='oil']+= 83.8 + 0.228*76.5 
 
     etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
 
@@ -438,7 +461,16 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    etrago.network.lines.x /= (etrago.network.lines.v_nom*1000)**2 / (100 * 10e6)
+    
+    # scale down generation facilities with respect to dropping additional loads
+    scale_down = 518.2/633.8
+
+    gens_to_scale = ['solar', 'wind_offshore', 'wind_onshore', 'solar_rooftop', 'biomass']
+
+    foreign_index = etrago.network.buses[etrago.network.buses.country !='DE'].index
+    etrago.network.generators.p_nom[~etrago.network.generators.index.isin(foreign_index)] *= scale_down
+
+    #etrago.network.lines.x /= (etrago.network.lines.v_nom*1000)**2 / (100 * 10e6)
     #etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x'] = etrago.network.lines.loc[etrago.network.lines.country == 'DE', 'x']/100
 
 
@@ -449,9 +481,10 @@ def run_etrago(args, json_path):
     # drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'central_heat', 
     #                                   'rural_heat', 'central_heat_store', 
     #                                   'rural_heat_store'])
+    
     drop_sectors(etrago, drop_carriers=['CH4', 'H2_grid', 'H2_ind_load', 'H2_saltcavern',
                                       'central_heat', 
-                                      'central_heat_store', 
+                                      'central_heat_store', 'Li ion',
                                       'rural_heat_store', 'rural_heat',
                                       'dsm'])
 
@@ -461,30 +494,30 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
 
-    etrago.kmean_clustering_gas()
+    #etrago.kmean_clustering_gas()
     
     
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom_max'] = etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'p_nom']
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery') &(etrago.network.storage_units.p_nom_extendable == False), 'capital_cost'] = 64763.666508
     etrago.network.storage_units.loc[(etrago.network.storage_units.carrier == 'battery'), 'p_nom_extendable'] = True
     
-    neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
-    neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
+    #neighbor_buses = etrago.network.buses[etrago.network.buses.country !='DE'].index
+    #neighbor_gens = etrago.network.generators[etrago.network.generators.bus.isin(neighbor_buses)]
     
-    de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
-    de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
+   # de_buses = etrago.network.buses[etrago.network.buses.country =='DE'].index
+   # de_gens = etrago.network.generators[etrago.network.generators.bus.isin(de_buses)]
     
-    for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+    #for i in neighbor_gens[neighbor_gens.carrier == 'solar'].index:
+     #   etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
             
-    for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
+   # for i in neighbor_gens[neighbor_gens.carrier == 'wind_onshore'].index:
+    #    etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_onshore'].iloc[[0]].index]
                         
-    for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
+   # for i in neighbor_gens[neighbor_gens.carrier == 'wind_offshore'].index:
+    #    etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'wind_offshore'].iloc[[0]].index]
                                     
-    for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
-        etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
+   # for i in etrago.network.generators[etrago.network.generators.carrier == 'solar_rooftop'].index:
+   #     etrago.network.generators_t.p_max_pu[i]= etrago.network.generators_t.p_max_pu[de_gens[de_gens.carrier == 'solar'].iloc[[0]].index]
 
 
     etrago.args['load_shedding']=True
