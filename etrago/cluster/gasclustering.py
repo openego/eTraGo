@@ -194,7 +194,7 @@ def create_gas_busmap(etrago):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
+    df_bm = pd.DataFrame(busmap.items(), columns=["bus0", "bus1"])
     df_bm.to_csv(
         "kmeans_gasgrid_busmap_"
         + str(kmean_gas_settings["n_clusters_gas"])
