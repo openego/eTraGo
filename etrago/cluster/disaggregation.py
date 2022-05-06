@@ -629,6 +629,8 @@ def update_constraints(network, externals):
 
 
 def run_disaggregation(self):
+    if self.args["disaggregation"] != None:
+        self.busmap = create_busmap(self)
     if self.clustering:
         disagg = self.args.get("disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
@@ -662,3 +664,34 @@ def run_disaggregation(self):
             if self.args["csv_export"] != False:
                 path = self.args["csv_export"] + "/disaggregated_network"
                 self.disaggregated_network.export_to_csv_folder(path)
+
+def create_busmap(etrago):
+
+    if etrago.args["network_clustering_ehv"] == True:
+        con = etrago.engine
+        query = "SELECT * from grid.egon_etrago_hv_busmap"
+        ehv_busmap = pd.read_sql(query, con)
+
+    if etrago.args["network_clustering_kmeans"]["active"] == True:
+        kmean_settings = etrago.args["network_clustering_kmeans"]
+        if kmean_settings["kmeans_busmap"] == False:
+            elec_kbusmap = pd.read_csv(
+                f"kmeans_busmap_{str(kmean_settings['n_clusters'])}_result.csv",
+                index_col="Bus",
+            )
+        else:
+            elec_kbusmap = pd.read_csv(
+            kmean_settings["kmeans_busmap"],
+            index_col="Bus",
+        )
+        if kmean_settings["kmeans_gas_busmap"] == False:
+            gas_kbusmap = pd.read_csv(
+                f"kmeans_ch4_busmap_{str(kmean_settings['n_clusters_gas'])}_result.csv",
+                index_col="Bus",
+            )
+        else:
+            gas_kbusmap = pd.read_csv(
+            kmean_settings["kmeans_gas_busmap"],
+            index_col="Bus",
+        )
+    

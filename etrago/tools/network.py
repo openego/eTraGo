@@ -109,6 +109,8 @@ class Etrago():
         self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
+        
+        self.busmap = {}
 
         if args is not None:
 
