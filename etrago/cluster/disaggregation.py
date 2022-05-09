@@ -631,6 +631,7 @@ def update_constraints(network, externals):
 def run_disaggregation(self):
     if self.args["disaggregation"] != None:
         self.busmap = create_busmap(self)
+    """
     if self.clustering:
         disagg = self.args.get("disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
@@ -664,14 +665,14 @@ def run_disaggregation(self):
             if self.args["csv_export"] != False:
                 path = self.args["csv_export"] + "/disaggregated_network"
                 self.disaggregated_network.export_to_csv_folder(path)
-
+    """
 
 def create_busmap(etrago):
     if etrago.args["network_clustering_ehv"] == True:
         ehv_busmap = pd.read_csv("ehv_elecgrid_busmap_result.csv")
 
+    kmean_settings = etrago.args["network_clustering_kmeans"]
     if etrago.args["network_clustering_kmeans"]["active"] == True:
-        kmean_settings = etrago.args["network_clustering_kmeans"]
         if kmean_settings["kmeans_busmap"] == False:
             elec_kbusmap = pd.read_csv(
                 f"kmeans_elecgrid_busmap_{str(kmean_settings['n_clusters'])}_result.csv"
@@ -710,7 +711,7 @@ def create_busmap(etrago):
         ehv_and_kmean["bus1"] = ehv_and_kmean["bus1"].map(kbusmap)   
         return ehv_and_kmean
     else:
-        print("No network clustering was used")
+        print("No network clustering method was used")
     
     
     

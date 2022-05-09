@@ -76,7 +76,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 30, # number of resulting nodes
-        'n_clusters_gas': 30, # number of resulting nodes
+        'n_clusters_gas': 20, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -400,7 +400,6 @@ def run_etrago(args, json_path):
                                        # is changed (taking the mean) or our 
                                        # data model is altered, which will 
                                        # happen in the next data creation run
-
     etrago.adjust_network()
 
     # Set marginal costs for gas feed-in
@@ -435,7 +434,7 @@ def run_etrago(args, json_path):
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
-    # etrago.disaggregation()
+    etrago.disaggregation()
 
     # calculate central etrago results
     # needs to be adjusted for new sectors
