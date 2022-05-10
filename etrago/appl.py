@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'etrago',  # database session
+    'db': 'egon-data',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -59,7 +59,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,'logFile':'solver.log','threads':4, 'method':2, 'crossover':0}, # 'BarHomogeneous': 1},#'NumericFocus':2
+    'solver_options': {}, # 'BarHomogeneous': 1},#'NumericFocus':2
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': False,  # save results as csv: False or /path/tofolder
+    'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
@@ -378,8 +378,8 @@ def run_etrago(args, json_path):
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True) # 0 capital_cost does not make a lot of sense
-    etrago.network.links.p_nom_min.fillna(0, inplace=True) # rather try to set p_nom and then 0
+    etrago.network.links.capital_cost.fillna(0, inplace=True) 
+    etrago.network.links.p_nom_min.fillna(0, inplace=True) 
     etrago.network.transformers.tap_ratio.fillna(1., inplace=True) 
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True) 
     etrago.network.links.p_nom_max.fillna(np.inf, inplace=True) 
@@ -390,11 +390,11 @@ def run_etrago(args, json_path):
     etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True) # not a very good value
+    etrago.network.stores.capital_cost.fillna(0, inplace=True) 
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
     etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0., inplace=True) # not a god value
+    etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
     etrago.network.storage_units.lifetime = np.inf # not a good value
@@ -423,7 +423,7 @@ def run_etrago(args, json_path):
     # k-mean clustering
     etrago.kmean_clustering()
 
-    #etrago.kmean_clustering_gas()
+    etrago.kmean_clustering_gas()
     
 
     etrago.args['load_shedding']=True
@@ -434,7 +434,7 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    #etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
