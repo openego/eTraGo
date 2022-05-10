@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data-local',  # database session
+    'db': 'etrago',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -57,7 +57,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 8760,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {'BarConvTol':1.e-5,'FeasibilityTol':1.e-5,'logFile':'solver.log','threads':4, 'method':2, 'crossover':0}, # 'BarHomogeneous': 1},#'NumericFocus':2
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -69,7 +69,13 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results/foreignDC_70_06052022_skip3',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['as_in_db'],  # Array of components to optimize
+    'extendable': {
+        'extendable_components': ['as_in_db'],  # Array of components to optimize
+        'upper_bounds_grid': {
+            'grid_max_D': 8, 
+            'grid_max_abs_D': None , 
+            'grid_max_foreign': 4, 
+            'grid_max_abs_foreign': None}},
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -424,7 +430,7 @@ def run_etrago(args, json_path):
    
    
    
-    etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_max'] = etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_min']  * 4
+    #etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_max'] = etrago.network.links.loc[etrago.dc_lines().index, 'p_nom_min']  * 4
     etrago.network.generators_t['p_max_pu'].mask(etrago.network.generators_t['p_max_pu']<0.001, 0, inplace=True)
 
 
@@ -532,7 +538,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    #etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
