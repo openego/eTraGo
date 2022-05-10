@@ -59,7 +59,7 @@ args = {
     'start_snapshot': 1,
     'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {}, # 'BarHomogeneous': 1},#'NumericFocus':2
+    'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
     'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -72,8 +72,8 @@ args = {
     'extendable': {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
         'upper_bounds_grid': {
-            'grid_max_D': 8, 
-            'grid_max_abs_D': None , 
+            'grid_max_D': None, 
+            'grid_max_abs_D': {'380': 1000, '220': 700, '110':500, 'dc':2000}, 
             'grid_max_foreign': 4, 
             'grid_max_abs_foreign': None}},
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -397,7 +397,7 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
-    etrago.network.storage_units.lifetime = np.inf # not a good value
+    etrago.network.storage_units.lifetime = np.inf
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
