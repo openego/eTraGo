@@ -258,8 +258,20 @@ class Etrago():
         self.crossborder_capacity()
 
         self.set_branch_capacity()
-
-        self.extendable(line_max=4)
+        
+        from math import sqrt
+        def snommax(i=1020, u=380, wires=4, circuits=4):
+            if u==380 or u==220:
+                cap_factor =  self.args['branch_capacity_factor']['eHV']
+            elif u==110:
+                cap_factor =  self.args['branch_capacity_factor']['HV']
+            s_nom_max = ((i*u*sqrt(3)*wires*circuits)/1000) *  cap_factor
+            return s_nom_max
+        
+        self.extendable(grid_max_D= None, 
+                        grid_max_abs_D= {'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0}, 
+                        grid_max_foreign=4, 
+                        grid_max_abs_foreign=None)
 
         self.convert_capital_costs()
 
