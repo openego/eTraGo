@@ -300,7 +300,7 @@ def strategies_links():
         "marginal_cost": np.mean,
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
-        "country": _make_consense_links,
+        "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean
     }
