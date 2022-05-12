@@ -31,6 +31,8 @@ import numpy as np
 import pandas as pd
 
 import time
+from math import sqrt
+
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -40,7 +42,13 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700, '110':500, 'dc':2000}, grid_max_foreign=4, grid_max_abs_foreign=None):
+def extendable(self, grid_max_D= None, 
+               grid_max_abs_D= {'380':{'i':1020, 'wires':4, 'circuits':4}, 
+                                '220':{'i':1020, 'wires':4, 'circuits':4}, 
+                                '110':{'i':1020, 'wires':4, 'circuits':2}, 
+                                'dc':0}, 
+               grid_max_foreign=4, 
+               grid_max_abs_foreign=None):
 
     """
     Function that sets selected components extendable
@@ -297,8 +305,11 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
     return network
 
+def snommax(i=1020, u=380, wires=4, circuits=4):
+    s_nom_max = ((i*u*sqrt(3)*wires*circuits)/1000)
+    return s_nom_max
 
-def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':500, 'dc':2000}):
+def line_max_abs(network, buses, line_max_abs= {'380':{'i':1020, 'wires':4, 'circuits':4}, '220':{'i':1020, 'wires':4, 'circuits':4}, '110':{'i':1020, 'wires':4, 'circuits':2}, 'dc':0}):
     # calculate the cables of the route between two buses
     cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
     cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
@@ -308,10 +319,18 @@ def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':5
     cables[cables3.index] = cables3
     cables[cables4.index] = cables4
     network.lines["total_cables"] = network.lines.apply(lambda x: cables[(x.bus0, x.bus1)], axis=1) 
-    s_nom_max_110 = line_max_abs['110'] * (network.lines["cables"]/network.lines["total_cables"])
-    s_nom_max_220 = line_max_abs['220'] \
+    s_nom_max_110 = snommax(u=110, i=line_max_abs['110']['i'], 
+                            wires=line_max_abs['110']['wires'], 
+                            circuits=line_max_abs['110']['circuits'])\
+                                * (network.lines["cables"]/
+                                   network.lines["total_cables"])
+    s_nom_max_220 = snommax(u=220, i=line_max_abs['220']['i'], 
+                            wires=line_max_abs['220']['wires'], 
+                            circuits=line_max_abs['220']['circuits']) \
                   * (network.lines["cables"]/network.lines["total_cables"])
-    s_nom_max_380 = line_max_abs['380'] \
+    s_nom_max_380 = snommax(u=380, i=line_max_abs['380']['i'], 
+                            wires=line_max_abs['380']['wires'], 
+                            circuits=line_max_abs['380']['circuits']) \
                   * (network.lines["cables"]/network.lines["total_cables"])
     # set the s_nom_max depending on the voltage level and the share of the route
     network.lines.loc[(network.lines.bus0.isin(buses.index)) &
@@ -349,6 +368,8 @@ def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':5
                   (network.lines.v_nom == 380.0)&
                   (network.lines.s_nom >= s_nom_max_380),
                   's_nom_max'] = network.lines.s_nom 
+    
+
 
 def transformer_max_abs(network, buses):
 
@@ -521,3 +542,4 @@ def print_expansion_costs(network):
         print(
             "Investment costs for all lines and transformers in selected snapshots [EUR]:",
             round(network_costs, 2))
+

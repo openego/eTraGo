@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'etrago',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -73,7 +73,10 @@ args = {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
         'upper_bounds_grid': {
             'grid_max_D': None, 
-            'grid_max_abs_D': {'380': 1000, '220': 700, '110':500, 'dc':2000}, 
+            'grid_max_abs_D': {'380':{'i':1020, 'wires':4, 'circuits':4}, 
+                               '220':{'i':1020, 'wires':4, 'circuits':4}, 
+                               '110':{'i':1020, 'wires':4, 'circuits':2}, 
+                               'dc':0}, 
             'grid_max_foreign': 4, 
             'grid_max_abs_foreign': None}},
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -82,7 +85,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 70, # number of resulting nodes
-        'n_clusters_gas': 30, # number of resulting nodes
+        'n_clusters_gas': 15, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
