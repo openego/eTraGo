@@ -69,7 +69,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
     extendable_settings = self.args["extendable"]
 
     
-    if not 'as_in_db' in extendable_settings["extendable_components"]:
+    if not 'as_in_db' in extendable_settings:
         network.lines.s_nom_extendable = False
         network.transformers.s_nom_extendable = False
         network.links.p_nom_extendable = False
@@ -134,7 +134,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'network' in extendable_settings["extendable_components"]:
+    if 'network' in extendable_settings:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
 
@@ -151,7 +151,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
                 network.links.carrier=='DC', 'p_nom_max'] = float("inf")
 
 
-    if 'german_network' in extendable_settings["extendable_components"]:
+    if 'german_network' in extendable_settings:
         buses = network.buses[network.buses.country=='DE']
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                           (network.lines.bus1.isin(buses.index)),
@@ -181,7 +181,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'foreign_network' in extendable_settings["extendable_components"]:
+    if 'foreign_network' in extendable_settings:
         buses = network.buses[network.buses.country!='DE']
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
@@ -210,13 +210,13 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'transformers' in extendable_settings["extendable_components"]:
+    if 'transformers' in extendable_settings:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
 
 
-    if 'storages' in extendable_settings["extendable_components"] or 'storage' in extendable_settings["extendable_components"]:
+    if 'storages' in extendable_settings or 'storage' in extendable_settings:
         if not network.storage_units.carrier[
                 network.storage_units.carrier.str.contains(
                     'extendable')].empty:
@@ -235,7 +235,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
                 (self.network.storage_units.max_hours == 168)] = \
                     'extendable_hydrogen_storage'
 
-    if 'foreign_storage' in extendable_settings["extendable_components"]:
+    if 'foreign_storage' in extendable_settings:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
             network.buses.index[network.buses.country != 'DE'])) & (
                 network.storage_units.carrier.isin(
@@ -271,7 +271,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
     # Extension settings for extension-NEP 2035 scenarios
-    if 'overlay_network' in extendable_settings["extendable_components"]:
+    if 'overlay_network' in extendable_settings:
         for i in range(len(self.args['scn_extension'])):
             network.lines.loc[network.lines.scn_name == (
                 'extension_' + self.args['scn_extension'][i]
