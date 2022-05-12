@@ -75,7 +75,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 30, # number of resulting nodes
-        'cluster_foreign_gas': False, # take foreign gas buses into account, True or False
+        'cluster_foreign_gas': True, # take foreign gas buses into account, True or False
         'n_clusters_gas': 30, # number of resulting nodes in specified region (only DE or DE+foreign); 
                             # Note: Number of resulting nodes depends on if foreign nodes are clustered.
                             # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
