@@ -86,7 +86,8 @@ def extendable(self, grid_max_D= None,
         network.generators.p_nom_extendable = False
         
     if not grid_max_abs_D==None:
-        buses = network.buses[network.buses.country=='DE']
+        buses = network.buses[(network.buses.country=='DE') 
+                              & (network.buses.carrier == 'AC')]
         
         line_max_abs(network=network, buses=buses,
                      line_max_abs=grid_max_abs_D)
@@ -98,7 +99,9 @@ def extendable(self, grid_max_D= None,
                   'p_nom_max'] = grid_max_abs_D['dc']
         
     if not grid_max_abs_foreign==None:
-        foreign_buses = network.buses[network.buses.country!='DE']
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
         line_max_abs(network=network, buses=foreign_buses,
                      line_max_abs=grid_max_abs_foreign)
         
@@ -110,7 +113,9 @@ def extendable(self, grid_max_D= None,
 
         
     if not grid_max_D == None:
-        buses = network.buses[network.buses.country=='DE']
+        buses = network.buses[(network.buses.country=='DE')
+                              & (network.buses.carrier == 'AC')]
+
         
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                     (network.lines.bus1.isin(buses.index)),
@@ -124,7 +129,9 @@ def extendable(self, grid_max_D= None,
           'p_nom_max'] = grid_max_D * network.links.p_nom
         
     if not grid_max_foreign==None:
-        foreign_buses = network.buses[network.buses.country!='DE']
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
         
         network.lines.loc[network.lines.bus0.isin(foreign_buses.index) |
                       network.lines.bus1.isin(foreign_buses.index),
