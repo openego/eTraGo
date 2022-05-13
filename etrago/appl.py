@@ -77,8 +77,8 @@ args = {
         'n_clusters': 30, # number of resulting nodes
         'cluster_foreign_gas': True, # take foreign gas buses into account, True or False
         'n_clusters_gas': 30, # number of resulting nodes in specified region (only DE or DE+foreign); 
-                            # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-                            # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
+                              # Note: Number of resulting nodes depends on if foreign nodes are clustered.
+                              # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -289,17 +289,20 @@ def run_etrago(args, json_path):
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : dict
-         {'active': True, 'n_clusters': 30, 'n_clusters_gas': 30,
-          'kmeans_busmap': False, 'line_length_factor': 1.25,
+         {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True, 
+         'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
           'remove_stubs': False, 'use_reduced_coordinates': False,
           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None, 'n_init': 10,
           'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
         generation and load at each node. ``'n_clusters_gas'`` refers to the
-        total amount of gas buses after clustering. Note, that the number of
-        gas buses of Germanies neighboring countries is not modified. in this
-        process.
+        total amount of gas buses after clustering in the specified region (only
+        Germany or Germany + neighboring countries). ``'cluster_foreign_gas'`` 
+        controls whether gas buses of Germanies neighboring countries are 
+        considered for clustering. Note, that this option influences the total
+        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
+        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.

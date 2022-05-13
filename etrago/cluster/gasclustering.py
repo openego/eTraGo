@@ -618,7 +618,7 @@ def kmean_clustering_gas_grid(etrago):
     ----------
     network : :class:`pypsa.Network
         Container for all network components.
-    cluster_abroad_gas : bool
+    cluster_foreign_gas : bool
         Controls if foreign gas nodes are considered for clustering
     n_clusters_gas : int
         Desired number of gas clusters. Note: The final number of gas clusters depends
