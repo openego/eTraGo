@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/foreignDC_70_06052022_skip3',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/foreignDC_200_12052022_skip3',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': ['as_in_db'],  # Array of components to optimize
     'generator_noise': 789456,  # apply generator noise, False or seed number
@@ -75,7 +75,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 70, # number of resulting nodes
+        'n_clusters': 200, # number of resulting nodes
         'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
@@ -461,7 +461,8 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    
+
+    etrago.network.generators_t.p_max_pu = etrago.network.generators_t.p_max_pu.transpose()[etrago.network.generators_t.p_max_pu.columns.isin(etrago.network.generators.index)].transpose() 
     # scale down generation facilities with respect to dropping additional loads
     scale_down = 518.2/633.8
 
@@ -492,6 +493,7 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
 
     # k-mean clustering
+    
     etrago.kmean_clustering()
 
     #etrago.kmean_clustering_gas()

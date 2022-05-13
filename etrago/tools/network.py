@@ -268,8 +268,8 @@ class Etrago():
             s_nom_max = ((i*u*sqrt(3)*wires*circuits)/1000) *  cap_factor
             return s_nom_max
         
-        self.extendable(grid_max_D= None, 
-                        grid_max_abs_D= {'380': snommax(), '220': snommax(u=220), '110':snommax(u=110,circuits=2), 'dc':0}, 
+        self.extendable(grid_max_D= 4, 
+                        grid_max_abs_D=None , 
                         grid_max_foreign=4, 
                         grid_max_abs_foreign=None)
 

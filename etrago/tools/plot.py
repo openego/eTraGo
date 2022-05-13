@@ -32,10 +32,10 @@ from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
 
-import cartopy
-import cartopy.crs as ccrs
-import cartopy.mpl.geoaxes
-import requests
+#import cartopy
+#import cartopy.crs as ccrs
+#import cartopy.mpl.geoaxes
+#import requests
 
 logger = logging.getLogger(__name__)
 
