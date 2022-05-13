@@ -67,7 +67,7 @@ args = {
     'scn_decommissioning': None,  # None or decommissioning scenario
     # Export options:
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results/foreignDC_200_13052022_skip3',  # save results as csv: False or /path/tofolder
+    'csv_export': 'results/foreignDC_200_13052022_skip3_dlr',  # save results as csv: False or /path/tofolder
     # Settings:
     'extendable': {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
@@ -419,8 +419,10 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    
-    etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
+   
+    etrago.network.generators_t.p_max_pu = etrago.network.generators_t.p_max_pu.transpose()[etrago.network.generators_t.p_max_pu.columns.isin(etrago.network.generators.index)].transpose() 
+    #turn off dlr
+    #etrago.network.lines_t.s_max_pu.drop(etrago.network.lines_t.s_max_pu.iloc[:,:], axis=1, inplace=True)
 
     from etrago.tools.utilities import drop_sectors
     
