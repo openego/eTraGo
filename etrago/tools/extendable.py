@@ -31,6 +31,8 @@ import numpy as np
 import pandas as pd
 
 import time
+from math import sqrt
+
 
 __copyright__ = ("Flensburg University of Applied Sciences, "
                  "Europa-Universität Flensburg, "
@@ -40,7 +42,13 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
-def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700, '110':500, 'dc':2000}, grid_max_foreign=4, grid_max_abs_foreign=None):
+def extendable(self, grid_max_D= None, 
+               grid_max_abs_D= {'380':{'i':1020, 'wires':4, 'circuits':4}, 
+                                '220':{'i':1020, 'wires':4, 'circuits':4}, 
+                                '110':{'i':1020, 'wires':4, 'circuits':2}, 
+                                'dc':0}, 
+               grid_max_foreign=4, 
+               grid_max_abs_foreign=None):
 
     """
     Function that sets selected components extendable
@@ -69,7 +77,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
     extendable_settings = self.args["extendable"]
 
     
-    if not 'as_in_db' in extendable_settings:
+    if not 'as_in_db' in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = False
         network.transformers.s_nom_extendable = False
         network.links.p_nom_extendable = False
@@ -78,7 +86,8 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
         network.generators.p_nom_extendable = False
         
     if not grid_max_abs_D==None:
-        buses = network.buses[network.buses.country=='DE']
+        buses = network.buses[(network.buses.country=='DE') 
+                              & (network.buses.carrier == 'AC')]
         
         line_max_abs(network=network, buses=buses,
                      line_max_abs=grid_max_abs_D)
@@ -90,7 +99,9 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
                   'p_nom_max'] = grid_max_abs_D['dc']
         
     if not grid_max_abs_foreign==None:
-        foreign_buses = network.buses[network.buses.country!='DE']
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
         line_max_abs(network=network, buses=foreign_buses,
                      line_max_abs=grid_max_abs_foreign)
         
@@ -102,7 +113,9 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
         
     if not grid_max_D == None:
-        buses = network.buses[network.buses.country=='DE']
+        buses = network.buses[(network.buses.country=='DE')
+                              & (network.buses.carrier == 'AC')]
+
         
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                     (network.lines.bus1.isin(buses.index)),
@@ -116,7 +129,9 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
           'p_nom_max'] = grid_max_D * network.links.p_nom
         
     if not grid_max_foreign==None:
-        foreign_buses = network.buses[network.buses.country!='DE']
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
         
         network.lines.loc[network.lines.bus0.isin(foreign_buses.index) |
                       network.lines.bus1.isin(foreign_buses.index),
@@ -134,7 +149,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'network' in extendable_settings:
+    if 'network' in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
 
@@ -151,7 +166,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
                 network.links.carrier=='DC', 'p_nom_max'] = float("inf")
 
 
-    if 'german_network' in extendable_settings:
+    if 'german_network' in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country=='DE']
         network.lines.loc[(network.lines.bus0.isin(buses.index)) &
                           (network.lines.bus1.isin(buses.index)),
@@ -181,7 +196,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'foreign_network' in extendable_settings:
+    if 'foreign_network' in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country!='DE']
         network.lines.loc[network.lines.bus0.isin(buses.index) |
                           network.lines.bus1.isin(buses.index),
@@ -210,13 +225,13 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
 
-    if 'transformers' in extendable_settings:
+    if 'transformers' in extendable_settings["extendable_components"]:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
         network.transformers.s_nom_max = float("inf")
 
 
-    if 'storages' in extendable_settings or 'storage' in extendable_settings:
+    if 'storages' in extendable_settings["extendable_components"] or 'storage' in extendable_settings["extendable_components"]:
         if not network.storage_units.carrier[
                 network.storage_units.carrier.str.contains(
                     'extendable')].empty:
@@ -235,7 +250,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
                 (self.network.storage_units.max_hours == 168)] = \
                     'extendable_hydrogen_storage'
 
-    if 'foreign_storage' in extendable_settings:
+    if 'foreign_storage' in extendable_settings["extendable_components"]:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
             network.buses.index[network.buses.country != 'DE'])) & (
                 network.storage_units.carrier.isin(
@@ -271,7 +286,7 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
 
     # Extension settings for extension-NEP 2035 scenarios
-    if 'overlay_network' in extendable_settings:
+    if 'overlay_network' in extendable_settings["extendable_components"]:
         for i in range(len(self.args['scn_extension'])):
             network.lines.loc[network.lines.scn_name == (
                 'extension_' + self.args['scn_extension'][i]
@@ -297,8 +312,11 @@ def extendable(self, grid_max_D= None, grid_max_abs_D= {'380': 1000, '220': 700,
 
     return network
 
+def snommax(i=1020, u=380, wires=4, circuits=4):
+    s_nom_max = ((i*u*sqrt(3)*wires*circuits)/1000)
+    return s_nom_max
 
-def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':500, 'dc':2000}):
+def line_max_abs(network, buses, line_max_abs= {'380':{'i':1020, 'wires':4, 'circuits':4}, '220':{'i':1020, 'wires':4, 'circuits':4}, '110':{'i':1020, 'wires':4, 'circuits':2}, 'dc':0}):
     # calculate the cables of the route between two buses
     cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
     cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
@@ -308,10 +326,18 @@ def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':5
     cables[cables3.index] = cables3
     cables[cables4.index] = cables4
     network.lines["total_cables"] = network.lines.apply(lambda x: cables[(x.bus0, x.bus1)], axis=1) 
-    s_nom_max_110 = line_max_abs['110'] * (network.lines["cables"]/network.lines["total_cables"])
-    s_nom_max_220 = line_max_abs['220'] \
+    s_nom_max_110 = snommax(u=110, i=line_max_abs['110']['i'], 
+                            wires=line_max_abs['110']['wires'], 
+                            circuits=line_max_abs['110']['circuits'])\
+                                * (network.lines["cables"]/
+                                   network.lines["total_cables"])
+    s_nom_max_220 = snommax(u=220, i=line_max_abs['220']['i'], 
+                            wires=line_max_abs['220']['wires'], 
+                            circuits=line_max_abs['220']['circuits']) \
                   * (network.lines["cables"]/network.lines["total_cables"])
-    s_nom_max_380 = line_max_abs['380'] \
+    s_nom_max_380 = snommax(u=380, i=line_max_abs['380']['i'], 
+                            wires=line_max_abs['380']['wires'], 
+                            circuits=line_max_abs['380']['circuits']) \
                   * (network.lines["cables"]/network.lines["total_cables"])
     # set the s_nom_max depending on the voltage level and the share of the route
     network.lines.loc[(network.lines.bus0.isin(buses.index)) &
@@ -349,6 +375,8 @@ def line_max_abs(network, buses, line_max_abs= {'380': 1000, '220': 700, '110':5
                   (network.lines.v_nom == 380.0)&
                   (network.lines.s_nom >= s_nom_max_380),
                   's_nom_max'] = network.lines.s_nom 
+    
+
 
 def transformer_max_abs(network, buses):
 
@@ -521,3 +549,4 @@ def print_expansion_costs(network):
         print(
             "Investment costs for all lines and transformers in selected snapshots [EUR]:",
             round(network_costs, 2))
+

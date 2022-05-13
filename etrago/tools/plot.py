@@ -1498,7 +1498,7 @@ def plot_grid(self,
     if disaggregated:
         network = self.disaggregated_network.copy()
     else:
-        network = self.copy()
+        network = self.network.copy()
 
     # Set colors for plotting
     plotting_colors(network)
