@@ -71,14 +71,19 @@ args = {
     # Settings:
     'extendable': {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
-        'upper_bounds_grid': {
-            'grid_max_D': None, 
-            'grid_max_abs_D': {'380':{'i':1020, 'wires':4, 'circuits':4}, 
-                               '220':{'i':1020, 'wires':4, 'circuits':4}, 
-                               '110':{'i':1020, 'wires':4, 'circuits':2}, 
-                               'dc':0}, 
-            'grid_max_foreign': 4, 
-            'grid_max_abs_foreign': None}},
+        'upper_bounds_grid': { # Set upper bounds for grid expansion
+            # lines in Germany
+            'grid_max_D': None, # relative to existing capacity 
+            'grid_max_abs_D': { # absolute capacity per voltage level
+                '380':{'i':1020, 'wires':4, 'circuits':4},
+                '220':{'i':1020, 'wires':4, 'circuits':4},
+                '110':{'i':1020, 'wires':4, 'circuits':2},
+                'dc':0}, 
+            # border crossing lines
+            'grid_max_foreign': 4, # relative to existing capacity 
+            'grid_max_abs_foreign': None  # absolute capacity per voltage level
+            }
+        },
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -232,9 +237,20 @@ def run_etrago(args, json_path):
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
 
-    extendable : list
+    extendable : dict
+        {'extendable_components': ['as_in_db'],
+            'upper_bounds_grid': { 
+                'grid_max_D': None,
+                'grid_max_abs_D': {
+                    '380':{'i':1020, 'wires':4, 'circuits':4},
+                    '220':{'i':1020, 'wires':4, 'circuits':4},
+                    '110':{'i':1020, 'wires':4, 'circuits':2},
+                    'dc':0},
+                'grid_max_foreign': 4, 
+                'grid_max_abs_foreign': None}},
         ['network', 'storages'],
-        Choose components you want to optimize.
+        Choose components you want to optimize and set upper bounds for grid expansion.
+        The list 'extendable_components' defines a set of components to optimize. 
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
@@ -251,6 +267,12 @@ def run_etrago(args, json_path):
                         the flexibility demand.
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
+        Upper bounds for grid expansion can be set for lines in Germany can be
+        defined relative to the existing capacity using 'grid_max_D'. 
+        Alternatively, absolute maximum capacities between two buses can be
+        defined per voltage level using 'grid_max_abs_D'. 
+        Upper bounds for bordercrossing lines can be defined accrodingly 
+        using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
         State if you want to apply a small random noise to the marginal costs
