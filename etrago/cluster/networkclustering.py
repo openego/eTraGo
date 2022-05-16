@@ -261,7 +261,7 @@ def strategies_one_ports():
             "e_nom": np.sum,
             "e_nom_min": np.sum,
             "e_nom_max": np.sum,
-            "e_initial": np.mean,
+            "e_initial": np.sum,
         },
     }
 
