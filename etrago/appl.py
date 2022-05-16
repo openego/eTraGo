@@ -90,7 +90,7 @@ args = {
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
         'n_clusters': 70, # number of resulting nodes
-        'n_clusters_gas': 15, # number of resulting nodes
+        'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -131,8 +131,8 @@ args = {
     'skip_snapshots': 3, # False or number of snapshots to skip
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'DC', # 'DC' for modeling foreign lines as links
-                      'capacity': 'tyndp2020'}, # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
+    'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
+                      'capacity': 'osmTGmod'}, # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     'comments': None}
 
 
