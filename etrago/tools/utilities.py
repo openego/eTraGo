@@ -1530,8 +1530,6 @@ def crossborder_capacity(self):
             .transform(lambda x: x / x.sum())
             .fillna(0.0)
         )
-        
-        #import pdb; pdb.set_trace()
 
         for country in cap_per_country:
 
