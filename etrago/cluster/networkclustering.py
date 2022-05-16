@@ -89,10 +89,10 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
-
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
+        "Li ion": "BEV charger"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -261,6 +261,7 @@ def strategies_one_ports():
             "e_nom": np.sum,
             "e_nom_min": np.sum,
             "e_nom_max": np.sum,
+            "e_initial": np.sum,
         },
     }
 
