@@ -264,7 +264,10 @@ class Etrago():
 
         self.set_branch_capacity()
 
-        self.extendable(line_max=4)
+        self.extendable(grid_max_D= self.args["extendable"]['upper_bounds_grid']['grid_max_D'], 
+                        grid_max_abs_D= self.args["extendable"]['upper_bounds_grid']['grid_max_abs_D'], 
+                        grid_max_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_foreign'], 
+                        grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
 

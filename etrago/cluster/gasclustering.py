@@ -20,6 +20,7 @@ if "READTHEDOCS" not in os.environ:
     )
     from six import iteritems
 
+    from etrago.cluster.networkclustering import strategies_links
     from etrago.tools.utilities import *
 
 
@@ -45,8 +46,7 @@ def create_gas_busmap(etrago):
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
     num_neighboring_country = (
-        (network_ch4.buses["carrier"] == "CH4")
-        & (network_ch4.buses["country"] != "DE")
+        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] != "DE")
     ).sum()
 
     # Cluster ch4 buses
@@ -55,15 +55,15 @@ def create_gas_busmap(etrago):
     if num_neighboring_country >= kmean_gas_settings["n_clusters_gas"]:
         msg = (
             "The number of clusters for the gas sector ("
-            + str(kmean_gas_settings["n_clusters_gas"]) +
-            ") must be higher than the number of neighboring contry gas buses ("
-            + str(num_neighboring_country) + ")."
+            + str(kmean_gas_settings["n_clusters_gas"])
+            + ") must be higher than the number of neighboring contry gas buses ("
+            + str(num_neighboring_country)
+            + ")."
         )
         raise ValueError(msg)
 
     network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4")
-        & (network_ch4.buses["country"] == "DE")
+        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
     ]
 
     def weighting_for_scenario(x, save=None):
@@ -95,22 +95,25 @@ def create_gas_busmap(etrago):
     # Creation of the busmap
 
     if not kmean_gas_settings["kmeans_gas_busmap"]:
-        
+
         busmap_ch4 = busmap_by_kmeans(
-        network_ch4,
-        bus_weightings=weight_ch4_s,
-        n_clusters=kmean_gas_settings["n_clusters_gas"] - num_neighboring_country - 1,
-        n_init=kmean_gas_settings["n_init"],
-        max_iter=kmean_gas_settings["max_iter"],
-        tol=kmean_gas_settings["tol"],
+            network_ch4,
+            bus_weightings=weight_ch4_s,
+            n_clusters=kmean_gas_settings["n_clusters_gas"]
+            - num_neighboring_country,
+            n_init=kmean_gas_settings["n_init"],
+            max_iter=kmean_gas_settings["max_iter"],
+            tol=kmean_gas_settings["tol"],
         )
-        
+
         busmap_ch4.to_csv(
-            "kmeans_ch4_busmap_" + str(kmean_gas_settings["n_clusters_gas"]) + "_result.csv"
+            "kmeans_ch4_busmap_"
+            + str(kmean_gas_settings["n_clusters_gas"])
+            + "_result.csv"
         )
-   
+
     else:
-        
+
         df = pd.read_csv(kmean_gas_settings["kmeans_gas_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
@@ -152,9 +155,7 @@ def create_gas_busmap(etrago):
 
     # Add all other buses except H2_ind_load to busmap
     missing_idx = list(
-        etrago.network.buses[
-            (~etrago.network.buses.index.isin(busmap.index))
-        ].index
+        etrago.network.buses[(~etrago.network.buses.index.isin(busmap.index))].index
     )
     next_bus_id = highestInteger(etrago.network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
@@ -164,22 +165,31 @@ def create_gas_busmap(etrago):
     busmap = pd.Series(busmap_values, index=busmap_idx)
 
     if etrago.args["sector_coupled_clustering"]["active"]:
-        for name, data in etrago.args["sector_coupled_clustering"]["carrier_data"].items():
+        for name, data in etrago.args["sector_coupled_clustering"][
+            "carrier_data"
+        ].items():
 
-            strategy = data['strategy']
+            strategy = data["strategy"]
             if strategy == "consecutive":
                 busmap_sector_coupling = consecutive_sector_coupling(
-                    etrago.network, busmap, data["base"], name,
+                    etrago.network,
+                    busmap,
+                    data["base"],
+                    name,
                 )
             elif strategy == "simultaneous":
                 if len(data["base"]) < 2:
                     msg = (
-                        "To apply simultaneous clustering for the " + name +
-                        " buses, at least 2 base buses must be selected."
+                        "To apply simultaneous clustering for the "
+                        + name
+                        + " buses, at least 2 base buses must be selected."
                     )
                     raise ValueError(msg)
                 busmap_sector_coupling = simultaneous_sector_coupling(
-                    etrago.network, busmap, data["base"], name,
+                    etrago.network,
+                    busmap,
+                    data["base"],
+                    name,
                 )
             else:
                 msg = (
@@ -257,7 +267,9 @@ def simultaneous_sector_coupling(network, busmap, carrier_based, carrier_to_clus
     next_bus_id = highestInteger(busmap.values) + 1
     buses_clustered = network.buses[network.buses["carrier"].isin(carrier_based)]
     buses_to_cluster = network.buses[network.buses["carrier"] == carrier_to_cluster]
-    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_cluster + '_store']
+    buses_to_skip = network.buses[
+        network.buses["carrier"] == carrier_to_cluster + "_store"
+    ]
 
     connected_links = network.links.loc[
         network.links["bus0"].isin(buses_clustered.index)
@@ -267,8 +279,12 @@ def simultaneous_sector_coupling(network, busmap, carrier_based, carrier_to_clus
     ]
 
     busmap = busmap.to_dict()
-    connected_links["bus0_clustered"] = connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
-    connected_links["bus1_clustered"] = connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+    connected_links["bus0_clustered"] = (
+        connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
+    )
+    connected_links["bus1_clustered"] = (
+        connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+    )
 
     # cluster sector coupling technologies
     busmap = sc_multi_carrier_based(buses_to_cluster, connected_links)
@@ -276,16 +292,23 @@ def simultaneous_sector_coupling(network, busmap, carrier_based, carrier_to_clus
 
     # cluster appedices
     skipped_links = network.links.loc[
-        (network.links["bus1"].isin(buses_to_skip.index)
-        & network.links["bus0"].isin(buses_to_cluster.index))
-        |
-        (network.links["bus0"].isin(buses_to_cluster.index)
-        & network.links["bus1"].isin(buses_to_skip.index))
+        (
+            network.links["bus1"].isin(buses_to_skip.index)
+            & network.links["bus0"].isin(buses_to_cluster.index)
+        )
+        | (
+            network.links["bus0"].isin(buses_to_cluster.index)
+            & network.links["bus1"].isin(buses_to_skip.index)
+        )
     ]
 
     # map skipped buses after clustering
-    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap).fillna(skipped_links["bus0"])
-    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap).fillna(skipped_links["bus1"])
+    skipped_links["bus0_clustered"] = (
+        skipped_links["bus0"].map(busmap).fillna(skipped_links["bus0"])
+    )
+    skipped_links["bus1_clustered"] = (
+        skipped_links["bus1"].map(busmap).fillna(skipped_links["bus1"])
+    )
 
     busmap_series = pd.Series(busmap)
     next_bus_id = highestInteger(busmap_series.values) + 1
@@ -293,10 +316,14 @@ def simultaneous_sector_coupling(network, busmap, carrier_based, carrier_to_clus
     # create clusters for skipped buses
     clusters = busmap_series.unique()
     for i in range(len(clusters)):
-        buses = skipped_links.loc[skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"]
+        buses = skipped_links.loc[
+            skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"
+        ]
         for bus_id in buses:
             busmap[bus_id] = next_bus_id + i
-        buses = skipped_links.loc[skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"]
+        buses = skipped_links.loc[
+            skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"
+        ]
         for bus_id in buses:
             busmap[bus_id] = next_bus_id + i
 
@@ -328,7 +355,9 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
         Busmap for the sector coupling cluster.
     """
     next_bus_id = highestInteger(busmap.values) + 1
-    buses_to_skip = network.buses[network.buses["carrier"] == carrier_to_cluster + '_store']
+    buses_to_skip = network.buses[
+        network.buses["carrier"] == carrier_to_cluster + "_store"
+    ]
     buses_to_cluster = network.buses[network.buses["carrier"] == carrier_to_cluster]
     buses_clustered = network.buses[network.buses["carrier"] == carrier_based[0]]
     busmap_sc = {}
@@ -336,7 +365,9 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
     for base in carrier_based:
 
         # remove already clustered buses
-        buses_to_cluster = buses_to_cluster[~buses_to_cluster.index.isin(busmap_sc.keys())]
+        buses_to_cluster = buses_to_cluster[
+            ~buses_to_cluster.index.isin(busmap_sc.keys())
+        ]
         buses_clustered = network.buses[network.buses["carrier"] == base]
 
         connected_links = network.links.loc[
@@ -346,8 +377,12 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
             & ~network.links["bus0"].isin(buses_to_skip.index)
         ]
 
-        connected_links["bus0_clustered"] = connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
-        connected_links["bus1_clustered"] = connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+        connected_links["bus0_clustered"] = (
+            connected_links["bus0"].map(busmap).fillna(connected_links["bus0"])
+        )
+        connected_links["bus1_clustered"] = (
+            connected_links["bus1"].map(busmap).fillna(connected_links["bus1"])
+        )
 
         # cluster sector coupling technologies
         busmap_by_base = sc_single_carrier_based(connected_links)
@@ -362,24 +397,30 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
     buses_to_cluster = buses_to_cluster[~buses_to_cluster.index.isin(busmap_sc.keys())]
 
     if len(buses_to_cluster) > 0:
-        msg = (
-            "The following buses are not added to any cluster: " +
-            str(buses_to_cluster.index)
+        msg = "The following buses are not added to any cluster: " + str(
+            buses_to_cluster.index
         )
         logger.warning(msg)
 
     # cluster appedices
     skipped_links = network.links.loc[
-        (network.links["bus1"].isin(buses_to_skip.index)
-        & network.links["bus0"].isin(busmap_sc.keys()))
-        |
-        (network.links["bus0"].isin(busmap_sc.keys())
-        & network.links["bus1"].isin(buses_to_skip.index))
+        (
+            network.links["bus1"].isin(buses_to_skip.index)
+            & network.links["bus0"].isin(busmap_sc.keys())
+        )
+        | (
+            network.links["bus0"].isin(busmap_sc.keys())
+            & network.links["bus1"].isin(buses_to_skip.index)
+        )
     ]
 
     # map skipped buses after clustering
-    skipped_links["bus0_clustered"] = skipped_links["bus0"].map(busmap_sc).fillna(skipped_links["bus0"])
-    skipped_links["bus1_clustered"] = skipped_links["bus1"].map(busmap_sc).fillna(skipped_links["bus1"])
+    skipped_links["bus0_clustered"] = (
+        skipped_links["bus0"].map(busmap_sc).fillna(skipped_links["bus0"])
+    )
+    skipped_links["bus1_clustered"] = (
+        skipped_links["bus1"].map(busmap_sc).fillna(skipped_links["bus1"])
+    )
 
     busmap_series = pd.Series(busmap_sc)
     next_bus_id = highestInteger(busmap_series.values) + 1
@@ -387,10 +428,14 @@ def consecutive_sector_coupling(network, busmap, carrier_based, carrier_to_clust
     # create clusters for skipped buses
     clusters = busmap_series.unique()
     for i in range(len(clusters)):
-        buses = skipped_links.loc[skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"]
+        buses = skipped_links.loc[
+            skipped_links["bus0_clustered"] == clusters[i], "bus1_clustered"
+        ]
         for bus_id in buses:
             busmap_sc[bus_id] = next_bus_id + i
-        buses = skipped_links.loc[skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"]
+        buses = skipped_links.loc[
+            skipped_links["bus1_clustered"] == clusters[i], "bus0_clustered"
+        ]
         for bus_id in buses:
             busmap_sc[bus_id] = next_bus_id + i
 
@@ -419,8 +464,7 @@ def sc_multi_carrier_based(buses_to_cluster, connected_links):
         clusters.loc[bus_id] = tuple(
             sorted(
                 connected_links.loc[
-                    connected_links["bus1_clustered"] == bus_id,
-                    "bus0_clustered"
+                    connected_links["bus1_clustered"] == bus_id, "bus0_clustered"
                 ].tolist()
             )
         )
@@ -526,13 +570,8 @@ def get_clustering_from_busmap(
 
     new_links["link_id"] = new_links.index
 
-    strategies = {
-        "p_nom": "sum",
-        "length": "mean",
-    }
-    strategies.update(
-        {col: "first" for col in new_links.columns if col not in strategies}
-    )
+    strategies = strategies_links()
+    strategies["link_id"] = "first"
 
     # aggregate CH4 pipelines
     # pipelines are treated differently compared to other links, since all of
@@ -542,15 +581,21 @@ def get_clustering_from_busmap(
     # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
     pipelines = new_links.loc[new_links["carrier"] == "CH4"]
 
-    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
-    pipeline_combinations.reset_index(drop=True, inplace=True)
-    pipeline_combinations["buscombination"] = pipeline_combinations[["bus0", "bus1"]].apply(
-        lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1
+    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(
+        strategies
     )
+    pipeline_combinations.reset_index(drop=True, inplace=True)
+    pipeline_combinations["buscombination"] = pipeline_combinations[
+        ["bus0", "bus1"]
+    ].apply(lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1)
     pipeline_strategies = strategies.copy()
     pipeline_strategies.update(
         {col: "first" for col in pipeline_combinations.columns if col not in strategies}
     )
+    # the order of buses for pipelines can be ignored, since the pipelines are
+    # working bidirectionally
+    pipeline_strategies["bus0"] = "first"
+    pipeline_strategies["bus1"] = "first"
     pipelines_final = pipeline_combinations.groupby(["buscombination", "carrier"]).agg(
         pipeline_strategies
     )
@@ -593,6 +638,8 @@ def kmean_clustering_gas_grid(etrago):
     -------
     network : pypsa.Network object
         Container for the gas network components.
+    busmap : dict
+        Maps old bus_ids to new bus_ids including all sectors.
     """
 
     gas_busmap = create_gas_busmap(etrago)
@@ -639,7 +686,7 @@ def kmean_clustering_gas_grid(etrago):
 
     network_gasgrid_c.determine_network_topology()
 
-    return network_gasgrid_c
+    return (network_gasgrid_c, gas_busmap)
 
 
 def run_kmeans_clustering_gas(self):
@@ -649,7 +696,10 @@ def run_kmeans_clustering_gas(self):
         self.network.generators.control = "PV"
 
         logger.info("Start k-mean clustering GAS")
-        self.network = kmean_clustering_gas_grid(self)
+        self.network, busmap = kmean_clustering_gas_grid(self)
+
+        self.update_busmap(busmap)    
+        
         logger.info(
             "GAS Network clustered to {} buses with k-means algorithm.".format(
                 self.args["network_clustering_kmeans"]["n_clusters_gas"]

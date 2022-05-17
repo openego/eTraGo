@@ -89,10 +89,10 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
-
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
+        "Li ion": "BEV charger"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -261,6 +261,7 @@ def strategies_one_ports():
             "e_nom": np.sum,
             "e_nom_min": np.sum,
             "e_nom_max": np.sum,
+            "e_initial": np.sum,
         },
     }
 
@@ -299,7 +300,7 @@ def strategies_links():
         "marginal_cost": np.mean,
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
-        "country": _make_consense_links,
+        "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
     }
@@ -388,6 +389,8 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     -------
     network : pypsa.Network
         Container for all network components of the clustered network.
+    busmap : dict
+        Maps old bus_ids to new bus_ids including all sectors.
     """
 
     network_c = Network()
@@ -483,7 +486,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return network_c.copy()
+    return (network_c.copy(), busmap)
 
 
 def graph_from_edges(edges):
@@ -762,9 +765,11 @@ def ehv_clustering(self):
 
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
-        self.network = cluster_on_extra_high_voltage(
+        self.network, busmap = cluster_on_extra_high_voltage(
             self.network, busmap, with_time=True
         )
+
+        self.update_busmap(busmap)
         logger.info("Network clustered to EHV-grid")
 
 
@@ -1004,7 +1009,7 @@ def kmean_clustering(etrago):
         clustering.network
     )
 
-    return clustering
+    return (clustering, busmap)
 
 
 def select_elec_network(etrago):
@@ -1059,7 +1064,9 @@ def run_kmeans_clustering(self):
 
         logger.info("Start k-mean clustering")
 
-        self.clustering = kmean_clustering(self)
+        self.clustering, busmap = kmean_clustering(self)
+
+        self.update_busmap(busmap)
 
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()

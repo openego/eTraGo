@@ -366,11 +366,18 @@ def foreign_links(self):
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
 
         network.links.loc[foreign_links.index, "efficiency"] = 1
+        
+        network.links.loc[foreign_links.index, "carrier"] = "DC"
 
         network.import_components_from_dataframe(
             foreign_lines.loc[:, ["bus0", "bus1", "capital_cost", "length"]]
             .assign(p_nom=foreign_lines.s_nom)
+            .assign(p_nom_min=foreign_lines.s_nom_min)
+            .assign(p_nom_max=foreign_lines.s_nom_max)
+            .assign(p_nom_extendable=foreign_lines.s_nom_extendable)
+            .assign(p_max_pu=foreign_lines.s_max_pu)
             .assign(p_min_pu=-1)
+            .assign(carrier="DC")
             .set_index("N" + foreign_lines.index),
             "Link",
         )
@@ -1385,7 +1392,72 @@ def set_line_country_tags(network):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
+def crossborder_capacity_tyndp2020():
+    
+    from urllib.request import urlretrieve
+    import zipfile
 
+    path = "TYNDP-2020-Scenario-Datafile.xlsx"
+
+    urlretrieve("https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip"
+                , path)
+
+    file = zipfile.ZipFile(path)
+
+    df = pd.read_excel(
+        file.open("TYNDP-2020-Scenario-Datafile.xlsx").read(),
+        sheet_name="Line")
+
+    df = df[
+            (df.Scenario == 'Distributed Energy')
+            & (df.Case == "Reference Grid")
+            & (df.Year == 2040)
+            & (df["Climate Year"] == 1984)
+            & ((df.Parameter == "Import Capacity") |
+               (df.Parameter == "Export Capacity"))
+            ]
+
+    df["country0"] = df["Node/Line"].str[:2]
+
+    df["country1"] = df["Node/Line"].str[5:7]
+
+    c_export = df[df.Parameter=="Export Capacity"].groupby(["country0", "country1"]).Value.sum()
+
+    c_import = df[df.Parameter=="Import Capacity"].groupby(["country0", "country1"]).Value.sum()
+
+    capacities = pd.DataFrame(index = c_export.index, 
+                              data = {"export": c_export.abs(),
+                                      "import": c_import.abs()}).reset_index()
+
+    with_de = capacities[(capacities.country0 == 'DE')
+                         & (capacities.country1 != 'DE')].set_index('country1')[
+                             ["export", "import"]]
+
+    with_de = with_de.append(
+        capacities[(capacities.country0 != 'DE')
+                         & (capacities.country1 == 'DE')].set_index('country0')[
+                             ["export", "import"]])
+              
+    countries = ['DE', 'DK', 'NL', 'CZ', 'PL', 'AT', 'CH', 'FR', 'LU', 'BE',
+           'GB', 'NO', 'SE']
+
+    without_de = capacities[(capacities.country0 != 'DE')
+                         & (capacities.country1 != 'DE')
+                         & (capacities.country0.isin(countries))
+                         & (capacities.country1.isin(countries))
+                         & (capacities.country1 != capacities.country0)]
+
+    without_de["country"] = without_de.country0+without_de.country1
+
+    without_de.set_index("country", inplace=True)
+
+    without_de = without_de[["export", "import"]].fillna(0.)
+
+    return {**without_de.min(axis=1).to_dict(), 
+                       **with_de.min(axis=1).to_dict()}
+    
+    
+    
 def crossborder_capacity(self):
     """
     Adjust interconnector capacties.
@@ -1432,11 +1504,15 @@ def crossborder_capacity(self):
 
         elif self.args["foreign_lines"]["capacity"] == "thermal_acer":
             cap_per_country = {"CH": 12000, "DK": 4000, "SEDK": 3500, "DKSE": 3500}
+            
+        elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
+            
+            cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
             logger.info(
                 "args['foreign_lines']['capacity'] has to be "
-                "in ['osmTGmod', 'ntc_acer', 'thermal_acer']"
+                "in ['osmTGmod', 'ntc_acer', 'thermal_acer', 'tyndp2020']"
             )
 
         if not network.lines[network.lines.country != "DE"].empty:
@@ -1651,7 +1727,7 @@ def drop_sectors(self, drop_carriers):
 
 def update_busmap(self, new_busmap):
     """
-    Update busmap after clustering processes
+    Update busmap after any clustering processes
 
     Parameters
     ----------
@@ -1664,47 +1740,11 @@ def update_busmap(self, new_busmap):
 
     """
     
-    if self.args["network_clustering_ehv"] == True:
-        ehv_busmap = pd.read_csv("ehv_elecgrid_busmap_result.csv")
-
-    kmean_settings = self.args["network_clustering_kmeans"]
-    if self.args["network_clustering_kmeans"]["active"] == True:
-        if kmean_settings["kmeans_busmap"] == False:
-            elec_kbusmap = pd.read_csv(
-                f"kmeans_elecgrid_busmap_{str(kmean_settings['n_clusters'])}_result.csv"
-            )
-        else:
-            elec_kbusmap = pd.read_csv(
-                kmean_settings["kmeans_busmap"],
-            )
-        if kmean_settings["kmeans_gas_busmap"] == False:
-            gas_kbusmap = pd.read_csv(
-                f"kmeans_gasgrid_busmap_{str(kmean_settings['n_clusters_gas'])}_result.csv",
-            )
-        else:
-            gas_kbusmap = pd.read_csv(kmean_settings["kmeans_gas_busmap"],
-                                      index_col= "bus0")
-        
-        gas_kbusmap = dict(zip(gas_kbusmap["bus0"], gas_kbusmap["bus1"]))
-        kbusmap = elec_kbusmap.copy()
-        kbusmap["bus1"] = kbusmap["bus1"].map(gas_kbusmap)        
-
-    if (self.args["network_clustering_ehv"] == True) & (
-        kmean_settings["active"] == False
-    ):
-        return ehv_busmap
-    
-    if (self.args["network_clustering_ehv"] == False) & (
-        kmean_settings["active"] == True
-    ):
-        return kbusmap
-    
-    if (self.args["network_clustering_ehv"] == True) & (
-        kmean_settings["active"] == True
-    ):
-        kbusmap = dict(zip(kbusmap["bus0"], kbusmap["bus1"]))
-        ehv_and_kmean = ehv_busmap.copy()
-        ehv_and_kmean["bus1"] = ehv_and_kmean["bus1"].map(kbusmap)   
-        return ehv_and_kmean
+    if not self.busmap:
+        self.busmap = new_busmap
     else:
-        print("No network clustering method was used")
+        for key in self.busmap.keys():
+            try:
+                self.busmap[key] = new_busmap[self.busmap[key]]
+            except:
+                print(f"bus {key} can not be mapped")
