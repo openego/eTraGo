@@ -1053,7 +1053,7 @@ def run_kmeans_clustering(self):
 
         self.network = self.clustering.network.copy()
 
-        buses_by_country(self.network)
+        buses_by_country(self)
 
         self.geolocation_buses()
 
