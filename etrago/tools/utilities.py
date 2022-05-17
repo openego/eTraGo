@@ -1648,3 +1648,63 @@ def drop_sectors(self, drop_carriers):
             two_port.df[
                 ~two_port.df.bus1.isin(self.network.buses.index)].index,
             )
+
+def update_busmap(self, new_busmap):
+    """
+    Update busmap after clustering processes
+
+    Parameters
+    ----------
+    new_busmap : dictionary
+        busmap used to clusted the network.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    if self.args["network_clustering_ehv"] == True:
+        ehv_busmap = pd.read_csv("ehv_elecgrid_busmap_result.csv")
+
+    kmean_settings = self.args["network_clustering_kmeans"]
+    if self.args["network_clustering_kmeans"]["active"] == True:
+        if kmean_settings["kmeans_busmap"] == False:
+            elec_kbusmap = pd.read_csv(
+                f"kmeans_elecgrid_busmap_{str(kmean_settings['n_clusters'])}_result.csv"
+            )
+        else:
+            elec_kbusmap = pd.read_csv(
+                kmean_settings["kmeans_busmap"],
+            )
+        if kmean_settings["kmeans_gas_busmap"] == False:
+            gas_kbusmap = pd.read_csv(
+                f"kmeans_gasgrid_busmap_{str(kmean_settings['n_clusters_gas'])}_result.csv",
+            )
+        else:
+            gas_kbusmap = pd.read_csv(kmean_settings["kmeans_gas_busmap"],
+                                      index_col= "bus0")
+        
+        gas_kbusmap = dict(zip(gas_kbusmap["bus0"], gas_kbusmap["bus1"]))
+        kbusmap = elec_kbusmap.copy()
+        kbusmap["bus1"] = kbusmap["bus1"].map(gas_kbusmap)        
+
+    if (self.args["network_clustering_ehv"] == True) & (
+        kmean_settings["active"] == False
+    ):
+        return ehv_busmap
+    
+    if (self.args["network_clustering_ehv"] == False) & (
+        kmean_settings["active"] == True
+    ):
+        return kbusmap
+    
+    if (self.args["network_clustering_ehv"] == True) & (
+        kmean_settings["active"] == True
+    ):
+        kbusmap = dict(zip(kbusmap["bus0"], kbusmap["bus1"]))
+        ehv_and_kmean = ehv_busmap.copy()
+        ehv_and_kmean["bus1"] = ehv_and_kmean["bus1"].map(kbusmap)   
+        return ehv_and_kmean
+    else:
+        print("No network clustering method was used")
