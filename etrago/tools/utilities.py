@@ -1648,3 +1648,8 @@ def drop_sectors(self, drop_carriers):
             two_port.df[
                 ~two_port.df.bus1.isin(self.network.buses.index)].index,
             )
+
+
+def add_gas_bus(self):
+    #blablabla
+    self.network.buses.loc['1','x'] = 3

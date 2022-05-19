@@ -28,6 +28,7 @@ import datetime
 import os
 import os.path
 import numpy as np
+from tools.utilities import drop_sectors
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -45,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'egon-data_af4_francesco',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -74,9 +75,9 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 30, # number of resulting nodes
-        'cluster_foreign_gas': True, # take foreign gas buses into account, True or False
-        'n_clusters_gas': 30, # number of resulting nodes in specified region (only DE or DE+foreign); 
+        'n_clusters': 15, # number of resulting nodes
+        'cluster_foreign_gas': False, # take foreign gas buses into account, True or False
+        'n_clusters_gas': 5, # number of resulting nodes in specified region (only DE or DE+foreign); 
                               # Note: Number of resulting nodes depends on if foreign nodes are clustered.
                               # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
         'kmeans_busmap': False, # False or path/to/busmap.csv
@@ -411,28 +412,40 @@ def run_etrago(args, json_path):
     # Set marginal costs for gas feed-in
     etrago.network.generators.marginal_cost[
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
-
-    # ehv network clustering
+    
+    
+    # # drop sectors
+    # to_drop = [i for i in etrago.network.buses['carrier'].unique() if i not in ('AC', 'CH4')]
+    # etrago.drop_sectors(to_drop)
+    
+    etrago.export_to_csv("unclustered_test_af4")
+    # # ehv network clustering
     etrago.ehv_clustering()
 
-    # k-mean clustering
+    etrago.export_to_csv("ehv_clustered_test_af4")
+
+    # # k-mean clustering
     etrago.kmean_clustering()
+    etrago.export_to_csv("AC_clustered_test_af4")
+    # etrago.network.export_to_csv_folder("AC_clustered_test_ci_dump")
 
-    etrago.kmean_clustering_gas()
+    
+    #etrago.kmean_clustering_gas()
+    #etrago.export_to_csv("CH4_clustered_test_af4")
+    # etrago.network.export_to_csv_folder("CH4_clustered_test_ci_dump")
+    # etrago.args['load_shedding']=True
+    # etrago.load_shedding()
 
-    etrago.args['load_shedding']=True
-    etrago.load_shedding()
+    # # skip snapshots
+    # etrago.skip_snapshots()
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # # snapshot clustering
+    # # needs to be adjusted for new sectors
+    # etrago.snapshot_clustering()
 
-    # snapshot clustering
-    # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
-
-    # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
-    etrago.lopf()
+    # # start linear optimal powerflow calculations
+    # # needs to be adjusted for new sectors
+    # etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
@@ -445,6 +458,7 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     # needs to be adjusted for new sectors
     # etrago.calc_results()
+    
 
     return etrago
 
