@@ -337,7 +337,6 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
         return x/x.sum() if x.sum(skipna=False) > 0 else pd.Series(1./len(x), x.index)
     
     weighting = links.p_nom.groupby(grouper, axis=0).transform(normed_or_uniform)
-    links['capital_cost'] *= weighting
     strategies = strategies_links()    
     strategies.update(cus_strateg)
     new_df = links.groupby(grouper, axis=0).agg(strategies)
