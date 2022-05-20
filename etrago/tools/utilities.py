@@ -1734,3 +1734,25 @@ def drop_sectors(self, drop_carriers):
             two_port.df[
                 ~two_port.df.bus1.isin(self.network.buses.index)].index,
             )
+
+
+def update_busmap(self, new_busmap):
+    """
+    Update busmap after any clustering process
+    Parameters
+    ----------
+    new_busmap : dictionary
+        busmap used to clusted the network.
+    Returns
+    -------
+    None.
+    """
+    
+    if not self.busmap:
+        self.busmap = new_busmap
+    else:
+        for key in self.busmap.keys():
+            try:
+                self.busmap[key] = new_busmap[self.busmap[key]]
+            except:
+                print(f"bus {key} can not be mapped")

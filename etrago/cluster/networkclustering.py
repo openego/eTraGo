@@ -275,7 +275,7 @@ def strategies_generators():
         "p_nom_opt": np.sum,
         "marginal_cost": np.mean,
         "capital_cost": np.mean,
-        "e_nom_max": np.max,
+        #"e_nom_max": np.max,
     }
 
 
@@ -387,11 +387,16 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     -------
     network : pypsa.Network
         Container for all network components of the clustered network.
+    busmap : dict
+        Maps old bus_ids to new bus_ids including all sectors.
     """
 
     network_c = Network()
 
     network, busmap = adjust_no_electric_network(network, busmap, cluster_met="ehv")
+    
+    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+    "ehv_elecgrid_busmap_result.csv", index=False,)
 
     buses = aggregatebuses(
         network,
@@ -477,7 +482,7 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return network_c.copy()
+    return (network_c.copy(), busmap)
 
 
 def graph_from_edges(edges):
@@ -756,9 +761,12 @@ def ehv_clustering(self):
 
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
-        self.network = cluster_on_extra_high_voltage(
+        self.network, busmap = cluster_on_extra_high_voltage(
             self.network, busmap, with_time=True
         )
+        
+        self.update_busmap(busmap)
+        
         logger.info("Network clustered to EHV-grid")
 
 
@@ -965,8 +973,7 @@ def kmean_clustering(etrago):
             tol=kmean_settings["tol"],
         )
         busmap.to_csv(
-            "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"
-        )
+            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv")
     else:
         df = pd.read_csv(kmean_settings["kmeans_busmap"])
         df = df.astype(str)
@@ -974,6 +981,10 @@ def kmean_clustering(etrago):
         busmap = df.squeeze("columns")
 
     network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")
+    
+    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+    "kmeans_elecgrid_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv",
+    index=False,)
 
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
@@ -992,7 +1003,7 @@ def kmean_clustering(etrago):
     clustering.network.links, clustering.network.links_t =\
         group_links(clustering.network)
 
-    return clustering
+    return (clustering, busmap)
 
 
 def select_elec_network(etrago):
@@ -1047,7 +1058,9 @@ def run_kmeans_clustering(self):
 
         logger.info("Start k-mean clustering")
 
-        self.clustering = kmean_clustering(self)
+        self.clustering, busmap = kmean_clustering(self)
+
+        self.update_busmap(busmap)
 
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
