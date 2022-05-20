@@ -275,6 +275,7 @@ def strategies_generators():
         "p_nom_opt": np.sum,
         "marginal_cost": np.mean,
         "capital_cost": np.mean,
+        "e_nom_max": np.max,
     }
 
 
