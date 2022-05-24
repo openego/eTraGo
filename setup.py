@@ -34,7 +34,8 @@ setup(
                       'pypsa == 0.19.1',
                       'setuptools >= 54.2.0',
                       'geopandas',
-                      'rtree'],
+                      'rtree',
+                      'cartopy'],
     extras_require={
         'docs': [
             'sphinx >= 1.4',
