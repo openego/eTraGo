@@ -89,10 +89,10 @@ def adjust_no_electric_network(network, busmap, cluster_met):
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
-
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
+        "Li ion": "BEV charger"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -261,6 +261,7 @@ def strategies_one_ports():
             "e_nom": np.sum,
             "e_nom_min": np.sum,
             "e_nom_max": np.sum,
+            "e_initial": np.sum,
         },
     }
 
@@ -274,6 +275,7 @@ def strategies_generators():
         "p_nom_opt": np.sum,
         "marginal_cost": np.mean,
         "capital_cost": np.mean,
+        "e_nom_max": np.max,
     }
 
 
@@ -299,7 +301,7 @@ def strategies_links():
         "marginal_cost": np.mean,
         "terrain_factor": _make_consense_links,
         "p_nom_opt": np.mean,
-        "country": _make_consense_links,
+        "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
     }
@@ -1407,7 +1409,7 @@ def run_spatial_clustering(self):
 
         self.network = self.clustering.network.copy()
 
-        buses_by_country(self.network)
+        buses_by_country(self)
 
         self.geolocation_buses()
 
