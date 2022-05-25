@@ -75,8 +75,9 @@ def _leading(busmap, df):
     return leader
 
 
-def adjust_no_electric_network(network, busmap, cluster_met):
-
+def adjust_no_electric_network(etrago, busmap, cluster_met):
+    
+    network = etrago.network.copy()
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
     network2.buses = network2.buses[
@@ -106,7 +107,16 @@ def adjust_no_electric_network(network, busmap, cluster_met):
     # busmap2 maps all the no electrical buses to the new buses based on the
     # eHV network
     busmap2 = {}
-
+    
+    # Map crossborder AC buses in case that they were not part of the k-mean clustering
+    if (not(etrago.args["network_clustering_kmeans"]["cluster_foreign_AC"]) &
+        (cluster_met == "k-mean")):
+        buses_orig = network.buses.copy()
+        ac_buses_out = buses_orig[(buses_orig["country"] != "DE") &
+                                  (buses_orig["carrier"] == "AC")]
+        for bus_out in ac_buses_out.index:
+            busmap2[bus_out] = bus_out
+    
     for bus_ne in network2.buses.index:
         bus_hv = -1
         carry = network2.buses.loc[bus_ne, "carrier"]
@@ -367,7 +377,7 @@ def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
     return new_df, new_pnl
 
 
-def cluster_on_extra_high_voltage(network, busmap, with_time=True):
+def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     """Main function of the EHV-Clustering approach. Creates a new clustered
     pypsa.Network given a busmap mapping all bus_ids to other bus_ids of the
     same network.
@@ -387,11 +397,10 @@ def cluster_on_extra_high_voltage(network, busmap, with_time=True):
     -------
     network : pypsa.Network
         Container for all network components of the clustered network.
-    """
-
+    """  
     network_c = Network()
 
-    network, busmap = adjust_no_electric_network(network, busmap, cluster_met="ehv")
+    network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="ehv")
 
     buses = aggregatebuses(
         network,
@@ -757,7 +766,7 @@ def ehv_clustering(self):
         self.network.generators.control = "PV"
         busmap = busmap_from_psql(self)
         self.network = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=True
+            self, busmap, with_time=True
         )
         logger.info("Network clustered to EHV-grid")
 
@@ -804,6 +813,7 @@ def kmean_clustering(etrago):
     network = etrago.network
     kmean_settings = etrago.args["network_clustering_kmeans"]
 
+
     def weighting_for_scenario(x, save=None):
         """ """
         # define weighting based on conventional 'old' generator spatial
@@ -843,7 +853,6 @@ def kmean_clustering(etrago):
         b_i = x.index
         g = normed(gen.reindex(b_i, fill_value=0))
         l = normed(load.reindex(b_i, fill_value=0))
-
         w = g + l
         weight = ((w * (100000.0 / w.max())).astype(int)).reindex(
             elec_network.buses.index, fill_value=1
@@ -973,7 +982,9 @@ def kmean_clustering(etrago):
         df = df.set_index("Bus")
         busmap = df.squeeze("columns")
 
-    network, busmap = adjust_no_electric_network(network, busmap, cluster_met="k-mean")
+    etrago.network = network.copy()
+    network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="k-mean")
+    
 
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
@@ -988,7 +999,7 @@ def kmean_clustering(etrago):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=kmean_settings["line_length_factor"],
     )
-    
+
     clustering.network.links, clustering.network.links_t =\
         group_links(clustering.network)
 
@@ -998,10 +1009,15 @@ def kmean_clustering(etrago):
 def select_elec_network(etrago):
 
     elec_network = etrago.network.copy()
-    elec_network.buses = elec_network.buses[elec_network.buses.carrier == "AC"]
-    elec_network.links = elec_network.links[
-        (elec_network.links.carrier == "AC") | (elec_network.links.carrier == "DC")
-    ]
+    if etrago.args["network_clustering_kmeans"]["cluster_foreign_AC"]:
+        elec_network.buses = elec_network.buses[elec_network.buses.carrier == "AC"]
+        elec_network.links = elec_network.links[
+            (elec_network.links.carrier == "AC") | (elec_network.links.carrier == "DC")
+        ]
+    else:
+        elec_network.buses = elec_network.buses[(elec_network.buses.carrier == "AC") &
+                                                (elec_network.buses.country == "DE")]
+
     # Dealing with generators
     elec_network.generators = elec_network.generators[
         elec_network.generators.bus.isin(elec_network.buses.index)

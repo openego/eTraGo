@@ -89,6 +89,7 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
+        'cluster_foreign_AC': True, # take foreign AC buses into account, True or False
         'n_clusters': 70, # number of resulting nodes
         'n_clusters_gas': 30, # number of resulting nodes
         'kmeans_busmap': False, # False or path/to/busmap.csv
@@ -119,7 +120,7 @@ args = {
         },
     },
     'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
+    'disaggregation': None,  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
         'method':'typical_periods', # 'typical_periods' or 'segmentation'
@@ -441,7 +442,7 @@ def run_etrago(args, json_path):
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 
