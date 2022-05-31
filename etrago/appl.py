@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data_af4_francesco',  # database session
+    'db': 'egon-data_testmode_dump',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -414,19 +414,19 @@ def run_etrago(args, json_path):
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
     
     
-    # # drop sectors
-    # to_drop = [i for i in etrago.network.buses['carrier'].unique() if i not in ('AC', 'CH4')]
-    # etrago.drop_sectors(to_drop)
+    # # # drop sectors
+    # # to_drop = [i for i in etrago.network.buses['carrier'].unique() if i not in ('AC', 'CH4')]
+    # # etrago.drop_sectors(to_drop)
     
-    etrago.export_to_csv("unclustered_test_af4")
-    # # ehv network clustering
-    etrago.ehv_clustering()
+    # etrago.export_to_csv("unclustered_test_af4")
+    # # # ehv network clustering
+    # etrago.ehv_clustering()
 
-    etrago.export_to_csv("ehv_clustered_test_af4")
+    # etrago.export_to_csv("ehv_clustered_test_af4")
 
-    # # k-mean clustering
-    etrago.kmean_clustering()
-    etrago.export_to_csv("AC_clustered_test_af4")
+    # # # k-mean clustering
+    # etrago.kmean_clustering()
+    # etrago.export_to_csv("AC_clustered_test_af4")
     # etrago.network.export_to_csv_folder("AC_clustered_test_ci_dump")
 
     
