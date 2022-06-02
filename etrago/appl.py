@@ -89,9 +89,9 @@ args = {
     # Clustering:
     'network_clustering': {
         'active': True, # choose if clustering is activated
-        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters': 30, # number of resulting nodes
-        'n_clusters_gas': 5, # number of resulting nodes in Germany
+        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
+        'n_clusters': 70, # number of resulting nodes
+        'n_clusters_gas': 30, # number of resulting nodes in Germany
         'kmeans_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -460,7 +460,6 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
 
     etrago.kmean_clustering_gas()
-    
 
     etrago.args['load_shedding']=True
     etrago.load_shedding()
