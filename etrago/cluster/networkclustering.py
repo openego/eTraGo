@@ -1166,7 +1166,7 @@ def kmedoids_dijkstra_clustering(etrago):
         Container for all network components.
     """
 
-    network = etrago.network.copy()
+    network = etrago.network
     settings = etrago.args["network_clustering"]
 
     def weighting_for_scenario(x, save=None):
@@ -1274,7 +1274,6 @@ def kmedoids_dijkstra_clustering(etrago):
 
     network.buses["v_nom"] = 380.0
 
-    etrago.network = network.copy()
     network_elec = select_elec_network(etrago)
     lines_col = network_elec.lines.columns
 
@@ -1287,7 +1286,7 @@ def kmedoids_dijkstra_clustering(etrago):
     )
     lines_plus_dc = lines_plus_dc[lines_col]
     network_elec.lines = lines_plus_dc.copy()
-    network.lines["carrier"] = "AC"
+    network_elec.lines["carrier"] = "AC"
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -1360,14 +1359,15 @@ def kmedoids_dijkstra_clustering(etrago):
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
+    
+    network, busmap = adjust_no_electric_network(
+        network, busmap, cluster_met="Dijkstra"
+    )
 
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
 
-    network, busmap = adjust_no_electric_network(
-        network, busmap, cluster_met="Dijkstra"
-    )
     clustering = get_clustering_from_busmap(
         network,
         busmap,
@@ -1379,10 +1379,12 @@ def kmedoids_dijkstra_clustering(etrago):
     )
 
     for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
-        bus = int(i)
-        medoid = str(medoid_idx.loc[bus])
-        clustering.network.buses["x"].iloc[bus] = network.buses["x"].loc[medoid]
-        clustering.network.buses["y"].iloc[bus] = network.buses["y"].loc[medoid]
+        cluster = int(i)
+        medoid = str(medoid_idx.loc[cluster])
+        clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
+        clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
+        
+    clustering.network.links, clustering.network.links_t = group_links(clustering.network)
 
     return clustering
 
