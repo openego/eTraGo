@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data_testmode_dump',  # database session
+    'db': 'egon-data_ci_dump',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -75,9 +75,9 @@ args = {
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
-        'n_clusters': 15, # number of resulting nodes
+        'n_clusters': 30, # number of resulting nodes
         'cluster_foreign_gas': False, # take foreign gas buses into account, True or False
-        'n_clusters_gas': 5, # number of resulting nodes in specified region (only DE or DE+foreign); 
+        'n_clusters_gas':30, # number of resulting nodes in specified region (only DE or DE+foreign); 
                               # Note: Number of resulting nodes depends on if foreign nodes are clustered.
                               # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
         'kmeans_busmap': False, # False or path/to/busmap.csv
@@ -86,7 +86,7 @@ args = {
         'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
-        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+        'bus_weight_fromcsv': 'network_ch4_test_weights.csv', # None or path/to/bus_weight.csv
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
@@ -373,7 +373,8 @@ def run_etrago(args, json_path):
     etrago = Etrago(args, json_path)
 
     # import network from database
-    etrago.build_network_from_db()
+    etrago.network.import_from_csv_folder("ci_dump_unclustered")
+    #etrago.build_network_from_db()
     etrago.network.lines.type = ''
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
@@ -413,28 +414,29 @@ def run_etrago(args, json_path):
     etrago.network.generators.marginal_cost[
         etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
     
-    
+    #etrago.export_to_csv('ci_dump_unclustered')
     # # # drop sectors
     # # to_drop = [i for i in etrago.network.buses['carrier'].unique() if i not in ('AC', 'CH4')]
     # # etrago.drop_sectors(to_drop)
     
     # etrago.export_to_csv("unclustered_test_af4")
     # # # ehv network clustering
-    # etrago.ehv_clustering()
+    #etrago.ehv_clustering()
 
     # etrago.export_to_csv("ehv_clustered_test_af4")
 
     # # # k-mean clustering
-    # etrago.kmean_clustering()
+    #etrago.kmean_clustering()
     # etrago.export_to_csv("AC_clustered_test_af4")
     # etrago.network.export_to_csv_folder("AC_clustered_test_ci_dump")
-
+    #etrago.export_to_csv('ci_dump_AC_clustered')
     
-    #etrago.kmean_clustering_gas()
-    #etrago.export_to_csv("CH4_clustered_test_af4")
+    etrago.kmean_clustering_gas()
+    etrago.export_to_csv("ci_dump_gas_saved_weighted_clustered_30")
     # etrago.network.export_to_csv_folder("CH4_clustered_test_ci_dump")
     # etrago.args['load_shedding']=True
     # etrago.load_shedding()
+    #etrago.export_to_csv('weighted_kmean_clustering_gas_ci_dump_asasdfasdfasdf')
 
     # # skip snapshots
     # etrago.skip_snapshots()
