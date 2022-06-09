@@ -213,17 +213,17 @@ def buses_by_country(etrago):
 
     #read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = etrago.engine    
+    con = etrago.engine
     germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
-   
+
     path = gpd.datasets.get_path("naturalearth_lowres")
     shapes = gpd.read_file(path)
     shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
-    
+
     #Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
-        
+
     geobuses = etrago.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
@@ -376,7 +376,7 @@ def foreign_links(self):
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
 
         network.links.loc[foreign_links.index, "efficiency"] = 1
-        
+
         network.links.loc[foreign_links.index, "carrier"] = "DC"
 
         network.import_components_from_dataframe(
@@ -1403,7 +1403,7 @@ def set_line_country_tags(network):
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
 def crossborder_capacity_tyndp2020():
-    
+
     from urllib.request import urlretrieve
     import zipfile
 
@@ -1435,7 +1435,7 @@ def crossborder_capacity_tyndp2020():
 
     c_import = df[df.Parameter=="Import Capacity"].groupby(["country0", "country1"]).Value.sum()
 
-    capacities = pd.DataFrame(index = c_export.index, 
+    capacities = pd.DataFrame(index = c_export.index,
                               data = {"export": c_export.abs(),
                                       "import": c_import.abs()}).reset_index()
 
@@ -1447,7 +1447,7 @@ def crossborder_capacity_tyndp2020():
         capacities[(capacities.country0 != 'DE')
                          & (capacities.country1 == 'DE')].set_index('country0')[
                              ["export", "import"]])
-              
+
     countries = ['DE', 'DK', 'NL', 'CZ', 'PL', 'AT', 'CH', 'FR', 'LU', 'BE',
            'GB', 'NO', 'SE']
 
@@ -1463,11 +1463,11 @@ def crossborder_capacity_tyndp2020():
 
     without_de = without_de[["export", "import"]].fillna(0.)
 
-    return {**without_de.min(axis=1).to_dict(), 
+    return {**without_de.min(axis=1).to_dict(),
                        **with_de.min(axis=1).to_dict()}
-    
-    
-    
+
+
+
 def crossborder_capacity(self):
     """
     Adjust interconnector capacties.
@@ -1514,9 +1514,9 @@ def crossborder_capacity(self):
 
         elif self.args["foreign_lines"]["capacity"] == "thermal_acer":
             cap_per_country = {"CH": 12000, "DK": 4000, "SEDK": 3500, "DKSE": 3500}
-            
+
         elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
-            
+
             cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
@@ -1664,20 +1664,64 @@ def check_args(etrago):
 
     if etrago.args["snapshot_clustering"]["active"] != False:
 
-        assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 24 == 0, (
-            "Please select snapshots covering whole days when choosing "
-            "snapshot clustering"
-        )
+        # typical periods
 
-        if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
-            assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
-                24 * etrago.args["snapshot_clustering"]["n_clusters"]
-            ), "Number of selected days is smaller than number of representative snapshots"
+        if etrago.args["snapshot_clustering"]["method"] == 'typical_periods':
+
+            # typical days
+
+            if etrago.args["snapshot_clustering"]["how"] == 'daily':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 24 == 0, (
+                    "Please select snapshots covering whole days when choosing "
+                    "clustering to typical days"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        24 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is is too small for chosen number of typical days"
+
+            # typical weeks
+
+            if etrago.args["snapshot_clustering"]["how"] == 'weekly':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 168 == 0, (
+                    "Please select snapshots covering whole weeks when choosing "
+                    "clustering to typical weeks"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        168 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is too small for chosen number of typical weeks"
+
+            # typical months
+
+            if etrago.args["snapshot_clustering"]["how"] == 'monthly':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 720 == 0, (
+                    "Please select snapshots covering whole months when choosing "
+                    "clustering to typical months"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        720 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is too small for chosen number of typical months"
+
+        # segmentation
 
         elif etrago.args["snapshot_clustering"]["method"] == "segmentation":
             assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
+
+        if not etrago.args['method']['pyomo']:
+            logger.warning("Snapshot clustering constraints are "
+                           "not yet correctly implemented without pyomo. "
+                           "args['method']['pyomo'] is set to True.")
+            etrago.args['method']['pyomo'] = True
 
     if not etrago.args["method"]["pyomo"]:
         try:
