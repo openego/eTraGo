@@ -12,16 +12,12 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa.io as io
-    from pypsa import Network
-    from pypsa.networkclustering import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-    )
-    from six import iteritems
-
     from etrago.cluster.networkclustering import strategies_links
     from etrago.tools.utilities import *
+    from pypsa import Network
+    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
+                                         busmap_by_kmeans)
+    from six import iteritems
 
 
 def create_gas_busmap(etrago):
@@ -66,7 +62,6 @@ def create_gas_busmap(etrago):
         (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
     ]
 
-
     # def weighting_for_scenario(x, save=None):
     #     """ """
     #     # TODO to be redefined
@@ -78,18 +73,17 @@ def create_gas_busmap(etrago):
 
     #     return weight
 
-
     def weighting_for_scenario(ch4_buses, save=None):
         """
-        Calculate CH4-bus weightings dependant on the connected 
-        CH4-loads, CH4-generators and non-transport link capacities. 
+        Calculate CH4-bus weightings dependant on the connected
+        CH4-loads, CH4-generators and non-transport link capacities.
         Stores are not considered for the clustering.
 
         Parameters
         ----------
         ch4_buses : pandas.DataFrame
             Dataframe with CH4 etrago.network.buses to weight.
-        save: path   
+        save: path
             Path to save weightings to as .csv
         Returns
         -------
@@ -98,24 +92,29 @@ def create_gas_busmap(etrago):
         """
 
         to_neglect = [
-            'CH4',
-            'H2_to_CH4',
-            'CH4_to_H2',
-            'H2_feedin',
+            "CH4",
+            "H2_to_CH4",
+            "CH4_to_H2",
+            "H2_feedin",
         ]
 
         # get all non-transport and non-H2 related links for each bus
         rel_links = {}
         for i in ch4_buses.index:
             rel_links[i] = etrago.network.links.loc[
-                (etrago.network.links.bus0.isin([i])
-                | etrago.network.links.bus1.isin([i]))
-                & ~etrago.network.links.carrier.isin(to_neglect)].index
+                (
+                    etrago.network.links.bus0.isin([i])
+                    | etrago.network.links.bus1.isin([i])
+                )
+                & ~etrago.network.links.carrier.isin(to_neglect)
+            ].index
 
         # get all generators and loads related to ch4_buses
-        generators_ = pd.Series(etrago.network.generators.index, index = etrago.network.generators.bus)
+        generators_ = pd.Series(
+            etrago.network.generators.index, index=etrago.network.generators.bus
+        )
         buses_CH4_gen = generators_.index.intersection(rel_links.keys())
-        loads_ = pd.Series(etrago.network.loads.index, index = etrago.network.loads.bus)
+        loads_ = pd.Series(etrago.network.loads.index, index=etrago.network.loads.bus)
         buses_CH4_load = loads_.index.intersection(rel_links.keys())
 
         # sum up all relevant entities and cast to integer
@@ -123,18 +122,21 @@ def create_gas_busmap(etrago):
         for i in rel_links:
             rel_links[i] = etrago.network.links.loc[rel_links[i]].p_nom.sum()
             if i in buses_CH4_gen:
-                rel_links[i] += etrago.network.generators.loc[generators_.loc[i]].p_nom.sum()
+                rel_links[i] += etrago.network.generators.loc[
+                    generators_.loc[i]
+                ].p_nom.sum()
             if i in buses_CH4_load:
-                rel_links[i] += etrago.network.loads_t.p_set.loc[:,loads_.loc[i]].mean().sum()
+                rel_links[i] += (
+                    etrago.network.loads_t.p_set.loc[:, loads_.loc[i]].mean().sum()
+                )
             rel_links[i] = int(rel_links[i])
 
-        weightings = pd.DataFrame.from_dict(rel_links, orient='index')
+        weightings = pd.DataFrame.from_dict(rel_links, orient="index")
 
         if save:
             weightings.to_csv(save)
 
         return weightings
-
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -158,8 +160,7 @@ def create_gas_busmap(etrago):
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
             bus_weightings=weight_ch4_s,
-            n_clusters=kmean_gas_settings["n_clusters_gas"]
-            - num_neighboring_country,
+            n_clusters=kmean_gas_settings["n_clusters_gas"] - num_neighboring_country,
             n_init=kmean_gas_settings["n_init"],
             max_iter=kmean_gas_settings["max_iter"],
             tol=kmean_gas_settings["tol"],
