@@ -62,17 +62,6 @@ def create_gas_busmap(etrago):
         (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
     ]
 
-    # def weighting_for_scenario(x, save=None):
-    #     """ """
-    #     # TODO to be redefined
-    #     b_i = x.index
-    #     weight = pd.DataFrame([1] * len(b_i), index=b_i)
-
-    #     if save:
-    #         weight.to_csv(save)
-
-    #     return weight
-
     def weighting_for_scenario(ch4_buses, save=None):
         """
         Calculate CH4-bus weightings dependant on the connected
