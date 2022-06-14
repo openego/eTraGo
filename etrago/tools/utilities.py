@@ -1751,8 +1751,4 @@ def update_busmap(self, new_busmap):
     if not self.busmap:
         self.busmap = new_busmap
     else:
-        for key in self.busmap.keys():
-            try:
-                self.busmap[key] = new_busmap[self.busmap[key]]
-            except:
-                print(f"bus {key} can not be mapped")
+        self.busmap = pd.Series(self.busmap).map(new_busmap).to_dict()
