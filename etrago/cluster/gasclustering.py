@@ -12,12 +12,16 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     import pypsa.io as io
+    from pypsa import Network
+    from pypsa.networkclustering import (
+        aggregatebuses,
+        aggregateoneport,
+        busmap_by_kmeans,
+    )
+    from six import iteritems
+
     from etrago.cluster.networkclustering import strategies_links
     from etrago.tools.utilities import *
-    from pypsa import Network
-    from pypsa.networkclustering import (aggregatebuses, aggregateoneport,
-                                         busmap_by_kmeans)
-    from six import iteritems
 
 
 def create_gas_busmap(etrago):
