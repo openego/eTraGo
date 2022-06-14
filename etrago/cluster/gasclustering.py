@@ -146,8 +146,14 @@ def create_gas_busmap(etrago):
             save="network_ch4_" + kmean_gas_settings["bus_weight_tocsv"],
         )
     elif kmean_gas_settings["bus_weight_fromcsv"] is not None:
-        weight_ch4 = pd.Series.from_csv(kmean_gas_settings["bus_weight_fromcsv"])
-        weight_ch4.index = weight_ch4.index.astype(str)
+        # create DataFrame with uniform weightings for all ch4_buses
+        weight_ch4 = pd.DataFrame([1] * len(buses_ch4), index=buses_ch4.index)
+        loaded_weights = pd.read_csv(
+            kmean_gas_settings["bus_weight_fromcsv"], index_col=0
+        )
+        # load weights into previously created DataFrame
+        loaded_weights.index = loaded_weights.index.astype(str)
+        weight_ch4.loc[loaded_weights.index] = loaded_weights
     else:
         weight_ch4 = weighting_for_scenario(network_ch4.buses, save=False)
 
