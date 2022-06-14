@@ -38,6 +38,7 @@ setup(
         "oedialect",
         "tilemapbase == 0.4.5",
         "pypsa == 0.19.1",
+        "pyomo < 4.6.1",
         "setuptools >= 54.2.0",
         "geopandas",
         "rtree",
