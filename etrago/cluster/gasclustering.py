@@ -264,7 +264,7 @@ def create_gas_busmap(etrago):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
+    df_bm = pd.DataFrame(busmap.items(), columns=["bus0", "bus1"])
     df_bm.to_csv(
         "kmeans_gasgrid_busmap_"
         + str(kmean_gas_settings["n_clusters_gas"])
@@ -698,6 +698,8 @@ def kmean_clustering_gas_grid(etrago):
     -------
     network : pypsa.Network object
         Container for the gas network components.
+    busmap : dict
+        Maps old bus_ids to new bus_ids including all sectors.
     """
 
     gas_busmap = create_gas_busmap(etrago)
@@ -744,7 +746,7 @@ def kmean_clustering_gas_grid(etrago):
 
     network_gasgrid_c.determine_network_topology()
 
-    return network_gasgrid_c
+    return (network_gasgrid_c, gas_busmap)
 
 
 def run_kmeans_clustering_gas(self):
@@ -754,7 +756,10 @@ def run_kmeans_clustering_gas(self):
         self.network.generators.control = "PV"
 
         logger.info("Start k-mean clustering GAS")
-        self.network = kmean_clustering_gas_grid(self)
+        self.network, busmap = kmean_clustering_gas_grid(self)
+
+        self.update_busmap(busmap)
+        
         logger.info(
             "GAS Network clustered to {} buses with k-means algorithm.".format(
                 self.args["network_clustering_kmeans"]["n_clusters_gas"]

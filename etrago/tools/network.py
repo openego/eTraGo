@@ -48,7 +48,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     filter_links_by_carrier,
                                     set_line_costs,
                                     set_trafo_costs,
-                                    drop_sectors)
+                                    drop_sectors,
+                                    update_busmap)
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.gasclustering import run_kmeans_clustering_gas
@@ -109,6 +110,8 @@ class Etrago():
         self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
+        
+        self.busmap = {}
 
         if args is not None:
 
@@ -204,6 +207,8 @@ class Etrago():
     set_trafo_costs = set_trafo_costs
     
     drop_sectors = drop_sectors
+    
+    update_busmap = update_busmap
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
