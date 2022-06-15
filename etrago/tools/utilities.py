@@ -179,14 +179,14 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(network):
+def buses_by_country(etrago):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    etrago : Etrago object
         Overall container of PyPSA
 
     Returns
@@ -195,7 +195,6 @@ def buses_by_country(network):
     """
 
     countries = {
-        "Germany": "DE",
         "Poland": "PL",
         "Czechia": "CZ",
         "Denmark": "DK",
@@ -209,12 +208,23 @@ def buses_by_country(network):
         "United Kingdom": "GB",
         "Norway": "NO",
         "Finland": "FI",
+        "Germany": "DE",
     }
 
+    #read Germany borders from egon-data
+    query = "SELECT * FROM boundaries.vg250_lan"
+    con = etrago.engine    
+    germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
+   
     path = gpd.datasets.get_path("naturalearth_lowres")
     shapes = gpd.read_file(path)
     shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
-    geobuses = network.buses.copy()
+    
+    #Use Germany borders from egon-data if not using the SH test case
+    if len(germany_sh.gen.unique()) > 1:
+        shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
+        
+    geobuses = etrago.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
     )
@@ -223,7 +233,7 @@ def buses_by_country(network):
 
     for country in countries:
         geobuses["country"][
-            network.buses.index.isin(
+            etrago.network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -236,9 +246,9 @@ def buses_by_country(network):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    network.buses = geobuses.drop(columns="geom")
+    etrago.network.buses = geobuses.drop(columns="geom")
 
-    buses_country = network.buses["country"].copy()
+    buses_country = etrago.network.buses["country"].copy()
 
     return buses_country
 
@@ -366,11 +376,18 @@ def foreign_links(self):
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
 
         network.links.loc[foreign_links.index, "efficiency"] = 1
+        
+        network.links.loc[foreign_links.index, "carrier"] = "DC"
 
         network.import_components_from_dataframe(
             foreign_lines.loc[:, ["bus0", "bus1", "capital_cost", "length"]]
             .assign(p_nom=foreign_lines.s_nom)
+            .assign(p_nom_min=foreign_lines.s_nom_min)
+            .assign(p_nom_max=foreign_lines.s_nom_max)
+            .assign(p_nom_extendable=foreign_lines.s_nom_extendable)
+            .assign(p_max_pu=foreign_lines.s_max_pu)
             .assign(p_min_pu=-1)
+            .assign(carrier="DC")
             .set_index("N" + foreign_lines.index),
             "Link",
         )
@@ -1385,7 +1402,72 @@ def set_line_country_tags(network):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
+def crossborder_capacity_tyndp2020():
+    
+    from urllib.request import urlretrieve
+    import zipfile
 
+    path = "TYNDP-2020-Scenario-Datafile.xlsx"
+
+    urlretrieve("https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip"
+                , path)
+
+    file = zipfile.ZipFile(path)
+
+    df = pd.read_excel(
+        file.open("TYNDP-2020-Scenario-Datafile.xlsx").read(),
+        sheet_name="Line")
+
+    df = df[
+            (df.Scenario == 'Distributed Energy')
+            & (df.Case == "Reference Grid")
+            & (df.Year == 2040)
+            & (df["Climate Year"] == 1984)
+            & ((df.Parameter == "Import Capacity") |
+               (df.Parameter == "Export Capacity"))
+            ]
+
+    df["country0"] = df["Node/Line"].str[:2]
+
+    df["country1"] = df["Node/Line"].str[5:7]
+
+    c_export = df[df.Parameter=="Export Capacity"].groupby(["country0", "country1"]).Value.sum()
+
+    c_import = df[df.Parameter=="Import Capacity"].groupby(["country0", "country1"]).Value.sum()
+
+    capacities = pd.DataFrame(index = c_export.index, 
+                              data = {"export": c_export.abs(),
+                                      "import": c_import.abs()}).reset_index()
+
+    with_de = capacities[(capacities.country0 == 'DE')
+                         & (capacities.country1 != 'DE')].set_index('country1')[
+                             ["export", "import"]]
+
+    with_de = with_de.append(
+        capacities[(capacities.country0 != 'DE')
+                         & (capacities.country1 == 'DE')].set_index('country0')[
+                             ["export", "import"]])
+              
+    countries = ['DE', 'DK', 'NL', 'CZ', 'PL', 'AT', 'CH', 'FR', 'LU', 'BE',
+           'GB', 'NO', 'SE']
+
+    without_de = capacities[(capacities.country0 != 'DE')
+                         & (capacities.country1 != 'DE')
+                         & (capacities.country0.isin(countries))
+                         & (capacities.country1.isin(countries))
+                         & (capacities.country1 != capacities.country0)]
+
+    without_de["country"] = without_de.country0+without_de.country1
+
+    without_de.set_index("country", inplace=True)
+
+    without_de = without_de[["export", "import"]].fillna(0.)
+
+    return {**without_de.min(axis=1).to_dict(), 
+                       **with_de.min(axis=1).to_dict()}
+    
+    
+    
 def crossborder_capacity(self):
     """
     Adjust interconnector capacties.
@@ -1432,11 +1514,15 @@ def crossborder_capacity(self):
 
         elif self.args["foreign_lines"]["capacity"] == "thermal_acer":
             cap_per_country = {"CH": 12000, "DK": 4000, "SEDK": 3500, "DKSE": 3500}
+            
+        elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
+            
+            cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
             logger.info(
                 "args['foreign_lines']['capacity'] has to be "
-                "in ['osmTGmod', 'ntc_acer', 'thermal_acer']"
+                "in ['osmTGmod', 'ntc_acer', 'thermal_acer', 'tyndp2020']"
             )
 
         if not network.lines[network.lines.country != "DE"].empty:

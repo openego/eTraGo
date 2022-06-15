@@ -24,6 +24,7 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
+
 import datetime
 import os
 import os.path
@@ -50,14 +51,14 @@ args = {
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 2, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         'pyomo': True}, # set if pyomo is used for model building
     'pf_post_lopf': {
         'active': False, # choose if perform a pf after a lopf simulation
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 10,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -69,7 +70,21 @@ args = {
     'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
     'csv_export': 'results',  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': ['as_in_db'],  # Array of components to optimize
+    'extendable': {
+        'extendable_components': ['as_in_db'],  # Array of components to optimize
+        'upper_bounds_grid': { # Set upper bounds for grid expansion
+            # lines in Germany
+            'grid_max_D': None, # relative to existing capacity 
+            'grid_max_abs_D': { # absolute capacity per voltage level
+                '380':{'i':1020, 'wires':4, 'circuits':4},
+                '220':{'i':1020, 'wires':4, 'circuits':4},
+                '110':{'i':1020, 'wires':4, 'circuits':2},
+                'dc':0}, 
+            # border crossing lines
+            'grid_max_foreign': 4, # relative to existing capacity 
+            'grid_max_abs_foreign': None  # absolute capacity per voltage level
+            }
+        },
     'generator_noise': 789456,  # apply generator noise, False or seed number
     'extra_functionality':{},  # Choose function name or {}
     # Clustering:
@@ -107,7 +122,7 @@ args = {
             },
         },
     },
-    'network_clustering_ehv': True,  # clustering of HV buses to EHV buses.
+    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
     'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
     'snapshot_clustering': {
         'active': False, # choose if clustering is activated
@@ -121,7 +136,7 @@ args = {
     'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
     'load_shedding': False,  # meet the demand at value of loss load cost
     'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
-                      'capacity': 'osmTGmod'}, # 'osmTGmod', 'ntc_acer' or 'thermal_acer'
+                      'capacity': 'osmTGmod'}, # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     'comments': None}
 
 
@@ -226,9 +241,20 @@ def run_etrago(args, json_path):
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
 
-    extendable : list
+    extendable : dict
+        {'extendable_components': ['as_in_db'],
+            'upper_bounds_grid': { 
+                'grid_max_D': None,
+                'grid_max_abs_D': {
+                    '380':{'i':1020, 'wires':4, 'circuits':4},
+                    '220':{'i':1020, 'wires':4, 'circuits':4},
+                    '110':{'i':1020, 'wires':4, 'circuits':2},
+                    'dc':0},
+                'grid_max_foreign': 4, 
+                'grid_max_abs_foreign': None}},
         ['network', 'storages'],
-        Choose components you want to optimize.
+        Choose components you want to optimize and set upper bounds for grid expansion.
+        The list 'extendable_components' defines a set of components to optimize. 
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
@@ -245,6 +271,12 @@ def run_etrago(args, json_path):
                         the flexibility demand.
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
+        Upper bounds for grid expansion can be set for lines in Germany can be
+        defined relative to the existing capacity using 'grid_max_D'. 
+        Alternatively, absolute maximum capacities between two buses can be
+        defined per voltage level using 'grid_max_abs_D'. 
+        Upper bounds for bordercrossing lines can be defined accrodingly 
+        using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
         State if you want to apply a small random noise to the marginal costs
@@ -407,30 +439,23 @@ def run_etrago(args, json_path):
                                        # is changed (taking the mean) or our 
                                        # data model is altered, which will 
                                        # happen in the next data creation run
+ 
+    for t in etrago.network.iterate_components():
+        if 'p_nom_max' in t.df:
+            t.df['p_nom_max'].fillna(np.inf, inplace=True)
+    
+    for t in etrago.network.iterate_components():
+        if 'p_nom_min' in t.df:
+                        t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-
-    # Set marginal costs for gas feed-in
-    etrago.network.generators.marginal_cost[
-        etrago.network.generators.carrier=='CH4']+= 25.6+0.201*76.5
     
-    #etrago.export_to_csv('ci_dump_unclustered')
-    # # # drop sectors
-    # # to_drop = [i for i in etrago.network.buses['carrier'].unique() if i not in ('AC', 'CH4')]
-    # # etrago.drop_sectors(to_drop)
-    
-    # etrago.export_to_csv("unclustered_test_af4")
-    # # # ehv network clustering
-    #etrago.ehv_clustering()
+    # ehv network clustering
+    etrago.ehv_clustering()
 
-    # etrago.export_to_csv("ehv_clustered_test_af4")
+    # k-mean clustering
+    etrago.kmean_clustering()
 
-    # # # k-mean clustering
-    #etrago.kmean_clustering()
-    # etrago.export_to_csv("AC_clustered_test_af4")
-    # etrago.network.export_to_csv_folder("AC_clustered_test_ci_dump")
-    #etrago.export_to_csv('ci_dump_AC_clustered')
-    
     etrago.kmean_clustering_gas()
     etrago.export_to_csv("ci_dump_gas_saved_weighted_clustered_30")
     # etrago.network.export_to_csv_folder("CH4_clustered_test_ci_dump")
