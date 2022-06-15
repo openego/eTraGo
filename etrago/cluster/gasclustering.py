@@ -133,16 +133,16 @@ def create_gas_busmap(etrago):
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
-    if kmean_gas_settings["bus_weight_tocsv"] is not None:
+    if kmean_gas_settings["gas_weight_tocsv"] is not None:
         weight_ch4 = weighting_for_scenario(
             network_ch4.buses,
-            save="network_ch4_" + kmean_gas_settings["bus_weight_tocsv"],
+            kmean_gas_settings["gas_weight_tocsv"],
         )
-    elif kmean_gas_settings["bus_weight_fromcsv"] is not None:
+    elif kmean_gas_settings["gas_weight_fromcsv"] is not None:
         # create DataFrame with uniform weightings for all ch4_buses
         weight_ch4 = pd.DataFrame([1] * len(buses_ch4), index=buses_ch4.index)
         loaded_weights = pd.read_csv(
-            kmean_gas_settings["bus_weight_fromcsv"], index_col=0
+            kmean_gas_settings["gas_weight_fromcsv"], index_col=0
         )
         # load weights into previously created DataFrame
         loaded_weights.index = loaded_weights.index.astype(str)
@@ -687,11 +687,11 @@ def kmean_clustering_gas_grid(etrago):
         Container for all network components.
     n_clusters_gas : int
         Desired number of gas clusters.
-    bus_weight_tocsv : str
-        Creates a bus weighting based on conventional generation and load
-        and save it to a csv file.
-    bus_weight_fromcsv : str
-        Loads a bus weighting from a csv file to apply it to the clustering
+    gas_weight_tocsv : str
+        Creates a CH4-bus weighting based on connected CH4-loads,
+        CH4-generators and non-transport link capacities and save it to a csv file.
+    gas_weight_fromcsv : str
+        Loads a CH4-bus weighting from a csv file to apply it to the clustering
         algorithm.
     Returns
     -------
