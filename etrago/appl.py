@@ -93,8 +93,8 @@ args = {
     # Clustering:
     "network_clustering_kmeans": {
         "active": True,  # choose if clustering is activated
-        "n_clusters": 17,  # number of resulting nodes
-        "n_clusters_gas": 17,  # number of resulting nodes
+        "n_clusters": 30,  # number of resulting nodes
+        "n_clusters_gas": 30,  # number of resulting nodes
         "kmeans_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
@@ -323,7 +323,8 @@ def run_etrago(args, json_path):
           {'active': True, 'n_clusters': 30, 'n_clusters_gas': 30,
            'kmeans_busmap': False, 'line_length_factor': 1.25,
            'remove_stubs': False, 'use_reduced_coordinates': False,
-           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None, 'n_init': 10,
+           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
+           'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
            'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
          State if you want to apply a clustering of all network buses down to
          only ``'n_clusters'`` buses. The weighting takes place considering
