@@ -34,12 +34,13 @@ from tools.utilities import drop_sectors
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
-    "DLR-Institute for Networked Energy Systems")
+    "DLR-Institute for Networked Energy Systems"
+)
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 
 
-if 'READTHEDOCS' not in os.environ:
+if "READTHEDOCS" not in os.environ:
     # Sphinx does not run this code.
     # Do not import internal packages directly
 
@@ -47,46 +48,49 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data_ci_dump',  # database session
-    'gridversion': None,  # None for model_draft or Version number
-    'method': { # Choose method and settings for optimization
-        'type': 'lopf', # type of optimization, currently only 'lopf'
-        'n_iter': 4, # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        'pyomo': True}, # set if pyomo is used for model building
-    'pf_post_lopf': {
-        'active': False, # choose if perform a pf after a lopf simulation
-        'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
-        'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
-    'start_snapshot': 1,
-    'end_snapshot': 2,
-    'solver': 'gurobi',  # glpk, cplex or gurobi
-    'solver_options': {},
-    'model_formulation': 'kirchhoff', # angles or kirchhoff
-    'scn_name': 'eGon2035',  # a scenario: eGon2035 or eGon100RE
+    "db": "egon-data",  # database session
+    "gridversion": None,  # None for model_draft or Version number
+    "method": {  # Choose method and settings for optimization
+        "type": "lopf",  # type of optimization, currently only 'lopf'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "pyomo": True,
+    },  # set if pyomo is used for model building
+    "pf_post_lopf": {
+        "active": False,  # choose if perform a pf after a lopf simulation
+        "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
+        "q_allocation": "p_nom",
+    },  # allocate reactive power via 'p_nom' or 'p'
+    "start_snapshot": 1,
+    "end_snapshot": 2,
+    "solver": "gurobi",  # glpk, cplex or gurobi
+    "solver_options": {},
+    "model_formulation": "kirchhoff",  # angles or kirchhoff
+    "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
-    'scn_extension': None,  # None or array of extension scenarios
-    'scn_decommissioning': None,  # None or decommissioning scenario
+    "scn_extension": None,  # None or array of extension scenarios
+    "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
-    'lpfile': False,  # save pyomo's lp file: False or /path/tofolder
-    'csv_export': 'results',  # save results as csv: False or /path/tofolder
+    "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
+    "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
-    'extendable': {
-        'extendable_components': ['as_in_db'],  # Array of components to optimize
-        'upper_bounds_grid': { # Set upper bounds for grid expansion
+    "extendable": {
+        "extendable_components": ["as_in_db"],  # Array of components to optimize
+        "upper_bounds_grid": {  # Set upper bounds for grid expansion
             # lines in Germany
-            'grid_max_D': None, # relative to existing capacity 
-            'grid_max_abs_D': { # absolute capacity per voltage level
-                '380':{'i':1020, 'wires':4, 'circuits':4},
-                '220':{'i':1020, 'wires':4, 'circuits':4},
-                '110':{'i':1020, 'wires':4, 'circuits':2},
-                'dc':0}, 
+            "grid_max_D": None,  # relative to existing capacity
+            "grid_max_abs_D": {  # absolute capacity per voltage level
+                "380": {"i": 1020, "wires": 4, "circuits": 4},
+                "220": {"i": 1020, "wires": 4, "circuits": 4},
+                "110": {"i": 1020, "wires": 4, "circuits": 2},
+                "dc": 0,
+            },
             # border crossing lines
-            'grid_max_foreign': 4, # relative to existing capacity 
-            'grid_max_abs_foreign': None  # absolute capacity per voltage level
-            }
+            "grid_max_foreign": 4,  # relative to existing capacity
+            "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
-    'generator_noise': 789456,  # apply generator noise, False or seed number
-    'extra_functionality':{},  # Choose function name or {}
+    },
+    "generator_noise": 789456,  # apply generator noise, False or seed number
+    "extra_functionality": {},  # Choose function name or {}
     # Clustering:
     'network_clustering_kmeans': {
         'active': True, # choose if clustering is activated
@@ -101,7 +105,9 @@ args = {
         'remove_stubs': False, # remove stubs bevore kmeans clustering
         'use_reduced_coordinates': False, #
         'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
-        'bus_weight_fromcsv': 'network_ch4_test_weights.csv', # None or path/to/bus_weight.csv
+        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+        "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
+        "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         'n_init': 10, # affects clustering algorithm, only change when neccesary
         'max_iter': 100, # affects clustering algorithm, only change when neccesary
         'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
@@ -122,103 +128,107 @@ args = {
             },
         },
     },
-    'network_clustering_ehv': False,  # clustering of HV buses to EHV buses.
-    'disaggregation': 'uniform',  # None, 'mini' or 'uniform'
-    'snapshot_clustering': {
-        'active': False, # choose if clustering is activated
-        'method':'typical_periods', # 'typical_periods' or 'segmentation'
-        'how': 'daily', # type of period, currently only 'daily' - only relevant for 'typical_periods'
-        'storage_constraints': '', # additional constraints for storages  - only relevant for 'typical_periods'
-        'n_clusters': 5, #  number of periods - only relevant for 'typical_periods'
-        'n_segments': 5}, # number of segments - only relevant for segmentation
+    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
+    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "snapshot_clustering": {
+        "active": False,  # choose if clustering is activated
+        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
+        "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
+        "n_segments": 5,
+    },  # number of segments - only relevant for segmentation
     # Simplifications:
-    'skip_snapshots': False, # False or number of snapshots to skip
-    'branch_capacity_factor': {'HV': 0.5, 'eHV': 0.7},  # p.u. branch derating
-    'load_shedding': False,  # meet the demand at value of loss load cost
-    'foreign_lines': {'carrier': 'AC', # 'DC' for modeling foreign lines as links
-                      'capacity': 'osmTGmod'}, # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
-    'comments': None}
+    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
+    "load_shedding": False,  # meet the demand at value of loss load cost
+    "foreign_lines": {
+        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "capacity": "osmTGmod",
+    },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
+    "comments": None,
+}
 
 
 def run_etrago(args, json_path):
     """The etrago function works with following arguments:
 
 
-    Parameters
-    ----------
+     Parameters
+     ----------
 
-    db : str
-        ``'oedb'``,
-        Name of Database session setting stored in *config.ini* of *.egoio*
+     db : str
+         ``'oedb'``,
+         Name of Database session setting stored in *config.ini* of *.egoio*
 
-    gridversion : NoneType or str
-        ``'v0.4.6'``,
-        Name of the data version number of oedb: state ``'None'`` for
-        model_draft (sand-box) or an explicit version number
-        (e.g. 'v0.4.6') for the grid schema.
+     gridversion : NoneType or str
+         ``'v0.4.6'``,
+         Name of the data version number of oedb: state ``'None'`` for
+         model_draft (sand-box) or an explicit version number
+         (e.g. 'v0.4.6') for the grid schema.
 
-    method : dict
-        {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
-        Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
-        have to be performed. Choose either 'n_init' and a fixed number of
-        iterations or 'thershold' and a threashold of the objective function as
-        abort criteria.
-        Set 'pyomo' to False for big optimization problems, currently only
-        possible when solver is 'gurobi'.
+     method : dict
+         {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
+         Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
+         have to be performed. Choose either 'n_init' and a fixed number of
+         iterations or 'thershold' and a threashold of the objective function as
+         abort criteria.
+         Set 'pyomo' to False for big optimization problems, currently only
+         possible when solver is 'gurobi'.
 
-    pf_post_lopf :dict
-        {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
-        Option to run a non-linear power flow (pf) directly after the
-        linear optimal power flow (and thus the dispatch) has finished.
-        If foreign lines are modeled as DC-links (see foreign_lines), results
-        of the lopf can be added by setting 'add_foreign_lopf'.
-        Reactive power can be distributed either by 'p_nom' or 'p'.
+     pf_post_lopf :dict
+         {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
+         Option to run a non-linear power flow (pf) directly after the
+         linear optimal power flow (and thus the dispatch) has finished.
+         If foreign lines are modeled as DC-links (see foreign_lines), results
+         of the lopf can be added by setting 'add_foreign_lopf'.
+         Reactive power can be distributed either by 'p_nom' or 'p'.
 
-    start_snapshot : int
-        1,
-        Start hour of the scenario year to be calculated.
+     start_snapshot : int
+         1,
+         Start hour of the scenario year to be calculated.
 
-    end_snapshot : int
-        2,
-        End hour of the scenario year to be calculated.
-        If temporal clustering is used, the selected snapshots should cover
-        whole days.
+     end_snapshot : int
+         2,
+         End hour of the scenario year to be calculated.
+         If temporal clustering is used, the selected snapshots should cover
+         whole days.
 
-    solver : str
-        'glpk',
-        Choose your preferred solver. Current options: 'glpk' (open-source),
-        'cplex' or 'gurobi'.
+     solver : str
+         'glpk',
+         Choose your preferred solver. Current options: 'glpk' (open-source),
+         'cplex' or 'gurobi'.
 
-    solver_options: dict
-        Choose settings of solver to improve simulation time and result.
-        Options are described in documentation of choosen solver.
+     solver_options: dict
+         Choose settings of solver to improve simulation time and result.
+         Options are described in documentation of choosen solver.
 
-    model_formulation: str
-        'angles'
-        Choose formulation of pyomo-model.
-        Current options: angles, cycles, kirchhoff, ptdf
+     model_formulation: str
+         'angles'
+         Choose formulation of pyomo-model.
+         Current options: angles, cycles, kirchhoff, ptdf
 
-    scn_name : str
-        'eGon2035',
-        Choose your scenario. Currently, there are two different
-        scenarios: 'eGon2035', 'eGon100RE'.
+     scn_name : str
+         'eGon2035',
+         Choose your scenario. Currently, there are two different
+         scenarios: 'eGon2035', 'eGon100RE'.
 
-   scn_extension : NoneType or list
-       None,
-       Choose extension-scenarios which will be added to the existing
-       network container. Data of the extension scenarios are located in
-       extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-       with the prefix 'extension_'.
-       Currently there are three overlay networks:
-           'nep2035_confirmed' includes all planed new lines confirmed by the
-           Bundesnetzagentur
-           'nep2035_b2' includes all new lines planned by the
-           Netzentwicklungsplan 2025 in scenario 2035 B2
-           'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-           adds BE and NO as electrical neighbours
-
-    scn_decommissioning : str
+    scn_extension : NoneType or list
         None,
+        Choose extension-scenarios which will be added to the existing
+        network container. Data of the extension scenarios are located in
+        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
+        with the prefix 'extension_'.
+        Currently there are three overlay networks:
+            'nep2035_confirmed' includes all planed new lines confirmed by the
+            Bundesnetzagentur
+            'nep2035_b2' includes all new lines planned by the
+            Netzentwicklungsplan 2025 in scenario 2035 B2
+            'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
+            adds BE and NO as electrical neighbours
+
+     scn_decommissioning : str
+         None,
         Choose an extra scenario which includes lines you want to decommise
         from the existing network. Data of the decommissioning scenarios are
         located in extension-tables
@@ -325,7 +335,8 @@ def run_etrago(args, json_path):
          {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True, 
          'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
           'remove_stubs': False, 'use_reduced_coordinates': False,
-          'bus_weight_tocsv': None, 'bus_weight_fromcsv': None, 'n_init': 10,
+          'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
+          'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
           'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
@@ -401,55 +412,55 @@ def run_etrago(args, json_path):
     network : `pandas.DataFrame<dataframe>`
         eTraGo result network based on `PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
+
     """
     etrago = Etrago(args, json_path)
 
     # import network from database
-    etrago.network.import_from_csv_folder("ci_dump_unclustered")
-    #etrago.build_network_from_db()
-    etrago.network.lines.type = ''
-    etrago.network.lines.carrier.fillna('AC', inplace=True)
-    etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
+    etrago.build_network_from_db()
+    etrago.network.lines.type = ""
+    etrago.network.lines.carrier.fillna("AC", inplace=True)
+    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
     etrago.network.loads.sign = -1
     etrago.network.links.capital_cost.fillna(0, inplace=True)
     etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1.0, inplace=True)
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
     etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.efficiency.fillna(1., inplace=True)
-    etrago.network.links.marginal_cost.fillna(0., inplace=True)
-    etrago.network.links.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links.efficiency.fillna(1.0, inplace=True)
+    etrago.network.links.marginal_cost.fillna(0.0, inplace=True)
+    etrago.network.links.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links.p_max_pu.fillna(1.0, inplace=True)
     etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
     etrago.network.stores.capital_cost.fillna(0, inplace=True)
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
-    etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0., inplace=True)
+    etrago.network.storage_units.efficiency_dispatch.fillna(1.0, inplace=True)
+    etrago.network.storage_units.efficiency_store.fillna(1.0, inplace=True)
+    etrago.network.storage_units.capital_cost.fillna(0.0, inplace=True)
     etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.standing_loss.fillna(0., inplace=True)
+    etrago.network.storage_units.standing_loss.fillna(0.0, inplace=True)
     etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0., inplace=True)
-    etrago.network.links.terrain_factor.fillna(1., inplace=True)
-    etrago.network.lines.v_ang_max.fillna(1., inplace=True)
-    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
-                                       # PyPSA network clustering function 
-                                       # is changed (taking the mean) or our 
-                                       # data model is altered, which will 
-                                       # happen in the next data creation run
- 
+    etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
+    etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
+    etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
+    etrago.network.lines.lifetime = 40  # only temporal fix until either the
+    # PyPSA network clustering function
+    # is changed (taking the mean) or our
+    # data model is altered, which will
+    # happen in the next data creation run
+
     for t in etrago.network.iterate_components():
-        if 'p_nom_max' in t.df:
-            t.df['p_nom_max'].fillna(np.inf, inplace=True)
-    
+        if "p_nom_max" in t.df:
+            t.df["p_nom_max"].fillna(np.inf, inplace=True)
+
     for t in etrago.network.iterate_components():
-        if 'p_nom_min' in t.df:
-                        t.df['p_nom_min'].fillna(0., inplace=True)
+        if "p_nom_min" in t.df:
+            t.df["p_nom_min"].fillna(0.0, inplace=True)
 
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -457,11 +468,9 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
 
     etrago.kmean_clustering_gas()
-    etrago.export_to_csv("ci_dump_gas_saved_weighted_clustered_30")
-    # etrago.network.export_to_csv_folder("CH4_clustered_test_ci_dump")
-    # etrago.args['load_shedding']=True
-    # etrago.load_shedding()
-    #etrago.export_to_csv('weighted_kmean_clustering_gas_ci_dump_asasdfasdfasdf')
+
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
 
     # # skip snapshots
     # etrago.skip_snapshots()
@@ -490,7 +499,7 @@ def run_etrago(args, json_path):
     return etrago
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)

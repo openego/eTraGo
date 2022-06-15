@@ -1736,6 +1736,19 @@ def drop_sectors(self, drop_carriers):
             )
 
 
-def add_gas_bus(self):
-    #blablabla
-    self.network.buses.loc['1','x'] = 3
+def update_busmap(self, new_busmap):
+    """
+    Update busmap after any clustering process
+    Parameters
+    ----------
+    new_busmap : dictionary
+        busmap used to clusted the network.
+    Returns
+    -------
+    None.
+    """
+    
+    if not self.busmap:
+        self.busmap = new_busmap
+    else:
+        self.busmap = pd.Series(self.busmap).map(new_busmap).to_dict()
