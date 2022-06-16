@@ -33,7 +33,7 @@ setup(
         "sqlalchemy == 1.3.16",
         "geoalchemy2 >= 0.3.0, <=0.4.0",
         "matplotlib == 3.0.3",
-        "pyomo < 4.6.1",
+        "pyomo < 6.4.1",
         "tsam == 1.1.0",
         "shapely",
         "oedialect",
