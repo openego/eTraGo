@@ -77,6 +77,8 @@ def create_gas_busmap(etrago):
             Integer weighting for each ch4_buses.index
         """
 
+        MAX_WEIGHT = 1e5  # relevant only for foreign nodes with extra high CH4 generation capacity
+
         to_neglect = [
             "CH4",
             "H2_to_CH4",
@@ -115,11 +117,9 @@ def create_gas_busmap(etrago):
                 rel_links[i] += (
                     etrago.network.loads_t.p_set.loc[:, loads_.loc[i]].mean().sum()
                 )
-            rel_links[i] = int(rel_links[i])
+            rel_links[i] = min(int(rel_links[i]), MAX_WEIGHT)
 
         weightings = pd.DataFrame.from_dict(rel_links, orient="index")
-        # RUSSIA CH4 GENERATION IS SET TO 1E9, why? THIS CRASHES THE LOGIC
-        weightings.loc["6116"] = 100000
 
         if save:
             weightings.to_csv(save)
