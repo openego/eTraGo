@@ -29,7 +29,6 @@ import datetime
 import os
 import os.path
 import numpy as np
-from tools.utilities import drop_sectors
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -48,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "egon-data_testmode_dump",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -94,9 +93,9 @@ args = {
     # Clustering:
     "network_clustering_kmeans": {
         "active": True,  # choose if clustering is activated
-        "n_clusters": 30,  # number of resulting nodes
-        "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
-        "n_clusters_gas": 30,  # number of resulting nodes in specified region (only DE or DE+foreign);
+        "n_clusters": 10,  # number of resulting nodes
+        "cluster_foreign_gas": True,  # cluster foreign gas buses, True or False
+        "n_clusters_gas": 10,  # number of resulting nodes in specified region (only DE or DE+foreign);
         # Note: Number of resulting nodes depends on if foreign nodes are clustered.
         # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
         "kmeans_busmap": False,  # False or path/to/busmap.csv
@@ -460,20 +459,19 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
 
     etrago.kmean_clustering_gas()
-    etrago.export_to_csv("test_foreign")
 
-    # etrago.args["load_shedding"] = True
+    etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
-    # # skip snapshots
+    # skip snapshots
     etrago.skip_snapshots()
 
-    # # snapshot clustering
-    # # needs to be adjusted for new sectors
+    # snapshot clustering
+    # needs to be adjusted for new sectors
     etrago.snapshot_clustering()
 
-    # # start linear optimal powerflow calculations
-    # # needs to be adjusted for new sectors
+    # start linear optimal powerflow calculations
+    # needs to be adjusted for new sectors
     etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
