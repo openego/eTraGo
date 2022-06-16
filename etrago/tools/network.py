@@ -48,7 +48,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     filter_links_by_carrier,
                                     set_line_costs,
                                     set_trafo_costs,
-                                    drop_sectors)
+                                    drop_sectors,
+                                    adapt_crossborder_buses)
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.gasclustering import run_kmeans_clustering_gas
@@ -204,6 +205,8 @@ class Etrago():
     set_trafo_costs = set_trafo_costs
     
     drop_sectors = drop_sectors
+    
+    adapt_crossborder_buses = adapt_crossborder_buses
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
@@ -265,6 +268,8 @@ class Etrago():
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
+        
+        self.adapt_crossborder_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
