@@ -92,40 +92,32 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
-    'network_clustering_kmeans': {
-        'active': True, # choose if clustering is activated
-        'n_clusters': 30, # number of resulting nodes
-        'cluster_foreign_gas': False, # take foreign gas buses into account, True or False
-        'n_clusters_gas':30, # number of resulting nodes in specified region (only DE or DE+foreign); 
-                              # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-                              # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 12)
-        'kmeans_busmap': False, # False or path/to/busmap.csv
-        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
-        'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
-        'use_reduced_coordinates': False, #
-        'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
-        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+    "network_clustering_kmeans": {
+        "active": True,  # choose if clustering is activated
+        "n_clusters": 30,  # number of resulting nodes
+        "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
+        "n_clusters_gas": 30,  # number of resulting nodes in specified region (only DE or DE+foreign);
+        # Note: Number of resulting nodes depends on if foreign nodes are clustered.
+        # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
+        "kmeans_busmap": False,  # False or path/to/busmap.csv
+        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "line_length_factor": 1,  #
+        "remove_stubs": False,  # remove stubs bevore kmeans clustering
+        "use_reduced_coordinates": False,  #
+        "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
+        "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
         "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccesary
-        'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
-    'sector_coupled_clustering': {
-        'active': True, # choose if clustering is activated
-        'carrier_data': { # select carriers affected by sector coupling
-            'H2_ind_load': {
-                'base': ['H2_grid'],
-                'strategy': 'consecutive'
-            },
-            'central_heat': {
-                'base': ['CH4', 'AC'],
-                'strategy': 'consecutive'
-            },
-            'rural_heat': {
-                'base': ['CH4', 'AC'],
-                'strategy': 'consecutive'
-            },
+        "n_init": 10,  # affects clustering algorithm, only change when neccesary
+        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6,
+    },  # affects clustering algorithm, only change when neccesary
+    "sector_coupled_clustering": {
+        "active": True,  # choose if clustering is activated
+        "carrier_data": {  # select carriers affected by sector coupling
+            "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
@@ -253,18 +245,18 @@ def run_etrago(args, json_path):
 
     extendable : dict
         {'extendable_components': ['as_in_db'],
-            'upper_bounds_grid': { 
+            'upper_bounds_grid': {
                 'grid_max_D': None,
                 'grid_max_abs_D': {
                     '380':{'i':1020, 'wires':4, 'circuits':4},
                     '220':{'i':1020, 'wires':4, 'circuits':4},
                     '110':{'i':1020, 'wires':4, 'circuits':2},
                     'dc':0},
-                'grid_max_foreign': 4, 
+                'grid_max_foreign': 4,
                 'grid_max_abs_foreign': None}},
         ['network', 'storages'],
         Choose components you want to optimize and set upper bounds for grid expansion.
-        The list 'extendable_components' defines a set of components to optimize. 
+        The list 'extendable_components' defines a set of components to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
@@ -282,10 +274,10 @@ def run_etrago(args, json_path):
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
         Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'. 
+        defined relative to the existing capacity using 'grid_max_D'.
         Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'. 
-        Upper bounds for bordercrossing lines can be defined accrodingly 
+        defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -332,7 +324,7 @@ def run_etrago(args, json_path):
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : dict
-         {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True, 
+         {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True,
          'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
           'remove_stubs': False, 'use_reduced_coordinates': False,
           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
@@ -342,8 +334,8 @@ def run_etrago(args, json_path):
         only ``'n_clusters'`` buses. The weighting takes place considering
         generation and load at each node. ``'n_clusters_gas'`` refers to the
         total amount of gas buses after clustering in the specified region (only
-        Germany or Germany + neighboring countries). ``'cluster_foreign_gas'`` 
-        controls whether gas buses of Germanies neighboring countries are 
+        Germany or Germany + neighboring countries). ``'cluster_foreign_gas'``
+        controls whether gas buses of Germanies neighboring countries are
         considered for clustering. Note, that this option influences the total
         resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
         is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
@@ -468,20 +460,21 @@ def run_etrago(args, json_path):
     etrago.kmean_clustering()
 
     etrago.kmean_clustering_gas()
+    etrago.export_to_csv("test_foreign")
 
-    etrago.args["load_shedding"] = True
+    # etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
     # # skip snapshots
-    # etrago.skip_snapshots()
+    etrago.skip_snapshots()
 
     # # snapshot clustering
     # # needs to be adjusted for new sectors
-    # etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # # start linear optimal powerflow calculations
     # # needs to be adjusted for new sectors
-    # etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
@@ -494,7 +487,6 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     # needs to be adjusted for new sectors
     # etrago.calc_results()
-    
 
     return etrago
 

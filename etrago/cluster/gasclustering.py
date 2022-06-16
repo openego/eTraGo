@@ -52,7 +52,8 @@ def create_gas_busmap(etrago):
     if kmean_gas_settings["cluster_foreign_gas"] == False:
 
         network_ch4.buses = network_ch4.buses[
-            (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
+            (network_ch4.buses["carrier"] == "CH4")
+            & (network_ch4.buses["country"] == "DE")
         ]
 
     else:
@@ -117,6 +118,8 @@ def create_gas_busmap(etrago):
             rel_links[i] = int(rel_links[i])
 
         weightings = pd.DataFrame.from_dict(rel_links, orient="index")
+        # RUSSIA CH4 GENERATION IS SET TO 1E9, why? THIS CRASHES THE LOGIC
+        weightings.loc["6116"] = 100000
 
         if save:
             weightings.to_csv(save)
@@ -754,9 +757,19 @@ def run_kmeans_clustering_gas(self):
         self.network, busmap = kmean_clustering_gas_grid(self)
 
         self.update_busmap(busmap)
-        
         logger.info(
-            "GAS Network clustered to {} buses with k-means algorithm.".format(
-                self.args["network_clustering_kmeans"]["n_clusters_gas"]
+            "GAS Network clustered to {} DE-buses and {} foreign buses with k-means algorithm.".format(
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country == "DE")
+                    ]
+                ),
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country != "DE")
+                    ]
+                ),
             )
         )
