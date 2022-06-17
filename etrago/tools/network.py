@@ -274,7 +274,7 @@ class Etrago():
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
-        
+
         self.adapt_crossborder_buses()
 
     def _ts_weighted(self, timeseries):

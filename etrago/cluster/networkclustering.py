@@ -922,6 +922,8 @@ def kmean_clustering(etrago):
         .set_index("T" + trafo_index),
         "Line",
     )
+    network.lines.lifetime = 40
+    network.lines.carrier = "AC"
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
