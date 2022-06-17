@@ -975,12 +975,18 @@ def kmean_clustering(etrago):
 
         weight = weight.groupby(busmap.values).sum()
 
+    if kmean_settings['cluster_foreign_AC'] == False:
+        n_clusters = kmean_settings["n_clusters"] - \
+            sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
+    else: 
+        n_clusters = kmean_settings["n_clusters"]
+
     # k-mean clustering
     if not kmean_settings["kmeans_busmap"]:
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
-            n_clusters=kmean_settings["n_clusters"],
+            n_clusters=n_clusters,
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],

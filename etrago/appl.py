@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data4",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -93,9 +93,7 @@ args = {
     # Clustering:
     "network_clustering_kmeans": {
         "active": True,  # choose if clustering is activated
-        'n_clusters': 30, # number of resulting nodes in specified region (only DE or DE+foreign); 
-                          # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-                          # If not, total number of nodes is n_clusters + foreign_buses (usually 88)
+        'n_clusters': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
         'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
         "n_clusters_gas": 30,  # number of resulting nodes
         "kmeans_busmap": False,  # False or path/to/busmap.csv
