@@ -254,41 +254,51 @@ class NetworkScenario(ScenarioBase):
                     egon_etrago_transformer_timeseries
                     )
 
-        key_columns = ['scn_name', f'{name.lower()}_id', 'temp_id']
-
-        query = self.session.query(
-                vars()[f'egon_etrago_{name.lower()}_timeseries']).filter(
-                    vars()[f'egon_etrago_{name.lower()}_timeseries']
-                    .scn_name==self.scn_name)
-        if self.version:
-            query = query.filter(
-                vars()[f'egon_etrago_{name.lower()}_timeseries']
-                .version==self.version)
-            key_columns.append(['version'])
-
-        df_all = saio.as_pandas(query)
-
-        # Rename index column for transformers
+        # Select index column
         if name == 'Transformer':
-            df_all.set_index('trafo_id', inplace=True)
+            index_col = 'trafo_id'
 
         else:
-            df_all.set_index(f'{name.lower()}_id', inplace=True)
+            index_col = f'{name.lower()}_id'
 
-        df_all.index = df_all.index.astype(str)
+        # Select columns with time series data
+        query_columns =  self.session.query(
+                vars()[f'egon_etrago_{name.lower()}_timeseries']).limit(1)
 
-        data_columns = df_all.columns[~df_all.columns.isin(key_columns)]
+        key_columns = ['scn_name', index_col, 'temp_id']
 
-        for column in data_columns:
+        if self.version:
+            key_columns.append(['version'])
 
-            if not df_all[column].isnull().all():
+        columns = saio.as_pandas(query_columns).columns.drop(key_columns, errors='ignore')
 
-                df = df_all[column].apply(pd.Series).transpose()[
-                    self.start_snapshot-1: self.end_snapshot]
+        # Query and import time series data
+        for col in columns:
+            query = self.session.query(
+                    getattr(
+                        vars()[f'egon_etrago_{name.lower()}_timeseries'],
+                        index_col),
+                    getattr(
+                        vars()[f'egon_etrago_{name.lower()}_timeseries'],
+                        col)[self.start_snapshot: self.end_snapshot]
+                    ).filter(
+                        vars()[f'egon_etrago_{name.lower()}_timeseries']
+                        .scn_name==self.scn_name)
+            if self.version:
+                query = query.filter(
+                    vars()[f'egon_etrago_{name.lower()}_timeseries']
+                    .version==self.version)
 
-                # Drop empty columns
-                df.drop(df.loc[:,df.isnull().all()].columns,
-                        axis='columns', inplace=True)
+            df_all = saio.as_pandas(query)
+
+            # Rename index
+            df_all.set_index(index_col, inplace=True)
+
+            df_all.index = df_all.index.astype(str)
+
+            if not df_all.isnull().all().all():
+
+                df = df_all.anon_1.apply(pd.Series).transpose()
 
                 df.index = self.timeindex
 
@@ -296,7 +306,7 @@ class NetworkScenario(ScenarioBase):
                                 network,
                                 df,
                                 pypsa_name,
-                                column)
+                                col)
 
         return network
 
