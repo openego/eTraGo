@@ -265,6 +265,11 @@ def strategies_one_ports():
         },
     }
 
+def agg_e_nom_max(x):
+    if (x == np.inf).any():
+        return np.inf
+    else:
+        return x.sum()
 
 def strategies_generators():
     return {
@@ -275,9 +280,8 @@ def strategies_generators():
         "p_nom_opt": np.sum,
         "marginal_cost": np.mean,
         "capital_cost": np.mean,
-        "e_nom_max": np.max,
+        "e_nom_max": agg_e_nom_max,
     }
-
 
 def strategies_links():
     return {
