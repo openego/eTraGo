@@ -328,12 +328,15 @@ def run_etrago(args, json_path):
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
            'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
            'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
-         State if you want to apply a clustering of all network buses down to
-         only ``'n_clusters'`` buses. The weighting takes place considering
-         generation and load at each node. ``'n_clusters_gas'`` refers to the
-         total amount of gas buses after clustering. Note, that the number of
-         gas buses of Germanies neighboring countries is not modified. in this
-         process.
+         State if you want to apply a clustering of all network buses.
+         When ``'active'`` is set to True, the AC buses are clustered down to
+         ``'n_clusters'`` buses. If ``'cluster_foreign_AC'`` is set to False,
+         the AC buses outside Germany are not clustered, and the buses inside
+         Germany are clustered to complete ``'n_clusters'`` buses.
+         The weighting takes place considering generation and load at each node.
+         ``'n_clusters_gas'`` refers to the total amount of gas buses after
+         clustering. Note, that the number of gas buses of Germanies neighboring
+         countries is not modified in this process.
          With ``'kmeans_busmap'`` you can choose if you want to load cluster
          coordinates from a previous run.
          Option ``'remove_stubs'`` reduces the overestimating of line meshes.
@@ -431,6 +434,7 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
     etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
     etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
+    etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
     # is changed (taking the mean) or our
