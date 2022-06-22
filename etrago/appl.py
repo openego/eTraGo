@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'egon-data',  # database session
+    'db': 'etrago-DE',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -57,7 +57,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 2,
+    'end_snapshot': 9,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -73,14 +73,14 @@ args = {
         'extendable_components': ['as_in_db'],  # Array of components to optimize
         'upper_bounds_grid': { # Set upper bounds for grid expansion
             # lines in Germany
-            'grid_max_D': None, # relative to existing capacity 
+            'grid_max_D': None, # relative to existing capacity
             'grid_max_abs_D': { # absolute capacity per voltage level
                 '380':{'i':1020, 'wires':4, 'circuits':4},
                 '220':{'i':1020, 'wires':4, 'circuits':4},
                 '110':{'i':1020, 'wires':4, 'circuits':2},
-                'dc':0}, 
+                'dc':0},
             # border crossing lines
-            'grid_max_foreign': 4, # relative to existing capacity 
+            'grid_max_foreign': 4, # relative to existing capacity
             'grid_max_abs_foreign': None  # absolute capacity per voltage level
             }
         },
@@ -89,10 +89,10 @@ args = {
     # Clustering:
     'network_clustering': {
         'active': True, # choose if clustering is activated
-        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters': 70, # number of resulting nodes
-        'n_clusters_gas': 30, # number of resulting nodes in Germany
-        'kmeans_busmap': False, # False or path/to/busmap.csv
+        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
+        'n_clusters': 100, # number of resulting nodes
+        'n_clusters_gas': 50 , # number of resulting nodes in Germany
+        'k_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
         'remove_stubs': False, # remove stubs bevore kmeans clustering
@@ -249,18 +249,18 @@ def run_etrago(args, json_path):
 
     extendable : dict
         {'extendable_components': ['as_in_db'],
-            'upper_bounds_grid': { 
+            'upper_bounds_grid': {
                 'grid_max_D': None,
                 'grid_max_abs_D': {
                     '380':{'i':1020, 'wires':4, 'circuits':4},
                     '220':{'i':1020, 'wires':4, 'circuits':4},
                     '110':{'i':1020, 'wires':4, 'circuits':2},
                     'dc':0},
-                'grid_max_foreign': 4, 
+                'grid_max_foreign': 4,
                 'grid_max_abs_foreign': None}},
         ['network', 'storages'],
         Choose components you want to optimize and set upper bounds for grid expansion.
-        The list 'extendable_components' defines a set of components to optimize. 
+        The list 'extendable_components' defines a set of components to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
@@ -278,10 +278,10 @@ def run_etrago(args, json_path):
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
         Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'. 
+        defined relative to the existing capacity using 'grid_max_D'.
         Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'. 
-        Upper bounds for bordercrossing lines can be defined accrodingly 
+        defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -328,24 +328,24 @@ def run_etrago(args, json_path):
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering :dict
-         {'active': True, method: 'kmedoids-dijkstra', 'n_clusters': 10, 
-          'kmeans_busmap': False,'line_length_factor': 1.25, 
-          'remove_stubs': False, 'use_reduced_coordinates': False, 
-          'bus_weight_tocsv': None,'bus_weight_fromcsv': None, 
+         {'active': True, method: 'kmedoids-dijkstra', 'n_clusters': 10,
+          'k_busmap': False,'line_length_factor': 1.25,
+          'remove_stubs': False, 'use_reduced_coordinates': False,
+          'bus_weight_tocsv': None,'bus_weight_fromcsv': None,
           'n_init': 10, 'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
         State if you want to apply a clustering of all network buses down to
         only ``'n_clusters'`` buses. The weighting takes place considering
         generation and load at each node.
-        With ``'method'`` you can choose between two clustering methods: 
-        k-means Clustering considering geopraphical locations of buses or 
+        With ``'method'`` you can choose between two clustering methods:
+        k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
-        With ``'kmeans_busmap'`` you can choose if you want to load cluster
+        With ``'k_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with 
+        This function doesn't work together with
         ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
     sector_coupled_clustering : nested dict
@@ -414,19 +414,19 @@ def run_etrago(args, json_path):
     etrago.network.lines.carrier.fillna('AC', inplace=True)
     etrago.network.buses.v_mag_pu_set.fillna(1., inplace=True)
     etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True) 
-    etrago.network.links.p_nom_min.fillna(0, inplace=True) 
-    etrago.network.transformers.tap_ratio.fillna(1., inplace=True) 
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True) 
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True) 
+    etrago.network.links.capital_cost.fillna(0, inplace=True)
+    etrago.network.links.p_nom_min.fillna(0, inplace=True)
+    etrago.network.transformers.tap_ratio.fillna(1., inplace=True)
+    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
+    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
     etrago.network.links.efficiency.fillna(1., inplace=True)
-    etrago.network.links.marginal_cost.fillna(0., inplace=True) 
+    etrago.network.links.marginal_cost.fillna(0., inplace=True)
     etrago.network.links.p_min_pu.fillna(0., inplace=True)
     etrago.network.links.p_max_pu.fillna(1., inplace=True)
     etrago.network.links.p_nom.fillna(0.1, inplace=True)
     etrago.network.storage_units.p_nom.fillna(0, inplace=True)
     etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True) 
+    etrago.network.stores.capital_cost.fillna(0, inplace=True)
     etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
     etrago.network.storage_units.efficiency_dispatch.fillna(1., inplace=True)
     etrago.network.storage_units.efficiency_store.fillna(1., inplace=True)
@@ -437,22 +437,23 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0., inplace=True)
     etrago.network.links.terrain_factor.fillna(1., inplace=True)
     etrago.network.lines.v_ang_max.fillna(1., inplace=True)
-    etrago.network.lines.lifetime = 40 # only temporal fix until either the 
-                                       # PyPSA network clustering function 
-                                       # is changed (taking the mean) or our 
-                                       # data model is altered, which will 
+    etrago.network.transformers.lifetime = 40
+    etrago.network.lines.lifetime = 40 # only temporal fix until either the
+                                       # PyPSA network clustering function
+                                       # is changed (taking the mean) or our
+                                       # data model is altered, which will
                                        # happen in the next data creation run
- 
+
     for t in etrago.network.iterate_components():
         if 'p_nom_max' in t.df:
             t.df['p_nom_max'].fillna(np.inf, inplace=True)
-    
+
     for t in etrago.network.iterate_components():
         if 'p_nom_min' in t.df:
                         t.df['p_nom_min'].fillna(0., inplace=True)
 
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -473,7 +474,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    #etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
