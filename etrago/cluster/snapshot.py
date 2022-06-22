@@ -49,22 +49,24 @@ def snapshot_clustering(self):
     if self.args['snapshot_clustering']['active'] == True:
 
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
-            
+
             self.network = run(network=self.network.copy(),
                       n_clusters=1,
                       segmented_to = self.args['snapshot_clustering']['n_segments'],
-                      csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
+                      extreme_periods = self.args['snapshot_clustering']['extreme_periods'],
+                      csv_export = self.args['csv_export']
                       )
-            
+
         elif self.args['snapshot_clustering']['method'] == 'typical_periods' :
-            
+
             self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
-                      how=self.args['snapshot_clustering']['how']
+                      how=self.args['snapshot_clustering']['how'],
+                      extreme_periods = self.args['snapshot_clustering']['extreme_periods'],
+                      csv_export = self.args['csv_export']
                       )
         else :
                  raise ValueError("Type of clustering should be 'typical_periods' or 'segmentation'")
-
 
 def tsam_cluster(timeseries_df,
                  typical_periods=10,
@@ -118,6 +120,13 @@ def tsam_cluster(timeseries_df,
     else:
         hoursPerPeriod = hours
 
+    # define weight for weightDict:
+    # residual load should not impact cluster findings,
+    # but only be the optional parameter to choose an extreme period
+    weight = pd.Series(data=1, index=timeseries_df.columns)
+    weight['residual_load'] = 0
+    weight = weight.to_dict()
+
     aggregation = tsam.TimeSeriesAggregation(
         timeseries_df,
         noTypicalPeriods=typical_periods,
@@ -128,24 +137,24 @@ def tsam_cluster(timeseries_df,
         hoursPerPeriod=hoursPerPeriod,
         clusterMethod='hierarchical',
         segmentation = segmentation,
-        noSegments = segment_no)
-    
+        noSegments = segment_no,
+        weightDict = weight)
+
     if segmentation:
         print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
-              'Using extreme period method: ' + extremePeriodMethod + '\n' + 
-              'Segmentation: ' + str(segmentation))
-    
+              'Using extreme period method: ' + extremePeriodMethod)
+
     else:
-        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' + 
-          'Using extreme period method: ' + extremePeriodMethod + '\n' + 
-          'Segmentation: ' + str(segmentation))
+        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' +
+          'Using extreme period method: ' + extremePeriodMethod)
 
 
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
 
     #If Segmentation is True, insert 'Dates' and 'SegmentNo' column in timeseries
-    if segmentation is True:
+    if segmentation == True:
+
         weights=timeseries.index.get_level_values(2)
         dates_df= timeseries_df.index.get_level_values(0)
         dates=[]
@@ -167,22 +176,22 @@ def tsam_cluster(timeseries_df,
         if 'Segment Step' in timeseries.columns:
             del timeseries['Segment Step']
         #print(timeseries)
-        
+
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices
 
     if extremePeriodMethod  == 'new_cluster_center':
-        for i in aggregation.extremePeriods.keys():
-            clusterCenterIndices.insert(
-                    aggregation.extremePeriods[i]['newClusterNo'],
-                    aggregation.extremePeriods[i]['stepNo'])
+            for i in aggregation.extremePeriods.keys():
+                clusterCenterIndices.insert(
+                        aggregation.extremePeriods[i]['newClusterNo'],
+                        aggregation.extremePeriods[i]['stepNo'])
 
     if extremePeriodMethod  == 'append':
-        for i in aggregation.extremePeriods.keys():
-            clusterCenterIndices.insert(
-                    aggregation.extremePeriods[i]['clusterNo'],
-                    aggregation.extremePeriods[i]['stepNo'])
+            for i in aggregation.extremePeriods.keys():
+                clusterCenterIndices.insert(
+                        aggregation.extremePeriods[i]['clusterNo'],
+                        aggregation.extremePeriods[i]['stepNo'])
 
     # get all index for every hour of that day of the clusterCenterIndices
     start = []
@@ -241,33 +250,49 @@ def tsam_cluster(timeseries_df,
     return df_cluster, cluster_weights, dates, hours, df_i_h, timeseries
 
 
-def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=False):
+def run(network, n_clusters=None, how='daily', segmented_to=False, extreme_periods='None', csv_export=False):
     """
     """
     if segmented_to is not False:
         segment_no = segmented_to
         segmentation = True
-        csv_export = csv_export
+
     else:
         segment_no = 24
-        segmentation = False 
-    
+        segmentation = False
+
+    if not extreme_periods:
+        extreme_periods = 'None'
+
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
                 prepare_pypsa_timeseries(network),
                 typical_periods = n_clusters,
                 how='daily',
-                extremePeriodMethod = 'None',
+                extremePeriodMethod = extreme_periods,
                 segmentation = segmentation,
                 segment_no = segment_no,
                 segm_hoursperperiod = network.snapshots.size)
-    
-    ###### can be deleted later, just helpful to see how time steps were clustered ######### 
+
     if csv_export is not False:
         if not os.path.exists(csv_export):
             os.makedirs(csv_export, exist_ok=True)
-        timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
-    ########################
+        if segmentation != False:
+            timeseries.to_csv('segmentation/timeseries_segmentation=' + str(segment_no) + '.csv')
+        else:
+            if how=='daily':
+                howie='days'
+                path='typical_days'
+            elif how=='weekly':
+                howie='weeks'
+                path='typical_weeks'
+            elif how=='monthly':
+                howie='months'
+                path='typical_months'
+            elif how=='hourly':
+                howie='hours'
+                path='typical_hours'
+            df_cluster.to_csv(path+'/cluster_typical-periods=' + str(n_clusters) + howie + '.csv')
 
     network.cluster = df_cluster
     network.cluster_ts = df_i_h
@@ -280,24 +305,18 @@ def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=Fa
 def prepare_pypsa_timeseries(network, normed=False):
     """
     """
-    if normed:
-        normed_loads = network.loads_t.p_set / network.loads_t.p_set.max()
-        normed_loads.columns = 'L' + normed_loads.columns
-        normed_renewables = network.generators_t.p_max_pu
-        normed_renewables.columns = 'G' + normed_renewables.columns
 
-        df = pd.concat([normed_renewables,
-                        normed_loads], axis=1)
-    else:
-        loads = network.loads_t.p_set.copy()
-        loads.columns = 'L' + loads.columns
-        renewables = network.generators_t.p_max_pu.mul(
+    loads = network.loads_t.p_set.copy()
+    loads.columns = 'L' + loads.columns
+
+    renewables = network.generators_t.p_max_pu.mul(
                 network.generators.p_nom[
                 network.generators_t.p_max_pu.columns], axis = 1).copy()
-        renewables.columns = 'G' + renewables.columns
-        residual_load=pd.DataFrame()
-        residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
-        df = pd.concat([renewables, loads, residual_load], axis=1)
+    renewables.columns = 'G' + renewables.columns
+
+    residual_load=pd.DataFrame()
+    residual_load['residual_load']=loads.sum(axis=1)-renewables.sum(axis=1)
+    df = pd.concat([renewables, loads, residual_load], axis=1)
 
     return df
 
@@ -319,12 +338,19 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
     network
 
     """
-    
-    if segmentation is True:
-        network.snapshot_weightings = pd.Series(data = timeseries.index.get_level_values(2).values,
-            index = timeseries.index.get_level_values(0))
+
+    if segmentation:
+
         network.snapshots = timeseries.index.get_level_values(0)
+        network.snapshot_weightings['objective'] = pd.Series(data = timeseries.index.get_level_values(2).values,
+            index = timeseries.index.get_level_values(0))
+        network.snapshot_weightings['stores'] = pd.Series(data = timeseries.index.get_level_values(2).values,
+            index = timeseries.index.get_level_values(0))
+        network.snapshot_weightings['generators'] = pd.Series(data = timeseries.index.get_level_values(2).values,
+            index = timeseries.index.get_level_values(0))
+
     else:
+
         network.snapshots = dates
         network.snapshot_weightings = network.snapshot_weightings.loc[dates]
 
@@ -341,9 +367,10 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
         # put the snapshot in the right order
         network.snapshots.sort_values()
-        print(network.snapshots)
         network.snapshot_weightings.sort_index()
-        
+
+    print(network.snapshots)
+
     return network
 
 
