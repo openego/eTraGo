@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "etrago-SH",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 240,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {},
     "model_formulation": "kirchhoff",  # angles or kirchhoff
@@ -122,16 +122,16 @@ args = {
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
-        "active": True,  # choose if clustering is activated
-        "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": 'append', # consideration of extreme timesteps; e.g. 'append'
+        "active": False,  # choose if clustering is activated
+        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     # Simplifications:
-    "skip_snapshots": False,  # False or number of snapshots to skip
+    "skip_snapshots": 3,  # False or number of snapshots to skip
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
