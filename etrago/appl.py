@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-SH",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 240,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {},
     "model_formulation": "kirchhoff",  # angles or kirchhoff
@@ -95,7 +95,7 @@ args = {
         "active": True,  # choose if clustering is activated
         "n_clusters": 30,  # number of resulting nodes
         "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
-        "n_clusters_gas": 30,  # number of resulting nodes in specified region (only DE or DE+foreign);
+        "n_clusters_gas": 15,  # number of resulting nodes in specified region (only DE or DE+foreign);
         # Note: Number of resulting nodes depends on if foreign nodes are clustered.
         # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
         "kmeans_busmap": False,  # False or path/to/busmap.csv
@@ -122,15 +122,16 @@ args = {
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
-        "active": False,  # choose if clustering is activated
-        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "active": True,  # choose if clustering is activated
+        "method": "segmentation",  # 'typical_periods' or 'segmentation'
+        "extreme_periods": 'append', # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     # Simplifications:
-    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "skip_snapshots": False,  # False or number of snapshots to skip
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -366,11 +367,13 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : dict
         {'active': False, 'method':'typical_periods', 'how': 'daily',
-         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+         'extreme_periods': None, 'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
         You can choose between a method clustering to typical periods, e.g. days
         or a method clustering to segments of adjacent hours.
+        With ``'extreme_periods'`` you define the consideration of timesteps with
+        extreme residual load while temporal aggregation.
         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
         the length of the periods, constraints considering the storages and the number
         of clusters for the usage of the method typical_periods.
