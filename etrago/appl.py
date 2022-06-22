@@ -46,7 +46,7 @@ if 'READTHEDOCS' not in os.environ:
 
 args = {
     # Setup and Configuration:
-    'db': 'etrago-DE',  # database session
+    'db': 'egon-data',  # database session
     'gridversion': None,  # None for model_draft or Version number
     'method': { # Choose method and settings for optimization
         'type': 'lopf', # type of optimization, currently only 'lopf'
@@ -57,7 +57,7 @@ args = {
         'add_foreign_lopf': True, # keep results of lopf for foreign DC-links
         'q_allocation': 'p_nom'}, # allocate reactive power via 'p_nom' or 'p'
     'start_snapshot': 1,
-    'end_snapshot': 9,
+    'end_snapshot': 2,
     'solver': 'gurobi',  # glpk, cplex or gurobi
     'solver_options': {},
     'model_formulation': 'kirchhoff', # angles or kirchhoff
@@ -90,8 +90,8 @@ args = {
     'network_clustering': {
         'active': True, # choose if clustering is activated
         'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters': 100, # number of resulting nodes
-        'n_clusters_gas': 50 , # number of resulting nodes in Germany
+        'n_clusters': 70, # number of resulting nodes
+        'n_clusters_gas': 30 , # number of resulting nodes in Germany
         'k_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
@@ -474,7 +474,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    #etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
