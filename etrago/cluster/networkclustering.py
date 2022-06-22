@@ -959,7 +959,7 @@ def kmean_clustering(etrago):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["kmeans_busmap"]:
+    if not kmean_settings["k_busmap"]:
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
@@ -972,7 +972,7 @@ def kmean_clustering(etrago):
             "kmeans_busmap_" + str(kmean_settings["n_clusters"]) + "_result.csv"
         )
     else:
-        df = pd.read_csv(kmean_settings["kmeans_busmap"])
+        df = pd.read_csv(kmean_settings["k_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
         busmap = df.squeeze("columns")
@@ -1258,7 +1258,7 @@ def kmedoids_dijkstra_clustering(etrago):
 
     network.import_components_from_dataframe(
         network.transformers.loc[
-            :, ["bus0", "bus1", "x", "s_nom", "capital_cost", "sub_network", "s_max_pu"]
+            :, ["bus0", "bus1", "x", "s_nom", "capital_cost", "sub_network", "s_max_pu", "lifetime"]
         ]
         .assign(
             x=network.transformers.x * (380.0 / transformer_voltages.max(axis=1)) ** 2,
@@ -1267,6 +1267,7 @@ def kmedoids_dijkstra_clustering(etrago):
         .set_index("T" + trafo_index),
         "Line",
     )
+    network.lines.carrier = "AC"
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
@@ -1308,7 +1309,7 @@ def kmedoids_dijkstra_clustering(etrago):
         )
 
     # k-mean clustering
-    if not settings["kmeans_busmap"]:
+    if not settings["k_busmap"]:
 
         bus_weightings = pd.Series(weight)
         buses_i = network_elec.buses.index
@@ -1355,11 +1356,11 @@ def kmedoids_dijkstra_clustering(etrago):
         )
 
     else:
-        df = pd.read_csv(settings["kmeans_busmap"])
+        df = pd.read_csv(settings["k_busmap"])
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
-    
+
     network, busmap = adjust_no_electric_network(
         network, busmap, cluster_met="Dijkstra"
     )
@@ -1383,7 +1384,7 @@ def kmedoids_dijkstra_clustering(etrago):
         medoid = str(medoid_idx.loc[cluster])
         clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
         clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
-        
+
     clustering.network.links, clustering.network.links_t = group_links(clustering.network)
 
     return clustering
