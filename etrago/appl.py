@@ -95,7 +95,10 @@ args = {
         "active": True,  # choose if clustering is activated
         'n_clusters': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
         'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
-        "n_clusters_gas": 30,  # number of resulting nodes
+        "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
+        "n_clusters_gas": 30,  # number of resulting nodes in specified region (only DE or DE+foreign);
+        # Note: Number of resulting nodes depends on if foreign nodes are clustered.
+        # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
         "kmeans_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
@@ -219,189 +222,192 @@ def run_etrago(args, json_path):
 
      scn_decommissioning : str
          None,
-         Choose an extra scenario which includes lines you want to decommise
-         from the existing network. Data of the decommissioning scenarios are
-         located in extension-tables
-         (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-         'decommissioning_'.
-         Currently, there are two decommissioning_scenarios which are linked to
-         extension-scenarios:
-             'nep2035_confirmed' includes all lines that will be replaced in
-             confirmed projects
-             'nep2035_b2' includes all lines that will be replaced in
-             NEP-scenario 2035 B2
+        Choose an extra scenario which includes lines you want to decommise
+        from the existing network. Data of the decommissioning scenarios are
+        located in extension-tables
+        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
+        'decommissioning_'.
+        Currently, there are two decommissioning_scenarios which are linked to
+        extension-scenarios:
+            'nep2035_confirmed' includes all lines that will be replaced in
+            confirmed projects
+            'nep2035_b2' includes all lines that will be replaced in
+            NEP-scenario 2035 B2
 
-     lpfile : obj
-         False,
-         State if and where you want to save pyomo's lp file. Options:
-         False or '/path/tofolder'.import numpy as np
+    lpfile : obj
+        False,
+        State if and where you want to save pyomo's lp file. Options:
+        False or '/path/tofolder'.import numpy as np
 
-     csv_export : obj
-         False,
-         State if and where you want to save results as csv files.Options:
-         False or '/path/tofolder'.
+    csv_export : obj
+        False,
+        State if and where you want to save results as csv files.Options:
+        False or '/path/tofolder'.
 
-     extendable : dict
-         {'extendable_components': ['as_in_db'],
-             'upper_bounds_grid': {
-                 'grid_max_D': None,
-                 'grid_max_abs_D': {
-                     '380':{'i':1020, 'wires':4, 'circuits':4},
-                     '220':{'i':1020, 'wires':4, 'circuits':4},
-                     '110':{'i':1020, 'wires':4, 'circuits':2},
-                     'dc':0},
-                 'grid_max_foreign': 4,
-                 'grid_max_abs_foreign': None}},
-         ['network', 'storages'],
-         Choose components you want to optimize and set upper bounds for grid expansion.
-         The list 'extendable_components' defines a set of components to optimize.
-         Settings can be added in /tools/extendable.py.
-         The most important possibilities:
-             'as_in_db': leaves everything as it is defined in the data coming
-                         from the database
-             'network': set all lines, links and transformers extendable
-             'german_network': set lines and transformers in German grid
-                             extendable
-             'foreign_network': set foreign lines and transformers extendable
-             'transformers': set all transformers extendable
-             'overlay_network': set all components of the 'scn_extension'
-                                extendable
-             'storages': allow to install extendable storages
-                         (unlimited in size) at each grid node in order to meet
-                         the flexibility demand.
-             'network_preselection': set only preselected lines extendable,
-                                     method is chosen in function call
-         Upper bounds for grid expansion can be set for lines in Germany can be
-         defined relative to the existing capacity using 'grid_max_D'.
-         Alternatively, absolute maximum capacities between two buses can be
-         defined per voltage level using 'grid_max_abs_D'.
-         Upper bounds for bordercrossing lines can be defined accrodingly
-         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
+    extendable : dict
+        {'extendable_components': ['as_in_db'],
+            'upper_bounds_grid': {
+                'grid_max_D': None,
+                'grid_max_abs_D': {
+                    '380':{'i':1020, 'wires':4, 'circuits':4},
+                    '220':{'i':1020, 'wires':4, 'circuits':4},
+                    '110':{'i':1020, 'wires':4, 'circuits':2},
+                    'dc':0},
+                'grid_max_foreign': 4,
+                'grid_max_abs_foreign': None}},
+        ['network', 'storages'],
+        Choose components you want to optimize and set upper bounds for grid expansion.
+        The list 'extendable_components' defines a set of components to optimize.
+        Settings can be added in /tools/extendable.py.
+        The most important possibilities:
+            'as_in_db': leaves everything as it is defined in the data coming
+                        from the database
+            'network': set all lines, links and transformers extendable
+            'german_network': set lines and transformers in German grid
+                            extendable
+            'foreign_network': set foreign lines and transformers extendable
+            'transformers': set all transformers extendable
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
+            'storages': allow to install extendable storages
+                        (unlimited in size) at each grid node in order to meet
+                        the flexibility demand.
+            'network_preselection': set only preselected lines extendable,
+                                    method is chosen in function call
+        Upper bounds for grid expansion can be set for lines in Germany can be
+        defined relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two buses can be
+        defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing lines can be defined accrodingly
+        using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
-     generator_noise : bool or int
-         State if you want to apply a small random noise to the marginal costs
-         of each generator in order to prevent an optima plateau. To reproduce
-         a noise, choose the same integer (seed number).
+    generator_noise : bool or int
+        State if you want to apply a small random noise to the marginal costs
+        of each generator in order to prevent an optima plateau. To reproduce
+        a noise, choose the same integer (seed number).
 
-     extra_functionality : dict or None
-         None,
-         Choose extra functionalities and their parameters for PyPSA-model.
-         Settings can be added in /tools/constraints.py.
-         Current options are:
-             'max_line_ext': float
-                 Maximal share of network extension in p.u.
-             'min_renewable_share': float
-                 Minimal share of renewable generation in p.u.
-             'cross_border_flow': array of two floats
-                 Limit cross-border-flows between Germany and its neigbouring
-                 countries, set values in p.u. of german loads in snapshots
-                 for all countries
-                 (positiv: export from Germany)
-             'cross_border_flows_per_country': dict of cntr and array of floats
-                 Limit cross-border-flows between Germany and its neigbouring
-                 countries, set values in p.u. of german loads in snapshots
-                 for each country
-                 (positiv: export from Germany)
-             'max_curtailment_per_gen': float
-                 Limit curtailment of all wind and solar generators in Germany,
-                 values set in p.u. of generation potential.
-             'max_curtailment_per_gen': float
-                 Limit curtailment of each wind and solar generator in Germany,
-                 values set in p.u. of generation potential.
-             'capacity_factor': dict of arrays
-                 Limit overall energy production for each carrier,
-                 set upper/lower limit in p.u.
-             'capacity_factor_per_gen': dict of arrays
-                 Limit overall energy production for each generator by carrier,
-                 set upper/lower limit in p.u.
-             'capacity_factor_per_cntr': dict of dict of arrays
-                 Limit overall energy production country-wise for each carrier,
-                 set upper/lower limit in p.u.
-             'capacity_factor_per_gen_cntr': dict of dict of arrays
-                 Limit overall energy production country-wise for each generator
-                 by carrier, set upper/lower limit in p.u.
+    extra_functionality : dict or None
+        None,
+        Choose extra functionalities and their parameters for PyPSA-model.
+        Settings can be added in /tools/constraints.py.
+        Current options are:
+            'max_line_ext': float
+                Maximal share of network extension in p.u.
+            'min_renewable_share': float
+                Minimal share of renewable generation in p.u.
+            'cross_border_flow': array of two floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
+                for all countries
+                (positiv: export from Germany)
+            'cross_border_flows_per_country': dict of cntr and array of floats
+                Limit cross-border-flows between Germany and its neigbouring
+                countries, set values in p.u. of german loads in snapshots
+                for each country
+                (positiv: export from Germany)
+            'max_curtailment_per_gen': float
+                Limit curtailment of all wind and solar generators in Germany,
+                values set in p.u. of generation potential.
+            'max_curtailment_per_gen': float
+                Limit curtailment of each wind and solar generator in Germany,
+                values set in p.u. of generation potential.
+            'capacity_factor': dict of arrays
+                Limit overall energy production for each carrier,
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen': dict of arrays
+                Limit overall energy production for each generator by carrier,
+                set upper/lower limit in p.u.
+            'capacity_factor_per_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each carrier,
+                set upper/lower limit in p.u.
+            'capacity_factor_per_gen_cntr': dict of dict of arrays
+                Limit overall energy production country-wise for each generator
+                by carrier, set upper/lower limit in p.u.
 
-     network_clustering_kmeans : dict
+    network_clustering_kmeans : dict
           {'active': True, 'n_clusters': 30, 'cluster_foreign_AC': False,
            'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
            'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
            'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
-         State if you want to apply a clustering of all network buses.
-         When ``'active'`` is set to True, the AC buses are clustered down to
-         ``'n_clusters'`` buses. If ``'cluster_foreign_AC'`` is set to False,
-         the AC buses outside Germany are not clustered, and the buses inside
-         Germany are clustered to complete ``'n_clusters'`` buses.
-         The weighting takes place considering generation and load at each node.
-         ``'n_clusters_gas'`` refers to the total amount of gas buses after
-         clustering. Note, that the number of gas buses of Germanies neighboring
-         countries is not modified in this process.
-         With ``'kmeans_busmap'`` you can choose if you want to load cluster
-         coordinates from a previous run.
-         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
-         The other options affect the kmeans algorithm and should only be
-         changed carefully, documentation and possible settings are described
-         in sklearn-package (sklearn/cluster/k_means_.py).
-         This function doesn't work together with ``'line_grouping = True'``.
+        State if you want to apply a clustering of all network buses.
+        When ``'active'`` is set to True, the AC buses are clustered down to
+        ``'n_clusters'`` buses. If ``'cluster_foreign_AC'`` is set to False,
+        the AC buses outside Germany are not clustered, and the buses inside
+        Germany are clustered to complete ``'n_clusters'`` buses.
+        The weighting takes place considering generation and load at each node.
+        ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
+        neighboring countries are considered for clustering.
+        Note, that this option influences the total
+        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
+        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
+        With ``'kmeans_busmap'`` you can choose if you want to load cluster
+        coordinates from a previous run.
+        Option ``'remove_stubs'`` reduces the overestimating of line meshes.
+        The other options affect the kmeans algorithm and should only be
+        changed carefully, documentation and possible settings are described
+        in sklearn-package (sklearn/cluster/k_means_.py).
+        This function doesn't work together with ``'line_grouping = True'``.
 
-     sector_coupled_clustering : nested dict
-         {'active': True, 'carrier_data': {
-          'H2_ind_load': {'base': ['H2_grid']},
-          'central_heat': {'base': ['CH4']},
-          'rural_heat': {'base': ['CH4']}}
-         }
-         State if you want to apply clustering of sector coupled carriers, such
-         as central_heat or rural_heat. The approach builds on already clustered
-         buses (e.g. CH4 and AC) and builds clusters around the topology of the
-         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-         ``'H2_ind_load'``.
+    sector_coupled_clustering : nested dict
+        {'active': True, 'carrier_data': {
+         'H2_ind_load': {'base': ['H2_grid']},
+         'central_heat': {'base': ['CH4']},
+         'rural_heat': {'base': ['CH4']}}
+        }
+        State if you want to apply clustering of sector coupled carriers, such
+        as central_heat or rural_heat. The approach builds on already clustered
+        buses (e.g. CH4 and AC) and builds clusters around the topology of the
+        buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
+        ``'H2_ind_load'``.
 
-     network_clustering_ehv : bool
-         False,
-         Choose if you want to cluster the full HV/EHV dataset down to only the
-         EHV buses. In that case, all HV buses are assigned to their closest EHV
-         sub-station, taking into account the shortest distance on power lines.
+    network_clustering_ehv : bool
+        False,
+        Choose if you want to cluster the full HV/EHV dataset down to only the
+        EHV buses. In that case, all HV buses are assigned to their closest EHV
+        sub-station, taking into account the shortest distance on power lines.
 
-     snapshot_clustering : dict
-         {'active': False, 'method':'typical_periods', 'how': 'daily',
-          'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
-         State if you want to apply a temporal clustering and run the optimization
-         only on a subset of snapshot periods.
-         You can choose between a method clustering to typical periods, e.g. days
-         or a method clustering to segments of adjacent hours.
-         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
-         the length of the periods, constraints considering the storages and the number
-         of clusters for the usage of the method typical_periods.
-         With ``'n_segments'`` you choose the number of segments for the usage of
-         the method segmentation.
+    snapshot_clustering : dict
+        {'active': False, 'method':'typical_periods', 'how': 'daily',
+         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+        State if you want to apply a temporal clustering and run the optimization
+        only on a subset of snapshot periods.
+        You can choose between a method clustering to typical periods, e.g. days
+        or a method clustering to segments of adjacent hours.
+        With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
+        the length of the periods, constraints considering the storages and the number
+        of clusters for the usage of the method typical_periods.
+        With ``'n_segments'`` you choose the number of segments for the usage of
+        the method segmentation.
 
-     branch_capacity_factor : dict
-         {'HV': 0.5, 'eHV' : 0.7},
-         Add a factor here if you want to globally change line capacities
-         (e.g. to "consider" an (n-1) criterion or for debugging purposes).
+    branch_capacity_factor : dict
+        {'HV': 0.5, 'eHV' : 0.7},
+        Add a factor here if you want to globally change line capacities
+        (e.g. to "consider" an (n-1) criterion or for debugging purposes).
 
-     load_shedding : bool
-         False,
-         State here if you want to make use of the load shedding function which
-         is helpful when debugging: a very expensive generator is set to each
-         bus and meets the demand when regular
-         generators cannot do so.
+    load_shedding : bool
+        False,
+        State here if you want to make use of the load shedding function which
+        is helpful when debugging: a very expensive generator is set to each
+        bus and meets the demand when regular
+        generators cannot do so.
 
-     foreign_lines : dict
-         {'carrier':'AC', 'capacity': 'osmTGmod}'
-         Choose transmission technology and capacity of foreign lines:
-             'carrier': 'AC' or 'DC'
-             'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
+    foreign_lines : dict
+        {'carrier':'AC', 'capacity': 'osmTGmod}'
+        Choose transmission technology and capacity of foreign lines:
+            'carrier': 'AC' or 'DC'
+            'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
 
-     comments : str
-         None
+    comments : str
+        None
 
-     Returns
-     -------
-     network : `pandas.DataFrame<dataframe>`
-         eTraGo result network based on `PyPSA network
-         <https://www.pypsa.org/doc/components.html#network>`_
+    Returns
+    -------
+    network : `pandas.DataFrame<dataframe>`
+        eTraGo result network based on `PyPSA network
+        <https://www.pypsa.org/doc/components.html#network>`_
+
     """
     etrago = Etrago(args, json_path)
 
