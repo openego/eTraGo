@@ -93,7 +93,8 @@ args = {
     # Clustering:
     "network_clustering_kmeans": {
         "active": True,  # choose if clustering is activated
-        "n_clusters": 30,  # number of resulting nodes
+        'n_clusters': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
+        'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
         "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
         "n_clusters_gas": 30,  # number of resulting nodes in specified region (only DE or DE+foreign);
         # Note: Number of resulting nodes depends on if foreign nodes are clustered.
@@ -206,6 +207,7 @@ def run_etrago(args, json_path):
 
     scn_extension : NoneType or list
         None,
+
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
         extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
@@ -323,19 +325,21 @@ def run_etrago(args, json_path):
                 by carrier, set upper/lower limit in p.u.
 
     network_clustering_kmeans : dict
-         {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True,
-         'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
-          'remove_stubs': False, 'use_reduced_coordinates': False,
-          'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
-          'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
-          'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
-        State if you want to apply a clustering of all network buses down to
-        only ``'n_clusters'`` buses. The weighting takes place considering
-        generation and load at each node. ``'n_clusters_gas'`` refers to the
-        total amount of gas buses after clustering in the specified region (only
-        Germany or Germany + neighboring countries). ``'cluster_foreign_gas'``
-        controls whether gas buses of Germanies neighboring countries are
-        considered for clustering. Note, that this option influences the total
+          {'active': True, 'n_clusters': 30, 'cluster_foreign_AC': False,
+           'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
+           'remove_stubs': False, 'use_reduced_coordinates': False,
+           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
+           'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
+           'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
+        State if you want to apply a clustering of all network buses.
+        When ``'active'`` is set to True, the AC buses are clustered down to
+        ``'n_clusters'`` buses. If ``'cluster_foreign_AC'`` is set to False,
+        the AC buses outside Germany are not clustered, and the buses inside
+        Germany are clustered to complete ``'n_clusters'`` buses.
+        The weighting takes place considering generation and load at each node.
+        ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
+        neighboring countries are considered for clustering.
+        Note, that this option influences the total
         resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
         is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
         With ``'kmeans_busmap'`` you can choose if you want to load cluster
@@ -436,6 +440,7 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
     etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
     etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
+    etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
     # is changed (taking the mean) or our
