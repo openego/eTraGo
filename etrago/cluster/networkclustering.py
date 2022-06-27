@@ -939,8 +939,9 @@ def kmean_clustering(etrago):
         weight = weighting_for_scenario(
             x=elec_network.buses, save=kmean_settings["bus_weight_tocsv"]
         )
-    elif kmean_settings["bus_weight_fromcsv"] is not None:
-        weight = pd.Series.from_csv(kmean_settings["bus_weight_fromcsv"])
+    elif kmean_settings["bus_weight_fromcsv"] is not None:      
+        weight = pd.read_csv(kmean_settings["bus_weight_fromcsv"],
+                             index_col= "Bus", squeeze= True)
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(x=elec_network.buses, save=False)
