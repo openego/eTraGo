@@ -1215,7 +1215,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
 
     # Create soc_inter variable for each storage and each day
     define_variables(n, lb, ub, 'StorageUnit', 'soc_inter')
-    
+
     # Define soc_intra
     # Set lower and upper bound for soc_intra
     lb = pd.DataFrame(index=sns, columns=sus.index, data=-np.inf)
@@ -1233,13 +1233,13 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns):
 
     soc_inter = get_var(n, c, 'soc_inter')
     next_soc_inter = soc_inter.shift(-1).fillna(soc_inter.loc[candidates[0]])
-    
+
     last_soc_intra = soc_intra.loc[last_hour].set_index(candidates)
 
     eff_stand = expand_series(1-n.df(c).standing_loss, candidates).T
     eff_dispatch = expand_series(n.df(c).efficiency_dispatch, candidates).T
     eff_store = expand_series(n.df(c).efficiency_store, candidates).T
-    
+
     dispatch = get_var(n, c, 'p_dispatch').loc[last_hour].set_index(candidates)
     store = get_var(n, c, 'p_store').loc[last_hour].set_index(candidates)
 
@@ -1300,7 +1300,6 @@ class Constraints:
                                 format(constraint))
                 except:
                     logger.warning("Constraint {} not defined".format(constraint))
-
 
         if self.args['snapshot_clustering']['active']:
 

@@ -48,16 +48,20 @@ def snapshot_clustering(self):
     """
     if self.args['snapshot_clustering']['active'] == True:
 
+        # save second network for optional dispatch disaggregation
+        if self.args["dispatch_disaggregation"] == True and self.args['skip_snapshots'] == False:
+            self.network_tsa = self.network.copy()
+
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
-            
+
             self.network = run(network=self.network.copy(),
                       n_clusters=1,
                       segmented_to = self.args['snapshot_clustering']['n_segments'],
                       csv_export = self.args['csv_export'] # can be deleted later, just helpful to see how time steps were clustered
                       )
-            
+
         elif self.args['snapshot_clustering']['method'] == 'typical_periods' :
-            
+
             self.network = run(network=self.network.copy(),
                       n_clusters=self.args['snapshot_clustering']['n_clusters'],
                       how=self.args['snapshot_clustering']['how']
@@ -129,15 +133,15 @@ def tsam_cluster(timeseries_df,
         clusterMethod='hierarchical',
         segmentation = segmentation,
         noSegments = segment_no)
-    
+
     if segmentation:
         print('Snapshot clustering to ' + str(segment_no) + ' segments' + '\n' +
-              'Using extreme period method: ' + extremePeriodMethod + '\n' + 
+              'Using extreme period method: ' + extremePeriodMethod + '\n' +
               'Segmentation: ' + str(segmentation))
-    
+
     else:
-        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' + 
-          'Using extreme period method: ' + extremePeriodMethod + '\n' + 
+        print('Snapshot clustering to ' + str(typical_periods) + period + '\n' +
+          'Using extreme period method: ' + extremePeriodMethod + '\n' +
           'Segmentation: ' + str(segmentation))
 
 
@@ -167,7 +171,7 @@ def tsam_cluster(timeseries_df,
         if 'Segment Step' in timeseries.columns:
             del timeseries['Segment Step']
         #print(timeseries)
-        
+
     cluster_weights = aggregation.clusterPeriodNoOccur
     clusterOrder =aggregation.clusterOrder
     clusterCenterIndices= aggregation.clusterCenterIndices
@@ -250,8 +254,8 @@ def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=Fa
         csv_export = csv_export
     else:
         segment_no = 24
-        segmentation = False 
-    
+        segmentation = False
+
     # calculate clusters
     df_cluster, cluster_weights, dates, hours, df_i_h, timeseries = tsam_cluster(
                 prepare_pypsa_timeseries(network),
@@ -261,12 +265,12 @@ def run(network, n_clusters=None, how='daily', segmented_to=False, csv_export=Fa
                 segmentation = segmentation,
                 segment_no = segment_no,
                 segm_hoursperperiod = network.snapshots.size)
-    
-    ###### can be deleted later, just helpful to see how time steps were clustered ######### 
+
+    ###### can be deleted later, just helpful to see how time steps were clustered #########
     if csv_export is not False:
         if not os.path.exists(csv_export):
             os.makedirs(csv_export, exist_ok=True)
-        timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv') 
+        timeseries.to_csv(csv_export+'/timeseries_segmentation=' + str(segmentation) + '.csv')
     ########################
 
     network.cluster = df_cluster
@@ -319,7 +323,7 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
     network
 
     """
-    
+
     if segmentation is True:
         network.snapshot_weightings = pd.Series(data = timeseries.index.get_level_values(2).values,
             index = timeseries.index.get_level_values(0))
@@ -343,19 +347,25 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
         network.snapshots.sort_values()
         print(network.snapshots)
         network.snapshot_weightings.sort_index()
-        
+
     return network
 
 
 def skip_snapshots(self):
+
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
+
         self.network.snapshots = self.network.snapshots[::n_skip]
 
         self.network.snapshot_weightings['objective'] = n_skip
         self.network.snapshot_weightings['stores'] = n_skip
         self.network.snapshot_weightings['generators'] = n_skip
+
+        # save second network for optional dispatch disaggregation
+        if self.args["dispatch_disaggregation"] == True:
+            self.network_tsa = self.network.copy()
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):

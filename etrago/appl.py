@@ -90,7 +90,7 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
-    # Clustering:
+    # Spatial Complexity:
     "network_clustering_kmeans": {
         "active": True,  # choose if clustering is activated
         "n_clusters": 30,  # number of resulting nodes
@@ -121,6 +121,7 @@ args = {
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
@@ -129,8 +130,9 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    # Simplifications:
     "skip_snapshots": 3,  # False or number of snapshots to skip
+    "dispatch_disaggregation": True, # choose if full complex dispatch optimization should be conducted
+    # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -377,6 +379,14 @@ def run_etrago(args, json_path):
         With ``'n_segments'`` you choose the number of segments for the usage of
         the method segmentation.
 
+    skip_snapshots : bool or int
+        State if you only want to consider every n-th timestep
+        to reduce temporal complexity.
+
+    dispatch_disaggregation : bool
+        State if you to apply a second lopf considering dispatch only
+        to disaggregate the dispatch to the whole temporal complexity.
+
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
@@ -473,6 +483,9 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
+
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.dispatch_disaggregation()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
