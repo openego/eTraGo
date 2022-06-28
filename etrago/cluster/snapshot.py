@@ -49,7 +49,7 @@ def snapshot_clustering(self):
     if self.args['snapshot_clustering']['active'] == True:
 
         # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"] == True and self.args['skip_snapshots'] == False:
+        if self.args["dispatch_disaggregation"] == True:
             self.network_tsa = self.network.copy()
 
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
@@ -364,7 +364,7 @@ def skip_snapshots(self):
         self.network.snapshot_weightings['generators'] = n_skip
 
         # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"] == True:
+        if self.args["dispatch_disaggregation"] == True and self.args['snapshot_clustering']['active'] == False:
             self.network_tsa = self.network.copy()
 
 ####################################

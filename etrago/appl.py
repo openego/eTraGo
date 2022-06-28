@@ -473,12 +473,11 @@ def run_etrago(args, json_path):
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
+    # snapshot clustering
+    etrago.snapshot_clustering()
+
     # skip snapshots
     etrago.skip_snapshots()
-
-    # snapshot clustering
-    # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
