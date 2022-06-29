@@ -90,8 +90,8 @@ args = {
     'network_clustering': {
         'active': True, # choose if clustering is activated
         'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters': 70, # number of resulting nodes
-        'n_clusters_gas': 30 , # number of resulting nodes in Germany
+        'n_clusters': 30, # number of resulting nodes
+        'n_clusters_gas': 30, # number of resulting nodes in Germany
         'k_busmap': False, # False or path/to/busmap.csv
         'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
         'line_length_factor': 1, #
