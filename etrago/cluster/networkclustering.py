@@ -1081,15 +1081,6 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     medoid_idx = medoid_idx.astype("str")
     c_buses = medoid_idx.tolist()
 
-    # k-medoids assignment
-    df_kmedoid = pd.DataFrame(
-        {"medoid_labels": busmap_kmedoid.values}, index=busmap_kmedoid.index
-    )
-    df_kmedoid["medoid_indices"] = df_kmedoid["medoid_labels"]
-    for index, row in df_kmedoid.iterrows():
-        label = int(row["medoid_labels"])
-        df_kmedoid["medoid_indices"].loc[index] = c_buses[label]
-
     # list of all possible pathways
     ppathss = list(product(o_buses, c_buses))
 
@@ -1116,10 +1107,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     df_dijkstra.reset_index(inplace=True)
 
     # delete double entries in df due to multiprocessing
-    duplicated = df_dijkstra.duplicated()
-    for i in range(len(duplicated)):
-        if duplicated[i] == True:
-            df_dijkstra = df_dijkstra.drop([i])
+    df_dijkstra.drop_duplicates(inplace=True)
     df_dijkstra.index = df_dijkstra["source"]
 
     # creation of new busmap with final assignment (format: medoids indices)
@@ -1127,11 +1115,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
         "final_assignment", inplace=True
     )
     busmap_ind.index = df_dijkstra["source"]
+
     # adaption of busmap to format with labels (necessary for aggregation)
     busmap = busmap_ind.copy()
-    for index, item in busmap.iteritems():
-        label = medoid_idx[medoid_idx == str(item)].index[0]
-        busmap.loc[index] = str(label)
+    mapping=pd.Series(index=medoid_idx, data=medoid_idx.index)
+    busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
     return busmap
@@ -1282,9 +1270,10 @@ def kmedoids_dijkstra_clustering(etrago):
     # buses. In some cases, a bus has just DC connections, which are considered
     # links. Therefore it is necessary to include temporarily the DC links
     # into the lines table.
-    lines_plus_dc = network_elec.lines.append(
-        network.links[network.links.carrier == "DC"]
-    )
+    dc = network.links[network.links.carrier == "DC"]
+    str1 = 'DC_'
+    dc.index = f"{str1}"+dc.index
+    lines_plus_dc = network_elec.lines.append(dc)
     lines_plus_dc = lines_plus_dc[lines_col]
     network_elec.lines = lines_plus_dc.copy()
     network_elec.lines["carrier"] = "AC"
