@@ -48,7 +48,10 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     filter_links_by_carrier,
                                     set_line_costs,
                                     set_trafo_costs,
-                                    drop_sectors)
+                                    drop_sectors,
+                                    adapt_crossborder_buses,
+                                    update_busmap)
+
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_spatial_clustering,
@@ -111,6 +114,8 @@ class Etrago():
         self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
+        
+        self.busmap = {}
 
         if args is not None:
 
@@ -207,6 +212,10 @@ class Etrago():
     set_trafo_costs = set_trafo_costs
     
     drop_sectors = drop_sectors
+    
+    adapt_crossborder_buses = adapt_crossborder_buses
+
+    update_busmap = update_busmap
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
@@ -268,6 +277,8 @@ class Etrago():
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
+
+        self.adapt_crossborder_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
