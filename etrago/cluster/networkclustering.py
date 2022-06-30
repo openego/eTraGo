@@ -1408,7 +1408,7 @@ def kmedoids_dijkstra_clustering(etrago):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=settings["line_length_factor"],
     )
-    breakpoint()
+
     for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
         cluster = int(i)
         if cluster in medoid_idx.index:
