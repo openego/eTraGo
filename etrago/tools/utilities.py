@@ -1734,3 +1734,44 @@ def drop_sectors(self, drop_carriers):
             two_port.df[
                 ~two_port.df.bus1.isin(self.network.buses.index)].index,
             )
+
+def adapt_crossborder_buses(self):
+    """
+    Assign to the crossborder buses close to Germany the value "DE" in the
+    country column. It is only used when the kmean clustering is activated and
+    the user does not want to cluster the foreign buses.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None.
+
+    """
+    if self.args['network_clustering']['cluster_foreign_AC'] == False:
+        buses = self.network.buses.copy()
+        loads = self.network.loads.copy()
+        pass_to_ger = buses[(buses["country"] != "DE") &
+                            (buses["carrier"] == "AC")]
+        pass_to_ger = pass_to_ger[~pass_to_ger.index.isin(loads["bus"])]
+        self.network.buses.loc[pass_to_ger.index, "country"] = "DE"
+
+
+def update_busmap(self, new_busmap):
+    """
+    Update busmap after any clustering process
+    Parameters
+    ----------
+    new_busmap : dictionary
+        busmap used to clusted the network.
+    Returns
+    -------
+    None.
+    """
+    
+    if not self.busmap:
+        self.busmap = new_busmap
+    else:
+        self.busmap = pd.Series(self.busmap).map(new_busmap).to_dict()
