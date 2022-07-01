@@ -46,7 +46,7 @@ def create_gas_busmap(etrago):
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
     # Cluster ch4 buses
-    kmean_gas_settings = etrago.args["network_clustering_kmeans"]
+    kmean_gas_settings = etrago.args["network_clustering"]
 
     num_neighboring_country = (
         (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] != "DE")
@@ -762,7 +762,7 @@ def kmean_clustering_gas_grid(etrago):
 
 def run_kmeans_clustering_gas(self):
 
-    if self.args["network_clustering_kmeans"]["active"]:
+    if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
 

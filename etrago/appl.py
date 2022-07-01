@@ -91,13 +91,14 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
-    "network_clustering_kmeans": {
+    "network_clustering": {
         "active": True,  # choose if clustering is activated
-        "n_clusters": 30,  # total number of resulting AC nodes (DE+foreign)
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
-        "kmeans_busmap": False,  # False or path/to/busmap.csv
+        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
+        "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
@@ -322,28 +323,34 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans : dict
-          {'active': True, 'n_clusters': 30, 'cluster_foreign_AC': False, 'cluster_foreign_gas': False,
-           'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
+    network_clustering : dict
+          {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
+           'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
+           'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
            'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
-           'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
+           'max_iter': 100, 'tol': 1e-6},
         State if you want to apply a clustering of all network buses.
         When ``'active'`` is set to True, the AC buses are clustered down to
-        ``'n_clusters'`` buses. If ``'cluster_foreign_AC'`` is set to False,
+        ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
         the AC buses outside Germany are not clustered, and the buses inside
         Germany are clustered to complete ``'n_clusters'`` buses.
-        The weighting takes place considering generation and load at each node.
+        The weighting takes place considering generation and load at each node. CH-4 nodes also take
+        non-transport capacities into account.
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
-        With ``'kmeans_busmap'`` you can choose if you want to load cluster
+        With ``'method'`` you can choose between two clustering methods:
+        k-means Clustering considering geopraphical locations of buses or
+        k-medoids Dijkstra Clustering considering electrical distances between buses.
+        With ``'k_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with ``'line_grouping = True'``.
+        This function doesn't work together with
+        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
@@ -455,8 +462,8 @@ def run_etrago(args, json_path):
     # ehv network clustering
     etrago.ehv_clustering()
 
-    # k-mean clustering
-    etrago.kmean_clustering()
+    # spatial clustering
+    etrago.spatial_clustering()
 
     etrago.kmean_clustering_gas()
 
