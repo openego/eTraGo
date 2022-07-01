@@ -1347,10 +1347,15 @@ def kmedoids_dijkstra_clustering(etrago):
         )
 
         # k-means clustering
-
+        if settings['cluster_foreign_AC'] == False:
+            n_clusters = settings["n_clusters_AC"] - \
+                sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
+        else: 
+            n_clusters = settings["n_clusters_AC"]
+            
         kmeans = KMeans(
             init="k-means++",
-            n_clusters=settings["n_clusters_AC"],
+            n_clusters=n_clusters,
             n_init=settings["n_init"],
             max_iter=settings["max_iter"],
             tol=settings["tol"],
@@ -1371,8 +1376,8 @@ def kmedoids_dijkstra_clustering(etrago):
             dtype=object,
         )
 
-        medoid_idx = pd.Series(data=np.zeros(shape=settings["n_clusters_AC"], dtype=int))
-        for i in range(0, settings["n_clusters_AC"]):
+        medoid_idx = pd.Series(data=np.zeros(shape=n_clusters, dtype=int))
+        for i in range(0, n_clusters):
             dist = pd.to_numeric(distances[i])
             index = int(dist.idxmin())
             medoid_idx[i] = index
