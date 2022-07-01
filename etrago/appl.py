@@ -324,21 +324,6 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-<<<<<<< HEAD
-    network_clustering :dict
-         {'active': True, method: 'kmedoids-dijkstra', 'n_clusters': 10,
-          'k_busmap': False,'line_length_factor': 1.25,
-          'remove_stubs': False, 'use_reduced_coordinates': False,
-          'bus_weight_tocsv': None,'bus_weight_fromcsv': None,
-          'n_init': 10, 'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
-        State if you want to apply a clustering of all network buses down to
-        only ``'n_clusters'`` buses. The weighting takes place considering
-        generation and load at each node.
-        With ``'method'`` you can choose between two clustering methods:
-        k-means Clustering considering geopraphical locations of buses or
-        k-medoids Dijkstra Clustering considering electrical distances between buses.
-        With ``'k_busmap'`` you can choose if you want to load cluster
-
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
            'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
