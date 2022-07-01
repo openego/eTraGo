@@ -306,7 +306,7 @@ def strategies_links():
         "lifetime": np.mean
     }
 
-def group_links(network, with_time= True, carriers=None, cus_strateg=dict()):
+def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     """
     Aggregate network.links and network.links_t after any kind of clustering
 
