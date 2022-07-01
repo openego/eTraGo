@@ -1750,7 +1750,7 @@ def adapt_crossborder_buses(self):
     None.
 
     """
-    if self.args['network_clustering_kmeans']['cluster_foreign_AC'] == False:
+    if self.args['network_clustering']['cluster_foreign_AC'] == False:
         buses = self.network.buses.copy()
         loads = self.network.loads.copy()
         pass_to_ger = buses[(buses["country"] != "DE") &
