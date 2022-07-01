@@ -20,7 +20,7 @@ if "READTHEDOCS" not in os.environ:
     )
     from six import iteritems
 
-    from etrago.cluster.networkclustering import strategies_links
+    from etrago.cluster.networkclustering import strategies_links, group_links
     from etrago.tools.utilities import *
 
 
@@ -622,51 +622,25 @@ def get_clustering_from_busmap(
         .loc[lambda df: df.bus0 != df.bus1]
     )
 
-    new_links["link_id"] = new_links.index
-
-    strategies = strategies_links()
-    strategies["country"] = "first"
-    strategies["link_id"] = "first"
-
-    # aggregate CH4 pipelines
+    # preparation for CH4 pipeline aggregation:
     # pipelines are treated differently compared to other links, since all of
     # them will be considered bidirectional. That means, if a pipeline exists,
     # that connects one cluster with a different one simultaneously with a
     # pipeline that connects these two clusters in reversed order (e.g. bus0=1,
     # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
-    pipelines = new_links.loc[new_links["carrier"] == "CH4"]
-    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(
-        strategies
+    # therefore, the order of bus0/bus1 is adjusted
+    pipeline_mask = new_links["carrier"] == "CH4"
+    sorted_buses = np.sort(
+        new_links.loc[pipeline_mask, ["bus0", "bus1"]].values, 1
     )
-    pipeline_combinations.reset_index(drop=True, inplace=True)
-    pipeline_combinations["buscombination"] = pipeline_combinations[
-        ["bus0", "bus1"]
-    ].apply(lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1)
-    pipeline_strategies = strategies.copy()
-    pipeline_strategies.update(
-        {col: "first" for col in pipeline_combinations.columns if col not in strategies}
-    )
-    # the order of buses for pipelines can be ignored, since the pipelines are
-    # working bidirectionally
-    pipeline_strategies["bus0"] = "first"
-    pipeline_strategies["bus1"] = "first"
-    pipelines_final = pipeline_combinations.groupby(["buscombination", "carrier"]).agg(
-        pipeline_strategies
-    )
+    new_links.loc[pipeline_mask, ["bus0", "bus1"]] = sorted_buses
 
-    pipelines_final.set_index("link_id", inplace=True)
-    pipelines_final.drop(columns="buscombination", inplace=True)
-    io.import_components_from_dataframe(network_gasgrid_c, pipelines_final, "Link")
-
-    # aggregate remaining links
-    not_pipelines = new_links.loc[new_links["carrier"] != "CH4"]
-    combinations = not_pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
-    combinations.set_index("link_id", inplace=True)
-
-    io.import_components_from_dataframe(network_gasgrid_c, combinations, "Link")
+    # import the links and the respective time series with the bus0 and bus1
+    # values updated from the busmap
+    io.import_components_from_dataframe(network_gasgrid_c, new_links, "Link")
 
     if with_time:
-        for attr, df in iteritems(network.links_t):
+        for attr, df in network.links_t.items():
             if not df.empty:
                 io.import_series_from_dataframe(network_gasgrid_c, df, "Link", attr)
 
@@ -726,6 +700,10 @@ def kmean_clustering_gas_grid(etrago):
             },
         },
     )
+
+    # aggregation of the links and links time series
+    etrago.network.links, etrago.network.links_t =\
+        group_links(network_gasgrid_c)
 
     # Insert components not related to the gas clustering
     io.import_components_from_dataframe(network_gasgrid_c, etrago.network.lines, "Line")
