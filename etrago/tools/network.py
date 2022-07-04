@@ -123,7 +123,7 @@ class Etrago():
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=args['db'])
+            conn = db.connection(section=self.args['db'])
 
             session = sessionmaker(bind=conn)
 
