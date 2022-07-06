@@ -708,7 +708,7 @@ def kmean_clustering_gas_grid(etrago):
     )
 
     # aggregation of the links and links time series
-    etrago.network.links, etrago.network.links_t =\
+    network_gasgrid_c.links, network_gasgrid_c.links_t =\
         group_links(network_gasgrid_c)
 
     # Insert components not related to the gas clustering
