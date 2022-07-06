@@ -676,6 +676,12 @@ def kmean_clustering_gas_grid(etrago):
 
     gas_busmap = create_gas_busmap(etrago)
 
+    def agg_e_nom_max(x):
+        if (x == np.inf).any():
+            return np.inf
+        else:
+            return x.sum()
+
     network_gasgrid_c = get_clustering_from_busmap(
         etrago.network,
         gas_busmap,
@@ -693,7 +699,7 @@ def kmean_clustering_gas_grid(etrago):
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "e_nom": np.sum,
-                "e_nom_max": np.max,
+                "e_nom_max": agg_e_nom_max,
             },
             "Load": {
                 "p_set": np.sum,
