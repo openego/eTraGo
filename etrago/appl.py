@@ -357,15 +357,25 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid']},
-         'central_heat': {'base': ['CH4']},
-         'rural_heat': {'base': ['CH4']}}
+         'H2_ind_load': {'base': ['H2_grid'], 'strategy': "consecutive"},
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "consecutive"},
+         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
         }
         State if you want to apply clustering of sector coupled carriers, such
         as central_heat or rural_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``.
+        ``'H2_ind_load'``. With ``'strategy'`` it is possible to apply either
+        ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
+        strategy clusters around the buses of the first carrier in the list.
+        The links to other buses are preserved. All buses, that have no
+        connection to the first carrier will then be clustered around the buses
+        of the second carrier in the list. The simultanous strategy looks for
+        links connecting the buses of the carriers in the list and aggregates
+        buses in case they have the same set of links connected. For example,
+        a heat bus connected to CH4 via gas boiler and to AC via heat pump will
+        only form a cluster with other buses, if these have the same links to
+        the same clusters of CH4 and AC.
 
     network_clustering_ehv : bool
         False,
