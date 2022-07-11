@@ -32,9 +32,12 @@ from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
 
-import cartopy
-import cartopy.crs as ccrs
-import cartopy.mpl.geoaxes
+try:
+    import cartopy
+    import cartopy.crs as ccrs
+    import cartopy.mpl.geoaxes
+except ImportError:
+    cartopy = None
 import requests
 
 logger = logging.getLogger(__name__)
@@ -69,7 +72,7 @@ def set_epsg_network(network):
     network.buses.x, network.buses.y = x2, y2
     network.epsg = 3857
     set_epsg_network.counter = set_epsg_network.counter + 1
-    
+
 
 
 def plot_osm(x, y, zoom, alpha=0.4):
@@ -341,7 +344,7 @@ def network_expansion_diff(networkA,
 
     ll = networkA.plot(
         line_colors=extension_lines,
-        link_colors = extension_links,
+        link_colors=extension_links,
         line_cmap=cmap,
         bus_sizes=0,
         title="Derivation of AC- and DC-line extension",
@@ -952,8 +955,12 @@ def nodal_gen_dispatch(
                   for s in dispatch.iteritems()}
         dispatch = dispatch.abs()
         subcolors = {'negative': 'red', 'positive': 'green'}
-    import cartopy.crs as ccrs 
-    fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
+
+    if cartopy is None:
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
+
     network.plot(
         bus_sizes=dispatch * scaling,
         bus_colors=colors,
@@ -1374,16 +1381,23 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    
 
-    network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
-                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
-    
+    if cartopy is None:
+        network.plot(
+            ax=ax, line_colors='grey', link_colors='grey',
+            bus_sizes=0, line_widths=0.5, link_widths=0.3#0.55,
+        )
+    else:
+        network.plot(
+            ax=ax, line_colors='grey', link_colors='grey',
+            bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
+            geomap=True, projection=ccrs.PlateCarree(), color_geomap=True
+        )
+
 def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
-    
+
     colors = coloring()
-    
+
     # Plot osm map in background
     if osm != False:
         # if etrago.network.srid == 4326:
@@ -1396,22 +1410,22 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
 
     link_width=pd.Series(index=etrago.network.links.index,
                          data = 2)
-    
+
     if len(carrier_links) >0:
-    
+
         link_width.loc[~etrago.network.links.carrier.isin(carrier_links)] = 0
 
     bus_sizes=pd.Series(index=etrago.network.buses.index,
                          data = 0.0005)
-    
+
     if len(carrier_buses) >0:
-    
+
         bus_sizes.loc[~etrago.network.buses.carrier.isin(carrier_buses)] = 0
-        
+
     link_colors = etrago.network.links.carrier.map(colors)
-    
+
     bus_colors = etrago.network.buses.carrier.map(colors)
-    
+
     if 'AC' in carrier_links:
         line_widths = 1
     else:
@@ -1422,10 +1436,10 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
                         link_widths=link_width,
                         line_widths=line_widths,
                         title=carrier_links,
-                        link_colors=link_colors, 
-                        line_colors = 'lightblue',
+                        link_colors=link_colors,
+                        line_colors='lightblue',
                         bus_colors=bus_colors,
-                        ax = ax)
+                        ax=ax)
     patchList = []
     for key in (carrier_links+carrier_buses):
         data_key = mpatches.Patch(color=colors[key], label=key)
@@ -1433,8 +1447,8 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
 
     ax.legend(handles=patchList,loc='lower left', ncol=1)
     ax.autoscale()
-    
-    
+
+
 def plot_grid(self,
               line_colors,
               bus_sizes=0.02,
@@ -1515,7 +1529,12 @@ def plot_grid(self,
         fig, ax = plot_osm(osm['x'], osm['y'], osm['zoom'])
 
     else:
-        fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()}, figsize=(5, 5))
+        if cartopy is None:
+            fig, ax = plt.subplots(figsize=(5, 5))
+        else:
+            fig, ax = plt.subplots(
+                subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
+            )
 
     # Set line colors
     if line_colors == 'line_loading':
@@ -1592,15 +1611,30 @@ def plot_grid(self,
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    ll = network.plot(line_colors=line_colors, link_colors=link_colors,
-                      line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
-                      bus_sizes=bus_sizes,
-                      bus_colors=bus_colors,
-                      line_widths=line_widths, link_widths=0,#link_widths,
-                      flow=flow,
-                      title=title,
-                      geomap=False, projection=ccrs.PlateCarree(),
-                      color_geomap=True)
+    if cartopy is None:
+        ll = network.plot(
+            line_colors=line_colors, link_colors=link_colors,
+            line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths, link_widths=0,#link_widths,
+            flow=flow,
+            title=title,
+            geomap=False
+        )
+    else:
+        ll = network.plot(
+            line_colors=line_colors, link_colors=link_colors,
+            line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths, link_widths=0,#link_widths,
+            flow=flow,
+            title=title,
+            geomap=False,
+            projection=ccrs.PlateCarree(),
+            color_geomap=True
+        )
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
