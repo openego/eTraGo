@@ -76,7 +76,7 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
-    
+
     network = etrago.network.copy()
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy()
@@ -107,7 +107,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # busmap2 maps all the no electrical buses to the new buses based on the
     # eHV network
     busmap2 = {}
-    
+
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
     if (not(etrago.args["network_clustering"]["cluster_foreign_AC"]) &
         (cluster_met in ["k-mean", "Dijkstra"])):
@@ -116,7 +116,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
                                   (buses_orig["carrier"] == "AC")]
         for bus_out in ac_buses_out.index:
             busmap2[bus_out] = bus_out
-    
+
     for bus_ne in network2.buses.index:
         bus_hv = -1
         carry = network2.buses.loc[bus_ne, "carrier"]
@@ -354,7 +354,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
         )
 
     weighting = links.p_nom.groupby(grouper, axis=0).transform(normed_or_uniform)
-    strategies = strategies_links()    
+    strategies = strategies_links()
     strategies.update(cus_strateg)
     new_df = links.groupby(grouper, axis=0).agg(strategies)
     new_df.index = _flatten_multiindex(new_df.index).rename("name")
@@ -412,7 +412,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     network_c = Network()
 
     network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="ehv")
-    
+
     pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
     "ehv_elecgrid_busmap_result.csv", index=False,)
 
@@ -783,9 +783,9 @@ def ehv_clustering(self):
         self.network, busmap = cluster_on_extra_high_voltage(
             self.network, busmap, with_time=True
         )
-        
+
         self.update_busmap(busmap)
-        
+
         logger.info("Network clustered to EHV-grid")
 
 
@@ -947,7 +947,7 @@ def kmean_clustering(etrago):
         weight = weighting_for_scenario(
             x=elec_network.buses, save=kmean_settings["bus_weight_tocsv"]
         )
-    elif kmean_settings["bus_weight_fromcsv"] is not None:      
+    elif kmean_settings["bus_weight_fromcsv"] is not None:
         weight = pd.read_csv(kmean_settings["bus_weight_fromcsv"],
                              index_col= "Bus", squeeze= True)
         weight.index = weight.index.astype(str)
@@ -987,7 +987,7 @@ def kmean_clustering(etrago):
     if kmean_settings['cluster_foreign_AC'] == False:
         n_clusters = kmean_settings["n_clusters_AC"] - \
             sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
-    else: 
+    else:
         n_clusters = kmean_settings["n_clusters_AC"]
 
     # k-mean clustering
@@ -1010,7 +1010,7 @@ def kmean_clustering(etrago):
 
     etrago.network = network.copy()
     network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="k-mean")
-    
+
     pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
     "kmeans_elecgrid_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv",
     index=False,)
@@ -1350,9 +1350,9 @@ def kmedoids_dijkstra_clustering(etrago):
         if settings['cluster_foreign_AC'] == False:
             n_clusters = settings["n_clusters_AC"] - \
                 sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
-        else: 
+        else:
             n_clusters = settings["n_clusters_AC"]
-            
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -1394,8 +1394,8 @@ def kmedoids_dijkstra_clustering(etrago):
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
-    
-    
+
+
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met="Dijkstra"
     )
@@ -1441,7 +1441,7 @@ def run_spatial_clustering(self):
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
 
             logger.info("Start k-medoids Dijkstra Clustering")
-            
+
             self.clustering, busmap = kmedoids_dijkstra_clustering(self)
 
         self.update_busmap(busmap)
