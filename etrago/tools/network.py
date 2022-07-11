@@ -48,12 +48,17 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     filter_links_by_carrier,
                                     set_line_costs,
                                     set_trafo_costs,
-                                    drop_sectors)
+                                    drop_sectors,
+                                    adapt_crossborder_buses,
+                                    update_busmap)
+
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
-from etrago.cluster.gasclustering import run_kmeans_clustering_gas
-from etrago.cluster.networkclustering import (run_kmeans_clustering,
+from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
+from etrago.cluster.gasclustering import run_kmeans_clustering_gas
+
+
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
@@ -109,6 +114,8 @@ class Etrago():
         self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
+        
+        self.busmap = {}
 
         if args is not None:
 
@@ -116,7 +123,7 @@ class Etrago():
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=args['db'])
+            conn = db.connection(section=self.args['db'])
 
             session = sessionmaker(bind=conn)
 
@@ -178,7 +185,8 @@ class Etrago():
 
     plot_grid = plot_grid
 
-    kmean_clustering = run_kmeans_clustering
+    spatial_clustering = run_spatial_clustering
+    
     kmean_clustering_gas = run_kmeans_clustering_gas
 
     skip_snapshots = skip_snapshots
@@ -204,6 +212,10 @@ class Etrago():
     set_trafo_costs = set_trafo_costs
     
     drop_sectors = drop_sectors
+    
+    adapt_crossborder_buses = adapt_crossborder_buses
+
+    update_busmap = update_busmap
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
@@ -265,6 +277,8 @@ class Etrago():
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
+
+        self.adapt_crossborder_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
