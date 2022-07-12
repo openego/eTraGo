@@ -31,6 +31,10 @@ import numpy as np
 from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
+from pypsa.plot import draw_map_cartopy
+import numpy as np
+import geopandas as gpd
 
 import cartopy
 import cartopy.crs as ccrs
@@ -1375,7 +1379,7 @@ def plot_background_grid(network, ax):
 
     """
     
-
+    breakpoint()
     network.plot(ax=ax, line_colors='grey', link_colors='grey',
                      bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
                      geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
@@ -1695,3 +1699,60 @@ def make_legend_circles_for(sizes, scale=1.0, **kw):
 
 if __name__ == '__main__':
     pass
+
+
+def plot_clusters(self, carrier= "AC", boundaries= "SH", save= False,
+                  transmission_lines= True):
+    
+    #Create geometries
+    new_geom = self.network.buses[["carrier", "x", "y",]].copy()
+    new_geom = new_geom[new_geom["carrier"] == carrier]
+    new_geom["geom"] = new_geom.apply(lambda x: Point(x["x"], x["y"]), axis = 1)
+    map_buses = self.disaggregated_network.buses[["carrier","geom"]].copy()
+    map_buses = map_buses[map_buses["carrier"] == carrier]
+    map_buses["cluster"] = map_buses.index.map(self.busmap)
+    map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
+    map_buses["line"] = map_buses.apply(
+        lambda x: LineString((x["geom"], x["cluster_geom"])),axis = 1)
+    
+    #Set background
+    if boundaries == "Germany":
+        boundaries = [5.5, 15.5, 47, 55.5]
+    elif boundaries == "SH":
+        boundaries = [7.7, 11.5, 53, 55]
+    plt.rcParams["figure.autolayout"] = True
+    fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
+    draw_map_cartopy(ax, color_geomap=True)
+    ax.set_extent(boundaries, crs=ccrs.PlateCarree())
+    ax.coastlines(linewidth=1, zorder=2, resolution="50m")
+    border = cartopy.feature.BORDERS.with_scale("50m")
+    ax.add_feature(border, linewidth=1)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    ax.set_title(f'Clustering {self.args["network_clustering"]["method"]}')
+    
+    #Draw original transmission lines
+    if transmission_lines:
+        lines = gpd.GeoDataFrame(self.disaggregated_network.lines,
+                                 geometry= "geom")
+        lines.plot(ax = ax, color="grey", linewidths=0.8, zorder= 1)
+    
+    #Assign a random color to each cluster
+    colors = {color: np.random.rand(3,) for color in map_buses.cluster.unique()}
+    map_buses["color"] = map_buses["cluster"].map(colors)
+    
+    #Draw original and clustered buses
+    map_buses = gpd.GeoDataFrame(map_buses, geometry = "line")
+    map_buses.plot(ax=ax, color=map_buses["color"], linewidths=0.25, zorder= 2)
+    map_buses = gpd.GeoDataFrame(map_buses, geometry = "geom")
+    map_buses.plot(ax=ax, color=map_buses["color"], markersize=0.8, marker= "o",
+                   zorder= 3)
+    map_buses = gpd.GeoDataFrame(map_buses, geometry = "cluster_geom")
+    map_buses.plot(ax=ax, color=map_buses["color"], markersize=10, marker= "o",
+                   edgecolor="black", zorder= 3)
+    
+    if save:
+        plt.savefig("clustering_plot", dpi=800)
+    return
+#plot_clusters(etrago, carrier= "AC", boundaries= "SH", save= True)
+        

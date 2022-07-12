@@ -1449,6 +1449,8 @@ def run_spatial_clustering(self):
 
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time= False)
 
         self.network = self.clustering.network.copy()
 

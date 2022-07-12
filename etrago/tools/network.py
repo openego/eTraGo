@@ -52,7 +52,7 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     adapt_crossborder_buses,
                                     update_busmap)
 
-from etrago.tools.plot import plot_grid
+from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
@@ -216,6 +216,8 @@ class Etrago():
     adapt_crossborder_buses = adapt_crossborder_buses
 
     update_busmap = update_busmap
+    
+    plot_clusters = plot_clusters
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
