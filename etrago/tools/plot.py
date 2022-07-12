@@ -23,23 +23,22 @@ Plot.py defines functions necessary to plot results of eTraGo.
 """
 import logging
 import os
-from matplotlib import pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib
-import pandas as pd
-import numpy as np
-from math import sqrt, log10
-from pyproj import Proj, transform
-import tilemapbase
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-from pypsa.plot import draw_map_cartopy
-import numpy as np
-import geopandas as gpd
+from math import log10, sqrt
 
 import cartopy
 import cartopy.crs as ccrs
 import cartopy.mpl.geoaxes
+import geopandas as gpd
+import matplotlib
+import matplotlib.patches as mpatches
+import numpy as np
+import pandas as pd
 import requests
+import tilemapbase
+from matplotlib import pyplot as plt
+from pyproj import Proj, transform
+from pypsa.plot import draw_map_cartopy
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
 logger = logging.getLogger(__name__)
 
@@ -1667,6 +1666,8 @@ set_epsg_network.counter = 0
 ### see here: https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+
+
 def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
     fig = ax.get_figure()
 
