@@ -1378,7 +1378,6 @@ def plot_background_grid(network, ax):
 
     """
     
-    breakpoint()
     network.plot(ax=ax, line_colors='grey', link_colors='grey',
                      bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
                      geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
