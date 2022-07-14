@@ -410,7 +410,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     """
 
     network_c = Network()
-
     network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="ehv")
 
     pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
@@ -787,11 +786,11 @@ def ehv_clustering(self):
         busmap = busmap_from_psql(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=True
+            self, busmap, with_time=True
         )
 
         self.update_busmap(busmap)
-
+        buses_by_country(self)
         logger.info("Network clustered to EHV-grid")
 
 
