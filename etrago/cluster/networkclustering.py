@@ -694,6 +694,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     tofill["path_length"] = 0
 
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
+    df.drop_duplicates(inplace=True)
 
     # prepare data for export
 
