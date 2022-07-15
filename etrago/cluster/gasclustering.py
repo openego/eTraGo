@@ -46,7 +46,7 @@ def create_gas_busmap(etrago):
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
 
     # Cluster ch4 buses
-    kmean_gas_settings = etrago.args["network_clustering_kmeans"]
+    kmean_gas_settings = etrago.args["network_clustering"]
 
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if kmean_gas_settings["cluster_foreign_gas"] == False:
@@ -702,6 +702,12 @@ def kmean_clustering_gas_grid(etrago):
 
     gas_busmap = create_gas_busmap(etrago)
 
+    def agg_e_nom_max(x):
+        if (x == np.inf).any():
+            return np.inf
+        else:
+            return x.sum()
+
     network_gasgrid_c = get_clustering_from_busmap(
         etrago.network,
         gas_busmap,
@@ -719,7 +725,7 @@ def kmean_clustering_gas_grid(etrago):
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "e_nom": np.sum,
-                "e_nom_max": np.max,
+                "e_nom_max": agg_e_nom_max,
             },
             "Load": {
                 "p_set": np.sum,
@@ -749,7 +755,7 @@ def kmean_clustering_gas_grid(etrago):
 
 def run_kmeans_clustering_gas(self):
 
-    if self.args["network_clustering_kmeans"]["active"]:
+    if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
 
