@@ -1358,7 +1358,7 @@ def kmedoids_dijkstra_clustering(etrago):
                 sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
         else:
             n_clusters = settings["n_clusters_AC"]
-
+        breakpoint()
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -1435,9 +1435,13 @@ def kmedoids_dijkstra_clustering(etrago):
 def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
-
+        
+        if self.args["network_clustering_ehv"]:    
+        
+            self.adapt_crossborder_buses()
+        breakpoint()
         self.network.generators.control = "PV"
-
+        
         if self.args["network_clustering"]["method"] == "kmeans":
 
             logger.info("Start k-mean clustering")
