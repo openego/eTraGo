@@ -33,6 +33,8 @@ import logging
 import math
 from pyomo.environ import Var, Constraint, PositiveReals
 from importlib import import_module
+from collections.abc import Mapping
+from copy import deepcopy
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +59,7 @@ def filter_links_by_carrier(self, carrier, like=True):
     elif isinstance(carrier, list):
         df = self.network.links[self.network.links.carrier.isin(carrier)]
     return df
+
 
 def buses_of_vlvl(network, voltage_level):
     """Get bus-ids of given voltage level(s).
@@ -211,19 +214,19 @@ def buses_by_country(etrago):
         "Germany": "DE",
     }
 
-    #read Germany borders from egon-data
+    # read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = etrago.engine    
-    germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
-   
+    con = etrago.engine
+    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
+
     path = gpd.datasets.get_path("naturalearth_lowres")
     shapes = gpd.read_file(path)
     shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
-    
-    #Use Germany borders from egon-data if not using the SH test case
+
+    # Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
-        
+
     geobuses = etrago.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
@@ -376,7 +379,7 @@ def foreign_links(self):
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
 
         network.links.loc[foreign_links.index, "efficiency"] = 1
-        
+
         network.links.loc[foreign_links.index, "carrier"] = "DC"
 
         network.import_components_from_dataframe(
@@ -827,7 +830,9 @@ def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
         (network.links.p_nom_extendable)
         & (network.links.index.isin(self.dc_lines().index)),
         "capital_cost",
-    ] = (costDC * network.links.length)
+    ] = (
+        costDC * network.links.length
+    )
 
     return network
 
@@ -1123,26 +1128,25 @@ def convert_capital_costs(self):
     # Costs are already annuized yearly in the datamodel
     # adjust to number of considered snapshots
 
-    network.lines.loc[
-        network.lines.s_nom_extendable == True, "capital_cost"
-        ] *= n_snapshots / 8760
+    network.lines.loc[network.lines.s_nom_extendable == True, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
-    network.links.loc[
-        network.links.p_nom_extendable == True, "capital_cost"
-        ] *= n_snapshots / 8760
+    network.links.loc[network.links.p_nom_extendable == True, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
     network.transformers.loc[
         network.transformers.s_nom_extendable == True, "capital_cost"
-    ] *= n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
     network.storage_units.loc[
         network.storage_units.p_nom_extendable == True, "capital_cost"
-    ] *=  n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
-    network.stores.loc[
-        network.stores.e_nom_extendable == True, "capital_cost"
-    ] *=  n_snapshots / 8760
-
+    network.stores.loc[network.stores.e_nom_extendable == True, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
@@ -1277,7 +1281,22 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-            self.args = json.load(f)
+            args_ = json.load(f)
+            self.args = merge_dicts(self.args, args_)
+
+
+def merge_dicts(dict1, dict2):
+    """Return a new dictionary by merging two dictionaries recursively."""
+
+    result = deepcopy(dict1)
+
+    for key, value in dict2.items():
+        if isinstance(value, Mapping):
+            result[key] = merge_dicts(result.get(key, {}), value)
+        else:
+            result[key] = deepcopy(dict2[key])
+
+    return result
 
 
 def set_random_noise(self, sigma=0.01):
@@ -1402,72 +1421,96 @@ def set_line_country_tags(network):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
+
 def crossborder_capacity_tyndp2020():
-    
+
     from urllib.request import urlretrieve
     import zipfile
 
     path = "TYNDP-2020-Scenario-Datafile.xlsx"
 
-    urlretrieve("https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip"
-                , path)
+    urlretrieve(
+        "https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip",
+        path,
+    )
 
     file = zipfile.ZipFile(path)
 
     df = pd.read_excel(
-        file.open("TYNDP-2020-Scenario-Datafile.xlsx").read(),
-        sheet_name="Line")
+        file.open("TYNDP-2020-Scenario-Datafile.xlsx").read(), sheet_name="Line"
+    )
 
     df = df[
-            (df.Scenario == 'Distributed Energy')
-            & (df.Case == "Reference Grid")
-            & (df.Year == 2040)
-            & (df["Climate Year"] == 1984)
-            & ((df.Parameter == "Import Capacity") |
-               (df.Parameter == "Export Capacity"))
-            ]
+        (df.Scenario == "Distributed Energy")
+        & (df.Case == "Reference Grid")
+        & (df.Year == 2040)
+        & (df["Climate Year"] == 1984)
+        & ((df.Parameter == "Import Capacity") | (df.Parameter == "Export Capacity"))
+    ]
 
     df["country0"] = df["Node/Line"].str[:2]
 
     df["country1"] = df["Node/Line"].str[5:7]
 
-    c_export = df[df.Parameter=="Export Capacity"].groupby(["country0", "country1"]).Value.sum()
+    c_export = (
+        df[df.Parameter == "Export Capacity"]
+        .groupby(["country0", "country1"])
+        .Value.sum()
+    )
 
-    c_import = df[df.Parameter=="Import Capacity"].groupby(["country0", "country1"]).Value.sum()
+    c_import = (
+        df[df.Parameter == "Import Capacity"]
+        .groupby(["country0", "country1"])
+        .Value.sum()
+    )
 
-    capacities = pd.DataFrame(index = c_export.index, 
-                              data = {"export": c_export.abs(),
-                                      "import": c_import.abs()}).reset_index()
+    capacities = pd.DataFrame(
+        index=c_export.index, data={"export": c_export.abs(), "import": c_import.abs()}
+    ).reset_index()
 
-    with_de = capacities[(capacities.country0 == 'DE')
-                         & (capacities.country1 != 'DE')].set_index('country1')[
-                             ["export", "import"]]
+    with_de = capacities[
+        (capacities.country0 == "DE") & (capacities.country1 != "DE")
+    ].set_index("country1")[["export", "import"]]
 
     with_de = with_de.append(
-        capacities[(capacities.country0 != 'DE')
-                         & (capacities.country1 == 'DE')].set_index('country0')[
-                             ["export", "import"]])
-              
-    countries = ['DE', 'DK', 'NL', 'CZ', 'PL', 'AT', 'CH', 'FR', 'LU', 'BE',
-           'GB', 'NO', 'SE']
+        capacities[
+            (capacities.country0 != "DE") & (capacities.country1 == "DE")
+        ].set_index("country0")[["export", "import"]]
+    )
 
-    without_de = capacities[(capacities.country0 != 'DE')
-                         & (capacities.country1 != 'DE')
-                         & (capacities.country0.isin(countries))
-                         & (capacities.country1.isin(countries))
-                         & (capacities.country1 != capacities.country0)]
+    countries = [
+        "DE",
+        "DK",
+        "NL",
+        "CZ",
+        "PL",
+        "AT",
+        "CH",
+        "FR",
+        "LU",
+        "BE",
+        "GB",
+        "NO",
+        "SE",
+    ]
 
-    without_de["country"] = without_de.country0+without_de.country1
+    without_de = capacities[
+        (capacities.country0 != "DE")
+        & (capacities.country1 != "DE")
+        & (capacities.country0.isin(countries))
+        & (capacities.country1.isin(countries))
+        & (capacities.country1 != capacities.country0)
+    ]
+
+    without_de["country"] = without_de.country0 + without_de.country1
 
     without_de.set_index("country", inplace=True)
 
-    without_de = without_de[["export", "import"]].fillna(0.)
+    without_de = without_de[["export", "import"]].fillna(0.0)
 
-    return {**without_de.min(axis=1).to_dict(), 
-                       **with_de.min(axis=1).to_dict()}
-    
-    
-    
+    return {**without_de.min(axis=1).to_dict(), **with_de.min(axis=1).to_dict()}
+
+
 def crossborder_capacity(self):
     """
     Adjust interconnector capacties.
@@ -1514,9 +1557,9 @@ def crossborder_capacity(self):
 
         elif self.args["foreign_lines"]["capacity"] == "thermal_acer":
             cap_per_country = {"CH": 12000, "DK": 4000, "SEDK": 3500, "DKSE": 3500}
-            
+
         elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
-            
+
             cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
@@ -1709,31 +1752,32 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    self.network.mremove('Bus',
-        self.network.buses[
-            self.network.buses.carrier.isin(drop_carriers)].index,
-        )
+    self.network.mremove(
+        "Bus",
+        self.network.buses[self.network.buses.carrier.isin(drop_carriers)].index,
+    )
 
     for one_port in self.network.iterate_components(
-            ["Load", "Generator", "Store", "StorageUnit"]):
+        ["Load", "Generator", "Store", "StorageUnit"]
+    ):
 
-        self.network.mremove(one_port.name,
-            one_port.df[
-                ~one_port.df.bus.isin(self.network.buses.index)].index,
-            )
+        self.network.mremove(
+            one_port.name,
+            one_port.df[~one_port.df.bus.isin(self.network.buses.index)].index,
+        )
 
-    for two_port in self.network.iterate_components(
-            ["Line", "Link", "Transformer"]):
+    for two_port in self.network.iterate_components(["Line", "Link", "Transformer"]):
 
-        self.network.mremove(two_port.name,
-            two_port.df[
-                ~two_port.df.bus0.isin(self.network.buses.index)].index,
-            )
+        self.network.mremove(
+            two_port.name,
+            two_port.df[~two_port.df.bus0.isin(self.network.buses.index)].index,
+        )
 
-        self.network.mremove(two_port.name,
-            two_port.df[
-                ~two_port.df.bus1.isin(self.network.buses.index)].index,
-            )
+        self.network.mremove(
+            two_port.name,
+            two_port.df[~two_port.df.bus1.isin(self.network.buses.index)].index,
+        )
+
 
 def adapt_crossborder_buses(self):
     """
@@ -1750,11 +1794,10 @@ def adapt_crossborder_buses(self):
     None.
 
     """
-    if self.args['network_clustering']['cluster_foreign_AC'] == False:
+    if self.args["network_clustering"]["cluster_foreign_AC"] == False:
         buses = self.network.buses.copy()
         loads = self.network.loads.copy()
-        pass_to_ger = buses[(buses["country"] != "DE") &
-                            (buses["carrier"] == "AC")]
+        pass_to_ger = buses[(buses["country"] != "DE") & (buses["carrier"] == "AC")]
         pass_to_ger = pass_to_ger[~pass_to_ger.index.isin(loads["bus"])]
         self.network.buses.loc[pass_to_ger.index, "country"] = "DE"
 
@@ -1770,7 +1813,7 @@ def update_busmap(self, new_busmap):
     -------
     None.
     """
-    
+
     if not self.busmap:
         self.busmap = new_busmap
     else:
