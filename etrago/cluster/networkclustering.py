@@ -837,59 +837,6 @@ def kmean_clustering(etrago):
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
 
-
-    def weighting_for_scenario(x, save=None):
-        """ """
-        # define weighting based on conventional 'old' generator spatial
-        # distribution
-
-        non_conv_types = {
-            "biomass",
-            "central_biomass_CHP",
-            "industrial_biomass_CHP",
-            "wind_onshore",
-            "wind_offshore",
-            "solar",
-            "solar_rooftop",
-            "geo_thermal",
-            "load shedding",
-            "extendable_storage",
-            "other_renewable",
-            "reservoir",
-            "run_of_river",
-            "pumped_hydro",
-        }
-        # Attention: elec_network.generators.carrier.unique()
-        gen = elec_network.generators.loc[
-            (elec_network.generators.carrier.isin(non_conv_types) == False)
-        ].groupby("bus").p_nom.sum().reindex(
-            elec_network.buses.index, fill_value=0.0
-        ) + elec_network.storage_units.loc[
-            (elec_network.storage_units.carrier.isin(non_conv_types) == False)
-        ].groupby(
-            "bus"
-        ).p_nom.sum().reindex(
-            elec_network.buses.index, fill_value=0.0
-        )
-
-        load = elec_network.loads_t.p_set.mean().groupby(elec_network.loads.bus).sum()
-
-        b_i = x.index
-        g = normed(gen.reindex(b_i, fill_value=0))
-        l = normed(load.reindex(b_i, fill_value=0))
-        w = g + l
-        weight = ((w * (100000.0 / w.max())).astype(int)).reindex(
-            elec_network.buses.index, fill_value=1
-        )
-
-        if save:
-            weight.to_csv(save)
-
-        return weight
-
-    def normed(x):
-        return (x / x.sum()).fillna(0.0)
-
     # prepare k-mean
     # k-means clustering (first try)
     network.generators.control = "PV"
@@ -951,14 +898,14 @@ def kmean_clustering(etrago):
     # it, or use a bus weighting from a csv file
     if kmean_settings["bus_weight_tocsv"] is not None:
         weight = weighting_for_scenario(
-            x=elec_network.buses, save=kmean_settings["bus_weight_tocsv"]
+            network=elec_network, save=kmean_settings["bus_weight_tocsv"]
         )
     elif kmean_settings["bus_weight_fromcsv"] is not None:
         weight = pd.read_csv(kmean_settings["bus_weight_fromcsv"],
                              index_col= "Bus", squeeze= True)
         weight.index = weight.index.astype(str)
     else:
-        weight = weighting_for_scenario(x=elec_network.buses, save=False)
+        weight = weighting_for_scenario(network=elec_network, save=False)
 
     # remove stubs
     if kmean_settings["remove_stubs"]:
@@ -1170,6 +1117,73 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
 
     return busmap
 
+def weighting_for_scenario(network, save=None):
+    """
+    define bus weighting based on generation, load and storage
+
+    Parameters
+    ----------
+    network : pypsa.network
+        Each bus in this network will receive a weight based on the
+        generator, load and storages also available in the network object.
+    save : str or bool, optional
+        If defined, the result of the weighting will be saved in the path
+        supplied here. The default is None.
+
+    Returns
+    -------
+    weight : pandas.series
+        Serie with the weight assigned to each bus to perform a k-mean
+        clustering.
+
+    """
+
+    def calc_capacity_factor(gen):
+        if gen["carrier"] in time_dependent:
+            cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+        else:
+            cf = fixed_capacity_fac[gen["carrier"]]
+        return cf
+    
+    time_dependent = [
+        "solar_rooftop",
+        "solar",
+        "wind_onshore",
+        "wind_offshore",
+    ]
+    #TASK: virify if the values used here are acceptable. Currentely based on
+    #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
+    fixed_capacity_fac = {
+        "industrial_biomass_CHP": 0.65,
+        "biomass": 0.65,
+        "central_biomass_CHP": 0.65,
+        "other_non_renewable": 0.49,
+        "oil": 0.49,
+        }
+
+    gen = network.generators[["bus", "carrier", "p_nom"]].copy()
+    gen["cf"] = gen.apply(calc_capacity_factor, axis=1)
+    gen["weight"] = gen["p_nom"] * gen["cf"]
+    gen = gen.groupby("bus").weight.sum().reindex(
+        network.buses.index, fill_value=0.0)
+        
+    storage = network.storage_units.groupby("bus").p_nom.sum().reindex(
+        network.buses.index, fill_value=0.0
+    )
+
+    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum().reindex(
+        network.buses.index, fill_value=0.0)
+
+    w = gen + storage + load
+    weight = ((w * (100000.0 / w.max())).astype(int)).reindex(
+        network.buses.index, fill_value=1
+    )
+
+    if save:
+        weight.to_csv(save)
+
+    return weight
+
 
 def kmedoids_dijkstra_clustering(etrago):
     """Function of the k-medoids Dijkstra Clustering approach. Maps an original
@@ -1202,58 +1216,6 @@ def kmedoids_dijkstra_clustering(etrago):
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
-
-    def weighting_for_scenario(x, save=None):
-        """ """
-        # define weighting based on conventional 'old' generator spatial
-        # distribution
-        non_conv_types = {
-            "biomass",
-            "central_biomass_CHP",
-            "industrial_biomass_CHP",
-            "wind_onshore",
-            "wind_offshore",
-            "solar",
-            "solar_rooftop",
-            "geo_thermal",
-            "load shedding",
-            "extendable_storage",
-            "other_renewable",
-            "reservoir",
-            "run_of_river",
-            "pumped_hydro",
-        }
-        # Attention: network.generators.carrier.unique()
-        gen = network.generators.loc[
-            (network.generators.carrier.isin(non_conv_types) == False)
-        ].groupby("bus").p_nom.sum().reindex(
-            network.buses.index, fill_value=0.0
-        ) + network.storage_units.loc[
-            (network.storage_units.carrier.isin(non_conv_types) == False)
-        ].groupby(
-            "bus"
-        ).p_nom.sum().reindex(
-            network.buses.index, fill_value=0.0
-        )
-
-        load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum()
-
-        b_i = x.index
-        g = normed(gen.reindex(b_i, fill_value=0))
-        l = normed(load.reindex(b_i, fill_value=0))
-
-        w = g + l
-        weight = ((w * (100000.0 / w.max())).astype(int)).reindex(
-            network.buses.index, fill_value=1
-        )
-
-        if save:
-            weight.to_csv(save)
-
-        return weight
-
-    def normed(x):
-        return (x / x.sum()).fillna(0.0)
 
     # prepare k-mean
     # k-means clustering (first try)
@@ -1328,13 +1290,13 @@ def kmedoids_dijkstra_clustering(etrago):
     # it, or use a bus weighting from a csv file
     if settings["bus_weight_tocsv"] is not None:
         weight = weighting_for_scenario(
-            x=network_elec.buses, save=settings["bus_weight_tocsv"]
+            network=network_elec, save=settings["bus_weight_tocsv"]
         )
     elif settings["bus_weight_fromcsv"] is not None:
         weight = pd.Series.from_csv(settings["bus_weight_fromcsv"])
         weight.index = weight.index.astype(str)
     else:
-        weight = weighting_for_scenario(x=network_elec.buses, save=False)
+        weight = weighting_for_scenario(network=network_elec, save=False)
 
     # remove stubs
     if settings["remove_stubs"]:
