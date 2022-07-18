@@ -775,8 +775,48 @@ def busmap_from_psql(etrago):
         busmap = fetch()
 
     return busmap
+    
+def delete_ehv_buses_no_lines(network):
+    """
+    There are some eHV buses that when using the eHV clustering become totally
+    isolated because their unique connexion is a transformer to 110 kV. When
+    This buses have not loads, generators or links connected, they are deleted
+    before creating the busmap.
 
+    Parameters
+    ----------
+    network : pypsa.network
 
+    Returns
+    -------
+    None
+    """
+    lines = network.lines
+    buses_ac = network.buses[(network.buses.carrier == "AC") &
+                             (network.buses.country == "DE")]
+    buses_in_lines = set(list(lines.bus0) + list(lines.bus1))
+    buses_ac["with_line"] = buses_ac.index.isin(buses_in_lines)
+    buses_ac["with_load"] = buses_ac.index.isin(network.loads.bus)
+    buses_in_links = list(network.links.bus0)+list(network.links.bus1)
+    buses_ac["with_link"] = buses_ac.index.isin(buses_in_links)
+    buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
+
+    delete_buses = buses_ac[(buses_ac["with_line"] == False) &
+                            (buses_ac["with_load"] == False) &
+                            (buses_ac["with_link"] == False) &
+                            (buses_ac["with_gen"] == False)].index
+    
+    network.buses = network.buses.drop(delete_buses)
+    
+    delete_trafo = network.transformers[
+        (network.transformers.bus0.isin(delete_buses)) |
+        (network.transformers.bus1.isin(delete_buses))].index
+    
+    network.transformers = network.transformers.drop(delete_trafo)
+    
+    return
+    
+    
 def ehv_clustering(self):
 
     if self.args["network_clustering_ehv"]:
@@ -784,6 +824,9 @@ def ehv_clustering(self):
         logger.info("Start ehv clustering")
 
         self.network.generators.control = "PV"
+
+        delete_ehv_buses_no_lines(self.network)        
+
         busmap = busmap_from_psql(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
@@ -1358,7 +1401,7 @@ def kmedoids_dijkstra_clustering(etrago):
                 sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
         else:
             n_clusters = settings["n_clusters_AC"]
-        breakpoint()
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -1439,7 +1482,7 @@ def run_spatial_clustering(self):
         if self.args["network_clustering_ehv"]:    
         
             self.adapt_crossborder_buses()
-        breakpoint()
+
         self.network.generators.control = "PV"
         
         if self.args["network_clustering"]["method"] == "kmeans":
