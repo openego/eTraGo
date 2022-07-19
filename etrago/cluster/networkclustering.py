@@ -162,7 +162,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             no_elec_to_cluster = no_elec_to_cluster.append(new)
 
         busmap2[bus_ne] = bus_cluster
-
+        breakpoint()
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
@@ -813,6 +813,10 @@ def delete_ehv_buses_no_lines(network):
         (network.transformers.bus1.isin(delete_buses))].index
     
     network.transformers = network.transformers.drop(delete_trafo)
+    
+    delete_sto_units = network.storage_units[
+        network.storage_units.bus.isin(delete_buses)].index
+    network.storage_units = network.storage_units.drop(delete_sto_units)
     
     return
     
