@@ -162,11 +162,11 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             no_elec_to_cluster = no_elec_to_cluster.append(new)
 
         busmap2[bus_ne] = bus_cluster
-        breakpoint()
+    
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connection to the electric network"""
+            connection to the electric network: {no_elec_conex}"""
         )
 
     # Add the gas buses to the busmap and map them to themself
@@ -1184,10 +1184,13 @@ def weighting_for_scenario(network, save=None):
         clustering.
 
     """
-
     def calc_capacity_factor(gen):
         if gen["carrier"] in time_dependent:
-            cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+            try:
+                cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+            except:
+                print(gen)
+                cf = 0.5
         else:
             cf = fixed_capacity_fac[gen["carrier"]]
         return cf
@@ -1198,7 +1201,7 @@ def weighting_for_scenario(network, save=None):
         "wind_onshore",
         "wind_offshore",
     ]
-    #TASK: virify if the values used here are acceptable. Currentely based on
+    #TASK: verify if the values used here are acceptable. Currentely based on
     #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
     fixed_capacity_fac = {
         "industrial_biomass_CHP": 0.65,
@@ -1319,6 +1322,7 @@ def kmedoids_dijkstra_clustering(etrago):
     network.buses["v_nom"] = 380.0
 
     network_elec = select_elec_network(etrago)
+
     lines_col = network_elec.lines.columns
 
     # The Dijkstra clustering works using the shortest electrical path between
