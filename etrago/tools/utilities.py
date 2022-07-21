@@ -674,7 +674,7 @@ def export_to_csv(self, path):
     data.to_csv(os.path.join(path, "network.csv"), index=False)
 
     with open(os.path.join(path, "args.json"), "w") as fp:
-        json.dump(self.args, fp)
+        json.dump(self.args, fp, indent=4)
 
     if hasattr(self.network, "Z"):
         file = [i for i in os.listdir(path.strip("0123456789")) if i == "Z.csv"]
