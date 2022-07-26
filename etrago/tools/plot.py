@@ -1214,7 +1214,7 @@ def calc_ac_loading(network, timesteps):
     """
 
     loading_lines = mul_weighting(network, network.lines_t.p0).loc[
-                network.snapshots[timesteps]].sum()
+                network.snapshots[timesteps]].abs().sum()
 
     if not network.lines_t.q0.empty:
 
