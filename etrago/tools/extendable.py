@@ -403,7 +403,10 @@ def transformer_max_abs(network, buses):
     trafo_smax.columns = ['bus0', 'bus1', 'dcbus0', 'dcbus1']    
     trafo_smax['s_nom_max'] = trafo_smax[trafo_smax.gt(0)].min(axis=1)
     network.transformers.loc[network.transformers.bus0.isin(
-                    buses.index),'s_nom_max']= trafo_smax['s_nom_max']      
+                    buses.index),'s_nom_max']= trafo_smax['s_nom_max']
+    network.transformers['s_nom_max'] = network.transformers.apply(
+        lambda x: x["s_nom_max"] if float(x["s_nom_max"]) > float(x["s_nom_min"])\
+            else x["s_nom_min"], axis = 1)
 
 def extension_preselection(etrago, method, days=3):
 
