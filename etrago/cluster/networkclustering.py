@@ -1085,7 +1085,8 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = mp.cpu_count() - 1
+    cpu_cores = input("cpu_cores (default 4): ") or "4"
+    cpu_cores = int(cpu_cores)
 
     # calculation of shortest path between original points and k-medoids centers
     # using multiprocessing
