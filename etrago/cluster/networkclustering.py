@@ -1160,6 +1160,9 @@ def weighting_for_scenario(network, save=None):
         "biomass": 0.65,
         "central_biomass_CHP": 0.65,
         "other_non_renewable": 0.49,
+        "run_of_river": 0.49,
+        "reservoir": 0.49,
+        "gas": 0.49,
         "oil": 0.49,
         }
 
