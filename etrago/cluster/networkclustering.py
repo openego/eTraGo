@@ -765,14 +765,18 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input("cpu_cores (default 4): ") or "4"
+        cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        if cpu_cores == 'max':
+            cpu_cores = mp.cpu_count()
+        else:
+            cpu_cores = int(cpu_cores)
 
         busmap_by_shortest_path(
             etrago,
             scn_name,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
-            cpu_cores=int(cpu_cores),
+            cpu_cores=cpu_cores,
         )
         busmap = fetch()
 
@@ -1085,8 +1089,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = input("cpu_cores (default 4): ") or "4"
-    cpu_cores = int(cpu_cores)
+    cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    if cpu_cores == 'max':
+        cpu_cores = mp.cpu_count()
+    else:
+        cpu_cores = int(cpu_cores)
 
     # calculation of shortest path between original points and k-medoids centers
     # using multiprocessing
