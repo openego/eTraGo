@@ -765,14 +765,18 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input("cpu_cores (default 4): ") or "4"
+        cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        if cpu_cores == 'max':
+            cpu_cores = mp.cpu_count()
+        else:
+            cpu_cores = int(cpu_cores)
 
         busmap_by_shortest_path(
             etrago,
             scn_name,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
-            cpu_cores=int(cpu_cores),
+            cpu_cores=cpu_cores,
         )
         busmap = fetch()
 
@@ -1085,7 +1089,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = mp.cpu_count() - 1
+    cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    if cpu_cores == 'max':
+        cpu_cores = mp.cpu_count()
+    else:
+        cpu_cores = int(cpu_cores)
 
     # calculation of shortest path between original points and k-medoids centers
     # using multiprocessing
@@ -1146,7 +1154,7 @@ def weighting_for_scenario(network, save=None):
         else:
             cf = fixed_capacity_fac[gen["carrier"]]
         return cf
-    
+
     time_dependent = [
         "solar_rooftop",
         "solar",
@@ -1171,7 +1179,7 @@ def weighting_for_scenario(network, save=None):
     gen["weight"] = gen["p_nom"] * gen["cf"]
     gen = gen.groupby("bus").weight.sum().reindex(
         network.buses.index, fill_value=0.0)
-        
+
     storage = network.storage_units.groupby("bus").p_nom.sum().reindex(
         network.buses.index, fill_value=0.0
     )
@@ -1183,6 +1191,8 @@ def weighting_for_scenario(network, save=None):
     weight = ((w * (100000.0 / w.max())).astype(int)).reindex(
         network.buses.index, fill_value=1
     )
+
+    weight[weight==0]=1
 
     if save:
         weight.to_csv(save)
@@ -1348,12 +1358,9 @@ def kmedoids_dijkstra_clustering(etrago):
             index=buses_i,
             dtype=object,
         )
+        distances = distances.apply(pd.to_numeric)
 
-        medoid_idx = pd.Series(data=np.zeros(shape=n_clusters, dtype=int))
-        for i in range(0, n_clusters):
-            dist = pd.to_numeric(distances[i])
-            index = int(dist.idxmin())
-            medoid_idx[i] = index
+        medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(network_elec, medoid_idx, busmap)
