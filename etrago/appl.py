@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "egon-data-clara",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -60,9 +60,15 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
-    "solver_options": {},
+    "solver_options": {
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'threads':4,
+        },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -73,7 +79,7 @@ args = {
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
-        "extendable_components": ["as_in_db"],  # Array of components to optimize
+        "extendable_components": ["network"],  # Array of components to optimize
         "upper_bounds_grid": {  # Set upper bounds for grid expansion
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
@@ -92,9 +98,9 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
     'network_clustering': {
-        'active': True, # choose if clustering is activated
-        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters_AC': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
+        'active': False, # choose if clustering is activated
+        'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
+        'n_clusters_AC': 100, # number of resulting nodes in specified region (only DE or DE+foreign)
         'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
         'n_clusters_gas': 30, # number of resulting nodes in Germany
         "cluster_foreign_gas": False,  # number of resulting nodes in specified region (only DE or DE+foreign);
@@ -120,7 +126,7 @@ args = {
         "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
         },
     },
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
+    "network_clustering_ehv": True,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -131,7 +137,7 @@ args = {
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     # Simplifications:
-    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -469,30 +475,56 @@ def run_etrago(args, json_path):
     for t in etrago.network.iterate_components():
         if "p_nom_min" in t.df:
             t.df["p_nom_min"].fillna(0.0, inplace=True)
+    
+    # only electricity sector, no DSM and no DLR
+            
+    from cluster.networkclustering import select_elec_network
+    etrago.network= select_elec_network(etrago)
+
+    # links
+    etrago.network.links = etrago.network.links[etrago.network.links.carrier=='DC']
+    for attr in etrago.network.links_t:
+        etrago.network.links_t[attr] = etrago.network.links_t[attr].loc[
+            :,
+            etrago.network.links_t[attr].columns.isin(etrago.network.links.index),
+        ]
+
+    # no DLR
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0
 
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
+    
+    print(' ')
+    print('start spatial clustering')
+    print(datetime.datetime.now())
+    print(' ')
 
     # spatial clustering
     etrago.spatial_clustering()
+    
+    print(' ')
+    print('stop spatial clustering')
+    print(datetime.datetime.now())
+    print(' ')
 
-    etrago.kmean_clustering_gas()
+    #etrago.kmean_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
     # skip snapshots
-    etrago.skip_snapshots()
+    #etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    #etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors

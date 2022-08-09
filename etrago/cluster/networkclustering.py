@@ -22,6 +22,7 @@
 spatially for applications within the tool eTraGo."""
 
 import os
+import datetime
 
 if "READTHEDOCS" not in os.environ:
     from etrago.tools.utilities import *
@@ -708,11 +709,11 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df.rename(columns={"source": "bus0", "target": "bus1"}, inplace=True)
     df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
-    df.to_sql(
+    '''df.to_sql(
         "egon_etrago_hv_busmap", con=etrago.engine, schema="grid", if_exists="append"
-    )
+    )'''
 
-    return
+    return df
 
 
 def busmap_from_psql(etrago):
@@ -765,20 +766,21 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        #cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        cpu_cores="4"
         if cpu_cores == 'max':
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
 
-        busmap_by_shortest_path(
+        busmap = busmap_by_shortest_path(
             etrago,
             scn_name,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
             cpu_cores=cpu_cores,
         )
-        busmap = fetch()
+        #busmap = fetch()
 
     return busmap
 
@@ -951,6 +953,12 @@ def kmean_clustering(etrago):
 
     # k-mean clustering
     if not kmean_settings["k_busmap"]:
+        
+        print(' ')
+        print('start k-means clustering')
+        print(datetime.datetime.now())
+        print(' ')
+        
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
@@ -990,6 +998,11 @@ def kmean_clustering(etrago):
 
     clustering.network.links, clustering.network.links_t =\
         group_links(clustering.network)
+        
+    print(' ')
+    print('stop k-means clustering')
+    print(datetime.datetime.now())
+    print(' ')
 
     return (clustering, busmap)
 
@@ -1074,6 +1087,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
       busmap (format: with labels)
     """
 
+    print(' ')
+    print('start Dijkstra algorithm')
+    print(datetime.datetime.now())
+    print(' ')
+
     # original data
     o_buses = network.buses.index
     # k-medoids centers
@@ -1089,7 +1107,8 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    #cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    cpu_cores="4"
     if cpu_cores == 'max':
         cpu_cores = mp.cpu_count()
     else:
@@ -1124,6 +1143,11 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     mapping=pd.Series(index=medoid_idx, data=medoid_idx.index)
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
+    
+    print(' ')
+    print('stop Dijkstra algorithm')
+    print(datetime.datetime.now())
+    print(' ')
 
     return busmap
 
@@ -1336,6 +1360,11 @@ def kmedoids_dijkstra_clustering(etrago):
         else:
             n_clusters = settings["n_clusters_AC"]
 
+        print(' ')
+        print('start k-medoids Dijkstra Clustering')
+        print(datetime.datetime.now())
+        print(' ')
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -1402,6 +1431,11 @@ def kmedoids_dijkstra_clustering(etrago):
             clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
 
     clustering.network.links, clustering.network.links_t = group_links(clustering.network)
+
+    print(' ')
+    print('stop k-medoids Dijkstra Clustering')
+    print(datetime.datetime.now())
+    print(' ')
 
     return (clustering, busmap)
 
