@@ -731,8 +731,7 @@ def _normed(s):
     
 def group_parallel_lines(network):
     """
-    TODO: Will be improved when merging feature/sclopf
-    Functions that groups parallel lines of the same voltage level to one
+    Function that groups parallel lines of the same voltage level to one
     line component representing all parallel lines
 
     Parameters
@@ -838,7 +837,6 @@ def delete_dispensable_ac_buses(etrago):
     
         return count
     
-    
     start = time.time()
     network = etrago.network
     
@@ -866,14 +864,14 @@ def delete_dispensable_ac_buses(etrago):
     ac_buses["load"] = ac_buses.index.isin(b_load)
     ac_buses["store"] = ac_buses.index.isin(b_store)
     ac_buses["storage_unit"] = ac_buses.index.isin(b_store_unit)
-    
+
     ac_buses = ac_buses[
         (ac_buses.links == False)
         & (ac_buses.trafo == False)
         & (ac_buses.gen == False)
         & (ac_buses.store == False)
         & (ac_buses.storage_unit == False)
-    ]
+    ][[]]
     
     # count how many lines are connected to each bus without other attached elements
     number_of_lines = count_lines(network.lines)
@@ -899,13 +897,83 @@ def delete_dispensable_ac_buses(etrago):
         ac_buses,
     ) = delete_one_conex_bus(ac_buses, network)
     
-    # Keep the index of the buses with just two transmission lines
-    ac_buses = ac_buses[ac_buses["n_lines"] == 2]
-    
     # Group the parallel transmission lines to reduce the complexity
     group_parallel_lines(etrago.network)
     
+    # Keep the index of the buses with just two transmission lines
+    ac_buses = ac_buses[ac_buses["n_lines"] == 2]
+    
+    # Discard the buses connecting 2 lines with differente capacity
+    lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
+                              (network.lines.bus1.isin(ac_buses.index))][
+                                  ["bus0", "bus1", "s_nom"]]
+    delete_bus = []
+    for bus in ac_buses.index:
+        l = lines_cap[(lines_cap.bus0 == bus)|(lines_cap.bus1 == bus)]["s_nom"].unique()
+        if len(l) != 1:
+            delete_bus.append(bus)
+    ac_buses.drop(delete_bus, inplace=True)
+    
+    # create groups of lines to join
+    lines = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
+                              (network.lines.bus1.isin(ac_buses.index))][
+                                  ["bus0", "bus1"]]
+    lines_index = lines.index
+    new_lines = pd.DataFrame(columns = ["bus0", "bus1", "lines"])
+    line = "819"
+    group = 0
+    
+    for line in lines_index:
+        line = "113"
+        if line not in lines.index:
+            continue
+        bus0 = lines.at[line, "bus0"]
+        bus1 = lines.at[line, "bus1"]
+        lines_group = [line]
+        lines.drop(line, inplace = True)
+        
+        # Determine bus0 new group
+        end_search = False
+        breakpoint()  
+        while end_search == False:
+            lines_b = lines[(lines.bus0 == bus0) | (lines.bus1 == bus0)]
+            if len(lines_b) > 0:
+                lines_group.append(lines_b.index[0])
+                if lines_b.iat[0, 0] == bus0:
+                    bus0 = lines_b.iat[0, 1]
+                else:
+                    bus0 = lines_b.iat[0, 0]
+                lines.drop(lines_b.index[0], inplace = True)
+            else:
+                end_search = True
+              
+        end_search = False        
+        while end_search == False:
+            lines_b = lines[(lines.bus0 == bus1) | (lines.bus1 == bus1)]
+            if len(lines_b) > 0:
+                lines_group.append(lines_b.index[0])
+                if lines_b.iat[0, 0] == bus1:
+                    bus1 = lines_b.iat[0, 1]
+                else:
+                    bus1 = lines_b.iat[0, 0]
+                lines.drop(lines_b.index[0], inplace = True)
+            else:
+                end_search = True
+        
+        new_line = pd.Series({"bus0": bus0,
+                              "bus1": bus1,
+                              "lines": lines_group},
+                             name= group)
+        new_lines = new_lines.append(new_line)
+        group = group + 1
+    
+
+
+    
+                                  
+    
     print(time.time() - start)
+    
     
     return
 
