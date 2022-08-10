@@ -795,7 +795,7 @@ def ehv_clustering(self):
         busmap = busmap_from_psql(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=True
+            self, busmap, with_time=True
         )
 
         self.update_busmap(busmap)
