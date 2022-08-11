@@ -840,6 +840,9 @@ def delete_dispensable_ac_buses(etrago):
     start = time.time()
     network = etrago.network
     
+    # Group the parallel transmission lines to reduce the complexity
+    group_parallel_lines(etrago.network)
+    
     # ordering of buses
     bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
     bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
@@ -873,50 +876,31 @@ def delete_dispensable_ac_buses(etrago):
         & (ac_buses.storage_unit == False)
     ][[]]
     
-    # count how many lines are connected to each bus without other attached elements
+    # count how many lines are connected to each bus
     number_of_lines = count_lines(network.lines)
+    ac_buses["n_lines"] = 0
     ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
+
+    # Keep the buses with only one or two transmission lines
+    ac_buses = ac_buses[(ac_buses["n_lines"] == 1) |
+                        (ac_buses["n_lines"] == 2)]
     
-    # Delete all the buses with only one transmission line connected
-    (
-        network.buses,
-        network.lines,
-        network.storage_units,
-        ac_buses,
-    ) = delete_one_conex_bus(ac_buses, network)
-    
-    # recalculate how many lines are connected to each bus without other attached elements
-    number_of_lines = count_lines(network.lines)
-    ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
-    
-    # Delete all the buses with only one transmission line connected
-    (
-        network.buses,
-        network.lines,
-        network.storage_units,
-        ac_buses,
-    ) = delete_one_conex_bus(ac_buses, network)
-    
-    # Group the parallel transmission lines to reduce the complexity
-    group_parallel_lines(etrago.network)
-    
-    # Keep the index of the buses with just two transmission lines
-    ac_buses = ac_buses[ac_buses["n_lines"] == 2]
-    
-    # Discard the buses connecting 2 lines with differente capacity
+    # Keep only the buses connecting 2 lines with the same capacity
     lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
                               (network.lines.bus1.isin(ac_buses.index))][
                                   ["bus0", "bus1", "s_nom"]]
     delete_bus = []
-    for bus in ac_buses.index:
+    for bus in ac_buses[ac_buses["n_lines"] == 2].index:
         l = lines_cap[(lines_cap.bus0 == bus)|(lines_cap.bus1 == bus)]["s_nom"].unique()
         if len(l) != 1:
             delete_bus.append(bus)
     ac_buses.drop(delete_bus, inplace=True)
     
+
     # create groups of lines to join
-    lines = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
-                              (network.lines.bus1.isin(ac_buses.index))][
+    buses_2 = ac_buses[ac_buses["n_lines"] == 2]
+    lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
+                              (network.lines.bus1.isin(buses_2.index))][
                                   ["bus0", "bus1"]]
     lines_index = lines.index
     new_lines = pd.DataFrame(columns = ["bus0", "bus1", "lines"])
@@ -924,7 +908,6 @@ def delete_dispensable_ac_buses(etrago):
     group = 0
     
     for line in lines_index:
-        line = "113"
         if line not in lines.index:
             continue
         bus0 = lines.at[line, "bus0"]
@@ -934,7 +917,7 @@ def delete_dispensable_ac_buses(etrago):
         
         # Determine bus0 new group
         end_search = False
-        breakpoint()  
+
         while end_search == False:
             lines_b = lines[(lines.bus0 == bus0) | (lines.bus1 == bus0)]
             if len(lines_b) > 0:
@@ -946,7 +929,8 @@ def delete_dispensable_ac_buses(etrago):
                 lines.drop(lines_b.index[0], inplace = True)
             else:
                 end_search = True
-              
+                
+        # Determine bus0 new group
         end_search = False        
         while end_search == False:
             lines_b = lines[(lines.bus0 == bus1) | (lines.bus1 == bus1)]
@@ -960,15 +944,26 @@ def delete_dispensable_ac_buses(etrago):
             else:
                 end_search = True
         
+        # Define the parameters of the new lines to be inserted in network.lines
         new_line = pd.Series({"bus0": bus0,
                               "bus1": bus1,
                               "lines": lines_group},
                              name= group)
         new_lines = new_lines.append(new_line)
         group = group + 1
+    breakpoint()
+
+    # recalculate how many lines are connected to each bus without other attached elements
+    number_of_lines = count_lines(network.lines)
+    ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
     
-
-
+    # Delete all the buses with only one transmission line connected
+    (
+        network.buses,
+        network.lines,
+        network.storage_units,
+        ac_buses,
+    ) = delete_one_conex_bus(ac_buses, network)
     
                                   
     
