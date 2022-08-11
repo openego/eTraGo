@@ -98,9 +98,9 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
     'network_clustering': {
-        'active': False, # choose if clustering is activated
+        'active': True, # choose if clustering is activated
         'method': 'kmeans', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters_AC': 100, # number of resulting nodes in specified region (only DE or DE+foreign)
+        'n_clusters_AC': 200, # number of resulting nodes in specified region (only DE or DE+foreign)
         'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
         'n_clusters_gas': 30, # number of resulting nodes in Germany
         "cluster_foreign_gas": False,  # number of resulting nodes in specified region (only DE or DE+foreign);
@@ -115,18 +115,19 @@ args = {
         'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
         "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccesary
-        'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
+        "n_init": 10,  # affects clustering algorithm, only change when neccesary
+        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6,
+    },  # affects clustering algorithm, only change when neccesary
     "sector_coupled_clustering": {
-    "active": True,  # choose if clustering is activated
-    "carrier_data": {  # select carriers affected by sector coupling
-        "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
-        "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
-        "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+        "active": True,  # choose if clustering is activated
+        "carrier_data": {  # select carriers affected by sector coupling
+            "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
         },
     },
-    "network_clustering_ehv": True,  # clustering of HV buses to EHV buses.
+    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -343,12 +344,10 @@ def run_etrago(args, json_path):
         ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
         the AC buses outside Germany are not clustered, and the buses inside
         Germany are clustered to complete ``'n_clusters'`` buses.
-        The weighting takes place considering generation and load at each node.
+        The weighting takes place considering generation and load at each node. CH-4 nodes also take
+        non-transport capacities into account.
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
-        Note, that this option influences the total
-        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
-        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
@@ -524,7 +523,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    #etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors

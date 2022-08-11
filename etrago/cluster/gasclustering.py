@@ -48,6 +48,10 @@ def create_gas_busmap(etrago):
     # Cluster ch4 buses
     kmean_gas_settings = etrago.args["network_clustering"]
 
+    num_neighboring_country = (
+        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] != "DE")
+    ).sum()
+
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if kmean_gas_settings["cluster_foreign_gas"] == False:
 
@@ -55,6 +59,16 @@ def create_gas_busmap(etrago):
             (network_ch4.buses["carrier"] == "CH4")
             & (network_ch4.buses["country"] == "DE")
         ]
+
+        if kmean_gas_settings["n_clusters_gas"] <= num_neighboring_country:
+            msg = (
+                "The number of clusters for the gas sector ("
+                + str(kmean_gas_settings["n_clusters_gas"])
+                + ") must be higher than the number of neighboring country gas buses ("
+                + str(num_neighboring_country)
+                + ")."
+            )
+            raise ValueError(msg)
 
     else:
         network_ch4.buses = network_ch4.buses[network_ch4.buses["carrier"] == "CH4"]
@@ -154,7 +168,8 @@ def create_gas_busmap(etrago):
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
             bus_weightings=weight_ch4_s,
-            n_clusters=kmean_gas_settings["n_clusters_gas"],
+            n_clusters=kmean_gas_settings["n_clusters_gas"]
+            - num_neighboring_country * (not kmean_gas_settings["cluster_foreign_gas"]),
             n_init=kmean_gas_settings["n_init"],
             max_iter=kmean_gas_settings["max_iter"],
             tol=kmean_gas_settings["tol"],
@@ -657,9 +672,7 @@ def kmean_clustering_gas_grid(etrago):
     cluster_foreign_gas : bool
         Controls if foreign gas nodes are considered for clustering
     n_clusters_gas : int
-        Desired number of gas clusters. Note: The final number of gas clusters depends
-        on whether non-DE nodes are considered for clustering. If not, the total
-        number of resulting nodes is n_clusters_gas + foreign_buses (usually 13)
+        Desired total number of gas clusters (DE+foreign).
     gas_weight_tocsv : str
         Creates a CH4-bus weighting based on connected CH4-loads,
         CH4-generators and non-transport link capacities and save it to a csv file.
