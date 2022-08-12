@@ -757,19 +757,19 @@ def agg_series_lines(l, network):
 
     Line=l["Line"].iloc[0]
     data = dict(
-        r=1.0 / (1.0 / l["r"]).sum(),
-        x=1.0 / (1.0 / l["x"]).sum(),
-        g=l["g"].sum(),
-        b=l["b"].sum(),
+        r=l["r"].sum(),
+        x=l["x"].sum(),
+        g=1.0 / (1.0 / l["g"]).sum(),
+        b=1.0 / (1.0 / l["b"]).sum(),
         terrain_factor=l["terrain_factor"].mean(),
         s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
-        s_nom=l["s_nom"].sum(),
-        s_nom_min=l["s_nom_min"].sum(),
-        s_nom_max=l["s_nom_max"].sum(),
+        s_nom=l["s_nom"].iloc[0],
+        s_nom_min=l["s_nom_min"].max(),
+        s_nom_max=l["s_nom_max"].min(),
         s_nom_extendable=l["s_nom_extendable"].any(),
-        num_parallel=l["num_parallel"].sum(),
+        num_parallel=l["num_parallel"].max(),
         capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
-        length=l["length"].mean(),
+        length=l["length"].sum(),
         v_ang_min=l["v_ang_min"].max(),
         v_ang_max=l["v_ang_max"].min(),
     )
