@@ -91,33 +91,32 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
-    'network_clustering': {
-        'active': True, # choose if clustering is activated
-        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters_AC': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
-        'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
-        'n_clusters_gas': 30, # number of resulting nodes in Germany
-        "cluster_foreign_gas": False,  # number of resulting nodes in specified region (only DE or DE+foreign);
-        # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-        # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
-        'k_busmap': False, # False or path/to/busmap.csv
-        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
-        'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
-        'use_reduced_coordinates': False, #
-        'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
-        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+    "network_clustering": {
+        "active": True,  # choose if clustering is activated
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
+        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
+        "k_busmap": False,  # False or path/to/busmap.csv
+        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "line_length_factor": 1,  #
+        "remove_stubs": False,  # remove stubs bevore kmeans clustering
+        "use_reduced_coordinates": False,  #
+        "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
+        "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
         "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccesary
-        'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
+        "n_init": 10,  # affects clustering algorithm, only change when neccesary
+        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6,
+    },  # affects clustering algorithm, only change when neccesary
     "sector_coupled_clustering": {
-    "active": True,  # choose if clustering is activated
-    "carrier_data": {  # select carriers affected by sector coupling
-        "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
-        "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
-        "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+        "active": True,  # choose if clustering is activated
+        "carrier_data": {  # select carriers affected by sector coupling
+            "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
@@ -337,12 +336,10 @@ def run_etrago(args, json_path):
         ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
         the AC buses outside Germany are not clustered, and the buses inside
         Germany are clustered to complete ``'n_clusters'`` buses.
-        The weighting takes place considering generation and load at each node.
+        The weighting takes place considering generation and load at each node. CH-4 nodes also take
+        non-transport capacities into account.
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
-        Note, that this option influences the total
-        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
-        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
@@ -357,15 +354,25 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid']},
-         'central_heat': {'base': ['CH4']},
-         'rural_heat': {'base': ['CH4']}}
+         'H2_ind_load': {'base': ['H2_grid'], 'strategy': "consecutive"},
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "consecutive"},
+         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
         }
         State if you want to apply clustering of sector coupled carriers, such
         as central_heat or rural_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``.
+        ``'H2_ind_load'``. With ``'strategy'`` it is possible to apply either
+        ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
+        strategy clusters around the buses of the first carrier in the list.
+        The links to other buses are preserved. All buses, that have no
+        connection to the first carrier will then be clustered around the buses
+        of the second carrier in the list. The simultanous strategy looks for
+        links connecting the buses of the carriers in the list and aggregates
+        buses in case they have the same set of links connected. For example,
+        a heat bus connected to CH4 via gas boiler and to AC via heat pump will
+        only form a cluster with other buses, if these have the same links to
+        the same clusters of CH4 and AC.
 
     network_clustering_ehv : bool
         False,
