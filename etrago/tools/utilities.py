@@ -926,10 +926,9 @@ def delete_dispensable_ac_buses(etrago):
     number_of_lines = count_lines(network.lines)
     ac_buses["n_lines"] = 0
     ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
-
-    # Keep the buses with only one or two transmission lines
-    ac_buses = ac_buses[(ac_buses["n_lines"] == 1) |
-                        (ac_buses["n_lines"] == 2)]
+    
+    # Keep the buses with two or less transmission lines
+    ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
     
     # Keep only the buses connecting 2 lines with the same capacity
     lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
