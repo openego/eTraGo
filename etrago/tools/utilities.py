@@ -855,7 +855,20 @@ def group_parallel_lines(network):
     return
 
 def delete_dispensable_ac_buses(etrago):
-    
+    """
+    Function that identifies and delete AC buses without links, transformers,
+    generators, loads, stores or storage_units, which also are connected to
+    just one or two other buses
+
+    Parameters
+    ----------
+    etrago : etrago object
+    Returns
+    -------
+    None.
+
+    """
+
     def delete_buses(delete_buses, network):
         drop_buses = delete_buses.index.to_list()
         network.buses.drop(labels=drop_buses, inplace=True)
