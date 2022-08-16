@@ -53,7 +53,7 @@ def create_gas_busmap(etrago):
     ).sum()
 
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
-    if kmean_gas_settings["cluster_foreign_gas"] == False:
+    if not kmean_gas_settings["cluster_foreign_gas"]:
 
         network_ch4.buses = network_ch4.buses[
             (network_ch4.buses["carrier"] == "CH4")
@@ -140,6 +140,7 @@ def create_gas_busmap(etrago):
 
         return weightings
 
+    breakpoint()
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
     if kmean_gas_settings["gas_weight_tocsv"] is not None:
@@ -744,14 +745,25 @@ def kmean_clustering_gas_grid(etrago):
     return (network_gasgrid_c, gas_busmap)
 
 
-def run_kmeans_clustering_gas(self):
-
+def run_spatial_clustering_gas(self):
     if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
+        method = self.args["network_clustering"]["method_gas"]
+        logger.info(f"Start {method} clustering GAS")
 
-        logger.info("Start k-mean clustering GAS")
-        self.network, busmap = kmean_clustering_gas_grid(self)
+        if method == "kmeans":
+            self.network, busmap = kmean_clustering_gas_grid(self)
+
+        elif method == "kmedoids-dijkstra":
+            self.network, busmap = kmedoids_dijkstra_clustering_gas_grid(self)
+
+        else:
+            msg = (
+                "Please select \"kmeans\" or \"kmedoids-dijkstra\" as "
+                "spatial clustering method for the gas network"
+            )
+            raise ValueError(msg)
 
         self.update_busmap(busmap)
         logger.info(

@@ -70,7 +70,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "csv_export": "kmedjioidstesting",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": ["as_in_db"],  # Array of components to optimize
@@ -96,7 +96,8 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
+        "method_gas": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -475,21 +476,28 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
 
-    etrago.kmean_clustering_gas()
+    path = args['csv_export'] + 'AC'
+    etrago.export_to_csv(path)
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
+    etrago.spatial_clustering_gas()
+
+    path = args['csv_export'] + 'GAS'
+    etrago.export_to_csv(path)
+    # etrago.kmean_clustering_gas()
+
+    # etrago.args["load_shedding"] = True
+    # etrago.load_shedding()
 
     # skip snapshots
-    etrago.skip_snapshots()
+    # etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    # etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    # etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors

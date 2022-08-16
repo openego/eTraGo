@@ -56,7 +56,7 @@ from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
 from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
-from etrago.cluster.gasclustering import run_kmeans_clustering_gas
+from etrago.cluster.gasclustering import run_spatial_clustering_gas
 
 
 from etrago.cluster.snapshot import (skip_snapshots,
@@ -114,7 +114,7 @@ class Etrago():
         self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
                               'biomass', 'run_of_river', 'reservoir']
         self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
-        
+
         self.busmap = {}
 
         if args is not None:
@@ -164,7 +164,7 @@ class Etrago():
     load_shedding = load_shedding
 
     set_random_noise = set_random_noise
-    
+
     set_q_national_loads = set_q_national_loads
 
     set_q_foreign_loads = set_q_foreign_loads
@@ -186,8 +186,8 @@ class Etrago():
     plot_grid = plot_grid
 
     spatial_clustering = run_spatial_clustering
-    
-    kmean_clustering_gas = run_kmeans_clustering_gas
+
+    spatial_clustering_gas = run_spatial_clustering_gas
 
     skip_snapshots = skip_snapshots
 
@@ -204,22 +204,22 @@ class Etrago():
     calc_results = calc_etrago_results
 
     export_to_csv = export_to_csv
-    
+
     filter_links_by_carrier = filter_links_by_carrier
-    
+
     set_line_costs = set_line_costs
-    
+
     set_trafo_costs = set_trafo_costs
-    
+
     drop_sectors = drop_sectors
-    
+
     adapt_crossborder_buses = adapt_crossborder_buses
 
     update_busmap = update_busmap
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
-    
+
     def build_network_from_db(self):
 
         """ Function that imports transmission grid from chosen database
@@ -260,7 +260,7 @@ class Etrago():
         self.load_shedding()
 
         self.set_random_noise(0.01)
-        
+
         self.set_q_national_loads(cos_phi=0.9)
 
         self.set_q_foreign_loads(cos_phi=0.9)
@@ -271,9 +271,9 @@ class Etrago():
 
         self.set_branch_capacity()
 
-        self.extendable(grid_max_D= self.args["extendable"]['upper_bounds_grid']['grid_max_D'], 
-                        grid_max_abs_D= self.args["extendable"]['upper_bounds_grid']['grid_max_abs_D'], 
-                        grid_max_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_foreign'], 
+        self.extendable(grid_max_D= self.args["extendable"]['upper_bounds_grid']['grid_max_D'],
+                        grid_max_abs_D= self.args["extendable"]['upper_bounds_grid']['grid_max_abs_D'],
+                        grid_max_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_foreign'],
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
