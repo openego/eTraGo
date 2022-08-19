@@ -765,7 +765,7 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
         if cpu_cores == 'max':
             cpu_cores = mp.cpu_count()
         else:
@@ -784,10 +784,10 @@ def busmap_from_psql(etrago):
     
 def delete_ehv_buses_no_lines(network):
     """
-    There are some eHV buses that when using the eHV clustering become totally
-    isolated because their unique connexion is a transformer to 110 kV. When
-    This buses have not loads, generators or links connected, they are deleted
-    before creating the busmap.
+    When there are AC buses totally isolated, this function deletes them in order
+    to make possible the creation of busmaps based on electrical connections
+    and other purposes. Additionally, it throws a warning to inform the user
+    in case that any correction should be done.
 
     Parameters
     ----------
@@ -811,7 +811,18 @@ def delete_ehv_buses_no_lines(network):
                             (buses_ac["with_load"] == False) &
                             (buses_ac["with_link"] == False) &
                             (buses_ac["with_gen"] == False)].index
-    
+
+    if len(delete_buses):
+        logger.info(f"""
+                    
+                    ----------------------- WARNING ---------------------------
+                    THE FOLLOWING BUSES WERE DELETED BECAUSE THEY WERE ISOLATED:
+                        {delete_buses.to_list()}.
+                    IT IS POTENTIALLY A SIGN OF A PROBLEM IN THE DATASET
+                    ----------------------- WARNING ---------------------------
+                    
+                    """)
+                    
     network.buses = network.buses.drop(delete_buses)
     
     delete_trafo = network.transformers[
@@ -1136,7 +1147,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
     if cpu_cores == 'max':
         cpu_cores = mp.cpu_count()
     else:
