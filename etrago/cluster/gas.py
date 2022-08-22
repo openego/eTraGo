@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # File description for read-the-docs
-""" Gasclustering.py defines the methods to cluster gas grid networks
+""" gas.py defines the methods to cluster gas grid networks
 spatially for applications within the tool eTraGo."""
 
 import os
@@ -20,7 +20,7 @@ if "READTHEDOCS" not in os.environ:
     )
     from six import iteritems
 
-    from etrago.cluster.networkclustering import strategies_links, group_links
+    from etrago.cluster.spatial import strategies_links, group_links
     from etrago.tools.utilities import *
 
 

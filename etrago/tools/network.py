@@ -54,9 +54,9 @@ from etrago.tools.utilities import (set_branch_capacity,
 
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
-from etrago.cluster.networkclustering import (run_spatial_clustering,
+from etrago.cluster.electrical import (run_spatial_clustering,
                                               ehv_clustering)
-from etrago.cluster.gasclustering import run_spatial_clustering_gas
+from etrago.cluster.gas import run_spatial_clustering_gas
 
 
 from etrago.cluster.snapshot import (skip_snapshots,
