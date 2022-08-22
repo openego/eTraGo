@@ -302,6 +302,9 @@ class NetworkScenario(ScenarioBase):
 
                 df.index = self.timeindex
 
+                df.fillna(network.component_attrs[pypsa_name].default[col],
+                             inplace=True)
+
                 pypsa.io.import_series_from_dataframe(
                                 network,
                                 df,
@@ -334,6 +337,13 @@ class NetworkScenario(ScenarioBase):
 
             # Drop columns with only NaN values
             df = df.drop(df.isnull().all()[df.isnull().all()].index, axis=1)
+
+            # Replace NaN values with defailt values from pypsa
+            for c in df.columns:
+                if c in network.component_attrs[pypsa_comp].index:
+                    df[c].fillna(network.component_attrs[pypsa_comp].default[c],
+                                 inplace=True)
+
             if pypsa_comp == 'Generator':
                 df.sign=1
 
