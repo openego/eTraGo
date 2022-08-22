@@ -124,6 +124,7 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
@@ -206,7 +207,6 @@ def run_etrago(args, json_path):
 
     scn_extension : NoneType or list
         None,
-
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
         extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
@@ -382,11 +382,13 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : dict
         {'active': False, 'method':'typical_periods', 'how': 'daily',
-         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+         'extreme_periods': None, 'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
         You can choose between a method clustering to typical periods, e.g. days
         or a method clustering to segments of adjacent hours.
+        With ``'extreme_periods'`` you define the consideration of timesteps with
+        extreme residual load while temporal aggregation.
         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
         the length of the periods, constraints considering the storages and the number
         of clusters for the usage of the method typical_periods.
