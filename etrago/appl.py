@@ -91,14 +91,14 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
-    "network_clustering_kmeans": {
+    "network_clustering": {
         "active": True,  # choose if clustering is activated
-        "n_clusters": 30,  # number of resulting nodes
-        "cluster_foreign_gas": False,  # cluster foreign gas buses, True or False
-        "n_clusters_gas": 15,  # number of resulting nodes in specified region (only DE or DE+foreign);
-        # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-        # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
-        "kmeans_busmap": False,  # False or path/to/busmap.csv
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
+        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
+        "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
@@ -323,41 +323,56 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
-    network_clustering_kmeans : dict
-         {'active': True, 'n_clusters': 30, 'cluster_foreign_gas': True,
-         'n_clusters_gas': 30, 'kmeans_busmap': False, 'line_length_factor': 1.25,
-          'remove_stubs': False, 'use_reduced_coordinates': False,
-          'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
-          'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
-          'max_iter': 300, 'tol': 1e-4, 'n_jobs': 1},
-        State if you want to apply a clustering of all network buses down to
-        only ``'n_clusters'`` buses. The weighting takes place considering
-        generation and load at each node. ``'n_clusters_gas'`` refers to the
-        total amount of gas buses after clustering in the specified region (only
-        Germany or Germany + neighboring countries). ``'cluster_foreign_gas'``
-        controls whether gas buses of Germanies neighboring countries are
-        considered for clustering. Note, that this option influences the total
-        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
-        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
-        With ``'kmeans_busmap'`` you can choose if you want to load cluster
+    network_clustering : dict
+          {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
+           'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
+           'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
+           'remove_stubs': False, 'use_reduced_coordinates': False,
+           'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
+           'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
+           'max_iter': 100, 'tol': 1e-6},
+        State if you want to apply a clustering of all network buses.
+        When ``'active'`` is set to True, the AC buses are clustered down to
+        ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
+        the AC buses outside Germany are not clustered, and the buses inside
+        Germany are clustered to complete ``'n_clusters'`` buses.
+        The weighting takes place considering generation and load at each node. CH-4 nodes also take
+        non-transport capacities into account.
+        ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
+        neighboring countries are considered for clustering.
+        With ``'method'`` you can choose between two clustering methods:
+        k-means Clustering considering geopraphical locations of buses or
+        k-medoids Dijkstra Clustering considering electrical distances between buses.
+        With ``'k_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with ``'line_grouping = True'``.
+        This function doesn't work together with
+        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid']},
-         'central_heat': {'base': ['CH4']},
-         'rural_heat': {'base': ['CH4']}}
+         'H2_ind_load': {'base': ['H2_grid'], 'strategy': "consecutive"},
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "consecutive"},
+         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
         }
         State if you want to apply clustering of sector coupled carriers, such
         as central_heat or rural_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``.
+        ``'H2_ind_load'``. With ``'strategy'`` it is possible to apply either
+        ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
+        strategy clusters around the buses of the first carrier in the list.
+        The links to other buses are preserved. All buses, that have no
+        connection to the first carrier will then be clustered around the buses
+        of the second carrier in the list. The simultanous strategy looks for
+        links connecting the buses of the carriers in the list and aggregates
+        buses in case they have the same set of links connected. For example,
+        a heat bus connected to CH4 via gas boiler and to AC via heat pump will
+        only form a cluster with other buses, if these have the same links to
+        the same clusters of CH4 and AC.
 
     network_clustering_ehv : bool
         False,
@@ -439,6 +454,7 @@ def run_etrago(args, json_path):
     etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
     etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
     etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
+    etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
     # is changed (taking the mean) or our
@@ -458,8 +474,8 @@ def run_etrago(args, json_path):
     # ehv network clustering
     etrago.ehv_clustering()
 
-    # k-mean clustering
-    etrago.kmean_clustering()
+    # spatial clustering
+    etrago.spatial_clustering()
 
     etrago.kmean_clustering_gas()
 
