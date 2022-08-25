@@ -45,7 +45,9 @@ def kmean_preprocessing_gas(etrago):
     network_ch4 = Network()
 
     buses_ch4 = etrago.network.buses
+    links_ch4 = etrago.network.links
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
+    io.import_components_from_dataframe(network_ch4, links_ch4, "Link")
 
     # Cluster ch4 buses
     kmean_settings = etrago.args["network_clustering"]
@@ -80,6 +82,11 @@ def kmean_preprocessing_gas(etrago):
     else:
         network_ch4.buses = network_ch4.buses.loc[ch4_filter]
         n_clusters = kmean_settings["n_clusters_gas"]
+
+    network_ch4.links = network_ch4.links.loc[
+        network_ch4.links["bus0"].isin(network_ch4.buses.index)
+        & network_ch4.links["bus1"].isin(network_ch4.buses.index)
+    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """

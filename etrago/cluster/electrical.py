@@ -707,7 +707,7 @@ def run_spatial_clustering(self):
             logger.info("Start k-medoids Dijkstra Clustering")
 
             busmap, medoid_idx = kmedoids_dijkstra_clustering(
-                self, elec_network, weight, n_clusters
+                self, elec_network.buses, elec_network.lines, weight, n_clusters
             )
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)

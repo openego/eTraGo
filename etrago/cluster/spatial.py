@@ -575,7 +575,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     return busmap
 
 
-def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
+def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
     """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
       Creates a busmap assigning the nodes of a original network
       to the nodes of a clustered network
@@ -596,7 +596,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     """
 
     # original data
-    o_buses = network.buses.index
+    o_buses = buses.index
     # k-medoids centers
     medoid_idx = medoid_idx.astype("str")
     c_buses = medoid_idx.tolist()
@@ -605,8 +605,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     ppathss = list(product(o_buses, c_buses))
 
     # graph creation
-    lines = network.lines
-    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()]
+    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in connections.iterrows()]
     M = graph_from_edges(edges)
 
     # processor count
@@ -649,7 +648,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     return busmap
 
 
-def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
+def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
 
     settings = etrago.args["network_clustering"]
     # remove stubs
@@ -663,8 +662,8 @@ def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
     if not settings["k_busmap"]:
 
         bus_weightings = pd.Series(weight)
-        buses_i = selected_network.buses.index
-        points = selected_network.buses.loc[buses_i, ["x", "y"]].values.repeat(
+        buses_i = buses.index
+        points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
 
@@ -679,7 +678,7 @@ def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
         kmeans.fit(points)
 
         busmap = pd.Series(
-            data=kmeans.predict(selected_network.buses.loc[buses_i, ["x", "y"]]),
+            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
             index=buses_i,
             dtype=object,
         )
@@ -687,7 +686,7 @@ def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
         # identify medoids per cluster -> k-medoids clustering
 
         distances = pd.DataFrame(
-            data=kmeans.transform(selected_network.buses.loc[buses_i, ["x", "y"]].values),
+            data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
@@ -696,7 +695,7 @@ def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(selected_network, medoid_idx, busmap)
+        busmap = dijkstras_algorithm(buses, connections, medoid_idx, busmap)
         busmap.index.name = "bus_id"
 
     else:
