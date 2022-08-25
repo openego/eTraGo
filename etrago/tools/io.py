@@ -298,12 +298,13 @@ class NetworkScenario(ScenarioBase):
 
             if not df_all.isnull().all().all():
 
+                if col in network.component_attrs[pypsa_name].index:
+                    df_all.fillna(network.component_attrs[pypsa_name].default[col],
+                                 inplace=True)
+
                 df = df_all.anon_1.apply(pd.Series).transpose()
 
                 df.index = self.timeindex
-
-                df.fillna(network.component_attrs[pypsa_name].default[col],
-                             inplace=True)
 
                 pypsa.io.import_series_from_dataframe(
                                 network,
