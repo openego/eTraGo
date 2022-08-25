@@ -186,52 +186,22 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     # The new buses based on the eHV network for not electrical buses are created
     if cluster_met in ["k-mean", "Dijkstra"]:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": np.nan,
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": np.nan,
-                    "y": np.nan,
-                    "geom": np.nan,
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": np.nan,
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier
             )
-            network.buses = network.buses.append(new_bus)
 
     else:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": network.buses.at[cluster_bus, "scn_name"],
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": network.buses.at[cluster_bus, "x"],
-                    "y": network.buses.at[cluster_bus, "y"],
-                    "geom": network.buses.at[cluster_bus, "geom"],
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": network.buses.at[cluster_bus, "country"],
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier.values,
+            x = network.buses.loc[no_elec_to_cluster.cluster.values, "x"],
+            y = network.buses.loc[no_elec_to_cluster.cluster.values, "y"],
+            country = network.buses.loc[no_elec_to_cluster.cluster.values, "country"],
             )
-            network.buses = network.buses.append(new_bus)
+
 
     return network, busmap
 
