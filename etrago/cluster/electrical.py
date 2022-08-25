@@ -425,7 +425,7 @@ def kmean_preprocessing(etrago):
 
     network.buses["v_nom"][network.buses.carrier == "AC"] = 380.0
 
-    elec_network = select_elec_network(etrago)
+    elec_network, n_clusters = select_elec_network(etrago)
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -439,16 +439,13 @@ def kmean_preprocessing(etrago):
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(network=elec_network, save=False)
-    # why would returning network be required? The postprocessing copies the
-    # etrago.network another time, is it not just the same?
-    return network, elec_network, weight
+
+    return elec_network, weight, n_clusters
 
 
 def kmean_postprocessing(etrago, busmap, network):
 
     kmean_settings = etrago.args["network_clustering"]
-    # why does this need a copy?
-    etrago.network = network.copy()
     network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="k-mean")
 
     pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
@@ -478,14 +475,31 @@ def kmean_postprocessing(etrago, busmap, network):
 def select_elec_network(etrago):
 
     elec_network = etrago.network.copy()
-    if etrago.args["network_clustering"]["cluster_foreign_AC"]:
-        elec_network.buses = elec_network.buses[elec_network.buses.carrier == "AC"]
-        elec_network.links = elec_network.links[
-            (elec_network.links.carrier == "AC") | (elec_network.links.carrier == "DC")
+    settings = etrago.args["network_clustering"]
+    if settings["cluster_foreign_AC"]:
+        elec_network.buses = elec_network.buses[
+            elec_network.buses.carrier == "AC"
         ]
+        elec_network.links = elec_network.links[
+            (elec_network.links.carrier == "AC")
+            | (elec_network.links.carrier == "DC")
+        ]
+        n_clusters = settings["n_clusters_AC"]
     else:
-        elec_network.buses = elec_network.buses[(elec_network.buses.carrier == "AC") &
-                                                (elec_network.buses.country == "DE")]
+        AC_filter = (elec_network.buses.carrier.values == "AC")
+
+        num_neighboring_country = len(
+            elec_network.buses[
+                AC_filter
+                & (elec_network.buses.country.values != "DE")
+            ]
+        )
+
+        elec_network.buses = elec_network.buses[
+            AC_filter
+            & (elec_network.buses.country.values == "DE")
+        ]
+        n_clusters = settings["n_clusters_AC"] - num_neighboring_country
 
     # Dealing with generators
     elec_network.generators = elec_network.generators[
@@ -532,7 +546,7 @@ def select_elec_network(etrago):
             elec_network.stores_t[attr].columns.isin(elec_network.stores.index),
         ]
 
-    return elec_network
+    return elec_network, n_clusters
 
 
 def kmedoids_dijkstra_preprocessing(etrago):
@@ -621,7 +635,7 @@ def kmedoids_dijkstra_preprocessing(etrago):
 
     network.buses["v_nom"] = 380.0
 
-    network_elec = select_elec_network(etrago)
+    network_elec, n_clusters = select_elec_network(etrago)
     lines_col = network_elec.lines.columns
 
     # The Dijkstra clustering works using the shortest electrical path between
@@ -649,7 +663,7 @@ def kmedoids_dijkstra_preprocessing(etrago):
         weight = weighting_for_scenario(network=network_elec, save=False)
 
     # same as in kmeans!
-    return network, network_elec, weight
+    return network_elec, weight, n_clusters
 
 
 def kmedoids_dijkstra_postprocessing(etrago, busmap, medoid_idx):
@@ -768,16 +782,16 @@ def run_spatial_clustering(self):
 
             logger.info("Start k-mean clustering")
 
-            network, elec_network, weight = kmean_preprocessing(self)
-            busmap = kmean_clustering(self, elec_network, weight)
-            self.clustering, busmap = kmean_postprocessing(self, busmap, network)
+            elec_network, weight, n_clusters = kmean_preprocessing(self)
+            busmap = kmean_clustering(self, elec_network, weight, n_clusters)
+            self.clustering, busmap = kmean_postprocessing(self, busmap)
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
 
             logger.info("Start k-medoids Dijkstra Clustering")
 
-            network, elec_network, weight = kmedoids_dijkstra_preprocessing(self)
-            busmap, medoid_idx = kmedoids_dijkstra_clustering(self, network, elec_network, weight)
+            elec_network, weight, n_clusters = kmedoids_dijkstra_preprocessing(self)
+            busmap, medoid_idx = kmedoids_dijkstra_clustering(self, elec_network, weight, n_clusters)
             self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
 
         self.update_busmap(busmap)

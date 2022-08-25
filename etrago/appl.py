@@ -92,6 +92,7 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Clustering:
     "network_clustering": {
+        "random_state": 123456,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)

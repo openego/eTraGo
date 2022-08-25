@@ -483,7 +483,7 @@ def busmap_from_psql(etrago):
     return busmap
 
 
-def kmean_clustering(etrago, selected_network, weight):
+def kmean_clustering(etrago, selected_network, weight, n_clusters):
     """Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
@@ -553,12 +553,6 @@ def kmean_clustering(etrago, selected_network, weight):
 
         weight = weight.groupby(busmap.values).sum()
 
-    if kmean_settings['cluster_foreign_AC'] == False:
-        n_clusters = kmean_settings["n_clusters_AC"] - \
-            sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
-    else:
-        n_clusters = kmean_settings["n_clusters_AC"]
-
     # k-mean clustering
     if not kmean_settings["k_busmap"]:
         busmap = busmap_by_kmeans(
@@ -568,6 +562,7 @@ def kmean_clustering(etrago, selected_network, weight):
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],
+            random_state=kmean_settings["random_state"]
         )
         busmap.to_csv(
             "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
@@ -654,7 +649,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     return busmap
 
 
-def kmedoids_dijkstra_clustering(etrago, network, selected_network, weight):
+def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
 
     settings = etrago.args["network_clustering"]
     # remove stubs
@@ -673,19 +668,13 @@ def kmedoids_dijkstra_clustering(etrago, network, selected_network, weight):
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
 
-        # k-means clustering
-        if settings['cluster_foreign_AC'] == False:
-            n_clusters = settings["n_clusters_AC"] - \
-                sum((network.buses.carrier == "AC") & (network.buses.country != "DE"))
-        else:
-            n_clusters = settings["n_clusters_AC"]
-
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
             n_init=settings["n_init"],
             max_iter=settings["max_iter"],
             tol=settings["tol"],
+            random_state=settings["random_state"],
         )
         kmeans.fit(points)
 
