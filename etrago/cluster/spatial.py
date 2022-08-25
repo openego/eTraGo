@@ -698,9 +698,6 @@ def kmedoids_dijkstra_clustering(etrago, selected_network, weight, n_clusters):
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(selected_network, medoid_idx, busmap)
         busmap.index.name = "bus_id"
-        busmap.to_csv(
-            "kmedoids_dijkstra_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv"
-        )
 
     else:
         df = pd.read_csv(settings["k_busmap"])

@@ -103,7 +103,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
     if (not(etrago.args["network_clustering"]["cluster_foreign_AC"]) &
-        (cluster_met in ["k-mean", "Dijkstra"])):
+        (cluster_met in ["kmeans", "kmedoids-dijkstra"])):
         buses_orig = network.buses.copy()
         ac_buses_out = buses_orig[(buses_orig["country"] != "DE") &
                                   (buses_orig["carrier"] == "AC")]
@@ -178,7 +178,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap = {**busmap, **busmap2}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met in ["k-mean", "Dijkstra"]:
+    if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
         for no_elec_bus in no_elec_to_cluster.index:
             cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
             carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
@@ -366,112 +366,6 @@ def ehv_clustering(self):
         logger.info("Network clustered to EHV-grid")
 
 
-def kmean_preprocessing(etrago):
-    network = etrago.network
-    kmean_settings = etrago.args["network_clustering"]
-
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control = "PV"
-    network.storage_units.control[
-        network.storage_units.carrier == "extendable_storage"
-    ] = "PV"
-
-    # problem our lines have no v_nom. this is implicitly defined by the
-    # connected buses:
-    network.lines["v_nom"] = network.lines.bus0.map(network.buses.v_nom)
-
-    # adjust the electrical parameters of the lines which are not 380.
-    lines_v_nom_b = network.lines.v_nom != 380
-
-    voltage_factor = (network.lines.loc[lines_v_nom_b, "v_nom"] / 380.0) ** 2
-
-    network.lines.loc[lines_v_nom_b, "x"] *= 1 / voltage_factor
-
-    network.lines.loc[lines_v_nom_b, "r"] *= 1 / voltage_factor
-
-    network.lines.loc[lines_v_nom_b, "b"] *= voltage_factor
-
-    network.lines.loc[lines_v_nom_b, "g"] *= voltage_factor
-
-    network.lines.loc[lines_v_nom_b, "v_nom"] = 380.0
-
-    trafo_index = network.transformers.index
-    transformer_voltages = pd.concat(
-        [
-            network.transformers.bus0.map(network.buses.v_nom),
-            network.transformers.bus1.map(network.buses.v_nom),
-        ],
-        axis=1,
-    )
-
-    network.import_components_from_dataframe(
-        network.transformers.loc[
-            :, ["bus0", "bus1", "x", "s_nom", "capital_cost", "sub_network",
-                "s_max_pu", "lifetime"]
-        ]
-        .assign(
-            x=network.transformers.x * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-            length=1,
-        )
-        .set_index("T" + trafo_index),
-        "Line",
-    )
-    network.lines.carrier = "AC"
-    network.transformers.drop(trafo_index, inplace=True)
-
-    for attr in network.transformers_t:
-        network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
-
-    network.buses["v_nom"][network.buses.carrier == "AC"] = 380.0
-
-    elec_network, n_clusters = select_elec_network(etrago)
-
-    # State whether to create a bus weighting and save it, create or not save
-    # it, or use a bus weighting from a csv file
-    if kmean_settings["bus_weight_tocsv"] is not None:
-        weight = weighting_for_scenario(
-            network=elec_network, save=kmean_settings["bus_weight_tocsv"]
-        )
-    elif kmean_settings["bus_weight_fromcsv"] is not None:
-        weight = pd.read_csv(kmean_settings["bus_weight_fromcsv"],
-                             index_col= "Bus", squeeze= True)
-        weight.index = weight.index.astype(str)
-    else:
-        weight = weighting_for_scenario(network=elec_network, save=False)
-
-    return elec_network, weight, n_clusters
-
-
-def kmean_postprocessing(etrago, busmap, network):
-
-    kmean_settings = etrago.args["network_clustering"]
-    network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="k-mean")
-
-    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-    "kmeans_elecgrid_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv",
-    index=False,)
-
-    network.generators["weight"] = network.generators["p_nom"]
-    aggregate_one_ports = network.one_port_components.copy()
-    aggregate_one_ports.discard("Generator")
-
-    clustering = get_clustering_from_busmap(
-        network,
-        busmap,
-        aggregate_generators_weighted=True,
-        one_port_strategies=strategies_one_ports(),
-        generator_strategies=strategies_generators(),
-        aggregate_one_ports=aggregate_one_ports,
-        line_length_factor=kmean_settings["line_length_factor"],
-    )
-
-    clustering.network.links, clustering.network.links_t =\
-        group_links(clustering.network)
-
-    return (clustering, busmap)
-
-
 def select_elec_network(etrago):
 
     elec_network = etrago.network.copy()
@@ -549,7 +443,7 @@ def select_elec_network(etrago):
     return elec_network, n_clusters
 
 
-def kmedoids_dijkstra_preprocessing(etrago):
+def preprocessing(etrago):
     """Function of the k-medoids Dijkstra Clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
     This approach conducts a k-medoids Clustering followd by a Dijkstra's algortihm
@@ -618,7 +512,10 @@ def kmedoids_dijkstra_preprocessing(etrago):
 
     network.import_components_from_dataframe(
         network.transformers.loc[
-            :, ["bus0", "bus1", "x", "s_nom", "capital_cost", "sub_network", "s_max_pu", "lifetime"]
+            :, [
+                "bus0", "bus1", "x", "s_nom", "capital_cost",
+                "sub_network", "s_max_pu", "lifetime"
+            ]
         ]
         .assign(
             x=network.transformers.x * (380.0 / transformer_voltages.max(axis=1)) ** 2,
@@ -633,22 +530,23 @@ def kmedoids_dijkstra_preprocessing(etrago):
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
-    network.buses["v_nom"] = 380.0
+    network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
     network_elec, n_clusters = select_elec_network(etrago)
-    lines_col = network_elec.lines.columns
+    if settings["method"] == "kmedoids-dijkstra":
+        lines_col = network_elec.lines.columns
 
-    # The Dijkstra clustering works using the shortest electrical path between
-    # buses. In some cases, a bus has just DC connections, which are considered
-    # links. Therefore it is necessary to include temporarily the DC links
-    # into the lines table.
-    dc = network.links[network.links.carrier == "DC"]
-    str1 = 'DC_'
-    dc.index = f"{str1}"+dc.index
-    lines_plus_dc = network_elec.lines.append(dc)
-    lines_plus_dc = lines_plus_dc[lines_col]
-    network_elec.lines = lines_plus_dc.copy()
-    network_elec.lines["carrier"] = "AC"
+        # The Dijkstra clustering works using the shortest electrical path between
+        # buses. In some cases, a bus has just DC connections, which are considered
+        # links. Therefore it is necessary to include temporarily the DC links
+        # into the lines table.
+        dc = network.links[network.links.carrier == "DC"]
+        str1 = 'DC_'
+        dc.index = f"{str1}"+dc.index
+        lines_plus_dc = network_elec.lines.append(dc)
+        lines_plus_dc = lines_plus_dc[lines_col]
+        network_elec.lines = lines_plus_dc.copy()
+        network_elec.lines["carrier"] = "AC"
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
@@ -657,20 +555,34 @@ def kmedoids_dijkstra_preprocessing(etrago):
             network=network_elec, save=settings["bus_weight_tocsv"]
         )
     elif settings["bus_weight_fromcsv"] is not None:
-        weight = pd.Series.from_csv(settings["bus_weight_fromcsv"])
+        weight = pd.read_csv(
+            settings["bus_weight_fromcsv"],
+            index_col= "Bus", squeeze= True
+        )
         weight.index = weight.index.astype(str)
     else:
-        weight = weighting_for_scenario(network=network_elec, save=False)
+        weight = weighting_for_scenario(
+            network=network_elec, save=False
+        )
 
-    # same as in kmeans!
     return network_elec, weight, n_clusters
 
 
-def kmedoids_dijkstra_postprocessing(etrago, busmap, medoid_idx):
+def postprocessing(etrago, busmap, medoid_idx=None):
 
     settings = etrago.args["network_clustering"]
+    method = settings["method"]
+    num_clusters = settings["n_clusters_AC"]
+
     network, busmap = adjust_no_electric_network(
-        etrago, busmap, cluster_met="Dijkstra"
+        etrago, busmap, cluster_met=method
+    )
+
+    pd.DataFrame(
+        busmap.items(), columns=["bus0", "bus1"]
+    ).to_csv(
+        f"{method}_elecgrid_busmap_{num_clusters}_result.csv",
+        index=False,
     )
 
     network.generators["weight"] = network.generators["p_nom"]
@@ -687,14 +599,17 @@ def kmedoids_dijkstra_postprocessing(etrago, busmap, medoid_idx):
         line_length_factor=settings["line_length_factor"],
     )
 
-    for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
-        cluster = int(i)
-        if cluster in medoid_idx.index:
-            medoid = str(medoid_idx.loc[cluster])
-            clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
-            clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
+    if method == "kmedoids-dijkstra":
+        for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
+            cluster = int(i)
+            if cluster in medoid_idx.index:
+                medoid = str(medoid_idx.loc[cluster])
+                clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
+                clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
 
-    clustering.network.links, clustering.network.links_t = group_links(clustering.network)
+    clustering.network.links, clustering.network.links_t = group_links(
+        clustering.network
+    )
 
     return (clustering, busmap)
 
@@ -778,22 +693,24 @@ def run_spatial_clustering(self):
 
         self.network.generators.control = "PV"
 
+        elec_network, weight, n_clusters = preprocessing(self)
+
         if self.args["network_clustering"]["method"] == "kmeans":
 
             logger.info("Start k-mean clustering")
 
-            elec_network, weight, n_clusters = kmean_preprocessing(self)
             busmap = kmean_clustering(self, elec_network, weight, n_clusters)
-            self.clustering, busmap = kmean_postprocessing(self, busmap)
+            medoid_idx = None
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
 
             logger.info("Start k-medoids Dijkstra Clustering")
 
-            elec_network, weight, n_clusters = kmedoids_dijkstra_preprocessing(self)
-            busmap, medoid_idx = kmedoids_dijkstra_clustering(self, elec_network, weight, n_clusters)
-            self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
+            busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                self, elec_network, weight, n_clusters
+            )
 
+        self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
 
 
