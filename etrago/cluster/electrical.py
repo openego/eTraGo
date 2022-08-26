@@ -23,26 +23,29 @@ spatially for applications within the tool eTraGo."""
 
 import os
 
-from etrago.cluster.spatial import kmedoids_dijkstra_clustering
-
 if "READTHEDOCS" not in os.environ:
-    from etrago.tools.utilities import *
-    from etrago.cluster.spatial import group_links
-    from etrago.cluster.spatial import kmean_clustering
-    from etrago.cluster.spatial import strategies_generators
-    from etrago.cluster.spatial import strategies_one_ports
+    import logging
+
+    import numpy as np
+    import pandas as pd
+    import pypsa.io as io
+    from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
-        aggregateoneport,
         aggregategenerators,
+        aggregateoneport,
         get_clustering_from_busmap,
     )
-    import pandas as pd
-    from pypsa import Network
-    import pypsa.io as io
     from six import iteritems
-    import numpy as np
-    import logging
+
+    from etrago.cluster.spatial import (
+        group_links,
+        kmean_clustering,
+        kmedoids_dijkstra_clustering,
+        strategies_generators,
+        strategies_one_ports,
+    )
+    from etrago.tools.utilities import *
 
     logger = logging.getLogger(__name__)
 

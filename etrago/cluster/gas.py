@@ -5,10 +5,7 @@ spatially for applications within the tool eTraGo."""
 
 import os
 
-
 if "READTHEDOCS" not in os.environ:
-
-    from collections import Counter
 
     import numpy as np
     import pandas as pd
@@ -21,8 +18,11 @@ if "READTHEDOCS" not in os.environ:
     )
     from six import iteritems
 
-    from etrago.cluster.spatial import kmedoids_dijkstra_clustering
-    from etrago.cluster.spatial import strategies_links, group_links, agg_e_nom_max
+    from etrago.cluster.spatial import (
+        agg_e_nom_max,
+        group_links,
+        kmedoids_dijkstra_clustering,
+    )
     from etrago.tools.utilities import *
 
 

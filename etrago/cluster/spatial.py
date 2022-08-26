@@ -23,23 +23,25 @@
 import os
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.tools.utilities import *
-    from pypsa.networkclustering import (
-        get_clustering_from_busmap,
-        busmap_by_kmeans,
-        busmap_by_stubs,
-        _flatten_multiindex,
-    )
-    from itertools import product
-    import networkx as nx
+    import logging
     import multiprocessing as mp
+    from itertools import product
     from math import ceil
+    from pickle import dump
+
+    import networkx as nx
+    import numpy as np
     import pandas as pd
     from networkx import NetworkXNoPath
+    from pypsa.networkclustering import (
+        _flatten_multiindex,
+        busmap_by_kmeans,
+        busmap_by_stubs,
+        get_clustering_from_busmap,
+    )
     from sklearn.cluster import KMeans
-    from pickle import dump
-    import numpy as np
-    import logging
+
+    from etrago.tools.utilities import *
 
     logger = logging.getLogger(__name__)
 
