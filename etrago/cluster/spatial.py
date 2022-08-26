@@ -551,7 +551,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             aggregate_one_ports=aggregate_one_ports,
             line_length_factor=kmean_settings["line_length_factor"],
         )
-        network = clustering.network
+        etrago.network = clustering.network
 
         weight = weight.groupby(busmap.values).sum()
 
