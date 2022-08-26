@@ -70,7 +70,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
-    "csv_export": "kmedjioidstesting",  # save results as csv: False or /path/tofolder
+    "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": ["as_in_db"],  # Array of components to optimize
@@ -476,29 +476,21 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
-    path = args['csv_export'] + 'AC'
-    etrago.export_to_csv(path)
-
     etrago.spatial_clustering_gas()
 
-    path = args['csv_export'] + 'GAS'
-    etrago.export_to_csv(path)
-    # etrago.kmean_clustering_gas()
-
-    # etrago.args["load_shedding"] = True
-    # etrago.load_shedding()
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
 
     # skip snapshots
-    # etrago.skip_snapshots()
+    etrago.skip_snapshots()
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    # etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    # etrago.lopf()
+    etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors

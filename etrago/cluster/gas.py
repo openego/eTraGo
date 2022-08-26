@@ -26,10 +26,9 @@ if "READTHEDOCS" not in os.environ:
     from etrago.tools.utilities import *
 
 
-def kmean_preprocessing_gas(etrago):
+def preprocessing(etrago):
     """
-    Create a bus map from the clustering of buses in space with a
-    weighting.
+    Create a bus map from the clustering of buses in space with a weighting.
 
     Parameters
     ----------
@@ -748,16 +747,19 @@ def run_spatial_clustering_gas(self):
         method = self.args["network_clustering"]["method_gas"]
         logger.info(f"Start {method} clustering GAS")
 
+        gas_network, weight, n_clusters = preprocessing(self)
+
         if method == "kmeans":
-            gas_network, weight, n_clusters = kmean_preprocessing_gas(self)
             busmap = kmean_clustering_gas(self, gas_network, weight, n_clusters)
             self.network, busmap = kmean_postprocessing_gas(self, busmap)
 
         elif method == "kmedoids-dijkstra":
 
-            network, gas_network, weight = kmedoids_dijkstra_preprocessing(self)
-            busmap, medoid_idx = kmedoids_dijkstra_clustering(self, network, gas_network, weight)
-            self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
+            busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                self, gas_network.buses, gas_network.links, weight, n_clusters
+            )
+            # Still TODO
+            # self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
 
         else:
             msg = (
