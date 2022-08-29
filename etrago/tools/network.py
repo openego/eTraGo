@@ -51,7 +51,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     drop_sectors,
                                     adapt_crossborder_buses,
                                     update_busmap,
-                                    buses_by_country)
+                                    buses_by_country,
+                                    delete_dispensable_ac_buses,)
 
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
@@ -219,6 +220,8 @@ class Etrago():
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
+    
+    delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
@@ -282,6 +285,8 @@ class Etrago():
         self.convert_capital_costs()
 
         self.adapt_crossborder_buses()
+        
+        self.delete_dispensable_ac_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
