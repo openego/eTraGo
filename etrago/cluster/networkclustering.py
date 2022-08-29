@@ -829,11 +829,12 @@ def delete_ehv_buses_no_lines(network):
         (network.transformers.bus0.isin(delete_buses)) |
         (network.transformers.bus1.isin(delete_buses))].index
     
-    network.transformers = network.transformers.drop(delete_trafo)
+    network.mremove('Transformer', delete_trafo)
     
     delete_sto_units = network.storage_units[
         network.storage_units.bus.isin(delete_buses)].index
-    network.storage_units = network.storage_units.drop(delete_sto_units)
+    
+    network.mremove('StorageUnit', delete_sto_units)
     
     return
     
