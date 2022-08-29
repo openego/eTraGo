@@ -379,7 +379,10 @@ def line_max_abs(network, buses, line_max_abs= {'380':{'i':1020, 'wires':4, 'cir
 
 
 def transformer_max_abs(network, buses):
-
+    
+    # To determine the maximum extendable capacity of a transformer, the sum of
+    # the maximum capacities of the lines connected to it is calculated for each
+    # of its 2 sides. The smallest one is selected.
     smax_bus0 = network.lines.s_nom_max.groupby(network.lines.bus0).sum()
     smax_bus1 = network.lines.s_nom_max.groupby(network.lines.bus1).sum()
     smax_bus = pd.concat([smax_bus0, smax_bus1], axis=1)
@@ -403,7 +406,15 @@ def transformer_max_abs(network, buses):
     trafo_smax.columns = ['bus0', 'bus1', 'dcbus0', 'dcbus1']    
     trafo_smax['s_nom_max'] = trafo_smax[trafo_smax.gt(0)].min(axis=1)
     network.transformers.loc[network.transformers.bus0.isin(
-                    buses.index),'s_nom_max']= trafo_smax['s_nom_max']      
+                    buses.index),'s_nom_max']= trafo_smax['s_nom_max']
+    
+    # Since the previous calculation does not depent on the min_capacity of the
+    # transformer, there are few cases where the min capacity is greater than
+    # the calculated maximum. For these cases, max capacity is set to be the
+    # equal to the min capacity.
+    network.transformers['s_nom_max'] = network.transformers.apply(
+        lambda x: x["s_nom_max"] if float(x["s_nom_max"]) > float(x["s_nom_min"])\
+            else x["s_nom_min"], axis = 1)
 
 def extension_preselection(etrago, method, days=3):
 
