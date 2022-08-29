@@ -427,33 +427,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    etrago.network.lines.type = ""
-    etrago.network.lines.carrier.fillna("AC", inplace=True)
-    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
-    etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True)
-    etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1.0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.efficiency.fillna(1.0, inplace=True)
-    etrago.network.links.marginal_cost.fillna(0.0, inplace=True)
-    etrago.network.links.p_min_pu.fillna(0.0, inplace=True)
-    etrago.network.links.p_max_pu.fillna(1.0, inplace=True)
-    etrago.network.links.p_nom.fillna(0.1, inplace=True)
-    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
-    etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.efficiency_dispatch.fillna(1.0, inplace=True)
-    etrago.network.storage_units.efficiency_store.fillna(1.0, inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0.0, inplace=True)
-    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.standing_loss.fillna(0.0, inplace=True)
+
     etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
-    etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
-    etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
@@ -461,13 +436,10 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    for t in etrago.network.iterate_components():
-        if "p_nom_max" in t.df:
-            t.df["p_nom_max"].fillna(np.inf, inplace=True)
-
-    for t in etrago.network.iterate_components():
-        if "p_nom_min" in t.df:
-            t.df["p_nom_min"].fillna(0.0, inplace=True)
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()
+        [etrago.network.lines_t.s_max_pu.columns.isin(
+            etrago.network.lines.index)].transpose())
 
     etrago.adjust_network()
 

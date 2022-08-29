@@ -368,7 +368,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     if with_time:
         for attr, df in network.links_t.items():
             pnl_links_agg_b = df.columns.to_series().map(links_agg_b)
-            df_agg = df.loc[:, pnl_links_agg_b]
+            df_agg = df.loc[:, pnl_links_agg_b].astype(float)
             if not df_agg.empty:
                 if attr in ["efficiency", "p_max_pu", "p_min_pu"]:
                     df_agg = df_agg.multiply(weighting.loc[df_agg.columns], axis=1)
