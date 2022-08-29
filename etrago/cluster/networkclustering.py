@@ -822,8 +822,8 @@ def delete_ehv_buses_no_lines(network):
                     ----------------------- WARNING ---------------------------
                     
                     """)
-                    
-    network.buses = network.buses.drop(delete_buses)
+
+    network.mremove('Bus', delete_buses)
     
     delete_trafo = network.transformers[
         (network.transformers.bus0.isin(delete_buses)) |
@@ -855,7 +855,7 @@ def ehv_clustering(self):
         )
 
         self.update_busmap(busmap)
-        buses_by_country(self)
+        self.buses_by_country()
         logger.info("Network clustered to EHV-grid")
 
 
@@ -1498,7 +1498,7 @@ def run_spatial_clustering(self):
 
         self.network = self.clustering.network.copy()
 
-        buses_by_country(self)
+        self.buses_by_country()
 
         self.geolocation_buses()
 

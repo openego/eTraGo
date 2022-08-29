@@ -179,19 +179,19 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(etrago):
+def buses_by_country(self):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
 
     Parameters
     ----------
-    etrago : Etrago object
+    self : Etrago object
         Overall container of PyPSA
 
     Returns
     -------
-    buses_country: Series containing buses by country
+    None
     """
 
     countries = {
@@ -213,7 +213,7 @@ def buses_by_country(etrago):
 
     #read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = etrago.engine    
+    con = self.engine    
     germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
    
     path = gpd.datasets.get_path("naturalearth_lowres")
@@ -224,7 +224,7 @@ def buses_by_country(etrago):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
         
-    geobuses = etrago.network.buses.copy()
+    geobuses = self.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
     )
@@ -233,7 +233,7 @@ def buses_by_country(etrago):
 
     for country in countries:
         geobuses["country"][
-            etrago.network.buses.index.isin(
+            self.network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -246,11 +246,9 @@ def buses_by_country(etrago):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    etrago.network.buses = geobuses.drop(columns="geom")
+    self.network.buses = geobuses.drop(columns="geom")
 
-    buses_country = etrago.network.buses["country"].copy()
-
-    return buses_country
+    return
 
 
 def clip_foreign(network):
