@@ -124,6 +124,7 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
@@ -206,7 +207,6 @@ def run_etrago(args, json_path):
 
     scn_extension : NoneType or list
         None,
-
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
         extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
@@ -382,11 +382,13 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : dict
         {'active': False, 'method':'typical_periods', 'how': 'daily',
-         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+         'extreme_periods': None, 'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
         You can choose between a method clustering to typical periods, e.g. days
         or a method clustering to segments of adjacent hours.
+        With ``'extreme_periods'`` you define the consideration of timesteps with
+        extreme residual load while temporal aggregation.
         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
         the length of the periods, constraints considering the storages and the number
         of clusters for the usage of the method typical_periods.
@@ -425,33 +427,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    etrago.network.lines.type = ""
-    etrago.network.lines.carrier.fillna("AC", inplace=True)
-    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
-    etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True)
-    etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1.0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.efficiency.fillna(1.0, inplace=True)
-    etrago.network.links.marginal_cost.fillna(0.0, inplace=True)
-    etrago.network.links.p_min_pu.fillna(0.0, inplace=True)
-    etrago.network.links.p_max_pu.fillna(1.0, inplace=True)
-    etrago.network.links.p_nom.fillna(0.1, inplace=True)
-    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
-    etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.efficiency_dispatch.fillna(1.0, inplace=True)
-    etrago.network.storage_units.efficiency_store.fillna(1.0, inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0.0, inplace=True)
-    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.standing_loss.fillna(0.0, inplace=True)
+
     etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
-    etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
-    etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
@@ -459,13 +436,10 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    for t in etrago.network.iterate_components():
-        if "p_nom_max" in t.df:
-            t.df["p_nom_max"].fillna(np.inf, inplace=True)
-
-    for t in etrago.network.iterate_components():
-        if "p_nom_min" in t.df:
-            t.df["p_nom_min"].fillna(0.0, inplace=True)
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()
+        [etrago.network.lines_t.s_max_pu.columns.isin(
+            etrago.network.lines.index)].transpose())
 
     etrago.adjust_network()
 

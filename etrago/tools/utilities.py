@@ -26,6 +26,7 @@ import os
 import numpy as np
 import pandas as pd
 import geopandas as gpd
+import time
 from shapely.geometry import Point
 import pypsa
 import json
@@ -179,19 +180,19 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(etrago):
+def buses_by_country(self):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
 
     Parameters
     ----------
-    etrago : Etrago object
+    self : Etrago object
         Overall container of PyPSA
 
     Returns
     -------
-    buses_country: Series containing buses by country
+    None
     """
 
     countries = {
@@ -213,7 +214,7 @@ def buses_by_country(etrago):
 
     #read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = etrago.engine    
+    con = self.engine    
     germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
    
     path = gpd.datasets.get_path("naturalearth_lowres")
@@ -224,7 +225,7 @@ def buses_by_country(etrago):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
         
-    geobuses = etrago.network.buses.copy()
+    geobuses = self.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point(float(x["x"]), float(x["y"])), axis=1
     )
@@ -233,7 +234,7 @@ def buses_by_country(etrago):
 
     for country in countries:
         geobuses["country"][
-            etrago.network.buses.index.isin(
+            self.network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -246,11 +247,9 @@ def buses_by_country(etrago):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    etrago.network.buses = geobuses.drop(columns="geom")
+    self.network.buses = geobuses.drop(columns="geom")
 
-    buses_country = etrago.network.buses["country"].copy()
-
-    return buses_country
+    return
 
 
 def clip_foreign(network):
@@ -706,10 +705,75 @@ def loading_minimization(network, snapshots):
     )
 
 
+def _make_consense(component, attr):
+    def consense(x):
+        v = x.iat[0]
+        assert (
+            x == v
+        ).all() or x.isnull().all(), f"In {component} cluster {x.name} the values of attribute {attr} do not agree:\n{x}"
+        return v
+
+    return consense
+
+
+def _normed(s):
+    tot = s.sum()
+    if tot == 0:
+        return 1.0
+    else:
+        return s / tot
+
+def agg_series_lines(l, network):
+    attrs = network.components["Line"]["attrs"]
+    columns = set(
+        attrs.index[attrs.static & attrs.status.str.startswith("Input")]
+    ).difference(("name", "bus0", "bus1"))
+    consense = {
+        attr: _make_consense("Bus", attr)
+        for attr in (
+            columns
+            #| {"sub_network"}
+            - {
+                "r",
+                "x",
+                "g",
+                "b",
+                "terrain_factor",
+                "s_nom",
+                "s_nom_min",
+                "s_nom_max",
+                "s_nom_extendable",
+                "length",
+                "v_ang_min",
+                "v_ang_max",
+            }
+        )
+    }
+
+    Line=l["Line"].iloc[0]
+    data = dict(
+        r=l["r"].sum(),
+        x=l["x"].sum(),
+        g=1.0 / (1.0 / l["g"]).sum(),
+        b=1.0 / (1.0 / l["b"]).sum(),
+        terrain_factor=l["terrain_factor"].mean(),
+        s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
+        s_nom=l["s_nom"].iloc[0],
+        s_nom_min=l["s_nom_min"].max(),
+        s_nom_max=l["s_nom_max"].min(),
+        s_nom_extendable=l["s_nom_extendable"].any(),
+        num_parallel=l["num_parallel"].max(),
+        capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
+        length=l["length"].sum(),
+        v_ang_min=l["v_ang_min"].max(),
+        v_ang_max=l["v_ang_max"].min(),
+    )
+    data.update((f, consense[f](l[f])) for f in columns.difference(data))
+    return pd.Series(data, index=[f for f in l.columns if f in columns], name = Line)
+
 def group_parallel_lines(network):
     """
-    TODO: Will be improved when merging feature/sclopf
-    Functions that groups parallel lines of the same voltage level to one
+    Function that groups parallel lines of the same voltage level to one
     line component representing all parallel lines
 
     Parameters
@@ -722,65 +786,259 @@ def group_parallel_lines(network):
     None.
 
     """
-
-    # ordering of buses: (not sure if still necessary, remaining from SQL code)
-    old_lines = network.lines
-
-    for line in old_lines.index:
-        bus0_new = str(old_lines.loc[line, ["bus0", "bus1"]].astype(int).min())
-        bus1_new = str(old_lines.loc[line, ["bus0", "bus1"]].astype(int).max())
-        old_lines.set_value(line, "bus0", bus0_new)
-        old_lines.set_value(line, "bus1", bus1_new)
-
-    # saving the old index
-    for line in old_lines:
-        old_lines["old_index"] = network.lines.index
-
-    grouped = old_lines.groupby(["bus0", "bus1"])
-
-    # calculating electrical properties for parallel lines
-    grouped_agg = grouped.agg(
-        {
-            "b": np.sum,
-            "b_pu": np.sum,
-            "cables": np.sum,
-            "capital_cost": np.min,
-            "frequency": np.mean,
-            "g": np.sum,
-            "g_pu": np.sum,
-            "geom": lambda x: x[0],
-            "length": lambda x: x.min(),
-            "num_parallel": np.sum,
-            "r": lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-            "r_pu": lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-            "s_nom": np.sum,
-            "s_nom_extendable": lambda x: x.min(),
-            "s_nom_max": np.sum,
-            "s_nom_min": np.sum,
-            "s_nom_opt": np.sum,
-            "scn_name": lambda x: x.min(),
-            "sub_network": lambda x: x.min(),
-            "terrain_factor": lambda x: x.min(),
-            "topo": lambda x: x[0],
-            "type": lambda x: x.min(),
-            "v_ang_max": lambda x: x.min(),
-            "v_ang_min": lambda x: x.min(),
-            "x": lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-            "x_pu": lambda x: np.reciprocal(np.sum(np.reciprocal(x))),
-            "old_index": np.min,
+    def agg_parallel_lines(l):
+        attrs = network.components["Line"]["attrs"]
+        columns = set(
+            attrs.index[attrs.static & attrs.status.str.startswith("Input")]
+        ).difference(("name", "bus0", "bus1"))
+        columns.add("Line")
+        consense = {
+            attr: _make_consense("Bus", attr)
+            for attr in (
+                columns
+                | {"sub_network"}
+                - {
+                    "Line",
+                    "r",
+                    "x",
+                    "g",
+                    "b",
+                    "terrain_factor",
+                    "s_nom",
+                    "s_nom_min",
+                    "s_nom_max",
+                    "s_nom_extendable",
+                    "length",
+                    "v_ang_min",
+                    "v_ang_max",
+                }
+            )
         }
-    )
-
-    for i in range(0, len(grouped_agg.index)):
-        grouped_agg.set_value(grouped_agg.index[i], "bus0", grouped_agg.index[i][0])
-        grouped_agg.set_value(grouped_agg.index[i], "bus1", grouped_agg.index[i][1])
-
-    new_lines = grouped_agg.set_index(grouped_agg.old_index)
-    new_lines = new_lines.drop("old_index", 1)
-    network.lines = new_lines
-
+    
+        data = dict(
+            Line=l["Line"].iloc[0],
+            r=1.0 / (1.0 / l["r"]).sum(),
+            x=1.0 / (1.0 / l["x"]).sum(),
+            g=l["g"].sum(),
+            b=l["b"].sum(),
+            terrain_factor=l["terrain_factor"].mean(),
+            s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
+            s_nom=l["s_nom"].sum(),
+            s_nom_min=l["s_nom_min"].sum(),
+            s_nom_max=l["s_nom_max"].sum(),
+            s_nom_extendable=l["s_nom_extendable"].any(),
+            num_parallel=l["num_parallel"].sum(),
+            capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
+            length=l["length"].mean(),
+            sub_network=consense["sub_network"](l["sub_network"]),
+            v_ang_min=l["v_ang_min"].max(),
+            v_ang_max=l["v_ang_max"].min(),
+        )
+        data.update((f, consense[f](l[f])) for f in columns.difference(data))
+        return pd.Series(data, index=[f for f in l.columns if f in columns])
+    
+    # Make bus0 always the greattest to identify repeated lines
+    lines_2 = network.lines.copy()
+    bus_max = lines_2.apply(lambda x: max(x.bus0, x.bus1), axis=1)
+    bus_min = lines_2.apply(lambda x: min(x.bus0, x.bus1), axis=1)
+    lines_2["bus0"] = bus_max
+    lines_2["bus1"] = bus_min
+    lines_2.reset_index(inplace=True)
+    network.lines = lines_2.groupby(["bus0", "bus1"]).apply(
+        agg_parallel_lines).reset_index().set_index("Line", drop= True)
+    
     return
 
+def delete_dispensable_ac_buses(etrago):
+    """
+    Function that identifies and delete AC buses without links, transformers,
+    generators, loads, stores or storage_units, which also are connected to
+    just one or two other buses
+
+    Parameters
+    ----------
+    etrago : etrago object
+    Returns
+    -------
+    None.
+
+    """
+
+    def delete_buses(delete_buses, network):
+        drop_buses = delete_buses.index.to_list()
+        network.buses.drop(labels=drop_buses, inplace=True)
+        drop_lines = network.lines.index[
+            (network.lines.bus0.isin(drop_buses))
+            | (network.lines.bus1.isin(drop_buses))
+        ].to_list()
+        network.lines.drop(labels=drop_lines, inplace=True)
+        drop_storage_units = network.storage_units.index[
+            (network.storage_units.bus.isin(drop_buses))
+        ].to_list()
+        network.storage_units.drop(drop_storage_units, inplace=True)
+        return (network.buses, network.lines, network.storage_units)
+    
+    
+    def count_lines(lines):
+        buses_in_lines = lines[["bus0", "bus1"]].drop_duplicates()
+    
+        def count(bus):
+            total = (
+                (buses_in_lines["bus0"] == bus.name)
+                | (buses_in_lines["bus1"] == bus.name)
+            ).sum()
+            return total
+    
+        return count
+        
+    network = etrago.network
+    
+    # Group the parallel transmission lines to reduce the complexity
+    group_parallel_lines(etrago.network)
+    
+    # ordering of buses
+    bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
+    bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
+    network.lines["bus0"] = bus0_new
+    network.lines["bus1"] = bus1_new
+    
+    # Find the buses without any other kind of elements attached to them more than
+    # transmission lines
+    ac_buses = network.buses[network.buses.carrier == "AC"][["geom", "country"]]
+    b_links = network.links.bus0.append(network.links.bus1).unique()
+    b_trafo = network.transformers.bus0.append(network.transformers.bus1).unique()
+    b_gen = network.generators.bus.unique()
+    b_load = network.loads.bus.unique()
+    b_store = network.stores[network.stores.e_nom > 0].bus.unique()
+    b_store_unit = network.storage_units[
+        network.storage_units.p_nom > 0
+    ].bus.unique()
+    
+    ac_buses["links"] = ac_buses.index.isin(b_links)
+    ac_buses["trafo"] = ac_buses.index.isin(b_trafo)
+    ac_buses["gen"] = ac_buses.index.isin(b_gen)
+    ac_buses["load"] = ac_buses.index.isin(b_load)
+    ac_buses["store"] = ac_buses.index.isin(b_store)
+    ac_buses["storage_unit"] = ac_buses.index.isin(b_store_unit)
+
+    ac_buses = ac_buses[
+        (ac_buses.links == False)
+        & (ac_buses.trafo == False)
+        & (ac_buses.gen == False)
+        & (ac_buses.load == False)
+        & (ac_buses.store == False)
+        & (ac_buses.storage_unit == False)
+    ][[]]
+
+    # count how many lines are connected to each bus
+    number_of_lines = count_lines(network.lines)
+    ac_buses["n_lines"] = 0
+    ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
+    
+    # Keep the buses with two or less transmission lines
+    ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
+    
+    # Keep only the buses connecting 2 lines with the same capacity
+    lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
+                              (network.lines.bus1.isin(ac_buses.index))][
+                                  ["bus0", "bus1", "s_nom"]]
+    
+    delete_bus = []
+    for bus in ac_buses[ac_buses["n_lines"] == 2].index:
+        l = lines_cap[(lines_cap.bus0 == bus)|(lines_cap.bus1 == bus)]["s_nom"].unique()
+        if len(l) != 1:
+            delete_bus.append(bus)
+    ac_buses.drop(delete_bus, inplace=True)
+    
+    
+    # create groups of lines to join
+    buses_2 = ac_buses[ac_buses["n_lines"] == 2]
+    lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
+                              (network.lines.bus1.isin(buses_2.index))][
+                                  ["bus0", "bus1"]].copy()
+    lines_index = lines.index
+    new_lines = pd.DataFrame(columns = ["bus0", "bus1", "lines"])
+    group = 0
+
+    for line in lines_index:
+        if line not in lines.index:
+            continue
+        bus0 = lines.at[line, "bus0"]
+        bus1 = lines.at[line, "bus1"]
+        lines_group = [line]
+        lines.drop(line, inplace = True)
+        
+        # Determine bus0 new group
+        end_search = False
+        
+        while end_search == False:
+            if bus0 not in ac_buses.index:
+                end_search = True
+                continue
+            lines_b = lines[(lines.bus0 == bus0) | (lines.bus1 == bus0)]
+            if len(lines_b) > 0:
+                lines_group.append(lines_b.index[0])
+                if lines_b.iat[0, 0] == bus0:
+                    bus0 = lines_b.iat[0, 1]
+                else:
+                    bus0 = lines_b.iat[0, 0]
+                lines.drop(lines_b.index[0], inplace = True)
+            else:
+                end_search = True
+                
+        # Determine bus1 new group
+        end_search = False        
+        while end_search == False:
+            if bus1 not in ac_buses.index:
+                end_search = True
+                continue
+            lines_b = lines[(lines.bus0 == bus1) | (lines.bus1 == bus1)]
+            if len(lines_b) > 0:
+                lines_group.append(lines_b.index[0])
+                if lines_b.iat[0, 0] == bus1:
+                    bus1 = lines_b.iat[0, 1]
+                else:
+                    bus1 = lines_b.iat[0, 0]
+                lines.drop(lines_b.index[0], inplace = True)
+            else:
+                end_search = True
+        
+        # Define the parameters of the new lines to be inserted in network.lines
+        new_line = pd.Series({"bus0": bus0,
+                              "bus1": bus1,
+                              "lines": lines_group},
+                             name= group)
+        new_lines = new_lines.append(new_line)
+        group = group + 1
+
+    new_lines["search"] = new_lines.apply(lambda x: "858" in x.lines, axis=1)
+    
+    #Create the new lines as result of aggregating series lines
+    lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
+                              (network.lines.bus1.isin(buses_2.index))]
+    
+    new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
+    
+    for l in new_lines.index:
+        lines_group = lines[lines.index.isin(new_lines.at[l, "lines"])].copy().reset_index()
+        l_new = agg_series_lines(lines_group, network)
+        l_new["bus0"] = new_lines.at[l, "bus0"]
+        l_new["bus1"] = new_lines.at[l, "bus1"]
+        new_lines_df = new_lines_df.append([l_new])
+        
+    # Delete all the dispensable buses
+    (
+        network.buses,
+        network.lines,
+        network.storage_units
+    ) = delete_buses(ac_buses, network)
+    
+    # exclude from the new lines the ones connected to deleted buses
+    new_lines_df = new_lines_df[(~new_lines_df.bus0.isin(ac_buses.index)) &
+                                (~new_lines_df.bus1.isin(ac_buses.index))]
+    etrago.network.lines = etrago.network.lines.append(new_lines_df)
+    
+    return
 
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """Set capital costs for extendable lines in respect to PyPSA [€/MVA]
