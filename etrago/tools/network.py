@@ -50,13 +50,17 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_trafo_costs,
                                     drop_sectors,
                                     adapt_crossborder_buses,
-                                    update_busmap)
+                                    update_busmap,
+                                    buses_by_country,
+                                    delete_dispensable_ac_buses,)
 
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
-from etrago.cluster.gasclustering import run_kmeans_clustering_gas
-from etrago.cluster.networkclustering import (run_kmeans_clustering,
+from etrago.cluster.networkclustering import (run_spatial_clustering,
                                               ehv_clustering)
+from etrago.cluster.gasclustering import run_kmeans_clustering_gas
+
+
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
@@ -123,7 +127,7 @@ class Etrago():
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=args['db'])
+            conn = db.connection(section=self.args['db'])
 
             session = sessionmaker(bind=conn)
 
@@ -185,7 +189,8 @@ class Etrago():
 
     plot_grid = plot_grid
 
-    kmean_clustering = run_kmeans_clustering
+    spatial_clustering = run_spatial_clustering
+    
     kmean_clustering_gas = run_kmeans_clustering_gas
 
     skip_snapshots = skip_snapshots
@@ -215,8 +220,12 @@ class Etrago():
     drop_sectors = drop_sectors
     
     adapt_crossborder_buses = adapt_crossborder_buses
+    
+    buses_by_country = buses_by_country
 
     update_busmap = update_busmap
+    
+    delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
@@ -280,6 +289,8 @@ class Etrago():
         self.convert_capital_costs()
 
         self.adapt_crossborder_buses()
+        
+        self.delete_dispensable_ac_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
