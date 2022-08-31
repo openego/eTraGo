@@ -51,7 +51,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     drop_sectors,
                                     adapt_crossborder_buses,
                                     update_busmap,
-                                    delete_dispensable_ac_buses)
+                                    buses_by_country,
+                                    delete_dispensable_ac_buses,)
 
 from etrago.tools.plot import plot_grid
 from etrago.tools.extendable import extendable
@@ -215,6 +216,8 @@ class Etrago():
     drop_sectors = drop_sectors
     
     adapt_crossborder_buses = adapt_crossborder_buses
+    
+    buses_by_country = buses_by_country
 
     update_busmap = update_busmap
     
