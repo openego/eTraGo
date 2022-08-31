@@ -109,9 +109,18 @@ def tsam_cluster(timeseries_df,
     if how == 'daily':
         hours = 24
         period = ' days'
-    if how == 'weekly':
+
+    elif how == 'weekly':
         hours = 168
         period = ' weeks'
+
+    elif how == 'monthly':
+        hours = 720
+        period = ' months'
+
+    elif how == 'hourly':
+        hours = 1
+        period = ' hours'
 
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
@@ -145,7 +154,6 @@ def tsam_cluster(timeseries_df,
     else:
         print('Snapshot clustering to ' + str(typical_periods) + period + '\n' +
           'Using extreme period method: ' + extremePeriodMethod)
-
 
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
