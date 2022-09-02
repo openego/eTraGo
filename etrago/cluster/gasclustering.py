@@ -534,7 +534,7 @@ def sc_multi_carrier_based(buses_to_cluster, connected_links):
             sorted(
                 connected_links.loc[
                     connected_links["bus1_clustered"] == bus_id, "bus0_clustered"
-                ].tolist()
+                ].unique()
             )
         )
 
