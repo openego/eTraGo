@@ -189,7 +189,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     if with_time:
         for attr, df in network.links_t.items():
             pnl_links_agg_b = df.columns.to_series().map(links_agg_b)
-            df_agg = df.loc[:, pnl_links_agg_b]
+            df_agg = df.loc[:, pnl_links_agg_b].astype(float)
             if not df_agg.empty:
                 if attr in ["efficiency", "p_max_pu", "p_min_pu"]:
                     df_agg = df_agg.multiply(weighting.loc[df_agg.columns], axis=1)
@@ -398,6 +398,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     tofill["path_length"] = 0
 
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
+    df.drop_duplicates(inplace=True)
 
     # prepare data for export
 
@@ -467,7 +468,7 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+        cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
         if cpu_cores == 'max':
             cpu_cores = mp.cpu_count()
         else:
@@ -611,7 +612,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = input("cpu_cores (default=4, max=mp.cpu_count()): ") or "4"
+    cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
     if cpu_cores == 'max':
         cpu_cores = mp.cpu_count()
     else:

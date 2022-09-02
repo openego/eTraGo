@@ -39,6 +39,7 @@ if "READTHEDOCS" not in os.environ:
     from six import iteritems
 
     from etrago.cluster.spatial import (
+        busmap_from_psql,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
@@ -162,7 +163,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     if no_elec_conex:
         logger.info(
             f"""There are {len(no_elec_conex)} buses that have no direct
-            connection to the electric network"""
+            connection to the electric network: {no_elec_conex}"""
         )
 
     # Add the gas buses to the busmap and map them to themself
@@ -351,6 +352,61 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     return (network_c.copy(), busmap)
 
 
+def delete_ehv_buses_no_lines(network):
+    """
+    When there are AC buses totally isolated, this function deletes them in order
+    to make possible the creation of busmaps based on electrical connections
+    and other purposes. Additionally, it throws a warning to inform the user
+    in case that any correction should be done.
+    Parameters
+    ----------
+    network : pypsa.network
+    Returns
+    -------
+    None
+    """
+    lines = network.lines
+    buses_ac = network.buses[(network.buses.carrier == "AC") &
+                             (network.buses.country == "DE")]
+    buses_in_lines = set(list(lines.bus0) + list(lines.bus1))
+    buses_ac["with_line"] = buses_ac.index.isin(buses_in_lines)
+    buses_ac["with_load"] = buses_ac.index.isin(network.loads.bus)
+    buses_in_links = list(network.links.bus0)+list(network.links.bus1)
+    buses_ac["with_link"] = buses_ac.index.isin(buses_in_links)
+    buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
+
+    delete_buses = buses_ac[(buses_ac["with_line"] == False) &
+                            (buses_ac["with_load"] == False) &
+                            (buses_ac["with_link"] == False) &
+                            (buses_ac["with_gen"] == False)].index
+
+    if len(delete_buses):
+        logger.info(f"""
+
+                    ----------------------- WARNING ---------------------------
+                    THE FOLLOWING BUSES WERE DELETED BECAUSE THEY WERE ISOLATED:
+                        {delete_buses.to_list()}.
+                    IT IS POTENTIALLY A SIGN OF A PROBLEM IN THE DATASET
+                    ----------------------- WARNING ---------------------------
+
+                    """)
+
+    network.mremove('Bus', delete_buses)
+
+    delete_trafo = network.transformers[
+        (network.transformers.bus0.isin(delete_buses)) |
+        (network.transformers.bus1.isin(delete_buses))].index
+
+    network.mremove('Transformer', delete_trafo)
+
+    delete_sto_units = network.storage_units[
+        network.storage_units.bus.isin(delete_buses)].index
+
+    network.mremove('StorageUnit', delete_sto_units)
+
+    return
+
+
 def ehv_clustering(self):
 
     if self.args["network_clustering_ehv"]:
@@ -358,14 +414,17 @@ def ehv_clustering(self):
         logger.info("Start ehv clustering")
 
         self.network.generators.control = "PV"
+
+        delete_ehv_buses_no_lines(self.network)
+
         busmap = busmap_from_psql(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
-            self.network, busmap, with_time=True
+            self, busmap, with_time=True
         )
 
         self.update_busmap(busmap)
-
+        self.buses_by_country()
         logger.info("Network clustered to EHV-grid")
 
 
@@ -536,6 +595,7 @@ def preprocessing(etrago):
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
     network_elec, n_clusters = select_elec_network(etrago)
+
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
 
@@ -637,10 +697,13 @@ def weighting_for_scenario(network, save=None):
         clustering.
 
     """
-
     def calc_capacity_factor(gen):
         if gen["carrier"] in time_dependent:
-            cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+            try:
+                cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+            except:
+                print(gen)
+                cf = 0.5
         else:
             cf = fixed_capacity_fac[gen["carrier"]]
         return cf
@@ -651,7 +714,7 @@ def weighting_for_scenario(network, save=None):
         "wind_onshore",
         "wind_offshore",
     ]
-    #TASK: virify if the values used here are acceptable. Currentely based on
+    #TASK: verify if the values used here are acceptable. Currentely based on
     #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
     fixed_capacity_fac = {
         "industrial_biomass_CHP": 0.65,
@@ -694,6 +757,10 @@ def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
 
+        if self.args["network_clustering_ehv"]:
+
+            self.adapt_crossborder_buses()
+
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters = preprocessing(self)
@@ -722,7 +789,7 @@ def run_spatial_clustering(self):
 
         self.network = self.clustering.network.copy()
 
-        buses_by_country(self)
+        self.buses_by_country()
 
         self.geolocation_buses()
 

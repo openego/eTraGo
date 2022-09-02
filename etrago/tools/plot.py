@@ -167,7 +167,8 @@ def coloring():
         'central_biomass_CHP_heat': 'darkorange',
         'geo_thermal':  "peru",
         "battery": "blue",
-        "pumped_hydro": "indigo"
+        "pumped_hydro": "indigo",
+        "BEV charger": "indigo",
         }
 
     return colors
