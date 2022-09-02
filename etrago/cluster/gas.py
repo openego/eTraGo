@@ -760,6 +760,8 @@ def run_spatial_clustering_gas(self):
             )
             # Still TODO
             # self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
+            msg = "The kmedoids clustering is not yet implemented for the gas system."
+            raise NotImplementedError(msg)
 
         else:
             msg = (
