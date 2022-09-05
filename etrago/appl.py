@@ -97,7 +97,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
@@ -327,7 +327,8 @@ def run_etrago(args, json_path):
 
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
-           'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
+           'cluster_foreign_AC': False, method_gas: 'kmeans',
+           'n_clusters_gas': 30, 'cluster_foreign_gas': False,
            'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
