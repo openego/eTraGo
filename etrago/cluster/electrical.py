@@ -43,6 +43,7 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
+        hac_clustering,
         strategies_generators,
         strategies_one_ports,
     )
@@ -779,6 +780,12 @@ def run_spatial_clustering(self):
             busmap, medoid_idx = kmedoids_dijkstra_clustering(
                 self, elec_network.buses, elec_network.lines, weight, n_clusters
             )
+                
+        elif self.args["network_clustering"]["method"] == "hac":
+
+            logger.info("Start HAC Clustering")
+
+            busmap = hac_clustering(self, elec_network, n_clusters)   
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)

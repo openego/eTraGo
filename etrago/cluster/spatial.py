@@ -32,14 +32,18 @@ if "READTHEDOCS" not in os.environ:
     import networkx as nx
     import numpy as np
     import pandas as pd
+    import time
     from networkx import NetworkXNoPath
     from pypsa.networkclustering import (
         _flatten_multiindex,
         busmap_by_kmeans,
         busmap_by_stubs,
+        busmap_by_hac,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
+
+    from pypsa.geo import haversine
 
     from etrago.tools.utilities import *
 
@@ -709,3 +713,139 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         # this method lacks the medoid_idx!
 
     return busmap, medoid_idx
+
+
+def hac_clustering(etrago, elec_network, n_clusters):
+
+    settings = etrago.args["network_clustering"]
+
+    a = time.time()
+    if not settings["k_busmap"]:
+        D = boolDistance(etrago.network, 'AC')
+        busmap = busmap_by_hac(
+            elec_network,
+            n_clusters=n_clusters,
+            buses_i=None,
+            branch_components=None,
+            feature=D,
+            affinity="precomputed",
+            # try different linkage strategies
+            linkage="complete",
+        )
+        busmap.to_csv(
+            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
+    print(f'INFO::: Running Time HAC: {time.time()-a}')
+
+    #ADD OPTION WHEN K_BUSMAP IS PROVIDED
+    return busmap
+
+
+def get_attached_tech(network, components):
+    """
+    Function gathering all technologies attached to each bus (e. g. 'wind_onshore',
+    'industrial_gas_CHP') and adding them as a new column in network.buses.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    components : set of strings
+        Contains all network components from where attached technologies
+        are gathered.
+
+    Returns
+    -------
+    network : pypsa.Network object
+        Object with one additional column in network.buses containing the attached 
+        technologies for each bus
+    """
+
+    network.buses['tech'] = ""
+    # component-wise search for attached technologies 
+    for i in network.iterate_components(components):
+        if i.name == 'Link':
+            a = i.df.set_index('bus0')
+            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
+            network.buses.tech.loc[a_.index] += (a_+',')
+
+            a = i.df.set_index('bus1')
+            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
+            network.buses.tech.loc[a_.index] += (a_+",")
+
+        ### REMOVE FROM HERE 
+        elif i.name == 'Line':
+            a = i.df.set_index('bus0')
+            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
+            network.buses.tech.loc[a_.index] += (a_+',')
+
+            a = i.df.set_index('bus1')
+            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
+            network.buses.tech.loc[a_.index] += (a_+",")  
+        ### TO HERE AAFTER AC GHOST BUS FIX
+
+        else:
+            a = i.df.set_index('bus')
+            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
+            network.buses.tech.loc[a_.index] += (a_+",")
+
+    #remove trailing commas and transfrom from a single string to list containg unique values
+    network.buses.tech = network.buses.tech.str.rstrip(',').str.split(',').apply(np.unique)
+    return network
+
+
+# relevant buses as parameter?
+def boolDistance(network, carrier):
+    """
+    Function calculating a distance matrix based on the attached technologies 
+    (e. g. 'wind_onshore', 'industrial_gas_CHP') of each bus (one-hot encoded)
+    and the haversine distance. 
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    carrier : string
+        Contains relevant energycarrier ('AC' or 'CH4') for which to calculate
+        the distance matrix.
+
+    Returns
+    -------
+    D : numpy.ndarray 
+        Array with n_buses * n_buses entries containing the respective
+        distance [0,1]
+    """
+
+    logger.info(f'Calculating distance matrix for {carrier} network')
+
+    network = network.copy()
+    components = {'Link', 'Store','StorageUnit','Load','Generator'}
+    components = {'Link', 'Store','StorageUnit','Load','Generator', 'Line'} #REMOVE AFTER Ghost AC fix
+
+    # Get all potential attached technologies
+    tech = []
+    for c in network.iterate_components(components):
+        tech.extend(c.name + '_' + c.df.carrier.unique())
+
+    # Gather all attached technologies for each bus and add as new column
+    network = get_attached_tech(network, components)
+    # Convert attached technologies to bool array and add as new column to network.buses
+    network.buses['tech_bool'] = network.buses.tech.apply(lambda x: np.isin(tech,x))
+
+
+    # n_nodes * n_nodes distance matrix [sum(A&B)]/(min(sum(A), sum(B))]
+    a = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
+    a = np.array([i for i in a])
+    D_ = (a[:,np.newaxis] & a).sum(axis=-1) 
+    D_ = D_/D_.diagonal()
+    D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
+    D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
+
+    # Calculate haversine distance and normalize as sufficient approximation 
+    a = np.ones((len(network.buses.loc[network.buses.carrier == carrier]),2))
+    a[:,0] = network.buses.loc[network.buses.carrier == carrier].x.values
+    a[:,1] = network.buses.loc[network.buses.carrier == carrier].y.values
+    D_spatial = haversine(a,a)
+    D_spatial_norm = 1-D_spatial/D_spatial.max()
+
+    # Combine distances based on attached technologies and spatial distance
+    return 1 - D_spatial_norm * D_quality#, network

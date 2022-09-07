@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "ci_dump",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -94,7 +94,7 @@ args = {
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
-        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
@@ -451,21 +451,21 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()
+    # etrago.spatial_clustering_gas()
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
+    # etrago.args["load_shedding"] = True
+    # etrago.load_shedding()
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # # skip snapshots
+    # etrago.skip_snapshots()
 
-    # snapshot clustering
-    # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    # # snapshot clustering
+    # # needs to be adjusted for new sectors
+    # etrago.snapshot_clustering()
 
-    # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
-    etrago.lopf()
+    # # start linear optimal powerflow calculations
+    # # needs to be adjusted for new sectors
+    # etrago.lopf()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
