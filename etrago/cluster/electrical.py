@@ -785,7 +785,8 @@ def run_spatial_clustering(self):
 
             logger.info("Start HAC Clustering")
 
-            busmap = hac_clustering(self, elec_network, n_clusters)   
+            busmap = hac_clustering(self, elec_network, n_clusters)  
+            medoid_idx = None 
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)

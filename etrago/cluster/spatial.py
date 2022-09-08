@@ -722,6 +722,10 @@ def hac_clustering(etrago, elec_network, n_clusters):
     a = time.time()
     if not settings["k_busmap"]:
         D = boolDistance(etrago.network, 'AC')
+        bus_indeces = elec_network.buses.index
+        #breakpoint()
+        elec_network.lines = elec_network.lines.loc[(elec_network.lines.bus0.isin(bus_indeces)) & (elec_network.lines.bus1.isin(bus_indeces))]
+        #breakpoint()
         busmap = busmap_by_hac(
             elec_network,
             n_clusters=n_clusters,
@@ -733,7 +737,7 @@ def hac_clustering(etrago, elec_network, n_clusters):
             linkage="complete",
         )
         busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
+            "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv")
     print(f'INFO::: Running Time HAC: {time.time()-a}')
 
     #ADD OPTION WHEN K_BUSMAP IS PROVIDED
@@ -833,7 +837,7 @@ def boolDistance(network, carrier):
 
 
     # n_nodes * n_nodes distance matrix [sum(A&B)]/(min(sum(A), sum(B))]
-    a = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
+    a = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
     a = np.array([i for i in a])
     D_ = (a[:,np.newaxis] & a).sum(axis=-1) 
     D_ = D_/D_.diagonal()
@@ -841,11 +845,18 @@ def boolDistance(network, carrier):
     D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
 
     # Calculate haversine distance and normalize as sufficient approximation 
-    a = np.ones((len(network.buses.loc[network.buses.carrier == carrier]),2))
-    a[:,0] = network.buses.loc[network.buses.carrier == carrier].x.values
-    a[:,1] = network.buses.loc[network.buses.carrier == carrier].y.values
+    # UPDATE THIS STUFF TO IMPEDENCE BASED DISTANCE
+    a = np.ones((len(network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]),2))
+    a[:,0] = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].x.values
+    a[:,1] = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].y.values
     D_spatial = haversine(a,a)
     D_spatial_norm = 1-D_spatial/D_spatial.max()
 
     # Combine distances based on attached technologies and spatial distance
-    return 1 - D_spatial_norm * D_quality#, network
+    return D_spatial_norm / D_quality#, network
+
+
+def capacityBasedDistance():
+    """
+    _______TO IMPLEMENT_______
+    """
