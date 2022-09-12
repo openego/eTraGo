@@ -69,7 +69,7 @@ def set_epsg_network(network):
     network.buses.x, network.buses.y = x2, y2
     network.epsg = 3857
     set_epsg_network.counter = set_epsg_network.counter + 1
-    
+
 
 
 def plot_osm(x, y, zoom, alpha=0.4):
@@ -114,11 +114,11 @@ def coloring():
         'H2_overground':"cyan",
         'H2_underground':"cyan",
         'dsm-cts':"dodgerblue",
-        'dsm-ind-osm': "dodgerblue", 
+        'dsm-ind-osm': "dodgerblue",
         'dsm-ind-sites': "dodgerblue",
         'dsm': "dodgerblue",
-        'central_heat_pump': 'mediumpurple', 
-        'central_resistive_heater': "blueviolet", 
+        'central_heat_pump': 'mediumpurple',
+        'central_resistive_heater': "blueviolet",
         'rural_heat_pump': "violet",
         'CH4': "yellow",
         'CH4_to_H2': "yellowgreen",
@@ -128,12 +128,12 @@ def coloring():
         'central_gas_CHP_heat': "darkorange",
         'central_gas_boiler':"saddlebrown",
         'OCGT': "seagreen",
-        'H2_to_power': "darkcyan", 
+        'H2_to_power': "darkcyan",
         'H2_feedin': "lime",
-        'H2_to_CH4': "seagreen", 
+        'H2_to_CH4': "seagreen",
         'H2_ind_load': "forestgreen",
-        'central_heat_store_charger': "firebrick", 
-        'central_heat_store': "firebrick", 
+        'central_heat_store_charger': "firebrick",
+        'central_heat_store': "firebrick",
         'rural_heat_store_charger': 'salmon',
         'rural_heat_store': 'salmon',
         'central_heat_store_discharger': "firebrick",
@@ -148,7 +148,7 @@ def coloring():
         "nuclear": "palegreen",
         "oil": "silver",
         "other_non_renewable": "dimgrey",
-        "other_renewable": "lightsteelblue",   
+        "other_renewable": "lightsteelblue",
         "reservoir": "indigo",
         "run_of_river": "slateblue",
         "solar": "gold",
@@ -953,7 +953,7 @@ def nodal_gen_dispatch(
                   for s in dispatch.iteritems()}
         dispatch = dispatch.abs()
         subcolors = {'negative': 'red', 'positive': 'green'}
-    import cartopy.crs as ccrs 
+    import cartopy.crs as ccrs
     fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
     network.plot(
         bus_sizes=dispatch * scaling,
@@ -1375,16 +1375,16 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    
+
 
     network.plot(ax=ax, line_colors='grey', link_colors='grey',
                      bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
                      geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
-    
+
 def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
-    
+
     colors = coloring()
-    
+
     # Plot osm map in background
     if osm != False:
         # if etrago.network.srid == 4326:
@@ -1397,22 +1397,22 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
 
     link_width=pd.Series(index=etrago.network.links.index,
                          data = 2)
-    
+
     if len(carrier_links) >0:
-    
+
         link_width.loc[~etrago.network.links.carrier.isin(carrier_links)] = 0
 
     bus_sizes=pd.Series(index=etrago.network.buses.index,
                          data = 0.0005)
-    
+
     if len(carrier_buses) >0:
-    
+
         bus_sizes.loc[~etrago.network.buses.carrier.isin(carrier_buses)] = 0
-        
+
     link_colors = etrago.network.links.carrier.map(colors)
-    
+
     bus_colors = etrago.network.buses.carrier.map(colors)
-    
+
     if 'AC' in carrier_links:
         line_widths = 1
     else:
@@ -1423,7 +1423,7 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
                         link_widths=link_width,
                         line_widths=line_widths,
                         title=carrier_links,
-                        link_colors=link_colors, 
+                        link_colors=link_colors,
                         line_colors = 'lightblue',
                         bus_colors=bus_colors,
                         ax = ax)
@@ -1434,8 +1434,8 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
 
     ax.legend(handles=patchList,loc='lower left', ncol=1)
     ax.autoscale()
-    
-    
+
+
 def plot_grid(self,
               line_colors,
               bus_sizes=0.02,
