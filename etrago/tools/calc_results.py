@@ -78,15 +78,17 @@ def _calc_sectorcoupling_link_expansion(self):
         """
         ext_links = self.network.links[self.network.links.p_nom_extendable]
 
-        links = [0, 0]
+        links = [0, 0, 0, 0]
 
         l1 = ext_links[ext_links.carrier=='power_to_H2']
         l2 = ext_links[ext_links.carrier=='H2_to_power']
-        links[0] = (l1.p_nom_opt-l1.p_nom_min).sum() + (l2.p_nom_opt-l2.p_nom_min).sum()
+        l3 = ext_links[ext_links.carrier=='CH4_to_H2']
+        l4 = ext_links[ext_links.carrier=='H2_to_CH4']
 
-        l1 = ext_links[ext_links.carrier=='CH4_to_H2']
-        l2 = ext_links[ext_links.carrier=='H2_to_CH4']
-        links[1] = (l1.p_nom_opt-l1.p_nom_min).sum() + (l2.p_nom_opt-l2.p_nom_min).sum()
+        links[0] = (l1.p_nom_opt-l1.p_nom_min).sum()
+        links[1] = (l2.p_nom_opt-l2.p_nom_min).sum()
+        links[2] = (l3.p_nom_opt-l3.p_nom_min).sum()
+        links[3] = (l4.p_nom_opt-l4.p_nom_min).sum()
 
         return links
 
@@ -227,9 +229,11 @@ def calc_etrago_results(self):
                                            'H2 store expansion',
                                            'CH4 store expansion',
                                            'heat store expansion',
-                                           'storage+store_expansion',
-                                           'electricity-H2 coupling links expansion',
-                                           'H2-CH4 coupling links expansion',
+                                           'storage+store expansion',
+                                           'fuel cell links expansion',
+                                           'electrolyzer links expansion',
+                                           'methanisation links expansion',
+                                           'Steam Methane Reformation links expansion',
                                            'abs. electrical grid expansion',
                                            'abs. electrical ac grid expansion',
                                            'abs. electrical dc grid expansion',
@@ -278,7 +282,7 @@ def calc_etrago_results(self):
             self.results.value['heat store expansion'] = \
                 store[store.index.str.contains('heat')].sum()
 
-            self.results.value['storage+store_expansion'] = \
+            self.results.value['storage+store expansion'] = \
                 self.results.value['battery storage expansion'] + self.results.value['store expansion']
 
         # links expansion
@@ -286,8 +290,10 @@ def calc_etrago_results(self):
         if not network.links[network.links.p_nom_extendable].empty:
 
             links = _calc_sectorcoupling_link_expansion(self)
-            self.results.value['electricity-H2 coupling links expansion'] = links[0]
-            self.results.value['H2-CH4 coupling links expansion'] = links[1]
+            self.results.value['fuel cell links expansion'] = links[0]
+            self.results.value['electrolyzer links expansion'] = links[1]
+            self.results.value['methanisation links expansion'] = links[2]
+            self.results.value['Steam Methane Reformation links expansion'] = links[3]
 
         # grid expansion
 
