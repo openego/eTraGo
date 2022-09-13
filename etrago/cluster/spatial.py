@@ -719,7 +719,6 @@ def hac_clustering(etrago, selected_network, n_clusters):
 
     settings = etrago.args["network_clustering"]
     carrier = selected_network.buses.iloc[0].carrier
-    breakpoint()
     a = time.time()
     if not settings["k_busmap"]:
         D = boolDistance(etrago.network, carrier, settings)
@@ -733,12 +732,11 @@ def hac_clustering(etrago, selected_network, n_clusters):
             feature=D,
             affinity="precomputed",
             # try different linkage strategies
-            linkage="complete",
+            linkage="single",
         )
         busmap.to_csv(
             "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv")
     print(f'INFO::: Running Time HAC: {time.time()-a}')
-    breakpoint()
     #ADD OPTION WHEN K_BUSMAP IS PROVIDED
     return busmap
 
@@ -820,35 +818,36 @@ def boolDistance(network, carrier, settings):
 
     logger.info(f'Calculating distance matrix for {carrier} network')
 
-    network = network.copy()
-    components = {'Link', 'Store','StorageUnit','Load','Generator'}
-    components = {'Link', 'Store','StorageUnit','Load','Generator', 'Line'} #REMOVE AFTER Ghost AC fix
+    network = network.copy(with_time = False)
+
+    # clean up network links and lines to prevent errors due to missing buses
+    bus_indeces = network.buses.index
+    network.lines = network.lines.loc[(network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))]
+    network.links = network.links.loc[(network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))]
+    
+    components = {'Link', 'Store','StorageUnit','Load','Generator', 'Line'}
 
     # Get all potential attached technologies
     tech = []
     for c in network.iterate_components(components):
         tech.extend(c.name + '_' + c.df.carrier.unique())
 
-    # Gather all attached technologies for each bus and add as new column
-    #'FFFFIIIIXXXXX: ONLY GET ATTACHED TECH FOR RELEVANT BUSES'
-    a = time.time()
     network = get_attached_tech(network, components)
+
     # Convert attached technologies to bool array and add as new column to network.buses
     network.buses['tech_bool'] = network.buses.tech.apply(lambda x: np.isin(tech,x))
-    print('TIME TO CALCULATE ATTACHED TECHS = ', time.time()-a)
+
     #select relevant buses
     if carrier == 'AC':
         if settings["cluster_foreign_AC"] == False:
-            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
+            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]
         else: 
-            rel_buses = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
-
+            rel_buses = network.buses.loc[network.buses.carrier == carrier]
     else:
         if settings["cluster_foreign_gas"] == False:
-            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
+            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]
         else: 
-            rel_buses = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
-
+            rel_buses = network.buses.loc[network.buses.carrier == carrier]
 
     # n_nodes * n_nodes distance matrix [sum(A&B)]/(min(sum(A), sum(B))]
     a = rel_buses.tech_bool.values
@@ -857,24 +856,6 @@ def boolDistance(network, carrier, settings):
     D_ = D_/D_.diagonal()
     D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
     D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
-
-
-    # D_spatial = np.ones((len(d),len(d)))
-
-    # for i, row in enumerate(D_spatial):
-    #     for j, col in enumerate(row):
-    #         D_spatial[i,j] = nx.dijkstra_path_length(M, d[i], d[j])
-    
-
-    # Calculate haversine distance and normalize as sufficient approximation 
-    # UPDATE THIS STUFF TO IMPEDENCE BASED DISTANCE
-    # from networkx import all_pairs_dijkstra
-    # network.lines['impe'] = (network.lines.x**2 + network.lines.r**2)**(1/2)
-    # network.lines['impe'].fillna(value=1000, inplace = True)
-    # edges = [(row.bus0, row.bus1, row.impe, ix) for ix, row in network.lines.iterrows()]
-    # M = graph_from_edges(edges)
-    # test = dict(all_pairs_dijkstra(M, 2000))
-    # breakpoint()
 
     a = np.ones((len(rel_buses),2))
     a[:,0] = rel_buses.x.values

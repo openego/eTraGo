@@ -5,6 +5,8 @@ spatially for applications within the tool eTraGo."""
 
 import os
 
+from etrago.cluster.spatial import hac_clustering
+
 if "READTHEDOCS" not in os.environ:
 
     import numpy as np
@@ -763,9 +765,13 @@ def run_spatial_clustering_gas(self):
             msg = "The kmedoids clustering is not yet implemented for the gas system."
             raise NotImplementedError(msg)
 
+        elif method == "hac":
+            busmap = hac_clustering(self, gas_network, n_clusters)
+            self.network, bumap = kmean_postprocessing_gas(self, busmap)
+
         else:
             msg = (
-                "Please select \"kmeans\" or \"kmedoids-dijkstra\" as "
+                "Please select \"kmeans\", \"kmedoids-dijkstra\" or \"hac\" as "
                 "spatial clustering method for the gas network"
             )
             raise ValueError(msg)

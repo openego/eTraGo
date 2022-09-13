@@ -99,7 +99,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         columns=["cluster", "carrier", "new_bus"]
     ).set_index("new_bus")
 
-    max_bus = max([int(item) for item in network.buses.index.to_list()])
+    max_bus = network.buses.index.astype(int).max()
 
     no_elec_conex = []
     # busmap2 maps all the no electrical buses to the new buses based on the
@@ -183,7 +183,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap = {**busmap, **busmap2}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
+    if cluster_met in ["kmeans", "kmedoids-dijkstra", "hac"]:
         for no_elec_bus in no_elec_to_cluster.index:
             cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
             carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
@@ -784,14 +784,16 @@ def run_spatial_clustering(self):
         elif self.args["network_clustering"]["method"] == "hac":
 
             logger.info("Start HAC Clustering")
-
-            from etrago import Etrago
-            # create a copy to keep initial etrago object stable while performing hac
-            network_copy = Etrago(args = self.args)
-            network_copy.network = self.network.copy(with_time = False)
             
             busmap = hac_clustering(self, elec_network, n_clusters)  
             medoid_idx = None 
+
+        else:
+            msg = (
+                "Please select \"kmeans\", \"kmedoids-dijkstra\" or \"hac\" as "
+                "spatial clustering method for the gas network"
+            )
+            raise ValueError(msg)
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
