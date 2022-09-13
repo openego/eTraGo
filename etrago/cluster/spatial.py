@@ -715,19 +715,18 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
     return busmap, medoid_idx
 
 
-def hac_clustering(etrago, elec_network, n_clusters):
+def hac_clustering(etrago, selected_network, n_clusters):
 
     settings = etrago.args["network_clustering"]
-
+    carrier = selected_network.buses.iloc[0].carrier
+    breakpoint()
     a = time.time()
     if not settings["k_busmap"]:
-        D = boolDistance(etrago.network, 'AC')
-        bus_indeces = elec_network.buses.index
-        #breakpoint()
-        elec_network.lines = elec_network.lines.loc[(elec_network.lines.bus0.isin(bus_indeces)) & (elec_network.lines.bus1.isin(bus_indeces))]
-        #breakpoint()
+        D = boolDistance(etrago.network, carrier, settings)
+        bus_indeces = selected_network.buses.index
+        selected_network.lines = selected_network.lines.loc[(selected_network.lines.bus0.isin(bus_indeces)) & (selected_network.lines.bus1.isin(bus_indeces))]
         busmap = busmap_by_hac(
-            elec_network,
+            selected_network,
             n_clusters=n_clusters,
             buses_i=None,
             branch_components=None,
@@ -739,7 +738,7 @@ def hac_clustering(etrago, elec_network, n_clusters):
         busmap.to_csv(
             "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv")
     print(f'INFO::: Running Time HAC: {time.time()-a}')
-
+    breakpoint()
     #ADD OPTION WHEN K_BUSMAP IS PROVIDED
     return busmap
 
@@ -798,7 +797,7 @@ def get_attached_tech(network, components):
 
 
 # relevant buses as parameter?
-def boolDistance(network, carrier):
+def boolDistance(network, carrier, settings):
     """
     Function calculating a distance matrix based on the attached technologies 
     (e. g. 'wind_onshore', 'industrial_gas_CHP') of each bus (one-hot encoded)
@@ -831,29 +830,60 @@ def boolDistance(network, carrier):
         tech.extend(c.name + '_' + c.df.carrier.unique())
 
     # Gather all attached technologies for each bus and add as new column
+    #'FFFFIIIIXXXXX: ONLY GET ATTACHED TECH FOR RELEVANT BUSES'
+    a = time.time()
     network = get_attached_tech(network, components)
     # Convert attached technologies to bool array and add as new column to network.buses
     network.buses['tech_bool'] = network.buses.tech.apply(lambda x: np.isin(tech,x))
+    print('TIME TO CALCULATE ATTACHED TECHS = ', time.time()-a)
+    #select relevant buses
+    if carrier == 'AC':
+        if settings["cluster_foreign_AC"] == False:
+            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
+        else: 
+            rel_buses = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
+
+    else:
+        if settings["cluster_foreign_gas"] == False:
+            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
+        else: 
+            rel_buses = network.buses.loc[network.buses.carrier == carrier].tech_bool.values
 
 
     # n_nodes * n_nodes distance matrix [sum(A&B)]/(min(sum(A), sum(B))]
-    a = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].tech_bool.values
+    a = rel_buses.tech_bool.values
     a = np.array([i for i in a])
     D_ = (a[:,np.newaxis] & a).sum(axis=-1) 
     D_ = D_/D_.diagonal()
     D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
     D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
 
+
+    # D_spatial = np.ones((len(d),len(d)))
+
+    # for i, row in enumerate(D_spatial):
+    #     for j, col in enumerate(row):
+    #         D_spatial[i,j] = nx.dijkstra_path_length(M, d[i], d[j])
+    
+
     # Calculate haversine distance and normalize as sufficient approximation 
     # UPDATE THIS STUFF TO IMPEDENCE BASED DISTANCE
-    a = np.ones((len(network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]),2))
-    a[:,0] = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].x.values
-    a[:,1] = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')].y.values
+    # from networkx import all_pairs_dijkstra
+    # network.lines['impe'] = (network.lines.x**2 + network.lines.r**2)**(1/2)
+    # network.lines['impe'].fillna(value=1000, inplace = True)
+    # edges = [(row.bus0, row.bus1, row.impe, ix) for ix, row in network.lines.iterrows()]
+    # M = graph_from_edges(edges)
+    # test = dict(all_pairs_dijkstra(M, 2000))
+    # breakpoint()
+
+    a = np.ones((len(rel_buses),2))
+    a[:,0] = rel_buses.x.values
+    a[:,1] = rel_buses.y.values
     D_spatial = haversine(a,a)
     D_spatial_norm = 1-D_spatial/D_spatial.max()
 
     # Combine distances based on attached technologies and spatial distance
-    return D_spatial_norm / D_quality#, network
+    return D_spatial_norm / D_quality
 
 
 def capacityBasedDistance():

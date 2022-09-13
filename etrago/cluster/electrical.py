@@ -785,6 +785,11 @@ def run_spatial_clustering(self):
 
             logger.info("Start HAC Clustering")
 
+            from etrago import Etrago
+            # create a copy to keep initial etrago object stable while performing hac
+            network_copy = Etrago(args = self.args)
+            network_copy.network = self.network.copy(with_time = False)
+            
             busmap = hac_clustering(self, elec_network, n_clusters)  
             medoid_idx = None 
 
