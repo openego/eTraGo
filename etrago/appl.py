@@ -95,10 +95,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "method_gas": "hac",  # choose clustering method: kmeans, hac (kmedoids-dijkstra not yet implemented)
+        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -343,9 +343,11 @@ def run_etrago(args, json_path):
         non-transport capacities into account.
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
-        With ``'method'`` you can choose between two clustering methods:
-        k-means Clustering considering geopraphical locations of buses or
-        k-medoids Dijkstra Clustering considering electrical distances between buses.
+        With ``'method'`` you can choose between three clustering methods:
+        k-means Clustering considering geopraphical locations of buses,
+        k-medoids Dijkstra Clustering considering electrical distances between buses or Hierarchical
+        Agglomerative Clustering (hac) which considers the attached technologies to each node 
+        and the adjacency matrix.
         With ``'k_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.

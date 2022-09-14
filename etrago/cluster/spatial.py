@@ -100,11 +100,13 @@ def strategies_one_ports():
         },
     }
 
+
 def agg_e_nom_max(x):
     if (x == np.inf).any():
         return np.inf
     else:
         return x.sum()
+
 
 def strategies_generators():
     return {
@@ -117,6 +119,7 @@ def strategies_generators():
         "capital_cost": np.mean,
         "e_nom_max": agg_e_nom_max,
     }
+
 
 def strategies_links():
     return {
@@ -287,14 +290,14 @@ def shortest_path(paths, graph):
 
     df_isna = df.isnull()
     for s, t in paths:
-        while (df_isna.loc[(s, t), 'path_length'] == True):
+        while df_isna.loc[(s, t), "path_length"] == True:
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s)
                 for t in idx.levels[1]:
                     if t in s_to_other:
-                        df.loc[(s, t), 'path_length'] = s_to_other[t]
+                        df.loc[(s, t), "path_length"] = s_to_other[t]
                     else:
-                        df.loc[(s,t),'path_length'] = np.inf
+                        df.loc[(s, t), "path_length"] = np.inf
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
@@ -473,7 +476,7 @@ def busmap_from_psql(etrago):
         print("Busmap does not exist and will be created.\n")
 
         cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
-        if cpu_cores == 'max':
+        if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
@@ -569,10 +572,11 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],
-            random_state=kmean_settings["random_state"]
+            random_state=kmean_settings["random_state"],
         )
         busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
+            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv"
+        )
     else:
         df = pd.read_csv(kmean_settings["k_busmap"])
         df = df.astype(str)
@@ -617,7 +621,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
 
     # processor count
     cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
-    if cpu_cores == 'max':
+    if cpu_cores == "max":
         cpu_cores = mp.cpu_count()
     else:
         cpu_cores = int(cpu_cores)
@@ -719,25 +723,44 @@ def hac_clustering(etrago, selected_network, n_clusters):
 
     settings = etrago.args["network_clustering"]
     carrier = selected_network.buses.iloc[0].carrier
-    a = time.time()
+    branch_components = {"Line"} if carrier == "AC" else {"Link"}
+
     if not settings["k_busmap"]:
+        a = time.time()
         D = boolDistance(etrago.network, carrier, settings)
+
+        # make sure all lines and links a valid e. g. only connect existing buses
         bus_indeces = selected_network.buses.index
-        selected_network.lines = selected_network.lines.loc[(selected_network.lines.bus0.isin(bus_indeces)) & (selected_network.lines.bus1.isin(bus_indeces))]
+        selected_network.lines = selected_network.lines.loc[
+            (selected_network.lines.bus0.isin(bus_indeces))
+            & (selected_network.lines.bus1.isin(bus_indeces))
+        ]
+        selected_network.links = selected_network.links.loc[
+            (selected_network.links.bus0.isin(bus_indeces))
+            & (selected_network.links.bus1.isin(bus_indeces))
+        ]
+
         busmap = busmap_by_hac(
             selected_network,
             n_clusters=n_clusters,
             buses_i=None,
-            branch_components=None,
+            branch_components=branch_components,
             feature=D,
             affinity="precomputed",
             # try different linkage strategies
-            linkage="single",
+            linkage="complete",
         )
         busmap.to_csv(
-            "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv")
-    print(f'INFO::: Running Time HAC: {time.time()-a}')
-    #ADD OPTION WHEN K_BUSMAP IS PROVIDED
+            "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv"
+        )
+        print(f"INFO::: Running Time HAC: {time.time()-a}")
+
+    else:
+        df = pd.read_csv(settings["k_busmap"])
+        df = df.astype(str)
+        df = df.set_index("Bus")
+        busmap = df.squeeze("columns")
+
     return busmap
 
 
@@ -757,49 +780,59 @@ def get_attached_tech(network, components):
     Returns
     -------
     network : pypsa.Network object
-        Object with one additional column in network.buses containing the attached 
+        Object with one additional column in network.buses containing the attached
         technologies for each bus
     """
 
-    network.buses['tech'] = ""
-    # component-wise search for attached technologies 
+    network.buses["tech"] = ""
+    # component-wise search for attached technologies
     for i in network.iterate_components(components):
-        if i.name == 'Link':
-            a = i.df.set_index('bus0')
-            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
-            network.buses.tech.loc[a_.index] += (a_+',')
+        if i.name == "Link":
+            a = i.df.set_index("bus0")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
 
-            a = i.df.set_index('bus1')
-            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
-            network.buses.tech.loc[a_.index] += (a_+",")
+            a = i.df.set_index("bus1")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
 
-        ### REMOVE FROM HERE 
-        elif i.name == 'Line':
-            a = i.df.set_index('bus0')
-            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
-            network.buses.tech.loc[a_.index] += (a_+',')
+        elif i.name == "Line":
+            a = i.df.set_index("bus0")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
 
-            a = i.df.set_index('bus1')
-            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
-            network.buses.tech.loc[a_.index] += (a_+",")  
-        ### TO HERE AAFTER AC GHOST BUS FIX
+            a = i.df.set_index("bus1")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
 
         else:
-            a = i.df.set_index('bus')
-            a_ = a.groupby(a.index).carrier.apply(lambda x: ','.join((i.name+'_'+x)))
-            network.buses.tech.loc[a_.index] += (a_+",")
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
 
-    #remove trailing commas and transfrom from a single string to list containg unique values
-    network.buses.tech = network.buses.tech.str.rstrip(',').str.split(',').apply(np.unique)
+    # remove trailing commas and transfrom from a single string to list containg unique values
+    network.buses.tech = (
+        network.buses.tech.str.rstrip(",").str.split(",").apply(np.unique)
+    )
     return network
 
 
 # relevant buses as parameter?
 def boolDistance(network, carrier, settings):
     """
-    Function calculating a distance matrix based on the attached technologies 
+    Function calculating a distance matrix based on the attached technologies
     (e. g. 'wind_onshore', 'industrial_gas_CHP') of each bus (one-hot encoded)
-    and the haversine distance. 
+    and the haversine distance.
 
     Parameters
     ----------
@@ -811,57 +844,65 @@ def boolDistance(network, carrier, settings):
 
     Returns
     -------
-    D : numpy.ndarray 
+    D : numpy.ndarray
         Array with n_buses * n_buses entries containing the respective
         distance [0,1]
     """
 
-    logger.info(f'Calculating distance matrix for {carrier} network')
+    logger.info(f"Calculating distance matrix for {carrier} network")
 
-    network = network.copy(with_time = False)
+    network = network.copy(with_time=False)
 
     # clean up network links and lines to prevent errors due to missing buses
     bus_indeces = network.buses.index
-    network.lines = network.lines.loc[(network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))]
-    network.links = network.links.loc[(network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))]
-    
-    components = {'Link', 'Store','StorageUnit','Load','Generator', 'Line'}
+    network.lines = network.lines.loc[
+        (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
+    ]
+    network.links = network.links.loc[
+        (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
+    ]
+
+    components = {"Link", "Store", "StorageUnit", "Load", "Generator", "Line"}
 
     # Get all potential attached technologies
     tech = []
     for c in network.iterate_components(components):
-        tech.extend(c.name + '_' + c.df.carrier.unique())
+        tech.extend(c.name + "_" + c.df.carrier.unique())
 
     network = get_attached_tech(network, components)
 
     # Convert attached technologies to bool array and add as new column to network.buses
-    network.buses['tech_bool'] = network.buses.tech.apply(lambda x: np.isin(tech,x))
+    network.buses["tech_bool"] = network.buses.tech.apply(lambda x: np.isin(tech, x))
 
-    #select relevant buses
-    if carrier == 'AC':
+    # select relevant buses
+    if carrier == "AC":
         if settings["cluster_foreign_AC"] == False:
-            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]
-        else: 
+            rel_buses = network.buses.loc[
+                (network.buses.carrier == carrier) & (network.buses.country == "DE")
+            ]
+        else:
             rel_buses = network.buses.loc[network.buses.carrier == carrier]
     else:
         if settings["cluster_foreign_gas"] == False:
-            rel_buses = network.buses.loc[(network.buses.carrier == carrier) & (network.buses.country == 'DE')]
-        else: 
+            rel_buses = network.buses.loc[
+                (network.buses.carrier == carrier) & (network.buses.country == "DE")
+            ]
+        else:
             rel_buses = network.buses.loc[network.buses.carrier == carrier]
 
     # n_nodes * n_nodes distance matrix [sum(A&B)]/(min(sum(A), sum(B))]
     a = rel_buses.tech_bool.values
     a = np.array([i for i in a])
-    D_ = (a[:,np.newaxis] & a).sum(axis=-1) 
-    D_ = D_/D_.diagonal()
+    D_ = (a[:, np.newaxis] & a).sum(axis=-1)
+    D_ = D_ / D_.diagonal()
     D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
     D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
 
-    a = np.ones((len(rel_buses),2))
-    a[:,0] = rel_buses.x.values
-    a[:,1] = rel_buses.y.values
-    D_spatial = haversine(a,a)
-    D_spatial_norm = 1-D_spatial/D_spatial.max()
+    a = np.ones((len(rel_buses), 2))
+    a[:, 0] = rel_buses.x.values
+    a[:, 1] = rel_buses.y.values
+    D_spatial = haversine(a, a)
+    D_spatial_norm = 1 - D_spatial / D_spatial.max()
 
     # Combine distances based on attached technologies and spatial distance
     return D_spatial_norm / D_quality
