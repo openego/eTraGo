@@ -400,10 +400,16 @@ def pf_post_lopf(etrago, calc_losses = True):
             drop_foreign_components(network)
 
     # Set slack bus
+    # TODO: solve deprecation warning
     network = set_slack(network)
 
     # execute non-linear pf
     pf_solution = network.pf(network.snapshots, use_seed=True)
+    
+    # Keep results of the network inside Germany
+    sub_net = str(network.buses.sub_network.value_counts().argmax())
+    for i in pf_solution.keys():
+        pf_solution[i] = pf_solution[i][sub_net]
 
     # if selected, copy lopf results of neighboring countries to network
     if ((args['foreign_lines']['carrier'] == 'DC')

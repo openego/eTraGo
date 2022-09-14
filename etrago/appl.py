@@ -55,7 +55,7 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
@@ -122,7 +122,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
@@ -469,7 +469,7 @@ def run_etrago(args, json_path):
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
-    # etrago.pf_post_lopf()
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
