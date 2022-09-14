@@ -897,15 +897,15 @@ def boolDistance(network, carrier, settings):
     D_ = D_ / D_.diagonal()
     D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
     D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
+    D_quality = 1 - D_quality
 
     a = np.ones((len(rel_buses), 2))
     a[:, 0] = rel_buses.x.values
     a[:, 1] = rel_buses.y.values
     D_spatial = haversine(a, a)
-    D_spatial_norm = 1 - D_spatial / D_spatial.max()
-
+    D_spatial_norm = (D_spatial + 1E-5) / D_spatial.max()
     # Combine distances based on attached technologies and spatial distance
-    return D_spatial_norm / D_quality
+    return  D_quality / D_spatial_norm
 
 
 def capacityBasedDistance():
