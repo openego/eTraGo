@@ -502,7 +502,8 @@ def distribute_q(network, allocation='p_nom'):
             network.generators.bus].multiply(p_nom_dist.values) /\
             (network.generators.p_nom_opt[
                 network.generators.carrier != 'load shedding']
-             .groupby(network.generators.bus).sum().add(
+            .groupby(network.generators.bus).sum().reindex(network.generators
+            .bus.unique(), fill_value= 0).add(
                  network.storage_units.p_nom_opt
                  .groupby(network.storage_units.bus).sum(), fill_value=0))[
                      network.generators.bus.sort_index()].values
