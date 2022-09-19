@@ -911,4 +911,29 @@ def boolDistance(network, carrier, settings):
 def capacityBasedDistance():
     """
     _______TO IMPLEMENT_______
+    # calculate attached tech with p_nom and TS for Loads(max p_nom)
+    # calculate D_quality
+    # calculate D_spatial_norm (Can be packed in function to no double code with BoolDistance)
     """
+      
+    logger.info(f"Calculating distance matrix for {carrier} network")
+
+    network = network.copy(with_time=True)
+
+    # cleanup network TODO: DOUBLED CODE WITH BoolDistance -> make function 
+    bus_indeces = network.buses.index
+    network.lines = network.lines.loc[
+        (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
+    ]
+    network.links = network.links.loc[
+        (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
+    ]
+
+    components = {"Link", "Store", "StorageUnit", "Load", "Generator", "Line"}
+
+    # Get all potential attached technologies
+    tech = []
+    for c in network.iterate_components(components):
+        tech.extend(c.name + "_" + c.df.carrier.unique())
+
+    network = get_attached_tech(network, components)
