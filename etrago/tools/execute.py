@@ -400,7 +400,6 @@ def pf_post_lopf(etrago, calc_losses = True):
             drop_foreign_components(network)
 
     # Set slack bus
-    # TODO: solve deprecation warning
     network = set_slack(network)
 
     # execute non-linear pf
@@ -627,7 +626,7 @@ def set_slack(network):
             new_slack_bus = max_gen_buses_index[-bus_iter]
             break
 
-    network.generators = network.generators.drop('p_summed', 1)
+    network.generators = network.generators.drop(columns = ['p_summed'])
     new_slack_gen = network.generators.\
         p_nom[(network.generators['bus'] == new_slack_bus) & (
             network.generators['control'] == 'PV')].sort_values().index[-1]
