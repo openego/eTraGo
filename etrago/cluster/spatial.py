@@ -780,52 +780,96 @@ def get_attached_tech(network, components):
     Returns
     -------
     network : pypsa.Network object
-        Object with one additional column in network.buses containing the attached
-        technologies for each bus
+        Object with two additional columns in network.buses containing the attached
+        technologies for each bus and the respective key_indicator (e. g. p_nom or s_nom)
     """
 
     network.buses["tech"] = ""
+    network.buses["key_indicator"] = ""
     # component-wise search for attached technologies
     for i in network.iterate_components(components):
         if i.name == "Link":
             a = i.df.set_index("bus0")
             a_ = a.groupby(a.index).carrier.apply(
-                lambda x: ",".join((i.name + "_" + x))
+                lambda x: ",".join(i.name + "_" + x)
             )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
             network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
 
             a = i.df.set_index("bus1")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
             network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
 
         elif i.name == "Line":
             a = i.df.set_index("bus0")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
+            b_ = a.groupby(a.index).s_nom.apply(lambda x: str(list(x)))
+
             network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
 
             a = i.df.set_index("bus1")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
-            network.buses.tech.loc[a_.index] += a_ + ","
+            b_ = a.groupby(a.index).s_nom.apply(lambda x: str(list(x)))
 
-        else:
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
+        elif i.name == "Load":
             a = i.df.set_index("bus")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
             network.buses.tech.loc[a_.index] += a_ + ","
 
+            b = i.df
+            b['total_load'] = network.loads_t.p_set.transpose().sum(axis=1)
+            b_ = b.groupby(b.bus).total_load.apply(lambda x: str(list(x)))
+            network.buses.key_indicator.loc[b_.index] += b_
+            
+            # b.index
+            # b.set_index('bus')
+            # b_ = network.loads_t.p_set.transpose().sum(axis=1)
+            # b_.index = b.index
+
+            
+            # b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
+        
+        else:
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
     # remove trailing commas and transfrom from a single string to list containg unique values
     network.buses.tech = (
         network.buses.tech.str.rstrip(",").str.split(",").apply(np.unique)
     )
+
+    # remove all string related cluttering and cast to float values
+    network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: x.replace('[','').replace(']',',').replace(' ','')[:-1])
+    network.buses.key_indicator = network.buses.key_indicator.str.split(",")
+    network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: [float(i) for i in x if (i != '')])
+
     return network
 
+f = get_attached_tech(network,components)
 
 # relevant buses as parameter?
 def boolDistance(network, carrier, settings):
@@ -915,12 +959,12 @@ def capacityBasedDistance():
     # calculate D_quality
     # calculate D_spatial_norm (Can be packed in function to no double code with BoolDistance)
     """
-      
+
     logger.info(f"Calculating distance matrix for {carrier} network")
 
     network = network.copy(with_time=True)
 
-    # cleanup network TODO: DOUBLED CODE WITH BoolDistance -> make function 
+    # cleanup network TODO: DOUBLED CODE WITH BoolDistance -> make function
     bus_indeces = network.buses.index
     network.lines = network.lines.loc[
         (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
@@ -937,3 +981,28 @@ def capacityBasedDistance():
         tech.extend(c.name + "_" + c.df.carrier.unique())
 
     network = get_attached_tech(network, components)
+
+    # Convert attached technologies to array containing all p (_nom) values and
+    # add as new column to network.buses
+    network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x))
+    # lines, links, loads_t, generators, stores, storage_units,
+
+    AT INDEX tech[] * p_nom
+
+    # correct network.lines dataframe
+    network.lines.index.name = 'Line'
+    a = {"Link": network.links, "Line": network.lines, "Load": network.loads, "Generator": network.generators, "Store": etrago.network.stores, "Storage_Unit": etrago.network.storage_units}
+
+    for i in a:
+        print(i.index.name)
+        if i.index.name in str(network.buses.tech)
+
+
+
+    Link_ - etrago.network.links
+    Line_ - etrago.network.lines
+    Load_ - etrago.network.loads - etrago.network.loads_t
+    Store_ - etrago.network.stores
+    Generator_ - etrago.network.generators
+    StorageUnit_ - etrago.network.storage_units
+
