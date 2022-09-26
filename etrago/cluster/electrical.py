@@ -725,6 +725,8 @@ def weighting_for_scenario(network, save=None):
         "reservoir": 0.49,
         "gas": 0.49,
         "oil": 0.49,
+        'central_gas_CHP': 0.54,
+        'industrial_gas_CHP': 0.54
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()

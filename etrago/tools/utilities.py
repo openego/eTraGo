@@ -214,7 +214,7 @@ def buses_by_country(self):
 
     #read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine    
+    con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
 
     path = gpd.datasets.get_path("naturalearth_lowres")
@@ -817,7 +817,7 @@ def group_parallel_lines(network):
                 }
             )
         }
-    
+
         data = dict(
             Line=l["Line"].iloc[0],
             r=1.0 / (1.0 / l["r"]).sum(),
@@ -839,7 +839,7 @@ def group_parallel_lines(network):
         )
         data.update((f, consense[f](l[f])) for f in columns.difference(data))
         return pd.Series(data, index=[f for f in l.columns if f in columns])
-    
+
     # Make bus0 always the greattest to identify repeated lines
     lines_2 = network.lines.copy()
     bus_max = lines_2.apply(lambda x: max(x.bus0, x.bus1), axis=1)
@@ -849,7 +849,7 @@ def group_parallel_lines(network):
     lines_2.reset_index(inplace=True)
     network.lines = lines_2.groupby(["bus0", "bus1"]).apply(
         agg_parallel_lines).reset_index().set_index("Line", drop= True)
-    
+
     return
 
 def delete_dispensable_ac_buses(etrago):
@@ -880,31 +880,31 @@ def delete_dispensable_ac_buses(etrago):
         ].to_list()
         network.storage_units.drop(drop_storage_units, inplace=True)
         return (network.buses, network.lines, network.storage_units)
-    
-    
+
+
     def count_lines(lines):
         buses_in_lines = lines[["bus0", "bus1"]].drop_duplicates()
-    
+
         def count(bus):
             total = (
                 (buses_in_lines["bus0"] == bus.name)
                 | (buses_in_lines["bus1"] == bus.name)
             ).sum()
             return total
-    
+
         return count
-        
+
     network = etrago.network
-    
+
     # Group the parallel transmission lines to reduce the complexity
     group_parallel_lines(etrago.network)
-    
+
     # ordering of buses
     bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
     bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
     network.lines["bus0"] = bus0_new
     network.lines["bus1"] = bus1_new
-    
+
     # Find the buses without any other kind of elements attached to them more than
     # transmission lines
     ac_buses = network.buses[network.buses.carrier == "AC"][["geom", "country"]]
@@ -916,7 +916,7 @@ def delete_dispensable_ac_buses(etrago):
     b_store_unit = network.storage_units[
         network.storage_units.p_nom > 0
     ].bus.unique()
-    
+
     ac_buses["links"] = ac_buses.index.isin(b_links)
     ac_buses["trafo"] = ac_buses.index.isin(b_trafo)
     ac_buses["gen"] = ac_buses.index.isin(b_gen)
@@ -937,23 +937,23 @@ def delete_dispensable_ac_buses(etrago):
     number_of_lines = count_lines(network.lines)
     ac_buses["n_lines"] = 0
     ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
-    
+
     # Keep the buses with two or less transmission lines
     ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
-    
+
     # Keep only the buses connecting 2 lines with the same capacity
     lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
                               (network.lines.bus1.isin(ac_buses.index))][
                                   ["bus0", "bus1", "s_nom"]]
-    
+
     delete_bus = []
     for bus in ac_buses[ac_buses["n_lines"] == 2].index:
         l = lines_cap[(lines_cap.bus0 == bus)|(lines_cap.bus1 == bus)]["s_nom"].unique()
         if len(l) != 1:
             delete_bus.append(bus)
     ac_buses.drop(delete_bus, inplace=True)
-    
-    
+
+
     # create groups of lines to join
     buses_2 = ac_buses[ac_buses["n_lines"] == 2]
     lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
@@ -970,10 +970,10 @@ def delete_dispensable_ac_buses(etrago):
         bus1 = lines.at[line, "bus1"]
         lines_group = [line]
         lines.drop(line, inplace = True)
-        
+
         # Determine bus0 new group
         end_search = False
-        
+
         while end_search == False:
             if bus0 not in ac_buses.index:
                 end_search = True
@@ -988,9 +988,9 @@ def delete_dispensable_ac_buses(etrago):
                 lines.drop(lines_b.index[0], inplace = True)
             else:
                 end_search = True
-                
+
         # Determine bus1 new group
-        end_search = False        
+        end_search = False
         while end_search == False:
             if bus1 not in ac_buses.index:
                 end_search = True
@@ -1005,7 +1005,7 @@ def delete_dispensable_ac_buses(etrago):
                 lines.drop(lines_b.index[0], inplace = True)
             else:
                 end_search = True
-        
+
         # Define the parameters of the new lines to be inserted in network.lines
         new_line = pd.Series({"bus0": bus0,
                               "bus1": bus1,
@@ -1015,32 +1015,32 @@ def delete_dispensable_ac_buses(etrago):
         group = group + 1
 
     new_lines["search"] = new_lines.apply(lambda x: "858" in x.lines, axis=1)
-    
+
     #Create the new lines as result of aggregating series lines
     lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
                               (network.lines.bus1.isin(buses_2.index))]
-    
+
     new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
-    
+
     for l in new_lines.index:
         lines_group = lines[lines.index.isin(new_lines.at[l, "lines"])].copy().reset_index()
         l_new = agg_series_lines(lines_group, network)
         l_new["bus0"] = new_lines.at[l, "bus0"]
         l_new["bus1"] = new_lines.at[l, "bus1"]
         new_lines_df = new_lines_df.append([l_new])
-        
+
     # Delete all the dispensable buses
     (
         network.buses,
         network.lines,
         network.storage_units
     ) = delete_buses(ac_buses, network)
-    
+
     # exclude from the new lines the ones connected to deleted buses
     new_lines_df = new_lines_df[(~new_lines_df.bus0.isin(ac_buses.index)) &
                                 (~new_lines_df.bus1.isin(ac_buses.index))]
     etrago.network.lines = etrago.network.lines.append(new_lines_df)
-    
+
     return
 
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
@@ -2010,6 +2010,38 @@ def drop_sectors(self, drop_carriers):
     None.
 
     """
+    if self.scenario.scn_name == 'eGon2035':
+
+        if 'CH4' in drop_carriers:
+            # create gas generators from links in order to not lose them when dropping non-electric carriers
+            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP']
+            gen = self.network.generators
+
+            for i in gas_to_add:
+                gen_empty = gen.drop(gen.index)
+                gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
+                gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom
+                gen_empty.marginal_cost = self.network.links[self.network.links.carrier == i].marginal_cost
+                gen_empty.carrier = i
+                gen_empty.scn_name = 'eGon2035'
+                gen_empty.p_nom_extendable = False
+                gen_empty.sign = 1
+                gen_empty.p_min_pu = 0
+                gen_empty.p_max_pu = 1
+                gen_empty.control = 'PV'
+                gen_empty.fillna(0, inplace=True)
+                self.network.generators= self.network.generators.append(gen_empty, verify_integrity=True)
+
+        '''if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
+            # scale down generation facilities with respect to dropping additional loads
+            scale_down = 518.2/633.8
+
+            gens_to_scale = ['solar', 'wind_offshore', 'wind_onshore', 'solar_rooftop', 'biomass']
+            foreign_index = self.network.buses[self.network.buses.country !='DE'].index
+            self.network.generators.p_nom[
+                (~self.network.generators.index.isin(foreign_index))|
+                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down'''
+
 
     self.network.mremove('Bus',
         self.network.buses[
@@ -2072,7 +2104,7 @@ def update_busmap(self, new_busmap):
     -------
     None.
     """
-    
+
     if not self.busmap:
         self.busmap = new_busmap
     else:
