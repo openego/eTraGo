@@ -129,7 +129,7 @@ def strategies_links():
         "topo": nan_links,
         "type": nan_links,
         "efficiency": np.mean,
-        "p_nom_min": np.min,
+        "p_nom_min": np.sum,
         "p_set": np.mean,
         "p_min_pu": np.min,
         "p_max_pu": np.max,

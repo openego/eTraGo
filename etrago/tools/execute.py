@@ -360,7 +360,7 @@ def pf_post_lopf(etrago, calc_losses = True):
                                         network.generators_t.p_max_pu.columns)
                                     ].index]
 
-        # Drop compoenents
+        # Drop components
         network.buses = network.buses.drop(foreign_bus.index)
         network.generators = network.generators[
             network.generators.bus.isin(network.buses.index)]
@@ -378,6 +378,9 @@ def pf_post_lopf(etrago, calc_losses = True):
     args = etrago.args
 
     network.lines.s_nom = network.lines.s_nom_opt
+    network.links.p_nom = network.links.p_nom_opt
+    network.stores.e_nom = network.stores.e_nom_opt
+    network.storage_units.p_nom = network.storage_units.p_nom_opt
 
     # For the PF, set the P to the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
@@ -387,6 +390,10 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.storage_units_t.p_set = network.storage_units_t.p_set\
         .reindex(columns=network.storage_units.index)
     network.storage_units_t.p_set = network.storage_units_t.p
+    
+    network.stores_t.p_set = network.stores_t.p_set\
+        .reindex(columns=network.stores.index)
+    network.stores_t.p_set = network.stores_t.p
 
     network.links_t.p_set = network.links_t.p_set.reindex(
         columns=network.links.index)
@@ -404,7 +411,7 @@ def pf_post_lopf(etrago, calc_losses = True):
 
     # execute non-linear pf
     pf_solution = network.pf(network.snapshots, use_seed=True)
-    
+
     # Keep results of the network inside Germany
     sub_net = str(network.buses.sub_network.value_counts().argmax())
     for i in pf_solution.keys():
