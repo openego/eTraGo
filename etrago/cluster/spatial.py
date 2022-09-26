@@ -807,21 +807,21 @@ def get_attached_tech(network, components):
             network.buses.tech.loc[a_.index] += a_ + ","
             network.buses.key_indicator.loc[b_.index] += b_
 
-        elif i.name == "Line":
+        elif i.name == "Line":  
             a = i.df.set_index("bus0")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
-            b_ = a.groupby(a.index).s_nom.apply(lambda x: str(list(x)))
+            b_ = a.groupby(a.index).s_nom.apply(lambda x: sum(list(x)))
 
             network.buses.tech.loc[a_.index] += a_ + ","
-            network.buses.key_indicator.loc[b_.index] += b_
 
             a = i.df.set_index("bus1")
             a_ = a.groupby(a.index).carrier.apply(
                 lambda x: ",".join((i.name + "_" + x))
             )
-            b_ = a.groupby(a.index).s_nom.apply(lambda x: str(list(x)))
+            c_ = a.groupby(a.index).s_nom.apply(lambda x: sum(list(x)))
+            b_ = b_.combine(c_, np.add, fill_value=0).apply(str)
 
             network.buses.tech.loc[a_.index] += a_ + ","
             network.buses.key_indicator.loc[b_.index] += b_
@@ -837,16 +837,17 @@ def get_attached_tech(network, components):
             b['total_load'] = network.loads_t.p_set.transpose().sum(axis=1)
             b_ = b.groupby(b.bus).total_load.apply(lambda x: str(list(x)))
             network.buses.key_indicator.loc[b_.index] += b_
-            
-            # b.index
-            # b.set_index('bus')
-            # b_ = network.loads_t.p_set.transpose().sum(axis=1)
-            # b_.index = b.index
 
-            
-            # b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+        elif (i.name == "Store"):
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).e_nom.apply(lambda x: str(list(x)))
 
-        
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
         else:
             a = i.df.set_index("bus")
             a_ = a.groupby(a.index).carrier.apply(
@@ -859,7 +860,7 @@ def get_attached_tech(network, components):
 
     # remove trailing commas and transfrom from a single string to list containg unique values
     network.buses.tech = (
-        network.buses.tech.str.rstrip(",").str.split(",").apply(np.unique)
+        network.buses.tech.str.rstrip(",").str.split(",").apply(pd.unique)
     )
 
     # remove all string related cluttering and cast to float values
@@ -869,9 +870,7 @@ def get_attached_tech(network, components):
 
     return network
 
-f = get_attached_tech(network,components)
 
-# relevant buses as parameter?
 def boolDistance(network, carrier, settings):
     """
     Function calculating a distance matrix based on the attached technologies
@@ -906,7 +905,7 @@ def boolDistance(network, carrier, settings):
         (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
     ]
 
-    components = {"Link", "Store", "StorageUnit", "Load", "Generator", "Line"}
+    components = {"Generator", "Line", "Link", "Load", "StorageUnit", "Store"}
 
     # Get all potential attached technologies
     tech = []
@@ -986,23 +985,22 @@ def capacityBasedDistance():
     # add as new column to network.buses
     network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x))
     # lines, links, loads_t, generators, stores, storage_units,
-
-    AT INDEX tech[] * p_nom
+    # AT INDEX tech[] * p_nom
 
     # correct network.lines dataframe
     network.lines.index.name = 'Line'
     a = {"Link": network.links, "Line": network.lines, "Load": network.loads, "Generator": network.generators, "Store": etrago.network.stores, "Storage_Unit": etrago.network.storage_units}
 
-    for i in a:
-        print(i.index.name)
-        if i.index.name in str(network.buses.tech)
+    # for i in a:
+    #     print(i.index.name)
+    #     if i.index.name in str(network.buses.tech)
 
 
 
-    Link_ - etrago.network.links
-    Line_ - etrago.network.lines
-    Load_ - etrago.network.loads - etrago.network.loads_t
-    Store_ - etrago.network.stores
-    Generator_ - etrago.network.generators
-    StorageUnit_ - etrago.network.storage_units
+    # Link_ - etrago.network.links
+    # Line_ - etrago.network.lines
+    # Load_ - etrago.network.loads - etrago.network.loads_t
+    # Store_ - etrago.network.stores
+    # Generator_ - etrago.network.generators
+    # StorageUnit_ - etrago.network.storage_units
 
