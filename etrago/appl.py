@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data-clara",  # database session
+    "db": "etrago-SH",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -474,19 +474,15 @@ def run_etrago(args, json_path):
     for t in etrago.network.iterate_components():
         if "p_nom_min" in t.df:
             t.df["p_nom_min"].fillna(0.0, inplace=True)
-    
-    # only electricity sector, no DSM and no DLR
-            
-    from cluster.networkclustering import select_elec_network
-    etrago.network= select_elec_network(etrago)
 
-    # links
-    etrago.network.links = etrago.network.links[etrago.network.links.carrier=='DC']
-    for attr in etrago.network.links_t:
-        etrago.network.links_t[attr] = etrago.network.links_t[attr].loc[
-            :,
-            etrago.network.links_t[attr].columns.isin(etrago.network.links.index),
-        ]
+    # only electricity sector, no DSM and no DLR
+
+    import pdb; pdb.set_trace()
+
+    etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
+     'rural_heat', 'central_heat_store', 'rural_heat_store'])
+
+    import pdb; pdb.set_trace()
 
     # no DLR
     etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0
@@ -495,7 +491,7 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.ehv_clustering()
-    
+
     print(' ')
     print('start spatial clustering')
     print(datetime.datetime.now())
@@ -503,7 +499,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    
+
     print(' ')
     print('stop spatial clustering')
     print(datetime.datetime.now())
