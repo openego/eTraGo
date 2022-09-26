@@ -488,7 +488,7 @@ def run_etrago(args, json_path):
     # etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
-    #etrago.lopf()
+    etrago.lopf()
 
     # calculate central etrago results
     # etrago.calc_results()
