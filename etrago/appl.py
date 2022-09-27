@@ -47,22 +47,28 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "egon-data-clara",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
         "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
-        "q_allocation": "p_nom",
+        "q_allocation": "p",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
-    "solver_options": {},
+    "solver_options": {
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'logFile': 'solver_etragos.log'
+        },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -95,10 +101,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 40,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -133,7 +139,7 @@ args = {
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     # Simplifications:
-    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -445,7 +451,7 @@ def run_etrago(args, json_path):
             etrago.network.lines.index)].transpose())
 
     etrago.adjust_network()
-
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -461,7 +467,7 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
+    #etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
@@ -470,7 +476,8 @@ def run_etrago(args, json_path):
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
     etrago.pf_post_lopf()
-
+    etrago.export_to_csv("etrago_pf_70AC.csv")
+    
     # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
