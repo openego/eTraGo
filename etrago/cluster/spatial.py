@@ -824,7 +824,7 @@ def get_attached_tech(network, components):
             b_ = b_.combine(c_, np.add, fill_value=0).apply(str)
 
             network.buses.tech.loc[a_.index] += a_ + ","
-            network.buses.key_indicator.loc[b_.index] += b_
+            network.buses.key_indicator.loc[b_.index] += b_ + ","
 
         elif i.name == "Load":
             a = i.df.set_index("bus")
@@ -951,7 +951,7 @@ def boolDistance(network, carrier, settings):
     return  D_quality / D_spatial_norm
 
 
-def capacityBasedDistance():
+def capacityBasedDistance(network, carrier, settings):
     """
     _______TO IMPLEMENT_______
     # calculate attached tech with p_nom and TS for Loads(max p_nom)
@@ -981,26 +981,42 @@ def capacityBasedDistance():
 
     network = get_attached_tech(network, components)
 
-    # Convert attached technologies to array containing all p (_nom) values and
+    # Convert attached technologies to array containing all p/e/s - _nom values and
     # add as new column to network.buses
-    network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x))
-    # lines, links, loads_t, generators, stores, storage_units,
-    # AT INDEX tech[] * p_nom
+    network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x).astype(float))
+    for i, df in network.buses.iterrows():
+        np.put(df.tech_p, df.tech_p.nonzero(), df.key_indicator)
 
-    # correct network.lines dataframe
-    network.lines.index.name = 'Line'
-    a = {"Link": network.links, "Line": network.lines, "Load": network.loads, "Generator": network.generators, "Store": etrago.network.stores, "Storage_Unit": etrago.network.storage_units}
+    # select relevant buses
+    if carrier == "AC":
+        if settings["cluster_foreign_AC"] == False:
+            rel_buses = network.buses.loc[
+                (network.buses.carrier == carrier) & (network.buses.country == "DE")
+            ]
+        else:
+            rel_buses = network.buses.loc[network.buses.carrier == carrier]
+    else:
+        if settings["cluster_foreign_gas"] == False:
+            rel_buses = network.buses.loc[
+                (network.buses.carrier == carrier) & (network.buses.country == "DE")
+            ]
+        else:
+            rel_buses = network.buses.loc[network.buses.carrier == carrier]
 
-    # for i in a:
-    #     print(i.index.name)
-    #     if i.index.name in str(network.buses.tech)
+
+    """
+    ///
+    ///
+    CALCULATE QUALITATIVE DISTANCE
+    ///
+    ///
+    """
 
 
-
-    # Link_ - etrago.network.links
-    # Line_ - etrago.network.lines
-    # Load_ - etrago.network.loads - etrago.network.loads_t
-    # Store_ - etrago.network.stores
-    # Generator_ - etrago.network.generators
-    # StorageUnit_ - etrago.network.storage_units
-
+    a = np.ones((len(rel_buses), 2))
+    a[:, 0] = rel_buses.x.values
+    a[:, 1] = rel_buses.y.values
+    D_spatial = haversine(a, a)
+    D_spatial_norm = (D_spatial + 1E-5) / D_spatial.max()
+    # Combine distances based on attached technologies and spatial distance
+    return  D_quality / D_spatial_norm
