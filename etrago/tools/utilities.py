@@ -2014,7 +2014,7 @@ def drop_sectors(self, drop_carriers):
 
         if 'CH4' in drop_carriers:
             # create gas generators from links in order to not lose them when dropping non-electric carriers
-            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP']
+            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP', 'OCTG']
             gen = self.network.generators
 
             for i in gas_to_add:
@@ -2022,6 +2022,7 @@ def drop_sectors(self, drop_carriers):
                 gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
                 gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom
                 gen_empty.marginal_cost = self.network.links[self.network.links.carrier == i].marginal_cost
+                gen_empty.marginal_cost += 35.851 # fuel costs nach NEP
                 gen_empty.carrier = i
                 gen_empty.scn_name = 'eGon2035'
                 gen_empty.p_nom_extendable = False
