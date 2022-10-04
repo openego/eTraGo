@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "etrago-SH",  # database session
+    "db": "egon-data-local",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -456,7 +456,7 @@ def run_etrago(args, json_path):
      'rural_heat', 'central_heat_store', 'rural_heat_store'])
 
     # no DLR
-    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0
+    etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
 
     etrago.adjust_network()
 
