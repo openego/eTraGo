@@ -123,11 +123,11 @@ args = {
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
-        "active": True,  # choose if clustering is activated
-        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "active": False,  # choose if clustering is activated
+        "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
-        "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
