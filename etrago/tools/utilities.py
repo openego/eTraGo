@@ -2014,7 +2014,7 @@ def drop_sectors(self, drop_carriers):
 
         if 'CH4' in drop_carriers:
             # create gas generators from links in order to not lose them when dropping non-electric carriers
-            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP', 'OCTG']
+            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP', 'OCGT']
             gen = self.network.generators
 
             for i in gas_to_add:
