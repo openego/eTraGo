@@ -90,7 +90,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
-def run_lopf(etrago, extra_functionality, method):
+def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False):
     """ Function that performs lopf with or without pyomo
 
 
@@ -112,34 +112,62 @@ def run_lopf(etrago, extra_functionality, method):
     """
 
     x = time.time()
-    if method['pyomo']:
-        etrago.network.lopf(
-            etrago.network.snapshots,
-            solver_name=etrago.args['solver'],
-            solver_options=etrago.args['solver_options'],
-            extra_functionality=extra_functionality,
-            formulation=etrago.args['model_formulation'])
 
-        if etrago.network.results["Solver"][0]["Status"] != 'ok':
-            raise  Exception('LOPF not solved.')
+    if dispatch_disaggregation:
+
+        if method['pyomo']:
+            etrago.network_tsa.lopf(
+                etrago.network_tsa.snapshots,
+                solver_name=etrago.args['solver'],
+                solver_options=etrago.args['solver_options'],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args['model_formulation'])
+
+            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+                raise  Exception('LOPF not solved.')
+
+        else:
+            status, termination_condition = network_lopf(
+                etrago.network_tsa,
+                solver_name=etrago.args['solver'],
+                solver_options=etrago.args['solver_options'],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args['model_formulation'])
+
+            if status != 'ok':
+                raise  Exception('LOPF not solved.')
 
     else:
-        status, termination_condition = network_lopf(
-            etrago.network,
-            solver_name=etrago.args['solver'],
-            solver_options=etrago.args['solver_options'],
-            extra_functionality=extra_functionality,
-            formulation=etrago.args['model_formulation'])
 
-        if status != 'ok':
-            raise  Exception('LOPF not solved.')
+        if method['pyomo']:
+            etrago.network.lopf(
+                etrago.network.snapshots,
+                solver_name=etrago.args['solver'],
+                solver_options=etrago.args['solver_options'],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args['model_formulation'])
+
+            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+                raise  Exception('LOPF not solved.')
+
+        else:
+            status, termination_condition = network_lopf(
+                etrago.network,
+                solver_name=etrago.args['solver'],
+                solver_options=etrago.args['solver_options'],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args['model_formulation'])
+
+            if status != 'ok':
+                raise  Exception('LOPF not solved.')
+
     y = time.time()
     z = (y - x) / 60
 
     print("Time for LOPF [min]:", round(z, 2))
 
 def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
-                 ):
+                 dispatch_disaggregation=False):
 
     """
     Run optimization of lopf. If network extension is included, the specified
@@ -158,8 +186,41 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
 
     """
 
-    network = etrago.network
     args = etrago.args
+
+    if dispatch_disaggregation:
+
+        etrago.network_tsa.lines['s_nom'] = etrago.network.lines['s_nom_opt']
+        etrago.network_tsa.lines['s_nom_extendable'] = False
+
+        etrago.network_tsa.transformers['s_nom'] = etrago.network.transformers['s_nom_opt']
+        etrago.network_tsa.transformers.s_nom_extendable = False
+
+        etrago.network_tsa.storage_units['p_nom'] = etrago.network.storage_units['p_nom_opt']
+        etrago.network_tsa.storage_units['p_nom_extendable'] = False
+
+        etrago.network_tsa.stores['e_nom'] = etrago.network.stores['e_nom_opt']
+        etrago.network_tsa.stores['e_nom_extendable'] = False
+
+        etrago.network_tsa.links['p_nom'] = etrago.network.links['p_nom_opt']
+        etrago.network_tsa.links['p_nom_extendable'] = False
+
+        args['snapshot_clustering']['active']=False
+        args['skip_snapshots']=False
+        args['extendable'] = []
+
+        if args['csv_export'] != False:
+            args['csv_export'] = args['csv_export']+'/dispatch_disaggregation'
+
+        if not args['lpfile'] is False:
+            args['lpfile'] = args['lpfile'][0:-3]+'_dispatch_disaggregation.lp'
+
+        network = etrago.network_tsa
+
+    else:
+
+        network = etrago.network
+
     # if network is extendable, iterate lopf
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
@@ -222,7 +283,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                     break
 
     else:
-        run_lopf(etrago, extra_functionality, method)
+        run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=True)
 
     if args['csv_export'] != False:
         path = args['csv_export']
@@ -254,6 +315,25 @@ def lopf(self):
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
+
+def dispatch_disaggregation(self):
+
+    if self.args["dispatch_disaggregation"] == True:
+
+        x = time.time()
+
+        iterate_lopf(self,
+                         Constraints(self.args).functionality,
+                         method=self.args['method'],
+                         dispatch_disaggregation=True)
+
+        network1 = self.network.copy()
+        self.network = self.network_tsa.copy()
+        self.network_tsa = network1.copy()
+
+        y = time.time()
+        z = (y - x) / 60
+        logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
 def run_pf_post_lopf(self):
