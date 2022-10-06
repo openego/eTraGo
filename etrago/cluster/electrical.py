@@ -716,6 +716,7 @@ def weighting_for_scenario(network, save=None):
     ]
     #TASK: verify if the values used here are acceptable. Currentely based on
     #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
+    # + NEP C2035
     fixed_capacity_fac = {
         "industrial_biomass_CHP": 0.65,
         "biomass": 0.65,
@@ -725,8 +726,9 @@ def weighting_for_scenario(network, save=None):
         "reservoir": 0.49,
         "gas": 0.49,
         "oil": 0.49,
-        'central_gas_CHP': 0.54,
-        'industrial_gas_CHP': 0.54
+        'central_gas_CHP': 0.64,
+        'industrial_gas_CHP': 0.64,
+        'OCGT': 0.29
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()
