@@ -62,7 +62,13 @@ args = {
     "start_snapshot": 1,
     "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
-    "solver_options": {},
+    "solver_options": {
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'logFile': 'solver_etragos.log',
+        'threads': 4},
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
