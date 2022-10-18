@@ -783,6 +783,10 @@ def get_attached_tech(network, components):
         Object with two additional columns in network.buses containing the attached
         technologies for each bus and the respective key_indicator (e. g. p_nom or s_nom)
     """
+    # Get all potential attached technologies
+    tech = []
+    for c in network.iterate_components(components):
+        tech.extend(c.name + "_" + c.df.carrier.unique())
 
     network.buses["tech"] = ""
     network.buses["key_indicator"] = ""
@@ -868,7 +872,7 @@ def get_attached_tech(network, components):
     network.buses.key_indicator = network.buses.key_indicator.str.split(",")
     network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: [float(i) for i in x if (i != '')])
 
-    return network
+    return network, tech
 
 
 def boolDistance(network, carrier, settings):
@@ -905,14 +909,9 @@ def boolDistance(network, carrier, settings):
         (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
     ]
 
-    components = {"Generator", "Line", "Link", "Load", "StorageUnit", "Store"}
-
     # Get all potential attached technologies
-    tech = []
-    for c in network.iterate_components(components):
-        tech.extend(c.name + "_" + c.df.carrier.unique())
-
-    network = get_attached_tech(network, components)
+    components = {"Generator", "Line", "Link", "Load", "StorageUnit", "Store"}
+    network, tech = get_attached_tech(network, components)
 
     # Convert attached technologies to bool array and add as new column to network.buses
     network.buses["tech_bool"] = network.buses.tech.apply(lambda x: np.isin(tech, x))
@@ -948,7 +947,7 @@ def boolDistance(network, carrier, settings):
     D_spatial = haversine(a, a)
     D_spatial_norm = (D_spatial + 1E-5) / D_spatial.max()
     # Combine distances based on attached technologies and spatial distance
-    return  D_quality / D_spatial_norm
+    return  D_quality / (1 - D_spatial_norm)
 
 
 def capacityBasedDistance(network, carrier, settings):
@@ -972,14 +971,9 @@ def capacityBasedDistance(network, carrier, settings):
         (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
     ]
 
-    components = {"Link", "Store", "StorageUnit", "Load", "Generator", "Line"}
-
     # Get all potential attached technologies
-    tech = []
-    for c in network.iterate_components(components):
-        tech.extend(c.name + "_" + c.df.carrier.unique())
-
-    network = get_attached_tech(network, components)
+    components = {"Link", "Store", "StorageUnit", "Load", "Generator", "Line"}
+    network, tech = get_attached_tech(network, components)
 
     # Convert attached technologies to array containing all p/e/s - _nom values and
     # add as new column to network.buses
@@ -1008,10 +1002,37 @@ def capacityBasedDistance(network, carrier, settings):
     ///
     ///
     CALCULATE QUALITATIVE DISTANCE
+    normalize between each pair
+    (weight techs)
+    at entrys where both techs are available compare them
+
+    a = rel_buses.tech_bool.values
+    a = np.array([i for i in a])
+    D_ = (a[:, np.newaxis] & a).sum(axis=-1)
+    D_ = D_ / D_.diagonal()
+    D_ = np.maximum.reduce([np.tril(D_).T, np.triu(D_)])
+    D_quality = D_ + D_.T - D_ * np.identity(D_.shape[0])
+    D_quality = 1 - D_quality
+
     ///
     ///
     """
+    a = rel_buses.tech_p.values
+    a = np.array([i for i in a])
+    D_ = np.maximum(a[:,np.newaxis],a)
+    # normalize technologies on node level
+    D_ = np.nan_to_num(a/D_)
 
+    # calculate technology difference on node level
+    d = np.swapaxes(D_,0,1)
+    e = np.abs(D_-d)
+
+    # calculate difference 
+    f = e.sum(axis=2)
+
+    # normalize node differences with number of relevant techs
+    g = ((D_+d) > 0).sum(axis = 2)
+    D_quality = f/g
 
     a = np.ones((len(rel_buses), 2))
     a[:, 0] = rel_buses.x.values
@@ -1019,4 +1040,4 @@ def capacityBasedDistance(network, carrier, settings):
     D_spatial = haversine(a, a)
     D_spatial_norm = (D_spatial + 1E-5) / D_spatial.max()
     # Combine distances based on attached technologies and spatial distance
-    return  D_quality / D_spatial_norm
+    return  D_quality / (1 - D_spatial_norm)
