@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "ci_dump",  # database session "egon-data"
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -505,6 +505,7 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
+    etrago.network.export_to_csv_folder("results/etrago_results")
     etrago.session.close()
     # plots
     # make a line loading plot
