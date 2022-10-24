@@ -1699,7 +1699,7 @@ def make_legend_circles_for(sizes, scale=1.0, **kw):
 if __name__ == '__main__':
     pass
 
-def plot_clusters(self, carrier= "AC", boundaries= "SH", save_path= False,
+def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
                   transmission_lines= True):
     """
     Parameters
@@ -1722,6 +1722,7 @@ def plot_clusters(self, carrier= "AC", boundaries= "SH", save_path= False,
     -------
     None.
     """
+    # TODO: Make this function available for other carriers
     #Create geometries
     new_geom = self.network.buses[["carrier", "x", "y",]]
     new_geom = new_geom[new_geom["carrier"] == carrier]
@@ -1732,27 +1733,20 @@ def plot_clusters(self, carrier= "AC", boundaries= "SH", save_path= False,
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
     map_buses["line"] = map_buses.apply(
         lambda x: LineString((x["geom"], x["cluster_geom"])),axis = 1)
-
+    
     #Set background
-    if boundaries == "Germany":
-        boundaries = [5.5, 15.5, 47, 55.5]
-    elif boundaries == "SH":
-        boundaries = [7.7, 11.5, 53, 55.2]
-    plt.rcParams["figure.autolayout"] = True
-    fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
-    draw_map_cartopy(ax, color_geomap=True)
-    ax.set_extent(boundaries, crs=ccrs.PlateCarree())
-    ax.coastlines(linewidth=1, zorder=2, resolution="50m")
-    border = cartopy.feature.BORDERS.with_scale("50m")
-    ax.add_feature(border, linewidth=1)
-    ax.set_aspect('equal')
-    ax.axis('off')
+    if cartopy == True:
+        plt.rcParams["figure.autolayout"] = True
+        fig, ax = plt.subplots(subplot_kw={"projection":ccrs.PlateCarree()})
+        draw_map_cartopy(ax, color_geomap=True)
+    else:
+        fig, ax = plt.subplots()
+    
     ax.set_title(f'Clustering {self.args["network_clustering"]["method"]}')
 
     #Draw original transmission lines
     if transmission_lines:
         #AC lines
-        #breakpoint()
         lines = gpd.GeoDataFrame(self.disaggregated_network.lines,
                                  geometry= "geom")
         lines["geom"] = lines.apply(
