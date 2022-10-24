@@ -795,6 +795,7 @@ def group_parallel_lines(network):
             attrs.index[attrs.static & attrs.status.str.startswith("Input")]
         ).difference(("name", "bus0", "bus1"))
         columns.add("Line")
+        columns.add("geom")
         consense = {
             attr: _make_consense("Bus", attr)
             for attr in (
@@ -814,6 +815,7 @@ def group_parallel_lines(network):
                     "length",
                     "v_ang_min",
                     "v_ang_max",
+                    "geom"
                 }
             )
         }
@@ -836,6 +838,7 @@ def group_parallel_lines(network):
             sub_network=consense["sub_network"](l["sub_network"]),
             v_ang_min=l["v_ang_min"].max(),
             v_ang_max=l["v_ang_max"].min(),
+            geom = l["geom"].iloc[0,]
         )
         data.update((f, consense[f](l[f])) for f in columns.difference(data))
         return pd.Series(data, index=[f for f in l.columns if f in columns])
@@ -893,7 +896,7 @@ def delete_dispensable_ac_buses(etrago):
             return total
     
         return count
-        
+
     network = etrago.network
     
     # Group the parallel transmission lines to reduce the complexity
