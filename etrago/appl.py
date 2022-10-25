@@ -494,8 +494,7 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    # needs to be adjusted for new sectors
-    # etrago.calc_results()
+    etrago.calc_results()
 
     return etrago
 
