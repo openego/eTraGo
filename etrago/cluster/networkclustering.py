@@ -417,7 +417,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         .dropna(subset=["bus0", "bus1"])
         .loc[lambda df: df.bus0 != df.bus1]
     )
-    new_links2 = pd.concat([new_links, dc_links])
+    new_links = pd.concat([new_links, dc_links])
     new_links["topo"] = np.nan
     io.import_components_from_dataframe(network_c, new_links, "Link")
 
