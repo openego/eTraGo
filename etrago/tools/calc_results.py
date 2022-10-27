@@ -38,6 +38,27 @@ __copyright__ = ("Flensburg University of Applied Sciences, "
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
+def _calc_network_expansion(self): ###
+        """ Function that calulates electrical network expansion in MW
+        Returns
+        -------
+        float
+            network expansion (AC lines and DC links) in MW
+        """
+
+        network = self.network
+
+        lines = (network.lines.s_nom_opt -
+                network.lines.s_nom_min
+                )[network.lines.s_nom_extendable]
+
+        ext_links = network.links[network.links.p_nom_extendable]
+        ext_dc_lines = ext_links[ext_links.carrier=='DC']
+
+        dc_links = (ext_dc_lines.p_nom_opt -
+                ext_dc_lines.p_nom_min)
+
+        return lines, dc_links
 
 def _calc_storage_expansion(self):
         """ Function that calulates storage expansion in MW
@@ -105,10 +126,10 @@ def calc_marginal_cost(self):
         """
         network = self.network
         gen = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
         stor = network.storage_units_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.storage_units.marginal_cost).sum()
         marginal_cost = gen + stor
         return marginal_cost
@@ -133,17 +154,15 @@ def calc_etrago_results(self):
                                            'storage_expansion',
                                            'battery_storage_expansion',
                                            'hydrogen_storage_expansion',
-                                           'abs_network_expansion',
-                                           'rel_network_expansion'])
+                                           'abs_network_expansion',                                         'abs. electrical grid expansion',
+                                           'abs. electrical ac grid expansion',
+                                           'abs. electrical dc grid expansion',
+                                           'rel. electrical ac grid expansion',
+                                           'rel. electrical dc grid expansion'])
 
         self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
-        self.results.unit[self.results.index.isin([
-            'storage_expansion', 'abs_network_expansion',
-            'battery_storage_expansion', 'hydrogen_storage_expansion'])] = 'MW'
-        self.results.unit['abs_network_expansion'] = 'MW'
-        self.results.unit['rel_network_expansion'] = 'p.u.'
-
-
+        self.results.unit[self.results.index.str.contains('expansion')] = 'MW'
+        self.results.unit[self.results.index.str.contains('rel.')] = 'p.u.'
 
         self.results.value['ac_annual_grid_investment_costs'] = calc_investment_cost(self)[0][0]
         self.results.value['dc_annual_grid_investment_costs'] = calc_investment_cost(self)[0][1]
@@ -158,13 +177,23 @@ def calc_etrago_results(self):
         self.results.value['annual system costs'] = \
             self.results.value['annual_investment_costs'] + calc_marginal_cost(self)
 
-        if 'storage' in self.args['extendable']:
+        '''if 'storage' in self.args['extendable']:
             self.results.value['storage_expansion'] = \
                 _calc_storage_expansion(self).sum()
             self.results.value['battery_storage_expansion'] = \
                 _calc_storage_expansion(self)['extendable_battery_storage']
             self.results.value['hydrogen_storage_expansion'] = \
-                _calc_storage_expansion(self)['extendable_hydrogen_storage']
+                _calc_storage_expansion(self)['extendable_hydrogen_storage']'''
 
-        if 'network' in self.args['extendable']:
-            self.results.value['abs_network_expansion']
+        if not self.network.lines[self.network.lines.s_nom_extendable].empty:
+
+            self.results.value['abs. electrical ac grid expansion'] = _calc_network_expansion(self)[0].sum()
+            self.results.value['abs. electrical dc grid expansion'] = _calc_network_expansion(self)[1].sum()
+            self.results.value['abs. electrical grid expansion'] = self.results.value['abs. electrical ac grid expansion'] + self.results.value['abs. electrical dc grid expansion']
+
+            ext_lines = self.network.lines[self.network.lines.s_nom_extendable]
+            ext_links = self.network.links[self.network.links.p_nom_extendable]
+            ext_dc_lines = ext_links[ext_links.carrier=='DC']
+
+            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum()) * 100
+            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()) * 100

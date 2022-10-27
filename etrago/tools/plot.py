@@ -265,11 +265,11 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
 
     # calculate difference in loading between both networks
     loading_switches = abs(
-        networkA.lines_t.p0.mul(networkA.snapshot_weightings, axis=0).\
+        networkA.lines_t.p0.mul(networkA.snapshot_weightings.objective, axis=0).\
         loc[networkA.snapshots[timestep]].to_frame())
     loading_switches.columns = ['switch']
     loading_noswitches = abs(
-        networkB.lines_t.p0.mul(networkB.snapshot_weightings, axis=0).\
+        networkB.lines_t.p0.mul(networkB.snapshot_weightings.objective, axis=0).\
         loc[networkB.snapshots[timestep]].to_frame())
     loading_noswitches.columns = ['noswitch']
     diff_network = loading_switches.join(loading_noswitches)
@@ -391,8 +391,8 @@ def plot_residual_load(network):
                                          'wind'])]
     renewables_t = network.generators.p_nom[renewables.index] * \
         network.generators_t.p_max_pu[renewables.index].mul(
-            network.snapshot_weightings, axis=0)
-    load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).\
+            network.snapshot_weightings.objective, axis=0)
+    load = network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0).\
     sum(axis=1)
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
@@ -444,7 +444,7 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
         p_by_carrier = pd.concat(
             [network.generators_t.p
              [network.generators[network.generators.control != 'Slack'].index],
-             network.generators_t.p.mul(network.snapshot_weightings, axis=0)
+             network.generators_t.p.mul(network.snapshot_weightings.objective, axis=0)
              [network.generators[network.generators.control ==
                                  'Slack'].index].iloc[:, 0].apply(
                                      lambda x: x if x > 0 else 0)],
@@ -459,10 +459,10 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     elif bus is not None:
         filtered_gens = network.generators[network.generators['bus'] == bus]
         p_by_carrier = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).groupby(
+            network.snapshot_weightings.objective, axis=0).groupby(
                 filtered_gens.carrier, axis=1).abs().sum()
         filtered_load = network.loads[network.loads['bus'] == bus]
-        load = network.loads_t.p.mul(network.snapshot_weightings, axis=0)\
+        load = network.loads_t.p.mul(network.snapshot_weightings.objective, axis=0)\
             [filtered_load.index]
 
     colors = coloring()
@@ -479,6 +479,8 @@ def plot_stacked_gen(network, bus=None, resolution='GW', filename=None):
     (load / reso_int).plot(ax=ax, legend='load', lw=2, color='darkgrey',
                            style='--')
     ax.legend(ncol=4, loc="upper left")
+    #ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+          #fancybox=True, shadow=True, ncol=5)
 
     ax.set_ylabel(resolution)
     ax.set_xlabel("")
@@ -517,10 +519,10 @@ def plot_gen_diff(
     """
     def gen_by_c(network):
         gen = pd.concat(
-            [network.generators_t.p.mul(etwork.snapshot_weightings, axis=0)
+            [network.generators_t.p.mul(network.snapshot_weightings.objective, axis=0)
              [network.generators[network.generators.control != 'Slack'].index],
              network.generators_t.p.mul(
-                 network.snapshot_weightings, axis=0)
+                 network.snapshot_weightings.objective, axis=0)
              [network.generators[network. generators.control == 'Slack'].index]
              .iloc[:, 0].apply(lambda x: x if x > 0 else 0)], axis=1)\
         .groupby(network.generators.carrier, axis=1).sum()
@@ -822,11 +824,11 @@ def gen_dist_diff(
         gensB = networkB.generators[networkB.generators.carrier == tech]
 
         gen_distribution =\
-            networkA.generators_t.p.mul(networkA.snapshot_weightings, axis=0)\
+            networkA.generators_t.p.mul(networkA.snapshot_weightings.objective, axis=0)\
             [gensA.index].loc[networkA.snapshots[snapshot]].groupby(
                 networkA.generators.bus).sum().reindex(
                     networkA.buses.index, fill_value=0.) -\
-            networkB.generators_t.p.mul(networkB.snapshot_weightings, axis=0)\
+            networkB.generators_t.p.mul(networkB.snapshot_weightings.objective, axis=0)\
             [gensB.index].loc[networkB.snapshots[snapshot]].groupby(
                 networkB.generators.bus).sum().reindex(
                     networkB.buses.index, fill_value=0.)
@@ -1194,7 +1196,7 @@ def mul_weighting(network, timeseries):
          timeseries considering snapshot_weightings
 
     """
-    return timeseries.mul(network.snapshot_weightings, axis=0)
+    return timeseries.mul(network.snapshot_weightings.objective, axis=0)
 
 def calc_ac_loading(network, timesteps):
     """ Calculates loading of AC-lines
@@ -1522,7 +1524,7 @@ def plot_grid(self,
     if line_colors == 'line_loading':
         title = 'Mean loading from ' + str(network.snapshots[timesteps[0]])+\
         ' to ' + str(network.snapshots[timesteps[-1]])
-        rep_snapshots = network.snapshot_weightings\
+        rep_snapshots = network.snapshot_weightings.objective\
                         [network.snapshots[timesteps]].sum()
         line_colors = calc_ac_loading(network, timesteps).abs()/rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs()/rep_snapshots
