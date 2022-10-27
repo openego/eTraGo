@@ -153,10 +153,10 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         else:
             bus_cluster = str(max_bus + 1)
             max_bus = max_bus + 1
-            new = pd.Series(
-                {"cluster": busmap[bus_hv], "carrier": carry}, name=bus_cluster
-            )
-            no_elec_to_cluster = no_elec_to_cluster.append(new)
+            new = pd.DataFrame({"cluster": busmap[bus_hv], "carrier": carry},
+                                index = [bus_cluster])
+
+            no_elec_to_cluster = pd.concat([no_elec_to_cluster, new])
 
         busmap2[bus_ne] = bus_cluster
 
@@ -183,53 +183,21 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     # The new buses based on the eHV network for not electrical buses are created
     if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": np.nan,
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": np.nan,
-                    "y": np.nan,
-                    "geom": np.nan,
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": np.nan,
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier
             )
-            network.buses = network.buses.append(new_bus)
 
     else:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": network.buses.at[cluster_bus, "scn_name"],
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": network.buses.at[cluster_bus, "x"],
-                    "y": network.buses.at[cluster_bus, "y"],
-                    "geom": network.buses.at[cluster_bus, "geom"],
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": network.buses.at[cluster_bus, "country"],
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier.values,
+            x = network.buses.loc[no_elec_to_cluster.cluster.values, "x"].values,
+            y = network.buses.loc[no_elec_to_cluster.cluster.values, "y"].values,
+            country = network.buses.loc[no_elec_to_cluster.cluster.values, "country"].values,
             )
-            network.buses = network.buses.append(new_bus)
-
     return network, busmap
 
 
@@ -296,7 +264,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         .loc[lambda df: df.bus0 != df.bus1]
     )
 
-    new_links = new_links.append(dc_links)
+    new_links = pd.concat([new_links, dc_links])
     new_links["topo"] = np.nan
     io.import_components_from_dataframe(network_c, new_links, "Link")
 
@@ -606,7 +574,7 @@ def preprocessing(etrago):
         dc = network.links[network.links.carrier == "DC"]
         str1 = 'DC_'
         dc.index = f"{str1}"+dc.index
-        lines_plus_dc = network_elec.lines.append(dc)
+        lines_plus_dc = lines_plus_dc = pd.concat([network_elec.lines, dc])
         lines_plus_dc = lines_plus_dc[lines_col]
         network_elec.lines = lines_plus_dc.copy()
         network_elec.lines["carrier"] = "AC"
