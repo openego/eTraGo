@@ -953,12 +953,12 @@ def kmean_clustering(etrago):
 
     # k-mean clustering
     if not kmean_settings["k_busmap"]:
-        
+
         print(' ')
         print('start k-means clustering')
         print(datetime.datetime.now())
         print(' ')
-        
+
         busmap = busmap_by_kmeans(
             elec_network,
             bus_weightings=pd.Series(weight),
@@ -998,7 +998,7 @@ def kmean_clustering(etrago):
 
     clustering.network.links, clustering.network.links_t =\
         group_links(clustering.network)
-        
+
     print(' ')
     print('stop k-means clustering')
     print(datetime.datetime.now())
@@ -1143,7 +1143,7 @@ def dijkstras_algorithm(network, medoid_idx, busmap_kmedoid):
     mapping=pd.Series(index=medoid_idx, data=medoid_idx.index)
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
-    
+
     print(' ')
     print('stop Dijkstra algorithm')
     print(datetime.datetime.now())
@@ -1188,14 +1188,14 @@ def weighting_for_scenario(network, save=None):
     #TASK: virify if the values used here are acceptable. Currentely based on
     #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
     fixed_capacity_fac = {
-        "industrial_biomass_CHP": 0.65,
-        "biomass": 0.65,
-        "central_biomass_CHP": 0.65,
-        "other_non_renewable": 0.49,
-        "run_of_river": 0.49,
-        "reservoir": 0.49,
-        "gas": 0.49,
-        "oil": 0.49,
+        "industrial_biomass_CHP": 1,
+        "biomass": 1,
+        "central_biomass_CHP": 1,
+        "other_non_renewable": 1,
+        "run_of_river": 0.5,
+        "reservoir": 1,
+        "gas": 1,
+        "oil": 1,
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()
