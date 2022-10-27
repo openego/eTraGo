@@ -67,9 +67,8 @@ args = {
         'FeasibilityTol': 1.e-5,
         'method':2,
         'crossover':0,
-        'threads':4,
-        'logFile': 'solver_etragos.log'
-        },
+        'logFile': 'solver_etragos.log',
+        'threads': 4},
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -97,7 +96,7 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
-    # Clustering:
+    # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
@@ -130,17 +129,19 @@ args = {
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": None,  # None, 'mini' or 'uniform'
+    # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
-        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
-        "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    # Simplifications:
     "skip_snapshots": 5,  # False or number of snapshots to skip
+    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -405,6 +406,14 @@ def run_etrago(args, json_path):
         With ``'n_segments'`` you choose the number of segments for the usage of
         the method segmentation.
 
+    skip_snapshots : bool or int
+        State if you only want to consider every n-th timestep
+        to reduce temporal complexity.
+
+    dispatch_disaggregation : bool
+        State if you to apply a second lopf considering dispatch only
+        to disaggregate the dispatch to the whole temporal complexity.
+
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
@@ -486,19 +495,30 @@ def run_etrago(args, json_path):
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
-    # skip snapshots
-    etrago.skip_snapshots()
-
     # snapshot clustering
     # etrago.snapshot_clustering()
 
+    # skip snapshots
+    etrago.skip_snapshots()
+
     # start linear optimal powerflow calculations
     etrago.lopf()
+    
+    etrago.export_to_csv("network_results")
+
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    # etrago.dispatch_disaggregation()
+
+    # TODO: check if should be combined with etrago.lopf()
+    # needs to be adjusted for new sectors
+    # etrago.pf_post_lopf()
+
+    # spatial disaggregation
+    # needs to be adjusted for new sectors
+    # etrago.disaggregation()
 
     # calculate central etrago results
     # etrago.calc_results()
-    
-    etrago.export_to_csv("network_results")
 
     return etrago
 

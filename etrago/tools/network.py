@@ -64,7 +64,7 @@ from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
-from etrago.tools.execute import lopf, run_pf_post_lopf
+from etrago.tools.execute import lopf, dispatch_disaggregation, run_pf_post_lopf
 from etrago.tools.calc_results import calc_etrago_results
 
 logger = logging.getLogger(__name__)
@@ -110,6 +110,8 @@ class Etrago():
         self.results = pd.DataFrame()
 
         self.network = Network()
+
+        self.network_tsa = Network()
 
         self.disaggregated_network = Network()
 
@@ -198,6 +200,8 @@ class Etrago():
     snapshot_clustering = snapshot_clustering
 
     lopf = lopf
+
+    dispatch_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
 
@@ -290,4 +294,3 @@ class Etrago():
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
-
