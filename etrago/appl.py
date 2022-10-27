@@ -90,7 +90,7 @@ args = {
                 "dc": 0,
             },
             # border crossing lines
-            "grid_max_foreign": 4,  # relative to existing capacity
+            "grid_max_foreign": 2,  # relative to existing capacity
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
@@ -101,7 +101,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -120,7 +120,7 @@ args = {
         "tol": 1e-6,
     },  # affects clustering algorithm, only change when neccesary
     "sector_coupled_clustering": {
-        "active": True,  # choose if clustering is activated
+        "active": False,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
             "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
@@ -145,7 +145,7 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",
     },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     "comments": None,
@@ -447,18 +447,55 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    etrago.network.storage_units.lifetime = np.inf
-    etrago.network.transformers.lifetime = 40  # only temporal fix
-    etrago.network.lines.lifetime = 40  # only temporal fix until either the
+    # manual fixes for database-network from 16th of August
+
+    etrago.network.lines.type = ""
+    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
+    etrago.network.storage_units.lifetime = 40
+    etrago.network.transformers.lifetime = 40
+    etrago.network.lines.lifetime = 40
+    # only temporal fix until either the
     # PyPSA network clustering function
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(0.0, inplace=True)
 
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
         [etrago.network.lines_t.s_max_pu.columns.isin(
             etrago.network.lines.index)].transpose())
+
+    for t in etrago.network.iterate_components():
+        if "p_min_pu" in t.df:
+            t.df["p_min_pu"].fillna(0.0, inplace=True)
+
+    for t in etrago.network.iterate_components():
+        if "p_max_pu" in t.df:
+            t.df["p_max_pu"].fillna(1., inplace=True)
+
+    # Temporary fix until egon-data issue #815 is solved
+    foreign_generators = etrago.network.generators[
+        etrago.network.generators.bus.isin(
+            etrago.network.buses.index[etrago.network.buses.country!="DE"]) &
+        (etrago.network.generators.index.isin(
+            etrago.network.generators_t.p_max_pu.columns))].index
+
+    if etrago.args["end_snapshot"] == 8760:
+        for i in foreign_generators:
+            etrago.network.generators_t.p_max_pu[i] = np.repeat(
+                etrago.network.generators_t.p_max_pu[i][:int(8760/3)].values, 3)
+
+    # Temporary fix missing marginal costs of foreign generators
+    etrago.network.generators.loc[etrago.network.generators.carrier=='solar', 'marginal_cost']  = 0
+    etrago.network.generators.loc[etrago.network.generators.carrier=='solar_rooftop', 'marginal_cost']  = 0
+    etrago.network.generators.loc[etrago.network.generators.carrier=='wind_onshore', 'marginal_cost'] = 1.3
+    etrago.network.generators.loc[etrago.network.generators.carrier=='wind_offshore', 'marginal_cost'] =2.5
+    etrago.network.generators.loc[etrago.network.generators.carrier=='nuclear', 'marginal_cost'] += 1.7
+    etrago.network.generators.loc[etrago.network.generators.carrier=='lignite', 'marginal_cost'] += 4 + 0.393* 76.5
+    etrago.network.generators.loc[etrago.network.generators.carrier=='coal', 'marginal_cost'] += 20.2 + 0.335 *  76.5
 
     # only electricity sector, no DSM and no DLR
 
@@ -470,9 +507,21 @@ def run_etrago(args, json_path):
 
     etrago.adjust_network()
 
+    '''# Set foreign batteries extendable
+    etrago.network.storage_units["country"] = etrago.network.buses.loc[
+        etrago.network.storage_units.bus.values, "country"
+    ].values
+    etrago.network.storage_units[
+        (etrago.network.storage_units.country!='DE')&(etrago.network.storage_units.carrier=='battery')
+        ].capital_cost = etrago.network.storage_units[(etrago.network.storage_units.country=='DE')&(etrago.network.storage_units.carrier=='battery')
+        ].capital_cost.mean()
+    etrago.network.storage_units[
+        (etrago.network.storage_units.country!='DE')&(etrago.network.storage_units.carrier=='battery')
+        ].p_nom_extendable = True'''
+
     # ehv network clustering
-    etrago.ehv_clustering()
-    
+    #etrago.ehv_clustering()
+
     etrago.export_to_csv("before_spatial")
 
     print(' ')
@@ -487,7 +536,7 @@ def run_etrago(args, json_path):
     print('stop spatial clustering')
     print(datetime.datetime.now())
     print(' ')
-    
+
     etrago.export_to_csv("after_spatial")
 
     #etrago.spatial_clustering_gas()
@@ -503,7 +552,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     etrago.lopf()
-    
+
     etrago.export_to_csv("network_results")
 
     # conduct lopf with full complex timeseries for dispatch disaggregation

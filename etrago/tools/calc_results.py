@@ -238,7 +238,7 @@ def calc_etrago_results(self):
                                     index=['annual system costs',
                                            'annual investment costs',
                                            'annual marginal costs',
-                                           'annual electrical grid investment costs'',
+                                           'annual electrical grid investment costs',
                                            'annual ac grid investment costs',
                                            'annual dc grid investment costs',
                                            'abs. electrical grid expansion',
