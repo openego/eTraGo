@@ -48,6 +48,10 @@ def snapshot_clustering(self):
     """
     if self.args['snapshot_clustering']['active'] == True:
 
+        # save second network for optional dispatch disaggregation
+        if self.args["dispatch_disaggregation"] == True:
+            self.network_tsa = self.network.copy()
+
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
 
             self.network = run(network=self.network.copy(),
@@ -109,9 +113,18 @@ def tsam_cluster(timeseries_df,
     if how == 'daily':
         hours = 24
         period = ' days'
-    if how == 'weekly':
+
+    elif how == 'weekly':
         hours = 168
         period = ' weeks'
+
+    elif how == 'monthly':
+        hours = 720
+        period = ' months'
+
+    elif how == 'hourly':
+        hours = 1
+        period = ' hours'
 
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
@@ -145,7 +158,6 @@ def tsam_cluster(timeseries_df,
     else:
         print('Snapshot clustering to ' + str(typical_periods) + period + '\n' +
           'Using extreme period method: ' + extremePeriodMethod)
-
 
     timeseries_creator = aggregation.createTypicalPeriods()
     timeseries = timeseries_creator.copy()
@@ -549,14 +561,20 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
 
 def skip_snapshots(self):
+
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
+
         self.network.snapshots = self.network.snapshots[::n_skip]
 
         self.network.snapshot_weightings['objective'] = n_skip
         self.network.snapshot_weightings['stores'] = n_skip
         self.network.snapshot_weightings['generators'] = n_skip
+
+        # save second network for optional dispatch disaggregation
+        if self.args["dispatch_disaggregation"] == True and self.args['snapshot_clustering']['active'] == False:
+            self.network_tsa = self.network.copy()
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):

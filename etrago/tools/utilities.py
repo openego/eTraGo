@@ -2066,20 +2066,53 @@ def check_args(etrago):
 
     if etrago.args["snapshot_clustering"]["active"] != False:
 
-        assert (
-            etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 24
-            == 0
-        ), (
-            "Please select snapshots covering whole days when choosing "
-            "snapshot clustering"
-        )
+        # typical periods
 
-        if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
-            assert etrago.args["end_snapshot"] - etrago.args[
-                "start_snapshot"
-            ] + 1 >= (
-                24 * etrago.args["snapshot_clustering"]["n_clusters"]
-            ), "Number of selected days is smaller than number of representative snapshots"
+        if etrago.args["snapshot_clustering"]["method"] == 'typical_periods':
+
+            # typical days
+
+            if etrago.args["snapshot_clustering"]["how"] == 'daily':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 24 == 0, (
+                    "Please select snapshots covering whole days when choosing "
+                    "clustering to typical days"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        24 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is is too small for chosen number of typical days"
+
+            # typical weeks
+
+            if etrago.args["snapshot_clustering"]["how"] == 'weekly':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 168 == 0, (
+                    "Please select snapshots covering whole weeks when choosing "
+                    "clustering to typical weeks"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        168 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is too small for chosen number of typical weeks"
+
+            # typical months
+
+            if etrago.args["snapshot_clustering"]["how"] == 'monthly':
+
+                assert etrago.args["end_snapshot"] / etrago.args["start_snapshot"] % 720 == 0, (
+                    "Please select snapshots covering whole months when choosing "
+                    "clustering to typical months"
+                )
+
+                if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
+                    assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+                        720 * etrago.args["snapshot_clustering"]["n_clusters"]
+                    ), "Number of selected snapshots is too small for chosen number of typical months"
+
+        # segmentation
 
         elif etrago.args["snapshot_clustering"]["method"] == "segmentation":
             assert etrago.args["end_snapshot"] - etrago.args[
@@ -2087,6 +2120,12 @@ def check_args(etrago):
             ] + 1 >= (
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
+
+        if not etrago.args['method']['pyomo']:
+            logger.warning("Snapshot clustering constraints are "
+                           "not yet correctly implemented without pyomo. "
+                           "args['method']['pyomo'] is set to True.")
+            etrago.args['method']['pyomo'] = True
 
     if not etrago.args["method"]["pyomo"]:
         try:

@@ -62,7 +62,13 @@ args = {
     "start_snapshot": 1,
     "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
-    "solver_options": {},
+    "solver_options": {
+        'BarConvTol': 1.e-5,
+        'FeasibilityTol': 1.e-5,
+        'method':2,
+        'crossover':0,
+        'logFile': 'solver_etragos.log',
+        'threads': 4},
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -90,13 +96,15 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
-    # Clustering:
+    # Spatial Complexity:
     "network_clustering": {
+        "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
+        "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -121,17 +129,19 @@ args = {
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
-        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
-        "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    # Simplifications:
     "skip_snapshots": 3,  # False or number of snapshots to skip
+    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -325,7 +335,8 @@ def run_etrago(args, json_path):
 
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
-           'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
+           'cluster_foreign_AC': False, method_gas: 'kmeans',
+           'n_clusters_gas': 30, 'cluster_foreign_gas': False,
            'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
@@ -395,6 +406,14 @@ def run_etrago(args, json_path):
         With ``'n_segments'`` you choose the number of segments for the usage of
         the method segmentation.
 
+    skip_snapshots : bool or int
+        State if you only want to consider every n-th timestep
+        to reduce temporal complexity.
+
+    dispatch_disaggregation : bool
+        State if you to apply a second lopf considering dispatch only
+        to disaggregate the dispatch to the whole temporal complexity.
+
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
         Add a factor here if you want to globally change line capacities
@@ -448,22 +467,23 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
-    etrago.kmean_clustering_gas()
+    etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
+    # snapshot clustering
+    etrago.snapshot_clustering()
+
     # skip snapshots
     etrago.skip_snapshots()
-
-    # snapshot clustering
-    # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
+
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.dispatch_disaggregation()
 
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
@@ -474,8 +494,7 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    # needs to be adjusted for new sectors
-    # etrago.calc_results()
+    etrago.calc_results()
 
     return etrago
 
