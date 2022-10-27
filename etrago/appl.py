@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data-local",  # database session
+    "db": "egon-data-clara",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -68,6 +68,7 @@ args = {
         'method':2,
         'crossover':0,
         'threads':4,
+        'logFile': 'solver_etragos.log'
         },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
@@ -75,7 +76,7 @@ args = {
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
-    "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
+    "lpfile": 'lp-file.lp',  # save pyomo's lp file: False or /path/tofolder
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
@@ -101,7 +102,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -128,7 +129,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
@@ -453,7 +454,7 @@ def run_etrago(args, json_path):
     # only electricity sector, no DSM and no DLR
 
     etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
-     'rural_heat', 'central_heat_store', 'rural_heat_store'])
+     'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
 
     # no DLR
     etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
@@ -462,6 +463,8 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.ehv_clustering()
+    
+    etrago.export_to_csv("before_spatial")
 
     print(' ')
     print('start spatial clustering')
@@ -475,6 +478,8 @@ def run_etrago(args, json_path):
     print('stop spatial clustering')
     print(datetime.datetime.now())
     print(' ')
+    
+    etrago.export_to_csv("after_spatial")
 
     #etrago.spatial_clustering_gas()
 
@@ -492,6 +497,8 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     # etrago.calc_results()
+    
+    etrago.export_to_csv("network_results")
 
     return etrago
 
