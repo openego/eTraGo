@@ -1749,6 +1749,8 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
         #AC lines
         lines = gpd.GeoDataFrame(self.disaggregated_network.lines,
                                  geometry= "geom")
+        lines = lines[lines["bus0"].isin(map_buses.index) &
+                      lines["bus1"].isin(map_buses.index)]
         lines["geom"] = lines.apply(
             lambda x: x["geom"] if not pd.isna(x["geom"])  else LineString(
                 [map_buses["geom"][x["bus0"]], map_buses["geom"][x["bus1"]]]), axis = 1)
