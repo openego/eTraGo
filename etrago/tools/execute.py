@@ -120,6 +120,7 @@ def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False)
                 etrago.network_tsa.snapshots,
                 solver_name=etrago.args['solver'],
                 solver_options=etrago.args['solver_options'],
+                pyomo=True,
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
@@ -144,6 +145,7 @@ def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False)
                 etrago.network.snapshots,
                 solver_name=etrago.args['solver'],
                 solver_options=etrago.args['solver_options'],
+                pyomo=True,
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
