@@ -117,8 +117,9 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6,
-    },  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+    },  
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
