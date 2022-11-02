@@ -1707,13 +1707,10 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
     carrier : str, optional
         This variable set the carrier of the buses that will be plotted. The
         default is "AC".
-    boundaries : str or list, optional
-        The default is "SH". Could be "SH" when the user wants to plot the areas
-        around Schleswig-Holstein, or "Germany" for the area around the country.
-        Otherwise a list of coordinates like [x1, x2, y1, y2], where 'x1' and x2
-        are floats for the x axis boundaries (lat).'y1' ans 'y2' are floats for
-        the y axis boundaries (long).
-    save : bool, optional
+    cartopy : bool, optional
+        Set it to True when cartopy is installed and the map is supposed
+        to include country's boundaries and bodies of water
+    save_path : bool, optional
         Path to save the generated plot. The default is False.
     transmission_lines : bool, optional
         The default is True. Define if the original transmission lines are
