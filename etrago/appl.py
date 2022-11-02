@@ -461,6 +461,10 @@ def run_etrago(args, json_path):
         [etrago.network.lines_t.s_max_pu.columns.isin(
             etrago.network.lines.index)].transpose())
 
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+
     etrago.adjust_network()
 
     # ehv network clustering
