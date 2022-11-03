@@ -2265,38 +2265,69 @@ def add_chp_constraints_nmp(n):
     None.
 
     """
-
-    #backpressure limit
+    # backpressure limit
     c_m = 0.75
 
-    #marginal loss for each additional generation of heat
+    # marginal loss for each additional generation of heat
     c_v = 0.15
-    electric_bool = (n.links.carrier=="central_gas_CHP")
-    heat_bool = (n.links.carrier =="central_gas_CHP_heat")
+    electric_bool = n.links.carrier == "central_gas_CHP"
+    heat_bool = n.links.carrier == "central_gas_CHP_heat"
 
     electric = n.links.index[electric_bool]
     heat = n.links.index[heat_bool]
 
-    n.links.loc[heat,"efficiency"] = (n.links.loc[electric,"efficiency"]/c_v).values
+    n.links.loc[heat, "efficiency"] = (
+        n.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
 
-    if not electric.empty:
+    ch4_nodes_with_chp = n.buses.loc[
+        n.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+
+        elec_chp = n.links[
+            (n.links.carrier == "central_gas_CHP") & (n.links.bus0 == i)
+        ].index
+
+        heat_chp = n.links[
+            (n.links.carrier == "central_gas_CHP_heat") & (n.links.bus0 == i)
+        ].index
+
         link_p = get_var(n, "Link", "p")
-        #backpressure
-        lhs = linexpr(
-            (c_m*n.links.loc[heat,"efficiency"],
-             link_p[heat]),
-            (-n.links.loc[ electric ,"efficiency"].values,
-             link_p[ electric ].values))
+        # backpressure
 
-        define_constraints(n, lhs, "<=", 0, 'chplink', 'backpressure')
+        lhs_1 = sum(
+            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp] for h_chp in heat_chp
+        )
 
-        #top_iso_fuel_line
-        lhs, *ax = linexpr((1,link_p[heat]),
-                      (1,link_p[electric].values),
-                      return_axes=True)
-        define_constraints(n, lhs, "<=", n.links.loc[electric].p_nom, 'chplink','top_iso_fuel_line_fix', axes=ax)
+        lhs_2 = sum(
+            n.links.at[e_chp, "efficiency"] * link_p[e_chp] for e_chp in elec_chp
+        )
 
-def add_chp_constraints(network,snapshots):
+        lhs = linexpr((1, lhs_1), (1, lhs_2))
+
+        define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
+
+        # top_iso_fuel_line
+        lhs, *ax = linexpr(
+            (1, sum(link_p[h_chp] for h_chp in heat_chp)),
+            (1, sum(link_p[h_e] for h_e in elec_chp)),
+            return_axes=True,
+        )
+
+        define_constraints(
+            n,
+            lhs,
+            "<=",
+            n.links.loc[elec_chp].p_nom.sum(),
+            "chplink_" + str(i),
+            "top_iso_fuel_line_fix",
+            axes=ax,
+        )
+
+
+def add_chp_constraints(network, snapshots):
     """
     Limits the dispatch of combined heat and power links based on
     T.Brown et. al : Synergies of sector coupling and transmission reinforcement
@@ -2314,38 +2345,74 @@ def add_chp_constraints(network,snapshots):
     None.
 
     """
-    #backpressure limit
+
+    # backpressure limit
     c_m = 0.75
 
-    #marginal loss for each additional generation of heat
+    # marginal loss for each additional generation of heat
     c_v = 0.15
-    electric_bool = (network.links.carrier=="central_gas_CHP")
-    heat_bool = (network.links.carrier =="central_gas_CHP_heat")
+    electric_bool = network.links.carrier == "central_gas_CHP"
+    heat_bool = network.links.carrier == "central_gas_CHP_heat"
 
     electric = network.links.index[electric_bool]
     heat = network.links.index[heat_bool]
 
-    network.links.loc[heat,"efficiency"] = (network.links.loc[electric,"efficiency"]/c_v).values
+    network.links.loc[heat, "efficiency"] = (
+        network.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
 
-    for i in range(len(electric)):
+    ch4_nodes_with_chp = network.buses.loc[
+        network.links.loc[electric, "bus0"].values
+    ].index.unique()
 
-        #Guarantees c_m p_b1  \leq p_g1
-        def backpressure(model,snapshot):
-            return (
-                c_m*network.links.at[heat[i],"efficiency"]*
-                model.link_p[heat[i],snapshot]
-                <= network.links.at[electric[i],"efficiency"]*
-                model.link_p[electric[i],snapshot] )
+    for i in ch4_nodes_with_chp:
 
-        setattr(network.model, "backpressure" + str(i),
-            Constraint(list(snapshots), rule=backpressure))
+        elec_chp = network.links[
+            (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+        ].index
 
-        #Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
-        def top_iso_fuel_line(model,snapshot):
-            return (
-                model.link_p[heat[i],snapshot]
-                + model.link_p[electric[i],snapshot]
-                <= network.links.at[electric[i], "p_nom"]
-                )
-        setattr(network.model, "top_iso_fuel_line" + str(i),
-            Constraint(list(snapshots), rule=top_iso_fuel_line))
+        heat_chp = network.links[
+            (network.links.carrier == "central_gas_CHP_heat")
+            & (network.links.bus0 == i)
+        ].index
+
+        # Guarantees c_m p_b1  \leq p_g1
+        def backpressure(model, snapshot):
+            lhs = sum(
+                c_m
+                * network.links.at[h_chp, "efficiency"]
+                * model.link_p[h_chp, snapshot]
+                for h_chp in heat_chp
+            )
+
+            rhs = sum(
+                network.links.at[e_chp, "efficiency"] * model.link_p[e_chp, snapshot]
+                for e_chp in elec_chp
+            )
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "backpressure_" + str(i),
+            Constraint(list(snapshots), rule=backpressure),
+        )
+
+        # Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
+        def top_iso_fuel_line(model, snapshot):
+
+            lhs = sum(model.link_p[h_chp, snapshot] for h_chp in heat_chp) + sum(
+                model.link_p[e_chp, snapshot] for e_chp in elec_chp
+            )
+
+            rhs = network.links[
+                (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+            ].p_nom.sum()
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "top_iso_fuel_line_" + str(i),
+            Constraint(list(snapshots), rule=top_iso_fuel_line),
+        )
