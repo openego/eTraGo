@@ -28,6 +28,7 @@ if 'READTHEDOCS' not in os.environ:
     import pandas as pd
     import numpy as np
     from pypsa.linopf import network_lopf
+    from pypsa import io
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -373,6 +374,50 @@ def pf_post_lopf(etrago, calc_losses = True):
 
         return foreign_bus, foreign_comp, foreign_series
 
+    def import_gen_from_links(network):
+        """
+        create gas generators from links in order to not lose them when
+        dropping non-electric carriers
+        """
+        gas_to_add = network.links[
+            network.links.carrier.isin(
+                [
+                    "central_gas_CHP",
+                    "OCGT",
+                    "H2_to_power",
+                    "industrial_gas_CHP",
+                ]
+            )
+        ].copy()
+        
+        # Drop generators from the links tables
+        network.links.drop(gas_to_add.index, inplace=True)
+        
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(columns=gas_to_add.index,
+                                         inplace=True, errors= "ignore")
+        
+        gas_to_add.rename(columns={"bus1": "bus"}, inplace=True)
+        
+        # Discard all generators < 1kW
+        gas_to_add = gas_to_add[gas_to_add["p_nom"] >= 0.001]
+        
+        gas_to_add["new_index"] = gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
+        gas_to_add.set_index("new_index", drop = True, inplace= True)
+        
+        io.import_components_from_dataframe(network, gas_to_add, "Generator")
+
+        # Dealing with generators_t
+        columns_new = network.links_t.p0.columns[
+            network.links_t.p0.columns.isin(gas_to_add.index)]
+        
+        new_gen_t = network.links_t.p0[columns_new]
+        
+        network.generators_t.p = network.generators_t.p.join(new_gen_t)
+        
+        return
+
     x = time.time()
     network = etrago.network
     args = etrago.args
@@ -381,8 +426,10 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.links.p_nom = network.links.p_nom_opt
     network.stores.e_nom = network.stores.e_nom_opt
     network.storage_units.p_nom = network.storage_units.p_nom_opt
-
-    # For the PF, set the P to the optimised P
+    
+    import_gen_from_links(network)
+    
+    # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
         columns=network.generators.index)
     network.generators_t.p_set = network.generators_t.p
@@ -407,6 +454,10 @@ def pf_post_lopf(etrago, calc_losses = True):
             drop_foreign_components(network)
 
     # Set slack bus
+    #breakpoint()
+    ac_bus = network.buses[network.buses.carrier == "AC"]
+    network.generators.control[network.generators.bus.isin(ac_bus.index)] = "PV"
+    network.generators.control[network.generators.carrier == "load shedding"] = "PQ"
     network = set_slack(network)
 
     # execute non-linear pf
@@ -475,6 +526,13 @@ def distribute_q(network, allocation='p_nom'):
 
 
     """
+    ac_bus = network.buses[network.buses.carrier == "AC"]
+
+    gen_elec = network.generators[
+        (network.generators.bus.isin(ac_bus.index) == True)
+        & (network.generators.carrier != "load shedding")
+    ].carrier.unique()
+    
     network.allocation = allocation
     if allocation == 'p':
         p_sum = network.generators_t['p'].\
@@ -492,47 +550,79 @@ def distribute_q(network, allocation='p_nom'):
             p_sum[network.storage_units.bus.sort_index()].values *\
             q_sum[network.storage_units.bus.sort_index()].values
 
-    if allocation == 'p_nom':
-
-        q_bus = network.generators_t['q'].\
-            groupby(network.generators.bus, axis=1).sum().add(
+    if allocation == "p_nom":
+        q_bus = (
+            network.generators_t["q"]
+            .groupby(network.generators.bus, axis=1)
+            .sum()
+            .add(
                 network.storage_units_t.q.groupby(
-                    network.storage_units.bus, axis=1).sum(), fill_value=0)
+                    network.storage_units.bus, axis=1
+                ).sum(),
+                fill_value=0,
+            )
+        )
+        q1 = network.generators_t.q.copy()
+        gen1 = network.generators.copy()
+        gen1["q"] = network.generators_t.q.sum()
+        gen1 = gen1[["bus", "carrier", "p_nom", "q"]]
+        
+        total_q1 = q_bus.sum().sum()
+        ac_bus = network.buses[network.buses.carrier == "AC"]
 
-        p_nom_dist = network.generators.p_nom_opt.sort_index()
-        p_nom_dist[p_nom_dist.index.isin(network.generators.index
-                                         [network.generators.carrier ==
-                                          'load shedding'])] = 0
+        gen_elec = network.generators[
+            (network.generators.bus.isin(ac_bus.index) == True)
+            & (network.generators.carrier != "load shedding")
+            & (network.generators.p_nom > 0)
+        ].sort_index()
 
-        q_distributed = q_bus[
-            network.generators.bus].multiply(p_nom_dist.values) /\
-            (network.generators.p_nom_opt[
-                network.generators.carrier != 'load shedding']
-            .groupby(network.generators.bus).sum().reindex(network.generators
-            .bus.unique(), fill_value= 0).add(
-                 network.storage_units.p_nom_opt
-                 .groupby(network.storage_units.bus).sum(), fill_value=0))[
-                     network.generators.bus.sort_index()].values
+        q_distributed = (
+            q_bus[gen_elec.bus].multiply(gen_elec.p_nom.values)
+            / ((
+                gen_elec.p_nom.groupby(network.generators.bus)
+                .sum()
+                .reindex(network.generators.bus.unique(), fill_value=0)
+                .add(
+                    network.storage_units.p_nom_opt.groupby(
+                        network.storage_units.bus
+                    ).sum(),
+                    fill_value=0,
+                )
+            )[gen_elec.bus.sort_index()].values
+        ))
 
-        q_distributed.columns = network.generators.index
+        q_distributed.columns = gen_elec.index
 
-        q_storages = q_bus[network.storage_units.bus]\
-            .multiply(network.storage_units.p_nom_opt.values) /\
-            ((network.generators.p_nom_opt[
-                network.generators.carrier != 'load shedding']
-              .groupby(network.generators.bus).sum()
-              .add(network.storage_units.p_nom_opt
-                   .groupby(network.storage_units.bus).sum(), fill_value=0))[
-                         network.storage_units.bus].values)
+        q_storages = q_bus[network.storage_units.bus].multiply(
+            network.storage_units.p_nom_opt.values
+        ) / (
+            (
+                gen_elec.p_nom.groupby(network.generators.bus)
+                .sum()
+                .add(
+                    network.storage_units.p_nom_opt.groupby(
+                        network.storage_units.bus
+                    ).sum(),
+                    fill_value=0,
+                )
+            )[network.storage_units.bus].values
+        )
 
         q_storages.columns = network.storage_units.index
-
+    
     q_distributed[q_distributed.isnull()] = 0
     q_distributed[q_distributed.abs() == np.inf] = 0
     q_storages[q_storages.isnull()] = 0
     q_storages[q_storages.abs() == np.inf] = 0
     network.generators_t.q = q_distributed
     network.storage_units_t.q = q_storages
+    
+    gen = network.generators.copy()  
+    gen["q"] = network.generators_t.q.sum()
+    gen = gen[["bus", "carrier", "p_nom", "q"]]
+    
+    total_q2 = q_distributed.sum().sum() + q_storages.sum().sum()
+    print((total_q2 - total_q1)/total_q1)
 
     return network
 
