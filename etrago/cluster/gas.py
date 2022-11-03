@@ -786,7 +786,7 @@ def run_spatial_clustering_gas(self):
 
         self.update_busmap(busmap)
         logger.info(
-            "GAS Network clustered to {} DE-buses and {} foreign buses with k-means algorithm.".format(
+            "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
                 len(
                     self.network.buses.loc[
                         (self.network.buses.carrier == "CH4")
@@ -799,5 +799,6 @@ def run_spatial_clustering_gas(self):
                         & (self.network.buses.country != "DE")
                     ]
                 ),
+                method
             )
         )
