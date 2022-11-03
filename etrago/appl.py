@@ -117,8 +117,9 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6,
-    },  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+    },  
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
@@ -464,6 +465,10 @@ def run_etrago(args, json_path):
         [etrago.network.lines_t.s_max_pu.columns.isin(
             etrago.network.lines.index)].transpose())
 
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+
     etrago.adjust_network()
     b = time.time()
     print(f'Time for etrago.adjust_network(): {b-a}')
@@ -520,8 +525,7 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    # needs to be adjusted for new sectors
-    # etrago.calc_results()
+    etrago.calc_results()
 
     return etrago
 
