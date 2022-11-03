@@ -454,7 +454,6 @@ def pf_post_lopf(etrago, calc_losses = True):
             drop_foreign_components(network)
 
     # Set slack bus
-    #breakpoint()
     ac_bus = network.buses[network.buses.carrier == "AC"]
     network.generators.control[network.generators.bus.isin(ac_bus.index)] = "PV"
     network.generators.control[network.generators.carrier == "load shedding"] = "PQ"
@@ -532,23 +531,29 @@ def distribute_q(network, allocation='p_nom'):
         (network.generators.bus.isin(ac_bus.index) == True)
         & (network.generators.carrier != "load shedding")
     ].carrier.unique()
-    
+
     network.allocation = allocation
     if allocation == 'p':
-        p_sum = network.generators_t['p'].\
-            groupby(network.generators.bus, axis=1).sum().\
-            add(network.storage_units_t['p'].abs().groupby(
-                network.storage_units.bus, axis=1).sum(), fill_value=0)
-        q_sum = network.generators_t['q'].\
-            groupby(network.generators.bus, axis=1).sum()
-
-        q_distributed = network.generators_t.p / \
-            p_sum[network.generators.bus.sort_index()].values * \
-            q_sum[network.generators.bus.sort_index()].values
-
-        q_storages = network.storage_units_t.p / \
-            p_sum[network.storage_units.bus.sort_index()].values *\
-            q_sum[network.storage_units.bus.sort_index()].values
+        if (network.buses.carrier == "AC").all():
+            p_sum = network.generators_t['p'].\
+                groupby(network.generators.bus, axis=1).sum().\
+                add(network.storage_units_t['p'].abs().groupby(
+                    network.storage_units.bus, axis=1).sum(), fill_value=0)
+            q_sum = network.generators_t['q'].\
+                groupby(network.generators.bus, axis=1).sum()
+    
+            q_distributed = network.generators_t.p / \
+                p_sum[network.generators.bus.sort_index()].values * \
+                q_sum[network.generators.bus.sort_index()].values
+    
+            q_storages = network.storage_units_t.p / \
+                p_sum[network.storage_units.bus.sort_index()].values *\
+                q_sum[network.storage_units.bus.sort_index()].values
+        else:
+            print("""WARNING: Distribution of reactive power based on active power is
+                  currently outdated for sector coupled models. This process
+                  will continue with the option allocation == 'p_nom'""")
+            allocation = "p_nom"
 
     if allocation == "p_nom":
         q_bus = (
@@ -622,7 +627,7 @@ def distribute_q(network, allocation='p_nom'):
     gen = gen[["bus", "carrier", "p_nom", "q"]]
     
     total_q2 = q_distributed.sum().sum() + q_storages.sum().sum()
-    print((total_q2 - total_q1)/total_q1)
+    print(f'error={(total_q2 - total_q1)/total_q1}')
 
     return network
 

@@ -51,13 +51,13 @@ args = {
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 3,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
         "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
-        "q_allocation": "p",
+        "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
     "end_snapshot": 8760,
@@ -472,11 +472,11 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
-
+    etrago.export_to_csv("etrago_lopf_300AC-40Gas.csv")
     # TODO: check if should be combined with etrago.lopf()
     # needs to be adjusted for new sectors
     etrago.pf_post_lopf()
-    etrago.export_to_csv("etrago_pf_70AC.csv")
+    etrago.export_to_csv("etrago_pf_300AC-40Gas.csv")
     
     # spatial disaggregation
     # needs to be adjusted for new sectors
