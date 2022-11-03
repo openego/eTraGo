@@ -209,7 +209,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     return busmap_ch4
 
-def kmean_clustering_gas_appendix(etrago, busmap_ch4):
+def gas_clustering_appendix(etrago, busmap_ch4):
     # This section is very specific to the eGon2035 scenario
     # it depends on the existance of H2_feedin points and it should be
     # rewritten
@@ -248,11 +248,11 @@ def kmean_clustering_gas_appendix(etrago, busmap_ch4):
 
     return busmap
 
-def kmean_postprocessing_gas(etrago, busmap):
+def gas_postprocessing(etrago, busmap, medoid_idx):
 
-    busmap = kmean_clustering_gas_appendix(etrago, busmap)
+    busmap = gas_clustering_appendix(etrago, busmap)
 
-    kmean_settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]
     # Add all other buses except H2_ind_load to busmap
     missing_idx = list(
         etrago.network.buses[(~etrago.network.buses.index.isin(busmap.index))].index
@@ -308,7 +308,7 @@ def kmean_postprocessing_gas(etrago, busmap):
     df_bm = pd.DataFrame(busmap.items(), columns=["bus0", "bus1"])
     df_bm.to_csv(
         "kmeans_gasgrid_busmap_"
-        + str(kmean_settings["n_clusters_gas"])
+        + str(settings["n_clusters_gas"])
         + "_result.csv",
         index=False,
     )
@@ -358,6 +358,18 @@ def kmean_postprocessing_gas(etrago, busmap):
     )
 
     network_gasgrid_c.determine_network_topology()
+    
+    # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
+    if settings['method_gas'] == "kmedoids-dijkstra":
+        for i in network_gasgrid_c.buses[network_gasgrid_c.buses.carrier == "CH4"].index:
+            cluster = str(i)
+            if cluster in busmap[medoid_idx].values:
+                medoid = busmap[medoid_idx][busmap[medoid_idx]==cluster].index
+                h2_idx = network_gasgrid_c.buses.loc[(network_gasgrid_c.buses.carrier == 'H2_grid') & (network_gasgrid_c.buses.y == network_gasgrid_c.buses.at[i, 'y']) & (network_gasgrid_c.buses.x == network_gasgrid_c.buses.at[i, 'x'])].index.tolist()[0]
+                network_gasgrid_c.buses.at[h2_idx, 'x'] = etrago.network.buses["x"].loc[medoid]
+                network_gasgrid_c.buses.at[h2_idx, 'y'] = etrago.network.buses["y"].loc[medoid]
+                network_gasgrid_c.buses.at[i, 'x'] = etrago.network.buses["x"].loc[medoid]
+                network_gasgrid_c.buses.at[i, 'y'] = etrago.network.buses["y"].loc[medoid]
 
     return (network_gasgrid_c, busmap)
 
@@ -751,17 +763,13 @@ def run_spatial_clustering_gas(self):
 
         if method == "kmeans":
             busmap = kmean_clustering_gas(self, gas_network, weight, n_clusters)
-            self.network, busmap = kmean_postprocessing_gas(self, busmap)
+            medoid_idx = None
 
         elif method == "kmedoids-dijkstra":
 
             busmap, medoid_idx = kmedoids_dijkstra_clustering(
                 self, gas_network.buses, gas_network.links, weight, n_clusters
             )
-            # Still TODO
-            # self.clustering, busmap = kmedoids_dijkstra_postprocessing(self, busmap, medoid_idx)
-            msg = "The kmedoids clustering is not yet implemented for the gas system."
-            raise NotImplementedError(msg)
 
         else:
             msg = (
@@ -769,6 +777,8 @@ def run_spatial_clustering_gas(self):
                 "spatial clustering method for the gas network"
             )
             raise ValueError(msg)
+
+        self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
         self.update_busmap(busmap)
         logger.info(
