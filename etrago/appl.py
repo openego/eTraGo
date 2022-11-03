@@ -24,7 +24,7 @@ Define your connection parameters and power flow settings before executing
 the function etrago.
 """
 
-
+import time
 import datetime
 import os
 import os.path
@@ -51,7 +51,7 @@ args = {
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
@@ -101,10 +101,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 42,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -128,7 +128,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -139,7 +139,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -445,7 +445,11 @@ def run_etrago(args, json_path):
     etrago = Etrago(args, json_path)
 
     # import network from database
+    a = time.time()
     etrago.build_network_from_db()
+    b = time.time()
+    print(f'Time for etrago.build_network_from_db(): {b-a}')
+    a = time.time()
 
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -461,26 +465,48 @@ def run_etrago(args, json_path):
             etrago.network.lines.index)].transpose())
 
     etrago.adjust_network()
+    b = time.time()
+    print(f'Time for etrago.adjust_network(): {b-a}')
+    a = time.time()
 
     # ehv network clustering
     etrago.ehv_clustering()
+    b = time.time()
+    print(f'Time for etrago.ehv_clustering(): {b-a}')
+    a = time.time()
 
     # spatial clustering
     etrago.spatial_clustering()
+    b = time.time()
+    print(f'Time for spatial_clustering(): {b-a}')
+    a = time.time()
+
     etrago.spatial_clustering_gas()
+    b = time.time()
+    print(f'Time for etrago.spatial_clustering_gas(): {b-a}')
+    a = time.time()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
     # snapshot clustering
     etrago.snapshot_clustering()
+    b = time.time()
+    print(f'Time for etrago.snapshot_clustering(): {b-a}')
+    a = time.time()
 
     # skip snapshots
     etrago.skip_snapshots()
+    b = time.time()
+    print(f'Time for etrago.skip_snapshots(): {b-a}')
+    a = time.time()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
+    b = time.time()
+    print(f'Time for etrago.lopf(): {b-a}')
+
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
