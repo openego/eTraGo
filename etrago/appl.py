@@ -469,6 +469,19 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
 
+    # Modify RU generator
+    bus_RU = etrago.network.buses[(etrago.network.buses.country == "RU")].index.tolist()[0]
+    etrago.network.generators.loc[
+        etrago.network.generators[etrago.network.generators.bus == bus_RU].index, "p_nom"
+    ] = 0
+    etrago.network.generators.loc[
+        etrago.network.generators[etrago.network.generators.bus == bus_RU].index,
+        "p_nom_extendable",
+    ] = True
+    etrago.network.generators.loc[
+        etrago.network.generators[etrago.network.generators.bus == bus_RU].index, "p_nom_max"
+    ] = np.Inf
+
     etrago.adjust_network()
     b = time.time()
     print(f'Time for etrago.adjust_network(): {b-a}')
