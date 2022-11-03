@@ -440,9 +440,14 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             cb0_flow = (
                 get_var(network, "Line", "s")
@@ -529,9 +534,14 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             def _rule_min(m):
                 cb_flow = (
@@ -2137,7 +2147,7 @@ class Constraints:
         self.args = args
 
     def functionality(self, network, snapshots):
-        """ Add constraints to pypsa-model using extra-functionality.
+        """Add constraints to pypsa-model using extra-functionality.
         Serveral constraints can be choosen at once. Possible constraints are
         set and described in the above functions.
 
@@ -2149,8 +2159,8 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
-        if self.args['method']['pyomo']:
-            add_chp_constraints(network,snapshots)
+        if self.args["method"]["pyomo"]:
+            add_chp_constraints(network, snapshots)
         else:
             add_chp_constraints_nmp(network)
 
@@ -2248,6 +2258,7 @@ class Constraints:
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
                 )
+
 
 def add_chp_constraints_nmp(n):
     """
