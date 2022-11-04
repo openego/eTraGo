@@ -403,10 +403,11 @@ def pf_post_lopf(etrago, calc_losses = True):
         # Discard all generators < 1kW
         gas_to_add = gas_to_add[gas_to_add["p_nom"] >= 0.001]
         
-        gas_to_add["new_index"] = gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
-        gas_to_add.set_index("new_index", drop = True, inplace= True)
+        gas_to_add["Generator"] = gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
+        gas_to_add.set_index("Generator", drop = True, inplace= True)
+        gas_to_add = gas_to_add[gas_to_add.columns[gas_to_add.columns.isin(network.generators.columns)]]
         
-        io.import_components_from_dataframe(network, gas_to_add, "Generator")
+        network.import_components_from_dataframe(gas_to_add, "Generator")
 
         # Dealing with generators_t
         columns_new = network.links_t.p0.columns[
@@ -415,7 +416,7 @@ def pf_post_lopf(etrago, calc_losses = True):
         new_gen_t = network.links_t.p0[columns_new]
         
         network.generators_t.p = network.generators_t.p.join(new_gen_t)
-        
+
         return
 
     x = time.time()
@@ -458,6 +459,9 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.generators.control[network.generators.bus.isin(ac_bus.index)] = "PV"
     network.generators.control[network.generators.carrier == "load shedding"] = "PQ"
     network = set_slack(network)
+    foreign_buses = network.buses[network.buses.country != "DE"].index
+    network.generators.control[(network.generators.bus.isin(foreign_buses))
+                               &(network.generators.bus.isin(ac_bus.index))] = "Slack"
 
     # execute non-linear pf
     pf_solution = network.pf(network.snapshots, use_seed=True)
@@ -614,7 +618,7 @@ def distribute_q(network, allocation='p_nom'):
         )
 
         q_storages.columns = network.storage_units.index
-    
+
     q_distributed[q_distributed.isnull()] = 0
     q_distributed[q_distributed.abs() == np.inf] = 0
     q_storages[q_storages.isnull()] = 0

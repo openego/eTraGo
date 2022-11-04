@@ -47,11 +47,11 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data-clara",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 3,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         'BarConvTol': 1.e-5,
@@ -101,10 +101,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
-        "n_clusters_gas": 40,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -129,7 +129,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": None,  # None, 'mini' or 'uniform'
+    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "typical_periods",  # 'typical_periods' or 'segmentation'
@@ -452,7 +452,7 @@ def run_etrago(args, json_path):
             etrago.network.lines.index)].transpose())
 
     etrago.adjust_network()
-    
+
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -468,17 +468,15 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     # needs to be adjusted for new sectors
-    #etrago.snapshot_clustering()
+    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
-    etrago.export_to_csv("etrago_lopf_300AC-40Gas.csv")
-    # TODO: check if should be combined with etrago.lopf()
+
     # needs to be adjusted for new sectors
     etrago.pf_post_lopf()
-    etrago.export_to_csv("etrago_pf_300AC-40Gas.csv")
-    
+
     # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
