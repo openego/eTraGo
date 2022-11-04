@@ -64,6 +64,8 @@ def preprocessing(etrago):
             ch4_filter & (network_ch4.buses["country"].values == "DE")
         ]
 
+        network_ch4.buses = network_ch4.buses.loc[~network_ch4.buses.index.isin(['48627', '48630'])]
+
         if kmean_settings["n_clusters_gas"] <= num_neighboring_country:
             msg = (
                 "The number of clusters for the gas sector ("
