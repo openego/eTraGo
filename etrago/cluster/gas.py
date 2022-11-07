@@ -164,7 +164,7 @@ def preprocessing(etrago):
     elif settings["gas_weight_fromcsv"] is not None:
         # create DataFrame with uniform weightings for all ch4_buses
         weight_ch4 = pd.DataFrame([1] * len(buses_ch4), index=buses_ch4.index)
-        loaded_weights = pd.read_csv(kmean_settings["gas_weight_fromcsv"], index_col=0)
+        loaded_weights = pd.read_csv(settings["gas_weight_fromcsv"], index_col=0)
         # load weights into previously created DataFrame
         loaded_weights.index = loaded_weights.index.astype(str)
         weight_ch4.loc[loaded_weights.index] = loaded_weights
