@@ -54,7 +54,7 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,)
 
-from etrago.tools.plot import plot_grid
+from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
 from etrago.cluster.electrical import (run_spatial_clustering,
                                               ehv_clustering)
@@ -224,6 +224,8 @@ class Etrago():
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
+    
+    plot_clusters = plot_clusters
     
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
