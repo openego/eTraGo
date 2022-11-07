@@ -465,6 +465,11 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
 
+    # Set efficiences of CHP
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+
+
     etrago.adjust_network()
 
     # ehv network clustering

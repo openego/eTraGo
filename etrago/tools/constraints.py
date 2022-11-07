@@ -440,9 +440,14 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             cb0_flow = (
                 get_var(network, "Line", "s")
@@ -529,9 +534,14 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             def _rule_min(m):
                 cb_flow = (
@@ -2137,7 +2147,7 @@ class Constraints:
         self.args = args
 
     def functionality(self, network, snapshots):
-        """ Add constraints to pypsa-model using extra-functionality.
+        """Add constraints to pypsa-model using extra-functionality.
         Serveral constraints can be choosen at once. Possible constraints are
         set and described in the above functions.
 
@@ -2149,6 +2159,10 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
+        if self.args["method"]["pyomo"]:
+            add_chp_constraints(network, snapshots)
+        else:
+            add_chp_constraints_nmp(network)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
@@ -2244,3 +2258,172 @@ class Constraints:
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
                 )
+
+
+def add_chp_constraints_nmp(n):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network container
+
+    Returns
+    -------
+    None.
+
+    """
+    # backpressure limit
+    c_m = 0.75
+
+    # marginal loss for each additional generation of heat
+    c_v = 0.15
+    electric_bool = n.links.carrier == "central_gas_CHP"
+    heat_bool = n.links.carrier == "central_gas_CHP_heat"
+
+    electric = n.links.index[electric_bool]
+    heat = n.links.index[heat_bool]
+
+    n.links.loc[heat, "efficiency"] = (
+        n.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
+
+    ch4_nodes_with_chp = n.buses.loc[
+        n.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+
+        elec_chp = n.links[
+            (n.links.carrier == "central_gas_CHP") & (n.links.bus0 == i)
+        ].index
+
+        heat_chp = n.links[
+            (n.links.carrier == "central_gas_CHP_heat") & (n.links.bus0 == i)
+        ].index
+
+        link_p = get_var(n, "Link", "p")
+        # backpressure
+
+        lhs_1 = sum(
+            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp] for h_chp in heat_chp
+        )
+
+        lhs_2 = sum(
+            n.links.at[e_chp, "efficiency"] * link_p[e_chp] for e_chp in elec_chp
+        )
+
+        lhs = linexpr((1, lhs_1), (1, lhs_2))
+
+        define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
+
+        # top_iso_fuel_line
+        lhs, *ax = linexpr(
+            (1, sum(link_p[h_chp] for h_chp in heat_chp)),
+            (1, sum(link_p[h_e] for h_e in elec_chp)),
+            return_axes=True,
+        )
+
+        define_constraints(
+            n,
+            lhs,
+            "<=",
+            n.links.loc[elec_chp].p_nom.sum(),
+            "chplink_" + str(i),
+            "top_iso_fuel_line_fix",
+            axes=ax,
+        )
+
+
+def add_chp_constraints(network, snapshots):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Network container
+    snapshots : pandas.DataFrame
+        Timesteps to optimize
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # backpressure limit
+    c_m = 0.75
+
+    # marginal loss for each additional generation of heat
+    c_v = 0.15
+    electric_bool = network.links.carrier == "central_gas_CHP"
+    heat_bool = network.links.carrier == "central_gas_CHP_heat"
+
+    electric = network.links.index[electric_bool]
+    heat = network.links.index[heat_bool]
+
+    network.links.loc[heat, "efficiency"] = (
+        network.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
+
+    ch4_nodes_with_chp = network.buses.loc[
+        network.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+
+        elec_chp = network.links[
+            (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+        ].index
+
+        heat_chp = network.links[
+            (network.links.carrier == "central_gas_CHP_heat")
+            & (network.links.bus0 == i)
+        ].index
+
+        # Guarantees c_m p_b1  \leq p_g1
+        def backpressure(model, snapshot):
+            lhs = sum(
+                c_m
+                * network.links.at[h_chp, "efficiency"]
+                * model.link_p[h_chp, snapshot]
+                for h_chp in heat_chp
+            )
+
+            rhs = sum(
+                network.links.at[e_chp, "efficiency"] * model.link_p[e_chp, snapshot]
+                for e_chp in elec_chp
+            )
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "backpressure_" + str(i),
+            Constraint(list(snapshots), rule=backpressure),
+        )
+
+        # Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
+        def top_iso_fuel_line(model, snapshot):
+
+            lhs = sum(model.link_p[h_chp, snapshot] for h_chp in heat_chp) + sum(
+                model.link_p[e_chp, snapshot] for e_chp in elec_chp
+            )
+
+            rhs = network.links[
+                (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+            ].p_nom.sum()
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "top_iso_fuel_line_" + str(i),
+            Constraint(list(snapshots), rule=top_iso_fuel_line),
+        )
