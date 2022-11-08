@@ -290,7 +290,7 @@ class Etrago():
 
         self.adapt_crossborder_buses()
         
-        self.delete_dispensable_ac_buses()
+        #self.delete_dispensable_ac_buses()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
