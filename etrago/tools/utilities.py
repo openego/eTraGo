@@ -213,6 +213,7 @@ def buses_by_country(self):
         "Norway": "NO",
         "Finland": "FI",
         "Germany": "DE",
+        "Russia": "RU",
     }
 
     # read Germany borders from egon-data
