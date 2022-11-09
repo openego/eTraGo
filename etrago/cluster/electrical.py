@@ -751,9 +751,10 @@ def run_spatial_clustering(self):
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
 
-
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time= False)
 
         self.network = self.clustering.network.copy()
 

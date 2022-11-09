@@ -468,7 +468,7 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
+        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
         if cpu_cores == 'max':
             cpu_cores = mp.cpu_count()
         else:
@@ -578,7 +578,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     return busmap
 
 
-def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
+def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid, cpu_cores):
     """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
       Creates a busmap assigning the nodes of a original network
       to the nodes of a clustered network
@@ -593,6 +593,8 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
           Indices of k-medoids
       busmap_kmedoid: pd.Series
           Busmap based on k-medoids clustering
+      cpu_cores: string
+          numbers of cores used during multiprocessing 
       Returns
       -------
       busmap (format: with labels)
@@ -612,7 +614,6 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
-    cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
     if cpu_cores == 'max':
         cpu_cores = mp.cpu_count()
     else:
@@ -698,7 +699,8 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(buses, connections, medoid_idx, busmap)
+        busmap = dijkstras_algorithm(buses, connections, medoid_idx, busmap,
+                                     etrago.args["network_clustering"]["CPU_cores"])
         busmap.index.name = "bus_id"
 
     else:
