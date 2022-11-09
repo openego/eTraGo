@@ -45,6 +45,7 @@ setup(
     extras_require={
         "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],
         "gurobipy": ["gurobipy"],
+        "cartopy": ["cartopy", "requests"],
     },
     package_data={"etrago": [os.path.join("tools", "*.json")]},
 )
