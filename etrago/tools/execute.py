@@ -28,7 +28,7 @@ if 'READTHEDOCS' not in os.environ:
     import pandas as pd
     import numpy as np
     from pypsa.linopf import network_lopf
-    from pypsa import io
+    from pypsa.pf import sub_network_pf
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -316,19 +316,20 @@ def pf_post_lopf(etrago, calc_losses = True):
 
         """
         n_bus = pd.Series(index=network.sub_networks.index)
-
-        for i in range(0, len(network.sub_networks.index)-1):
+        
+        for i in network.sub_networks.index:
             n_bus[i] = len(network.buses.index[
-                network.buses.sub_network.astype(int) == i])
+                network.buses.sub_network == i])
 
         sub_network_DE = n_bus.index[n_bus == n_bus.max()]
 
-        foreign_bus = network.buses[network.buses.sub_network !=
-                                    sub_network_DE.values[0]]
+        foreign_bus = network.buses[
+            (network.buses.sub_network != sub_network_DE.values[0]) &
+            (network.buses.country != "DE")]
 
         foreign_comp = {
             'Bus': network.buses[
-                network.buses.sub_network != sub_network_DE.values[0]],
+                network.buses.index.isin(foreign_bus.index)],
             'Generator': network.generators[
                 network.generators.bus.isin(foreign_bus.index)],
             'Load': network.loads[
@@ -336,22 +337,31 @@ def pf_post_lopf(etrago, calc_losses = True):
             'Transformer': network.transformers[
                 network.transformers.bus0.isin(foreign_bus.index)],
             'StorageUnit': network.storage_units[
-                network.storage_units.bus.isin(foreign_bus.index)]}
+                network.storage_units.bus.isin(foreign_bus.index)],
+            'Store': network.stores[
+                network.stores.bus.isin(foreign_bus.index)]}
 
         foreign_series = {
             'Bus': network.buses_t.copy(),
             'Generator': network.generators_t.copy(),
             'Load': network.loads_t.copy(),
             'Transformer':  network.transformers_t.copy(),
-            'StorageUnit': network.storage_units_t.copy()}
+            'StorageUnit': network.storage_units_t.copy(),
+            'Store': network.stores_t.copy()}
 
         for comp in sorted(foreign_series):
             attr = sorted(foreign_series[comp])
             for a in attr:
                 if not foreign_series[comp][a].empty:
                     if a != 'p_max_pu':
-                        foreign_series[comp][a] = foreign_series[comp][a][
-                            foreign_comp[comp].index]
+                        if a in ["q_set", "e_max_pu", "e_min_pu"]:
+                            g_in_q_set = foreign_comp[comp][foreign_comp[comp].\
+                                         index.isin(foreign_series[comp][a].columns)]
+                            foreign_series[comp][a] = foreign_series[comp][a][
+                                g_in_q_set.index]
+                        else:
+                            foreign_series[comp][a] = foreign_series[comp][a][
+                                foreign_comp[comp].index]
 
                     else:
                         foreign_series[comp][a] = \
@@ -371,6 +381,8 @@ def pf_post_lopf(etrago, calc_losses = True):
             network.transformers.bus0.isin(network.buses.index)]
         network.storage_units = network.storage_units[
             network.storage_units.bus.isin(network.buses.index)]
+        network.stores = network.stores[
+            network.stores.bus.isin(network.buses.index)]
 
         return foreign_bus, foreign_comp, foreign_series
 
@@ -379,6 +391,14 @@ def pf_post_lopf(etrago, calc_losses = True):
         create gas generators from links in order to not lose them when
         dropping non-electric carriers
         """
+        # Discard all generators < 1kW
+        discard_gen = network.links[network.links["p_nom"] <= 0.001].index
+        network.links.drop(discard_gen, inplace=True)
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(columns= discard_gen.values,
+                                         inplace=True, errors= "ignore")
+
         gas_to_add = network.links[
             network.links.carrier.isin(
                 [
@@ -390,32 +410,34 @@ def pf_post_lopf(etrago, calc_losses = True):
             )
         ].copy()
         
-        # Drop generators from the links tables
+        # Drop generators from the links table
         network.links.drop(gas_to_add.index, inplace=True)
-        
-        for df in network.links_t:
-            if not network.links_t[df].empty:
-                network.links_t[df].drop(columns=gas_to_add.index,
-                                         inplace=True, errors= "ignore")
-        
+
         gas_to_add.rename(columns={"bus1": "bus"}, inplace=True)
-        
-        # Discard all generators < 1kW
-        gas_to_add = gas_to_add[gas_to_add["p_nom"] >= 0.001]
-        
-        gas_to_add["Generator"] = gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
+
+        # Create generators' names like in network.generators
+        gas_to_add["Generator"] = gas_to_add["bus"] + " " + gas_to_add.index +\
+            gas_to_add["carrier"]
+        gas_to_add_orig = gas_to_add.copy()
         gas_to_add.set_index("Generator", drop = True, inplace= True)
-        gas_to_add = gas_to_add[gas_to_add.columns[gas_to_add.columns.isin(network.generators.columns)]]
-        
+        gas_to_add = gas_to_add[gas_to_add.columns[gas_to_add.columns.\
+                                isin(network.generators.columns)]]
+
         network.import_components_from_dataframe(gas_to_add, "Generator")
 
         # Dealing with generators_t
-        columns_new = network.links_t.p0.columns[
-            network.links_t.p0.columns.isin(gas_to_add.index)]
+        columns_new = network.links_t.p1.columns[
+            network.links_t.p1.columns.isin(gas_to_add_orig.index)]
         
-        new_gen_t = network.links_t.p0[columns_new]
-        
+        new_gen_t = network.links_t.p1[columns_new] * -1
+        new_gen_t.rename(columns=gas_to_add_orig["Generator"], inplace= True)
         network.generators_t.p = network.generators_t.p.join(new_gen_t)
+
+        # Drop generators from the links_t table
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(columns=gas_to_add_orig.index,
+                                         inplace=True, errors= "ignore")
 
         return
 
@@ -424,10 +446,8 @@ def pf_post_lopf(etrago, calc_losses = True):
     args = etrago.args
 
     network.lines.s_nom = network.lines.s_nom_opt
-    network.links.p_nom = network.links.p_nom_opt
-    network.stores.e_nom = network.stores.e_nom_opt
-    network.storage_units.p_nom = network.storage_units.p_nom_opt
     
+    # generators modeled as links are imported to the generators table 
     import_gen_from_links(network)
     
     # For the PF, set the P to be the optimised P
@@ -446,6 +466,8 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.links_t.p_set = network.links_t.p_set.reindex(
         columns=network.links.index)
     network.links_t.p_set = network.links_t.p0
+    
+    network.determine_network_topology()
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
     if (args['foreign_lines']['carrier'] == 'DC')\
@@ -463,13 +485,28 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.generators.control[(network.generators.bus.isin(foreign_buses))
                                &(network.generators.bus.isin(ac_bus.index))] = "Slack"
 
-    # execute non-linear pf
-    pf_solution = network.pf(network.snapshots, use_seed=True)
+    # execute non-linear pf esults of the network inside Germany
+    main_subnet = str(network.buses.sub_network.value_counts().argmax())
+    pf_solution = sub_network_pf(sub_network=network.sub_networks["obj"][main_subnet],
+                                 snapshots=network.snapshots, use_seed=True)
 
-    # Keep results of the network inside Germany
-    sub_net = str(network.buses.sub_network.value_counts().argmax())
-    for i in pf_solution.keys():
-        pf_solution[i] = pf_solution[i][sub_net]
+    pf_solve = pd.DataFrame(index=pf_solution[0].index)
+    pf_solve['converged'] = pf_solution[2].values
+    pf_solve['error'] = pf_solution[1].values
+    pf_solve['n_iter'] = pf_solution[0].values
+
+    if not pf_solve[~pf_solve.converged].count().max() == 0:
+        logger.warning("PF of %d snapshots not converged.",
+                       pf_solve[~pf_solve.converged].count().max())
+    if calc_losses:
+        calc_line_losses(network, pf_solve['converged'])
+
+    network = distribute_q(network,
+                           etrago.args['pf_post_lopf']['q_allocation'])
+
+    y = time.time()
+    z = (y - x) / 60
+    print("Time for PF [min]:", round(z, 2))
 
     # if selected, copy lopf results of neighboring countries to network
     if ((args['foreign_lines']['carrier'] == 'DC')
@@ -482,24 +519,6 @@ def pf_post_lopf(etrago, calc_losses = True):
             for attr in sorted(foreign_series[comp]):
                 network.import_series_from_dataframe(foreign_series
                                                      [comp][attr], comp, attr)
-
-    pf_solve = pd.DataFrame(index=pf_solution['converged'].index)
-    pf_solve['converged'] = pf_solution['converged'].values
-    pf_solve['error'] = pf_solution['error'].values
-    pf_solve['n_iter'] = pf_solution['n_iter'].values
-
-    if not pf_solve[~pf_solve.converged].count().max() == 0:
-        logger.warning("PF of %d snapshots not converged.",
-                       pf_solve[~pf_solve.converged].count().max())
-    if calc_losses:
-        calc_line_losses(network)
-
-    network = distribute_q(network,
-                           etrago.args['pf_post_lopf']['q_allocation'])
-
-    y = time.time()
-    z = (y - x) / 60
-    print("Time for PF [min]:", round(z, 2))
 
     if args['csv_export'] != False:
         path = args['csv_export'] + '/pf_post_lopf'
@@ -556,7 +575,7 @@ def distribute_q(network, allocation='p_nom'):
         else:
             print("""WARNING: Distribution of reactive power based on active power is
                   currently outdated for sector coupled models. This process
-                  will continue with the option allocation == 'p_nom'""")
+                  will continue with the option allocation = 'p_nom'""")
             allocation = "p_nom"
 
     if allocation == "p_nom":
@@ -571,11 +590,7 @@ def distribute_q(network, allocation='p_nom'):
                 fill_value=0,
             )
         )
-        q1 = network.generators_t.q.copy()
-        gen1 = network.generators.copy()
-        gen1["q"] = network.generators_t.q.sum()
-        gen1 = gen1[["bus", "carrier", "p_nom", "q"]]
-        
+
         total_q1 = q_bus.sum().sum()
         ac_bus = network.buses[network.buses.carrier == "AC"]
 
@@ -625,24 +640,22 @@ def distribute_q(network, allocation='p_nom'):
     q_storages[q_storages.abs() == np.inf] = 0
     network.generators_t.q = q_distributed
     network.storage_units_t.q = q_storages
-    
-    gen = network.generators.copy()  
-    gen["q"] = network.generators_t.q.sum()
-    gen = gen[["bus", "carrier", "p_nom", "q"]]
-    
+
     total_q2 = q_distributed.sum().sum() + q_storages.sum().sum()
-    print(f'error={(total_q2 - total_q1)/total_q1}')
+    print(f'Error in q distribution={(total_q2 - total_q1)/total_q1}%')
 
     return network
 
 
-def calc_line_losses(network):
+def calc_line_losses(network, converged):
     """ Calculate losses per line with PF result data
 
     Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
+    converged : pandas.series
+        list of snapshots with their status (converged or not)
     s0 : series
         apparent power of line
     i0 : series
@@ -650,11 +663,12 @@ def calc_line_losses(network):
     -------
 
     """
-
     # Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).
                 apply(np.sqrt))
+    # in case some snapshots did not converge, discard them from the calculation
+    s0_lines = s0_lines[converged]
     # calculate current I = S / U [in A]
     i0_lines = np.multiply(s0_lines, 1000000) / \
         np.multiply(network.lines.v_nom, 1000)
@@ -682,7 +696,9 @@ def calc_line_losses(network):
     print("Total lines losses for all snapshots [MW]:", round(losses_total, 2))
     losses_costs = losses_total * np.average(network.buses_t.marginal_price)
     print("Total costs for these losses [EUR]:", round(losses_costs, 2))
-
+    if (~converged).sum() > 0:
+        print(f"Note: {(~converged).sum()} snapshot(s) was/were excluded " +
+              "because the PF did not converge")
     return
 
 
