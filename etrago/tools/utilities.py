@@ -52,12 +52,15 @@ def filter_links_by_carrier(self, carrier, like=True):
 
     if isinstance(carrier, str):
         if like:
-            df = self.network.links[self.network.links.carrier.str.contains(carrier)]
+            df = self.network.links[
+                self.network.links.carrier.str.contains(carrier)
+            ]
         else:
             df = self.network.links[self.network.links.carrier == carrier]
     elif isinstance(carrier, list):
         df = self.network.links[self.network.links.carrier.isin(carrier)]
     return df
+
 
 def buses_of_vlvl(network, voltage_level):
     """Get bus-ids of given voltage level(s).
@@ -210,26 +213,30 @@ def buses_by_country(self):
         "Norway": "NO",
         "Finland": "FI",
         "Germany": "DE",
+        "Russia": "RU",
     }
 
-    #read Germany borders from egon-data
+    # read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine    
-    germany_sh = gpd.read_postgis(query, con, geom_col= "geometry")
+    con = self.engine
+    germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
     path = gpd.datasets.get_path("naturalearth_lowres")
     shapes = gpd.read_file(path)
     shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
 
-    #Use Germany borders from egon-data if not using the SH test case
+    # Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
     geobuses = self.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
-        lambda x: Point(float(x["x"]), float(x["y"])), axis=1
+        lambda x: Point([x["x"], x["y"]]), axis=1
     )
-    geobuses = gpd.GeoDataFrame(data=geobuses, geometry="geom", crs="EPSG:4326")
+
+    geobuses = gpd.GeoDataFrame(
+        data=geobuses, geometry="geom", crs="EPSG:4326"
+    )
     geobuses["country"] = np.nan
 
     for country in countries:
@@ -272,7 +279,9 @@ def clip_foreign(network):
     # get foreign buses by country
 
     foreign_buses = network.buses[network.buses.country != "DE"]
-    network.buses = network.buses.drop(network.buses.loc[foreign_buses.index].index)
+    network.buses = network.buses.drop(
+        network.buses.loc[foreign_buses.index].index
+    )
 
     if not network.lines_t.p0.empty:
         # identify transborder lines
@@ -286,7 +295,9 @@ def clip_foreign(network):
         transborder_flows = network.lines_t.p0[transborder_lines.index]
         for i in transborder_flows.columns:
             if network.lines.loc[str(i)]["bus1"] in foreign_buses.index:
-                transborder_flows.loc[:, str(i)] = transborder_flows.loc[:, str(i)] * -1
+                transborder_flows.loc[:, str(i)] = (
+                    transborder_flows.loc[:, str(i)] * -1
+                )
 
         network.foreign_trade = transborder_flows.groupby(
             transborder_lines["country"], axis=1
@@ -319,7 +330,9 @@ def clip_foreign(network):
         ].index
     )
     network.loads = network.loads.drop(
-        network.loads[(network.loads["bus"].isin(network.buses.index) == False)].index
+        network.loads[
+            (network.loads["bus"].isin(network.buses.index) == False)
+        ].index
     )
     network.storage_units = network.storage_units.drop(
         network.storage_units[
@@ -327,13 +340,22 @@ def clip_foreign(network):
         ].index
     )
 
-    components = ["loads", "generators", "lines", "buses", "transformers", "links"]
+    components = [
+        "loads",
+        "generators",
+        "lines",
+        "buses",
+        "transformers",
+        "links",
+    ]
     for g in components:  # loads_t
         h = g + "_t"
         nw = getattr(network, h)  # network.loads_t
         for i in nw.keys():  # network.loads_t.p
             cols = [
-                j for j in getattr(nw, i).columns if j not in getattr(network, g).index
+                j
+                for j in getattr(nw, i).columns
+                if j not in getattr(network, g).index
             ]
             for k in cols:
                 del getattr(nw, i)[k]
@@ -359,7 +381,8 @@ def foreign_links(self):
         network = self.network
 
         foreign_buses = network.buses[
-            (network.buses.country != "DE") & (network.buses.carrier.isin(["AC", "DC"]))
+            (network.buses.country != "DE")
+            & (network.buses.carrier.isin(["AC", "DC"]))
         ]
 
         foreign_lines = network.lines[
@@ -419,19 +442,24 @@ def set_q_national_loads(self, cos_phi=1):
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
 
-    network.loads_t["q_set"][
+    network.loads_t["q_set"].loc[
+        :,
         network.loads.index[
             network.loads.bus.astype(str).isin(national_buses.index)
-        ].astype(int)
-    ] = network.loads_t["p_set"][
-        network.loads.index[network.loads.bus.astype(str).isin(national_buses.index)]
+        ].astype(int),
+    ] = network.loads_t["p_set"].loc[
+        :,
+        network.loads.index[
+            network.loads.bus.astype(str).isin(national_buses.index)
+        ],
     ] * math.tan(
         math.acos(cos_phi)
     )
-
     # To avoid problem when the index of the load is the weather year, the column
     # names were temporaray set to int and changed back to str
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(str)
+    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
+        str
+    )
 
 
 def set_q_foreign_loads(self, cos_phi=1):
@@ -456,21 +484,26 @@ def set_q_foreign_loads(self, cos_phi=1):
         (network.buses.country != "DE") & (network.buses.carrier == "AC")
     ]
 
-    network.loads_t["q_set"][
+    network.loads_t["q_set"].loc[
+        :,
         network.loads.index[
             network.loads.bus.astype(str).isin(foreign_buses.index)
-        ].astype(int)
-    ] = network.loads_t["p_set"][
-        network.loads.index[network.loads.bus.astype(str).isin(foreign_buses.index)]
+        ].astype(int),
+    ] = network.loads_t["p_set"].loc[
+        :,
+        network.loads.index[
+            network.loads.bus.astype(str).isin(foreign_buses.index)
+        ],
     ] * math.tan(
         math.acos(cos_phi)
     )
-
     network.generators.control[network.generators.control == "PQ"] = "PV"
 
     # To avoid problem when the index of the load is the weather year, the column
     # names were temporaray set to int and changed back to str
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(str)
+    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
+        str
+    )
 
 
 def connected_grid_lines(network, busids):
@@ -585,7 +618,9 @@ def data_manipulation_sh(network):
     new_bus = str(network.buses.index.astype(np.int64).max() + 1)
     new_trafo = str(network.transformers.index.astype(np.int64).max() + 1)
     new_line = str(network.lines.index.astype(np.int64).max() + 1)
-    network.add("Bus", new_bus, carrier="AC", v_nom=220, x=10.760835, y=53.909745)
+    network.add(
+        "Bus", new_bus, carrier="AC", v_nom=220, x=10.760835, y=53.909745
+    )
     network.add(
         "Transformer",
         new_trafo,
@@ -595,7 +630,9 @@ def data_manipulation_sh(network):
         tap_ratio=1,
         s_nom=1600,
     )
-    network.add("Line", new_line, bus0="26387", bus1=new_bus, x=0.0001, s_nom=1600)
+    network.add(
+        "Line", new_line, bus0="26387", bus1=new_bus, x=0.0001, s_nom=1600
+    )
     network.lines.loc[new_line, "cables"] = 3.0
 
     # bus geom
@@ -608,7 +645,11 @@ def data_manipulation_sh(network):
         "geom",
         from_shape(
             MultiLineString(
-                [LineString([to_shape(network.buses.geom["26387"]), point_bus1])]
+                [
+                    LineString(
+                        [to_shape(network.buses.geom["26387"]), point_bus1]
+                    )
+                ]
             ),
             4326,
         ),
@@ -617,7 +658,8 @@ def data_manipulation_sh(network):
         new_line,
         "topo",
         from_shape(
-            LineString([to_shape(network.buses.geom["26387"]), point_bus1]), 4326
+            LineString([to_shape(network.buses.geom["26387"]), point_bus1]),
+            4326,
         ),
     )
 
@@ -627,7 +669,11 @@ def data_manipulation_sh(network):
         "geom",
         from_shape(
             MultiLineString(
-                [LineString([to_shape(network.buses.geom["25536"]), point_bus1])]
+                [
+                    LineString(
+                        [to_shape(network.buses.geom["25536"]), point_bus1]
+                    )
+                ]
             ),
             4326,
         ),
@@ -636,7 +682,8 @@ def data_manipulation_sh(network):
         new_trafo,
         "topo",
         from_shape(
-            LineString([to_shape(network.buses.geom["25536"]), point_bus1]), 4326
+            LineString([to_shape(network.buses.geom["25536"]), point_bus1]),
+            4326,
         ),
     )
 
@@ -676,11 +723,15 @@ def export_to_csv(self, path):
         json.dump(self.args, fp, indent=4)
 
     if hasattr(self.network, "Z"):
-        file = [i for i in os.listdir(path.strip("0123456789")) if i == "Z.csv"]
+        file = [
+            i for i in os.listdir(path.strip("0123456789")) if i == "Z.csv"
+        ]
         if file:
             print("Z already calculated")
         else:
-            self.network.Z.to_csv(path.strip("0123456789") + "/Z.csv", index=False)
+            self.network.Z.to_csv(
+                path.strip("0123456789") + "/Z.csv", index=False
+            )
 
     return
 
@@ -700,7 +751,9 @@ def loading_minimization(network, snapshots):
             == model.passive_branch_p[c, l, t]
         )
 
-    network.model.cRule = Constraint(network.model.passive_branch_p_index, rule=cRule)
+    network.model.cRule = Constraint(
+        network.model.passive_branch_p_index, rule=cRule
+    )
 
     network.model.objective.expr += 0.00001 * sum(
         network.model.number1[i] + network.model.number2[i]
@@ -726,6 +779,7 @@ def _normed(s):
     else:
         return s / tot
 
+
 def agg_series_lines(l, network):
     attrs = network.components["Line"]["attrs"]
     columns = set(
@@ -735,7 +789,7 @@ def agg_series_lines(l, network):
         attr: _make_consense("Bus", attr)
         for attr in (
             columns
-            #| {"sub_network"}
+            # | {"sub_network"}
             - {
                 "r",
                 "x",
@@ -753,7 +807,7 @@ def agg_series_lines(l, network):
         )
     }
 
-    Line=l["Line"].iloc[0]
+    Line = l["Line"].iloc[0]
     data = dict(
         r=l["r"].sum(),
         x=l["x"].sum(),
@@ -772,7 +826,10 @@ def agg_series_lines(l, network):
         v_ang_max=l["v_ang_max"].min(),
     )
     data.update((f, consense[f](l[f])) for f in columns.difference(data))
-    return pd.Series(data, index=[f for f in l.columns if f in columns], name = Line)
+    return pd.Series(
+        data, index=[f for f in l.columns if f in columns], name=Line
+    )
+
 
 def group_parallel_lines(network):
     """
@@ -789,12 +846,14 @@ def group_parallel_lines(network):
     None.
 
     """
+
     def agg_parallel_lines(l):
         attrs = network.components["Line"]["attrs"]
         columns = set(
             attrs.index[attrs.static & attrs.status.str.startswith("Input")]
         ).difference(("name", "bus0", "bus1"))
         columns.add("Line")
+        columns.add("geom")
         consense = {
             attr: _make_consense("Bus", attr)
             for attr in (
@@ -814,10 +873,11 @@ def group_parallel_lines(network):
                     "length",
                     "v_ang_min",
                     "v_ang_max",
+                    "geom"
                 }
             )
         }
-    
+
         data = dict(
             Line=l["Line"].iloc[0],
             r=1.0 / (1.0 / l["r"]).sum(),
@@ -836,10 +896,11 @@ def group_parallel_lines(network):
             sub_network=consense["sub_network"](l["sub_network"]),
             v_ang_min=l["v_ang_min"].max(),
             v_ang_max=l["v_ang_max"].min(),
+            geom = l["geom"].iloc[0,]
         )
         data.update((f, consense[f](l[f])) for f in columns.difference(data))
         return pd.Series(data, index=[f for f in l.columns if f in columns])
-    
+
     # Make bus0 always the greattest to identify repeated lines
     lines_2 = network.lines.copy()
     bus_max = lines_2.apply(lambda x: max(x.bus0, x.bus1), axis=1)
@@ -847,10 +908,15 @@ def group_parallel_lines(network):
     lines_2["bus0"] = bus_max
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
-    network.lines = lines_2.groupby(["bus0", "bus1"]).apply(
-        agg_parallel_lines).reset_index().set_index("Line", drop= True)
-    
+    network.lines = (
+        lines_2.groupby(["bus0", "bus1"])
+        .apply(agg_parallel_lines)
+        .reset_index()
+        .set_index("Line", drop=True)
+    )
+
     return
+
 
 def delete_dispensable_ac_buses(etrago):
     """
@@ -880,43 +946,46 @@ def delete_dispensable_ac_buses(etrago):
         ].to_list()
         network.storage_units.drop(drop_storage_units, inplace=True)
         return (network.buses, network.lines, network.storage_units)
-    
-    
+
     def count_lines(lines):
         buses_in_lines = lines[["bus0", "bus1"]].drop_duplicates()
-    
+
         def count(bus):
             total = (
                 (buses_in_lines["bus0"] == bus.name)
                 | (buses_in_lines["bus1"] == bus.name)
             ).sum()
             return total
-    
+
         return count
-        
+
     network = etrago.network
-    
+
     # Group the parallel transmission lines to reduce the complexity
     group_parallel_lines(etrago.network)
-    
+
     # ordering of buses
     bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
     bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
     network.lines["bus0"] = bus0_new
     network.lines["bus1"] = bus1_new
-    
+
     # Find the buses without any other kind of elements attached to them more than
     # transmission lines
-    ac_buses = network.buses[network.buses.carrier == "AC"][["geom", "country"]]
+    ac_buses = network.buses[network.buses.carrier == "AC"][
+        ["geom", "country"]
+    ]
     b_links = network.links.bus0.append(network.links.bus1).unique()
-    b_trafo = network.transformers.bus0.append(network.transformers.bus1).unique()
+    b_trafo = network.transformers.bus0.append(
+        network.transformers.bus1
+    ).unique()
     b_gen = network.generators.bus.unique()
     b_load = network.loads.bus.unique()
     b_store = network.stores[network.stores.e_nom > 0].bus.unique()
     b_store_unit = network.storage_units[
         network.storage_units.p_nom > 0
     ].bus.unique()
-    
+
     ac_buses["links"] = ac_buses.index.isin(b_links)
     ac_buses["trafo"] = ac_buses.index.isin(b_trafo)
     ac_buses["gen"] = ac_buses.index.isin(b_gen)
@@ -937,30 +1006,33 @@ def delete_dispensable_ac_buses(etrago):
     number_of_lines = count_lines(network.lines)
     ac_buses["n_lines"] = 0
     ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
-    
+
     # Keep the buses with two or less transmission lines
     ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
-    
+
     # Keep only the buses connecting 2 lines with the same capacity
-    lines_cap = network.lines[(network.lines.bus0.isin(ac_buses.index)) |
-                              (network.lines.bus1.isin(ac_buses.index))][
-                                  ["bus0", "bus1", "s_nom"]]
-    
+    lines_cap = network.lines[
+        (network.lines.bus0.isin(ac_buses.index))
+        | (network.lines.bus1.isin(ac_buses.index))
+    ][["bus0", "bus1", "s_nom"]]
+
     delete_bus = []
     for bus in ac_buses[ac_buses["n_lines"] == 2].index:
-        l = lines_cap[(lines_cap.bus0 == bus)|(lines_cap.bus1 == bus)]["s_nom"].unique()
+        l = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
+            "s_nom"
+        ].unique()
         if len(l) != 1:
             delete_bus.append(bus)
     ac_buses.drop(delete_bus, inplace=True)
-    
-    
+
     # create groups of lines to join
     buses_2 = ac_buses[ac_buses["n_lines"] == 2]
-    lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
-                              (network.lines.bus1.isin(buses_2.index))][
-                                  ["bus0", "bus1"]].copy()
+    lines = network.lines[
+        (network.lines.bus0.isin(buses_2.index))
+        | (network.lines.bus1.isin(buses_2.index))
+    ][["bus0", "bus1"]].copy()
     lines_index = lines.index
-    new_lines = pd.DataFrame(columns = ["bus0", "bus1", "lines"])
+    new_lines = pd.DataFrame(columns=["bus0", "bus1", "lines"])
     group = 0
 
     for line in lines_index:
@@ -969,11 +1041,11 @@ def delete_dispensable_ac_buses(etrago):
         bus0 = lines.at[line, "bus0"]
         bus1 = lines.at[line, "bus1"]
         lines_group = [line]
-        lines.drop(line, inplace = True)
-        
+        lines.drop(line, inplace=True)
+
         # Determine bus0 new group
         end_search = False
-        
+
         while end_search == False:
             if bus0 not in ac_buses.index:
                 end_search = True
@@ -985,12 +1057,12 @@ def delete_dispensable_ac_buses(etrago):
                     bus0 = lines_b.iat[0, 1]
                 else:
                     bus0 = lines_b.iat[0, 0]
-                lines.drop(lines_b.index[0], inplace = True)
+                lines.drop(lines_b.index[0], inplace=True)
             else:
                 end_search = True
-                
+
         # Determine bus1 new group
-        end_search = False        
+        end_search = False
         while end_search == False:
             if bus1 not in ac_buses.index:
                 end_search = True
@@ -1002,46 +1074,52 @@ def delete_dispensable_ac_buses(etrago):
                     bus1 = lines_b.iat[0, 1]
                 else:
                     bus1 = lines_b.iat[0, 0]
-                lines.drop(lines_b.index[0], inplace = True)
+                lines.drop(lines_b.index[0], inplace=True)
             else:
                 end_search = True
-        
+
         # Define the parameters of the new lines to be inserted in network.lines
-        new_line = pd.Series({"bus0": bus0,
-                              "bus1": bus1,
-                              "lines": lines_group},
-                             name= group)
+        new_line = pd.Series(
+            {"bus0": bus0, "bus1": bus1, "lines": lines_group}, name=group
+        )
         new_lines = new_lines.append(new_line)
         group = group + 1
 
     new_lines["search"] = new_lines.apply(lambda x: "858" in x.lines, axis=1)
-    
-    #Create the new lines as result of aggregating series lines
-    lines = network.lines[(network.lines.bus0.isin(buses_2.index)) |
-                              (network.lines.bus1.isin(buses_2.index))]
-    
+
+    # Create the new lines as result of aggregating series lines
+    lines = network.lines[
+        (network.lines.bus0.isin(buses_2.index))
+        | (network.lines.bus1.isin(buses_2.index))
+    ]
+
     new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
-    
+
     for l in new_lines.index:
-        lines_group = lines[lines.index.isin(new_lines.at[l, "lines"])].copy().reset_index()
+        lines_group = (
+            lines[lines.index.isin(new_lines.at[l, "lines"])]
+            .copy()
+            .reset_index()
+        )
         l_new = agg_series_lines(lines_group, network)
         l_new["bus0"] = new_lines.at[l, "bus0"]
         l_new["bus1"] = new_lines.at[l, "bus1"]
         new_lines_df = new_lines_df.append([l_new])
-        
+
     # Delete all the dispensable buses
-    (
-        network.buses,
-        network.lines,
-        network.storage_units
-    ) = delete_buses(ac_buses, network)
-    
+    (network.buses, network.lines, network.storage_units) = delete_buses(
+        ac_buses, network
+    )
+
     # exclude from the new lines the ones connected to deleted buses
-    new_lines_df = new_lines_df[(~new_lines_df.bus0.isin(ac_buses.index)) &
-                                (~new_lines_df.bus1.isin(ac_buses.index))]
+    new_lines_df = new_lines_df[
+        (~new_lines_df.bus0.isin(ac_buses.index))
+        & (~new_lines_df.bus1.isin(ac_buses.index))
+    ]
     etrago.network.lines = etrago.network.lines.append(new_lines_df)
-    
+
     return
+
 
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """Set capital costs for extendable lines in respect to PyPSA [€/MVA]
@@ -1085,12 +1163,16 @@ def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
         (network.links.p_nom_extendable)
         & (network.links.index.isin(self.dc_lines().index)),
         "capital_cost",
-    ] = (costDC * network.links.length)
+    ] = (
+        costDC * network.links.length
+    )
 
     return network
 
 
-def set_trafo_costs(self, cost110_220=7500, cost110_380=17333, cost220_380=14166):
+def set_trafo_costs(
+    self, cost110_220=7500, cost110_380=17333, cost220_380=14166
+):
     """Set capital costs for extendable transformers in respect
     to PyPSA [€/MVA]
 
@@ -1109,21 +1191,28 @@ def set_trafo_costs(self, cost110_220=7500, cost110_380=17333, cost220_380=14166
     """
 
     network = self.network
-    network.transformers["v_nom0"] = network.transformers.bus0.map(network.buses.v_nom)
-    network.transformers["v_nom1"] = network.transformers.bus1.map(network.buses.v_nom)
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom
+    )
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom
+    )
 
     network.transformers.loc[
-        (network.transformers.v_nom0 == 110) & (network.transformers.v_nom1 == 220),
+        (network.transformers.v_nom0 == 110)
+        & (network.transformers.v_nom1 == 220),
         "capital_cost",
     ] = cost110_220
 
     network.transformers.loc[
-        (network.transformers.v_nom0 == 110) & (network.transformers.v_nom1 == 380),
+        (network.transformers.v_nom0 == 110)
+        & (network.transformers.v_nom1 == 380),
         "capital_cost",
     ] = cost110_380
 
     network.transformers.loc[
-        (network.transformers.v_nom0 == 220) & (network.transformers.v_nom1 == 380),
+        (network.transformers.v_nom0 == 220)
+        & (network.transformers.v_nom1 == 380),
         "capital_cost",
     ] = cost220_380
 
@@ -1204,7 +1293,8 @@ def add_missing_components(self):
         network.lines.loc[new_line, "country"] = "DE"
         network.lines.loc[new_line, "length"] = (
             pypsa.geo.haversine(
-                network.buses.loc[bus0, ["x", "y"]], network.buses.loc[bus1, ["x", "y"]]
+                network.buses.loc[bus0, ["x", "y"]],
+                network.buses.loc[bus1, ["x", "y"]],
             )[0][0]
             * 1.2
         )
@@ -1313,7 +1403,8 @@ def add_missing_components(self):
         network.lines.loc[new_line, "country"] = "DE"
         network.lines.loc[new_line, "length"] = (
             pypsa.geo.haversine(
-                network.buses.loc[bus0, ["x", "y"]], network.buses.loc[bus1, ["x", "y"]]
+                network.buses.loc[bus0, ["x", "y"]],
+                network.buses.loc[bus1, ["x", "y"]],
             )[0][0]
             * 1.2
         )
@@ -1346,8 +1437,12 @@ def add_missing_components(self):
     add_220kv_line("266", "24633", overhead=True)
 
     # temporary turn buses of transformers
-    network.transformers["v_nom0"] = network.transformers.bus0.map(network.buses.v_nom)
-    network.transformers["v_nom1"] = network.transformers.bus1.map(network.buses.v_nom)
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom
+    )
+    network.transformers["v_nom1"] = network.transformers.bus1.map(
+        network.buses.v_nom
+    )
     new_bus0 = network.transformers.bus1[
         network.transformers.v_nom0 > network.transformers.v_nom1
     ]
@@ -1383,24 +1478,23 @@ def convert_capital_costs(self):
 
     network.lines.loc[
         network.lines.s_nom_extendable == True, "capital_cost"
-        ] *= n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
     network.links.loc[
         network.links.p_nom_extendable == True, "capital_cost"
-        ] *= n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
     network.transformers.loc[
         network.transformers.s_nom_extendable == True, "capital_cost"
-    ] *= n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
     network.storage_units.loc[
         network.storage_units.p_nom_extendable == True, "capital_cost"
-    ] *=  n_snapshots / 8760
+    ] *= (n_snapshots / 8760)
 
     network.stores.loc[
         network.stores.e_nom_extendable == True, "capital_cost"
-    ] *=  n_snapshots / 8760
-
+    ] *= (n_snapshots / 8760)
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
@@ -1440,8 +1534,16 @@ def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
         all_renew = power_plants_t.sum(axis=1)
         all_carrier = load - all_renew
 
-    if carrier in ("solar", "wind", "wind_onshore", "wind_offshore", "run_of_river"):
-        power_plants = network.generators[network.generators.carrier == carrier]
+    if carrier in (
+        "solar",
+        "wind",
+        "wind_onshore",
+        "wind_offshore",
+        "run_of_river",
+    ):
+        power_plants = network.generators[
+            network.generators.carrier == carrier
+        ]
 
         power_plants_t = (
             network.generators.p_nom[power_plants.index]
@@ -1506,9 +1608,9 @@ def ramp_limits(network):
     df.drop("start_up_fuel", axis=1, inplace=True)
     for tech in df.index:
         for limit in df.columns:
-            network.generators.loc[network.generators.carrier == tech, limit] = df.loc[
-                tech, limit
-            ]
+            network.generators.loc[
+                network.generators.carrier == tech, limit
+            ] = df.loc[tech, limit]
     network.generators.start_up_cost = (
         network.generators.start_up_cost * network.generators.p_nom
     )
@@ -1660,6 +1762,7 @@ def set_line_country_tags(network):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
+
 def crossborder_capacity_tyndp2020():
 
     from urllib.request import urlretrieve
@@ -1667,63 +1770,94 @@ def crossborder_capacity_tyndp2020():
 
     path = "TYNDP-2020-Scenario-Datafile.xlsx"
 
-    urlretrieve("https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip"
-                , path)
+    urlretrieve(
+        "https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip",
+        path,
+    )
 
     file = zipfile.ZipFile(path)
 
     df = pd.read_excel(
         file.open("TYNDP-2020-Scenario-Datafile.xlsx").read(),
-        sheet_name="Line")
+        sheet_name="Line",
+    )
 
     df = df[
-            (df.Scenario == 'Distributed Energy')
-            & (df.Case == "Reference Grid")
-            & (df.Year == 2040)
-            & (df["Climate Year"] == 1984)
-            & ((df.Parameter == "Import Capacity") |
-               (df.Parameter == "Export Capacity"))
-            ]
+        (df.Scenario == "Distributed Energy")
+        & (df.Case == "Reference Grid")
+        & (df.Year == 2040)
+        & (df["Climate Year"] == 1984)
+        & (
+            (df.Parameter == "Import Capacity")
+            | (df.Parameter == "Export Capacity")
+        )
+    ]
 
     df["country0"] = df["Node/Line"].str[:2]
 
     df["country1"] = df["Node/Line"].str[5:7]
 
-    c_export = df[df.Parameter=="Export Capacity"].groupby(["country0", "country1"]).Value.sum()
+    c_export = (
+        df[df.Parameter == "Export Capacity"]
+        .groupby(["country0", "country1"])
+        .Value.sum()
+    )
 
-    c_import = df[df.Parameter=="Import Capacity"].groupby(["country0", "country1"]).Value.sum()
+    c_import = (
+        df[df.Parameter == "Import Capacity"]
+        .groupby(["country0", "country1"])
+        .Value.sum()
+    )
 
-    capacities = pd.DataFrame(index = c_export.index,
-                              data = {"export": c_export.abs(),
-                                      "import": c_import.abs()}).reset_index()
+    capacities = pd.DataFrame(
+        index=c_export.index,
+        data={"export": c_export.abs(), "import": c_import.abs()},
+    ).reset_index()
 
-    with_de = capacities[(capacities.country0 == 'DE')
-                         & (capacities.country1 != 'DE')].set_index('country1')[
-                             ["export", "import"]]
+    with_de = capacities[
+        (capacities.country0 == "DE") & (capacities.country1 != "DE")
+    ].set_index("country1")[["export", "import"]]
 
     with_de = with_de.append(
-        capacities[(capacities.country0 != 'DE')
-                         & (capacities.country1 == 'DE')].set_index('country0')[
-                             ["export", "import"]])
+        capacities[
+            (capacities.country0 != "DE") & (capacities.country1 == "DE")
+        ].set_index("country0")[["export", "import"]]
+    )
 
-    countries = ['DE', 'DK', 'NL', 'CZ', 'PL', 'AT', 'CH', 'FR', 'LU', 'BE',
-           'GB', 'NO', 'SE']
+    countries = [
+        "DE",
+        "DK",
+        "NL",
+        "CZ",
+        "PL",
+        "AT",
+        "CH",
+        "FR",
+        "LU",
+        "BE",
+        "GB",
+        "NO",
+        "SE",
+    ]
 
-    without_de = capacities[(capacities.country0 != 'DE')
-                         & (capacities.country1 != 'DE')
-                         & (capacities.country0.isin(countries))
-                         & (capacities.country1.isin(countries))
-                         & (capacities.country1 != capacities.country0)]
+    without_de = capacities[
+        (capacities.country0 != "DE")
+        & (capacities.country1 != "DE")
+        & (capacities.country0.isin(countries))
+        & (capacities.country1.isin(countries))
+        & (capacities.country1 != capacities.country0)
+    ]
 
-    without_de["country"] = without_de.country0+without_de.country1
+    without_de["country"] = without_de.country0 + without_de.country1
 
     without_de.set_index("country", inplace=True)
 
-    without_de = without_de[["export", "import"]].fillna(0.)
+    without_de = without_de[["export", "import"]].fillna(0.0)
 
-    return {**without_de.min(axis=1).to_dict(),
-                       **with_de.min(axis=1).to_dict()}
-
+    return {
+        **without_de.min(axis=1).to_dict(),
+        **with_de.min(axis=1).to_dict(),
+    }
 
 
 def crossborder_capacity(self):
@@ -1771,7 +1905,12 @@ def crossborder_capacity(self):
             }
 
         elif self.args["foreign_lines"]["capacity"] == "thermal_acer":
-            cap_per_country = {"CH": 12000, "DK": 4000, "SEDK": 3500, "DKSE": 3500}
+            cap_per_country = {
+                "CH": 12000,
+                "DK": 4000,
+                "SEDK": 3500,
+                "DKSE": 3500,
+            }
 
         elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
 
@@ -1802,10 +1941,12 @@ def crossborder_capacity(self):
         for country in cap_per_country:
 
             index_HV = network.lines[
-                (network.lines.country == country) & (network.lines.v_nom == 110)
+                (network.lines.country == country)
+                & (network.lines.v_nom == 110)
             ].index
             index_eHV = network.lines[
-                (network.lines.country == country) & (network.lines.v_nom > 110)
+                (network.lines.country == country)
+                & (network.lines.v_nom > 110)
             ].index
             index_links = dc_lines[dc_lines.country == country].index
 
@@ -1827,7 +1968,9 @@ def crossborder_capacity(self):
                     dc_lines[dc_lines.country == country].index, "p_nom"
                 ] = cap_per_country[country]
 
-            if not network.lines[network.lines.country == (country + country)].empty:
+            if not network.lines[
+                network.lines.country == (country + country)
+            ].empty:
                 i_HV = network.lines[
                     (network.lines.v_nom == 110)
                     & (network.lines.country == country + country)
@@ -1846,7 +1989,9 @@ def crossborder_capacity(self):
                 )
 
             if not dc_lines[dc_lines.country == (country + country)].empty:
-                i_links = dc_lines[dc_lines.country == (country + country)].index
+                i_links = dc_lines[
+                    dc_lines.country == (country + country)
+                ].index
                 network.links.loc[i_links, "p_nom"] = (
                     weighting_links[i_links] * cap_per_country[country]
                 )
@@ -1867,15 +2012,17 @@ def set_branch_capacity(etrago):
     network = etrago.network
     args = etrago.args
 
-    network.transformers["v_nom0"] = network.transformers.bus0.map(network.buses.v_nom)
+    network.transformers["v_nom0"] = network.transformers.bus0.map(
+        network.buses.v_nom
+    )
 
-    network.lines.s_max_pu[network.lines.v_nom == 110] = args["branch_capacity_factor"][
-        "HV"
-    ]
+    network.lines.s_max_pu[network.lines.v_nom == 110] = args[
+        "branch_capacity_factor"
+    ]["HV"]
 
-    network.lines.s_max_pu[network.lines.v_nom > 110] = args["branch_capacity_factor"][
-        "eHV"
-    ]
+    network.lines.s_max_pu[network.lines.v_nom > 110] = args[
+        "branch_capacity_factor"
+    ]["eHV"]
 
     network.transformers.s_max_pu[network.transformers.v_nom0 == 110] = args[
         "branch_capacity_factor"
@@ -1916,7 +2063,8 @@ def check_args(etrago):
         assert (
             etrago.args["gridversion"]
             in pd.read_sql(
-                etrago.session.query(egon_etrago_bus).statement, etrago.session.bind
+                etrago.session.query(egon_etrago_bus).statement,
+                etrago.session.bind,
             ).version.unique()
         ), "gridversion does not exist"
 
@@ -1971,7 +2119,9 @@ def check_args(etrago):
         # segmentation
 
         elif etrago.args["snapshot_clustering"]["method"] == "segmentation":
-            assert etrago.args["end_snapshot"] - etrago.args["start_snapshot"] + 1 >= (
+            assert etrago.args["end_snapshot"] - etrago.args[
+                "start_snapshot"
+            ] + 1 >= (
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
 
@@ -2011,31 +2161,40 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    self.network.mremove('Bus',
+    self.network.mremove(
+        "Bus",
         self.network.buses[
-            self.network.buses.carrier.isin(drop_carriers)].index,
-        )
+            self.network.buses.carrier.isin(drop_carriers)
+        ].index,
+    )
 
     for one_port in self.network.iterate_components(
-            ["Load", "Generator", "Store", "StorageUnit"]):
+        ["Load", "Generator", "Store", "StorageUnit"]
+    ):
 
-        self.network.mremove(one_port.name,
-            one_port.df[
-                ~one_port.df.bus.isin(self.network.buses.index)].index,
-            )
+        self.network.mremove(
+            one_port.name,
+            one_port.df[~one_port.df.bus.isin(self.network.buses.index)].index,
+        )
 
     for two_port in self.network.iterate_components(
-            ["Line", "Link", "Transformer"]):
+        ["Line", "Link", "Transformer"]
+    ):
 
-        self.network.mremove(two_port.name,
+        self.network.mremove(
+            two_port.name,
             two_port.df[
-                ~two_port.df.bus0.isin(self.network.buses.index)].index,
-            )
+                ~two_port.df.bus0.isin(self.network.buses.index)
+            ].index,
+        )
 
-        self.network.mremove(two_port.name,
+        self.network.mremove(
+            two_port.name,
             two_port.df[
-                ~two_port.df.bus1.isin(self.network.buses.index)].index,
-            )
+                ~two_port.df.bus1.isin(self.network.buses.index)
+            ].index,
+        )
+
 
 def adapt_crossborder_buses(self):
     """
@@ -2052,11 +2211,12 @@ def adapt_crossborder_buses(self):
     None.
 
     """
-    if self.args['network_clustering']['cluster_foreign_AC'] == False:
+    if self.args["network_clustering"]["cluster_foreign_AC"] == False:
         buses = self.network.buses.copy()
         loads = self.network.loads.copy()
-        pass_to_ger = buses[(buses["country"] != "DE") &
-                            (buses["carrier"] == "AC")]
+        pass_to_ger = buses[
+            (buses["country"] != "DE") & (buses["carrier"] == "AC")
+        ]
         pass_to_ger = pass_to_ger[~pass_to_ger.index.isin(loads["bus"])]
         self.network.buses.loc[pass_to_ger.index, "country"] = "DE"
 
@@ -2072,7 +2232,7 @@ def update_busmap(self, new_busmap):
     -------
     None.
     """
-    
+
     if not self.busmap:
         self.busmap = new_busmap
     else:

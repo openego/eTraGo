@@ -54,7 +54,7 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,)
 
-from etrago.tools.plot import plot_grid
+from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
 from etrago.cluster.electrical import (run_spatial_clustering,
                                               ehv_clustering)
@@ -64,7 +64,7 @@ from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
 from etrago.cluster.disaggregation import run_disaggregation
-from etrago.tools.execute import lopf, run_pf_post_lopf
+from etrago.tools.execute import lopf, dispatch_disaggregation, run_pf_post_lopf
 from etrago.tools.calc_results import calc_etrago_results
 
 logger = logging.getLogger(__name__)
@@ -110,6 +110,8 @@ class Etrago():
         self.results = pd.DataFrame()
 
         self.network = Network()
+
+        self.network_tsa = Network()
 
         self.disaggregated_network = Network()
 
@@ -199,6 +201,8 @@ class Etrago():
 
     lopf = lopf
 
+    dispatch_disaggregation = dispatch_disaggregation
+
     pf_post_lopf = run_pf_post_lopf
 
     disaggregation = run_disaggregation
@@ -220,6 +224,8 @@ class Etrago():
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
+    
+    plot_clusters = plot_clusters
     
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
@@ -290,4 +296,3 @@ class Etrago():
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
-
