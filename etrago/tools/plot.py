@@ -1565,8 +1565,9 @@ def plot_grid(self,
         link_colors = pd.Series(data=0, index=network.links.index)
     else:
         logger.warning("line_color {} undefined".format(line_colors))
-
+       
     # Set bus colors
+    #breakpoint()
     if bus_colors == 'nodal_production_balance':
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -1590,13 +1591,25 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = 'Dispatch'
         bus_unit = 'TW'
+         
+    elif bus_colors == 'PowerToH2':
+        breakpoint() 
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * network.links.p_nom_opt\
+            [(network.links.carrier=='power_to_H2')]\
+            .reindex(network.links.bus0, fill_value=0.)\
+                .groupby(network.links.bus0).sum()
+        bus_legend = 'PowerToH2'
+        bus_unit = 'TW'
+        
+        
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
     ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
-                      bus_colors=bus_colors,
+                      #bus_colors=bus_colors,
                       line_widths=line_widths, link_widths=0,#link_widths,
                       flow=flow,
                       title=title,
