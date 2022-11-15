@@ -975,10 +975,9 @@ def delete_dispensable_ac_buses(etrago):
     ac_buses = network.buses[network.buses.carrier == "AC"][
         ["geom", "country"]
     ]
-    b_links = network.links.bus0.append(network.links.bus1).unique()
-    b_trafo = network.transformers.bus0.append(
-        network.transformers.bus1
-    ).unique()
+    b_links = pd.concat([network.links.bus0, network.links.bus1]).unique()
+    b_trafo = pd.concat([network.transformers.bus0, network.transformers.bus1]
+                        ).unique()
     b_gen = network.generators.bus.unique()
     b_load = network.loads.bus.unique()
     b_store = network.stores[network.stores.e_nom > 0].bus.unique()
@@ -1079,13 +1078,8 @@ def delete_dispensable_ac_buses(etrago):
                 end_search = True
 
         # Define the parameters of the new lines to be inserted in network.lines
-        new_line = pd.Series(
-            {"bus0": bus0, "bus1": bus1, "lines": lines_group}, name=group
-        )
-        new_lines = new_lines.append(new_line)
+        new_lines.loc[group] = [bus0, bus1, lines_group]
         group = group + 1
-
-    new_lines["search"] = new_lines.apply(lambda x: "858" in x.lines, axis=1)
 
     # Create the new lines as result of aggregating series lines
     lines = network.lines[
@@ -1104,7 +1098,8 @@ def delete_dispensable_ac_buses(etrago):
         l_new = agg_series_lines(lines_group, network)
         l_new["bus0"] = new_lines.at[l, "bus0"]
         l_new["bus1"] = new_lines.at[l, "bus1"]
-        new_lines_df = new_lines_df.append([l_new])
+        new_lines_df["s_nom_extendable"] = new_lines_df["s_nom_extendable"].astype(bool)
+        new_lines_df.loc[l_new.name] = l_new
 
     # Delete all the dispensable buses
     (network.buses, network.lines, network.storage_units) = delete_buses(
@@ -1116,7 +1111,8 @@ def delete_dispensable_ac_buses(etrago):
         (~new_lines_df.bus0.isin(ac_buses.index))
         & (~new_lines_df.bus1.isin(ac_buses.index))
     ]
-    etrago.network.lines = etrago.network.lines.append(new_lines_df)
+
+    etrago.network.lines = pd.concat([etrago.network.lines, new_lines_df])
 
     return
 
@@ -1559,7 +1555,7 @@ def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
 
     if maximum and minimum:
         times = all_carrier.sort_values().head(n=n)
-        times = times.append(all_carrier.sort_values().tail(n=n))
+        times = pd.concat([times, all_carrier.sort_values().tail(n=n)])
 
     calc_snapshots = all_carrier.index[all_carrier.index.isin(times.index)]
 
@@ -1818,11 +1814,11 @@ def crossborder_capacity_tyndp2020():
         (capacities.country0 == "DE") & (capacities.country1 != "DE")
     ].set_index("country1")[["export", "import"]]
 
-    with_de = with_de.append(
+    with_de = pd.concat([with_de,
         capacities[
             (capacities.country0 != "DE") & (capacities.country1 == "DE")
         ].set_index("country0")[["export", "import"]]
-    )
+    ])
 
     countries = [
         "DE",
