@@ -662,7 +662,6 @@ def export_to_csv(self, path):
     """
     if path == False:
         pass
-
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
 
@@ -681,6 +680,19 @@ def export_to_csv(self, path):
             print("Z already calculated")
         else:
             self.network.Z.to_csv(path.strip("0123456789") + "/Z.csv", index=False)
+
+    if bool(self.busmap):
+        path_clus = os.path.join(path, "clustering")
+        if not os.path.exists(path_clus):
+            os.makedirs(path_clus, exist_ok=True)
+            
+
+        with open(os.path.join(path_clus, "busmap.json"), "w") as d:
+            json.dump(self.busmap["busmap"], d, indent=4)
+        self.busmap["orig_network"].export_to_csv_folder(path_clus)
+        data = pd.read_csv(os.path.join(path_clus, "network.csv"))
+        data = data.apply(_enumerate_row, axis=1)
+        data.to_csv(os.path.join(path_clus, "network.csv"), index=False)
 
     return
 
@@ -795,6 +807,7 @@ def group_parallel_lines(network):
             attrs.index[attrs.static & attrs.status.str.startswith("Input")]
         ).difference(("name", "bus0", "bus1"))
         columns.add("Line")
+        columns.add("geom")
         consense = {
             attr: _make_consense("Bus", attr)
             for attr in (
@@ -814,6 +827,7 @@ def group_parallel_lines(network):
                     "length",
                     "v_ang_min",
                     "v_ang_max",
+                    "geom"
                 }
             )
         }
@@ -836,6 +850,7 @@ def group_parallel_lines(network):
             sub_network=consense["sub_network"](l["sub_network"]),
             v_ang_min=l["v_ang_min"].max(),
             v_ang_max=l["v_ang_max"].min(),
+            geom = l["geom"].iloc[0,]
         )
         data.update((f, consense[f](l[f])) for f in columns.difference(data))
         return pd.Series(data, index=[f for f in l.columns if f in columns])
@@ -1536,6 +1551,23 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
     if not jsonpath == None:
         with open(jsonpath) as f:
             self.args = json.load(f)
+            
+
+def get_clustering_data(self, path):
+    """
+    Import the final busmap and the initial buses, lines and links
+
+    Parameters
+    ----------
+    path : str
+        Name of folder from which to import CSVs of network data.
+    """
+
+    if (self.args['network_clustering_ehv']) | (self.args['network_clustering']['active']):
+        path_clus = os.path.join(path, "clustering")
+        with open(os.path.join(path_clus, "busmap.json")) as f:
+            self.busmap['busmap'] = json.load(f)
+        self.busmap['orig_network'] = pypsa.Network(path_clus, name= "orig")
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2109,8 +2141,15 @@ def update_busmap(self, new_busmap):
     -------
     None.
     """
-
-    if not self.busmap:
-        self.busmap = new_busmap
+    if "busmap" not in self.busmap.keys():
+        self.busmap["busmap"] = new_busmap
+        self.busmap["orig_network"] = pypsa.Network()
+        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
+                                                  self.network.buses, "Bus")
+        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
+                                                  self.network.lines, "Line")
+        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
+                                                  self.network.links, "Link")
+        
     else:
-        self.busmap = pd.Series(self.busmap).map(new_busmap).to_dict()
+        self.busmap["busmap"] = pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
