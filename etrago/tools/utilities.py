@@ -908,12 +908,15 @@ def group_parallel_lines(network):
     lines_2["bus0"] = bus_max
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
+    lines_2['geom'] = lines_2.apply(lambda x: None if x.geom == None
+                                    else x.geom.wkt, axis = 1)
     network.lines = (
         lines_2.groupby(["bus0", "bus1"])
         .apply(agg_parallel_lines)
         .reset_index()
         .set_index("Line", drop=True)
     )
+    network.lines['geom'] = gpd.GeoSeries.from_wkt(network.lines['geom'])
 
     return
 
