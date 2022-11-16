@@ -31,10 +31,15 @@ import numpy as np
 from math import sqrt, log10
 from pyproj import Proj, transform
 import tilemapbase
-import cartopy
-import cartopy.crs as ccrs
-import cartopy.mpl.geoaxes
-import requests
+
+cartopy_present = True
+try:
+    import cartopy
+    import cartopy.crs as ccrs
+    import cartopy.mpl.geoaxes
+    import requests
+except ImportError:
+    cartopy_present = False
 import geopandas as gpd
 from pypsa.plot import draw_map_cartopy
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
@@ -1594,16 +1599,26 @@ def plot_grid(self,
         bus_unit = 'TW'
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
-
-    ll = network.plot(line_colors=line_colors, link_colors=link_colors,
-                      line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
-                      bus_sizes=bus_sizes,
-                      bus_colors=bus_colors,
-                      line_widths=line_widths, link_widths=0,#link_widths,
-                      flow=flow,
-                      title=title,
-                      geomap=False, projection=ccrs.PlateCarree(),
-                      color_geomap=True)
+        
+    if cartopy_present:
+        ll = network.plot(line_colors=line_colors, link_colors=link_colors,
+                          line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
+                          bus_sizes=bus_sizes,
+                          bus_colors=bus_colors,
+                          line_widths=line_widths, link_widths=0,#link_widths,
+                          flow=flow,
+                          title=title,
+                          geomap=False, projection=ccrs.PlateCarree(),
+                          color_geomap=True)
+    else:     
+        ll = network.plot(line_colors=line_colors, link_colors=link_colors,
+                          line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
+                          bus_sizes=bus_sizes,
+                          bus_colors=bus_colors,
+                          line_widths=line_widths, link_widths=0,#link_widths,
+                          flow=flow,
+                          title=title,
+                          geomap=False)
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
