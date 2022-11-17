@@ -275,10 +275,9 @@ def _cross_border_flow(self, network, snapshots):
     buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
         network
     )
-
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
+        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
             network.loads.index[network.loads.bus.isin(buses_de)]
         ]
         .sum()
@@ -288,22 +287,22 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_min(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
             - sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb0_link
                 for sn in snapshots
             )
             + sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb1_link
                 for sn in snapshots
             )
@@ -313,22 +312,22 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_max(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
             - sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb0_link
                 for sn in snapshots
             )
             + sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb1_link
                 for sn in snapshots
             )
