@@ -1739,9 +1739,10 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
     new_geom = self.network.buses[["carrier", "x", "y",]]
     new_geom = new_geom[new_geom["carrier"] == carrier]
     new_geom["geom"] = new_geom.apply(lambda x: Point(x["x"], x["y"]), axis = 1)
-    map_buses = self.disaggregated_network.buses[["carrier","geom"]]
+    map_buses = self.busmap["orig_network"].buses[["carrier", "x", "y",]]
     map_buses = map_buses[map_buses["carrier"] == carrier]
-    map_buses["cluster"] = map_buses.index.map(self.busmap)
+    map_buses["geom"] = map_buses.apply(lambda x: Point(x["x"], x["y"]), axis = 1)
+    map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
     map_buses["line"] = map_buses.apply(
         lambda x: LineString((x["geom"], x["cluster_geom"])),axis = 1)
@@ -1759,7 +1760,10 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
     #Draw original transmission lines
     if transmission_lines:
         #AC lines
-        lines = gpd.GeoDataFrame(self.disaggregated_network.lines,
+        lines = self.busmap["orig_network"].lines
+        if self.busmap["orig_network"].lines['geom'].apply(lambda x: isinstance(x, str)).any():
+            lines['geom'] = gpd.GeoSeries.from_wkt(lines['geom'])
+        lines = gpd.GeoDataFrame(self.busmap["orig_network"].lines,
                                  geometry= "geom")
         lines = lines[lines["bus0"].isin(map_buses.index) &
                       lines["bus1"].isin(map_buses.index)]
@@ -1768,7 +1772,7 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
                 [map_buses["geom"][x["bus0"]], map_buses["geom"][x["bus1"]]]), axis = 1)
         lines.plot(ax = ax, color="grey", linewidths=0.8, zorder= 1)
         #DC lines
-        dc_lines = self.disaggregated_network.links
+        dc_lines = self.busmap["orig_network"].links
         dc_lines = dc_lines[dc_lines["carrier"] == "DC"]
         dc_lines["point0"] = dc_lines["bus0"].map(map_buses["geom"])
         dc_lines["point1"] = dc_lines["bus1"].map(map_buses["geom"])
