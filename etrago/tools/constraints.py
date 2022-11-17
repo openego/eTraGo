@@ -192,9 +192,9 @@ def _min_renewable_share_nmp(self, network, snapshots):
     renew = (
         get_var(network, "Generator", "p")
         .loc[network.snapshots, res]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.generators, axis=0)
     )
-    total = get_var(network, "Generator", "p").mul(network.snapshot_weightings, axis=0)
+    total = get_var(network, "Generator", "p").mul(network.snapshot_weightings.generators, axis=0)
 
     renew_production = linexpr((1, renew)).sum().sum()
     total_production = (
@@ -236,12 +236,12 @@ def _min_renewable_share(self, network, snapshots):
     def _rule(m):
 
         renewable_production = sum(
-            m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
             for gen in res
             for sn in snapshots
         )
         total_production = sum(
-            m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
             for gen in total
             for sn in snapshots
         )
@@ -278,7 +278,7 @@ def _cross_border_flow(self, network, snapshots):
 
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
+        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
             network.loads.index[network.loads.bus.isin(buses_de)]
         ]
         .sum()
@@ -288,22 +288,22 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_min(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
             - sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb0_link
                 for sn in snapshots
             )
             + sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb1_link
                 for sn in snapshots
             )
@@ -313,22 +313,22 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_max(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings[sn]
+                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
             - sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb0_link
                 for sn in snapshots
             )
             + sum(
-                m.link_p[link, sn] * network.snapshot_weightings[sn]
+                m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                 for link in cb1_link
                 for sn in snapshots
             )
@@ -362,7 +362,7 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
+        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
             network.loads.index[network.loads.bus.isin(buses_de)]
         ]
         .sum()
@@ -372,25 +372,25 @@ def _cross_border_flow_nmp(self, network, snapshots):
     cb0_flow = (
         get_var(network, "Line", "s")
         .loc[snapshots, cb0]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb1_flow = (
         get_var(network, "Line", "s")
         .loc[snapshots, cb1]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb0_link_flow = (
         get_var(network, "Link", "p")
         .loc[snapshots, cb0_link]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb1_link_flow = (
         get_var(network, "Link", "p")
         .loc[snapshots, cb1_link]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     expr = (
@@ -431,7 +431,7 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
+        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
             network.loads.index[network.loads.bus.isin(buses_de)]
         ]
         .sum()
@@ -452,25 +452,25 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
             cb0_flow = (
                 get_var(network, "Line", "s")
                 .loc[snapshots, cb0]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb1_flow = (
                 get_var(network, "Line", "s")
                 .loc[snapshots, cb1]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb0_link_flow = (
                 get_var(network, "Link", "p")
                 .loc[snapshots, cb0_link]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb1_link_flow = (
                 get_var(network, "Link", "p")
                 .loc[snapshots, cb1_link]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             expr = (
@@ -525,7 +525,7 @@ def _cross_border_flow_per_country(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
+        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
             network.loads.index[network.loads.bus.isin(buses_de)]
         ]
         .sum()
@@ -547,23 +547,23 @@ def _cross_border_flow_per_country(self, network, snapshots):
                 cb_flow = (
                     -sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb0
                         for sn in snapshots
                     )
                     + sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb1
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
@@ -581,23 +581,23 @@ def _cross_border_flow_per_country(self, network, snapshots):
                 cb_flow = (
                     -sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb0
                         for sn in snapshots
                     )
                     + sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb1
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
@@ -650,7 +650,7 @@ def _generation_potential(network, carrier, cntr="all"):
             (
                 network.generators.p_nom[gens]
                 * network.generators_t.p_max_pu[gens].mul(
-                    network.snapshot_weightings, axis=0
+                    network.snapshot_weightings.generators, axis=0
                 )
             )
             .sum()
@@ -658,7 +658,7 @@ def _generation_potential(network, carrier, cntr="all"):
         )
     else:
         potential = (
-            network.snapshot_weightings.sum() * network.generators.p_nom[gens].sum()
+            network.snapshot_weightings.generators.sum() * network.generators.p_nom[gens].sum()
         )
     return gens, potential
 
@@ -694,7 +694,7 @@ def _capacity_factor(self, network, snapshots):
         def _rule_max(m):
 
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -706,7 +706,7 @@ def _capacity_factor(self, network, snapshots):
         def _rule_min(m):
 
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -746,7 +746,7 @@ def _capacity_factor_nmp(self, network, snapshots):
         generation = (
             get_var(network, "Generator", "p")
             .loc[snapshots, gens]
-            .mul(network.snapshot_weightings, axis=0)
+            .mul(network.snapshot_weightings.generators, axis=0)
         )
 
         define_constraints(
@@ -800,7 +800,7 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             def _rule_max(m):
 
                 dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                     for gen in gens
                     for sn in snapshots
                 )
@@ -814,7 +814,7 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             def _rule_min(m):
 
                 dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                     for gen in gens
                     for sn in snapshots
                 )
@@ -858,7 +858,7 @@ def _capacity_factor_per_cntr_nmp(self, network, snapshots):
             generation = (
                 get_var(network, "Generator", "p")
                 .loc[snapshots, gens]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.generators, axis=0)
             )
 
             define_constraints(
@@ -913,7 +913,7 @@ def _capacity_factor_per_gen(self, network, snapshots):
                     (
                         network.generators.p_nom[g]
                         * network.generators_t.p_max_pu[g].mul(
-                            network.snapshot_weightings, axis=0
+                            network.snapshot_weightings.generators, axis=0
                         )
                     )
                     .sum()
@@ -921,14 +921,14 @@ def _capacity_factor_per_gen(self, network, snapshots):
                 )
             else:
                 potential = (
-                    network.snapshot_weightings.sum()
+                    network.snapshot_weightings.generators.sum()
                     * network.generators.p_nom[g].sum()
                 )
 
             def _rule_max(m):
 
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
@@ -939,7 +939,7 @@ def _capacity_factor_per_gen(self, network, snapshots):
             def _rule_min(m):
 
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
@@ -981,7 +981,7 @@ def _capacity_factor_per_gen_nmp(self, network, snapshots):
                     (
                         network.generators.p_nom[g]
                         * network.generators_t.p_max_pu[g].mul(
-                            network.snapshot_weightings, axis=0
+                            network.snapshot_weightings.generators, axis=0
                         )
                     )
                     .sum()
@@ -989,14 +989,14 @@ def _capacity_factor_per_gen_nmp(self, network, snapshots):
                 )
             else:
                 potential = (
-                    network.snapshot_weightings.sum()
+                    network.snapshot_weightings.generators.sum()
                     * network.generators.p_nom[g].sum()
                 )
 
             generation = (
                 get_var(network, "Generator", "p")
                 .loc[snapshots, g]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.generators, axis=0)
             )
 
             define_constraints(
@@ -1061,7 +1061,7 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                         (
                             network.generators.p_nom[g]
                             * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings, axis=0
+                                network.snapshot_weightings.generators, axis=0
                             )
                         )
                         .sum()
@@ -1069,14 +1069,14 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     )
                 else:
                     potential = (
-                        network.snapshot_weightings.sum()
+                        network.snapshot_weightings.generators.sum()
                         * network.generators.p_nom[g].sum()
                     )
 
                 def _rule_max(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -1091,7 +1091,7 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                 def _rule_min(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -1147,7 +1147,7 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                         (
                             network.generators.p_nom[g]
                             * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings, axis=0
+                                network.snapshot_weightings.generators, axis=0
                             )
                         )
                         .sum()
@@ -1155,14 +1155,14 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                     )
                 else:
                     potential = (
-                        network.snapshot_weightings.sum()
+                        network.snapshot_weightings.generators.sum()
                         * network.generators.p_nom[g].sum()
                     )
 
                 generation = (
                     get_var(network, "Generator", "p")
                     .loc[snapshots, g]
-                    .mul(network.snapshot_weightings, axis=0)
+                    .mul(network.snapshot_weightings.generators, axis=0)
                 )
 
                 define_constraints(
@@ -1215,7 +1215,7 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
     period_ends = period_starts + pd.Timedelta(hours=23)
 
     eh = expand_series(
-        network.snapshot_weightings[period_ends], network.storage_units.index
+        network.snapshot_weightings.objective[period_ends], network.storage_units.index
     )  # elapsed hours
 
     eff_stand = expand_series(1 - network.df(c).standing_loss, period_ends).T
