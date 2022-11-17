@@ -2033,15 +2033,19 @@ def drop_sectors(self, drop_carriers):
                 gen_empty.fillna(0, inplace=True)
                 self.network.generators= self.network.generators.append(gen_empty, verify_integrity=True)
 
-        '''if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
+        if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
             # scale down generation facilities with respect to dropping additional loads
             scale_down = 518.2/633.8
+            
+            print(' ')
+            print('DOWNSCALING')
+            print(' ')
 
             gens_to_scale = ['solar', 'wind_offshore', 'wind_onshore', 'solar_rooftop', 'biomass']
             foreign_index = self.network.buses[self.network.buses.country !='DE'].index
             self.network.generators.p_nom[
                 (~self.network.generators.index.isin(foreign_index))|
-                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down'''
+                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down
 
 
     self.network.mremove('Bus',
