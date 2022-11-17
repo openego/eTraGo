@@ -699,6 +699,9 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
             index=buses_i,
             dtype=object,
         )
+        
+        busmap.to_csv(
+            "kmeans_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv")
 
         # identify medoids per cluster -> k-medoids clustering
 
