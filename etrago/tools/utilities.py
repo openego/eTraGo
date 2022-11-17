@@ -32,6 +32,7 @@ import pypsa
 import json
 import logging
 import math
+import networkx as nx
 from pyomo.environ import Var, Constraint, PositiveReals
 from importlib import import_module
 
@@ -2153,3 +2154,19 @@ def update_busmap(self, new_busmap):
         
     else:
         self.busmap["busmap"] = pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
+
+def modular_weight(network, busmap):
+
+    busmap = pd.Series(busmap)
+    busmap.index = busmap.index.astype(str)
+       
+    network.calculate_dependent_values()
+    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom)).set_index(['bus0','bus1'])
+    links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
+       
+    G = nx.Graph()
+    G.add_nodes_from(network.buses.index)
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in lines.itertuples())
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
+    
+    return nx.algorithms.community.quality.modularity(G, list(set(busmap[busmap==c].index) for c in busmap.unique()))
