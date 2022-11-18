@@ -1579,13 +1579,11 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         bus_legend = 'Storage expansion'
         bus_unit = 'GW'
-    elif bus_colors == 'storage_distribution':
+    elif bus_colors == 'storage_distribution': 
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * network.storage_units.p_nom_opt\
-            .groupby(network.storage_units.bus)\
-            .sum().reindex(network.buses.index, fill_value=0.)
+        bus_sizes = network.storage_units.groupby(['bus', 'carrier']).p_nom_opt.sum()*bus_scaling
         bus_legend = 'Storage distribution'
-        bus_unit = 'TW'
+        bus_unit = 'TW'        
     elif bus_colors == 'gen_dist':
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
