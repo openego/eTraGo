@@ -1336,6 +1336,8 @@ def calc_network_expansion(network, method='abs', ext_min=0.1):
 
     """
     all_network = network.copy()
+    all_network.links = all_network.links[all_network.links.carrier == 'DC']
+    all_network.buses = all_network.buses[all_network.buses.carrier == 'AC']
     network.lines = network.lines[network.lines.s_nom_extendable &
                                   ((network.lines.s_nom_opt -
                                     network.lines.s_nom_min) /
@@ -1445,7 +1447,7 @@ def plot_carrier(etrago, carrier_links, carrier_buses=[], osm = False):
 
 def plot_grid(self,
               line_colors,
-              bus_sizes=0.02,
+              bus_sizes=0.001,
               bus_colors='grey',
               timesteps=range(2),
               osm=False,
@@ -1468,7 +1470,7 @@ def plot_grid(self,
             'expansion_rel': network expansion in p.u. of existing capacity
             'q_flow_max': maximal reactive flows
     bus_sizes : float, optional
-        Size of buses. The default is 0.02.
+        Size of buses. The default is 0.001.
     bus_colors : str, optional
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
@@ -1599,7 +1601,11 @@ def plot_grid(self,
         bus_unit = 'TW'
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
-        
+    #breakpoint()
+    #bus_colors = 0
+    #bus_sizes = 0.001
+    #network.buses = network.buses[(network.buses.index.isin(line_colors.index)) | 
+    #                              (network.buses.index.isin(link_colors.index))]
     if cartopy_present:
         ll = network.plot(line_colors=line_colors, link_colors=link_colors,
                           line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
