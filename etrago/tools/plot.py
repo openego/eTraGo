@@ -2047,6 +2047,13 @@ def plot_clusters(
     if gas_pipelines:
         # CH4 pipelines
         pipelines = self.busmap["orig_network"].links
+        if (
+            self.busmap["orig_network"]
+            .links["geom"]
+            .apply(lambda x: isinstance(x, str))
+            .any()
+        ):
+            pipelines["geom"] = gpd.GeoSeries.from_wkt(pipelines["geom"])
         pipelines = pipelines[pipelines["carrier"] == "CH4"]
         pipelines = gpd.GeoDataFrame(pipelines, geometry="geom")
         pipelines.plot(ax=ax, color="grey", linewidths=0.8, zorder=1)
