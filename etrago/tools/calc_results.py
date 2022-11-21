@@ -54,7 +54,7 @@ def _calc_storage_expansion(self):
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
 
-def _calc_store_expansion(self): ###
+def _calc_store_expansion(self):
         """ Function that calulates store expansion in MW
 
         Returns
@@ -92,7 +92,7 @@ def _calc_sectorcoupling_link_expansion(self):
 
         return links
 
-def _calc_network_expansion(self): ###
+def _calc_network_expansion(self):
         """ Function that calulates electrical network expansion in MW
 
         Returns
@@ -307,5 +307,7 @@ def calc_etrago_results(self):
             ext_links = network.links[network.links.p_nom_extendable]
             ext_dc_lines = ext_links[ext_links.carrier=='DC']
 
-            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum()) * 100
-            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()) * 100
+            import pdb; pdb.set_trace()
+
+            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum())
+            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum())
