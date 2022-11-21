@@ -1964,10 +1964,10 @@ def plot_clusters(
     save_path : bool, optional
         Path to save the generated plot. The default is False.
     transmission_lines : bool, optional
-        The default is True. Define if the original transmission lines are
+        The default is False. Define if the original transmission lines are
         plotted or not.
     gas_pipelines : bool, optional
-        The default is True. Define if the original gas pipelines are
+        The default is False. Define if the original gas pipelines are
         plotted or not.
     Returns
     -------
