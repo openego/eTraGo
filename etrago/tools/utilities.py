@@ -487,14 +487,16 @@ def set_q_foreign_loads(self, cos_phi=1):
     network.loads_t["q_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(foreign_buses.index)
+            (network.loads.bus.astype(str).isin(foreign_buses.index))
+            & (network.loads.carrier != "H2_for_industry")
         ].astype(int),
     ] = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(foreign_buses.index)
+            (network.loads.bus.astype(str).isin(foreign_buses.index))
+            & (network.loads.carrier != "H2_for_industry")
         ],
-    ] * math.tan(
+    ].values * math.tan(
         math.acos(cos_phi)
     )
     network.generators.control[network.generators.control == "PQ"] = "PV"
