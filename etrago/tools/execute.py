@@ -334,6 +334,12 @@ def dispatch_disaggregation(self):
         self.network = self.network_tsa.copy()
         self.network_tsa = network1.copy()
 
+        self.network.lines['s_nom_extendable'] = self.network_tsa.lines['s_nom_extendable']
+        self.network.transformers.s_nom_extendable = self.network_tsa.transformers.s_nom_extendable
+        self.network.storage_units['p_nom_extendable'] = self.network_tsa.storage_units['p_nom_extendable']
+        self.network.stores['e_nom_extendable'] = self.network_tsa.stores['e_nom_extendable']
+        self.network.links['p_nom_extendable'] = self.network_tsa.links['p_nom_extendable']
+
         y = time.time()
         z = (y - x) / 60
         logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
@@ -398,7 +404,7 @@ def pf_post_lopf(etrago, calc_losses = True):
 
         """
         n_bus = pd.Series(index=network.sub_networks.index)
-        
+
         for i in network.sub_networks.index:
             n_bus[i] = len(network.buses.index[
                 network.buses.sub_network == i])
@@ -491,7 +497,7 @@ def pf_post_lopf(etrago, calc_losses = True):
                 ]
             )
         ].copy()
-        
+
         # Drop generators from the links table
         network.links.drop(gas_to_add.index, inplace=True)
 
@@ -510,7 +516,7 @@ def pf_post_lopf(etrago, calc_losses = True):
         # Dealing with generators_t
         columns_new = network.links_t.p1.columns[
             network.links_t.p1.columns.isin(gas_to_add_orig.index)]
-        
+
         new_gen_t = network.links_t.p1[columns_new] * -1
         new_gen_t.rename(columns=gas_to_add_orig["Generator"], inplace= True)
         network.generators_t.p = network.generators_t.p.join(new_gen_t)
@@ -528,10 +534,10 @@ def pf_post_lopf(etrago, calc_losses = True):
     args = etrago.args
 
     network.lines.s_nom = network.lines.s_nom_opt
-    
-    # generators modeled as links are imported to the generators table 
+
+    # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
-    
+
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
         columns=network.generators.index)
@@ -540,7 +546,7 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.storage_units_t.p_set = network.storage_units_t.p_set\
         .reindex(columns=network.storage_units.index)
     network.storage_units_t.p_set = network.storage_units_t.p
-    
+
     network.stores_t.p_set = network.stores_t.p_set\
         .reindex(columns=network.stores.index)
     network.stores_t.p_set = network.stores_t.p
@@ -548,7 +554,7 @@ def pf_post_lopf(etrago, calc_losses = True):
     network.links_t.p_set = network.links_t.p_set.reindex(
         columns=network.links.index)
     network.links_t.p_set = network.links_t.p0
-    
+
     network.determine_network_topology()
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
@@ -646,11 +652,11 @@ def distribute_q(network, allocation='p_nom'):
                     network.storage_units.bus, axis=1).sum(), fill_value=0)
             q_sum = network.generators_t['q'].\
                 groupby(network.generators.bus, axis=1).sum()
-    
+
             q_distributed = network.generators_t.p / \
                 p_sum[network.generators.bus.sort_index()].values * \
                 q_sum[network.generators.bus.sort_index()].values
-    
+
             q_storages = network.storage_units_t.p / \
                 p_sum[network.storage_units.bus.sort_index()].values *\
                 q_sum[network.storage_units.bus.sort_index()].values
