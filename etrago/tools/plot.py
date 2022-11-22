@@ -1569,54 +1569,87 @@ def plot_background_grid(network, ax):
     )
 
 
-def plot_carrier(etrago, carrier_links, carrier_buses=[], osm=False):
+def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
+    """
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    carrier_links : list
+        List of links to be plotted. The default is ["AC"].
+    carrier_buses : list
+        List of buses to be plotted. The default is ["AC"].
+    cartopy : bool, optional
+        Provide data about the availability of Cartopy. The default is True.
+
+    Returns
+    -------
+    None.
+
+    """
 
     colors = coloring()
+    line_colors="lightblue"
 
-    # Plot osm map in background
-    if osm != False:
-        # if etrago.network.srid == 4326:
-        #     set_epsg_network(etrago.network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
-
+    # Set background
+    if cartopy == True:
+        plt.rcParams["figure.autolayout"] = True
+        fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
+        draw_map_cartopy(ax, color_geomap=True)
     else:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots()
 
-    link_width = pd.Series(index=etrago.network.links.index, data=2)
+    link_width = pd.Series(index=network.links.index, data=2)
 
     if len(carrier_links) > 0:
 
-        link_width.loc[~etrago.network.links.carrier.isin(carrier_links)] = 0
+        link_width.loc[~network.links.carrier.isin(carrier_links)] = 0
 
-    bus_sizes = pd.Series(index=etrago.network.buses.index, data=0.0005)
+    bus_sizes = pd.Series(index=network.buses.index, data=0.0005)
 
     if len(carrier_buses) > 0:
 
-        bus_sizes.loc[~etrago.network.buses.carrier.isin(carrier_buses)] = 0
+        bus_sizes.loc[~network.buses.carrier.isin(carrier_buses)] = 0
 
-    link_colors = etrago.network.links.carrier.map(colors)
+    link_colors = network.links.carrier.map(colors)
 
-    bus_colors = etrago.network.buses.carrier.map(colors)
+    bus_colors = network.buses.carrier.map(colors)
 
     if "AC" in carrier_links:
         line_widths = 1
     else:
         line_widths = 0
 
-    etrago.network.plot(
-        geomap=False,
+    title="Links:"
+    for carr in range(len(carrier_links)):
+        if carr < len(carrier_links) - 1:
+            title = title + " " + str(carrier_links[carr]) + ","
+        elif len(carrier_links) != 1:
+            title = title + " and " + str(carrier_links[carr])
+        else:
+            title = title + " " + str(carrier_links[carr])
+
+    network.plot(
+        geomap=True,
         bus_sizes=bus_sizes,
         link_widths=link_width,
         line_widths=line_widths,
-        title=carrier_links,
+        title=title,
         link_colors=link_colors,
-        line_colors="lightblue",
+        line_colors=line_colors,
         bus_colors=bus_colors,
         ax=ax,
     )
+
     patchList = []
-    for key in carrier_links + carrier_buses:
-        data_key = mpatches.Patch(color=colors[key], label=key)
+    for key in carrier_links:
+        if key != "AC":
+            data_key = mpatches.Patch(color=colors[key], label=f'Link {key}')
+        else:
+            data_key = mpatches.Patch(color=line_colors, label=f'Link {key}')
+        patchList.append(data_key)
+    for key in carrier_buses:
+        data_key = mpatches.Patch(color=colors[key], label=f'Bus {key}')
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc="lower left", ncol=1)
