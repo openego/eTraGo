@@ -26,6 +26,7 @@ from pyomo.environ import Constraint
 import pandas as pd
 import pyomo.environ as po
 import numpy as np
+from egoio.tools import db
 from pypsa.linopt import get_var, linexpr, define_constraints, define_variables
 from pypsa.descriptors import expand_series
 from pypsa.pf import get_switchable_as_dense as get_as_dense
@@ -1183,6 +1184,163 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                 )
 
 
+def read_max_gas_generation(self):
+    """Read max_gas_generation_overtheyear from scenario.egon_scenario_parameters
+
+    Return the dictionnary containing constraints limiting the gas
+    production depending of the scenario in Germany.
+
+    Returns
+    -------
+    arg: dict
+
+    """
+    scn_name = self.args["scn_name"]
+    arg_def = {
+        "eGon2035": {"CH4": 36000000, "biogas": 10000000},
+        "eGon100RE": {"biogas": 14450103},
+    }
+
+    engine = db.connection(section=self.args["db"])
+    sql = f"""
+        SELECT gas_parameters
+        FROM scenario.egon_scenario_parameters
+        WHERE name = '{scn_name}';"""
+    df = pd.read_sql(sql, engine)
+
+    try:
+        arg = df["max_gas_generation_overtheyear"]
+    except:
+        arg = arg_def["scn_name"]
+
+    return arg
+
+
+def add_ch4_constraints(self, network, snapshots):
+    """
+    Extra-functionality that limits dispatch of generators with chosen
+    energy carrier located in Germany.
+    Add key 'capacity_factor_per_cntr' to args.extra_functionality and set
+    limits per carrier in a dictonary with country codes as keys.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    scn_name = self.args["scn_name"]
+
+    # Add constraint for Germany
+    arg = read_max_gas_generation()
+    print(arg)
+    gas_carrier = arg.keys()
+
+    # Define marginal cost
+    marginal_cost_def = {
+        "eGon2035": {"CH4": 40.9765, "biogas": 25.6},
+        "eGon100RE": {"biogas": 59.0},
+    }
+
+    engine = db.connection(section=self.args["db"])
+    sql = f"""
+        SELECT gas_parameters
+        FROM scenario.egon_scenario_parameters
+        WHERE name = '{scn_name}';"""
+    df = pd.read_sql(sql, engine)
+
+    try:
+        marginal_cost = df["marginal_cost"]
+    except:
+        marginal_cost = marginal_cost_def["scn_name"]
+    print(marginal_cost)
+
+    for c in gas_carrier:
+        factor = arg[c]
+        gens = network.generators.index[
+            (network.generators.carrier == 'CH4')
+            & 
+            (network.generators.marginal_cost == marginal_cost["scn_name"][c])
+            &(
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == 'DE']
+                )
+            )
+        ]
+        potential = (
+            network.snapshot_weightings.generators.sum() 
+            * network.generators.p_nom[gens].sum()
+        )
+
+        def _rule_max(m):
+
+            dispatch = sum(
+                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                for gen in gens
+                for sn in snapshots
+            )
+
+            return dispatch <= factor[1] * potential
+
+        setattr(
+            network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max)
+        )
+    
+    # Add contraint for neigbouring countries
+    # Make use of e_nom_max and the function _capacity_factor_per_cntr
+
+
+def add_ch4_constraints_nmp(self, network, snapshots):
+    """
+    Extra-functionality that limits dispatch of generators with chosen
+    energy carrier located in Germany.
+    Add key 'capacity_factor_per_cntr' to args.extra_functionality and set
+    limits per carrier in a dictonary with country codes as keys.
+
+    Example:
+    'capacity_factor_per_cntr': {'DE':{'run_of_river': [0, 0.5],
+                                       'wind_onshore': [0.1, 1]},
+                                 'DK':{'wind_onshore':[0, 0.7]}}
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    print("No more pyomo still need to be implemented")
+    # arg = self.args["extra_functionality"]["capacity_factor_per_cntr"]
+    # for cntr in arg.keys():
+    #     carrier = arg[cntr].keys()
+    #     for c in carrier:
+    #         gens, potential = _generation_potential(network, c, cntr)
+
+    #         generation = (
+    #             get_var(network, "Generator", "p")
+    #             .loc[snapshots, gens]
+    #             .mul(network.snapshot_weightings.generators, axis=0)
+    #         )
+
+    #         define_constraints(
+    #             network,
+    #             linexpr((1, generation)).sum().sum(),
+    #             "<=",
+    #             arg[cntr][c][1] * potential,
+    #             "Generator",
+    #             "max_flh_" + c + "_" + cntr,
+    #         )
+
+
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     # This will bound the storage level to 0.5 max_level every 24th hour.
     sus = network.storage_units
@@ -2161,8 +2319,10 @@ class Constraints:
         """
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
+            add_ch4_constraints(network, snapshots)
         else:
             add_chp_constraints_nmp(network)
+            add_ch4_constraints_nmp(network)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
