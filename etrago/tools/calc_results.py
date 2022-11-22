@@ -193,13 +193,13 @@ def calc_marginal_cost(self):
         """
         network = self.network
         gen = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
         link = abs(network.links_t.p0).mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.links.marginal_cost).sum()
         stor = network.storage_units_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.storage_units.marginal_cost).sum()
         marginal_cost = gen + link + stor
         return marginal_cost
