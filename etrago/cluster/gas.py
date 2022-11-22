@@ -64,7 +64,8 @@ def preprocessing(etrago):
             ch4_filter & (network_ch4.buses["country"].values == "DE")
         ]
 
-        network_ch4.buses = network_ch4.buses.loc[~network_ch4.buses.index.isin(['48627', '48630'])]
+        # remove line when data model got rid of resp buses
+        network_ch4.buses = network_ch4.buses.loc[~network_ch4.buses.index.isin(['48591', '48588'])]
 
         if settings["n_clusters_gas"] <= num_neighboring_country:
             msg = (
