@@ -251,7 +251,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
 
     busmap = gas_clustering_appendix(etrago, busmap)
 
-    kmean_settings = etrago.args["network_clustering"]
+    settings = etrago.args["network_clustering"]
     # Add all other buses to busmap
 
     missing_idx = list(
