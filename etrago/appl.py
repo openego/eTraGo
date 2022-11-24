@@ -29,6 +29,7 @@ import datetime
 import os
 import os.path
 import numpy as np
+import sys
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -95,13 +96,13 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {'cross_border_flow':[-0.1, 1.0]},  # Choose function name or {}
+    "extra_functionality": {},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 500,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -506,6 +507,14 @@ def run_etrago(args, json_path):
     etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
 
     etrago.adjust_network()
+    
+    # avoid usage of cheap storages in foreign countries to provoke network expansion
+    aus = etrago.network.buses[etrago.network.buses.country!='DE']
+    sto_aus = etrago.network.storage_units[etrago.network.storage_units.bus.isin(aus.index)]
+    sto_aus_bat = sto_aus[sto_aus.carrier=='battery']
+    etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom'] = 0
+    etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom_extendable'] = True
+    etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'capital_cost'] = 64763.66650832
 
     '''# Set foreign batteries extendable
     etrago.network.storage_units["country"] = etrago.network.buses.loc[
@@ -554,6 +563,12 @@ def run_etrago(args, json_path):
     etrago.lopf()
 
     etrago.export_to_csv("network_results")
+    
+    from etrago.tools.utilities import modular_weight
+    print(' ')
+    print('Modularity')
+    print(modular_weight(etrago.busmap['orig_network'],etrago.busmap['busmap']))
+    print(' ')
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     # etrago.dispatch_disaggregation()
@@ -574,9 +589,18 @@ def run_etrago(args, json_path):
 
 if __name__ == "__main__":
     # execute etrago function
+    
+    old_stdout = sys.stdout
+    log_file = open('console.log',"w")
+    sys.stdout = log_file
+    
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
+    
+    sys.stdout = old_stdout
+    log_file.close()
+    
     etrago.session.close()
     # plots
     # make a line loading plot
