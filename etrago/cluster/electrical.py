@@ -81,7 +81,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "H2_ind_load")
         & (network2.buses["carrier"] != "rural_heat")
         & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
@@ -169,7 +168,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
-        | (network.buses["carrier"] == "H2_ind_load")
         | (network.buses["carrier"] == "CH4")
         | (network.buses["carrier"] == "rural_heat")
         | (network.buses["carrier"] == "rural_heat_store")

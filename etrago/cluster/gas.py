@@ -253,7 +253,7 @@ def kmean_postprocessing_gas(etrago, busmap):
     busmap = kmean_clustering_gas_appendix(etrago, busmap)
 
     kmean_settings = etrago.args["network_clustering"]
-    # Add all other buses except H2_ind_load to busmap
+    # Add all other buses to busmap
     missing_idx = list(
         etrago.network.buses[(~etrago.network.buses.index.isin(busmap.index))].index
     )
