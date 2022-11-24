@@ -113,12 +113,17 @@ def _max_line_ext(self, network, snapshots):
     None
 
     """
-    lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
+
+    lines_snom = network.lines.s_nom_min.sum()
+
+    links_elec = network.links[network.links.carrier=='DC']
+    links_index = links_elec.index
+    links_pnom = links_elec.p_nom_min.sum()
 
     def _rule(m):
+
         lines_opt = sum(
-            m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
+            m.passive_branch_s_nom[index] for index in links_index
         )
 
         links_opt = sum(m.link_p_nom[index] for index in m.link_p_nom_index)
@@ -185,7 +190,10 @@ def _min_renewable_share_nmp(self, network, snapshots):
 
     """
 
-    renewables = ["wind_onshore", "wind_offshore", "biomass", "solar", "run_of_river"]
+    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
+                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
+                  'run_of_river', 'other_renewable',
+                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
 
     res = network.generators.index[network.generators.carrier.isin(renewables)]
 
