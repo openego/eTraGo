@@ -84,71 +84,8 @@ def extendable(self, grid_max_D= None,
         network.storage_units.p_nom_extendable = False
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
-        
-    if not grid_max_abs_D==None:
-        buses = network.buses[(network.buses.country=='DE') 
-                              & (network.buses.carrier == 'AC')]
-        
-        line_max_abs(network=network, buses=buses,
-                     line_max_abs=grid_max_abs_D)
-        
-        transformer_max_abs(network=network, buses=buses)
-
-        network.links.loc[(network.links.bus0.isin(buses.index)) &
-                (network.links.bus1.isin(buses.index)),
-                  'p_nom_max'] = grid_max_abs_D['dc']
-        
-    if not grid_max_abs_foreign==None:
-        foreign_buses = network.buses[(network.buses.country!='DE')
-                                      & (network.buses.carrier == 'AC')]
-
-        line_max_abs(network=network, buses=foreign_buses,
-                     line_max_abs=grid_max_abs_foreign)
-        
-        transformer_max_abs(network=network, buses=foreign_buses)
-               
-        network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
-                              (network.links.bus1.isin(foreign_buses.index)),
-                          'p_nom_max'] = grid_max_abs_foreign['dc']  
 
         
-    if not grid_max_D == None:
-        buses = network.buses[(network.buses.country=='DE')
-                              & (network.buses.carrier == 'AC')]
-
-        
-        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
-                    (network.lines.bus1.isin(buses.index)),
-                    's_nom_max'] = grid_max_D * network.lines.s_nom  
-        
-        network.transformers.loc[network.transformers.bus0.isin(
-            buses.index),'s_nom_max'] = grid_max_D * network.transformers.s_nom
-        
-        network.links.loc[(network.links.bus0.isin(buses.index)) &
-        (network.links.bus1.isin(buses.index)),
-          'p_nom_max'] = grid_max_D * network.links.p_nom
-        
-    if not grid_max_foreign==None:
-        foreign_buses = network.buses[(network.buses.country!='DE')
-                                      & (network.buses.carrier == 'AC')]
-
-        
-        network.lines.loc[network.lines.bus0.isin(foreign_buses.index) |
-                      network.lines.bus1.isin(foreign_buses.index),
-                's_nom_max'] = grid_max_foreign * network.lines.s_nom
-        
-        network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
-                              (network.links.bus1.isin(foreign_buses.index)),
-                          'p_nom_max'] = grid_max_foreign* network.links.p_nom
-        
-        network.transformers.loc[network.transformers.bus0.isin(
-                    foreign_buses.index) | network.transformers.bus1.isin(
-                    foreign_buses.index),'s_nom_max'] = \
-                grid_max_foreign * network.transformers.s_nom
-        
-
-
-
     if 'network' in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
@@ -195,7 +132,6 @@ def extendable(self, grid_max_D= None,
                               'p_nom_min'] = network.links.p_nom
 
 
-
     if 'foreign_network' in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country!='DE']
         network.lines.loc[network.lines.bus0.isin(buses.index) |
@@ -224,7 +160,6 @@ def extendable(self, grid_max_D= None,
                               'p_nom_min'] = network.links.p_nom
 
 
-
     if 'transformers' in extendable_settings["extendable_components"]:
         network.transformers.s_nom_extendable = True
         network.transformers.s_nom_min = network.transformers.s_nom
@@ -249,6 +184,7 @@ def extendable(self, grid_max_D= None,
                 (self.network.storage_units.carrier == 'extendable_storage')&
                 (self.network.storage_units.max_hours == 168)] = \
                     'extendable_hydrogen_storage'
+
 
     if 'foreign_storage' in extendable_settings["extendable_components"]:
         network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
@@ -308,8 +244,72 @@ def extendable(self, grid_max_D= None,
             network.lines.loc[network.lines.scn_name == (
                 'extension_' + self.args['scn_extension'][i]
             ), 'capital_cost'] = network.lines.capital_cost
+        
+        
+    if not grid_max_abs_D==None:
+        buses = network.buses[(network.buses.country=='DE') 
+                              & (network.buses.carrier == 'AC')]
+        
+        line_max_abs(network=network, buses=buses,
+                     line_max_abs=grid_max_abs_D)
+        
+        transformer_max_abs(network=network, buses=buses)
 
+        network.links.loc[(network.links.bus0.isin(buses.index)) &
+                (network.links.bus1.isin(buses.index)),
+                  'p_nom_max'] = grid_max_abs_D['dc']                
 
+        
+    if not grid_max_abs_foreign==None:
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
+        line_max_abs(network=network, buses=foreign_buses,
+                     line_max_abs=grid_max_abs_foreign)
+        
+        transformer_max_abs(network=network, buses=foreign_buses)
+               
+        network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
+                              (network.links.bus1.isin(foreign_buses.index)),
+                          'p_nom_max'] = grid_max_abs_foreign['dc']  
+
+        
+    if not grid_max_D == None:
+        buses = network.buses[(network.buses.country=='DE')
+                              & (network.buses.carrier == 'AC')]
+
+        
+        network.lines.loc[(network.lines.bus0.isin(buses.index)) &
+                    (network.lines.bus1.isin(buses.index)),
+                    's_nom_max'] = grid_max_D * network.lines.s_nom  
+        
+        network.transformers.loc[network.transformers.bus0.isin(
+            buses.index),'s_nom_max'] = grid_max_D * network.transformers.s_nom
+        
+        network.links.loc[(network.links.bus0.isin(buses.index)) &
+        (network.links.bus1.isin(buses.index)),
+          'p_nom_max'] = grid_max_D * network.links.p_nom
+
+        
+    if not grid_max_foreign==None:
+        foreign_buses = network.buses[(network.buses.country!='DE')
+                                      & (network.buses.carrier == 'AC')]
+
+        
+        network.lines.loc[network.lines.bus0.isin(foreign_buses.index) |
+                      network.lines.bus1.isin(foreign_buses.index),
+                's_nom_max'] = grid_max_foreign * network.lines.s_nom
+        
+        network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
+                              (network.links.bus1.isin(foreign_buses.index)),
+                          'p_nom_max'] = grid_max_foreign* network.links.p_nom
+        
+        network.transformers.loc[network.transformers.bus0.isin(
+                    foreign_buses.index) | network.transformers.bus1.isin(
+                    foreign_buses.index),'s_nom_max'] = \
+                grid_max_foreign * network.transformers.s_nom
+
+       
     return network
 
 def snommax(i=1020, u=380, wires=4, circuits=4):
