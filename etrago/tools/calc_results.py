@@ -272,5 +272,5 @@ def calc_etrago_results(self):
             ext_links = self.network.links[self.network.links.p_nom_extendable]
             ext_dc_lines = ext_links[ext_links.carrier=='DC']
 
-            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum()) * 100
-            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()) * 100
+            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum())
+            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum())
