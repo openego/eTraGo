@@ -140,7 +140,6 @@ def coloring():
         "H2_to_power": "darkcyan",
         "H2_feedin": "lime",
         "H2_to_CH4": "seagreen",
-        "H2_ind_load": "forestgreen",
         "central_heat_store_charger": "firebrick",
         "central_heat_store": "firebrick",
         "rural_heat_store_charger": "salmon",
