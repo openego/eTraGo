@@ -80,6 +80,7 @@ def set_epsg_network(network):
     set_epsg_network.counter = set_epsg_network.counter + 1
 
 
+
 def plot_osm(x, y, zoom, alpha=0.4):
     """
     Plots openstreetmap as background of network-plots
@@ -1226,6 +1227,7 @@ def storage_p_soc(network, mean="1H", filename=None):
     ax2.legend(loc=1)
     ax.set_title("Storage dispatch and state of charge")
 
+
     if filename is None:
         plt.show()
     else:
@@ -1566,6 +1568,9 @@ def plot_background_grid(network, ax):
         color_geomap=True,
     )
 
+    network.plot(ax=ax, line_colors='grey', link_colors='grey',
+                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
+                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
 
 def plot_carrier(etrago, carrier_links, carrier_buses=[], osm=False):
 
@@ -1765,6 +1770,7 @@ def plot_grid(
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
+
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -1779,9 +1785,10 @@ def plot_grid(
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * network.storage_units.p_nom_opt.groupby(
-            network.storage_units.bus
-        ).sum().reindex(network.buses.index, fill_value=0.0)
+        bus_sizes = (
+            network.storage_units.groupby(["bus", "carrier"]).p_nom_opt.sum()
+            * bus_scaling
+        )
         bus_legend = "Storage distribution"
         bus_unit = "TW"
     elif bus_colors == "gen_dist":
@@ -1789,39 +1796,39 @@ def plot_grid(
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
+    elif (
+        bus_colors == "PowerToH2"
+    ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
+        bus_scaling = bus_sizes
+        bus_sizes = (
+            bus_scaling
+            * network.links[(network.links.carrier == "power_to_H2")]
+            .groupby("bus0")
+            .sum()
+            .p_nom_opt
+        )
+        bus_colors = coloring()["power_to_H2"]
+        bus_legend = "PowerToH2"
+        bus_unit = "TW"
+
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    if cartopy_present:
-        ll = network.plot(
-            line_colors=line_colors,
-            link_colors=link_colors,
-            line_cmap=plt.cm.jet,
-            link_cmap=plt.cm.jet,
-            bus_sizes=bus_sizes,
-            bus_colors=bus_colors,
-            line_widths=line_widths,
-            link_widths=0,  # link_widths,
-            flow=flow,
-            title=title,
-            geomap=False,
-            projection=ccrs.PlateCarree(),
-            color_geomap=True,
-        )
-    else:
-        ll = network.plot(
-            line_colors=line_colors,
-            link_colors=link_colors,
-            line_cmap=plt.cm.jet,
-            link_cmap=plt.cm.jet,
-            bus_sizes=bus_sizes,
-            bus_colors=bus_colors,
-            line_widths=line_widths,
-            link_widths=0,  # link_widths,
-            flow=flow,
-            title=title,
-            geomap=False,
-        )
+    ll = network.plot(
+        line_colors=line_colors,
+        link_colors=link_colors,
+        line_cmap=plt.cm.jet,
+        link_cmap=plt.cm.jet,
+        bus_sizes=bus_sizes,
+        bus_colors=bus_colors,
+        line_widths=line_widths,
+        link_widths=0,  # link_widths,
+        flow=flow,
+        title=title,
+        geomap=False,
+        projection=ccrs.PlateCarree(),
+        color_geomap=True,
+    )
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
