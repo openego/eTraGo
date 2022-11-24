@@ -124,7 +124,6 @@ args = {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
-            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
@@ -366,10 +365,9 @@ def run_etrago(args, json_path):
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
          'central_heat': {'base': ['CH4', 'AC'], 'strategy': "simultaneous"},
-         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
         }
         State if you want to apply clustering of sector coupled carriers, such
-        as central_heat or rural_heat. The approach builds on already clustered
+        as central_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
         ``'central_heat'``. With ``'strategy'`` it is possible to apply either
