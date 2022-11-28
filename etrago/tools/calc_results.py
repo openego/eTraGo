@@ -241,6 +241,8 @@ def calc_etrago_results(self):
                                            'annual electrical grid investment costs',
                                            'annual ac grid investment costs',
                                            'annual dc grid investment costs',
+                                           'annual storage investment costs',
+                                           'abs. storage expansion',
                                            'abs. electrical grid expansion',
                                            'abs. electrical ac grid expansion',
                                            'abs. electrical dc grid expansion',
@@ -254,6 +256,7 @@ def calc_etrago_results(self):
         self.results.value['annual ac grid investment costs'] = calc_investment_cost(self)[0][0]
         self.results.value['annual dc grid investment costs'] = calc_investment_cost(self)[0][1]
         self.results.value['annual electrical grid investment costs'] = sum(calc_investment_cost(self)[0])
+        self.results.value['annual storage investment costs',] = calc_investment_cost(self)[2][0]
 
         self.results.value['annual investment costs'] = \
             sum(calc_investment_cost(self)[0]) + calc_investment_cost(self)[1] + sum(calc_investment_cost(self)[2])
@@ -261,6 +264,8 @@ def calc_etrago_results(self):
 
         self.results.value['annual system costs'] = \
             self.results.value['annual investment costs'] + self.results.value['annual marginal costs']
+
+        self.results.value['abs. storage expansion'] = _calc_storage_expansion(self).sum()
 
         if not self.network.lines[self.network.lines.s_nom_extendable].empty:
 
