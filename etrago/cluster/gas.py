@@ -65,7 +65,9 @@ def preprocessing(etrago):
         ]
 
         # remove line when data model got rid of resp buses
-        network_ch4.buses = network_ch4.buses.loc[~network_ch4.buses.index.isin(['48591', '48588'])]
+        network_ch4.buses = network_ch4.buses.loc[
+            ~network_ch4.buses.index.isin(["48591", "48588"])
+        ]
 
         if settings["n_clusters_gas"] <= num_neighboring_country:
             msg = (
@@ -392,12 +394,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
                 ]
                 if len(h2_idx) > 0:
                     h2_idx = h2_idx.index.tolist()[0]
-                    network_gasgrid_c.buses.at[h2_idx, "x"] = etrago.network.buses["x"].loc[
-                        medoid
-                    ]
-                    network_gasgrid_c.buses.at[h2_idx, "y"] = etrago.network.buses["y"].loc[
-                        medoid
-                    ]
+                    network_gasgrid_c.buses.at[h2_idx, "x"] = etrago.network.buses[
+                        "x"
+                    ].loc[medoid]
+                    network_gasgrid_c.buses.at[h2_idx, "y"] = etrago.network.buses[
+                        "y"
+                    ].loc[medoid]
                 network_gasgrid_c.buses.at[i, "x"] = etrago.network.buses["x"].loc[
                     medoid
                 ]
@@ -827,6 +829,6 @@ def run_spatial_clustering_gas(self):
                         & (self.network.buses.country != "DE")
                     ]
                 ),
-                method
+                method,
             )
         )
