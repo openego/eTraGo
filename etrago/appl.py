@@ -102,7 +102,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 500,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -507,6 +507,8 @@ def run_etrago(args, json_path):
     etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
 
     etrago.adjust_network()
+    # 1) includes conversion of foreign-lines to DC-links
+    # 2) includes changing parameters according to extendable-settings
     
     # avoid usage of cheap storages in foreign countries to provoke network expansion
     aus = etrago.network.buses[etrago.network.buses.country!='DE']
@@ -517,6 +519,8 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom'] = 0
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom_extendable'] = True
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'capital_cost'] = 64763.66650832
+    
+    etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
     '''# Set foreign batteries extendable
     etrago.network.storage_units["country"] = etrago.network.buses.loc[
@@ -551,6 +555,25 @@ def run_etrago(args, json_path):
     etrago.export_to_csv("after_spatial")
 
     #etrago.spatial_clustering_gas()
+    
+    # new foreign lines to links
+    from etrago.tools.utilities import foreign_links
+    etrago.foreign_links()
+
+    # make sure foreign links are NOT extendable
+    network=etrago.network
+    foreign_buses = network.buses[
+        (network.buses.country != "DE") & (network.buses.carrier.isin(["AC", "DC"]))
+    ]
+    network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
+                              (network.links.bus1.isin(foreign_buses.index)),
+                          'p_nom_max'] = 1 * network.links.p_nom
+    network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
+                              (network.links.bus1.isin(foreign_buses.index)),
+                          'p_nom_min']  = network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
+                              (network.links.bus1.isin(foreign_buses.index)),
+                          'p_nom']
+    etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
