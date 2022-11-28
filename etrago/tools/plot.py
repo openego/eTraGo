@@ -1334,6 +1334,7 @@ def calc_network_expansion(network, method='abs', ext_min=0.1):
         DC-line expansion
 
     """
+
     all_network = network.copy()
     network.lines = network.lines[network.lines.s_nom_extendable &
                                   ((network.lines.s_nom_opt -
@@ -1513,7 +1514,7 @@ def plot_grid(self,
     # Set default values
     flow = None
     line_widths = 2
-    link_widths = 0
+    link_widths = 2
 
     # Plot osm map in background
     if osm != False:
@@ -1603,7 +1604,7 @@ def plot_grid(self,
                       line_cmap=plt.cm.jet, link_cmap=plt.cm.jet,
                       bus_sizes=bus_sizes,
                       bus_colors=bus_colors,
-                      line_widths=line_widths, link_widths=0,#link_widths,
+                      line_widths=line_widths, link_widths=link_widths,
                       flow=flow,
                       title=title,
                       geomap=False, projection=ccrs.PlateCarree(),
@@ -1735,7 +1736,7 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
     map_buses["line"] = map_buses.apply(
         lambda x: LineString((x["geom"], x["cluster_geom"])),axis = 1)
-    
+
     #Set background
     if cartopy == True:
         plt.rcParams["figure.autolayout"] = True
@@ -1743,7 +1744,7 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
         draw_map_cartopy(ax, color_geomap=True)
     else:
         fig, ax = plt.subplots()
-    
+
     ax.set_title(f'Clustering {self.args["network_clustering"]["method"]}')
 
     #Draw original transmission lines
@@ -1788,4 +1789,3 @@ def plot_clusters(self, carrier= "AC", save_path= False, cartopy=True,
         plt.savefig(save_path, dpi=800)
 
     return
-
