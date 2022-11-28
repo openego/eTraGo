@@ -2265,12 +2265,72 @@ def update_busmap(self, new_busmap):
     if "busmap" not in self.busmap.keys():
         self.busmap["busmap"] = new_busmap
         self.busmap["orig_network"] = pypsa.Network()
-        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
-                                                  self.network.buses, "Bus")
-        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
-                                                  self.network.lines, "Line")
-        pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
-                                                  self.network.links, "Link")
-        
+        pypsa.io.import_components_from_dataframe(
+            self.busmap["orig_network"], self.network.buses, "Bus"
+        )
+        pypsa.io.import_components_from_dataframe(
+            self.busmap["orig_network"], self.network.lines, "Line"
+        )
+        pypsa.io.import_components_from_dataframe(
+            self.busmap["orig_network"], self.network.links, "Link"
+        )
+
     else:
-        self.busmap["busmap"] = pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
+        self.busmap["busmap"] = (
+            pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
+        )
+
+
+def adjust_CH4_gen_carriers(self):
+    """Precise the carrier for the generators with CH4 carrier
+
+    For the eGon2035 scenario, the generators with carrier CH4
+    represent the prodution od biogas and methan. In the data model,
+    these two differents types are differenciated only by the
+    marginal cost of the generator. This function introduces a
+    carrier distion (CH4_biogas and CH4_NG) in order to avoid the
+    clustering of these two types of generator together and facilitate
+    the contraint applying differently to each of them.
+    """
+
+    if self.args["scn_name"] == "eGon2035":
+
+        # Define marginal cost
+        marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
+
+        engine = db.connection(section=self.args["db"])
+        try:
+            sql = f"""
+            SELECT gas_parameters
+            FROM scenario.egon_scenario_parameters
+            WHERE name = '{self.args["scn_name"]}';"""
+            df = pd.read_sql(sql, engine)
+            marginal_cost = df["marginal_cost"]
+        except:
+            marginal_cost = marginal_cost_def
+
+        self.network.generators.loc[
+            self.network.generators[
+                (self.network.generators.carrier == "CH4")
+                & (self.network.generators.marginal_cost == marginal_cost["CH4"])
+                & (
+                    self.network.generators.bus.astype(str).isin(
+                        self.network.buses.index[self.network.buses.country == "DE"]
+                    )
+                )
+            ].index,
+            "carrier",
+        ] = "CH4_NG"
+
+        self.network.generators.loc[
+            self.network.generators[
+                (self.network.generators.carrier == "CH4")
+                & (self.network.generators.marginal_cost == marginal_cost["biogas"])
+                & (
+                    self.network.generators.bus.astype(str).isin(
+                        self.network.buses.index[self.network.buses.country == "DE"]
+                    )
+                )
+            ].index,
+            "carrier",
+        ] = "CH4_biogas"

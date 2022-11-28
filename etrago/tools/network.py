@@ -53,7 +53,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     update_busmap,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
-                                    get_clustering_data,)
+                                    get_clustering_data,
+                                    adjust_CH4_gen_carriers,)
 
 from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
@@ -234,6 +235,8 @@ class Etrago():
 
     get_clustering_data = get_clustering_data
 
+    adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
+
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
 
@@ -275,6 +278,8 @@ class Etrago():
         self.geolocation_buses()
 
         self.load_shedding()
+
+        self.adjust_CH4_gen_carriers()
 
         self.set_random_noise(0.01)
 
