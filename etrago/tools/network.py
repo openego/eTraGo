@@ -304,5 +304,6 @@ class Etrago():
         
         self.delete_dispensable_ac_buses()
 
+
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

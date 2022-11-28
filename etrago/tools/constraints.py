@@ -22,13 +22,14 @@
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
-from pyomo.environ import Constraint
+
+import numpy as np
 import pandas as pd
 import pyomo.environ as po
-import numpy as np
 from egoio.tools import db
-from pypsa.linopt import get_var, linexpr, define_constraints, define_variables
+from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
+from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
 from pypsa.pf import get_switchable_as_dense as get_as_dense
 
 logger = logging.getLogger(__name__)
@@ -195,7 +196,9 @@ def _min_renewable_share_nmp(self, network, snapshots):
         .loc[network.snapshots, res]
         .mul(network.snapshot_weightings.generators, axis=0)
     )
-    total = get_var(network, "Generator", "p").mul(network.snapshot_weightings.generators, axis=0)
+    total = get_var(network, "Generator", "p").mul(
+        network.snapshot_weightings.generators, axis=0
+    )
 
     renew_production = linexpr((1, renew)).sum().sum()
     total_production = (
@@ -289,12 +292,14 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_min(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
@@ -314,12 +319,14 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_max(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
@@ -659,7 +666,8 @@ def _generation_potential(network, carrier, cntr="all"):
         )
     else:
         potential = (
-            network.snapshot_weightings.generators.sum() * network.generators.p_nom[gens].sum()
+            network.snapshot_weightings.generators.sum()
+            * network.generators.p_nom[gens].sum()
         )
     return gens, potential
 
@@ -1077,7 +1085,8 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                 def _rule_max(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[g, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -1092,7 +1101,8 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                 def _rule_min(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[g, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -2354,10 +2364,10 @@ class Constraints:
         """
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
-            add_ch4_constraints(network, snapshots)
+            add_ch4_constraints(self, network, snapshots)
         else:
             add_chp_constraints_nmp(network)
-            add_ch4_constraints_nmp(network)
+            add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
