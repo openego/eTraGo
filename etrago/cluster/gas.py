@@ -321,6 +321,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
                 "capital_cost": np.mean,
                 "p_nom_max": np.sum,
                 "p_nom_min": np.sum,
+                "e_nom_max": np.sum,
             },
             "Store": {
                 "marginal_cost": np.mean,
