@@ -91,7 +91,7 @@ args = {
                 "dc": 0,
             },
             # border crossing lines
-            "grid_max_foreign": 2,  # relative to existing capacity
+            "grid_max_foreign": 1,  # relative to existing capacity
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
@@ -102,7 +102,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 500,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -512,6 +512,8 @@ def run_etrago(args, json_path):
     aus = etrago.network.buses[etrago.network.buses.country!='DE']
     sto_aus = etrago.network.storage_units[etrago.network.storage_units.bus.isin(aus.index)]
     sto_aus_bat = sto_aus[sto_aus.carrier=='battery']
+    etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom_max'] \
+        = etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index)].p_nom
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom'] = 0
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom_extendable'] = True
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'capital_cost'] = 64763.66650832
