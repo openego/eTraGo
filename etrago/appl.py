@@ -60,22 +60,23 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 4,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver_etragos.log',
-        'threads': 4},
+        "BarConvTol": 1.0e-5,
+        "FeasibilityTol": 1.0e-5,
+        "method": 2,
+        "crossover": 0,
+        "logFile": "solver_etragos.log",
+        "threads": 4,
+    },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
-    "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
+    "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
@@ -247,7 +248,7 @@ def run_etrago(args, json_path):
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.import numpy as np
+        False or '/path/tofile.lp'
 
     csv_export : obj
         False,
