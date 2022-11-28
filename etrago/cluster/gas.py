@@ -338,6 +338,28 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
     # aggregation of the links and links time series
     network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(network_gasgrid_c)
 
+    # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
+    if etrago.args["scn_name"] == "eGon2035":
+        H2_energy_share = 0.05053  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
+        feed_in = network_gasgrid_c.links.loc[
+            network_gasgrid_c.links.carrier == "H2_feedin"
+        ]
+        pipeline_capacities = network_gasgrid_c.links.loc[
+            network_gasgrid_c.links.carrier == "CH4"
+        ]
+
+        for bus in feed_in["bus1"].values:
+            # calculate the total pipeline capacity connected to a specific bus
+            nodal_capacity = pipeline_capacities.loc[
+                (pipeline_capacities["bus0"] == bus)
+                | (pipeline_capacities["bus1"] == bus),
+                "p_nom",
+            ].sum()
+            # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
+            network_gasgrid_c.links.loc[
+                network_gasgrid_c.links["bus1"] == bus, "p_nom"
+            ] = (nodal_capacity * H2_energy_share)
+
     # Insert components not related to the gas clustering
     io.import_components_from_dataframe(network_gasgrid_c, etrago.network.lines, "Line")
     io.import_components_from_dataframe(
