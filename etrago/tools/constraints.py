@@ -1287,7 +1287,6 @@ def add_ch4_constraints(self, network, snapshots):
                 return dispatch <= factor * potential
 
             setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
-            print("max_flh_DE_" + c)
 
     # Add contraints for neigbouring countries
     gen_abroad = network.generators[
@@ -1316,7 +1315,6 @@ def add_ch4_constraints(self, network, snapshots):
             return dispatch <= factor * potential
 
         setattr(network.model, "max_flh_abroad_" + str(g), Constraint(rule=_rule_max))
-        print("max_flh_abroad_" + str(g))
 
 
 def add_ch4_constraints_nmp(self, network, snapshots):
