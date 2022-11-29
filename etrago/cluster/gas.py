@@ -360,7 +360,9 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
             ].sum()
             # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
             network_gasgrid_c.links.loc[
-                network_gasgrid_c.links["bus1"] == bus, "p_nom"
+                (network_gasgrid_c.links["bus1"].values == bus) &
+                (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
+                "p_nom"
             ] = (nodal_capacity * H2_energy_share)
 
     # Insert components not related to the gas clustering
