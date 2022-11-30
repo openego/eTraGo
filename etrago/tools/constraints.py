@@ -1250,6 +1250,7 @@ def add_ch4_constraints(self, network, snapshots):
     None.
     """
     scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
     # Add constraint for Germany
     arg = read_max_gas_generation(self)
@@ -1280,7 +1281,7 @@ def add_ch4_constraints(self, network, snapshots):
                     for sn in snapshots
                 )
 
-                return dispatch <= factor
+                return dispatch <= factor * (n_snapshots / 8760)
 
             setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
 
@@ -1304,7 +1305,7 @@ def add_ch4_constraints(self, network, snapshots):
                 for sn in snapshots
             )
 
-            return dispatch <= factor
+            return dispatch <= factor * (n_snapshots / 8760)
 
         setattr(network.model, "max_flh_abroad_" + str(g), Constraint(rule=_rule_max))
 
@@ -1330,8 +1331,8 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
-
     scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
     # Add constraint for Germany
     arg = read_max_gas_generation(self)
@@ -1364,7 +1365,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
                 network,
                 linexpr((1, generation)).sum().sum(),
                 "<=",
-                factor,
+                factor * (n_snapshots / 8760),
                 "Generator",
                 "max_flh_DE_" + c,
             )
@@ -1392,7 +1393,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             network,
             linexpr((1, generation)).sum(),
             "<=",
-            factor,
+            factor * (n_snapshots / 8760),
             "Generator",
             "max_flh_DE_" + c,
         )
