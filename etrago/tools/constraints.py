@@ -1301,8 +1301,7 @@ def add_ch4_constraints(self, network, snapshots):
     for g in gen_abroad.index:
         factor = network.generators.e_nom_max[g]
         potential = (
-            network.snapshot_weightings.generators.sum() 
-            * network.generators.p_nom[g]
+            network.snapshot_weightings.generators.sum() * network.generators.p_nom[g]
         )
 
         def _rule_max(m):
@@ -1338,50 +1337,79 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
-    print("No more pyomo still need to be implemented")
 
-    # scn_name = self.args["scn_name"]
+    scn_name = self.args["scn_name"]
 
-    # # Add constraint for Germany
-    # arg = read_max_gas_generation(self)
-    # gas_carrier = arg.keys()
+    # Add constraint for Germany
+    arg = read_max_gas_generation(self)
+    gas_carrier = arg.keys()
 
-    # carrier_names = {
-    #     "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
-    #     "eGon100RE": {"biogas": "CH4"},
-    # }
+    carrier_names = {
+        "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon100RE": {"biogas": "CH4"},
+    }
 
-    # for c in gas_carrier:
-    #     factor = arg[c]
-    #     gens = network.generators.index[
-    #         (network.generators.carrier == carrier_names[scn_name][c])
-    #         & (
-    #             network.generators.bus.astype(str).isin(
-    #                 network.buses.index[network.buses.country == "DE"]
-    #             )
-    #         )
-    #     ]
-    #     potential = (
-    #         network.snapshot_weightings.generators.sum()
-    #         * network.generators.p_nom[gens].sum()
-    #     )
+    for c in gas_carrier:
+        gens = network.generators.index[
+            (network.generators.carrier == carrier_names[scn_name][c])
+            & (
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+        if not gens.empty:
+            factor = arg[c]
+            potential = (
+                network.snapshot_weightings.generators.sum()
+                * network.generators.p_nom[gens].sum()
+            )
 
-    #     # gens, potential = _generation_potential(network, c, cntr)
+            generation = (
+                get_var(network, "Generator", "p")
+                .loc[snapshots, gens]
+                .mul(network.snapshot_weightings.generators, axis=0)
+            )
 
-    #     generation = (
-    #         get_var(network, "Generator", "p")
-    #         .loc[snapshots, gens]
-    #         .mul(network.snapshot_weightings.generators, axis=0)
-    #     )
+            define_constraints(
+                network,
+                linexpr((1, generation)).sum().sum(),
+                "<=",
+                factor * potential,
+                "Generator",
+                "max_flh_DE_" + c,
+            )
 
-    #     define_constraints(
-    #         network,
-    #         linexpr((1, generation)).sum().sum(),
-    #         "<=",
-    #         arg[cntr][c][1] * potential,
-    #         "Generator",
-    #         "max_flh_" + c + "_" + cntr,
-    #     )
+    # Add contraints for neigbouring countries
+    gen_abroad = network.generators[
+        (network.generators.carrier == "CH4")
+        & (
+            network.generators.bus.astype(str).isin(
+                network.buses.index[network.buses.country != "DE"]
+            )
+        )
+        & (network.generators.e_nom_max != np.inf)
+    ]
+    for g in gen_abroad.index:
+        factor = network.generators.e_nom_max[g]
+        potential = (
+            network.snapshot_weightings.generators.sum() * network.generators.p_nom[g]
+        )
+
+        generation = (
+            get_var(network, "Generator", "p")
+            .loc[snapshots, g]
+            .mul(network.snapshot_weightings.generators, axis=0)
+        )
+
+        define_constraints(
+            network,
+            linexpr((1, generation)).sum(),
+            "<=",
+            factor * potential,
+            "Generator",
+            "max_flh_DE_" + c,
+        )
 
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
