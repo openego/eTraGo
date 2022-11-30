@@ -80,10 +80,10 @@ def _calc_sectorcoupling_link_expansion(self):
 
         links = [0, 0, 0, 0]
 
-        l1 = ext_links[ext_links.carrier=='power_to_H2']
-        l2 = ext_links[ext_links.carrier=='H2_to_power']
-        l3 = ext_links[ext_links.carrier=='CH4_to_H2']
-        l4 = ext_links[ext_links.carrier=='H2_to_CH4']
+        l1 = ext_links[ext_links.carrier=='H2_to_power']
+        l2 = ext_links[ext_links.carrier=='power_to_H2']
+        l3 = ext_links[ext_links.carrier=='H2_to_CH4']
+        l4 = ext_links[ext_links.carrier=='CH4_to_H2']
 
         links[0] = (l1.p_nom_opt-l1.p_nom_min).sum()
         links[1] = (l2.p_nom_opt-l2.p_nom_min).sum()

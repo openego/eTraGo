@@ -52,9 +52,10 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     adapt_crossborder_buses,
                                     update_busmap,
                                     buses_by_country,
-                                    delete_dispensable_ac_buses,)
+                                    delete_dispensable_ac_buses,
+                                    get_clustering_data,)
 
-from etrago.tools.plot import plot_grid
+from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
 from etrago.cluster.electrical import (run_spatial_clustering,
                                               ehv_clustering)
@@ -152,6 +153,8 @@ class Etrago():
                     name,
                     ignore_standard_types)
 
+            self.get_clustering_data(csv_folder_name)
+
         else:
             logger.error('Set args or csv_folder_name')
 
@@ -225,7 +228,11 @@ class Etrago():
 
     update_busmap = update_busmap
     
+    plot_clusters = plot_clusters
+    
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
+
+    get_clustering_data = get_clustering_data
 
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)

@@ -55,7 +55,7 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
@@ -103,8 +103,13 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+<<<<<<< HEAD
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 42,  # total number of resulting CH4 nodes (DE+foreign)
+=======
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+>>>>>>> dev
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -123,9 +128,7 @@ args = {
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
-            "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
-            "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
-            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
@@ -366,15 +369,13 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid'], 'strategy': "consecutive"},
-         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "consecutive"},
-         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "simultaneous"},
         }
         State if you want to apply clustering of sector coupled carriers, such
-        as central_heat or rural_heat. The approach builds on already clustered
+        as central_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``. With ``'strategy'`` it is possible to apply either
+        ``'central_heat'``. With ``'strategy'`` it is possible to apply either
         ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
         strategy clusters around the buses of the first carrier in the list.
         The links to other buses are preserved. All buses, that have no
@@ -469,6 +470,7 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
 
+<<<<<<< HEAD
     # Modify RU generator
     bus_RU = etrago.network.buses[(etrago.network.buses.country == "RU")].index.tolist()[0]
     etrago.network.generators.loc[
@@ -481,6 +483,12 @@ def run_etrago(args, json_path):
     etrago.network.generators.loc[
         etrago.network.generators[etrago.network.generators.bus == bus_RU].index, "p_nom_max"
     ] = np.Inf
+=======
+    # Set efficiences of CHP
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+
+>>>>>>> dev
 
     etrago.adjust_network()
     b = time.time()
@@ -495,9 +503,12 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+<<<<<<< HEAD
     b = time.time()
     print(f'Time for spatial_clustering(): {b-a}')
     a = time.time()
+=======
+>>>>>>> dev
 
     etrago.spatial_clustering_gas()
     b = time.time()
@@ -529,9 +540,8 @@ def run_etrago(args, json_path):
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
-    # TODO: check if should be combined with etrago.lopf()
-    # needs to be adjusted for new sectors
-    # etrago.pf_post_lopf()
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors

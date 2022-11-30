@@ -129,7 +129,7 @@ def strategies_links():
         "topo": nan_links,
         "type": nan_links,
         "efficiency": np.mean,
-        "p_nom_min": np.min,
+        "p_nom_min": np.sum,
         "p_set": np.mean,
         "p_min_pu": np.min,
         "p_max_pu": np.max,
@@ -578,7 +578,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     return busmap
 
 
-def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid, cpu_cores):
+def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
       Creates a busmap assigning the nodes of a original network
       to the nodes of a clustered network
@@ -699,7 +699,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(buses, connections, medoid_idx, busmap,
+        busmap = dijkstras_algorithm(buses, connections, medoid_idx,
                                      etrago.args["network_clustering"]["CPU_cores"])
         busmap.index.name = "bus_id"
 

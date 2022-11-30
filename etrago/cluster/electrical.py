@@ -81,16 +81,14 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "H2_ind_load")
-        & (network2.buses["carrier"] != "rural_heat")
-        & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
-        "Li ion": "BEV charger"
+        "Li ion": "BEV charger",
+        "rural_heat": "rural_heat_pump"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -169,10 +167,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
-        | (network.buses["carrier"] == "H2_ind_load")
         | (network.buses["carrier"] == "CH4")
-        | (network.buses["carrier"] == "rural_heat")
-        | (network.buses["carrier"] == "rural_heat_store")
         | (network.buses["carrier"] == "central_heat")
         | (network.buses["carrier"] == "central_heat_store")
     ].index:
@@ -665,7 +660,7 @@ def weighting_for_scenario(network, save=None):
         clustering.
 
     """
-    def calc_capacity_factor(gen):
+    def calc_availability_factor(gen):
         if gen["carrier"] in time_dependent:
             try:
                 cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
@@ -682,21 +677,22 @@ def weighting_for_scenario(network, save=None):
         "wind_onshore",
         "wind_offshore",
     ]
-    #TASK: verify if the values used here are acceptable. Currentely based on
-    #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
     fixed_capacity_fac = {
-        "industrial_biomass_CHP": 0.65,
-        "biomass": 0.65,
-        "central_biomass_CHP": 0.65,
-        "other_non_renewable": 0.49,
-        "run_of_river": 0.49,
-        "reservoir": 0.49,
-        "gas": 0.49,
-        "oil": 0.49,
+        # A value of 1 is given to power plants where its availability
+        #does not depend on the weather
+        "industrial_biomass_CHP": 1,
+        "biomass": 1,
+        "central_biomass_CHP": 1,
+        "other_non_renewable": 1,
+        "run_of_river": 0.50,
+        "reservoir": 1,
+        "gas": 1,
+        "oil": 1,
+        "others": 1,
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()
-    gen["cf"] = gen.apply(calc_capacity_factor, axis=1)
+    gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
     gen = gen.groupby("bus").weight.sum().reindex(
         network.buses.index, fill_value=0.0)
@@ -751,9 +747,10 @@ def run_spatial_clustering(self):
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
 
-
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time= False)
 
         self.network = self.clustering.network.copy()
 
