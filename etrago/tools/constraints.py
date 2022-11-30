@@ -1271,10 +1271,6 @@ def add_ch4_constraints(self, network, snapshots):
         ]
         if not gens.empty:
             factor = arg[c]
-            potential = (
-                network.snapshot_weightings.generators.sum()
-                * network.generators.p_nom[gens].sum()
-            )
 
             def _rule_max(m):
 
@@ -1284,7 +1280,7 @@ def add_ch4_constraints(self, network, snapshots):
                     for sn in snapshots
                 )
 
-                return dispatch <= factor * potential
+                return dispatch <= factor
 
             setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
 
@@ -1300,9 +1296,6 @@ def add_ch4_constraints(self, network, snapshots):
     ]
     for g in gen_abroad.index:
         factor = network.generators.e_nom_max[g]
-        potential = (
-            network.snapshot_weightings.generators.sum() * network.generators.p_nom[g]
-        )
 
         def _rule_max(m):
 
@@ -1311,7 +1304,7 @@ def add_ch4_constraints(self, network, snapshots):
                 for sn in snapshots
             )
 
-            return dispatch <= factor * potential
+            return dispatch <= factor
 
         setattr(network.model, "max_flh_abroad_" + str(g), Constraint(rule=_rule_max))
 
@@ -1360,10 +1353,6 @@ def add_ch4_constraints_nmp(self, network, snapshots):
         ]
         if not gens.empty:
             factor = arg[c]
-            potential = (
-                network.snapshot_weightings.generators.sum()
-                * network.generators.p_nom[gens].sum()
-            )
 
             generation = (
                 get_var(network, "Generator", "p")
@@ -1375,7 +1364,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
                 network,
                 linexpr((1, generation)).sum().sum(),
                 "<=",
-                factor * potential,
+                factor,
                 "Generator",
                 "max_flh_DE_" + c,
             )
@@ -1392,9 +1381,6 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     ]
     for g in gen_abroad.index:
         factor = network.generators.e_nom_max[g]
-        potential = (
-            network.snapshot_weightings.generators.sum() * network.generators.p_nom[g]
-        )
 
         generation = (
             get_var(network, "Generator", "p")
@@ -1406,7 +1392,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             network,
             linexpr((1, generation)).sum(),
             "<=",
-            factor * potential,
+            factor,
             "Generator",
             "max_flh_DE_" + c,
         )
