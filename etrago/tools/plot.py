@@ -1620,14 +1620,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     else:
         line_widths = 0
 
-    title="Links:"
-    for carr in range(len(carrier_links)):
-        if carr < len(carrier_links) - 1:
-            title = title + " " + str(carrier_links[carr]) + ","
-        elif len(carrier_links) != 1:
-            title = title + " and " + str(carrier_links[carr])
-        else:
-            title = title + " " + str(carrier_links[carr])
+    title=""
 
     network.plot(
         geomap=True,
@@ -1646,7 +1639,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
         if key != "AC":
             data_key = mpatches.Patch(color=colors[key], label=f'Link {key}')
         else:
-            data_key = mpatches.Patch(color=line_colors, label=f'Link {key}')
+            data_key = mpatches.Patch(color=line_colors, label=f'Line {key}')
         patchList.append(data_key)
     for key in carrier_buses:
         data_key = mpatches.Patch(color=colors[key], label=f'Bus {key}')
