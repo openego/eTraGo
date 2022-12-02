@@ -81,16 +81,14 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "H2_ind_load")
-        & (network2.buses["carrier"] != "rural_heat")
-        & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
-        "Li ion": "BEV charger"
+        "Li ion": "BEV charger",
+        "rural_heat": "rural_heat_pump"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -169,10 +167,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
-        | (network.buses["carrier"] == "H2_ind_load")
         | (network.buses["carrier"] == "CH4")
-        | (network.buses["carrier"] == "rural_heat")
-        | (network.buses["carrier"] == "rural_heat_store")
         | (network.buses["carrier"] == "central_heat")
         | (network.buses["carrier"] == "central_heat_store")
     ].index:
