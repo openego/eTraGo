@@ -1210,8 +1210,13 @@ def read_max_gas_generation(self):
     """
     scn_name = self.args["scn_name"]
     arg_def = {
-        "eGon2035": {"CH4": 36000000, "biogas": 10000000},
-        "eGon100RE": {"biogas": 14450103},
+        "eGon2035": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        "eGon100RE": {
+            "biogas": 14450103
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
 
     engine = db.connection(section=self.args["db"])
