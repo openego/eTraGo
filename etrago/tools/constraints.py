@@ -1312,7 +1312,11 @@ def add_ch4_constraints(self, network, snapshots):
 
             return dispatch <= factor * (n_snapshots / 8760)
 
-        setattr(network.model, "max_flh_abroad_" + str(g), Constraint(rule=_rule_max))
+        setattr(
+            network.model,
+            "max_flh_abroad_" + str(g).replace(" ", "_"),
+            Constraint(rule=_rule_max),
+        )
 
 
 def add_ch4_constraints_nmp(self, network, snapshots):
@@ -1400,7 +1404,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             "<=",
             factor * (n_snapshots / 8760),
             "Generator",
-            "max_flh_DE_" + c,
+            "max_flh_DE_" + str(g).replace(" ", "_"),
         )
 
 
