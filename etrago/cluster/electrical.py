@@ -773,6 +773,8 @@ def run_spatial_clustering(self):
             self.buses_by_country()
             self.geolocation_buses()
             self.network.generators.control[self.network.generators.control == ""] = "PV"
+            elec_network, weight, n_clusters = preprocessing(self)
+            logger.info("HAC: Pre-aggregation finished")
 
 
         if self.args["network_clustering"]["method"] == "kmeans":
@@ -789,6 +791,21 @@ def run_spatial_clustering(self):
             busmap, medoid_idx = kmedoids_dijkstra_clustering(
                 self, elec_network.buses, elec_network.lines, weight, n_clusters
             )
+
+        elif self.args["network_clustering"]["method"] == "hac":
+
+            logger.info("Start HAC Clustering")
+            
+            busmap = hac_clustering(self, elec_network, n_clusters)
+            medoid_idx = None #put sub_buses here????
+
+        else:
+            msg = (
+                'Please select "kmeans", "kmedoids-dijkstra" or "hac" as '
+                "spatial clustering method for the gas network"
+            )
+            raise ValueError(msg)
+
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)

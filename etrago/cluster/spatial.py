@@ -712,6 +712,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
 
     return busmap, medoid_idx
 
+
 def get_attached_tech(network, components):
     """
     Function gathering all technologies attached to each bus (e. g. 'wind_onshore',
@@ -821,3 +822,83 @@ def get_attached_tech(network, components):
     network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: [float(i) for i in x if (i != '')])
 
     return network, tech
+
+
+def hac_clustering(etrago, selected_network, n_clusters):
+    
+    settings = etrago.args["network_clustering"]
+
+    if not settings["k_busmap"]:
+
+        carrier = selected_network.buses.iloc[0].carrier
+        branch_components = {"Line"} if carrier == "AC" else {"Link"}
+
+        components = {"Generator", "Link", "Load"} # Store, StorageUnit, Line 
+
+        D = tech_eucl(etrago, selected_network, components)
+
+        busmap = busmap_by_hac(
+            selected_network,
+            n_clusters=n_clusters,
+            buses_i=None,
+            branch_components=branch_components,
+            feature=D,
+            affinity="euclidean",
+            linkage="ward",
+        )
+        busmap.to_csv(
+            "hac_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv"
+        )
+        print(f"INFO::: Running Time HAC: {time.time()-a}")
+
+    else:
+        df = pd.read_csv(settings["k_busmap"])
+        df = df.astype(str)
+        df = df.set_index("Bus")
+        busmap = df.squeeze("columns")
+
+    etrago.update_busmap(busmap)
+    
+    return busmap
+
+def tech_eucl(network, selected_network, components):
+
+    network = network.copy(with_time=True)
+    
+    bus_indeces = network.buses.index
+    network.lines = network.lines.loc[
+        (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
+    ]
+    network.links = network.links.loc[
+        (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
+    ]
+
+    # TODO: do this only for the selected network
+    network, tech = get_attached_tech(network, components)
+
+    # Convert attached technologies to array containing all p/e/s - _nom values and
+    # add as new column to network.buses
+    network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x).astype(float))
+    for _, df in network.buses.iterrows():
+        np.put(df.tech_p, df.tech_p.nonzero(), df.key_indicator)
+        
+    ## hier nach die attached techs an ward kriterium an HAC weitergeben
+    network.buses["tech_p"] = network.buses.tech_p.apply(lambda x: x.tolist())
+
+    # if carrier == "AC":
+    #     if settings["cluster_foreign_AC"] == False:
+    #         rel_buses = network.buses.loc[
+    #             (network.buses.carrier == carrier) & (network.buses.country == "DE")
+    #         ]
+    #     else:
+    #         rel_buses = network.buses.loc[network.buses.carrier == carrier]
+    #     #rel_buses = rel_buses.loc[~rel_buses.index.isin(['32462','32463'])]
+    # else:
+    #     if settings["cluster_foreign_gas"] == False:
+    #         rel_buses = network.buses.loc[
+    #             (network.buses.carrier == carrier) & (network.buses.country == "DE")
+    #         ]
+    #     else:
+    #         rel_buses = network.buses.loc[network.buses.carrier == carrier]
+
+    return np.stack(network.buses.loc[selected_network.buses.index].tech_p.values)
