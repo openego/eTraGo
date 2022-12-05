@@ -87,11 +87,11 @@ def _get_crossborder_components(network, cntr="all"):
 
     cb0_link = network.links.index[
         (network.links.bus0.isin(buses_for)) & (network.links.bus1.isin(buses_de))
-    ]
+    & (network.links.carrier=='DC')]
 
     cb1_link = network.links.index[
         (network.links.bus0.isin(buses_de)) & (network.links.bus1.isin(buses_for))
-    ]
+    & (network.links.carrier=='DC')]
 
     return buses_de, buses_for, cb0, cb1, cb0_link, cb1_link
 
@@ -123,10 +123,10 @@ def _max_line_ext(self, network, snapshots):
     def _rule(m):
 
         lines_opt = sum(
-            m.passive_branch_s_nom[index] for index in links_index
+            m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
         )
 
-        links_opt = sum(m.link_p_nom[index] for index in m.link_p_nom_index)
+        links_opt = sum(m.link_p_nom[index] for index in links_index)
 
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
             "extra_functionality"
@@ -235,7 +235,10 @@ def _min_renewable_share(self, network, snapshots):
 
     """
 
-    renewables = ["wind_onshore", "wind_offshore", "biomass", "solar", "run_of_river"]
+    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
+                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
+                  'run_of_river', 'other_renewable',
+                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
 
     res = list(network.generators.index[network.generators.carrier.isin(renewables)])
 
@@ -265,10 +268,9 @@ def _min_renewable_share(self, network, snapshots):
 
 def _cross_border_flow(self, network, snapshots):
     """
-    Extra_functionality that limits overall crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal percent of
-    im- and exports as a fraction of loads in Germany.
-    Example: {'cross_border_flow': [-0.1, 0.1]}
+    Extra_functionality that limits overall AC crossborder flows from/to Germany.
+    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -286,11 +288,6 @@ def _cross_border_flow(self, network, snapshots):
 
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     def _rule_min(m):
@@ -350,9 +347,8 @@ def _cross_border_flow(self, network, snapshots):
 def _cross_border_flow_nmp(self, network, snapshots):
     """
     Extra_functionality that limits overall crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal percent of
-    im- and exports as a fraction of loads in Germany.
-    Example: {'cross_border_flow': [-0.1, 0.1]}
+    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -370,11 +366,6 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     cb0_flow = (
@@ -414,12 +405,11 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
 def _cross_border_flow_per_country_nmp(self, network, snapshots):
     """
-    Extra_functionality that limits crossborder flows for each given
+    Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports as
-    a fraction of load in Germany.
-    Example: {'cross_border_flow_per_country': {'DK':[-0.05, 0.1], 'FR':[0,0]}}
+    define dictionary of country keys and desired limitations of im/exports in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -439,11 +429,6 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     for cntr in export_per_country.index:
@@ -508,12 +493,11 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
 def _cross_border_flow_per_country(self, network, snapshots):
     """
-    Extra_functionality that limits crossborder flows for each given
+    Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports as
-    a fraction of load in Germany.
-    Example: {'cross_border_flow_per_country': {'DK':[-0.05, 0.1], 'FR':[0,0]}}
+    define dictionary of country keys and desired limitations of im/exports in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -533,11 +517,6 @@ def _cross_border_flow_per_country(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     for cntr in export_per_country.index:
@@ -576,13 +555,12 @@ def _cross_border_flow_per_country(self, network, snapshots):
                         for sn in snapshots
                     )
                 )
-
                 return cb_flow >= export_per_country[0][cntr]
 
             setattr(
                 network.model,
-                "min_cross_border" + cntr,
-                Constraint(cntr, rule=_rule_min),
+                "min_cross_border-" + cntr,
+                Constraint(rule=_rule_min),
             )
 
             def _rule_max(m):
@@ -614,8 +592,8 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
             setattr(
                 network.model,
-                "max_cross_border" + cntr,
-                Constraint(cntr, rule=_rule_max),
+                "max_cross_border-" + cntr,
+                Constraint(rule=_rule_max),
             )
 
 
