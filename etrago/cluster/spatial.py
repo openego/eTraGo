@@ -711,3 +711,113 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         # this method lacks the medoid_idx!
 
     return busmap, medoid_idx
+
+def get_attached_tech(network, components):
+    """
+    Function gathering all technologies attached to each bus (e. g. 'wind_onshore',
+    'industrial_gas_CHP') and adding them as a new column in network.buses.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    components : set of strings
+        Contains all network components from where attached technologies
+        are gathered.
+
+    Returns
+    -------
+    network : pypsa.Network object
+        Object with two additional columns in network.buses containing the attached
+        technologies for each bus and the respective key_indicator (e. g. p_nom or s_nom)
+    """
+    # Get all potential attached technologies
+    tech = []
+    for c in network.iterate_components(components):
+        tech.extend(c.name + "_" + c.df.carrier.unique())
+
+    network.buses["tech"] = ""
+    network.buses["key_indicator"] = ""
+    # component-wise search for attached technologies
+    for i in network.iterate_components(components):
+        if i.name == "Link":
+            a = i.df.set_index("bus0")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join(i.name + "_" + x)
+            )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
+            a = i.df.set_index("bus1")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
+        elif i.name == "Line":  
+            a = i.df.set_index("bus0")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).s_nom.apply(lambda x: sum(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+
+            a = i.df.set_index("bus1")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            c_ = a.groupby(a.index).s_nom.apply(lambda x: sum(list(x)))
+            b_ = b_.combine(c_, np.add, fill_value=0).apply(str)
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_ + ","
+
+        elif i.name == "Load":
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            network.buses.tech.loc[a_.index] += a_ + ","
+
+            b = i.df
+            b['total_load'] = network.loads_t.p_set.transpose().sum(axis=1)
+            b_ = b.groupby(b.bus).total_load.apply(lambda x: str(list(x)))
+            network.buses.key_indicator.loc[b_.index] += b_
+
+        elif (i.name == "Store"):
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).e_nom.apply(lambda x: str(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
+        else:
+            a = i.df.set_index("bus")
+            a_ = a.groupby(a.index).carrier.apply(
+                lambda x: ",".join((i.name + "_" + x))
+            )
+            b_ = a.groupby(a.index).p_nom.apply(lambda x: str(list(x)))
+
+            network.buses.tech.loc[a_.index] += a_ + ","
+            network.buses.key_indicator.loc[b_.index] += b_
+
+    # remove trailing commas and transfrom from a single string to list containg unique values
+    network.buses.tech = (
+        network.buses.tech.str.rstrip(",").str.split(",").apply(pd.unique)
+    )
+
+    # remove all string related cluttering and cast to float values
+    network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: x.replace('[','').replace(']',',').replace(' ','')[:-1])
+    network.buses.key_indicator = network.buses.key_indicator.str.split(",")
+    network.buses.key_indicator = network.buses.key_indicator.apply(lambda x: [float(i) for i in x if (i != '')])
+
+    return network, tech

@@ -36,6 +36,7 @@ if "READTHEDOCS" not in os.environ:
         aggregateoneport,
         get_clustering_from_busmap,
     )
+    from pypsa.geo import haversine
     from six import iteritems
 
     from etrago.cluster.spatial import (
@@ -47,6 +48,8 @@ if "READTHEDOCS" not in os.environ:
         strategies_one_ports,
     )
     from etrago.tools.utilities import *
+
+    from etrago.cluster.spatial import get_attached_tech
 
     logger = logging.getLogger(__name__)
 
@@ -728,6 +731,49 @@ def run_spatial_clustering(self):
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters = preprocessing(self)
+
+        if self.args["network_clustering"]["method"] == "hac":
+            
+            logger.info("HAC: Starting Pre-aggregation")
+
+            network = self.network.copy(with_time=False)
+            components = {"Generator", "Link", "Load"}
+            network, tech = get_attached_tech(network, components)
+
+            # -> filter nodes with no attached tech
+            network.buses['a']=network.buses.key_indicator.apply(sum)
+            network.buses['a']=network.buses.a.apply(lambda x: False if x==0 else True)
+
+            sub_buses = network.buses.loc[(network.buses.a) & (self.network.buses.index.isin(elec_network.buses.index))]
+            con_buses = network.buses.loc[(~network.buses.a) & (self.network.buses.index.isin(elec_network.buses.index))]
+
+            a = np.ones((len(sub_buses), 2))
+            b = np.ones((len(con_buses), 2))
+            a[:, 0] = sub_buses.x.values
+            a[:, 1] = sub_buses.y.values
+            b[:, 0] = con_buses.x.values
+            b[:, 1] = con_buses.y.values
+            D_spatial = haversine(b, a)
+
+            busmap = pd.Series(network.buses.loc[(network.buses.a) & (self.network.buses.carrier == 'AC')].iloc[np.argmin(D_spatial, axis = 1)].index, index =  network.buses.loc[(~network.buses.a) & (self.network.buses.carrier == 'AC')].index)
+            # non_ac_busmap = pd.Series(network.buses.loc[network.buses.carrier != 'AC'].index, index = network.buses.loc[network.buses.carrier != 'AC'].index)
+            # busmap = pd.concat([busmap, non_ac_busmap])
+            busmap = pd.concat([busmap, pd.Series(sub_buses.index, index = sub_buses.index)])
+
+            medoid_idx = None # set these to sub_buses???
+            self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
+            self.update_busmap(busmap)
+
+            if self.args["disaggregation"] != None:
+                self.disaggregated_network = self.network.copy()
+            else:
+                self.disaggregated_network = self.network.copy(with_time= False)
+
+            self.network = self.clustering.network.copy()
+            self.buses_by_country()
+            self.geolocation_buses()
+            self.network.generators.control[self.network.generators.control == ""] = "PV"
+
 
         if self.args["network_clustering"]["method"] == "kmeans":
 
