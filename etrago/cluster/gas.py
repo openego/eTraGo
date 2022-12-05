@@ -732,7 +732,6 @@ def get_clustering_from_busmap(
     one_port_components = ["Generator", "Load", "Store"]
 
     for one_port in one_port_components:
-        one_port_components.remove(one_port)
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
