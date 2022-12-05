@@ -251,39 +251,26 @@ def extendable(self, grid_max_D= None,
                     'extendable_hydrogen_storage'
 
     if 'foreign_storage' in extendable_settings["extendable_components"]:
-        network.storage_units.p_nom_extendable[(network.storage_units.bus.isin(
+        
+        foreign_battery = network.storage_units[(network.storage_units.bus.isin(
             network.buses.index[network.buses.country != 'DE'])) & (
-                network.storage_units.carrier.isin(
-                    ['battery_storage', 'hydrogen_storage']))] = True
+                network.storage_units.carrier == 'battery')].index
+                
+        de_battery = network.storage_units[(network.storage_units.bus.isin(
+            network.buses.index[network.buses.country == 'DE'])) & (
+                network.storage_units.carrier == 'battery')].index
+        
+        network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
+
+        network.storage_units.loc[foreign_battery, 'p_nom_max'] = \
+                network.storage_units.loc[foreign_battery, 'p_nom']
+
+        network.storage_units.loc[foreign_battery,
+            "capital_cost"] = network.storage_units.loc[de_battery, 'capital_cost'].max()
 
         network.storage_units.loc[
-            network.storage_units.p_nom_max.isnull(), 'p_nom_max'] = \
-                network.storage_units.p_nom
-
-        network.storage_units.loc[
-            (network.storage_units.carrier == 'battery_storage'),
-            'capital_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_battery_storage')
-                & (network.storage_units.max_hours == 6), 'capital_cost'].max()
-
-        network.storage_units.loc[
-            (network.storage_units.carrier == 'hydrogen_storage'),
-            'capital_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_hydrogen_storage') &
-                (network.storage_units.max_hours == 168), 'capital_cost'].max()
-
-        network.storage_units.loc[
-            (network.storage_units.carrier == 'battery_storage'),
-            'marginal_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_battery_storage')
-                & (network.storage_units.max_hours == 6), 'marginal_cost'].max()
-
-        network.storage_units.loc[
-            (network.storage_units.carrier == 'hydrogen_storage'),
-            'marginal_cost'] = network.storage_units.loc[
-                (network.storage_units.carrier == 'extendable_hydrogen_storage') &
-                (network.storage_units.max_hours == 168), 'marginal_cost'].max()
-
+            foreign_battery,
+            'marginal_cost'] = network.storage_units.loc[de_battery, 'marginal_cost'].max()
 
     # Extension settings for extension-NEP 2035 scenarios
     if 'overlay_network' in extendable_settings["extendable_components"]:
