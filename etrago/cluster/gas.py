@@ -367,6 +367,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
 
     # Insert components not related to the gas clustering
     io.import_components_from_dataframe(network_gasgrid_c, etrago.network.lines, "Line")
+    io.import_series_from_dataframe(
+        network_gasgrid_c,
+        etrago.network.lines_t.s_max_pu,
+        "Line",
+        "s_max_pu")
+    
     io.import_components_from_dataframe(
         network_gasgrid_c, etrago.network.storage_units, "StorageUnit"
     )
