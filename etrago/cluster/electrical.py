@@ -44,6 +44,7 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
+        hac_clustering,
         strategies_generators,
         strategies_one_ports,
     )

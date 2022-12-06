@@ -37,6 +37,7 @@ if "READTHEDOCS" not in os.environ:
         _flatten_multiindex,
         busmap_by_kmeans,
         busmap_by_stubs,
+        busmap_by_hac,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
@@ -834,8 +835,14 @@ def hac_clustering(etrago, selected_network, n_clusters):
         branch_components = {"Line"} if carrier == "AC" else {"Link"}
 
         components = {"Generator", "Link", "Load"} # Store, StorageUnit, Line 
+        selected_network.buses = selected_network.buses.loc[(selected_network.buses.index.isin(selected_network.links.bus0)) | (selected_network.buses.index.isin(selected_network.links.bus1))]
 
         D = tech_eucl(etrago, selected_network, components)
+
+        bus_indeces = selected_network.buses.index
+        selected_network.lines = selected_network.lines.loc[
+            (selected_network.lines.bus0.isin(bus_indeces)) & (selected_network.lines.bus1.isin(bus_indeces))
+            ]
 
         busmap = busmap_by_hac(
             selected_network,
@@ -849,8 +856,7 @@ def hac_clustering(etrago, selected_network, n_clusters):
         busmap.to_csv(
             "hac_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv"
         )
-        print(f"INFO::: Running Time HAC: {time.time()-a}")
-
+        
     else:
         df = pd.read_csv(settings["k_busmap"])
         df = df.astype(str)
@@ -861,10 +867,10 @@ def hac_clustering(etrago, selected_network, n_clusters):
     
     return busmap
 
-def tech_eucl(network, selected_network, components):
+def tech_eucl(etrago, selected_network, components):
 
-    network = network.copy(with_time=True)
-    
+    network = etrago.network.copy(with_time=True)
+
     bus_indeces = network.buses.index
     network.lines = network.lines.loc[
         (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
@@ -881,24 +887,13 @@ def tech_eucl(network, selected_network, components):
     network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x).astype(float))
     for _, df in network.buses.iterrows():
         np.put(df.tech_p, df.tech_p.nonzero(), df.key_indicator)
-        
-    ## hier nach die attached techs an ward kriterium an HAC weitergeben
+
     network.buses["tech_p"] = network.buses.tech_p.apply(lambda x: x.tolist())
 
-    # if carrier == "AC":
-    #     if settings["cluster_foreign_AC"] == False:
-    #         rel_buses = network.buses.loc[
-    #             (network.buses.carrier == carrier) & (network.buses.country == "DE")
-    #         ]
-    #     else:
-    #         rel_buses = network.buses.loc[network.buses.carrier == carrier]
-    #     #rel_buses = rel_buses.loc[~rel_buses.index.isin(['32462','32463'])]
-    # else:
-    #     if settings["cluster_foreign_gas"] == False:
-    #         rel_buses = network.buses.loc[
-    #             (network.buses.carrier == carrier) & (network.buses.country == "DE")
-    #         ]
-    #     else:
-    #         rel_buses = network.buses.loc[network.buses.carrier == carrier]
+    # normalize 
+    normalized = [i for i in network.buses.tech_p.values]
+    normalized = np.nan_to_num(normalized/np.max(normalized, axis = 0)).tolist()
+    normalized = pd.Series(normalized, index = network.buses.index)
+    network.buses.loc[normalized.index, 'tech_p'] = normalized
 
     return np.stack(network.buses.loc[selected_network.buses.index].tech_p.values)
