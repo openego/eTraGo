@@ -745,19 +745,6 @@ def get_clustering_from_busmap(
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_gasgrid_c, df, one_port, attr)
 
-    for c in network.iterate_components(one_port_components):
-        io.import_components_from_dataframe(
-            network_gasgrid_c,
-            c.df.assign(bus=c.df.bus.map(busmap)).dropna(subset=["bus"]),
-            c.name,
-        )
-
-    if with_time:
-        for c in network.iterate_components(one_port_components):
-            for attr, df in iteritems(c.pnl):
-                if not df.empty:
-                    io.import_series_from_dataframe(network_gasgrid_c, df, c.name, attr)
-
     # Aggregate links
     new_links = (
         network.links.assign(
