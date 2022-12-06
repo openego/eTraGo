@@ -119,7 +119,7 @@ args = {
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6, # affects clustering algorithm, only change when neccesary
         "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
-    },  
+    },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
@@ -304,21 +304,13 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
-                for all countries
-                (positiv: export from Germany)
+                Limit AC cross-border-flows between Germany and its neigbouring
+                countries, set values in MWh for all snapshots, e.g. [-x, y]
+                (with x Import, y Export, positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
-                for each country
-                (positiv: export from Germany)
-            'max_curtailment_per_gen': float
-                Limit curtailment of all wind and solar generators in Germany,
-                values set in p.u. of generation potential.
-            'max_curtailment_per_gen': float
-                Limit curtailment of each wind and solar generator in Germany,
-                values set in p.u. of generation potential.
+                Limit AC cross-border-flows between Germany and its neigbouring
+                countries, set values in in MWh for each country, e.g. [-x, y]
+                (with x Import, y Export, positiv: export from Germany)
             'capacity_factor': dict of arrays
                 Limit overall energy production for each carrier,
                 set upper/lower limit in p.u.

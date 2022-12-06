@@ -787,8 +787,6 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             factor = arg[cntr][c]
             gens, potential = _generation_potential(network, c, cntr)
 
-            import pdb; pdb.set_trace()
-
             if len(gens) > 0:
 
                 def _rule_max(m):
