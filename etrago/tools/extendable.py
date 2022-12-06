@@ -326,6 +326,10 @@ def extendable(
         ] = network.storage_units.loc[foreign_battery, "p_nom"]
 
         network.storage_units.loc[
+            foreign_battery, "p_nom"
+        ] = network.storage_units.loc[foreign_battery, "p_nom_min"]
+
+        network.storage_units.loc[
             foreign_battery, "capital_cost"
         ] = network.storage_units.loc[de_battery, "capital_cost"].max()
 
