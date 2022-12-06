@@ -22,12 +22,14 @@
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
-from pyomo.environ import Constraint
+
+import numpy as np
 import pandas as pd
 import pyomo.environ as po
-import numpy as np
-from pypsa.linopt import get_var, linexpr, define_constraints, define_variables
+from egoio.tools import db
+from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
+from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
 from pypsa.pf import get_switchable_as_dense as get_as_dense
 
 logger = logging.getLogger(__name__)
@@ -194,7 +196,9 @@ def _min_renewable_share_nmp(self, network, snapshots):
         .loc[network.snapshots, res]
         .mul(network.snapshot_weightings.generators, axis=0)
     )
-    total = get_var(network, "Generator", "p").mul(network.snapshot_weightings.generators, axis=0)
+    total = get_var(network, "Generator", "p").mul(
+        network.snapshot_weightings.generators, axis=0
+    )
 
     renew_production = linexpr((1, renew)).sum().sum()
     total_production = (
@@ -288,12 +292,14 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_min(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
@@ -313,12 +319,14 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_max(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
@@ -658,7 +666,8 @@ def _generation_potential(network, carrier, cntr="all"):
         )
     else:
         potential = (
-            network.snapshot_weightings.generators.sum() * network.generators.p_nom[gens].sum()
+            network.snapshot_weightings.generators.sum()
+            * network.generators.p_nom[gens].sum()
         )
     return gens, potential
 
@@ -1076,7 +1085,8 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                 def _rule_max(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[g, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -1091,7 +1101,8 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                 def _rule_min(m):
 
                     dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[g, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for sn in snapshots
                     )
 
@@ -1181,6 +1192,220 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                     "Generator",
                     "max_flh_" + g,
                 )
+
+
+def read_max_gas_generation(self):
+    """Return the values limiting the gas production in Germany
+
+    Read max_gas_generation_overtheyear from
+    scenario.egon_scenario_parameters if the table is available in the
+    database and return the dictionnary containing the values needed
+    for the constraints to limit the gas production in Germany,
+    depending of the scenario.
+
+    Returns
+    -------
+    arg: dict
+
+    """
+    scn_name = self.args["scn_name"]
+    arg_def = {
+        "eGon2035": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        "eGon100RE": {
+            "biogas": 14450103
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
+    }
+
+    engine = db.connection(section=self.args["db"])
+    try:
+        sql = f"""
+        SELECT gas_parameters
+        FROM scenario.egon_scenario_parameters
+        WHERE name = '{scn_name}';"""
+        df = pd.read_sql(sql, engine)
+        arg = df["max_gas_generation_overtheyear"]
+    except:
+        arg = arg_def[scn_name]
+
+    return arg
+
+
+def add_ch4_constraints(self, network, snapshots):
+    """
+    Add CH4 constraints for optimization with pyomo
+
+    Functionality that limits the dispatch of CH4 generators. In
+    Germany, there is one limitation specific for biogas and one
+    limitation specific for natural gas (natural gas only in eGon2035).
+    Abroad, each generator has its own limitation contains in the
+    column e_nom_max.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
+
+    # Add constraint for Germany
+    arg = read_max_gas_generation(self)
+    gas_carrier = arg.keys()
+
+    carrier_names = {
+        "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon100RE": {"biogas": "CH4"},
+    }
+
+    for c in gas_carrier:
+        gens = network.generators.index[
+            (network.generators.carrier == carrier_names[scn_name][c])
+            & (
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+        if not gens.empty:
+            factor = arg[c]
+
+            def _rule_max(m):
+
+                dispatch = sum(
+                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                    for gen in gens
+                    for sn in snapshots
+                )
+
+                return dispatch <= factor * (n_snapshots / 8760)
+
+            setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
+
+    # Add contraints for neigbouring countries
+    gen_abroad = network.generators[
+        (network.generators.carrier == "CH4")
+        & (
+            network.generators.bus.astype(str).isin(
+                network.buses.index[network.buses.country != "DE"]
+            )
+        )
+        & (network.generators.e_nom_max != np.inf)
+    ]
+    for g in gen_abroad.index:
+        factor = network.generators.e_nom_max[g]
+
+        def _rule_max(m):
+
+            dispatch = sum(
+                m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                for sn in snapshots
+            )
+
+            return dispatch <= factor * (n_snapshots / 8760)
+
+        setattr(
+            network.model,
+            "max_flh_abroad_" + str(g).replace(" ", "_"),
+            Constraint(rule=_rule_max),
+        )
+
+
+def add_ch4_constraints_nmp(self, network, snapshots):
+    """
+    Add CH4 constraints for optimization without pyomo
+
+    Functionality that limits the dispatch of CH4 generators. In
+    Germany, there is one limitation specific for biogas and one
+    limitation specific for natural gas (natural gas only in eGon2035).
+    Abroad, each generator has its own limitation contains in the
+    column e_nom_max.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
+
+    # Add constraint for Germany
+    arg = read_max_gas_generation(self)
+    gas_carrier = arg.keys()
+
+    carrier_names = {
+        "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon100RE": {"biogas": "CH4"},
+    }
+
+    for c in gas_carrier:
+        gens = network.generators.index[
+            (network.generators.carrier == carrier_names[scn_name][c])
+            & (
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+        if not gens.empty:
+            factor = arg[c]
+
+            generation = (
+                get_var(network, "Generator", "p")
+                .loc[snapshots, gens]
+                .mul(network.snapshot_weightings.generators, axis=0)
+            )
+
+            define_constraints(
+                network,
+                linexpr((1, generation)).sum().sum(),
+                "<=",
+                factor * (n_snapshots / 8760),
+                "Generator",
+                "max_flh_DE_" + c,
+            )
+
+    # Add contraints for neigbouring countries
+    gen_abroad = network.generators[
+        (network.generators.carrier == "CH4")
+        & (
+            network.generators.bus.astype(str).isin(
+                network.buses.index[network.buses.country != "DE"]
+            )
+        )
+        & (network.generators.e_nom_max != np.inf)
+    ]
+    for g in gen_abroad.index:
+        factor = network.generators.e_nom_max[g]
+
+        generation = (
+            get_var(network, "Generator", "p")
+            .loc[snapshots, g]
+            .mul(network.snapshot_weightings.generators, axis=0)
+        )
+
+        define_constraints(
+            network,
+            linexpr((1, generation)).sum(),
+            "<=",
+            factor * (n_snapshots / 8760),
+            "Generator",
+            "max_flh_DE_" + str(g).replace(" ", "_"),
+        )
 
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
@@ -2161,8 +2386,10 @@ class Constraints:
         """
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
+            add_ch4_constraints(self, network, snapshots)
         else:
             add_chp_constraints_nmp(network)
+            add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
