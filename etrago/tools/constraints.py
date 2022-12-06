@@ -154,7 +154,11 @@ def _max_line_ext_nmp(self, network, snapshots):
     """
 
     lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
+
+    links_elec = network.links[network.links.carrier=='DC']
+    links_index = links_elec.index
+    links_pnom = links_elec.p_nom_min.sum()
+
     get_var(network, "Line", "s_nom")
 
     def _rule(m):
@@ -162,7 +166,7 @@ def _max_line_ext_nmp(self, network, snapshots):
             m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
         )
 
-        links_opt = sum(m.link_p_nom[index] for index in m.link_p_nom_index)
+        links_opt = sum(m.link_p_nom[index] for index in links_index)
 
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
             "extra_functionality"
@@ -783,33 +787,40 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             factor = arg[cntr][c]
             gens, potential = _generation_potential(network, c, cntr)
 
-            def _rule_max(m):
+            import pdb; pdb.set_trace()
 
-                dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
-                    for gen in gens
-                    for sn in snapshots
+            if len(gens) > 0:
+
+                def _rule_max(m):
+
+                    dispatch = sum(
+                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        for gen in gens
+                        for sn in snapshots
+                    )
+
+                    return dispatch <= factor[1] * potential
+
+                setattr(
+                    network.model, "max_flh_" + cntr + "_" + c, Constraint(rule=_rule_max)
                 )
 
-                return dispatch <= factor[1] * potential
+                def _rule_min(m):
 
-            setattr(
-                network.model, "max_flh_" + cntr + "_" + c, Constraint(rule=_rule_max)
-            )
+                    dispatch = sum(
+                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        for gen in gens
+                        for sn in snapshots
+                    )
 
-            def _rule_min(m):
+                    return dispatch >= factor[0] * potential
 
-                dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
-                    for gen in gens
-                    for sn in snapshots
+                setattr(
+                    network.model, "min_flh_" + cntr + "_" + c, Constraint(rule=_rule_min)
                 )
 
-                return dispatch >= factor[0] * potential
-
-            setattr(
-                network.model, "min_flh_" + cntr + "_" + c, Constraint(rule=_rule_min)
-            )
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_cntr_nmp(self, network, snapshots):
@@ -841,28 +852,33 @@ def _capacity_factor_per_cntr_nmp(self, network, snapshots):
         for c in carrier:
             gens, potential = _generation_potential(network, c, cntr)
 
-            generation = (
-                get_var(network, "Generator", "p")
-                .loc[snapshots, gens]
-                .mul(network.snapshot_weightings.generators, axis=0)
-            )
+            if len(gens) > 0:
 
-            define_constraints(
-                network,
-                linexpr((1, generation)).sum().sum(),
-                ">=",
-                arg[cntr][c][0] * potential,
-                "Generator",
-                "min_flh_" + c + "_" + cntr,
-            )
-            define_constraints(
-                network,
-                linexpr((1, generation)).sum().sum(),
-                "<=",
-                arg[cntr][c][1] * potential,
-                "Generator",
-                "max_flh_" + c + "_" + cntr,
-            )
+                generation = (
+                    get_var(network, "Generator", "p")
+                    .loc[snapshots, gens]
+                    .mul(network.snapshot_weightings.generators, axis=0)
+                )
+
+                define_constraints(
+                    network,
+                    linexpr((1, generation)).sum().sum(),
+                    ">=",
+                    arg[cntr][c][0] * potential,
+                    "Generator",
+                    "min_flh_" + c + "_" + cntr,
+                )
+                define_constraints(
+                    network,
+                    linexpr((1, generation)).sum().sum(),
+                    "<=",
+                    arg[cntr][c][1] * potential,
+                    "Generator",
+                    "max_flh_" + c + "_" + cntr,
+                )
+
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_gen(self, network, snapshots):
@@ -920,7 +936,7 @@ def _capacity_factor_per_gen(self, network, snapshots):
 
                 return dispatch <= factor[1] * potential
 
-            setattr(network.model, "max_flh_" + g, Constraint(gens, rule=_rule_max))
+            setattr(network.model, "max_flh_" + g, Constraint(rule=_rule_max))
 
             def _rule_min(m):
 
@@ -931,7 +947,7 @@ def _capacity_factor_per_gen(self, network, snapshots):
 
                 return dispatch >= factor[0] * potential
 
-            setattr(network.model, "min_flh_" + g, Constraint(gens, rule=_rule_min))
+            setattr(network.model, "min_flh_" + g, Constraint(rule=_rule_min))
 
 
 def _capacity_factor_per_gen_nmp(self, network, snapshots):
@@ -1041,53 +1057,59 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     )
                 )
             ]
-            for g in gens:
-                if c in ["wind_onshore", "wind_offshore", "solar"]:
-                    potential = (
-                        (
-                            network.generators.p_nom[g]
-                            * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings.generators, axis=0
+
+            if len(gens) > 0:
+
+                for g in gens:
+                    if c in ["wind_onshore", "wind_offshore", "solar"]:
+                        potential = (
+                            (
+                                network.generators.p_nom[g]
+                                * network.generators_t.p_max_pu[g].mul(
+                                    network.snapshot_weightings.generators, axis=0
+                                )
                             )
+                            .sum()
+                            .sum()
                         )
-                        .sum()
-                        .sum()
-                    )
-                else:
-                    potential = (
-                        network.snapshot_weightings.generators.sum()
-                        * network.generators.p_nom[g].sum()
-                    )
+                    else:
+                        potential = (
+                            network.snapshot_weightings.generators.sum()
+                            * network.generators.p_nom[g].sum()
+                        )
 
-                def _rule_max(m):
+                    def _rule_max(m):
 
-                    dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
-                        for sn in snapshots
-                    )
+                        dispatch = sum(
+                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            for sn in snapshots
+                        )
 
-                    return dispatch <= factor[1] * potential
+                        return dispatch <= factor[1] * potential
 
-                setattr(
-                    network.model,
-                    "max_flh_" + cntr + "_" + g,
-                    Constraint(gens, rule=_rule_max),
-                )
-
-                def _rule_min(m):
-
-                    dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
-                        for sn in snapshots
+                    setattr(
+                        network.model,
+                        "max_flh_" + cntr + "_" + g,
+                        Constraint(rule=_rule_max),
                     )
 
-                    return dispatch >= factor[0] * potential
+                    def _rule_min(m):
 
-                setattr(
-                    network.model,
-                    "min_flh_" + cntr + "_" + g,
-                    Constraint(rule=_rule_min),
-                )
+                        dispatch = sum(
+                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            for sn in snapshots
+                        )
+
+                        return dispatch >= factor[0] * potential
+
+                    setattr(
+                        network.model,
+                        "min_flh_" + cntr + "_" + g,
+                        Constraint(rule=_rule_min),
+                    )
+
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
@@ -1127,46 +1149,52 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                     )
                 )
             ]
-            for g in gens:
-                if c in ["wind_onshore", "wind_offshore", "solar"]:
-                    potential = (
-                        (
-                            network.generators.p_nom[g]
-                            * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings.generators, axis=0
+
+            if len(gens) > 0:
+
+                for g in gens:
+                    if c in ["wind_onshore", "wind_offshore", "solar"]:
+                        potential = (
+                            (
+                                network.generators.p_nom[g]
+                                * network.generators_t.p_max_pu[g].mul(
+                                    network.snapshot_weightings.generators, axis=0
+                                )
                             )
+                            .sum()
+                            .sum()
                         )
-                        .sum()
-                        .sum()
-                    )
-                else:
-                    potential = (
-                        network.snapshot_weightings.generators.sum()
-                        * network.generators.p_nom[g].sum()
+                    else:
+                        potential = (
+                            network.snapshot_weightings.generators.sum()
+                            * network.generators.p_nom[g].sum()
+                        )
+
+                    generation = (
+                        get_var(network, "Generator", "p")
+                        .loc[snapshots, g]
+                        .mul(network.snapshot_weightings.generators, axis=0)
                     )
 
-                generation = (
-                    get_var(network, "Generator", "p")
-                    .loc[snapshots, g]
-                    .mul(network.snapshot_weightings.generators, axis=0)
-                )
+                    define_constraints(
+                        network,
+                        linexpr((1, generation)).sum(),
+                        ">=",
+                        arg[cntr][c][0] * potential,
+                        "Generator",
+                        "min_flh_" + g,
+                    )
+                    define_constraints(
+                        network,
+                        linexpr((1, generation)).sum(),
+                        "<=",
+                        arg[cntr][c][1] * potential,
+                        "Generator",
+                        "max_flh_" + g,
+                    )
 
-                define_constraints(
-                    network,
-                    linexpr((1, generation)).sum(),
-                    ">=",
-                    arg[cntr][c][0] * potential,
-                    "Generator",
-                    "min_flh_" + g,
-                )
-                define_constraints(
-                    network,
-                    linexpr((1, generation)).sum(),
-                    "<=",
-                    arg[cntr][c][1] * potential,
-                    "Generator",
-                    "max_flh_" + g,
-                )
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
