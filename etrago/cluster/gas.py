@@ -360,10 +360,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
             ].sum()
             # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
             network_gasgrid_c.links.loc[
-                (network_gasgrid_c.links["bus1"].values == bus) &
-                (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
-                "p_nom"
-            ] = (nodal_capacity * H2_energy_share)
+                (network_gasgrid_c.links["bus1"].values == bus)
+                & (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
+                "p_nom",
+            ] = (
+                nodal_capacity * H2_energy_share
+            )
 
     # Insert components not related to the gas clustering
     io.import_components_from_dataframe(network_gasgrid_c, etrago.network.lines, "Line")
@@ -732,7 +734,6 @@ def get_clustering_from_busmap(
     one_port_components = ["Generator", "Load", "Store"]
 
     for one_port in one_port_components:
-        one_port_components.remove(one_port)
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
@@ -743,19 +744,6 @@ def get_clustering_from_busmap(
         io.import_components_from_dataframe(network_gasgrid_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_gasgrid_c, df, one_port, attr)
-
-    for c in network.iterate_components(one_port_components):
-        io.import_components_from_dataframe(
-            network_gasgrid_c,
-            c.df.assign(bus=c.df.bus.map(busmap)).dropna(subset=["bus"]),
-            c.name,
-        )
-
-    if with_time:
-        for c in network.iterate_components(one_port_components):
-            for attr, df in iteritems(c.pnl):
-                if not df.empty:
-                    io.import_series_from_dataframe(network_gasgrid_c, df, c.name, attr)
 
     # Aggregate links
     new_links = (
