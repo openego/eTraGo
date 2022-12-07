@@ -28,6 +28,8 @@ import math
 import os
 import time
 from importlib import import_module
+from collections.abc import Mapping
+from copy import deepcopy
 
 import geopandas as gpd
 import numpy as np
@@ -1591,7 +1593,22 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-            self.args = json.load(f)
+            args_ = json.load(f)
+            self.args = merge_dicts(self.args, args_)
+
+
+def merge_dicts(dict1, dict2):
+    """Return a new dictionary by merging two dictionaries recursively."""
+
+    result = deepcopy(dict1)
+
+    for key, value in dict2.items():
+        if isinstance(value, Mapping):
+            result[key] = merge_dicts(result.get(key, {}), value)
+        else:
+            result[key] = deepcopy(dict2[key])
+
+    return result
 
 
 def get_clustering_data(self, path):
