@@ -119,7 +119,7 @@ args = {
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6, # affects clustering algorithm, only change when neccesary
         "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
-    },  
+    },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
@@ -270,23 +270,25 @@ def run_etrago(args, json_path):
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
                         from the database
-            'network': set all lines, links and transformers extendable
-            'german_network': set lines and transformers in German grid
-                            extendable
-            'foreign_network': set foreign lines and transformers extendable
+            'network': set all lines, links and transformers in electrical
+                            grid extendable
+            'german_network': set lines and transformers in German electrical
+                            grid extendable
+            'foreign_network': set foreign lines and transformers in electrical
+                            grid extendable
             'transformers': set all transformers extendable
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'storages': allow to install extendable storages
+            'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
-        Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'.
-        Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'.
-        Upper bounds for bordercrossing lines can be defined accrodingly
+        Upper bounds for electrical grid expansion can be defined for lines in
+        Germany relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two electrical buses
+        can be defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing electrical lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int

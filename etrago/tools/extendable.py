@@ -89,94 +89,6 @@ def extendable(
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
 
-    if not grid_max_abs_D == None:
-        buses = network.buses[
-            (network.buses.country == "DE") & (network.buses.carrier == "AC")
-        ]
-
-        line_max_abs(network=network, buses=buses, line_max_abs=grid_max_abs_D)
-
-        transformer_max_abs(network=network, buses=buses)
-
-        network.links.loc[
-            (network.links.bus0.isin(buses.index))
-            & (network.links.bus1.isin(buses.index)),
-            "p_nom_max",
-        ] = grid_max_abs_D["dc"]
-
-    if not grid_max_abs_foreign == None:
-        foreign_buses = network.buses[
-            (network.buses.country != "DE") & (network.buses.carrier == "AC")
-        ]
-
-        line_max_abs(
-            network=network,
-            buses=foreign_buses,
-            line_max_abs=grid_max_abs_foreign,
-        )
-
-        transformer_max_abs(network=network, buses=foreign_buses)
-
-        network.links.loc[
-            (network.links.bus0.isin(foreign_buses.index))
-            | (network.links.bus1.isin(foreign_buses.index)),
-            "p_nom_max",
-        ] = grid_max_abs_foreign["dc"]
-
-    if not grid_max_D == None:
-        buses = network.buses[
-            (network.buses.country == "DE") & (network.buses.carrier == "AC")
-        ]
-
-        network.lines.loc[
-            (network.lines.bus0.isin(buses.index))
-            & (network.lines.bus1.isin(buses.index)),
-            "s_nom_max",
-        ] = (
-            grid_max_D * network.lines.s_nom
-        )
-
-        network.transformers.loc[
-            network.transformers.bus0.isin(buses.index), "s_nom_max"
-        ] = (grid_max_D * network.transformers.s_nom)
-
-        network.links.loc[
-            (network.links.bus0.isin(buses.index))
-            & (network.links.bus1.isin(buses.index)),
-            "p_nom_max",
-        ] = (
-            grid_max_D * network.links.p_nom
-        )
-
-    if not grid_max_foreign == None:
-        foreign_buses = network.buses[
-            (network.buses.country != "DE") & (network.buses.carrier == "AC")
-        ]
-
-        network.lines.loc[
-            network.lines.bus0.isin(foreign_buses.index)
-            | network.lines.bus1.isin(foreign_buses.index),
-            "s_nom_max",
-        ] = (
-            grid_max_foreign * network.lines.s_nom
-        )
-
-        network.links.loc[
-            (network.links.bus0.isin(foreign_buses.index))
-            | (network.links.bus1.isin(foreign_buses.index)),
-            "p_nom_max",
-        ] = (
-            grid_max_foreign * network.links.p_nom
-        )
-
-        network.transformers.loc[
-            network.transformers.bus0.isin(foreign_buses.index)
-            | network.transformers.bus1.isin(foreign_buses.index),
-            "s_nom_max",
-        ] = (
-            grid_max_foreign * network.transformers.s_nom
-        )
-
     if "network" in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
@@ -184,17 +96,14 @@ def extendable(
         if not network.transformers.empty:
             network.transformers.s_nom_extendable = True
             network.transformers.s_nom_min = network.transformers.s_nom
+            network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_extendable"
-            ] = True
+            network.links.loc[network.links.carrier == "DC", "p_nom_extendable"] = True
             network.links.loc[
                 network.links.carrier == "DC", "p_nom_min"
             ] = network.links.p_nom
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_max"
-            ] = float("inf")
+            network.links.loc[network.links.carrier == "DC", "p_nom_max"] = float("inf")
 
     if "german_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country == "DE"]
@@ -221,31 +130,44 @@ def extendable(
             network.transformers.loc[
                 network.transformers.bus0.isin(buses.index), "s_nom_min"
             ] = network.transformers.s_nom
+            network.transformers.loc[
+                network.transformers.bus0.isin(buses.index), "s_nom_max"
+            ] = float("inf")
 
-        if not network.links.empty:
+        if not network.links[network.links.carrier == "DC"].empty:
             network.links.loc[
                 (network.links.bus0.isin(buses.index))
-                & (network.links.bus1.isin(buses.index)),
+                & (network.links.bus1.isin(buses.index))
+                & (network.links.carrier == "DC"),
                 "p_nom_extendable",
             ] = True
             network.links.loc[
                 (network.links.bus0.isin(buses.index))
-                & (network.links.bus1.isin(buses.index)),
+                & (network.links.bus1.isin(buses.index))
+                & (network.links.carrier == "DC"),
                 "p_nom_min",
             ] = network.links.p_nom
+            network.links.loc[
+                (network.links.bus0.isin(buses.index))
+                & (network.links.bus1.isin(buses.index))
+                & (network.links.carrier == "DC"),
+                "p_nom_max",
+            ] = float("inf")
 
     if "foreign_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country != "DE"]
         network.lines.loc[
-            network.lines.bus0.isin(buses.index)
-            | network.lines.bus1.isin(buses.index),
+            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
             "s_nom_extendable",
         ] = True
         network.lines.loc[
-            network.lines.bus0.isin(buses.index)
-            | network.lines.bus1.isin(buses.index),
+            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
             "s_nom_min",
         ] = network.lines.s_nom
+        network.lines.loc[
+            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
+            "s_nom_max",
+        ] = float("inf")
 
         if not network.transformers.empty:
             network.transformers.loc[
@@ -258,18 +180,37 @@ def extendable(
                 | network.transformers.bus1.isin(buses.index),
                 "s_nom_min",
             ] = network.transformers.s_nom
+            network.transformers.loc[
+                network.transformers.bus0.isin(buses.index)
+                | network.transformers.bus1.isin(buses.index),
+                "s_nom_max",
+            ] = float("inf")
 
-        if not network.links.empty:
+        if not network.links[network.links.carrier == "DC"].empty:
             network.links.loc[
-                (network.links.bus0.isin(buses.index))
-                | (network.links.bus1.isin(buses.index)),
+                (
+                    (network.links.bus0.isin(buses.index))
+                    | (network.links.bus1.isin(buses.index))
+                )
+                & (network.links.carrier == "DC"),
                 "p_nom_extendable",
             ] = True
             network.links.loc[
-                (network.links.bus0.isin(buses.index))
-                | (network.links.bus1.isin(buses.index)),
+                (
+                    (network.links.bus0.isin(buses.index))
+                    | (network.links.bus1.isin(buses.index))
+                )
+                & (network.links.carrier == "DC"),
                 "p_nom_min",
             ] = network.links.p_nom
+            network.links.loc[
+                (
+                    (network.links.bus0.isin(buses.index))
+                    | (network.links.bus1.isin(buses.index))
+                )
+                & (network.links.carrier == "DC"),
+                "p_nom_max",
+            ] = float("inf")
 
     if "transformers" in extendable_settings["extendable_components"]:
         network.transformers.s_nom_extendable = True
@@ -279,25 +220,63 @@ def extendable(
     if (
         "storages" in extendable_settings["extendable_components"]
         or "storage" in extendable_settings["extendable_components"]
+        or "store" in extendable_settings["extendable_components"]
+        or "stores" in extendable_settings["extendable_components"]
     ):
-        if not network.storage_units.carrier[
-            network.storage_units.carrier.str.contains("extendable")
-        ].empty:
-            network.storage_units.loc[
-                network.storage_units.carrier.str.contains("extendable"),
-                "p_nom_extendable",
-            ] = True
+        network.storage_units.loc[
+            network.storage_units.carrier == "battery",
+            "p_nom_extendable",
+        ] = True
+        network.storage_units.loc[
+            network.storage_units.carrier == "battery",
+            "p_nom_min",
+        ] = 0
+        network.storage_units.loc[
+            network.storage_units.carrier == "battery",
+            "p_nom_max",
+        ] = float("inf")
+        network.storage_units.loc[
+            (network.storage_units.carrier == "battery")
+            & (network.storage_units.capital_cost == 0),
+            "capital_cost",
+        ] = network.storage_units.loc[
+            network.storage_units.carrier == "battery", "capital_cost"
+        ].max()
 
-            # Split extendable carriers to keep them seperated in clustering
-            self.network.storage_units.carrier[
-                (self.network.storage_units.carrier == "extendable_storage")
-                & (self.network.storage_units.max_hours == 6)
-            ] = "extendable_battery_storage"
-
-            self.network.storage_units.carrier[
-                (self.network.storage_units.carrier == "extendable_storage")
-                & (self.network.storage_units.max_hours == 168)
-            ] = "extendable_hydrogen_storage"
+        ext_stores = [
+            "H2_overground",
+            "H2_underground",
+            "central_heat_store",
+            "rural_heat_store",
+        ]
+        network.stores.loc[
+            network.stores.carrier.isin(ext_stores),
+            "e_nom_extendable",
+        ] = True
+        network.stores.loc[
+            network.stores.carrier.isin(ext_stores),
+            "e_nom_min",
+        ] = 0
+        network.stores.loc[
+            network.stores.carrier.isin(ext_stores),
+            "e_nom_max",
+        ] = float("inf")
+        if (
+            len(
+                network.stores.loc[
+                    (network.stores.carrier.isin(ext_stores))
+                    & (network.stores.capital_cost == 0)
+                ]
+            )
+            > 0
+        ):
+            for c in ext_stores:
+                network.stores.loc[
+                    (network.stores.carrier == c) & (network.stores.capital_cost == 0),
+                    "capital_cost",
+                ] = network.stores.loc[
+                    (network.stores.carrier == c), "capital_cost"
+                ].max()
 
     if "foreign_storage" in extendable_settings["extendable_components"]:
 
@@ -325,9 +304,9 @@ def extendable(
             foreign_battery, "p_nom_max"
         ] = network.storage_units.loc[foreign_battery, "p_nom"]
 
-        network.storage_units.loc[
-            foreign_battery, "p_nom"
-        ] = network.storage_units.loc[foreign_battery, "p_nom_min"]
+        network.storage_units.loc[foreign_battery, "p_nom"] = network.storage_units.loc[
+            foreign_battery, "p_nom_min"
+        ]
 
         network.storage_units.loc[
             foreign_battery, "capital_cost"
@@ -351,8 +330,7 @@ def extendable(
                 == ("extension_" + self.args["scn_extension"][i]),
                 "s_nom_max",
             ] = network.lines.s_nom[
-                network.lines.scn_name
-                == ("extension_" + self.args["scn_extension"][i])
+                network.lines.scn_name == ("extension_" + self.args["scn_extension"][i])
             ]
 
             network.links.loc[
@@ -372,6 +350,104 @@ def extendable(
                 == ("extension_" + self.args["scn_extension"][i]),
                 "capital_cost",
             ] = network.lines.capital_cost
+
+    # constrain network expansion to maximum
+
+    if not grid_max_abs_D == None:
+        buses = network.buses[
+            (network.buses.country == "DE") & (network.buses.carrier == "AC")
+        ]
+
+        line_max_abs(network=network, buses=buses, line_max_abs=grid_max_abs_D)
+
+        transformer_max_abs(network=network, buses=buses)
+
+        network.links.loc[
+            (network.links.bus0.isin(buses.index))
+            & (network.links.bus1.isin(buses.index))
+            & (network.links.carrier == "DC"),
+            "p_nom_max",
+        ] = grid_max_abs_D["dc"]
+
+    if not grid_max_abs_foreign == None:
+        foreign_buses = network.buses[
+            (network.buses.country != "DE") & (network.buses.carrier == "AC")
+        ]
+
+        line_max_abs(
+            network=network,
+            buses=foreign_buses,
+            line_max_abs=grid_max_abs_foreign,
+        )
+
+        transformer_max_abs(network=network, buses=foreign_buses)
+
+        network.links.loc[
+            (
+                (network.links.bus0.isin(foreign_buses.index))
+                | (network.links.bus1.isin(foreign_buses.index))
+            )
+            & (network.links.carrier == "DC"),
+            "p_nom_max",
+        ] = grid_max_abs_foreign["dc"]
+
+    if not grid_max_D == None:
+        buses = network.buses[
+            (network.buses.country == "DE") & (network.buses.carrier == "AC")
+        ]
+
+        network.lines.loc[
+            (network.lines.bus0.isin(buses.index))
+            & (network.lines.bus1.isin(buses.index)),
+            "s_nom_max",
+        ] = (
+            grid_max_D * network.lines.s_nom
+        )
+
+        network.transformers.loc[
+            network.transformers.bus0.isin(buses.index), "s_nom_max"
+        ] = (grid_max_D * network.transformers.s_nom)
+
+        network.links.loc[
+            (network.links.bus0.isin(buses.index))
+            & (network.links.bus1.isin(buses.index))
+            & (network.links.carrier == "DC"),
+            "p_nom_max",
+        ] = (
+            grid_max_D * network.links.p_nom
+        )
+
+    if not grid_max_foreign == None:
+        foreign_buses = network.buses[
+            (network.buses.country != "DE") & (network.buses.carrier == "AC")
+        ]
+
+        network.lines.loc[
+            network.lines.bus0.isin(foreign_buses.index)
+            | network.lines.bus1.isin(foreign_buses.index),
+            "s_nom_max",
+        ] = (
+            grid_max_foreign * network.lines.s_nom
+        )
+
+        network.links.loc[
+            (
+                (network.links.bus0.isin(foreign_buses.index))
+                | (network.links.bus1.isin(foreign_buses.index))
+            )
+            & (network.links.carrier == "DC"),
+            "p_nom_max",
+        ] = (
+            grid_max_foreign * network.links.p_nom
+        )
+
+        network.transformers.loc[
+            network.transformers.bus0.isin(foreign_buses.index)
+            | network.transformers.bus1.isin(foreign_buses.index),
+            "s_nom_max",
+        ] = (
+            grid_max_foreign * network.transformers.s_nom
+        )
 
     return network
 
@@ -495,12 +571,8 @@ def transformer_max_abs(network, buses):
 
     trafo_smax_0 = network.transformers.bus0.map(smax_bus["s_nom_max_bus"])
     trafo_smax_1 = network.transformers.bus1.map(smax_bus["s_nom_max_bus"])
-    trafo_pmax_0 = (
-        network.transformers.bus0.map(pmax_links_bus["p_nom_max_bus"]) / 2
-    )
-    trafo_pmax_1 = (
-        network.transformers.bus1.map(pmax_links_bus["p_nom_max_bus"]) / 2
-    )
+    trafo_pmax_0 = network.transformers.bus0.map(pmax_links_bus["p_nom_max_bus"]) / 2
+    trafo_pmax_1 = network.transformers.bus1.map(pmax_links_bus["p_nom_max_bus"]) / 2
     trafo_smax = pd.concat(
         [trafo_smax_0, trafo_smax_1, trafo_pmax_0, trafo_pmax_1], axis=1
     )
@@ -578,27 +650,19 @@ def extension_preselection(etrago, method, days=3):
     network.transformers.loc[:, "s_nom_max"] = np.inf
 
     network = convert_capital_costs(network, 1, 1)
-    extended_lines = network.lines.index[
-        network.lines.s_nom_opt > network.lines.s_nom
-    ]
-    extended_links = network.links.index[
-        network.links.p_nom_opt > network.links.p_nom
-    ]
+    extended_lines = network.lines.index[network.lines.s_nom_opt > network.lines.s_nom]
+    extended_links = network.links.index[network.links.p_nom_opt > network.links.p_nom]
 
     x = time.time()
     for i in range(int(snapshots.value_counts().sum())):
         if i > 0:
             network.lopf(snapshots[i], solver_name=args["solver"])
             extended_lines = extended_lines.append(
-                network.lines.index[
-                    network.lines.s_nom_opt > network.lines.s_nom
-                ]
+                network.lines.index[network.lines.s_nom_opt > network.lines.s_nom]
             )
             extended_lines = extended_lines.drop_duplicates()
             extended_links = extended_links.append(
-                network.links.index[
-                    network.links.p_nom_opt > network.links.p_nom
-                ]
+                network.links.index[network.links.p_nom_opt > network.links.p_nom]
             )
             extended_links = extended_links.drop_duplicates()
 
@@ -607,17 +671,13 @@ def extension_preselection(etrago, method, days=3):
     network.lines.loc[
         ~network.lines.index.isin(extended_lines), "s_nom_extendable"
     ] = False
-    network.lines.loc[
-        network.lines.s_nom_extendable, "s_nom_min"
-    ] = network.lines.s_nom
+    network.lines.loc[network.lines.s_nom_extendable, "s_nom_min"] = network.lines.s_nom
     network.lines.loc[network.lines.s_nom_extendable, "s_nom_max"] = np.inf
 
     network.links.loc[
         ~network.links.index.isin(extended_links), "p_nom_extendable"
     ] = False
-    network.links.loc[
-        network.links.p_nom_extendable, "p_nom_min"
-    ] = network.links.p_nom
+    network.links.loc[network.links.p_nom_extendable, "p_nom_min"] = network.links.p_nom
     network.links.loc[network.links.p_nom_extendable, "p_nom_max"] = np.inf
 
     network.snapshot_weightings = weighting
@@ -654,16 +714,11 @@ def print_expansion_costs(network):
     ext_trafos = network.transformers[network.transformers.s_nom_extendable]
 
     if not ext_storage.empty:
-        storage_costs = (
-            ext_storage.p_nom_opt * ext_storage.capital_cost
-        ).sum()
+        storage_costs = (ext_storage.p_nom_opt * ext_storage.capital_cost).sum()
 
     if not ext_lines.empty:
         network_costs = (
-            (
-                (ext_lines.s_nom_opt - ext_lines.s_nom)
-                * ext_lines.capital_cost
-            ).sum()
+            ((ext_lines.s_nom_opt - ext_lines.s_nom) * ext_lines.capital_cost).sum()
             + (ext_links.p_nom_opt - ext_links.p_nom) * ext_links.capital_cost
         ).sum()
 
@@ -671,8 +726,7 @@ def print_expansion_costs(network):
         network_costs = (
             network_costs
             + (
-                (ext_trafos.s_nom_opt - ext_trafos.s_nom)
-                * ext_trafos.capital_cost
+                (ext_trafos.s_nom_opt - ext_trafos.s_nom) * ext_trafos.capital_cost
             ).sum()
         )
 
