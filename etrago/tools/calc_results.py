@@ -54,7 +54,7 @@ def _calc_storage_expansion(self):
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
 
-def _calc_store_expansion(self): ###
+def _calc_store_expansion(self):
         """ Function that calulates store expansion in MW
 
         Returns
@@ -92,7 +92,7 @@ def _calc_sectorcoupling_link_expansion(self):
 
         return links
 
-def _calc_network_expansion(self): ###
+def _calc_network_expansion(self):
         """ Function that calulates electrical network expansion in MW
 
         Returns
@@ -193,13 +193,13 @@ def calc_marginal_cost(self):
         """
         network = self.network
         gen = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
         link = abs(network.links_t.p0).mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.links.marginal_cost).sum()
         stor = network.storage_units_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.storage_units.marginal_cost).sum()
         marginal_cost = gen + link + stor
         return marginal_cost
@@ -307,5 +307,5 @@ def calc_etrago_results(self):
             ext_links = network.links[network.links.p_nom_extendable]
             ext_dc_lines = ext_links[ext_links.carrier=='DC']
 
-            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum()) * 100
-            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()) * 100
+            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum())
+            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum())
