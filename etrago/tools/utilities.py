@@ -686,7 +686,7 @@ def export_to_csv(self, path):
         path_clus = os.path.join(path, "clustering")
         if not os.path.exists(path_clus):
             os.makedirs(path_clus, exist_ok=True)
-            
+
 
         with open(os.path.join(path_clus, "busmap.json"), "w") as d:
             json.dump(self.busmap["busmap"], d, indent=4)
@@ -1552,7 +1552,7 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
     if not jsonpath == None:
         with open(jsonpath) as f:
             self.args = json.load(f)
-            
+
 
 def get_clustering_data(self, path):
     """
@@ -2053,7 +2053,7 @@ def drop_sectors(self, drop_carriers):
             for i in gas_to_add:
                 gen_empty = gen.drop(gen.index)
                 gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
-                gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom
+                gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom * self.network.links[self.network.links.carrier == i].efficiency
                 gen_empty.marginal_cost = self.network.links[self.network.links.carrier == i].marginal_cost
                 gen_empty.marginal_cost += 35.851 # fuel costs nach NEP
                 gen_empty.carrier = i
@@ -2066,10 +2066,10 @@ def drop_sectors(self, drop_carriers):
                 gen_empty.fillna(0, inplace=True)
                 self.network.generators= self.network.generators.append(gen_empty, verify_integrity=True)
 
-        if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
+        '''if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
             # scale down generation facilities with respect to dropping additional loads
             scale_down = 518.2/633.8
-            
+
             print(' ')
             print('DOWNSCALING')
             print(' ')
@@ -2078,8 +2078,7 @@ def drop_sectors(self, drop_carriers):
             foreign_index = self.network.buses[self.network.buses.country !='DE'].index
             self.network.generators.p_nom[
                 (~self.network.generators.index.isin(foreign_index))|
-                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down
-
+                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down'''
 
     self.network.mremove('Bus',
         self.network.buses[
@@ -2151,7 +2150,7 @@ def update_busmap(self, new_busmap):
                                                   self.network.lines, "Line")
         pypsa.io.import_components_from_dataframe(self.busmap["orig_network"],
                                                   self.network.links, "Link")
-        
+
     else:
         self.busmap["busmap"] = pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
 
@@ -2159,14 +2158,14 @@ def modular_weight(network, busmap):
 
     busmap = pd.Series(busmap)
     busmap.index = busmap.index.astype(str)
-       
+
     network.calculate_dependent_values()
     lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom)).set_index(['bus0','bus1'])
     links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
-       
+
     G = nx.Graph()
     G.add_nodes_from(network.buses.index)
     G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in lines.itertuples())
     G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
-    
+
     return nx.algorithms.community.quality.modularity(G, list(set(busmap[busmap==c].index) for c in busmap.unique()))

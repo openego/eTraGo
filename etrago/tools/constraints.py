@@ -254,6 +254,58 @@ def _min_renewable_share(self, network, snapshots):
 
     network.model.min_renewable_share = Constraint(rule=_rule)
 
+def _min_renewable_share_de(self, network, snapshots):
+    """
+    Extra-functionality that limits the minimum share of renewable generation.
+    Add key 'min_renewable_share' and minimal share in p.u. as float
+    to args.extra_functionality.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    renewables = ['biomass', 'central_biomass_CHP',
+           'industrial_biomass_CHP', 'solar',
+           'solar_rooftop', 'wind_onshore',
+           'run_of_river', 'wind_offshore', 'reservoir',
+           'other_renewable']
+
+    buses_de = network.buses.index[network.buses.country == "DE"]
+
+    res = list(network.generators.index[network.generators.carrier.isin(renewables) & network.generators.bus.isin(buses_de)])
+
+    total = list(network.generators.index[network.generators.bus.isin(buses_de)])
+
+    def _rule(m):
+
+        renewable_production = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in res
+            for sn in snapshots
+        )
+        total_production = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in total
+            for sn in snapshots
+        )
+
+        return (
+            renewable_production
+            >= total_production
+            * self.args["extra_functionality"]["min_renewable_share_de"]
+        )
+
+    network.model.min_renewable_share = Constraint(rule=_rule)
+
 
 def _cross_border_flow(self, network, snapshots):
     """

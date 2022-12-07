@@ -96,13 +96,13 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
+    "extra_functionality": {'min_renewable_share_de':0.73},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 500,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -509,7 +509,7 @@ def run_etrago(args, json_path):
     etrago.adjust_network()
     # 1) includes conversion of foreign-lines to DC-links
     # 2) includes changing parameters according to extendable-settings
-    
+
     etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
     '''# Set foreign batteries extendable
@@ -545,7 +545,7 @@ def run_etrago(args, json_path):
     etrago.export_to_csv("after_spatial")
 
     #etrago.spatial_clustering_gas()
-    
+
     # avoid usage of cheap storages in foreign countries to provoke network expansion
     aus = etrago.network.buses[etrago.network.buses.country!='DE']
     sto_aus = etrago.network.storage_units[etrago.network.storage_units.bus.isin(aus.index)]
@@ -555,7 +555,7 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom'] = 0
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'p_nom_extendable'] = True
     etrago.network.storage_units.loc[etrago.network.storage_units.index.isin(sto_aus_bat.index),'capital_cost'] = 64763.66650832
-    
+
     # new foreign lines to links
     from etrago.tools.utilities import foreign_links
     etrago.foreign_links()
@@ -575,8 +575,8 @@ def run_etrago(args, json_path):
                           'p_nom']
     etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
+    #etrago.args["load_shedding"] = True
+    #etrago.load_shedding()
 
     # snapshot clustering
     # etrago.snapshot_clustering()
@@ -588,7 +588,7 @@ def run_etrago(args, json_path):
     etrago.lopf()
 
     etrago.export_to_csv("network_results")
-    
+
     from etrago.tools.utilities import modular_weight
     print(' ')
     print('Modularity')
@@ -614,18 +614,18 @@ def run_etrago(args, json_path):
 
 if __name__ == "__main__":
     # execute etrago function
-    
+
     old_stdout = sys.stdout
     log_file = open('console.log',"w")
     sys.stdout = log_file
-    
+
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
-    
+
     sys.stdout = old_stdout
     log_file.close()
-    
+
     etrago.session.close()
     # plots
     # make a line loading plot
