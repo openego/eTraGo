@@ -53,14 +53,13 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     update_busmap,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
-                                    get_clustering_data,)
-
+                                    get_clustering_data,
+                                    adjust_CH4_gen_carriers)
 from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
-from etrago.cluster.electrical import (run_spatial_clustering,
-                                              ehv_clustering)
-from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.electrical import run_spatial_clustering, ehv_clustering
 
+from etrago.cluster.gas import run_spatial_clustering_gas
 
 from etrago.cluster.snapshot import (skip_snapshots,
                                      snapshot_clustering)
@@ -234,6 +233,8 @@ class Etrago():
 
     get_clustering_data = get_clustering_data
 
+    adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
+
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
 
@@ -276,6 +277,8 @@ class Etrago():
 
         self.load_shedding()
 
+        self.adjust_CH4_gen_carriers()
+
         self.set_random_noise(0.01)
 
         self.set_q_national_loads(cos_phi=0.9)
@@ -298,6 +301,7 @@ class Etrago():
         self.adapt_crossborder_buses()
         
         self.delete_dispensable_ac_buses()
+
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

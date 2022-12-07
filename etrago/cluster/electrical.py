@@ -181,7 +181,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap = {**busmap, **busmap2}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
+    if cluster_met in ["kmeans", "kmedoids-dijkstra", 'hac']:
         network.madd(
             "Bus",
             names = no_elec_to_cluster.index,
@@ -734,11 +734,18 @@ def run_spatial_clustering(self):
         elec_network, weight, n_clusters = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "hac":
-            
+
+            elec_network.buses = elec_network.buses.loc[elec_network.buses.country == 'DE']
+            elec_network.lines = elec_network.lines.loc[
+                (elec_network.lines.bus0.isin(elec_network.buses.index)) & (elec_network.lines.bus1.isin(elec_network.buses.index))
+                ]
+
             logger.info("HAC: Starting Pre-aggregation")
 
             network = self.network.copy(with_time=False)
             components = {"Generator", "Link", "Load"}
+            # this is way too slow
+            # TODO: only get attached tech for relevant buses (AC in this case)
             network, tech = get_attached_tech(network, components)
 
             # -> filter nodes with no attached tech
@@ -775,6 +782,11 @@ def run_spatial_clustering(self):
             self.geolocation_buses()
             self.network.generators.control[self.network.generators.control == ""] = "PV"
             elec_network, weight, n_clusters = preprocessing(self)
+            elec_network.buses = elec_network.buses.loc[elec_network.buses.country == 'DE']
+            elec_network.buses = elec_network.sub_networks.loc[elec_network.sub_networks.carrier=='AC'].loc['0'].obj.buses()
+            elec_network.lines = elec_network.lines.loc[
+                (elec_network.lines.bus0.isin(elec_network.buses.index)) & (elec_network.lines.bus1.isin(elec_network.buses.index))
+                ]
             logger.info("HAC: Pre-aggregation finished")
 
 
