@@ -19,7 +19,7 @@ if "READTHEDOCS" not in os.environ:
     from six import iteritems
 
     from etrago.cluster.spatial import (
-        agg_e_nom_max,
+        sum_with_inf,
         group_links,
         kmedoids_dijkstra_clustering,
     )
@@ -330,7 +330,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
                 "marginal_cost": np.mean,
                 "capital_cost": np.mean,
                 "e_nom": np.sum,
-                "e_nom_max": agg_e_nom_max,
+                "e_nom_max": sum_with_inf,
             },
             "Load": {
                 "p_set": np.sum,
