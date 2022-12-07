@@ -56,6 +56,18 @@ Use the pip -e to install eTraGo directly from the cloned repository:
 
    $ pip3 install -e /path/to/eTraGo/ 
 
+When you want to draw geographical features in the background of network plots,
+please install cartopy:
+
+.. code-block::
+
+   $ pip3 install cartopy
+
+If you run into problems when using cartopy, try to install shapely without binaries:
+
+.. code-block::
+
+   $ pip3 install shapely --no-binary shapely
 
 Using a virtual environment
 ===========================

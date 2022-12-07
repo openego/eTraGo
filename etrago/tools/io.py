@@ -214,7 +214,7 @@ class NetworkScenario(ScenarioBase):
             query = query.filter(vars()[f'egon_etrago_{name.lower()}'].version
                         ==self.version)
 
-        df = saio.as_pandas(query).set_index(index)
+        df = saio.as_pandas(query, crs=4326).set_index(index)
 
         if name == 'Transformer':
             df.tap_side = 0
@@ -298,6 +298,10 @@ class NetworkScenario(ScenarioBase):
 
             if not df_all.isnull().all().all():
 
+                if col in network.component_attrs[pypsa_name].index:
+                    df_all.fillna(network.component_attrs[pypsa_name].default[col],
+                                 inplace=True)
+
                 df = df_all.anon_1.apply(pd.Series).transpose()
 
                 df.index = self.timeindex
@@ -334,6 +338,13 @@ class NetworkScenario(ScenarioBase):
 
             # Drop columns with only NaN values
             df = df.drop(df.isnull().all()[df.isnull().all()].index, axis=1)
+
+            # Replace NaN values with defailt values from pypsa
+            for c in df.columns:
+                if c in network.component_attrs[pypsa_comp].index:
+                    df[c].fillna(network.component_attrs[pypsa_comp].default[c],
+                                 inplace=True)
+
             if pypsa_comp == 'Generator':
                 df.sign=1
 

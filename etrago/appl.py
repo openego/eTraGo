@@ -55,21 +55,28 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
     "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
-    "solver_options": {},
+    "solver_options": {
+        "BarConvTol": 1.0e-5,
+        "FeasibilityTol": 1.0e-5,
+        "method": 2,
+        "crossover": 0,
+        "logFile": "solver_etragos.log",
+        "threads": 4,
+    },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
-    "lpfile": False,  # save pyomo's lp file: False or /path/tofolder
+    "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
@@ -90,48 +97,51 @@ args = {
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
-    # Clustering:
-    'network_clustering': {
-        'active': True, # choose if clustering is activated
-        'method': 'kmedoids-dijkstra', # choose clustering method: kmeans or kmedoids-dijkstra
-        'n_clusters_AC': 30, # number of resulting nodes in specified region (only DE or DE+foreign)
-        'cluster_foreign_AC': False, # take foreign AC buses into account, True or False
-        'n_clusters_gas': 30, # number of resulting nodes in Germany
-        "cluster_foreign_gas": False,  # number of resulting nodes in specified region (only DE or DE+foreign);
-        # Note: Number of resulting nodes depends on if foreign nodes are clustered.
-        # If not, total number of nodes is n_clusters_gas + foreign_buses (usually 13)
-        'k_busmap': False, # False or path/to/busmap.csv
-        'kmeans_gas_busmap': False, # False or path/to/ch4_busmap.csv
-        'line_length_factor': 1, #
-        'remove_stubs': False, # remove stubs bevore kmeans clustering
-        'use_reduced_coordinates': False, #
-        'bus_weight_tocsv': None, # None or path/to/bus_weight.csv
-        'bus_weight_fromcsv': None, # None or path/to/bus_weight.csv
+    # Spatial Complexity:
+    "network_clustering": {
+        "random_state": 42,  # random state for replicability of kmeans results
+        "active": True,  # choose if clustering is activated
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
+        "k_busmap": False,  # False or path/to/busmap.csv
+        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "line_length_factor": 1,  #
+        "remove_stubs": False,  # remove stubs bevore kmeans clustering
+        "use_reduced_coordinates": False,  #
+        "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
+        "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
         "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
-        'n_init': 10, # affects clustering algorithm, only change when neccesary
-        'max_iter': 100, # affects clustering algorithm, only change when neccesary
-        'tol': 1e-6,}, # affects clustering algorithm, only change when neccesary
+        "n_init": 10,  # affects clustering algorithm, only change when neccesary
+        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+    },  
     "sector_coupled_clustering": {
-    "active": True,  # choose if clustering is activated
-    "carrier_data": {  # select carriers affected by sector coupling
-        "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
-        "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
-        "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+        "active": True,  # choose if clustering is activated
+        "carrier_data": {  # select carriers affected by sector coupling
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
-        "method": "typical_periods",  # 'typical_periods' or 'segmentation'
+        "method": "segmentation",  # 'typical_periods' or 'segmentation'
+        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
-        "storage_constraints": "",  # additional constraints for storages  - only relevant for 'typical_periods'
+        "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
+    "skip_snapshots": 5,  # False or number of snapshots to skip
+    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
     # Simplifications:
-    "skip_snapshots": 3,  # False or number of snapshots to skip
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
@@ -207,7 +217,6 @@ def run_etrago(args, json_path):
 
     scn_extension : NoneType or list
         None,
-
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
         extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
@@ -237,7 +246,7 @@ def run_etrago(args, json_path):
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.import numpy as np
+        False or '/path/tofile.lp'
 
     csv_export : obj
         False,
@@ -326,7 +335,8 @@ def run_etrago(args, json_path):
 
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
-           'cluster_foreign_AC': False, 'n_clusters_gas': 30, 'cluster_foreign_gas': False,
+           'cluster_foreign_AC': False, method_gas: 'kmeans',
+           'n_clusters_gas': 30, 'cluster_foreign_gas': False,
            'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
@@ -337,12 +347,10 @@ def run_etrago(args, json_path):
         ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
         the AC buses outside Germany are not clustered, and the buses inside
         Germany are clustered to complete ``'n_clusters'`` buses.
-        The weighting takes place considering generation and load at each node.
+        The weighting takes place considering generation and load at each node. CH-4 nodes also take
+        non-transport capacities into account.
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
-        Note, that this option influences the total
-        resulting number of nodes (``'n_clusters_gas'`` if ``'cluster_foreign_gas'``)
-        is True or (``'n_clusters_gas'`` + number of neighboring countries) otherwise.
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
@@ -357,15 +365,23 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid']},
-         'central_heat': {'base': ['CH4']},
-         'rural_heat': {'base': ['CH4']}}
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "simultaneous"},
         }
         State if you want to apply clustering of sector coupled carriers, such
-        as central_heat or rural_heat. The approach builds on already clustered
+        as central_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``.
+        ``'central_heat'``. With ``'strategy'`` it is possible to apply either
+        ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
+        strategy clusters around the buses of the first carrier in the list.
+        The links to other buses are preserved. All buses, that have no
+        connection to the first carrier will then be clustered around the buses
+        of the second carrier in the list. The simultanous strategy looks for
+        links connecting the buses of the carriers in the list and aggregates
+        buses in case they have the same set of links connected. For example,
+        a heat bus connected to CH4 via gas boiler and to AC via heat pump will
+        only form a cluster with other buses, if these have the same links to
+        the same clusters of CH4 and AC.
 
     network_clustering_ehv : bool
         False,
@@ -375,16 +391,26 @@ def run_etrago(args, json_path):
 
     snapshot_clustering : dict
         {'active': False, 'method':'typical_periods', 'how': 'daily',
-         'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+         'extreme_periods': None, 'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
         You can choose between a method clustering to typical periods, e.g. days
         or a method clustering to segments of adjacent hours.
+        With ``'extreme_periods'`` you define the consideration of timesteps with
+        extreme residual load while temporal aggregation.
         With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
         the length of the periods, constraints considering the storages and the number
         of clusters for the usage of the method typical_periods.
         With ``'n_segments'`` you choose the number of segments for the usage of
         the method segmentation.
+
+    skip_snapshots : bool or int
+        State if you only want to consider every n-th timestep
+        to reduce temporal complexity.
+
+    dispatch_disaggregation : bool
+        State if you to apply a second lopf considering dispatch only
+        to disaggregate the dispatch to the whole temporal complexity.
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -418,33 +444,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    etrago.network.lines.type = ""
-    etrago.network.lines.carrier.fillna("AC", inplace=True)
-    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
-    etrago.network.loads.sign = -1
-    etrago.network.links.capital_cost.fillna(0, inplace=True)
-    etrago.network.links.p_nom_min.fillna(0, inplace=True)
-    etrago.network.transformers.tap_ratio.fillna(1.0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.links.efficiency.fillna(1.0, inplace=True)
-    etrago.network.links.marginal_cost.fillna(0.0, inplace=True)
-    etrago.network.links.p_min_pu.fillna(0.0, inplace=True)
-    etrago.network.links.p_max_pu.fillna(1.0, inplace=True)
-    etrago.network.links.p_nom.fillna(0.1, inplace=True)
-    etrago.network.storage_units.p_nom.fillna(0, inplace=True)
-    etrago.network.stores.e_nom.fillna(0, inplace=True)
-    etrago.network.stores.capital_cost.fillna(0, inplace=True)
-    etrago.network.stores.e_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.efficiency_dispatch.fillna(1.0, inplace=True)
-    etrago.network.storage_units.efficiency_store.fillna(1.0, inplace=True)
-    etrago.network.storage_units.capital_cost.fillna(0.0, inplace=True)
-    etrago.network.storage_units.p_nom_max.fillna(np.inf, inplace=True)
-    etrago.network.storage_units.standing_loss.fillna(0.0, inplace=True)
+
     etrago.network.storage_units.lifetime = np.inf
-    etrago.network.lines.v_ang_min.fillna(0.0, inplace=True)
-    etrago.network.links.terrain_factor.fillna(1.0, inplace=True)
-    etrago.network.lines.v_ang_max.fillna(1.0, inplace=True)
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
@@ -452,13 +453,19 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    for t in etrago.network.iterate_components():
-        if "p_nom_max" in t.df:
-            t.df["p_nom_max"].fillna(np.inf, inplace=True)
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()
+        [etrago.network.lines_t.s_max_pu.columns.isin(
+            etrago.network.lines.index)].transpose())
 
-    for t in etrago.network.iterate_components():
-        if "p_nom_min" in t.df:
-            t.df["p_nom_min"].fillna(0.0, inplace=True)
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+
+    # Set efficiences of CHP
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+
 
     etrago.adjust_network()
 
@@ -468,33 +475,33 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
 
-    etrago.kmean_clustering_gas()
+    etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
+    # snapshot clustering
+    etrago.snapshot_clustering()
+
     # skip snapshots
     etrago.skip_snapshots()
-
-    # snapshot clustering
-    # needs to be adjusted for new sectors
-    etrago.snapshot_clustering()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
 
-    # TODO: check if should be combined with etrago.lopf()
-    # needs to be adjusted for new sectors
-    # etrago.pf_post_lopf()
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.dispatch_disaggregation()
+
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
 
     # calculate central etrago results
-    # needs to be adjusted for new sectors
-    # etrago.calc_results()
+    etrago.calc_results()
 
     return etrago
 

@@ -1,65 +1,120 @@
 {
-    "db": "oedb",
-    "gridversion": "v0.4.6",
-    "method": {"type": "lopf",
-                "n_iter":5,
-                "pyomo":true},
+    "db": "egon-data",
+    "gridversion": null,
+    "method": {
+        "type": "lopf",
+        "n_iter": 4,
+        "pyomo": true
+    },
     "pf_post_lopf": {
-                "active": true,
-                "add_foreign_lopf": true,
-                "q_allocation": "p_nom",
-                "calc_losses": true},
+        "active": false,
+        "add_foreign_lopf": true,
+        "q_allocation": "p_nom"
+    },
     "start_snapshot": 1,
-    "end_snapshot" : 72,
+    "end_snapshot": 2,
     "solver": "gurobi",
-    "solver_options":{"threads":2,
-                      "method":2,
-                      "BarHomogeneous":1,
-                      "NumericFocus": 3,
-                      "BarConvTol":"1.e-5",
-                      "FeasibilityTol":"1.e-6",
-                      "logFile":"gurobi_eTraGo.log"},
+    "solver_options": {},
     "model_formulation": "kirchhoff",
-    "scn_name": "eGo 100",
+    "scn_name": "eGon2035",
     "scn_extension": null,
     "scn_decommissioning": null,
-    "lpfile":  false,
-    "csv_export":  "./results/",
-    "db_export": false,
-    "extendable":  ["network", "storage"],
+    "lpfile": false,
+    "csv_export": "results",
+    "extendable": {
+        "extendable_components": [
+            "as_in_db"
+        ],
+        "upper_bounds_grid": {
+            "grid_max_D": null,
+            "grid_max_abs_D": {
+                "380": {
+                    "i": 1020,
+                    "wires": 4,
+                    "circuits": 4
+                },
+                "220": {
+                    "i": 1020,
+                    "wires": 4,
+                    "circuits": 4
+                },
+                "110": {
+                    "i": 1020,
+                    "wires": 4,
+                    "circuits": 2
+                },
+                "dc": 0
+            },
+            "grid_max_foreign": 4,
+            "grid_max_abs_foreign": null
+        }
+    },
     "generator_noise": 789456,
-    "minimize_loading": false,
-    "ramp_limits": false,
     "extra_functionality": {},
-    "network_clustering_kmeans": {
-                "active": true,
-                "n_clusters": 10,
-                "kmeans_busmap": false,
-                "line_length_factor": 1.25,
-                "remove_stubs": false,
-                "use_reduced_coordinates": false,
-                "bus_weight_tocsv": null,
-                "bus_weight_fromcsv": null,
-                "n_init": 10,
-                "max_iter": 300,
-                "tol": 1e-4,
-                "n_jobs": 1},
+    "network_clustering": {
+        "active": true,
+        "method": "kmedoids-dijkstra",
+        "n_clusters_AC": 30,
+        "cluster_foreign_AC": false,
+        "n_clusters_gas": 30,
+        "cluster_foreign_gas": false,
+        "k_busmap": false,
+        "kmeans_gas_busmap": false,
+        "line_length_factor": 1,
+        "remove_stubs": false,
+        "use_reduced_coordinates": false,
+        "bus_weight_tocsv": null,
+        "bus_weight_fromcsv": null,
+        "gas_weight_tocsv": null,
+        "gas_weight_fromcsv": null,
+        "n_init": 10,
+        "max_iter": 100,
+        "tol": 1e-06
+    },
+    "sector_coupled_clustering": {
+        "active": true,
+        "carrier_data": {
+            "H2_ind_load": {
+                "base": [
+                    "H2_grid"
+                ],
+                "strategy": "consecutive"
+            },
+            "central_heat": {
+                "base": [
+                    "CH4",
+                    "AC"
+                ],
+                "strategy": "consecutive"
+            },
+            "rural_heat": {
+                "base": [
+                    "CH4",
+                    "AC"
+                ],
+                "strategy": "consecutive"
+            }
+        }
+    },
     "network_clustering_ehv": false,
     "disaggregation": "uniform",
-    "snapshot_clustering": { 
-        "active": true,
+    "snapshot_clustering": {
+        "active": false,
         "method": "typical_periods",
         "how": "daily",
         "storage_constraints": "",
-        "n_clusters": 5, 
-        "n_segments": 5}, 
-    "parallelisation": false,
-    "skip_snapshots": false,
-    "line_grouping": false,
-    "branch_capacity_factor": {"HV": 0.5,
-                               "eHV" : 0.7},
+        "n_clusters": 5,
+        "n_segments": 5
+    },
+    "skip_snapshots": 3,
+    "branch_capacity_factor": {
+        "HV": 0.5,
+        "eHV": 0.7
+    },
     "load_shedding": false,
-    "foreign_lines": {"carrier": "AC",
-                      "capacity": "osmTGmod"},
-    "comments": ""
-  }
+    "foreign_lines": {
+        "carrier": "AC",
+        "capacity": "osmTGmod"
+    },
+    "comments": null
+}
