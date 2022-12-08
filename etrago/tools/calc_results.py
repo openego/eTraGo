@@ -54,6 +54,67 @@ def _calc_storage_expansion(self):
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
 
+def _calc_store_expansion(self):
+        """ Function that calulates store expansion in MW
+
+        Returns
+        -------
+        float
+            store expansion in MW
+
+        """
+        return (self.network.stores.e_nom_opt -
+                self.network.stores.e_nom_min
+                )[self.network.stores.e_nom_extendable]
+
+def _calc_sectorcoupling_link_expansion(self):
+        """ Function that calulates expansion of sectorcoupling links in MW
+
+        Returns
+        -------
+        float
+            link expansion in MW (differentiating between technologies)
+
+        """
+        ext_links = self.network.links[self.network.links.p_nom_extendable]
+
+        links = [0, 0, 0, 0]
+
+        l1 = ext_links[ext_links.carrier=='H2_to_power']
+        l2 = ext_links[ext_links.carrier=='power_to_H2']
+        l3 = ext_links[ext_links.carrier=='H2_to_CH4']
+        l4 = ext_links[ext_links.carrier=='CH4_to_H2']
+
+        links[0] = (l1.p_nom_opt-l1.p_nom_min).sum()
+        links[1] = (l2.p_nom_opt-l2.p_nom_min).sum()
+        links[2] = (l3.p_nom_opt-l3.p_nom_min).sum()
+        links[3] = (l4.p_nom_opt-l4.p_nom_min).sum()
+
+        return links
+
+def _calc_network_expansion(self):
+        """ Function that calulates electrical network expansion in MW
+
+        Returns
+        -------
+        float
+            network expansion (AC lines and DC links) in MW
+
+        """
+
+        network = self.network
+
+        lines = (network.lines.s_nom_opt -
+                network.lines.s_nom_min
+                )[network.lines.s_nom_extendable]
+
+        ext_links = network.links[network.links.p_nom_extendable]
+        ext_dc_lines = ext_links[ext_links.carrier=='DC']
+
+        dc_links = (ext_dc_lines.p_nom_opt -
+                ext_dc_lines.p_nom_min)
+
+        return lines, dc_links
 
 def calc_investment_cost(self):
         """ Function that calulates overall annualized investment costs.
@@ -61,41 +122,68 @@ def calc_investment_cost(self):
         Returns
         -------
         network_costs : float
-            Investments in line expansion
-        storage_costs : float
-            Investments in storage expansion
+            Investments in line expansion (AC+DC)
+        link_costs : float
+            Investments in sectorcoupling link expansion
+        stor_costs : float
+            Investments in storage and store expansion
 
         """
         network = self.network
-        ext_storage = network.storage_units[network.storage_units.p_nom_extendable]
-        ext_lines = network.lines[network.lines.s_nom_extendable]
-        ext_links = network.links[network.links.p_nom_extendable]
-        ext_trafos = network.transformers[network.transformers.s_nom_extendable]
-        storage_costs = 0
+
+        # electrical grid: AC lines, DC lines
+
         network_costs = [0, 0]
-        if not ext_storage.empty:
-            storage_costs = (ext_storage.p_nom_opt*
-                             ext_storage.capital_cost).sum()
+
+        ext_lines = network.lines[network.lines.s_nom_extendable]
+        ext_trafos = network.transformers[network.transformers.s_nom_extendable]
+        ext_links = network.links[network.links.p_nom_extendable]
+        ext_dc_lines = ext_links[ext_links.carrier=='DC']
 
         if not ext_lines.empty:
             network_costs[0] = ((ext_lines.s_nom_opt-ext_lines.s_nom_min
                                  )*ext_lines.capital_cost).sum()
-
-        if not ext_links.empty:
-            network_costs[1] = ((ext_links.p_nom_opt-ext_links.p_nom_min
-                                 )*ext_links.capital_cost).sum()
 
         if not ext_trafos.empty:
             network_costs[0] = network_costs[0]+((
                 ext_trafos.s_nom_opt-ext_trafos.s_nom
                 )*ext_trafos.capital_cost).sum()
 
-        return  network_costs, storage_costs
+        if not ext_dc_lines.empty:
+            network_costs[1] = ((ext_dc_lines.p_nom_opt-ext_dc_lines.p_nom_min
+                                 )*ext_dc_lines.capital_cost).sum()
+
+        # links in other sectors / coupling different sectors
+
+        link_costs = 0
+
+        ext_links = ext_links[ext_links.carrier!='DC']
+
+        if not ext_links.empty:
+            link_costs = ((ext_links.p_nom_opt-ext_links.p_nom_min
+                                 )*ext_links.capital_cost).sum()
+
+        # storage and store costs
+
+        sto_costs = [0, 0]
+
+        ext_storage = network.storage_units[network.storage_units.p_nom_extendable]
+        ext_store = network.stores[network.stores.e_nom_extendable]
+
+        if not ext_storage.empty:
+            sto_costs[0] = (ext_storage.p_nom_opt*
+                             ext_storage.capital_cost).sum()
+
+        if not ext_store.empty:
+            sto_costs[1] = (ext_store.e_nom_opt*
+                             ext_store.capital_cost).sum()
+
+        return  network_costs, link_costs, sto_costs
 
 def calc_marginal_cost(self):
         """
         Function that caluclates and returns marginal costs, considering
-        generation and storage dispatch costs
+        generation and link and storage dispatch costs
 
         Returns
         -------
@@ -105,12 +193,15 @@ def calc_marginal_cost(self):
         """
         network = self.network
         gen = network.generators_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
+        link = abs(network.links_t.p0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
+                network.links.marginal_cost).sum()
         stor = network.storage_units_t.p.mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.storage_units.marginal_cost).sum()
-        marginal_cost = gen + stor
+        marginal_cost = gen + link + stor
         return marginal_cost
 
 def calc_etrago_results(self):
@@ -124,47 +215,97 @@ def calc_etrago_results(self):
         """
         self.results = pd.DataFrame(columns=['unit', 'value'],
                                     index=['annual system costs',
-                                           'annual_investment_costs',
-                                           'annual_marginal_costs',
-                                           'annual_grid_investment_costs',
-                                           'ac_annual_grid_investment_costs',
-                                           'dc_annual_grid_investment_costs',
-                                           'annual_storage_investment_costs',
-                                           'storage_expansion',
-                                           'battery_storage_expansion',
-                                           'hydrogen_storage_expansion',
-                                           'abs_network_expansion',
-                                           'rel_network_expansion'])
+                                           'annual investment costs',
+                                           'annual marginal costs',
+                                           'annual electrical grid investment costs',
+                                           'annual ac grid investment costs',
+                                           'annual dc grid investment costs',
+                                           'annual links investment costs',
+                                           'annual storage+store investment costs',
+                                           'annual electrical storage investment costs',
+                                           'annual store investment costs',
+                                           'battery storage expansion',
+                                           'store expansion',
+                                           'H2 store expansion',
+                                           'CH4 store expansion',
+                                           'heat store expansion',
+                                           'storage+store expansion',
+                                           'fuel cell links expansion',
+                                           'electrolyzer links expansion',
+                                           'methanisation links expansion',
+                                           'Steam Methane Reformation links expansion',
+                                           'abs. electrical grid expansion',
+                                           'abs. electrical ac grid expansion',
+                                           'abs. electrical dc grid expansion',
+                                           'rel. electrical ac grid expansion',
+                                           'rel. electrical dc grid expansion'])
 
         self.results.unit[self.results.index.str.contains('cost')] = 'EUR/a'
-        self.results.unit[self.results.index.isin([
-            'storage_expansion', 'abs_network_expansion',
-            'battery_storage_expansion', 'hydrogen_storage_expansion'])] = 'MW'
-        self.results.unit['abs_network_expansion'] = 'MW'
-        self.results.unit['rel_network_expansion'] = 'p.u.'
+        self.results.unit[self.results.index.str.contains('expansion')] = 'MW'
+        self.results.unit[self.results.index.str.contains('rel.')] = 'p.u.'
+
+        # system costs
+
+        self.results.value['annual ac grid investment costs'] = calc_investment_cost(self)[0][0]
+        self.results.value['annual dc grid investment costs'] = calc_investment_cost(self)[0][1]
+        self.results.value['annual electrical grid investment costs'] = sum(calc_investment_cost(self)[0])
+
+        self.results.value['annual links investment costs'] = calc_investment_cost(self)[1]
+
+        self.results.value['annual electrical storage investment costs'] = calc_investment_cost(self)[2][0]
+        self.results.value['annual store investment costs'] = calc_investment_cost(self)[2][1]
+        self.results.value['annual storage+store investment costs'] = sum(calc_investment_cost(self)[2])
 
 
-
-        self.results.value['ac_annual_grid_investment_costs'] = calc_investment_cost(self)[0][0]
-        self.results.value['dc_annual_grid_investment_costs'] = calc_investment_cost(self)[0][1]
-        self.results.value['annual_grid_investment_costs'] = sum(calc_investment_cost(self)[0])
-
-        self.results.value['annual_storage_investment_costs'] = calc_investment_cost(self)[1]
-
-        self.results.value['annual_investment_costs'] = \
-            calc_investment_cost(self)[1] + sum(calc_investment_cost(self)[0])
-        self.results.value['annual_marginal_costs'] = calc_marginal_cost(self)
+        self.results.value['annual investment costs'] = \
+            sum(calc_investment_cost(self)[0]) + calc_investment_cost(self)[1] + sum(calc_investment_cost(self)[2])
+        self.results.value['annual marginal costs'] = calc_marginal_cost(self)
 
         self.results.value['annual system costs'] = \
-            self.results.value['annual_investment_costs'] + calc_marginal_cost(self)
+            self.results.value['annual investment costs'] + self.results.value['annual marginal costs']
 
-        if 'storage' in self.args['extendable']:
-            self.results.value['storage_expansion'] = \
+        # storage and store expansion
+
+        network = self.network
+
+        if not network.storage_units[network.storage_units.p_nom_extendable].empty:
+
+            self.results.value['battery storage expansion'] = \
                 _calc_storage_expansion(self).sum()
-            self.results.value['battery_storage_expansion'] = \
-                _calc_storage_expansion(self)['extendable_battery_storage']
-            self.results.value['hydrogen_storage_expansion'] = \
-                _calc_storage_expansion(self)['extendable_hydrogen_storage']
 
-        if 'network' in self.args['extendable']:
-            self.results.value['abs_network_expansion']
+            store = _calc_store_expansion(self)
+            self.results.value['store expansion'] = store.sum()
+            self.results.value['H2 store expansion'] = \
+                store[store.index.str.contains('H2')].sum()
+            self.results.value['CH4 store expansion'] = \
+                store[store.index.str.contains('CH4')].sum()
+            self.results.value['heat store expansion'] = \
+                store[store.index.str.contains('heat')].sum()
+
+            self.results.value['storage+store expansion'] = \
+                self.results.value['battery storage expansion'] + self.results.value['store expansion']
+
+        # links expansion
+
+        if not network.links[network.links.p_nom_extendable].empty:
+
+            links = _calc_sectorcoupling_link_expansion(self)
+            self.results.value['fuel cell links expansion'] = links[0]
+            self.results.value['electrolyzer links expansion'] = links[1]
+            self.results.value['methanisation links expansion'] = links[2]
+            self.results.value['Steam Methane Reformation links expansion'] = links[3]
+
+        # grid expansion
+
+        if not network.lines[network.lines.s_nom_extendable].empty:
+
+            self.results.value['abs. electrical ac grid expansion'] = _calc_network_expansion(self)[0].sum()
+            self.results.value['abs. electrical dc grid expansion'] = _calc_network_expansion(self)[1].sum()
+            self.results.value['abs. electrical grid expansion'] = self.results.value['abs. electrical ac grid expansion'] + self.results.value['abs. electrical dc grid expansion']
+
+            ext_lines = network.lines[network.lines.s_nom_extendable]
+            ext_links = network.links[network.links.p_nom_extendable]
+            ext_dc_lines = ext_links[ext_links.carrier=='DC']
+
+            self.results.value['rel. electrical ac grid expansion'] = (_calc_network_expansion(self)[0].sum() / ext_lines.s_nom.sum())
+            self.results.value['rel. electrical dc grid expansion'] = (_calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum())

@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 # File description for read-the-docs
-""" Gasclustering.py defines the methods to cluster gas grid networks
+""" gas.py defines the methods to cluster gas grid networks
 spatially for applications within the tool eTraGo."""
 
 import os
 
 if "READTHEDOCS" not in os.environ:
-
-    from collections import Counter
 
     import numpy as np
     import pandas as pd
@@ -20,14 +18,17 @@ if "READTHEDOCS" not in os.environ:
     )
     from six import iteritems
 
-    from etrago.cluster.networkclustering import strategies_links
+    from etrago.cluster.spatial import (
+        sum_with_inf,
+        group_links,
+        kmedoids_dijkstra_clustering,
+    )
     from etrago.tools.utilities import *
 
 
-def create_gas_busmap(etrago):
+def preprocessing(etrago):
     """
-    Create a bus map from the clustering of buses in space with a
-    weighting.
+    Create a bus map from the clustering of buses in space with a weighting.
 
     Parameters
     ----------
@@ -43,81 +44,175 @@ def create_gas_busmap(etrago):
     network_ch4 = Network()
 
     buses_ch4 = etrago.network.buses
+    links_ch4 = etrago.network.links
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
-
-    num_neighboring_country = (
-        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] != "DE")
-    ).sum()
+    io.import_components_from_dataframe(network_ch4, links_ch4, "Link")
 
     # Cluster ch4 buses
-    kmean_gas_settings = etrago.args["network_clustering_kmeans"]
+    settings = etrago.args["network_clustering"]
 
-    if num_neighboring_country >= kmean_gas_settings["n_clusters_gas"]:
-        msg = (
-            "The number of clusters for the gas sector ("
-            + str(kmean_gas_settings["n_clusters_gas"])
-            + ") must be higher than the number of neighboring contry gas buses ("
-            + str(num_neighboring_country)
-            + ")."
-        )
-        raise ValueError(msg)
+    ch4_filter = network_ch4.buses["carrier"].values == "CH4"
 
-    network_ch4.buses = network_ch4.buses[
-        (network_ch4.buses["carrier"] == "CH4") & (network_ch4.buses["country"] == "DE")
+    num_neighboring_country = (
+        ch4_filter & (network_ch4.buses["country"] != "DE")
+    ).sum()
+
+    # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
+    if not settings["cluster_foreign_gas"]:
+
+        network_ch4.buses = network_ch4.buses.loc[
+            ch4_filter & (network_ch4.buses["country"].values == "DE")
+        ]
+
+        # remove line when data model got rid of resp buses
+        network_ch4.buses = network_ch4.buses.loc[
+            ~network_ch4.buses.index.isin(["48591", "48588"])
+        ]
+
+        if settings["n_clusters_gas"] <= num_neighboring_country:
+            msg = (
+                "The number of clusters for the gas sector ("
+                + str(settings["n_clusters_gas"])
+                + ") must be higher than the number of neighboring country gas buses ("
+                + str(num_neighboring_country)
+                + ")."
+            )
+            raise ValueError(msg)
+
+        n_clusters = settings["n_clusters_gas"] - num_neighboring_country
+
+    else:
+        network_ch4.buses = network_ch4.buses.loc[ch4_filter]
+        n_clusters = settings["n_clusters_gas"]
+
+    network_ch4.links = network_ch4.links.loc[
+        network_ch4.links["bus0"].isin(network_ch4.buses.index)
+        & network_ch4.links["bus1"].isin(network_ch4.buses.index)
     ]
 
-    def weighting_for_scenario(x, save=None):
-        """ """
-        # TODO to be redefined
-        b_i = x.index
-        weight = pd.DataFrame([1] * len(b_i), index=b_i)
+    def weighting_for_scenario(ch4_buses, save=None):
+        """
+        Calculate CH4-bus weightings dependant on the connected
+        CH4-loads, CH4-generators and non-transport link capacities.
+        Stores are not considered for the clustering.
+
+        Parameters
+        ----------
+        ch4_buses : pandas.DataFrame
+            Dataframe with CH4 etrago.network.buses to weight.
+        save: path
+            Path to save weightings to as .csv
+        Returns
+        -------
+        weightings : pandas.Series
+            Integer weighting for each ch4_buses.index
+        """
+
+        MAX_WEIGHT = 1e5  # relevant only for foreign nodes with extra high CH4 generation capacity
+
+        to_neglect = [
+            "CH4",
+            "H2_to_CH4",
+            "CH4_to_H2",
+            "H2_feedin",
+        ]
+
+        # get all non-transport and non-H2 related links for each bus
+        rel_links = {}
+        for i in ch4_buses.index:
+            rel_links[i] = etrago.network.links.loc[
+                (
+                    etrago.network.links.bus0.isin([i])
+                    | etrago.network.links.bus1.isin([i])
+                )
+                & ~etrago.network.links.carrier.isin(to_neglect)
+            ].index
+
+        # get all generators and loads related to ch4_buses
+        generators_ = pd.Series(
+            etrago.network.generators.index, index=etrago.network.generators.bus
+        )
+        buses_CH4_gen = generators_.index.intersection(rel_links.keys())
+        loads_ = pd.Series(etrago.network.loads.index, index=etrago.network.loads.bus)
+        buses_CH4_load = loads_.index.intersection(rel_links.keys())
+
+        # sum up all relevant entities and cast to integer
+        # Note: rel_links will hold the weightings for each bus afterwards
+        for i in rel_links:
+            rel_links[i] = etrago.network.links.loc[rel_links[i]].p_nom.sum()
+            if i in buses_CH4_gen:
+                rel_links[i] += etrago.network.generators.loc[
+                    generators_.loc[i]
+                ].p_nom.sum()
+            if i in buses_CH4_load:
+                rel_links[i] += (
+                    etrago.network.loads_t.p_set.loc[:, loads_.loc[i]].mean().sum()
+                )
+            rel_links[i] = min(int(rel_links[i]), MAX_WEIGHT)
+
+        weightings = pd.DataFrame.from_dict(rel_links, orient="index")
 
         if save:
-            weight.to_csv(save)
+            weightings.to_csv(save)
 
-        return weight
+        return weightings
 
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
-    if kmean_gas_settings["bus_weight_tocsv"] is not None:
+    if settings["gas_weight_tocsv"] is not None:
         weight_ch4 = weighting_for_scenario(
-            x=network_ch4.buses,
-            save="network_ch4_" + kmean_gas_settings["bus_weight_tocsv"],
+            network_ch4.buses,
+            settings["gas_weight_tocsv"],
         )
-    elif kmean_gas_settings["bus_weight_fromcsv"] is not None:
-        weight_ch4 = pd.Series.from_csv(kmean_gas_settings["bus_weight_fromcsv"])
-        weight_ch4.index = weight_ch4.index.astype(str)
+    elif settings["gas_weight_fromcsv"] is not None:
+        # create DataFrame with uniform weightings for all ch4_buses
+        weight_ch4 = pd.DataFrame([1] * len(buses_ch4), index=buses_ch4.index)
+        loaded_weights = pd.read_csv(settings["gas_weight_fromcsv"], index_col=0)
+        # load weights into previously created DataFrame
+        loaded_weights.index = loaded_weights.index.astype(str)
+        weight_ch4.loc[loaded_weights.index] = loaded_weights
     else:
-        weight_ch4 = weighting_for_scenario(x=network_ch4.buses, save=False)
+        weight_ch4 = weighting_for_scenario(network_ch4.buses, save=False)
 
-    weight_ch4_s = weight_ch4.squeeze()
+    return network_ch4, weight_ch4.squeeze(), n_clusters
+
+
+def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
+
+    settings = etrago.args["network_clustering"]
 
     # Creation of the busmap
 
-    if not kmean_gas_settings["kmeans_gas_busmap"]:
+    if not settings["kmeans_gas_busmap"]:
 
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
-            bus_weightings=weight_ch4_s,
-            n_clusters=kmean_gas_settings["n_clusters_gas"]
-            - num_neighboring_country,
-            n_init=kmean_gas_settings["n_init"],
-            max_iter=kmean_gas_settings["max_iter"],
-            tol=kmean_gas_settings["tol"],
+            bus_weightings=weight,
+            n_clusters=n_clusters,
+            n_init=settings["n_init"],
+            max_iter=settings["max_iter"],
+            tol=settings["tol"],
+            random_state=settings["random_state"],
         )
 
         busmap_ch4.to_csv(
-            "kmeans_ch4_busmap_"
-            + str(kmean_gas_settings["n_clusters_gas"])
-            + "_result.csv"
+            "kmeans_ch4_busmap_" + str(settings["n_clusters_gas"]) + "_result.csv"
         )
 
     else:
 
-        df = pd.read_csv(kmean_gas_settings["kmeans_gas_busmap"])
+        df = pd.read_csv(settings["kmeans_gas_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
         busmap_ch4 = df.squeeze("columns")
+
+    return busmap_ch4
+
+
+def gas_clustering_appendix(etrago, busmap_ch4):
+    # This section is very specific to the eGon2035 scenario
+    # it depends on the existance of H2_feedin points and it should be
+    # rewritten
 
     # Add H2_grid buses to busmap
     df_correspondance_H2_CH4 = etrago.network.links[
@@ -137,10 +232,8 @@ def create_gas_busmap(etrago):
     )
     CH4_clusters = busmap_h2["CH4_nodes_c"].tolist()
     CH4_clusters_unique = list(set(CH4_clusters))
-    H2_clusters = range(
-        kmean_gas_settings["n_clusters_gas"],
-        (kmean_gas_settings["n_clusters_gas"] + len(set(CH4_clusters))),
-    )
+    n_gas = etrago.args["network_clustering"]["n_clusters_gas"]
+    H2_clusters = range(n_gas, n_gas + len(set(CH4_clusters)))
     corr = pd.DataFrame(
         list(zip(CH4_clusters_unique, H2_clusters)),
         columns=["CH4_nodes_c", "H2_clusters"],
@@ -153,7 +246,16 @@ def create_gas_busmap(etrago):
 
     busmap = pd.concat([busmap_ch4, busmap_h2])
 
-    # Add all other buses except H2_ind_load to busmap
+    return busmap
+
+
+def gas_postprocessing(etrago, busmap, medoid_idx):
+
+    busmap = gas_clustering_appendix(etrago, busmap)
+
+    settings = etrago.args["network_clustering"]
+    # Add all other buses to busmap
+
     missing_idx = list(
         etrago.network.buses[(~etrago.network.buses.index.isin(busmap.index))].index
     )
@@ -204,15 +306,120 @@ def create_gas_busmap(etrago):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
-    df_bm = pd.DataFrame(busmap.items(), columns=["Original bus id", "New bus id"])
+    df_bm = pd.DataFrame(busmap.items(), columns=["bus0", "bus1"])
     df_bm.to_csv(
-        "kmeans_gasgrid_busmap_"
-        + str(kmean_gas_settings["n_clusters_gas"])
-        + "_result.csv",
+        str(settings["method_gas"]) + str(settings["n_clusters_gas"]) + "_result.csv",
         index=False,
     )
 
-    return busmap
+    network_gasgrid_c = get_clustering_from_busmap(
+        etrago.network,
+        busmap,
+        bus_strategies={
+            "country": "first",
+        },
+        one_port_strategies={
+            "Generator": {
+                "marginal_cost": np.mean,
+                "capital_cost": np.mean,
+                "p_nom_max": np.sum,
+                "p_nom_min": np.sum,
+                "e_nom_max": np.sum,
+            },
+            "Store": {
+                "marginal_cost": np.mean,
+                "capital_cost": np.mean,
+                "e_nom": np.sum,
+                "e_nom_max": sum_with_inf,
+            },
+            "Load": {
+                "p_set": np.sum,
+            },
+        },
+    )
+
+    # aggregation of the links and links time series
+    network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(network_gasgrid_c)
+
+    # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
+    if etrago.args["scn_name"] == "eGon2035":
+        H2_energy_share = 0.05053  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
+        feed_in = network_gasgrid_c.links.loc[
+            network_gasgrid_c.links.carrier == "H2_feedin"
+        ]
+        pipeline_capacities = network_gasgrid_c.links.loc[
+            network_gasgrid_c.links.carrier == "CH4"
+        ]
+
+        for bus in feed_in["bus1"].values:
+            # calculate the total pipeline capacity connected to a specific bus
+            nodal_capacity = pipeline_capacities.loc[
+                (pipeline_capacities["bus0"] == bus)
+                | (pipeline_capacities["bus1"] == bus),
+                "p_nom",
+            ].sum()
+            # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
+            network_gasgrid_c.links.loc[
+                (network_gasgrid_c.links["bus1"].values == bus)
+                & (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
+                "p_nom",
+            ] = (
+                nodal_capacity * H2_energy_share
+            )
+
+    # Insert components not related to the gas clustering
+    other_components = ["Line", "StorageUnit", "ShuntImpedance", "Transformer"]
+
+    for c in etrago.network.iterate_components(other_components):
+        io.import_components_from_dataframe(
+            network_gasgrid_c,
+            c.df,
+            c.name,
+        )
+        for attr, df in c.pnl.items():
+            if not df.empty:
+                io.import_series_from_dataframe(
+                    network_gasgrid_c,
+                    df,
+                    c.name,
+                    attr,
+                )
+
+    io.import_components_from_dataframe(
+        network_gasgrid_c, etrago.network.carriers, "Carrier"
+    )
+
+    network_gasgrid_c.determine_network_topology()
+
+    # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
+    if settings["method_gas"] == "kmedoids-dijkstra":
+        for i in network_gasgrid_c.buses[
+            network_gasgrid_c.buses.carrier == "CH4"
+        ].index:
+            cluster = str(i)
+            if cluster in busmap[medoid_idx].values:
+                medoid = busmap[medoid_idx][busmap[medoid_idx] == cluster].index
+                h2_idx = network_gasgrid_c.buses.loc[
+                    (network_gasgrid_c.buses.carrier == "H2_grid")
+                    & (network_gasgrid_c.buses.y == network_gasgrid_c.buses.at[i, "y"])
+                    & (network_gasgrid_c.buses.x == network_gasgrid_c.buses.at[i, "x"])
+                ]
+                if len(h2_idx) > 0:
+                    h2_idx = h2_idx.index.tolist()[0]
+                    network_gasgrid_c.buses.at[h2_idx, "x"] = etrago.network.buses[
+                        "x"
+                    ].loc[medoid]
+                    network_gasgrid_c.buses.at[h2_idx, "y"] = etrago.network.buses[
+                        "y"
+                    ].loc[medoid]
+                network_gasgrid_c.buses.at[i, "x"] = etrago.network.buses["x"].loc[
+                    medoid
+                ]
+                network_gasgrid_c.buses.at[i, "y"] = etrago.network.buses["y"].loc[
+                    medoid
+                ]
+
+    return (network_gasgrid_c, busmap)
 
 
 def highestInteger(potentially_numbers):
@@ -465,7 +672,7 @@ def sc_multi_carrier_based(buses_to_cluster, connected_links):
             sorted(
                 connected_links.loc[
                     connected_links["bus1_clustered"] == bus_id, "bus0_clustered"
-                ].tolist()
+                ].unique()
             )
         )
 
@@ -534,7 +741,6 @@ def get_clustering_from_busmap(
     one_port_components = ["Generator", "Load", "Store"]
 
     for one_port in one_port_components:
-        one_port_components.remove(one_port)
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
@@ -546,19 +752,6 @@ def get_clustering_from_busmap(
         for attr, df in iteritems(new_pnl):
             io.import_series_from_dataframe(network_gasgrid_c, df, one_port, attr)
 
-    for c in network.iterate_components(one_port_components):
-        io.import_components_from_dataframe(
-            network_gasgrid_c,
-            c.df.assign(bus=c.df.bus.map(busmap)).dropna(subset=["bus"]),
-            c.name,
-        )
-
-    if with_time:
-        for c in network.iterate_components(one_port_components):
-            for attr, df in iteritems(c.pnl):
-                if not df.empty:
-                    io.import_series_from_dataframe(network_gasgrid_c, df, c.name, attr)
-
     # Aggregate links
     new_links = (
         network.links.assign(
@@ -568,135 +761,72 @@ def get_clustering_from_busmap(
         .loc[lambda df: df.bus0 != df.bus1]
     )
 
-    new_links["link_id"] = new_links.index
-
-    strategies = strategies_links()
-    strategies["link_id"] = "first"
-
-    # aggregate CH4 pipelines
+    # preparation for CH4 pipeline aggregation:
     # pipelines are treated differently compared to other links, since all of
     # them will be considered bidirectional. That means, if a pipeline exists,
     # that connects one cluster with a different one simultaneously with a
     # pipeline that connects these two clusters in reversed order (e.g. bus0=1,
     # bus1=12 and bus0=12, bus1=1) they are aggregated to a single pipeline.
-    pipelines = new_links.loc[new_links["carrier"] == "CH4"]
+    # therefore, the order of bus0/bus1 is adjusted
+    pipeline_mask = new_links["carrier"] == "CH4"
+    sorted_buses = np.sort(new_links.loc[pipeline_mask, ["bus0", "bus1"]].values, 1)
+    new_links.loc[pipeline_mask, ["bus0", "bus1"]] = sorted_buses
 
-    pipeline_combinations = pipelines.groupby(["bus0", "bus1", "carrier"]).agg(
-        strategies
-    )
-    pipeline_combinations.reset_index(drop=True, inplace=True)
-    pipeline_combinations["buscombination"] = pipeline_combinations[
-        ["bus0", "bus1"]
-    ].apply(lambda x: tuple(sorted([str(x.bus0), str(x.bus1)])), axis=1)
-    pipeline_strategies = strategies.copy()
-    pipeline_strategies.update(
-        {col: "first" for col in pipeline_combinations.columns if col not in strategies}
-    )
-    # the order of buses for pipelines can be ignored, since the pipelines are
-    # working bidirectionally
-    pipeline_strategies["bus0"] = "first"
-    pipeline_strategies["bus1"] = "first"
-    pipelines_final = pipeline_combinations.groupby(["buscombination", "carrier"]).agg(
-        pipeline_strategies
-    )
-
-    pipelines_final.set_index("link_id", inplace=True)
-    pipelines_final.drop(columns="buscombination", inplace=True)
-    io.import_components_from_dataframe(network_gasgrid_c, pipelines_final, "Link")
-
-    # aggregate remaining links
-    not_pipelines = new_links.loc[new_links["carrier"] != "CH4"]
-    combinations = not_pipelines.groupby(["bus0", "bus1", "carrier"]).agg(strategies)
-    combinations.set_index("link_id", inplace=True)
-
-    io.import_components_from_dataframe(network_gasgrid_c, combinations, "Link")
+    # import the links and the respective time series with the bus0 and bus1
+    # values updated from the busmap
+    io.import_components_from_dataframe(network_gasgrid_c, new_links, "Link")
 
     if with_time:
-        for attr, df in iteritems(network.links_t):
+        for attr, df in network.links_t.items():
             if not df.empty:
                 io.import_series_from_dataframe(network_gasgrid_c, df, "Link", attr)
 
     return network_gasgrid_c
 
 
-def kmean_clustering_gas_grid(etrago):
-    """Main function of the k-mean clustering approach. Maps the original gas
-    network to a new one with adjustable number of nodes and new coordinates.
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Container for all network components.
-    n_clusters_gas : int
-        Desired number of gas clusters.
-    bus_weight_tocsv : str
-        Creates a bus weighting based on conventional generation and load
-        and save it to a csv file.
-    bus_weight_fromcsv : str
-        Loads a bus weighting from a csv file to apply it to the clustering
-        algorithm.
-    Returns
-    -------
-    network : pypsa.Network object
-        Container for the gas network components.
-    """
-
-    gas_busmap = create_gas_busmap(etrago)
-
-    network_gasgrid_c = get_clustering_from_busmap(
-        etrago.network,
-        gas_busmap,
-        bus_strategies={
-            "country": "first",
-        },
-        one_port_strategies={
-            "Generator": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "p_nom_max": np.sum,
-                "p_nom_min": np.sum,
-            },
-            "Store": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "e_nom": np.sum,
-                "e_nom_max": np.sum,
-            },
-            "Load": {
-                "p_set": np.sum,
-            },
-        },
-    )
-
-    # Insert components not related to the gas clustering
-    io.import_components_from_dataframe(network_gasgrid_c, etrago.network.lines, "Line")
-    io.import_components_from_dataframe(
-        network_gasgrid_c, etrago.network.storage_units, "StorageUnit"
-    )
-    io.import_components_from_dataframe(
-        network_gasgrid_c, etrago.network.shunt_impedances, "ShuntImpedance"
-    )
-    io.import_components_from_dataframe(
-        network_gasgrid_c, etrago.network.transformers, "Transformer"
-    )
-    io.import_components_from_dataframe(
-        network_gasgrid_c, etrago.network.carriers, "Carrier"
-    )
-
-    network_gasgrid_c.determine_network_topology()
-
-    return network_gasgrid_c
-
-
-def run_kmeans_clustering_gas(self):
-
-    if self.args["network_clustering_kmeans"]["active"]:
+def run_spatial_clustering_gas(self):
+    if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
+        method = self.args["network_clustering"]["method_gas"]
+        logger.info(f"Start {method} clustering GAS")
 
-        logger.info("Start k-mean clustering GAS")
-        self.network = kmean_clustering_gas_grid(self)
+        gas_network, weight, n_clusters = preprocessing(self)
+
+        if method == "kmeans":
+            busmap = kmean_clustering_gas(self, gas_network, weight, n_clusters)
+            medoid_idx = None
+
+        elif method == "kmedoids-dijkstra":
+
+            busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                self, gas_network.buses, gas_network.links, weight, n_clusters
+            )
+
+        else:
+            msg = (
+                'Please select "kmeans" or "kmedoids-dijkstra" as '
+                "spatial clustering method for the gas network"
+            )
+            raise ValueError(msg)
+
+        self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+
+        self.update_busmap(busmap)
         logger.info(
-            "GAS Network clustered to {} buses with k-means algorithm.".format(
-                self.args["network_clustering_kmeans"]["n_clusters_gas"]
+            "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country == "DE")
+                    ]
+                ),
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country != "DE")
+                    ]
+                ),
+                method,
             )
         )
