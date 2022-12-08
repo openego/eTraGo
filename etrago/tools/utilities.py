@@ -2151,45 +2151,45 @@ def drop_sectors(self, drop_carriers):
     ----------
     drop_carriers : array
         List of sectors that will be dropped.
+        e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat', 'rural_heat',
+         'central_heat_store', 'rural_heat_store', 'Li ion'] means everything but AC
 
     Returns
     -------
     None.
 
     """
-    
-    if self.scenario.scn_name == 'eGon2035':
 
-        if 'CH4' in drop_carriers:
+    if self.scenario.scn_name == "eGon2035":
+
+        if "CH4" in drop_carriers:
             # create gas generators from links in order to not lose them when dropping non-electric carriers
-            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP']
+            gas_to_add = ["central_gas_CHP", "industrial_gas_CHP", "OCGT"]
             gen = self.network.generators
-            
+
             for i in gas_to_add:
                 gen_empty = gen.drop(gen.index)
                 gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
-                gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom
-                gen_empty.marginal_cost = self.network.links[self.network.links.carrier == i].marginal_cost
+                gen_empty.p_nom = (
+                    self.network.links[self.network.links.carrier == i].p_nom
+                    * self.network.links[self.network.links.carrier == i].efficiency
+                )
+                gen_empty.marginal_cost = (
+                    self.network.links[self.network.links.carrier == i].marginal_cost
+                    + 35.851
+                )  # add fuel costs (source: NEP)
+                gen_empty.efficiency = 1
                 gen_empty.carrier = i
-                gen_empty.scn_name = 'eGon2035'
+                gen_empty.scn_name = "eGon2035"
                 gen_empty.p_nom_extendable = False
                 gen_empty.sign = 1
                 gen_empty.p_min_pu = 0
                 gen_empty.p_max_pu = 1
-                gen_empty.control = 'PV'
+                gen_empty.control = "PV"
                 gen_empty.fillna(0, inplace=True)
-                self.network.generators= self.network.generators.append(gen_empty, verify_integrity=True)
-                
-        if 'H2_ind_load' and'central_heat' and 'Li ion' and 'rural_heat' in drop_carriers:
-            # scale down generation facilities with respect to dropping additional loads
-            scale_down = 518.2/633.8
-        
-            gens_to_scale = ['solar', 'wind_offshore', 'wind_onshore', 'solar_rooftop', 'biomass']
-            foreign_index = self.network.buses[self.network.buses.country !='DE'].index
-            self.network.generators.p_nom[
-                (~self.network.generators.index.isin(foreign_index))|
-                (self.network.generators.carrier.isin(gens_to_scale))] *= scale_down
-    
+                self.network.generators = self.network.generators.append(
+                    gen_empty, verify_integrity=True
+                )
 
     self.network.mremove(
         "Bus",
