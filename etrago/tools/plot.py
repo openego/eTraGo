@@ -1640,14 +1640,14 @@ def plot_background_grid(network, ax):
     None.
 
     """
-
+    breakpoint()
     linkcarrier = pd.Series(
         data=network.links.carrier, index=network.links.index
     )
 
     linkcarrier[linkcarrier != "DC"] = 0
     linkcarrier[linkcarrier == "DC"] = 0.3
-
+    linkcarrier = linkcarrier.astype(float)
     network.plot(
         ax=ax,
         line_colors="grey",
