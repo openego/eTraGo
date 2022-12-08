@@ -109,7 +109,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
     if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
-        cluster_met in ["kmeans", "kmedoids-dijkstra"]
+        cluster_met in ["kmeans", "kmedoids-dijkstra","hac"]
     ):
         buses_orig = network.buses.copy()
         ac_buses_out = buses_orig[
