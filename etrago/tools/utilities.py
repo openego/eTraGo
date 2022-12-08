@@ -1605,11 +1605,10 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-            if 'args' in locals():
+            if "args" in locals():
                 self.args = merge_dicts(self.args, json.load(f))
             else:
                 self.args = json.load(f)
-                
 
 
 def merge_dicts(dict1, dict2):
