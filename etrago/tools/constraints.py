@@ -245,7 +245,7 @@ def _min_renewable_share(self, network, snapshots):
 
     renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
                   'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
-                  'run_of_river', 'other_renewable',
+                  'run_of_river', 'other_renewable', 'CH4_biogas',
                   'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
 
     res = list(network.generators.index[network.generators.carrier.isin(renewables)])
