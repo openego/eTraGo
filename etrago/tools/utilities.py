@@ -28,6 +28,16 @@ import math
 import os
 import time
 from importlib import import_module
+from collections.abc import Mapping
+from copy import deepcopy
+
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import pypsa
+from egoio.tools import db
+from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import Point, LineString
 
 import geopandas as gpd
 import numpy as np
@@ -1071,6 +1081,18 @@ def delete_dispensable_ac_buses(etrago):
         l_new = agg_series_lines(lines_group, network)
         l_new["bus0"] = new_lines.at[l, "bus0"]
         l_new["bus1"] = new_lines.at[l, "bus1"]
+        l_new["geom"] = LineString(
+            [
+                (
+                    network.buses.at[l_new["bus0"], "x"],
+                    network.buses.at[l_new["bus0"], "y"],
+                ),
+                (
+                    network.buses.at[l_new["bus1"], "x"],
+                    network.buses.at[l_new["bus1"], "y"],
+                ),
+            ]
+        )
         new_lines_df["s_nom_extendable"] = new_lines_df["s_nom_extendable"].astype(bool)
         new_lines_df.loc[l_new.name] = l_new
 
@@ -1591,7 +1613,26 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
+<<<<<<< HEAD
             self.args = json.load(f)
+=======
+            args_ = json.load(f)
+            self.args = merge_dicts(self.args, args_)
+
+
+def merge_dicts(dict1, dict2):
+    """Return a new dictionary by merging two dictionaries recursively."""
+
+    result = deepcopy(dict1)
+
+    for key, value in dict2.items():
+        if isinstance(value, Mapping):
+            result[key] = merge_dicts(result.get(key, {}), value)
+        else:
+            result[key] = deepcopy(dict2[key])
+
+    return result
+>>>>>>> dev
 
 
 def get_clustering_data(self, path):
