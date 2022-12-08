@@ -80,7 +80,6 @@ def set_epsg_network(network):
     set_epsg_network.counter = set_epsg_network.counter + 1
 
 
-
 def plot_osm(x, y, zoom, alpha=0.4):
     """
     Plots openstreetmap as background of network-plots
@@ -108,7 +107,9 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
     fig, ax = plt.subplots()
     plt.axis("off")
-    plotter = tilemapbase.Plotter(extent, tilemapbase.tiles.build_OSM(), zoom=zoom)
+    plotter = tilemapbase.Plotter(
+        extent, tilemapbase.tiles.build_OSM(), zoom=zoom
+    )
     plotter.plot(ax, alpha=alpha)
     # ax.plot(x, y, "ro-")
     return fig, ax
@@ -217,7 +218,9 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
             set_epsg_network(networkB)
         plot_osm(osm["x"], osm["y"], osm["zoom"])
     # new colormap to make sure 0% difference has the same color in every plot
-    def shiftedColorMap(cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"):
+    def shiftedColorMap(
+        cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"
+    ):
         """
         Function to offset the "center" of a colormap. Useful for
         data with a negative min and positive max and you want the
@@ -279,7 +282,9 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     )
     loading_noswitches.columns = ["noswitch"]
     diff_network = loading_switches.join(loading_noswitches)
-    diff_network["noswitch"] = diff_network["noswitch"].fillna(diff_network["switch"])
+    diff_network["noswitch"] = diff_network["noswitch"].fillna(
+        diff_network["switch"]
+    )
     diff_network[networkA.snapshots[timestep]] = (
         diff_network["switch"] - diff_network["noswitch"]
     )
@@ -293,10 +298,13 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
 
     # plot network with difference in loading and shifted colormap
     loading = (
-        diff_network.loc[:, networkA.snapshots[timestep]] / (networkA.lines.s_nom)
+        diff_network.loc[:, networkA.snapshots[timestep]]
+        / (networkA.lines.s_nom)
     ) * 100
     midpoint = 1 - max(loading) / (max(loading) + abs(min(loading)))
-    shifted_cmap = shiftedColorMap(plt.cm.jet, midpoint=midpoint, name="shifted")
+    shifted_cmap = shiftedColorMap(
+        plt.cm.jet, midpoint=midpoint, name="shifted"
+    )
     ll = networkA.plot(
         line_colors=loading,
         line_cmap=shifted_cmap,
@@ -311,7 +319,9 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     cb.set_label("Difference in line loading in % of s_nom")
 
 
-def network_expansion_diff(networkA, networkB, filename=None, boundaries=[], osm=False):
+def network_expansion_diff(
+    networkA, networkB, filename=None, boundaries=[], osm=False
+):
     """Plot relative network expansion derivation of AC- and DC-lines.
 
     Parameters
@@ -341,11 +351,13 @@ def network_expansion_diff(networkA, networkB, filename=None, boundaries=[], osm
     cmap = plt.cm.jet
 
     extension_lines = 100 * (
-        (networkA.lines.s_nom_opt - networkB.lines.s_nom_opt) / networkA.lines.s_nom_opt
+        (networkA.lines.s_nom_opt - networkB.lines.s_nom_opt)
+        / networkA.lines.s_nom_opt
     )
 
     extension_links = 100 * (
-        (networkA.links.p_nom_opt - networkB.links.p_nom_opt) / networkA.links.p_nom_opt
+        (networkA.links.p_nom_opt - networkB.links.p_nom_opt)
+        / networkA.links.p_nom_opt
     )
 
     ll = networkA.plot(
@@ -378,7 +390,9 @@ def network_expansion_diff(networkA, networkB, filename=None, boundaries=[], osm
 
         cb_Link.remove()
 
-    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    cb = plt.colorbar(
+        ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
+    )
 
     cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label("line extension derivation  in %")
@@ -408,17 +422,29 @@ def plot_residual_load(network):
     ] * network.generators_t.p_max_pu[renewables.index].mul(
         network.snapshot_weightings, axis=0
     )
-    load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).sum(axis=1)
+    load = network.loads_t.p_set.mul(network.snapshot_weightings, axis=0).sum(
+        axis=1
+    )
     all_renew = renewables_t.sum(axis=1)
     residual_load = load - all_renew
     plot = residual_load.plot(
-        title="Residual load", drawstyle="steps", lw=2, color="red", legend=False
+        title="Residual load",
+        drawstyle="steps",
+        lw=2,
+        color="red",
+        legend=False,
     )
     plot.set_ylabel("MW")
     # sorted curve
-    sorted_residual_load = residual_load.sort_values(ascending=False).reset_index()
+    sorted_residual_load = residual_load.sort_values(
+        ascending=False
+    ).reset_index()
     plot1 = sorted_residual_load.plot(
-        title="Sorted residual load", drawstyle="steps", lw=2, color="red", legend=False
+        title="Sorted residual load",
+        drawstyle="steps",
+        lw=2,
+        color="red",
+        legend=False,
     )
     plot1.set_ylabel("MW")
 
@@ -454,10 +480,16 @@ def plot_stacked_gen(network, bus=None, resolution="GW", filename=None):
             pd.concat(
                 [
                     network.generators_t.p[
-                        network.generators[network.generators.control != "Slack"].index
+                        network.generators[
+                            network.generators.control != "Slack"
+                        ].index
                     ],
-                    network.generators_t.p.mul(network.snapshot_weightings, axis=0)[
-                        network.generators[network.generators.control == "Slack"].index
+                    network.generators_t.p.mul(
+                        network.snapshot_weightings, axis=0
+                    )[
+                        network.generators[
+                            network.generators.control == "Slack"
+                        ].index
                     ]
                     .iloc[:, 0]
                     .apply(lambda x: x if x > 0 else 0),
@@ -496,8 +528,12 @@ def plot_stacked_gen(network, bus=None, resolution="GW", filename=None):
     colors = [colors[col] for col in p_by_carrier.columns]
     if len(colors) == 1:
         colors = colors[0]
-    (p_by_carrier / reso_int).plot(kind="area", ax=ax, linewidth=0, color=colors)
-    (load / reso_int).plot(ax=ax, legend="load", lw=2, color="darkgrey", style="--")
+    (p_by_carrier / reso_int).plot(
+        kind="area", ax=ax, linewidth=0, color=colors
+    )
+    (load / reso_int).plot(
+        ax=ax, legend="load", lw=2, color="darkgrey", style="--"
+    )
     ax.legend(ncol=4, loc="upper left")
 
     ax.set_ylabel(resolution)
@@ -543,11 +579,19 @@ def plot_gen_diff(
         gen = (
             pd.concat(
                 [
-                    network.generators_t.p.mul(etwork.snapshot_weightings, axis=0)[
-                        network.generators[network.generators.control != "Slack"].index
+                    network.generators_t.p.mul(
+                        etwork.snapshot_weightings, axis=0
+                    )[
+                        network.generators[
+                            network.generators.control != "Slack"
+                        ].index
                     ],
-                    network.generators_t.p.mul(network.snapshot_weightings, axis=0)[
-                        network.generators[network.generators.control == "Slack"].index
+                    network.generators_t.p.mul(
+                        network.snapshot_weightings, axis=0
+                    )[
+                        network.generators[
+                            network.generators.control == "Slack"
+                        ].index
                     ]
                     .iloc[:, 0]
                     .apply(lambda x: x if x > 0 else 0),
@@ -623,7 +667,9 @@ def plot_voltage(network, boundaries=[], osm=False):
         cb.set_clim(vmin=boundaries[0], vmax=boundaries[1])
     cb.set_label("Voltage Magnitude per unit of v_nom")
 
-    network.plot(ax=ax, line_widths=pd.Series(0.5, network.lines.index), bus_sizes=0)
+    network.plot(
+        ax=ax, line_widths=pd.Series(0.5, network.lines.index), bus_sizes=0
+    )
     plt.show()
 
 
@@ -650,7 +696,9 @@ def curtailment(network, carrier="solar", filename=None):
         network.generators.carrier, axis=1
     ).sum()
     capacity = network.generators.groupby("carrier").sum().at[carrier, "p_nom"]
-    p_available = network.generators_t.p_max_pu.multiply(network.generators["p_nom"])
+    p_available = network.generators_t.p_max_pu.multiply(
+        network.generators["p_nom"]
+    )
     p_available_by_carrier = p_available.groupby(
         network.generators.carrier, axis=1
     ).sum()
@@ -672,7 +720,9 @@ def curtailment(network, carrier="solar", filename=None):
     p_df[[carrier + " dispatched", carrier + " curtailed"]].plot(
         kind="area", ax=ax, linewidth=3
     )
-    p_df[[carrier + " available", carrier + " capacity"]].plot(ax=ax, linewidth=3)
+    p_df[[carrier + " available", carrier + " capacity"]].plot(
+        ax=ax, linewidth=3
+    )
 
     ax.set_xlabel("")
     ax.set_ylabel("Power [MW]")
@@ -708,15 +758,21 @@ def calc_dispatch_per_carrier(network, timesteps):
     ]
 
     dist = pd.Series(
-        index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]), dtype=float
+        index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]),
+        dtype=float,
     )
 
     for i in dist.index:
         gens = network.generators[
-            (network.generators.bus == i[0]) & (network.generators.carrier == i[1])
+            (network.generators.bus == i[0])
+            & (network.generators.carrier == i[1])
         ].index
         dist[i] = (
-            (network.generators_t.p[gens].transpose()[network.snapshots[timesteps]])
+            (
+                network.generators_t.p[gens].transpose()[
+                    network.snapshots[timesteps]
+                ]
+            )
             .sum()
             .sum()
         )
@@ -739,11 +795,15 @@ def calc_storage_expansion_per_bus(network):
 
     """
 
-    batteries = network.storage_units[network.storage_units.carrier == "battery"]
+    batteries = network.storage_units[
+        network.storage_units.carrier == "battery"
+    ]
     h2_overground = network.stores[network.stores.carrier == "H2_overground"]
     h2_underground = network.stores[network.stores.carrier == "H2_underground"]
     rural_heat = network.stores[network.stores.carrier == "rural_heat_store"]
-    central_heat = network.stores[network.stores.carrier == "central_heat_store"]
+    central_heat = network.stores[
+        network.stores.carrier == "central_heat_store"
+    ]
     # hydrogen = network.storage_units[network.storage_units.carrier ==
     #                                  'extendable_hydrogen_storage']
     battery_distribution = (
@@ -791,7 +851,8 @@ def calc_storage_expansion_per_bus(network):
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
-        index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]), dtype=float
+        index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]),
+        dtype=float,
     )
 
     dist.iloc[
@@ -989,13 +1050,19 @@ def nodal_gen_dispatch(
             dispatch_network = (
                 network.generators_t.p[gens.index]
                 .mul(network.snapshot_weightings.generators, axis=0)
-                .groupby([network.generators.bus, network.generators.carrier], axis=1)
+                .groupby(
+                    [network.generators.bus, network.generators.carrier],
+                    axis=1,
+                )
                 .sum()
             )
             dispatch_networkB = (
                 networkB.generators_t.p[gens.index]
                 .mul(networkB.snapshot_weightings.generators, axis=0)
-                .groupby([networkB.generators.bus, networkB.generators.carrier], axis=1)
+                .groupby(
+                    [networkB.generators.bus, networkB.generators.carrier],
+                    axis=1,
+                )
                 .sum()
             )
             dispatch = dispatch_network - dispatch_networkB
@@ -1025,7 +1092,9 @@ def nodal_gen_dispatch(
         dispatch = dispatch.abs() + 1e-9
     else:
         dispatch = dispatch.sum(level=0)
-        colors = {s[0]: "green" if s[1] > 0 else "red" for s in dispatch.iteritems()}
+        colors = {
+            s[0]: "green" if s[1] > 0 else "red" for s in dispatch.iteritems()
+        }
         dispatch = dispatch.abs()
         subcolors = {"negative": "red", "positive": "green"}
     import cartopy.crs as ccrs
@@ -1096,7 +1165,10 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
     residual_load = (gen - load).sum()
 
     bus_colors = pd.Series(
-        {s[0]: "green" if s[1] > 0 else "red" for s in residual_load.iteritems()}
+        {
+            s[0]: "green" if s[1] > 0 else "red"
+            for s in residual_load.iteritems()
+        }
     )
 
     bus_sizes = residual_load.abs() * scaling
@@ -1130,10 +1202,12 @@ def storage_p_soc(network, mean="1H", filename=None):
     ]
 
     cap_batt = (
-        network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]
+        network.storage_units.max_hours[sbatt]
+        * network.storage_units.p_nom_opt[sbatt]
     ).sum()
     cap_hydr = (
-        network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]
+        network.storage_units.max_hours[shydr]
+        * network.storage_units.p_nom_opt[shydr]
     ).sum()
 
     fig, ax = plt.subplots(1, 1)
@@ -1228,7 +1302,6 @@ def storage_p_soc(network, mean="1H", filename=None):
     ax2.legend(loc=1)
     ax.set_title("Storage dispatch and state of charge")
 
-
     if filename is None:
         plt.show()
     else:
@@ -1262,10 +1335,12 @@ def storage_soc_sorted(network, filename=None):
     ]
 
     cap_batt = (
-        network.storage_units.max_hours[sbatt] * network.storage_units.p_nom_opt[sbatt]
+        network.storage_units.max_hours[sbatt]
+        * network.storage_units.p_nom_opt[sbatt]
     ).sum()
     cap_hydr = (
-        network.storage_units.max_hours[shydr] * network.storage_units.p_nom_opt[shydr]
+        network.storage_units.max_hours[shydr]
+        * network.storage_units.p_nom_opt[shydr]
     ).sum()
 
     fig, ax = plt.subplots(1, 1)
@@ -1424,19 +1499,25 @@ def calc_dc_loading(network, timesteps):
 
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
-    link_load = network.links_t.p0[network.links.index[network.links.linked_to == "0"]]
+    link_load = network.links_t.p0[
+        network.links.index[network.links.linked_to == "0"]
+    ]
 
     p_nom_opt_max = network.links.p_nom_opt[network.links.linked_to == "0"]
 
     # Set p_nom_max and line_loading for bidirectional links
     for i, row in network.links[network.links.linked_to != "0"].iterrows():
-        load = pd.DataFrame(index=network.links_t.p0.index, columns=["to", "from"])
+        load = pd.DataFrame(
+            index=network.links_t.p0.index, columns=["to", "from"]
+        )
         load["to"] = network.links_t.p0[row["linked_to"]]
         load["from"] = network.links_t.p0[i]
         link_load[i] = load.abs().max(axis=1)
         p_nom_opt_max[i] = max(
             row.p_nom_opt,
-            network.links.p_nom_opt[network.links.index == row["linked_to"]].values[0],
+            network.links.p_nom_opt[
+                network.links.index == row["linked_to"]
+            ].values[0],
         )
 
     return (
@@ -1500,21 +1581,24 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
     network.lines = network.lines[
         network.lines.s_nom_extendable
         & (
-            (network.lines.s_nom_opt - network.lines.s_nom_min) / network.lines.s_nom
+            (network.lines.s_nom_opt - network.lines.s_nom_min)
+            / network.lines.s_nom
             >= ext_min
         )
     ]
     network.links = network.links[
         network.links.p_nom_extendable
         & (
-            (network.links.p_nom_opt - network.links.p_nom_min) / network.links.p_nom
+            (network.links.p_nom_opt - network.links.p_nom_min)
+            / network.links.p_nom
             >= ext_min
         )
     ]
 
     for i, row in network.links.iterrows():
         linked = network.links[
-            (row["bus1"] == network.links.bus0) & (row["bus0"] == network.links.bus1)
+            (row["bus1"] == network.links.bus0)
+            & (row["bus0"] == network.links.bus1)
         ]
         if not linked.empty:
             if row["p_nom_opt"] < linked.p_nom_opt.values[0]:
@@ -1557,21 +1641,25 @@ def plot_background_grid(network, ax):
 
     """
 
+    linkcarrier = pd.Series(
+        data=network.links.carrier, index=network.links.index
+    )
+
+    linkcarrier[linkcarrier != "DC"] = 0
+    linkcarrier[linkcarrier == "DC"] = 0.3
+
     network.plot(
         ax=ax,
         line_colors="grey",
         link_colors="grey",
         bus_sizes=0,
         line_widths=0.5,
-        link_widths=0.3,  # 0.55,
+        link_widths=linkcarrier,  # 0.3,
         geomap=True,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
     )
 
-    network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
-                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
 
 def plot_carrier(etrago, carrier_links, carrier_buses=[], osm=False):
 
@@ -1721,7 +1809,9 @@ def plot_grid(
             + " to "
             + str(network.snapshots[timesteps[-1]])
         )
-        rep_snapshots = network.snapshot_weightings[network.snapshots[timesteps]].sum()
+        rep_snapshots = network.snapshot_weightings[
+            network.snapshots[timesteps]
+        ].sum()
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
         label = "line loading in p.u."
@@ -1740,8 +1830,10 @@ def plot_grid(
     elif line_colors == "v_nom":
         title = "Voltage levels"
         label = "v_nom in kV"
+        breakpoint()
         line_colors = network.lines.v_nom
-        link_colors = network.links.v_nom
+        link_colors = pd.Series(data=0, index=network.links.index)
+        plot_background_grid(network, ax)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
         label = "network expansion in MW"
@@ -1765,7 +1857,9 @@ def plot_grid(
     elif line_colors == "q_flow_max":
         title = "Maximmal reactive power flows"
         label = "flow in Mvar"
-        line_colors = abs(network.lines_t.q0.abs().max() / (network.lines.s_nom))
+        line_colors = abs(
+            network.lines_t.q0.abs().max() / (network.lines.s_nom)
+        )
         link_colors = pd.Series(data=0, index=network.links.index)
     else:
         logger.warning("line_color {} undefined".format(line_colors))
@@ -1863,7 +1957,9 @@ def plot_grid(
             handles = [positive, negative]
         else:
             for i in network.carriers.color.index:
-                patch = mpatches.Patch(color=network.carriers.color[i], label=i)
+                patch = mpatches.Patch(
+                    color=network.carriers.color[i], label=i
+                )
                 handles.append(patch)
 
         l3 = plt.legend(
@@ -1882,7 +1978,9 @@ def plot_grid(
     v = np.linspace(boundaries[0], boundaries[1], 101)
 
     # colorbar for line heatmap
-    cb = plt.colorbar(ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
+    cb = plt.colorbar(
+        ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
+    )
     # Set legend label
     cb.set_label(label)
 
@@ -1999,7 +2097,9 @@ def plot_clusters(
         ]
     ]
     map_buses = map_buses[map_buses["carrier"] == carrier]
-    map_buses["geom"] = map_buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
+    map_buses["geom"] = map_buses.apply(
+        lambda x: Point(x["x"], x["y"]), axis=1
+    )
     map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
     map_buses["line"] = map_buses.apply(
@@ -2027,9 +2127,12 @@ def plot_clusters(
             .any()
         ):
             lines["geom"] = gpd.GeoSeries.from_wkt(lines["geom"])
-        lines = gpd.GeoDataFrame(self.busmap["orig_network"].lines, geometry="geom")
+        lines = gpd.GeoDataFrame(
+            self.busmap["orig_network"].lines, geometry="geom"
+        )
         lines = lines[
-            lines["bus0"].isin(map_buses.index) & lines["bus1"].isin(map_buses.index)
+            lines["bus0"].isin(map_buses.index)
+            & lines["bus1"].isin(map_buses.index)
         ]
         lines["geom"] = lines.apply(
             lambda x: x["geom"]
