@@ -741,9 +741,9 @@ def run_spatial_clustering(self):
                 ]
 
             logger.info("HAC: Starting Pre-aggregation")
-
+            # bis hier alles toll mit der Adjacency!!
             network = self.network.copy(with_time=False)
-            components = {"Generator", "Link", "Load"}
+            components = {"Generator", "Load"}
             # this is way too slow
             # TODO: only get attached tech for relevant buses (AC in this case)
             network, tech = get_attached_tech(network, components)
@@ -809,7 +809,7 @@ def run_spatial_clustering(self):
 
             logger.info("Start HAC Clustering")
             
-            busmap = hac_clustering(self, elec_network, n_clusters)
+            busmap = hac_clustering(self, elec_network, n_clusters, components)
             medoid_idx = None #put sub_buses here????
 
         else:

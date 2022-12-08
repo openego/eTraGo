@@ -825,7 +825,7 @@ def get_attached_tech(network, components):
     return network, tech
 
 
-def hac_clustering(etrago, selected_network, n_clusters):
+def hac_clustering(etrago, selected_network, n_clusters, components):
     
     settings = etrago.args["network_clustering"]
 
@@ -834,15 +834,7 @@ def hac_clustering(etrago, selected_network, n_clusters):
         carrier = selected_network.buses.iloc[0].carrier
         branch_components = {"Line"} if carrier == "AC" else {"Link"}
 
-        components = {"Generator", "Link", "Load"} # Store, StorageUnit, Line 
-        selected_network.buses = selected_network.buses.loc[(selected_network.buses.index.isin(selected_network.links.bus0)) | (selected_network.buses.index.isin(selected_network.links.bus1))]
-
         D = tech_eucl(etrago, selected_network, components)
-
-        bus_indeces = selected_network.buses.index
-        selected_network.lines = selected_network.lines.loc[
-            (selected_network.lines.bus0.isin(bus_indeces)) & (selected_network.lines.bus1.isin(bus_indeces))
-            ]
 
         busmap = busmap_by_hac(
             selected_network,
@@ -852,9 +844,6 @@ def hac_clustering(etrago, selected_network, n_clusters):
             feature=D,
             affinity="euclidean",
             linkage="ward",
-        )
-        busmap.to_csv(
-            "hac_elec_busmap_" + str(settings["n_clusters_AC"]) + "_result.csv"
         )
         
     else:
