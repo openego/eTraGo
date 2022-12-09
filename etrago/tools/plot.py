@@ -1640,7 +1640,7 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    breakpoint()
+    # breakpoint()
     linkcarrier = pd.Series(
         data=network.links.carrier, index=network.links.index
     )
@@ -1830,7 +1830,7 @@ def plot_grid(
     elif line_colors == "v_nom":
         title = "Voltage levels"
         label = "v_nom in kV"
-        breakpoint()
+        # breakpoint()
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
         plot_background_grid(network, ax)
