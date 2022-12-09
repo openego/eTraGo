@@ -562,6 +562,10 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
 def skip_snapshots(self):
 
+    # save second network for optional dispatch disaggregation
+    if self.args["dispatch_disaggregation"] == True and self.args['snapshot_clustering']['active'] == False:
+        self.network_tsa = self.network.copy()
+
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
@@ -571,10 +575,6 @@ def skip_snapshots(self):
         self.network.snapshot_weightings['objective'] = n_skip
         self.network.snapshot_weightings['stores'] = n_skip
         self.network.snapshot_weightings['generators'] = n_skip
-
-        # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"] == True and self.args['snapshot_clustering']['active'] == False:
-            self.network_tsa = self.network.copy()
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
