@@ -28,7 +28,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -80,7 +80,7 @@ args = {
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
-        "active": False,  # choose if clustering is activated
+        "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
@@ -453,15 +453,26 @@ def run_etrago(args, json_path):
       
     etrago.network.buses['country']= etrago.network.buses.apply(lambda x: 'DE' if x.country == None else x.country, axis=1)    
 
-    etrago.network.generators=etrago.network.generators.drop(['9286','9152']) 
-    
+    etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
+    etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
+      
+    etrago.adjust_network()  
+    # spatial clustering
+    etrago.spatial_clustering()
+    #from etrago import Etrago
+
+    #etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/results')
+    #etrago.spatial_clustering_gas()
+    # etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/results/net')
+    # from etrago import Etrago
+
+    # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/results/net')
+    #Markt Network zuweisen, um 2 LOPF zu ermöglichen
     etrago.network_market = etrago.network.copy()  
     market =  etrago.network_market
     
-    etrago.adjust_network()  
-    
-    # Marktzonen Zuweisung
-    
+# Marktzonen Zuweisung
+  
     #Buses df to geodf | filter AC bus
     geo_bus= geopandas.GeoDataFrame(market.buses, geometry= geopandas.points_from_xy(market.buses.x, market.buses.y))
     geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
@@ -480,25 +491,31 @@ def run_etrago(args, json_path):
    
     #buses_with_country['FID']= buses_with_country.apply(lambda x: x.country if x.FID.isna() else x.FID, axis= 1)
     #buses_with_country['FID']= buses_with_country.apply(lambda x: 'DE/LU' if x.FID == 'DE' or x.FID == 'LU'  else x.FID, axis= 1) 
-    
+
     buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
-    buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['FID']] = 'DE/LU'
-        
-    market.buses= buses_with_country 
-  
+    buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
+    buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
     
+    
+    
+    #gen1=etrago.network.generators
+    market.buses= buses_with_country
+    market.buses.index.names =['bus']
+    market.generators=market.generators.reset_index().merge(market.buses[['FID','zone']], how='left', on='bus').set_index(market.generators.index.names)
+   
     #Bus mit Zone filtern und zu Series machen
-    zones = buses_with_country[['FID']]
+    zones = buses_with_country[['zone']]
     zones = zones.squeeze()
     
     #Liste der Zonen erstellen
-    lst_zone = buses_with_country['FID'].unique()
+    lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
   
     
     #Komponenten mit einem Knoten neuen Knoten zuweisen
     for c in market.iterate_components(market.one_port_components):
         c.df.bus = c.df.bus.map(zones)
+    
 
     #Komponenten mit zwei Knoten neue Knoten zuweisen | alle Komponenten mit Bus0=Bus1 entfernen| Lines müssten noch da sein
     for c in market.iterate_components(market.branch_components):
@@ -506,13 +523,19 @@ def run_etrago(args, json_path):
         c.df.bus1 = c.df.bus1.map(zones)
         internal = c.df.bus0 == c.df.bus1
         market.mremove(c.name, c.df.loc[internal].index)
- 
+    
+    buses_with_country=buses_with_country.drop(['NUTS_NAME'], axis=1)
     #Knoten entfernen und neue Zonenknoten einfügen
+    #market.buses.rename('{}_market'.format)
     market.mremove("Bus", market.buses.index)
     market.madd("Bus", lst_zone)
+   
+    etrago.network.buses= buses_with_country
+    etrago.network.buses.index.names =['bus']
+    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID', 'zone']], how='left', on='bus').set_index(etrago.network.generators.index.names)
     
     market.lopf(solver_name= 'gurobi', pyomo=True)
-
+   
 ### Redispatchmodell #####
     
     #Leistung der Generatores pu gleich dem Marktresultat setzen    
@@ -526,40 +549,37 @@ def run_etrago(args, json_path):
     # etrago.network.storage_units_t.p_max = s_p
     # etrago.network.storage_units_t.state_of_charge = market.storage_units_t.state_of_charge 
     
-    g_up = etrago.network.generators.copy()
-    g_down = etrago.network.generators.copy()
+    g_up = etrago.network.generators.loc[(etrago.network.generators['FID'] == 'DE')].copy()
+    g_down = etrago.network.generators.loc[(etrago.network.generators['FID'] == 'DE')].copy()
     
     g_up.index = g_up.index.map(lambda x: x + " ramp up")
     g_down.index = g_down.index.map(lambda x: x + " ramp down")
-    
+   
+   
     up = (
-        as_dense(market, "Generator", "p_max_pu") * market.generators.p_nom - market.generators_t.p).clip(0) / market.generators.p_nom
+        as_dense(market, "Generator", "p_max_pu") * market.generators.loc[market.generators['FID'] =='DE'].p_nom - market.generators_t.p).clip(0) / market.generators.loc[market.generators['FID'] =='DE'].p_nom
+    up=up.dropna(axis='columns')
     up.index=up.index.astype('datetime64[ns]')
+    
     #import pdb; pdb.set_trace()
-    down =  -market.generators_t.p / market.generators.p_nom
+    down =  -market.generators_t.p / market.generators.loc[market.generators['FID'] =='DE'].p_nom
+    down= down.dropna(axis='columns')
     down.index=up.index.astype('datetime64[ns]')
+    
+    #import pdb; pdb.set_trace()
     
     up.columns = up.columns.map(lambda x: x + " ramp up")
     down.columns = down.columns.map(lambda x: x + " ramp down")
     
     #etrago.network.generators_t.p_max_pu.index = etrago.network.generators_t.p_max_pu.index.astype(object)
-
-    
     etrago.network.madd("Generator", g_up.index, p_max_pu=up, **g_up.drop(["p_max_pu"], axis=1))
     #import pdb; pdb.set_trace()
         
     etrago.network.madd("Generator", g_down.index, p_min_pu=down, p_max_pu=0, **g_down.drop(["p_max_pu", "p_min_pu"], axis=1))
-    
-    
-    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
-    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
+   
     # ehv network clustering
     etrago.ehv_clustering()
 
-    # spatial clustering
-    etrago.spatial_clustering()
-
-    etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
@@ -572,8 +592,9 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
-    etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
+    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
+    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
+    breakpoint()
     etrago.lopf()
     
     fig, axs = plt.subplots(
@@ -586,7 +607,7 @@ def run_etrago(args, json_path):
         .div(2e4)
     
     )
-    etrago.network.plot(ax=axs[0],bus_sizes= mkt.iloc[0], title="Market simulation", geomap=False)
+    etrago.network.plot(ax=axs[0],bus_sizes= mkt.iloc[0], title="Market simulation", geomap=True)
     
     #up
     redispatch_up = (
@@ -597,7 +618,7 @@ def run_etrago(args, json_path):
     
     
     etrago.network.plot(
-        ax=axs[1], bus_sizes=redispatch_up.iloc[0]*70, bus_colors="blue", title="Redispatch: ramp up",geomap=False
+        ax=axs[1], bus_sizes=redispatch_up.iloc[0]*70, bus_colors="blue", title="Redispatch: ramp up",geomap=True
     )
     
     #down
@@ -608,7 +629,7 @@ def run_etrago(args, json_path):
     )
     
     etrago.network.plot(
-        ax=axs[2], bus_sizes=redispatch_down.iloc[0]*70, bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
+        ax=axs[2], bus_sizes=redispatch_down.iloc[0]*70, bus_colors="red",title="Redispatch: ramp down / curtail", geomap=True,  
     );
       
     
