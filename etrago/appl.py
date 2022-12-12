@@ -102,7 +102,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -147,7 +147,7 @@ args = {
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "DC",  # 'DC' for modeling foreign lines as links
-        "capacity": "osmTGmod",
+        "capacity": "tyndp2020",
     },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     "comments": None,
 }
@@ -450,6 +450,7 @@ def run_etrago(args, json_path):
 
     # manual fixes for database-network from 16th of August
 
+    etrago.network.generators = etrago.network.generators[etrago.network.generators.carrier!='gas']
     etrago.network.lines.type = ""
     etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
     etrago.network.storage_units.lifetime = 40
@@ -575,8 +576,12 @@ def run_etrago(args, json_path):
                           'p_nom']
     etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
-    #etrago.args["load_shedding"] = True
-    #etrago.load_shedding()
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
+    # load shedding only in foreign countries
+    de_buses = network.buses[network.buses.country == "DE"]
+    drop = etrago.network.generators[(etrago.network.generators.carrier=='load shedding') & (etrago.network.generators.bus.isin(de_buses.index))].index
+    etrago.network.generators.drop(drop)
 
     # snapshot clustering
     # etrago.snapshot_clustering()
