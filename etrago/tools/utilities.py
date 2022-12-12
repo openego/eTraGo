@@ -39,14 +39,6 @@ from egoio.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
 from shapely.geometry import Point, LineString
 
-import geopandas as gpd
-import numpy as np
-import pandas as pd
-import pypsa
-from egoio.tools import db
-from pyomo.environ import Constraint, PositiveReals, Var
-from shapely.geometry import Point
-
 logger = logging.getLogger(__name__)
 
 
@@ -1613,12 +1605,11 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-<<<<<<< HEAD
-            self.args = json.load(f)
-=======
-            args_ = json.load(f)
-            self.args = merge_dicts(self.args, args_)
-
+            if 'args' in locals():
+                self.args = merge_dicts(self.args, json.load(f))
+            else:
+                self.args = json.load(f)
+                
 
 def merge_dicts(dict1, dict2):
     """Return a new dictionary by merging two dictionaries recursively."""
@@ -1632,7 +1623,6 @@ def merge_dicts(dict1, dict2):
             result[key] = deepcopy(dict2[key])
 
     return result
->>>>>>> dev
 
 
 def get_clustering_data(self, path):
@@ -2257,9 +2247,11 @@ def update_busmap(self, new_busmap):
         )
 
     else:
-        self.busmap["busmap"] = (
-            pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
-        )
+        for i, value in new_busmap.items():
+            self.busmap["busmap"][i] = value
+        # self.busmap["busmap"] = (
+        #     pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
+        # )
 
 
 def adjust_CH4_gen_carriers(self):

@@ -624,6 +624,9 @@ def postprocessing(etrago, busmap, medoid_idx=None):
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
 
+    # busmap['1504'] = '1504'
+    busmap['34810'] = '34810'
+
     clustering = get_clustering_from_busmap(
         network,
         busmap,
@@ -634,7 +637,7 @@ def postprocessing(etrago, busmap, medoid_idx=None):
         line_length_factor=settings["line_length_factor"],
     )
 
-    if method == "kmedoids-dijkstra":
+    if isinstance(medoid_idx, pd.DataFrame):
         for i in clustering.network.buses[
             clustering.network.buses.carrier == "AC"
         ].index:
@@ -744,63 +747,39 @@ def run_spatial_clustering(self):
 
         self.network.generators.control = "PV"
 
-        elec_network, weight, n_clusters = preprocessing(self)
-
         if self.args["network_clustering"]["method"] == "hac":
-
-            elec_network.buses = elec_network.buses.loc[
-                elec_network.buses.country == "DE"
-            ]
-            elec_network.lines = elec_network.lines.loc[
-                (elec_network.lines.bus0.isin(elec_network.buses.index))
-                & (elec_network.lines.bus1.isin(elec_network.buses.index))
-            ]
-
             logger.info("HAC: Starting Pre-aggregation")
-            network = self.network.copy(with_time=False)
-            components = {"Generator", "Load"}
-            # this is way too slow
-            # TODO: only get attached tech for relevant buses (AC in this case)
-            network, tech = get_attached_tech(network, components)
 
-            # -> filter nodes with no attached tech
-            network.buses["a"] = network.buses.key_indicator.apply(sum)
-            network.buses["a"] = network.buses.a.apply(
-                lambda x: False if x == 0 else True
-            )
+            ac_de_buses = self.network.buses.loc[(self.network.buses.carrier == 'AC') & (self.network.buses.country == 'DE')]
 
-            sub_buses = network.buses.loc[
-                (network.buses.a)
-                & (self.network.buses.index.isin(elec_network.buses.index))
-            ]
-            con_buses = network.buses.loc[
-                (~network.buses.a)
-                & (self.network.buses.index.isin(elec_network.buses.index))
-            ]
+            # Find nodes that have TS data attached to them
+            rel_generator_buses = self.network.generators.loc[self.network.generators_t.p_max_pu.columns].bus.values
+            rel_load_buses = self.network.loads.loc[self.network.loads_t.p_set.columns].bus.values
+            buses_with_ts = ac_de_buses.loc[ac_de_buses.index.isin(rel_generator_buses) | ac_de_buses.index.isin(rel_load_buses)]
+            buses_to_aggregate = ac_de_buses.loc[~ac_de_buses.index.isin(buses_with_ts.index)]
 
-            a = np.ones((len(sub_buses), 2))
-            b = np.ones((len(con_buses), 2))
-            a[:, 0] = sub_buses.x.values
-            a[:, 1] = sub_buses.y.values
-            b[:, 0] = con_buses.x.values
-            b[:, 1] = con_buses.y.values
+            # Aggregate buses to nearest relevant buses
+            a = np.ones((len(buses_with_ts), 2))
+            b = np.ones((len(buses_to_aggregate), 2))
+            a[:, 0] = buses_with_ts.x.values
+            a[:, 1] = buses_with_ts.y.values
+            b[:, 0] = buses_to_aggregate.x.values
+            b[:, 1] = buses_to_aggregate.y.values
             D_spatial = haversine(b, a)
 
             busmap = pd.Series(
-                network.buses.loc[
-                    (network.buses.a) & (self.network.buses.carrier == "AC")
+                self.network.buses.loc[
+                    buses_with_ts.index
                 ]
                 .iloc[np.argmin(D_spatial, axis=1)]
                 .index,
-                index=network.buses.loc[
-                    (~network.buses.a) & (self.network.buses.carrier == "AC")
-                ].index,
+                index = buses_to_aggregate.index
             )
             busmap = pd.concat(
-                [busmap, pd.Series(sub_buses.index, index=sub_buses.index)]
+                [busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
             )
 
-            medoid_idx = None  # set these to sub_buses???
+            medoid_idx = buses_with_ts  # set these to buses_with_ts???
             self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
             self.update_busmap(busmap)
 
@@ -810,25 +789,33 @@ def run_spatial_clustering(self):
                 self.disaggregated_network = self.network.copy(with_time=False)
 
             self.network = self.clustering.network.copy()
+
             self.buses_by_country()
             self.geolocation_buses()
             self.network.generators.control[
                 self.network.generators.control == ""
             ] = "PV"
+
             elec_network, weight, n_clusters = preprocessing(self)
-            elec_network.buses = elec_network.buses.loc[
-                elec_network.buses.country == "DE"
-            ]
-            elec_network.buses = (
-                elec_network.sub_networks.loc[elec_network.sub_networks.carrier == "AC"]
-                .loc["0"]
-                .obj.buses()
-            )
+            elec_network.buses = elec_network.buses.loc[elec_network.buses.index.isin(ac_de_buses.index)]
             elec_network.lines = elec_network.lines.loc[
                 (elec_network.lines.bus0.isin(elec_network.buses.index))
                 & (elec_network.lines.bus1.isin(elec_network.buses.index))
             ]
+            # There is an odd behaviour which leads to the placement of a DE node into DK
+            elec_network.determine_network_topology()
+            elec_network.buses = elec_network.buses.loc[elec_network.buses.index.isin(elec_network.sub_networks.loc[elec_network.sub_networks.carrier == "AC"].loc["0"].obj.buses().index)]
+            elec_network.lines = elec_network.lines.loc[
+                (elec_network.lines.bus0.isin(elec_network.buses.index))
+                & (elec_network.lines.bus1.isin(elec_network.buses.index))
+            ]
+
             logger.info("HAC: Pre-aggregation finished")
+
+        else:
+            elec_network, weight, n_clusters = preprocessing(self)
+            self.network.generators.control = "PV"
+
 
         if self.args["network_clustering"]["method"] == "kmeans":
 
@@ -849,7 +836,7 @@ def run_spatial_clustering(self):
 
             logger.info("Start HAC Clustering")
 
-            busmap = hac_clustering(self, elec_network, n_clusters, components)
+            busmap = hac_clustering(self, elec_network, n_clusters)
             medoid_idx = None  # put sub_buses here????
 
         else:
@@ -862,7 +849,7 @@ def run_spatial_clustering(self):
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
 
-        if self.args["disaggregation"] != None:
+        if (self.args["disaggregation"] != None) & (self.args["network_clustering"]["method"] != "hac"):
             self.disaggregated_network = self.network.copy()
         else:
             self.disaggregated_network = self.network.copy(with_time=False)

@@ -54,12 +54,8 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
                                     get_clustering_data,
-<<<<<<< HEAD
-                                    adjust_CH4_gen_carriers)
-=======
                                     adjust_CH4_gen_carriers,)
 
->>>>>>> dev
 from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
 from etrago.cluster.electrical import run_spatial_clustering, ehv_clustering

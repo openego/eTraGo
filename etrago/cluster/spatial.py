@@ -826,23 +826,51 @@ def get_attached_tech(network, components):
     return network, tech
 
 
-def hac_clustering(etrago, selected_network, n_clusters, components):
+def hac_clustering(etrago, selected_network, n_clusters):
     
     settings = etrago.args["network_clustering"]
 
     if not settings["k_busmap"]:
 
-        carrier = selected_network.buses.iloc[0].carrier
-        branch_components = {"Line"} if carrier == "AC" else {"Link"}
+        # Get Generator TS for all buses
+        rel_buses = selected_network.buses.index
+        rel_gens = etrago.network.generators.loc[etrago.network.generators.bus.isin(selected_network.buses.index)].index
+        rel_gens = rel_gens[rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)]
+        rel_gen_avg_ts = etrago.network.generators_t.p_max_pu.T.loc[rel_gens].groupby(etrago.network.generators.bus).mean()
+        # TODO: Add weighting of TS regarding p_nom of different generators
+        rel_gen_avg_ts = rel_gen_avg_ts.agg(list, axis=1)
 
-        D = tech_eucl(etrago, selected_network, components)
+        # Get Load TS for all buses
+        rel_loads = etrago.network.loads.loc[etrago.network.loads.bus.isin(selected_network.buses.index)].index
+        rel_loads = rel_loads[rel_loads.isin(etrago.network.loads_t.p_set.columns)]
+        rel_loads_ts = etrago.network.loads_t.p_set.T.loc[rel_loads]
+        rel_loads_ts = rel_loads_ts.div(rel_loads_ts.max(axis=1), axis='index')
+        a = [i[:i.find(" ")] for i in rel_loads_ts.index]
+        rel_loads_ts = rel_loads_ts.set_index(pd.Series(a))
+        rel_loads_ts = rel_loads_ts.agg(list, axis=1)
+
+        # fill missing ts data
+        missing_idx = rel_gen_avg_ts.index[~rel_gen_avg_ts.index.isin(rel_loads_ts.index)]
+        rel_loads_ts = pd.concat([rel_loads_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_gen_avg_ts.iloc[0]))).tolist()), index = missing_idx)])
+        missing_idx = rel_loads_ts.index[~rel_loads_ts.index.isin(rel_gen_avg_ts.index)]
+        rel_gen_avg_ts = pd.concat([rel_gen_avg_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_loads_ts.iloc[0]))).tolist()), index = missing_idx)])
+
+        hac_feature = rel_gen_avg_ts + rel_loads_ts
+        #hac_feature = hac_feature.values.tolist()
+        # Normalize Load TS -> Kind of a capacity factor
+        # Average all Generator TS at buses
+        # Average all Load TS at buses
+        # concat Generator and Load concat
+
+        #carrier = selected_network.buses.iloc[0].carrier
+        branch_component = {"Line"}# if carrier == "AC" else {"Link"}
 
         busmap = busmap_by_hac(
             selected_network,
             n_clusters=n_clusters,
-            buses_i=None,
-            branch_components=branch_components,
-            feature=D,
+            buses_i=hac_feature.index,
+            branch_components=branch_component,
+            feature=hac_feature.values.tolist(),
             affinity="euclidean",
             linkage="ward",
         )
@@ -856,34 +884,3 @@ def hac_clustering(etrago, selected_network, n_clusters, components):
     etrago.update_busmap(busmap)
     
     return busmap
-
-def tech_eucl(etrago, selected_network, components):
-
-    network = etrago.network.copy(with_time=True)
-
-    bus_indeces = network.buses.index
-    network.lines = network.lines.loc[
-        (network.lines.bus0.isin(bus_indeces)) & (network.lines.bus1.isin(bus_indeces))
-    ]
-    network.links = network.links.loc[
-        (network.links.bus0.isin(bus_indeces)) & (network.links.bus1.isin(bus_indeces))
-    ]
-
-    # TODO: do this only for the selected network
-    network, tech = get_attached_tech(network, components)
-
-    # Convert attached technologies to array containing all p/e/s - _nom values and
-    # add as new column to network.buses
-    network.buses["tech_p"] = network.buses.tech.apply(lambda x: np.isin(tech, x).astype(float))
-    for _, df in network.buses.iterrows():
-        np.put(df.tech_p, df.tech_p.nonzero(), df.key_indicator)
-
-    network.buses["tech_p"] = network.buses.tech_p.apply(lambda x: x.tolist())
-
-    # normalize 
-    normalized = [i for i in network.buses.tech_p.values]
-    normalized = np.nan_to_num(normalized/np.max(normalized, axis = 0)).tolist()
-    normalized = pd.Series(normalized, index = network.buses.index)
-    network.buses.loc[normalized.index, 'tech_p'] = normalized
-
-    return np.stack(network.buses.loc[selected_network.buses.index].tech_p.values)
