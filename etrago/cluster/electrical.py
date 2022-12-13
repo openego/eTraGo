@@ -83,6 +83,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         & (network2.buses["carrier"] != "H2_grid")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
+        & (network2.buses["carrier"] != "H2_ind_load")
+        & (network2.buses["carrier"] != "rural_heat_store")
     ]
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
@@ -550,6 +552,31 @@ def preprocessing(etrago):
         "Line",
     )
     network.lines.carrier = "AC"
+    breakpoint()
+    
+    foreign_buses = network.buses[network.buses.country != "DE"]
+    foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
+                                       (foreign_buses.carrier=="AC")]
+
+    foreign_tr = network.transformers.copy()
+    foreign_tr = foreign_tr[(foreign_tr.bus0.isin(foreign_buses.index)) | 
+                            (foreign_tr.bus1.isin(foreign_buses.index))]
+    foreign_tr["load_bus0"] = foreign_tr.bus0.isin(foreign_buses_load.index)
+    foreign_tr["load_bus1"] = foreign_tr.bus1.isin(foreign_buses_load.index)
+    
+    busmap_trafos = {}
+    for tr, x in foreign_tr.iterrows():
+        if ((x.load_bus0 == True) & (x.load_bus1 == False)):
+            busmap_trafos[x.bus0] = x.bus0
+            busmap_trafos[x.bus1] = x.bus0
+            continue
+        elif ((x.load_bus0 == False) & (x.load_bus1 == True)):
+            busmap_trafos[x.bus0] = x.bus1
+            busmap_trafos[x.bus1] = x.bus1
+            continue
+        else:
+            print(f"WARNING: foreign trafo {tr} is loaded in not exactly 1 side")
+            
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
@@ -590,7 +617,9 @@ def preprocessing(etrago):
         weight = weighting_for_scenario(
             network=network_elec, save=False
         )
-
+    
+    etrago.adapt_crossborder_buses()
+    
     return network_elec, weight, n_clusters
 
 
@@ -746,7 +775,7 @@ def run_spatial_clustering(self):
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
-
+        breakpoint()
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
         else:
