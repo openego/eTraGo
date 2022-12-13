@@ -1070,7 +1070,7 @@ def delete_dispensable_ac_buses(etrago):
         # Determine bus0 new group
         end_search = False
 
-        while end_search == False:
+        while not end_search:
             if bus0 not in ac_buses.index:
                 end_search = True
                 continue
@@ -1087,7 +1087,7 @@ def delete_dispensable_ac_buses(etrago):
 
         # Determine bus1 new group
         end_search = False
-        while end_search == False:
+        while not end_search:
             if bus1 not in ac_buses.index:
                 end_search = True
                 continue
@@ -1733,7 +1733,7 @@ def set_random_noise(self, sigma=0.01):
         but might lead to numerical instability
     """
 
-    if self.args["generator_noise"] != False:
+    if self.args["generator_noise"]:
         network = self.network
         seed = self.args["generator_noise"]
         s = np.random.RandomState(seed)
@@ -2147,7 +2147,7 @@ def check_args(etrago):
             ).version.unique()
         ), "gridversion does not exist"
 
-    if etrago.args["snapshot_clustering"]["active"] != False:
+    if etrago.args["snapshot_clustering"]["active"]:
 
         # typical periods
 
@@ -2334,7 +2334,7 @@ def adapt_crossborder_buses(self):
     None.
 
     """
-    if self.args["network_clustering"]["cluster_foreign_AC"] == False:
+    if not self.args["network_clustering"]["cluster_foreign_AC"]:
         buses = self.network.buses.copy()
         loads = self.network.loads.copy()
         pass_to_ger = buses[

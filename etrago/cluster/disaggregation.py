@@ -730,6 +730,6 @@ def run_disaggregation(self):
                 )
             )
 
-            if self.args["csv_export"] != False:
+            if self.args["csv_export"]:
                 path = self.args["csv_export"] + "/disaggregated_network"
                 self.disaggregated_network.export_to_csv_folder(path)
