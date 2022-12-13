@@ -1296,8 +1296,7 @@ def add_missing_components(self):
      28335 to 28139 (28)
      Overhead lines:
      16573 to 24182 (part of 4)
-     """
-    """
+
      Installierte Leistung der Umspannungsebene Höchst- zu Hochspannung
      (380 kV / 110 kV): 2.750.000 kVA
 
