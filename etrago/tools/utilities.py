@@ -1257,9 +1257,10 @@ def set_trafo_costs(
 
 def add_missing_components(self):
     # Munich
-    """TODO: Manualy adds lines between hard-coded buses. Has to be changed
-            for the next dataversion and should be moved to data processing
-
+    # TODO: Manually adds lines between hard-coded buses. Has to be
+    #       changed for the next dataversion and should be moved to data
+    #       processing
+    """
     Add a missing transformer at Heizkraftwerk Nord in Munich and a missing
     transformer in Stuttgart.
 
