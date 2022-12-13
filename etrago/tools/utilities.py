@@ -2163,8 +2163,8 @@ def check_args(etrago):
                     % 24
                     == 0
                 ), (
-                    "Please select snapshots covering whole days when choosing "
-                    "clustering to typical days"
+                    "Please select snapshots covering whole days when"
+                    " choosing clustering to typical days."
                 )
 
                 if (
@@ -2190,8 +2190,8 @@ def check_args(etrago):
                     % 168
                     == 0
                 ), (
-                    "Please select snapshots covering whole weeks when choosing "
-                    "clustering to typical weeks"
+                    "Please select snapshots covering whole weeks when"
+                    " choosing clustering to typical weeks."
                 )
 
                 if (
@@ -2244,9 +2244,9 @@ def check_args(etrago):
 
         if not etrago.args["method"]["pyomo"]:
             logger.warning(
-                "Snapshot clustering constraints are "
-                "not yet correctly implemented without pyomo. "
-                "args['method']['pyomo'] is set to True."
+                "Snapshot clustering constraints are"
+                " not yet correctly implemented without pyomo."
+                " Setting `args['method']['pyomo']` to `True`."
             )
             etrago.args["method"]["pyomo"] = True
 
