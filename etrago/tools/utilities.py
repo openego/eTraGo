@@ -457,8 +457,9 @@ def set_q_national_loads(self, cos_phi=1):
     ] * math.tan(
         math.acos(cos_phi)
     )
-    # To avoid problem when the index of the load is the weather year, the column
-    # names were temporaray set to int and changed back to str
+    # To avoid a problem when the index of the load is the weather year,
+    # the column names were temporarily set to `int` and changed back to
+    # `str`.
     network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
         str
     )
@@ -503,8 +504,9 @@ def set_q_foreign_loads(self, cos_phi=1):
     )
     network.generators.control[network.generators.control == "PQ"] = "PV"
 
-    # To avoid problem when the index of the load is the weather year, the column
-    # names were temporaray set to int and changed back to str
+    # To avoid a problem when the index of the load is the weather year,
+    # the column names were temporarily set to `int` and changed back to
+    # `str`.
     network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
         str
     )
@@ -779,9 +781,10 @@ def loading_minimization(network, snapshots):
 def _make_consense(component, attr):
     def consense(x):
         v = x.iat[0]
-        assert (
-            x == v
-        ).all() or x.isnull().all(), f"In {component} cluster {x.name} the values of attribute {attr} do not agree:\n{x}"
+        assert (x == v).all() or x.isnull().all(), (
+            f"In {component} cluster {x.name} the values"
+            f" of attribute {attr} do not agree:\n{x}"
+        )
         return v
 
     return consense
@@ -991,8 +994,8 @@ def delete_dispensable_ac_buses(etrago):
     network.lines["bus0"] = bus0_new
     network.lines["bus1"] = bus1_new
 
-    # Find the buses without any other kind of elements attached to them more than
-    # transmission lines
+    # Find the buses without any other kind of elements attached to them
+    # more than transmission lines.
     ac_buses = network.buses[network.buses.carrier == "AC"][
         ["geom", "country"]
     ]
@@ -1099,7 +1102,8 @@ def delete_dispensable_ac_buses(etrago):
             else:
                 end_search = True
 
-        # Define the parameters of the new lines to be inserted in network.lines
+        # Define the parameters of the new lines to be inserted into
+        # `network.lines`.
         new_lines.loc[group] = [bus0, bus1, lines_group]
         group = group + 1
 
@@ -1256,8 +1260,8 @@ def add_missing_components(self):
     """TODO: Manualy adds lines between hard-coded buses. Has to be changed
             for the next dataversion and should be moved to data processing
 
-    Add missing transformer at Heizkraftwerk Nord in Munich and missing
-    transformer in Stuttgart
+    Add a missing transformer at Heizkraftwerk Nord in Munich and a missing
+    transformer in Stuttgart.
 
     Parameters
     ----------
@@ -1272,7 +1276,8 @@ def add_missing_components(self):
     """
 
     """
-    https://www.swm.de/privatkunden/unternehmen/energieerzeugung/heizkraftwerke.html?utm_medium=301
+    "https://www.swm.de/privatkunden/unternehmen/energieerzeugung"
+    + "/heizkraftwerke.html?utm_medium=301"
 
      to bus 25096:
      25369 (86)
@@ -1294,7 +1299,9 @@ def add_missing_components(self):
     """
      Installierte Leistung der Umspannungsebene Höchst- zu Hochspannung
      (380 kV / 110 kV): 2.750.000 kVA
-     https://www.swm-infrastruktur.de/strom/netzstrukturdaten/strukturmerkmale.html
+
+     "https://www.swm-infrastruktur.de/strom/netzstrukturdaten"
+     + "/strukturmerkmale.html
     """
     network = self.network
 
@@ -1625,10 +1632,10 @@ def ramp_limits(network):
         "start_up_fuel": [4.3, 2.8, 1.45, 2.8, 2.8, 4.3, 16.7, 2.8],  # MWh/MW
         "min_up_time": [5, 2, 3, 2, 2, 5, 12, 2],
         "min_down_time": [7, 2, 2, 2, 2, 7, 17, 2],
-        # =============================================================================
-        #             'ramp_limit_start_up':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4],
-        #             'ramp_limit_shut_down':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4]
-        # =============================================================================
+        # ===================================================================
+        #   'ramp_limit_start_up':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4],
+        #   'ramp_limit_shut_down':[0.4, 0.4, 0.4, 0.4, 0.4, 0.6, 0.5, 0.4]
+        # ===================================================================
         "p_min_pu": [0.33, 0.38, 0.4, 0.38, 0.38, 0.5, 0.45, 0.38],
     }
     df = pd.DataFrame(data, index=carrier)
@@ -1839,7 +1846,8 @@ def crossborder_capacity_tyndp2020():
     path = "TYNDP-2020-Scenario-Datafile.xlsx"
 
     urlretrieve(
-        "https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip",
+        "https://www.entsos-tyndp2020-scenarios.eu/wp-content/uploads"
+        "/2020/06/TYNDP-2020-Scenario-Datafile.xlsx.zip",
         path,
     )
 
@@ -2167,7 +2175,10 @@ def check_args(etrago):
                         "start_snapshot"
                     ] + 1 >= (
                         24 * etrago.args["snapshot_clustering"]["n_clusters"]
-                    ), "Number of selected snapshots is is too small for chosen number of typical days"
+                    ), (
+                        "The umber of selected snapshots is is too small"
+                        " for the chosen number of typical days."
+                    )
 
             # typical weeks
 
@@ -2191,8 +2202,10 @@ def check_args(etrago):
                         "start_snapshot"
                     ] + 1 >= (
                         168 * etrago.args["snapshot_clustering"]["n_clusters"]
-                    ), "Number of selected snapshots is too small for chosen number of typical weeks"
-
+                    ), (
+                        "The number of selected snapshots is too small"
+                        " for the chosen number of typical weeks."
+                    )
             # typical months
 
             if etrago.args["snapshot_clustering"]["how"] == "monthly":
@@ -2203,8 +2216,8 @@ def check_args(etrago):
                     % 720
                     == 0
                 ), (
-                    "Please select snapshots covering whole months when choosing "
-                    "clustering to typical months"
+                    "Please select snapshots covering whole months when"
+                    " choosing clustering to typical months."
                 )
 
                 if (
@@ -2215,7 +2228,10 @@ def check_args(etrago):
                         "start_snapshot"
                     ] + 1 >= (
                         720 * etrago.args["snapshot_clustering"]["n_clusters"]
-                    ), "Number of selected snapshots is too small for chosen number of typical months"
+                    ), (
+                        "The number of selected snapshots is too small"
+                        " for the chosen number of typical months."
+                    )
 
         # segmentation
 
@@ -2239,12 +2255,13 @@ def check_args(etrago):
             import gurobipy
         except ModuleNotFoundError:
             print(
-                "If you want to use nomopyomo you need to use the "
-                "solver gurobi and the package gurobipy. "
-                "You can find more information and installation "
-                "instructions for gurobi here: "
-                "https://support.gurobi.com/hc/en-us/articles/360044290292-How-do-I-install-Gurobi-for-Python- "
-                "For installation of gurobipy use pip."
+                "If you want to use nomopyomo you need to use the"
+                " solver gurobi and the package gurobipy."
+                " You can find more information and installation"
+                " instructions for gurobi here:"
+                " https://support.gurobi.com/hc/en-us/articles"
+                "/360044290292-How-do-I-install-Gurobi-for-Python-"
+                " For installation of gurobipy use pip."
             )
             raise
 
@@ -2301,9 +2318,9 @@ def drop_sectors(self, drop_carriers):
 
 def adapt_crossborder_buses(self):
     """
-    Assign to the crossborder buses close to Germany the value "DE" in the
-    country column. It is only used when the kmean clustering is activated and
-    the user does not want to cluster the foreign buses.
+    Assign to the crossborder buses close to Germany the value "DE" in
+    the country column. It is only used when the kmean clustering is
+    activated and the user does not want to cluster the foreign buses.
 
     Parameters
     ----------
