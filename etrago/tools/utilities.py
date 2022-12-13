@@ -2252,7 +2252,10 @@ def check_args(etrago):
 
     if not etrago.args["method"]["pyomo"]:
         try:
-            import gurobipy
+            # The import isn't used, but just here to test for Gurobi.
+            # So we can make `flake8` stop complaining about the "unused
+            # import" via the appropriate `noqa` comment.
+            import gurobipy  # noqa: F401
         except ModuleNotFoundError:
             print(
                 "If you want to use nomopyomo you need to use the"
