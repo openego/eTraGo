@@ -124,7 +124,7 @@ def geolocation_buses(self):
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
+    etrago : :class:`etrago.Etrago`
        Transmission grid object
 
     """
