@@ -396,7 +396,6 @@ class MiniSolverDisaggregation(Disaggregation):
             generators = self.original_network.generators.assign(
                 bus=lambda df: df.bus.map(self.clustering.busmap)
             )
-            grouper = [generators.carrier]
 
             def construct_constraint(model, snapshot, carrier):
                 # TODO: Optimize
