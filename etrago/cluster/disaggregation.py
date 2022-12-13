@@ -564,7 +564,7 @@ class UniformDisaggregation(Disaggregation):
                     pnb.loc[:, "p_nom_extendable"].all()
                     or not pnb.loc[:, "p_nom_extendable"].any()
                 ):
-                    raise NotImplemented(
+                    raise NotImplementedError(
                         "The `'p_nom_extendable'` flag for buses in the"
                         + " partial network with:"
                         + "\n    ".join(
