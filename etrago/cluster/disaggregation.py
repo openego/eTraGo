@@ -383,9 +383,9 @@ class Disaggregation:
 
 
 class MiniSolverDisaggregation(Disaggregation):
-    def add_constraints(self, cluster, extra_functionality=None):
-        if extra_functionality is None:
-            extra_functionality = lambda network, snapshots: None
+    def add_constraints(
+        self, cluster, extra_functionality=lambda network, snapshots: None
+    ):
         extra_functionality = self._validate_disaggregation_generators(
             cluster, extra_functionality
         )
