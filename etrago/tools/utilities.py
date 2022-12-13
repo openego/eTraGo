@@ -929,7 +929,7 @@ def group_parallel_lines(network):
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
     lines_2["geom"] = lines_2.apply(
-        lambda x: None if x.geom == None else x.geom.wkt, axis=1
+        lambda x: None if x.geom is None else x.geom.wkt, axis=1
     )
     network.lines = (
         lines_2.groupby(["bus0", "bus1"])
@@ -1674,7 +1674,7 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
         Dictionary of json file
     """
 
-    if not jsonpath == None:
+    if jsonpath is not None:
         with open(jsonpath) as f:
             if "args" in locals():
                 self.args = merge_dicts(self.args, json.load(f))
@@ -2136,7 +2136,7 @@ def check_args(etrago):
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
     ), "start_snapshot after end_snapshot"
 
-    if etrago.args["gridversion"] != None:
+    if etrago.args["gridversion"] is not None:
         from saio.grid import egon_etrago_bus
 
         assert (
