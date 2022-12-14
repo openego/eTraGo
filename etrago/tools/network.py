@@ -102,10 +102,10 @@ class Etrago:
     def __init__(
         self,
         args=None,
-        json_path=None,
         csv_folder_name=None,
-        name="",
         ignore_standard_types=False,
+        json_path=None,
+        name="",
         **kwargs,
     ):
 
