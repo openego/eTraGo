@@ -32,6 +32,9 @@ setup(
         "geopandas",
         "matplotlib >= 3.0.3",
         "oedialect",
+        # PyPSA uses a deprecated import that errors with Pyomo 6.4.3.
+        # Upstream has a fix but it's not yet released.
+        "pyomo != 6.4.3",
         "pypsa == 0.20.1",
         "rtree",
         "saio",
