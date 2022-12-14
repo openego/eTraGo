@@ -707,11 +707,12 @@ def export_to_csv(self, path):
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
-    path: str
-        Choose path for csv-files
+    path: str or False or None
+        Choose path for csv-files. Specify `""`, `False` or `None` to
+        not do anything.
 
     """
-    if path == False:
+    if not path:
         pass
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
