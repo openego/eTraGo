@@ -912,9 +912,7 @@ def group_parallel_lines(network):
             sub_network=consense["sub_network"](l["sub_network"]),
             v_ang_min=l["v_ang_min"].max(),
             v_ang_max=l["v_ang_max"].min(),
-            geom=l["geom"].iloc[
-                0,
-            ],
+            geom=l["geom"].iloc[0],
         )
         data.update((f, consense[f](l[f])) for f in columns.difference(data))
         return pd.Series(data, index=[f for f in l.columns if f in columns])
