@@ -1,9 +1,7 @@
 from functools import reduce
-from itertools import count, product
+from itertools import product
 from operator import methodcaller as mc, mul as multiply
 import cProfile
-import random
-import string
 import time
 
 from pyomo.environ import Constraint

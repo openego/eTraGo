@@ -22,7 +22,6 @@
 Define class Etrago
 """
 
-import json
 import logging
 
 from egoio.tools import db
