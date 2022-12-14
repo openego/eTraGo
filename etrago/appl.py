@@ -460,6 +460,9 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
 
+    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links_t.efficiency.fillna(1., inplace=True)
 
     etrago.adjust_network()
 
