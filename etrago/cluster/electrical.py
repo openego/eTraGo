@@ -81,6 +81,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
+        & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
     ]
@@ -163,7 +164,19 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             f"""There are {len(no_elec_conex)} buses that have no direct
             connection to the electric network: {no_elec_conex}"""
         )
-
+    
+    # rural_heat_store buses are clustered based on the AC buses connected to
+    # their corresponding rural_heat buses
+    links_rural_store = etrago.network.links[etrago.network.links.carrier == 
+                                             "rural_heat_store_charger"].copy()
+    
+    busmap3 = {}
+    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
+    for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
+        cluster_bus = df.bus1.iat[0]
+        for rural_store_bus in df.bus1:
+            busmap3[rural_store_bus] = cluster_bus
+    
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
@@ -174,7 +187,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
         busmap2[gas_bus] = gas_bus
 
-    busmap = {**busmap, **busmap2}
+    busmap = {**busmap, **busmap2, **busmap3}
 
     # The new buses based on the eHV network for not electrical buses are created
     if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
