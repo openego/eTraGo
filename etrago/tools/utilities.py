@@ -308,37 +308,35 @@ def clip_foreign(network):
     # drop foreign components
     network.lines = network.lines.drop(
         network.lines[
-            (network.lines["bus0"].isin(network.buses.index) == False)
-            | (network.lines["bus1"].isin(network.buses.index) == False)
+            ~(network.lines["bus0"].isin(network.buses.index))
+            | ~(network.lines["bus1"].isin(network.buses.index))
         ].index
     )
 
     network.links = network.links.drop(
         network.links[
-            (network.links["bus0"].isin(network.buses.index) == False)
-            | (network.links["bus1"].isin(network.buses.index) == False)
+            ~(network.links["bus0"].isin(network.buses.index))
+            | ~(network.links["bus1"].isin(network.buses.index))
         ].index
     )
 
     network.transformers = network.transformers.drop(
         network.transformers[
-            (network.transformers["bus0"].isin(network.buses.index) == False)
-            | (network.transformers["bus1"].isin(network.buses.index) == False)
+            ~(network.transformers["bus0"].isin(network.buses.index))
+            | ~(network.transformers["bus1"].isin(network.buses.index))
         ].index
     )
     network.generators = network.generators.drop(
         network.generators[
-            (network.generators["bus"].isin(network.buses.index) == False)
+            ~(network.generators["bus"].isin(network.buses.index))
         ].index
     )
     network.loads = network.loads.drop(
-        network.loads[
-            (network.loads["bus"].isin(network.buses.index) == False)
-        ].index
+        network.loads[~(network.loads["bus"].isin(network.buses.index))].index
     )
     network.storage_units = network.storage_units.drop(
         network.storage_units[
-            (network.storage_units["bus"].isin(network.buses.index) == False)
+            ~(network.storage_units["bus"].isin(network.buses.index))
         ].index
     )
 
@@ -1018,12 +1016,12 @@ def delete_dispensable_ac_buses(etrago):
     ac_buses["storage_unit"] = ac_buses.index.isin(b_store_unit)
 
     ac_buses = ac_buses[
-        (ac_buses.links == False)
-        & (ac_buses.trafo == False)
-        & (ac_buses.gen == False)
-        & (ac_buses.load == False)
-        & (ac_buses.store == False)
-        & (ac_buses.storage_unit == False)
+        ~(ac_buses.links)
+        & ~(ac_buses.trafo)
+        & ~(ac_buses.gen)
+        & ~(ac_buses.load)
+        & ~(ac_buses.store)
+        & ~(ac_buses.storage_unit)
     ][[]]
 
     # count how many lines are connected to each bus
@@ -1515,25 +1513,25 @@ def convert_capital_costs(self):
     # Costs are already annuized yearly in the datamodel
     # adjust to number of considered snapshots
 
-    network.lines.loc[
-        network.lines.s_nom_extendable == True, "capital_cost"
-    ] *= (n_snapshots / 8760)
+    network.lines.loc[network.lines.s_nom_extendable, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
-    network.links.loc[
-        network.links.p_nom_extendable == True, "capital_cost"
-    ] *= (n_snapshots / 8760)
+    network.links.loc[network.links.p_nom_extendable, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
     network.transformers.loc[
-        network.transformers.s_nom_extendable == True, "capital_cost"
+        network.transformers.s_nom_extendable, "capital_cost"
     ] *= (n_snapshots / 8760)
 
     network.storage_units.loc[
-        network.storage_units.p_nom_extendable == True, "capital_cost"
+        network.storage_units.p_nom_extendable, "capital_cost"
     ] *= (n_snapshots / 8760)
 
-    network.stores.loc[
-        network.stores.e_nom_extendable == True, "capital_cost"
-    ] *= (n_snapshots / 8760)
+    network.stores.loc[network.stores.e_nom_extendable, "capital_cost"] *= (
+        n_snapshots / 8760
+    )
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
