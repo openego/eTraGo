@@ -698,8 +698,7 @@ def _enumerate_row(row):
 
 
 def export_to_csv(self, path):
-    """Function the writes the calaculation results
-    in csv-files in the desired directory.
+    """Write calculation results to csv-files in `path`.
 
     Parameters
     ----------
