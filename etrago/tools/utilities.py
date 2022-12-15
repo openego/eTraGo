@@ -1639,9 +1639,15 @@ def get_clustering_data(self, path):
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")
-        with open(os.path.join(path_clus, "busmap.json")) as f:
-            self.busmap["busmap"] = json.load(f)
-        self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        if os.path.exists(path_clus):
+            with open(os.path.join(path_clus, "busmap.json")) as f:
+                self.busmap["busmap"] = json.load(f)
+            self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        else:
+            logger.info(
+            f"""There is no clustering data available in the loaded object."""
+        )
+            
 
 
 def set_random_noise(self, sigma=0.01):
