@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "ci_dump",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -101,11 +101,11 @@ args = {
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
-        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "method": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 43,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -327,7 +327,7 @@ def run_etrago(args, json_path):
 
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
-           'cluster_foreign_AC': False, method_gas: 'kmeans',
+           'cluster_foreign_AC': False, method_gas: 'kmedoids-dijkstra',
            'n_clusters_gas': 30, 'cluster_foreign_gas': False,
            'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
@@ -344,8 +344,9 @@ def run_etrago(args, json_path):
         ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
         neighboring countries are considered for clustering.
         With ``'method'`` you can choose between two clustering methods:
-        k-means Clustering considering geopraphical locations of buses or
-        k-medoids Dijkstra Clustering considering electrical distances between buses.
+        k-means Clustering considering geopraphical locations of buses,
+        k-medoids Dijkstra Clustering considering electrical distances between buses or
+        hac Clustering based on the related load and generation time series at each bus.
         With ``'k_busmap'`` you can choose if you want to load cluster
         coordinates from a previous run.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.

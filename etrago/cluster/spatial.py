@@ -729,11 +729,12 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
     return busmap, medoid_idx
 
 
-def hac_clustering(etrago, selected_network, n_clusters, carrier='AC'):
+def hac_clustering(etrago, selected_network, n_clusters):
 
-    """Main function of the HAC clustering approach. Creates a busmap
-    mapping an original network to a new one with adjustable number of 
-    nodes.
+    """Main function of the Hierarchical Agglomerative Clustering (HAC) approach. 
+    Creates a busmap mapping buses from the original network to a new network
+    with adjustable number of nodes. Buses are mapped based on their attached load
+    and generation time series data. Only applies to the 'AC' grid.
 
     Parameters
     ----------
@@ -741,7 +742,7 @@ def hac_clustering(etrago, selected_network, n_clusters, carrier='AC'):
         Container for all network components.
 
     selected_network : pypsa.Network object
-        Container for all network components of the grid to cluster ('AC' or 'CH4')
+        Container for all network components of the grid to cluster ('AC')
 
     n_clusters : int
         Desired number of clusters.
@@ -756,9 +757,8 @@ def hac_clustering(etrago, selected_network, n_clusters, carrier='AC'):
 
     if not settings["k_busmap"]:
 
-        # Discriminate between CH4 and AC because CH4 has only dispatchable generation
-
         # Get all load TS and normalize them weighted by their maximum p_set
+        # TODO?: Remove the weighting because in the 'AC' grid there is only one 'AC' load
         rel_loads = etrago.network.loads.loc[etrago.network.loads.bus.isin(selected_network.buses.index)].index
         rel_loads = rel_loads[rel_loads.isin(etrago.network.loads_t.p_set.columns)]
         rel_loads_ts = etrago.network.loads_t.p_set.T.loc[rel_loads]
@@ -769,26 +769,21 @@ def hac_clustering(etrago, selected_network, n_clusters, carrier='AC'):
         rel_loads_ts = b.div(a, axis='index')
         rel_loads_ts = rel_loads_ts.agg(list, axis=1)
 
-        hac_feature = rel_loads_ts
+        # Get Generator TS for all buses
+        rel_gens = etrago.network.generators.loc[etrago.network.generators.bus.isin(selected_network.buses.index)].index
+        rel_gens = rel_gens[rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)]
+        rel_gen_avg_ts = etrago.network.generators_t.p_max_pu.T.loc[rel_gens].groupby(etrago.network.generators.bus).mean()
+        rel_gen_avg_ts = rel_gen_avg_ts.agg(list, axis=1)
 
+        # fill missing ts data
+        missing_idx = rel_gen_avg_ts.index[~rel_gen_avg_ts.index.isin(rel_loads_ts.index)]
+        rel_loads_ts = pd.concat([rel_loads_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_gen_avg_ts.iloc[0]))).tolist()), index = missing_idx)])
+        missing_idx = rel_loads_ts.index[~rel_loads_ts.index.isin(rel_gen_avg_ts.index)]
+        rel_gen_avg_ts = pd.concat([rel_gen_avg_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_loads_ts.iloc[0]))).tolist()), index = missing_idx)])
 
-        if carrier == 'AC':
-            # Get Generator TS for all buses
-            rel_gens = etrago.network.generators.loc[etrago.network.generators.bus.isin(selected_network.buses.index)].index
-            rel_gens = rel_gens[rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)]
-            rel_gen_avg_ts = etrago.network.generators_t.p_max_pu.T.loc[rel_gens].groupby(etrago.network.generators.bus).mean()
-            # TODO: Add weighting of TS regarding p_nom of different generators etrago.network.generators.p_nom
-            rel_gen_avg_ts = rel_gen_avg_ts.agg(list, axis=1)
+        hac_feature = rel_loads_ts + rel_gen_avg_ts
 
-            # fill missing ts data
-            missing_idx = rel_gen_avg_ts.index[~rel_gen_avg_ts.index.isin(rel_loads_ts.index)]
-            rel_loads_ts = pd.concat([rel_loads_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_gen_avg_ts.iloc[0]))).tolist()), index = missing_idx)])
-            missing_idx = rel_loads_ts.index[~rel_loads_ts.index.isin(rel_gen_avg_ts.index)]
-            rel_gen_avg_ts = pd.concat([rel_gen_avg_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_loads_ts.iloc[0]))).tolist()), index = missing_idx)])
-
-            hac_feature += rel_gen_avg_ts
-
-        branch_component = {"Line"} if carrier == "AC" else {"Link"}
+        branch_component = {"Line"}
 
         busmap = busmap_by_hac(
             selected_network,

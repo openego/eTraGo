@@ -2023,13 +2023,14 @@ def plot_clusters(
             "y",
         ]
     ]
+
     map_buses = map_buses[map_buses["carrier"] == carrier]
     map_buses["geom"] = map_buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
     map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
-    # map_buses["line"] = map_buses.apply(
-    #     lambda x: LineString((x["geom"], x["cluster_geom"])), axis=1
-    # )
+    map_buses["line"] = map_buses.apply(
+        lambda x: LineString((x["geom"], x["cluster_geom"])), axis=1
+    )
 
     # Set background
     if cartopy == True:
