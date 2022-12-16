@@ -309,10 +309,9 @@ def _min_renewable_share_de(self, network, snapshots):
 
 def _cross_border_flow(self, network, snapshots):
     """
-    Extra_functionality that limits overall crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal percent of
-    im- and exports as a fraction of loads in Germany.
-    Example: {'cross_border_flow': [-0.1, 0.1]}
+    Extra_functionality that limits overall AC crossborder flows from/to Germany.
+    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -321,30 +320,27 @@ def _cross_border_flow(self, network, snapshots):
     Returns
     -------
     None.
-
     """
 
     buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
         network
     )
+
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings.objective, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     def _rule_min(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
@@ -364,12 +360,14 @@ def _cross_border_flow(self, network, snapshots):
     def _rule_max(m):
         cb_flow = (
             -sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb0
                 for sn in snapshots
             )
             + sum(
-                m.passive_branch_p["Line", line, sn] * network.snapshot_weightings.objective[sn]
+                m.passive_branch_p["Line", line, sn]
+                * network.snapshot_weightings.objective[sn]
                 for line in cb1
                 for sn in snapshots
             )
