@@ -83,8 +83,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         & (network2.buses["carrier"] != "H2_grid")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
-        & (network2.buses["carrier"] != "H2_ind_load")
-        & (network2.buses["carrier"] != "rural_heat_store")
     ]
     map_carrier = {
         "H2_saltcavern": "power_to_H2",

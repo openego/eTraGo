@@ -435,7 +435,7 @@ def run_etrago(args, json_path):
 
     """
     etrago = Etrago(args, json_path)
-    
+
     # import network from database
     etrago.build_network_from_db()
 
