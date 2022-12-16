@@ -104,7 +104,7 @@ args = {
         "method": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
         "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method_gas": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
         "n_clusters_gas": 43,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv

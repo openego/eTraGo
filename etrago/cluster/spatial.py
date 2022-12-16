@@ -84,6 +84,7 @@ def sum_with_inf(x):
     else:
         return x.sum()
 
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -118,6 +119,7 @@ def strategies_generators():
         "capital_cost": np.mean,
         "e_nom_max": sum_with_inf,
     }
+
 
 def strategies_links():
     return {
@@ -288,14 +290,14 @@ def shortest_path(paths, graph):
 
     df_isna = df.isnull()
     for s, t in paths:
-        while (df_isna.loc[(s, t), 'path_length'] == True):
+        while df_isna.loc[(s, t), "path_length"] == True:
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s)
                 for t in idx.levels[1]:
                     if t in s_to_other:
-                        df.loc[(s, t), 'path_length'] = s_to_other[t]
+                        df.loc[(s, t), "path_length"] = s_to_other[t]
                     else:
-                        df.loc[(s,t),'path_length'] = np.inf
+                        df.loc[(s, t), "path_length"] = np.inf
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
@@ -474,7 +476,7 @@ def busmap_from_psql(etrago):
         print("Busmap does not exist and will be created.\n")
 
         cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
-        if cpu_cores == 'max':
+        if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
@@ -493,14 +495,14 @@ def busmap_from_psql(etrago):
 
 def kmean_clustering(etrago, selected_network, weight, n_clusters):
     """Main function of the k-mean clustering approach. Creates a busmap
-    mapping an original network to a new one with adjustable number of 
+    mapping an original network to a new one with adjustable number of
     nodes and new coordinates.
 
     Parameters
     ----------
     etrago : pypsa.Network object
         Container for all network components.
-    
+
     selected_network : pypsa.Network object
         Container for all network components of the grid to cluster ('AC' or 'CH4')
 
@@ -556,10 +558,11 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             n_init=kmean_settings["n_init"],
             max_iter=kmean_settings["max_iter"],
             tol=kmean_settings["tol"],
-            random_state=kmean_settings["random_state"]
+            random_state=kmean_settings["random_state"],
         )
         busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
+            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv"
+        )
     else:
         df = pd.read_csv(kmean_settings["k_busmap"])
         df = df.astype(str)
@@ -585,7 +588,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
       busmap_kmedoid: pd.Series
           Busmap based on k-medoids clustering
       cpu_cores: string
-          numbers of cores used during multiprocessing 
+          numbers of cores used during multiprocessing
       Returns
       -------
       busmap (format: with labels)
@@ -605,7 +608,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     M = graph_from_edges(edges)
 
     # processor count
-    if cpu_cores == 'max':
+    if cpu_cores == "max":
         cpu_cores = mp.cpu_count()
     else:
         cpu_cores = int(cpu_cores)
@@ -645,19 +648,19 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 
 def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
     """Main function of the k-medoids Dijkstra clustering approach. Creates a busmap
-    mapping an original network to a new one with adjustable number of 
+    mapping an original network to a new one with adjustable number of
     nodes.
 
     Parameters
     ----------
     etrago : pypsa.Network object
         Container for all network components.
-    
+
     buses : pypsa.Network.buses object
         Container for buses of the grid to cluster ('AC' or 'CH4')
 
     connections : pypsa.Network.lines / pypsa.Network.links object
-        Container for carrier ('AC' or 'CH4') related branch_component 
+        Container for carrier ('AC' or 'CH4') related branch_component
 
     weight : pandas.Series
         Weighting for each bus in the clustering process
@@ -715,8 +718,12 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(buses, connections, medoid_idx,
-                                     etrago.args["network_clustering"]["CPU_cores"])
+        busmap = dijkstras_algorithm(
+            buses,
+            connections,
+            medoid_idx,
+            etrago.args["network_clustering"]["CPU_cores"],
+        )
         busmap.index.name = "bus_id"
 
     else:
@@ -731,10 +738,10 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
 
 def hac_clustering(etrago, selected_network, n_clusters):
 
-    """Main function of the Hierarchical Agglomerative Clustering (HAC) approach. 
+    """Main function of the Hierarchical Agglomerative Clustering (HAC) approach.
     Creates a busmap mapping buses from the original network to a new network
     with adjustable number of nodes. Buses are mapped based on their attached load
-    and generation time series data. Only applies to the 'AC' grid.
+    and generation time series data.
 
     Parameters
     ----------
@@ -742,7 +749,7 @@ def hac_clustering(etrago, selected_network, n_clusters):
         Container for all network components.
 
     selected_network : pypsa.Network object
-        Container for all network components of the grid to cluster ('AC')
+        Container for all network components of the grid to cluster ('AC' or 'CH4')
 
     n_clusters : int
         Desired number of clusters.
@@ -752,38 +759,82 @@ def hac_clustering(etrago, selected_network, n_clusters):
     busmap : pandas.Series
         Maps old bus_ids to new bus_ids.
     """
-    
+
     settings = etrago.args["network_clustering"]
 
     if not settings["k_busmap"]:
 
+        # Discriminate between CH4 and AC because CH4 has only dispatchable generation
+        carrier = selected_network.buses.iloc[0].carrier
+
         # Get all load TS and normalize them weighted by their maximum p_set
-        # TODO?: Remove the weighting because in the 'AC' grid there is only one 'AC' load
-        rel_loads = etrago.network.loads.loc[etrago.network.loads.bus.isin(selected_network.buses.index)].index
+        rel_loads = etrago.network.loads.loc[
+            etrago.network.loads.bus.isin(selected_network.buses.index)
+        ].index
         rel_loads = rel_loads[rel_loads.isin(etrago.network.loads_t.p_set.columns)]
         rel_loads_ts = etrago.network.loads_t.p_set.T.loc[rel_loads]
-        a = [i[:i.find(" ")] for i in rel_loads_ts.index]
+        a = [i[: i.find(" ")] for i in rel_loads_ts.index]
         rel_loads_ts = rel_loads_ts.set_index(pd.Series(a))
         a = (rel_loads_ts.max(axis=1)).groupby(level=0).sum()
         b = rel_loads_ts.groupby(level=0).sum()
-        rel_loads_ts = b.div(a, axis='index')
+        rel_loads_ts = b.div(a, axis="index")
         rel_loads_ts = rel_loads_ts.agg(list, axis=1)
 
-        # Get Generator TS for all buses
-        rel_gens = etrago.network.generators.loc[etrago.network.generators.bus.isin(selected_network.buses.index)].index
-        rel_gens = rel_gens[rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)]
-        rel_gen_avg_ts = etrago.network.generators_t.p_max_pu.T.loc[rel_gens].groupby(etrago.network.generators.bus).mean()
-        rel_gen_avg_ts = rel_gen_avg_ts.agg(list, axis=1)
+        hac_feature = rel_loads_ts
 
-        # fill missing ts data
-        missing_idx = rel_gen_avg_ts.index[~rel_gen_avg_ts.index.isin(rel_loads_ts.index)]
-        rel_loads_ts = pd.concat([rel_loads_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_gen_avg_ts.iloc[0]))).tolist()), index = missing_idx)])
-        missing_idx = rel_loads_ts.index[~rel_loads_ts.index.isin(rel_gen_avg_ts.index)]
-        rel_gen_avg_ts = pd.concat([rel_gen_avg_ts, pd.Series(list(np.zeros((len(missing_idx),len(rel_loads_ts.iloc[0]))).tolist()), index = missing_idx)])
+        if carrier == "AC":
+            # Get Generator TS for all buses
+            rel_gens = etrago.network.generators.loc[
+                etrago.network.generators.bus.isin(selected_network.buses.index)
+            ].index
+            rel_gens = rel_gens[
+                rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)
+            ]
+            rel_gen_avg_ts = (
+                etrago.network.generators_t.p_max_pu.T.loc[rel_gens]
+                .groupby(etrago.network.generators.bus)
+                .mean()
+            )
+            # TODO: Add weighting of TS regarding p_nom of different generators etrago.network.generators.p_nom
+            rel_gen_avg_ts = rel_gen_avg_ts.agg(list, axis=1)
 
-        hac_feature = rel_loads_ts + rel_gen_avg_ts
+            # fill missing ts data
+            missing_idx = rel_gen_avg_ts.index[
+                ~rel_gen_avg_ts.index.isin(rel_loads_ts.index)
+            ]
+            rel_loads_ts = pd.concat(
+                [
+                    rel_loads_ts,
+                    pd.Series(
+                        list(
+                            np.zeros(
+                                (len(missing_idx), len(rel_gen_avg_ts.iloc[0]))
+                            ).tolist()
+                        ),
+                        index=missing_idx,
+                    ),
+                ]
+            )
+            missing_idx = rel_loads_ts.index[
+                ~rel_loads_ts.index.isin(rel_gen_avg_ts.index)
+            ]
+            rel_gen_avg_ts = pd.concat(
+                [
+                    rel_gen_avg_ts,
+                    pd.Series(
+                        list(
+                            np.zeros(
+                                (len(missing_idx), len(rel_loads_ts.iloc[0]))
+                            ).tolist()
+                        ),
+                        index=missing_idx,
+                    ),
+                ]
+            )
 
-        branch_component = {"Line"}
+            hac_feature += rel_gen_avg_ts
+
+        branch_component = {"Line"} if carrier == "AC" else {"Link"}
 
         busmap = busmap_by_hac(
             selected_network,
@@ -794,7 +845,7 @@ def hac_clustering(etrago, selected_network, n_clusters):
             affinity="euclidean",
             linkage="ward",
         )
-        
+
     else:
         df = pd.read_csv(settings["k_busmap"])
         df = df.astype(str)
@@ -802,5 +853,5 @@ def hac_clustering(etrago, selected_network, n_clusters):
         busmap = df.squeeze("columns")
 
     etrago.update_busmap(busmap)
-    
+
     return busmap

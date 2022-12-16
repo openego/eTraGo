@@ -107,7 +107,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
     if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
-        cluster_met in ["kmeans", "kmedoids-dijkstra","hac"]
+        cluster_met in ["kmeans", "kmedoids-dijkstra", "hac"]
     ):
         buses_orig = network.buses.copy()
         ac_buses_out = buses_orig[
@@ -622,40 +622,37 @@ def postprocessing(etrago, busmap, medoid_idx=None):
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
 
-    # busmap['1504'] = '1504'
-    # busmap['1477'] = '1477'
-    # busmap['1518'] = '1518'
+    busmap["1504"] = "1504"
+    busmap["1477"] = "1477"
+    busmap["1518"] = "1518"
     # busmap['1421'] = '1421'
     # busmap['1423'] = '1423'
-    busmap['34810'] = '34810'
-    
-    
-    
-    busmap['31017'] = '31017'
-    busmap['31027'] = '31027'
-    busmap['31196'] = '31196'
-    busmap['31582'] = '31582'
-    busmap['31765'] = '31765'
-    busmap['31856'] = '31856'
+    busmap["34810"] = "34810"
 
-    busmap['32465'] = '32465'
-    busmap['32670'] = '32670'
-    busmap['32759'] = '32759'
-    busmap['32762'] = '32762'
-    busmap['32768'] = '32768'
-    busmap['33506'] = '33506'
+    busmap["31017"] = "31017"
+    busmap["31027"] = "31027"
+    busmap["31196"] = "31196"
+    busmap["31582"] = "31582"
+    busmap["31765"] = "31765"
+    busmap["31856"] = "31856"
 
-    busmap['33669'] = '33669'
-    busmap['33740'] = '33740'
-    busmap['33741'] = '33741'
-    busmap['34971'] = '34971'
+    busmap["32465"] = "32465"
+    busmap["32670"] = "32670"
+    busmap["32759"] = "32759"
+    busmap["32762"] = "32762"
+    busmap["32768"] = "32768"
+    busmap["33506"] = "33506"
 
+    busmap["33669"] = "33669"
+    busmap["33740"] = "33740"
+    busmap["33741"] = "33741"
+    busmap["34971"] = "34971"
 
-    # ['31017 wind_offshore', '31027 wind_offshore', '31196 wind_offshore', '31582 wind_offshore', 
+    # ['31017 wind_offshore', '31027 wind_offshore', '31196 wind_offshore', '31582 wind_offshore',
     # '31765 wind_offshore', '31856 wind_offshore', '32465 solar', '32465 solar_rooftop', '32465 wind_onshore',
-    #  '32670 wind_offshore', '32759 solar', '32759 solar_rooftop', '32762 solar', '32762 solar_rooftop', 
-    #  '32762 wind_onshore', '32768 wind_offshore', '33506 wind_offshore', '33669 wind_offshore', 
-    #  '33740 wind_offshore', '34971 wind_offshore'] not in index" 
+    #  '32670 wind_offshore', '32759 solar', '32759 solar_rooftop', '32762 solar', '32762 solar_rooftop',
+    #  '32762 wind_onshore', '32768 wind_offshore', '33506 wind_offshore', '33669 wind_offshore',
+    #  '33740 wind_offshore', '34971 wind_offshore'] not in index"
 
     clustering = get_clustering_from_busmap(
         network,
@@ -775,18 +772,30 @@ def run_spatial_clustering(self):
 
             self.adapt_crossborder_buses()
 
-        self.network.generators.control = "PV" # can this be removed?
+        self.network.generators.control = "PV"  # can this be removed?
 
         if self.args["network_clustering"]["method"] == "hac":
             logger.info("HAC: Starting Pre-aggregation")
 
-            ac_de_buses = self.network.buses.loc[(self.network.buses.carrier == 'AC') & (self.network.buses.country == 'DE')]
+            ac_de_buses = self.network.buses.loc[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.country == "DE")
+            ]
 
             # Find nodes that have time series data attached to them
-            rel_generator_buses = self.network.generators.loc[self.network.generators_t.p_max_pu.columns].bus.values
-            rel_load_buses = self.network.loads.loc[self.network.loads_t.p_set.columns].bus.values
-            buses_with_ts = ac_de_buses.loc[ac_de_buses.index.isin(rel_generator_buses) | ac_de_buses.index.isin(rel_load_buses)]
-            buses_to_aggregate = ac_de_buses.loc[~ac_de_buses.index.isin(buses_with_ts.index)]
+            rel_generator_buses = self.network.generators.loc[
+                self.network.generators_t.p_max_pu.columns
+            ].bus.values
+            rel_load_buses = self.network.loads.loc[
+                self.network.loads_t.p_set.columns
+            ].bus.values
+            buses_with_ts = ac_de_buses.loc[
+                ac_de_buses.index.isin(rel_generator_buses)
+                | ac_de_buses.index.isin(rel_load_buses)
+            ]
+            buses_to_aggregate = ac_de_buses.loc[
+                ~ac_de_buses.index.isin(buses_with_ts.index)
+            ]
 
             # Aggregate buses to nearest buses with time series data
             a = np.ones((len(buses_with_ts), 2))
@@ -798,18 +807,16 @@ def run_spatial_clustering(self):
             D_spatial = haversine(b, a)
 
             busmap = pd.Series(
-                self.network.buses.loc[
-                    buses_with_ts.index
-                ]
+                self.network.buses.loc[buses_with_ts.index]
                 .iloc[np.argmin(D_spatial, axis=1)]
                 .index,
-                index = buses_to_aggregate.index
+                index=buses_to_aggregate.index,
             )
             busmap = pd.concat(
                 [busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
             )
 
-            medoid_idx = buses_with_ts  # set these to buses_with_ts???
+            medoid_idx = buses_with_ts
             self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
             busmap_pre_aggr = busmap.copy()
 
@@ -831,16 +838,27 @@ def run_spatial_clustering(self):
             elec_network, weight, n_clusters = preprocessing(self)
 
             # remove when foreign buses with country code DE are fixed?
-            elec_network.buses = elec_network.buses.loc[elec_network.buses.index.isin(ac_de_buses.index)]
+            elec_network.buses = elec_network.buses.loc[
+                elec_network.buses.index.isin(ac_de_buses.index)
+            ]
             elec_network.lines = elec_network.lines.loc[
                 (elec_network.lines.bus0.isin(elec_network.buses.index))
                 & (elec_network.lines.bus1.isin(elec_network.buses.index))
             ]
-            # There is an odd behaviour which leads to the placement of a DE node into DK, AT, etc. 
+            # There is an odd behaviour which leads to the placement of a DE node into DK, AT, etc.
             # leading to sub_networks
             # -> Got it, see above
             elec_network.determine_network_topology()
-            elec_network.buses = elec_network.buses.loc[elec_network.buses.index.isin(elec_network.sub_networks.loc[elec_network.sub_networks.carrier == "AC"].loc["0"].obj.buses().index)]
+            elec_network.buses = elec_network.buses.loc[
+                elec_network.buses.index.isin(
+                    elec_network.sub_networks.loc[
+                        elec_network.sub_networks.carrier == "AC"
+                    ]
+                    .loc["0"]
+                    .obj.buses()
+                    .index
+                )
+            ]
             elec_network.lines = elec_network.lines.loc[
                 (elec_network.lines.bus0.isin(elec_network.buses.index))
                 & (elec_network.lines.bus1.isin(elec_network.buses.index))
@@ -851,7 +869,6 @@ def run_spatial_clustering(self):
         else:
             elec_network, weight, n_clusters = preprocessing(self)
             self.network.generators.control = "PV"
-
 
         if self.args["network_clustering"]["method"] == "kmeans":
 
@@ -885,12 +902,19 @@ def run_spatial_clustering(self):
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
 
         if self.args["network_clustering"]["method"] == "hac":
-            busmap_missing_index = pd.Series(pd.Series(busmap).loc[pd.Series(busmap_pre_aggr).loc[buses_to_aggregate.index].values].values , index = buses_to_aggregate.index).to_dict()
+            busmap_missing_index = pd.Series(
+                pd.Series(busmap)
+                .loc[pd.Series(busmap_pre_aggr).loc[buses_to_aggregate.index].values]
+                .values,
+                index=buses_to_aggregate.index,
+            ).to_dict()
             busmap.update(busmap_missing_index)
 
         self.update_busmap(busmap)
 
-        if (self.args["disaggregation"] != None) & (self.args["network_clustering"]["method"] != "hac"):
+        if (self.args["disaggregation"] != None) & (
+            self.args["network_clustering"]["method"] != "hac"
+        ):
             self.disaggregated_network = self.network.copy()
         else:
             self.disaggregated_network = self.network.copy(with_time=False)

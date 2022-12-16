@@ -80,7 +80,6 @@ def set_epsg_network(network):
     set_epsg_network.counter = set_epsg_network.counter + 1
 
 
-
 def plot_osm(x, y, zoom, alpha=0.4):
     """
     Plots openstreetmap as background of network-plots
@@ -1227,7 +1226,6 @@ def storage_p_soc(network, mean="1H", filename=None):
     ax2.legend(loc=1)
     ax.set_title("Storage dispatch and state of charge")
 
-
     if filename is None:
         plt.show()
     else:
@@ -1569,9 +1567,18 @@ def plot_background_grid(network, ax):
         color_geomap=True,
     )
 
-    network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
-                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
+    network.plot(
+        ax=ax,
+        line_colors="grey",
+        link_colors="grey",
+        bus_sizes=0,
+        line_widths=0.5,
+        link_widths=0.3,  # 0.55,
+        geomap=True,
+        projection=ccrs.PlateCarree(),
+        color_geomap=True,
+    )
+
 
 def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
     """
@@ -1593,7 +1600,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     """
 
     colors = coloring()
-    line_colors="lightblue"
+    line_colors = "lightblue"
 
     # Set background
     if cartopy == True:
@@ -1624,7 +1631,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     else:
         line_widths = 0
 
-    title=""
+    title = ""
 
     network.plot(
         geomap=True,
@@ -1641,30 +1648,32 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     patchList = []
     for key in carrier_links:
         if key != "AC":
-            data_key = mpatches.Patch(color=colors[key], label=f'Link {key}')
+            data_key = mpatches.Patch(color=colors[key], label=f"Link {key}")
         else:
-            data_key = mpatches.Patch(color=line_colors, label=f'Line {key}')
+            data_key = mpatches.Patch(color=line_colors, label=f"Line {key}")
         patchList.append(data_key)
     for key in carrier_buses:
-        data_key = mpatches.Patch(color=colors[key], label=f'Bus {key}')
+        data_key = mpatches.Patch(color=colors[key], label=f"Bus {key}")
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc="lower left", ncol=1)
     ax.autoscale()
 
 
-def plot_grid(self,
-              line_colors,
-              bus_sizes=0.001,
-              bus_colors='grey',
-              timesteps=range(2),
-              osm=False,
-              boundaries=None,
-              filename=None,
-              disaggregated=False,
-              ext_min=0.1,
-              ext_width=False):
-    """ Function that plots etrago.network and results for lines and buses
+def plot_grid(
+    self,
+    line_colors,
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+):
+    """Function that plots etrago.network and results for lines and buses
 
 
 
@@ -2024,9 +2033,21 @@ def plot_clusters(
         ]
     ]
 
+    busmap = self.busmap["busmap"].copy()
     map_buses = map_buses[map_buses["carrier"] == carrier]
     map_buses["geom"] = map_buses.apply(lambda x: Point(x["x"], x["y"]), axis=1)
-    map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
+    if self.args["network_clustering"]["method_gas"] == "hac":
+        ids_to_remap = (
+            self.busmap["orig_network"]
+            .buses.loc[
+                (self.busmap["orig_network"].buses.carrier == "CH4")
+                & (self.busmap["orig_network"].buses.country == "DE")
+            ]
+            .index.tolist()
+        )
+        for i in ids_to_remap:
+            busmap[i] = busmap[busmap[i]]
+    map_buses["cluster"] = map_buses.index.map(busmap)
     map_buses["cluster_geom"] = map_buses["cluster"].map(new_geom.geom)
     map_buses["line"] = map_buses.apply(
         lambda x: LineString((x["geom"], x["cluster_geom"])), axis=1

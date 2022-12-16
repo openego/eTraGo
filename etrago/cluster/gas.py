@@ -22,8 +22,10 @@ if "READTHEDOCS" not in os.environ:
         sum_with_inf,
         group_links,
         kmedoids_dijkstra_clustering,
+        hac_clustering,
     )
     from etrago.tools.utilities import *
+    from pypsa.geo import haversine
 
 
 def preprocessing(etrago):
@@ -791,6 +793,51 @@ def run_spatial_clustering_gas(self):
         method = self.args["network_clustering"]["method_gas"]
         logger.info(f"Start {method} clustering GAS")
 
+        if method == "hac":
+            logger.info("HAC_gas: Starting Pre-aggregation")
+
+            gas_de_buses = self.network.buses.loc[
+                (self.network.buses.carrier == "CH4")
+                & (self.network.buses.country == "DE")
+            ]
+
+            # Find nodes that have TS data attached to them
+            rel_load_buses = self.network.loads.loc[
+                self.network.loads_t.p_set.columns
+            ].bus.values
+            buses_with_ts = gas_de_buses.loc[gas_de_buses.index.isin(rel_load_buses)]
+            buses_to_aggregate = gas_de_buses.loc[
+                ~gas_de_buses.index.isin(buses_with_ts.index)
+            ]
+
+            # Aggregate buses to nearest relevant buses
+            a = np.ones((len(buses_with_ts), 2))
+            b = np.ones((len(buses_to_aggregate), 2))
+            a[:, 0] = buses_with_ts.x.values
+            a[:, 1] = buses_with_ts.y.values
+            b[:, 0] = buses_to_aggregate.x.values
+            b[:, 1] = buses_to_aggregate.y.values
+            D_spatial = haversine(b, a)
+
+            busmap = pd.Series(
+                self.network.buses.loc[buses_with_ts.index]
+                .iloc[np.argmin(D_spatial, axis=1)]
+                .index,
+                index=buses_to_aggregate.index,
+            )
+            busmap = pd.concat(
+                [busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
+            )
+
+            medoid_idx = buses_with_ts
+
+            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+            self.update_busmap(busmap)
+
+            logger.info("HAC_gas: Pre-aggregation finished")
+
+            self.network.generators.control = "PV"
+
         gas_network, weight, n_clusters = preprocessing(self)
 
         if method == "kmeans":
@@ -803,9 +850,14 @@ def run_spatial_clustering_gas(self):
                 self, gas_network.buses, gas_network.links, weight, n_clusters
             )
 
+        elif method == "hac":
+
+            busmap = hac_clustering(self, gas_network, n_clusters)
+            medoid_idx = None
+
         else:
             msg = (
-                'Please select "kmeans" or "kmedoids-dijkstra" as '
+                'Please select "kmeans", "kmedoids-dijkstra" or "hac" as '
                 "spatial clustering method for the gas network"
             )
             raise ValueError(msg)
