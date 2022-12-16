@@ -1605,11 +1605,11 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if not jsonpath == None:
         with open(jsonpath) as f:
-            if 'args' in locals():
+            if "args" in locals():
                 self.args = merge_dicts(self.args, json.load(f))
             else:
                 self.args = json.load(f)
-                
+
 
 def merge_dicts(dict1, dict2):
     """Return a new dictionary by merging two dictionaries recursively."""
@@ -1639,9 +1639,15 @@ def get_clustering_data(self, path):
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")
-        with open(os.path.join(path_clus, "busmap.json")) as f:
-            self.busmap["busmap"] = json.load(f)
-        self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        if os.path.exists(path_clus):
+            with open(os.path.join(path_clus, "busmap.json")) as f:
+                self.busmap["busmap"] = json.load(f)
+            self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        else:
+            logger.info(
+            f"""There is no clustering data available in the loaded object."""
+        )
+            
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2044,8 +2050,9 @@ def check_args(etrago):
 
     """
 
-    assert etrago.args["scn_name"] in ["eGon2035", "eGon100RE"], (
-        "'scn_name' has to be in ['eGon2035', 'eGon100RE'] "
+    assert etrago.args["scn_name"] in [
+        "eGon2035", "eGon100RE","eGon2035_lowflex", "eGon100RE_lowflex"], (
+        "'scn_name' has to be in [eGon2035, eGon100RE, eGon2035_lowflex, eGon100RE_lowflex] "
         "but is " + etrago.args["scn_name"]
     )
 
