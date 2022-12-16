@@ -91,12 +91,12 @@ args = {
                 "dc": 0,
             },
             # border crossing lines
-            "grid_max_foreign": 1,  # relative to existing capacity
+            "grid_max_foreign": 2,  # relative to existing capacity
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {'min_renewable_share_de':0.73},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
+    "extra_functionality": {'min_renewable_share_de':0.73, 'cross_border_flow': [-5e6, 5e6]},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
@@ -511,7 +511,7 @@ def run_etrago(args, json_path):
     # 1) includes conversion of foreign-lines to DC-links
     # 2) includes changing parameters according to extendable-settings
 
-    etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
+    #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
     '''# Set foreign batteries extendable
     etrago.network.storage_units["country"] = etrago.network.buses.loc[
@@ -568,15 +568,15 @@ def run_etrago(args, json_path):
     ]
     network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
                               (network.links.bus1.isin(foreign_buses.index)),
-                          'p_nom_max'] = 1 * network.links.p_nom
+                          'p_nom_max'] = 2 * network.links.p_nom
     network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
                               (network.links.bus1.isin(foreign_buses.index)),
                           'p_nom_min']  = network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
                               (network.links.bus1.isin(foreign_buses.index)),
                           'p_nom']
-    etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
+    #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
 
-    etrago.args["load_shedding"] = True
+    etrago.args["load_shedding"] = False
     etrago.load_shedding()
     # load shedding only in foreign countries
     de_buses = network.buses[network.buses.country == "DE"]
