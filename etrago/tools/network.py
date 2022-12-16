@@ -222,8 +222,6 @@ class Etrago:
     set_trafo_costs = set_trafo_costs
 
     drop_sectors = drop_sectors
-
-    adapt_crossborder_buses = adapt_crossborder_buses
     
     buses_by_country = buses_by_country
 
