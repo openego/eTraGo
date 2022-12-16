@@ -101,7 +101,7 @@ args = {
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
-        "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
@@ -581,7 +581,7 @@ def run_etrago(args, json_path):
     # load shedding only in foreign countries
     de_buses = network.buses[network.buses.country == "DE"]
     drop = etrago.network.generators[(etrago.network.generators.carrier=='load shedding') & (etrago.network.generators.bus.isin(de_buses.index))].index
-    etrago.network.generators.drop(drop)
+    etrago.network.generators.drop(drop, inplace=True)
 
     # snapshot clustering
     # etrago.snapshot_clustering()
