@@ -499,6 +499,85 @@ def preprocessing(etrago):
         Container for all network components.
     """
 
+    def unify_foreign_buses(etrago):
+        
+        network = etrago.network.copy()
+        
+        foreign_buses = network.buses[(network.buses.country != "DE") & 
+                                      (network.buses.carrier == "AC")]
+        foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
+                                            (foreign_buses.carrier=="AC")]
+        
+        lines_col = network.lines.columns
+        # The Dijkstra clustering works using the shortest electrical path between
+        # buses. In some cases, a bus has just DC connections, which are considered
+        # links. Therefore it is necessary to include temporarily the DC links
+        # into the lines table.
+        dc = network.links[network.links.carrier == "DC"]
+        str1 = 'DC_'
+        dc.index = f"{str1}"+dc.index
+        lines_plus_dc = lines_plus_dc = pd.concat([network.lines, dc])
+        lines_plus_dc = lines_plus_dc[lines_col]
+        lines_plus_dc["carrier"] = "AC"
+        
+        busmap_foreign = pd.Series(dtype=str)
+        medoids_foreign = pd.Series(dtype=str)
+
+        for country, df in foreign_buses.groupby(by="country"):
+            weight = df.apply(lambda x: 1 if x.name in foreign_buses_load.index else 0, axis = 1)
+            n_clusters = (foreign_buses_load.country == country).sum()
+            
+            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
+                etrago, df, lines_plus_dc, weight, n_clusters
+            )
+            medoid_idx_country.index = medoid_idx_country.index.astype(str)
+            busmap_country = busmap_country.map(medoid_idx_country)
+            
+            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
+        
+        settings = etrago.args["network_clustering"]
+        method = settings["method"]
+
+        full_busmap = pd.Series(data=network.buses.index[network.buses.carrier == "AC"],
+                                index= network.buses.index[network.buses.carrier == "AC"])
+        
+        network, full_busmap = adjust_no_electric_network(
+            etrago, full_busmap, cluster_met=method
+        )
+        
+        for bus in busmap_foreign.index:
+            full_busmap[bus] = busmap_foreign[bus]
+
+        network.generators["weight"] = network.generators["p_nom"]
+        aggregate_one_ports = network.one_port_components.copy()
+        aggregate_one_ports.discard("Generator")
+
+        clustering = get_clustering_from_busmap(
+            network,
+            full_busmap,
+            aggregate_generators_weighted=True,
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies=strategies_generators(),
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=settings["line_length_factor"],
+        )
+
+        for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
+            cluster = int(i)
+            if cluster in medoids_foreign.index:
+                medoid = str(medoids_foreign.loc[cluster])
+                clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
+                clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
+
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
+        
+        etrago.update_busmap(full_busmap)
+
+        return clustering.network
+
     network = etrago.network
     settings = etrago.args["network_clustering"]
 
@@ -552,37 +631,17 @@ def preprocessing(etrago):
         "Line",
     )
     network.lines.carrier = "AC"
-    breakpoint()
-    
-    foreign_buses = network.buses[network.buses.country != "DE"]
-    foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
-                                       (foreign_buses.carrier=="AC")]
-
-    foreign_tr = network.transformers.copy()
-    foreign_tr = foreign_tr[(foreign_tr.bus0.isin(foreign_buses.index)) | 
-                            (foreign_tr.bus1.isin(foreign_buses.index))]
-    foreign_tr["load_bus0"] = foreign_tr.bus0.isin(foreign_buses_load.index)
-    foreign_tr["load_bus1"] = foreign_tr.bus1.isin(foreign_buses_load.index)
-    
-    busmap_trafos = {}
-    for tr, x in foreign_tr.iterrows():
-        if ((x.load_bus0 == True) & (x.load_bus1 == False)):
-            busmap_trafos[x.bus0] = x.bus0
-            busmap_trafos[x.bus1] = x.bus0
-            continue
-        elif ((x.load_bus0 == False) & (x.load_bus1 == True)):
-            busmap_trafos[x.bus0] = x.bus1
-            busmap_trafos[x.bus1] = x.bus1
-            continue
-        else:
-            print(f"WARNING: foreign trafo {tr} is loaded in not exactly 1 side")
-            
+              
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
+    
+    etrago.network = unify_foreign_buses(etrago)
+    
+    etrago.buses_by_country()
 
     network_elec, n_clusters = select_elec_network(etrago)
 
@@ -775,7 +834,7 @@ def run_spatial_clustering(self):
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
-        breakpoint()
+
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
         else:

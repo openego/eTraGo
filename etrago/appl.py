@@ -460,7 +460,6 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
 
-    breakpoint()
     etrago.adjust_network()
 
     # ehv network clustering

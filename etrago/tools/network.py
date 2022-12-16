@@ -303,7 +303,7 @@ class Etrago:
 
         self.convert_capital_costs()
 
-        self.adapt_crossborder_buses()
+        #self.adapt_crossborder_buses()
         
         self.delete_dispensable_ac_buses()
 
