@@ -546,16 +546,12 @@ def preprocessing(etrago):
             
             busmap_foreign = pd.concat([busmap_foreign, busmap_country])
             medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
-        
+
         settings = etrago.args["network_clustering"]
         method = settings["method"]
 
-        full_busmap = pd.Series(data=network.buses.index[network.buses.carrier == "AC"],
-                                index= network.buses.index[network.buses.carrier == "AC"])
-        
-        network, full_busmap = adjust_no_electric_network(
-            etrago, full_busmap, cluster_met=method
-        )
+        full_busmap = pd.Series(data=network.buses.index,
+                                index= network.buses.index)
         
         for bus in busmap_foreign.index:
             full_busmap[bus] = busmap_foreign[bus]
@@ -573,17 +569,11 @@ def preprocessing(etrago):
             aggregate_one_ports=aggregate_one_ports,
             line_length_factor=settings["line_length_factor"],
         )
-
-        for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
-            cluster = int(i)
-            if cluster in medoids_foreign.index:
-                medoid = str(medoids_foreign.loc[cluster])
-                clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
-                clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
-
-        clustering.network.links, clustering.network.links_t = group_links(
-            clustering.network
-        )
+        
+        # restore the coordinates of the foreign buses
+        for bus in foreign_buses_load.index:
+            clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
+            clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
         
         etrago.update_busmap(full_busmap)
 
@@ -687,9 +677,7 @@ def preprocessing(etrago):
         weight = weighting_for_scenario(
             network=network_elec, save=False
         )
-    
-    etrago.adapt_crossborder_buses()
-    
+
     return network_elec, weight, n_clusters
 
 
