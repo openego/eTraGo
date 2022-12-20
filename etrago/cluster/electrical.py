@@ -521,7 +521,6 @@ def preprocessing(etrago):
             medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
 
         settings = etrago.args["network_clustering"]
-        method = settings["method"]
 
         full_busmap = pd.Series(data=network.buses.index,
                                 index= network.buses.index)
@@ -547,6 +546,10 @@ def preprocessing(etrago):
         for bus in foreign_buses_load.index:
             clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
             clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
+
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
 
         etrago.update_busmap(full_busmap)
 
