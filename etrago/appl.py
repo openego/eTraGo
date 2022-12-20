@@ -537,7 +537,7 @@ def run_etrago(args, json_path):
         carrier="CH4", save_path="final_ci_dump_HAC_CH4_43_8760_snapshots"
     )
 
-    etrago.export_to_csv("test_dump_HAC_clustered_300_43")
+    etrago.export_to_csv("ci_dump_HAC_clustered_300_43")
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
