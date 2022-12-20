@@ -808,10 +808,6 @@ def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
 
-        if self.args["network_clustering_ehv"]:
-
-            self.adapt_crossborder_buses()
-
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters = preprocessing(self)
