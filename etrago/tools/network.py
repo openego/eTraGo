@@ -49,12 +49,13 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_line_costs,
                                     set_trafo_costs,
                                     drop_sectors,
-                                    adapt_crossborder_buses,
                                     update_busmap,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
                                     get_clustering_data,
                                     adjust_CH4_gen_carriers,)
+                                    
+#adapt_crossborder_buses,
 
 from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
@@ -223,7 +224,7 @@ class Etrago:
 
     drop_sectors = drop_sectors
 
-    adapt_crossborder_buses = adapt_crossborder_buses
+    #adapt_crossborder_buses = adapt_crossborder_buses
     
     buses_by_country = buses_by_country
 
@@ -302,7 +303,7 @@ class Etrago:
 
         self.convert_capital_costs()
 
-        self.adapt_crossborder_buses()
+        #self.adapt_crossborder_buses()
         
         self.delete_dispensable_ac_buses()
 
