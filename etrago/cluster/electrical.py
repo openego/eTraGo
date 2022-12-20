@@ -860,7 +860,7 @@ def preprocessing(etrago):
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
     
-    # etrago.network = unify_foreign_buses(etrago)
+    etrago.network = unify_foreign_buses(etrago)
     
     etrago.buses_by_country()
 
@@ -1032,7 +1032,7 @@ def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
 
-        self.network.generators.control = "PV"  # can this be removed?
+        self.network.generators.control = "PV"
 
         if self.args["network_clustering"]["method"] == "hac":
             logger.info("HAC: Starting Pre-aggregation")
@@ -1075,13 +1075,6 @@ def run_spatial_clustering(self):
             busmap = pd.concat(
                 [busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
             )
-
-            # Temporal workaround to make sure German buses dont get isolated from 
-            # German grid
-            # busmap['30009'] = '32461'
-            # busmap['22844'] = '32461'
-            # busmap['29411'] = '33515'
-            # busmap['27485'] = '33515'
 
             medoid_idx = buses_with_ts
             self.clustering, busmap = postprocessing(self, busmap, medoid_idx)

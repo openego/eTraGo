@@ -2123,7 +2123,7 @@ def plot_clusters(
 
     # Draw original and clustered buses
     map_buses = gpd.GeoDataFrame(map_buses, geometry="line")
-    map_buses.plot(ax=ax, color=map_buses["color"], linewidths=0.25, zorder=2)
+    map_buses.plot(ax=ax, color=map_buses["color"], linewidths=0.05, zorder=2)
     map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
     map_buses.plot(
         ax=ax, color=map_buses["color"], markersize=0.8, marker="o", zorder=3

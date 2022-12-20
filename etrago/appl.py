@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -77,7 +77,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "csv_export": "hac_test_results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": ["as_in_db"],  # Array of components to optimize
@@ -118,8 +118,8 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -133,14 +133,14 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    "skip_snapshots": 20,  # False or number of snapshots to skip
+    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -448,65 +448,122 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()
-        [etrago.network.lines_t.s_max_pu.columns.isin(
-            etrago.network.lines.index)].transpose())
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
+        etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
+    ].transpose()
 
     # Set gas grid links bidirectional
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
+    ] = -1.0
 
     # Set efficiences of CHP
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
+        "efficiency",
+    ] = 0.43
 
-    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
 
-    etrago.network.add("Line", name='123456',bus0='32461',bus1='33483', carrier='AC',x=2.61,r=0.76,g=0,b=8.18E-5,s_nom=520,s_nom_extendable=True, s_nom_min=520,lifetime=40,cables=3,num_parallel=1,v_nom=110)
-    etrago.network.add("Line", name='123457',bus0='33515',bus1='33162', carrier='AC',x=2.61,r=0.76,g=0,b=8.18E-5,s_nom=520,s_nom_extendable=True, s_nom_min=520,lifetime=40,cables=3,num_parallel=1,v_nom=110)
+    # The following lines and links are added to prevent sub_networks in the resp. grid
+    etrago.network.add(
+        "Line",
+        name="123456",
+        bus0="32461",
+        bus1="33483",
+        carrier="AC",
+        x=2.61,
+        r=0.76,
+        g=0,
+        b=8.18e-5,
+        s_nom=520,
+        s_nom_extendable=True,
+        s_nom_min=520,
+        lifetime=40,
+        num_parallel=1,
+    )
+    etrago.network.add(
+        "Line",
+        name="123457",
+        bus0="33515",
+        bus1="33162",
+        carrier="AC",
+        x=2.61,
+        r=0.76,
+        g=0,
+        b=8.18e-5,
+        s_nom=520,
+        s_nom_extendable=True,
+        s_nom_min=520,
+        lifetime=40,
+        num_parallel=1,
+    )
+    etrago.network.add(
+        "Link",
+        name="234567",
+        bus0="48044",
+        bus1="47391",
+        carrier="CH4",
+        efficiency=1.0,
+        p_nom=27125.0,
+        p_min_pu=-1.0,
+        country="DE",
+    )
+    etrago.network.add(
+        "Link",
+        name="234568",
+        bus0="47833",
+        bus1="47547",
+        carrier="CH4",
+        efficiency=1.0,
+        p_nom=27125.0,
+        p_min_pu=-1.0,
+        country="DE",
+    )
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.plot_clusters(save_path = 'final_ci_dump_HAC_AC_300_10_snapshots')
+    etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_300_8760_snapshots")
 
     etrago.spatial_clustering_gas()
-    etrago.plot_clusters(carrier = 'CH4', save_path = 'final_ci_dump_HAC_CH4_43_10_snapshots')
-    
-    #etrago.export_to_csv('test_dump_HAC_clustered_300_43')
+    etrago.plot_clusters(
+        carrier="CH4", save_path="final_ci_dump_HAC_CH4_43_8760_snapshots"
+    )
 
-    # etrago.args["load_shedding"] = True
-    # etrago.load_shedding()
+    etrago.export_to_csv("test_dump_HAC_clustered_300_43")
 
-    # # snapshot clustering
-    # etrago.snapshot_clustering()
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
 
-    # # skip snapshots
-    # etrago.skip_snapshots()
+    # snapshot clustering
+    etrago.snapshot_clustering()
 
-    # # start linear optimal powerflow calculations
-    # # needs to be adjusted for new sectors
-    # etrago.lopf()
+    # skip snapshots
+    etrago.skip_snapshots()
 
-    # # conduct lopf with full complex timeseries for dispatch disaggregation
-    # etrago.dispatch_disaggregation()
+    # start linear optimal powerflow calculations
+    # needs to be adjusted for new sectors
+    etrago.lopf()
 
-    # # start power flow based on lopf results
-    # etrago.pf_post_lopf()
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.dispatch_disaggregation()
 
-    # # spatial disaggregation
-    # # needs to be adjusted for new sectors
-    # # etrago.disaggregation()
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
-    # # calculate central etrago results
-    # etrago.calc_results()
+    # spatial disaggregation
+    # needs to be adjusted for new sectors
+    etrago.disaggregation()
+
+    # calculate central etrago results
+    etrago.calc_results()
 
     return etrago
 

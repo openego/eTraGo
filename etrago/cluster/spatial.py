@@ -832,10 +832,10 @@ def hac_clustering(etrago, selected_network, n_clusters):
                 ]
             )
 
-            hac_feature += rel_gen_avg_ts
+            hac_feature = rel_loads_ts + rel_gen_avg_ts
 
         branch_component = {"Line"} if carrier == "AC" else {"Link"}
-        # rel_loads_ts.loc['33025']
+        
         busmap = busmap_by_hac(
             selected_network,
             n_clusters=n_clusters,

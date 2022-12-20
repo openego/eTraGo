@@ -831,6 +831,8 @@ def run_spatial_clustering_gas(self):
 
             medoid_idx = buses_with_ts
 
+            self.network.generators.control = "PV"
+
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
             self.update_busmap(busmap)
 
