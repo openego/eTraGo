@@ -164,19 +164,19 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             f"""There are {len(no_elec_conex)} buses that have no direct
             connection to the electric network: {no_elec_conex}"""
         )
-    
+
     # rural_heat_store buses are clustered based on the AC buses connected to
     # their corresponding rural_heat buses
-    links_rural_store = etrago.network.links[etrago.network.links.carrier == 
+    links_rural_store = etrago.network.links[etrago.network.links.carrier ==
                                              "rural_heat_store_charger"].copy()
-    
+
     busmap3 = {}
     links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
     for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
         cluster_bus = df.bus1.iat[0]
         for rural_store_bus in df.bus1:
             busmap3[rural_store_bus] = cluster_bus
-    
+
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
@@ -482,33 +482,78 @@ def select_elec_network(etrago):
 
 
 def preprocessing(etrago):
-    """Function of the k-medoids Dijkstra Clustering approach. Maps an original
-    network to a new one with adjustable number of nodes and new coordinates.
-    This approach conducts a k-medoids Clustering followd by a Dijkstra's algortihm
-    assigning the original buses considering their electrical distances to the
-    identified medoids.
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Container for all network components.
-    n_clusters : int
-        Desired number of clusters.
-    load_cluster : boolean
-        Loads cluster coordinates from a former calculation.
-    line_length_factor : float
-        Factor to multiply the crow-flies distance between new buses in order
-        to get new line lengths.
-    bus_weight_tocsv : str
-        Creates a bus weighting based on conventional generation and load
-        and save it to a csv file.
-    bus_weight_fromcsv : str
-        Loads a bus weighting from a csv file to apply it to the clustering
-        algorithm.
-    Returns
-    -------
-    network : pypsa.Network object
-        Container for all network components.
-    """
+
+    def unify_foreign_buses(etrago):
+
+        network = etrago.network.copy()
+
+        foreign_buses = network.buses[(network.buses.country != "DE") &
+                                      (network.buses.carrier == "AC")]
+        foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
+                                            (foreign_buses.carrier=="AC")]
+
+        lines_col = network.lines.columns
+        # The Dijkstra clustering works using the shortest electrical path between
+        # buses. In some cases, a bus has just DC connections, which are considered
+        # links. Therefore it is necessary to include temporarily the DC links
+        # into the lines table.
+        dc = network.links[network.links.carrier == "DC"]
+        str1 = 'DC_'
+        dc.index = f"{str1}"+dc.index
+        lines_plus_dc = lines_plus_dc = pd.concat([network.lines, dc])
+        lines_plus_dc = lines_plus_dc[lines_col]
+        lines_plus_dc["carrier"] = "AC"
+
+        busmap_foreign = pd.Series(dtype=str)
+        medoids_foreign = pd.Series(dtype=str)
+
+        for country, df in foreign_buses.groupby(by="country"):
+            weight = df.apply(lambda x: 1 if x.name in foreign_buses_load.index else 0, axis = 1)
+            n_clusters = (foreign_buses_load.country == country).sum()
+
+            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
+                etrago, df, lines_plus_dc, weight, n_clusters
+            )
+            medoid_idx_country.index = medoid_idx_country.index.astype(str)
+            busmap_country = busmap_country.map(medoid_idx_country)
+
+            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
+
+        settings = etrago.args["network_clustering"]
+
+        full_busmap = pd.Series(data=network.buses.index,
+                                index= network.buses.index)
+
+        for bus in busmap_foreign.index:
+            full_busmap[bus] = busmap_foreign[bus]
+
+        network.generators["weight"] = network.generators["p_nom"]
+        aggregate_one_ports = network.one_port_components.copy()
+        aggregate_one_ports.discard("Generator")
+
+        clustering = get_clustering_from_busmap(
+            network,
+            full_busmap,
+            aggregate_generators_weighted=True,
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies=strategies_generators(),
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=settings["line_length_factor"],
+        )
+
+        # restore the coordinates of the foreign buses
+        for bus in foreign_buses_load.index:
+            clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
+            clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
+
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
+
+        etrago.update_busmap(full_busmap)
+
+        return clustering.network
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
@@ -563,12 +608,17 @@ def preprocessing(etrago):
         "Line",
     )
     network.lines.carrier = "AC"
+
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
+
+    etrago.network = unify_foreign_buses(etrago)
+
+    etrago.buses_by_country()
 
     network_elec, n_clusters = select_elec_network(etrago)
 
@@ -733,10 +783,6 @@ def weighting_for_scenario(network, save=None):
 def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
-
-        if self.args["network_clustering_ehv"]:
-
-            self.adapt_crossborder_buses()
 
         self.network.generators.control = "PV"
 
