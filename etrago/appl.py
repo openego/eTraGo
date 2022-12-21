@@ -101,7 +101,7 @@ args = {
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
-        "method": "hac",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method": "hac",  # choose clustering method: kmeans or kmedoids-dijkstra or hac
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
@@ -517,7 +517,6 @@ def run_etrago(args, json_path):
             efficiency=1.0,
             p_nom=27125.0,
             p_min_pu=-1.0,
-            country="DE",
         )
         etrago.network.add(
             "Link",
@@ -528,7 +527,6 @@ def run_etrago(args, json_path):
             efficiency=1.0,
             p_nom=27125.0,
             p_min_pu=-1.0,
-            country="DE",
         )
 
     # spatial clustering
