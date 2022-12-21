@@ -164,19 +164,19 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             f"""There are {len(no_elec_conex)} buses that have no direct
             connection to the electric network: {no_elec_conex}"""
         )
-    
+
     # rural_heat_store buses are clustered based on the AC buses connected to
     # their corresponding rural_heat buses
-    links_rural_store = etrago.network.links[etrago.network.links.carrier == 
+    links_rural_store = etrago.network.links[etrago.network.links.carrier ==
                                              "rural_heat_store_charger"].copy()
-    
+
     busmap3 = {}
     links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
     for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
         cluster_bus = df.bus1.iat[0]
         for rural_store_bus in df.bus1:
             busmap3[rural_store_bus] = cluster_bus
-    
+
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
@@ -638,7 +638,7 @@ def postprocessing(etrago, busmap, medoid_idx=None):
         line_length_factor=settings["line_length_factor"],
     )
 
-    if method == "kmedoids-dijkstra":
+    if method == "kmedoids-dijkstra" and len(medoid_idx) > 0:
         for i in clustering.network.buses[clustering.network.buses.carrier == "AC"].index:
             cluster = int(i)
             if cluster in medoid_idx.index:

@@ -183,7 +183,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     # Creation of the busmap
 
-    if not settings["kmeans_gas_busmap"]:
+    if not settings["k_ch4_busmap"]:
 
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
@@ -201,7 +201,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     else:
 
-        df = pd.read_csv(settings["kmeans_gas_busmap"])
+        df = pd.read_csv(settings["k_ch4_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
         busmap_ch4 = df.squeeze("columns")
@@ -308,7 +308,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
 
     df_bm = pd.DataFrame(busmap.items(), columns=["bus0", "bus1"])
     df_bm.to_csv(
-        str(settings["method_gas"]) + str(settings["n_clusters_gas"]) + "_result.csv",
+        str(settings["method_gas"]) + '_gasgrid_' + str(settings["n_clusters_gas"]) + "_result.csv",
         index=False,
     )
 
@@ -392,7 +392,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
     network_gasgrid_c.determine_network_topology()
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
-    if settings["method_gas"] == "kmedoids-dijkstra":
+    if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
         for i in network_gasgrid_c.buses[
             network_gasgrid_c.buses.carrier == "CH4"
         ].index:

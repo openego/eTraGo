@@ -558,7 +558,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["k_busmap"]:
+    if not kmean_settings["k_elec_busmap"]:
         busmap = busmap_by_kmeans(
             selected_network,
             bus_weightings=pd.Series(weight),
@@ -571,7 +571,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         busmap.to_csv(
             "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
     else:
-        df = pd.read_csv(kmean_settings["k_busmap"])
+        df = pd.read_csv(kmean_settings["k_elec_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
         busmap = df.squeeze("columns")
@@ -595,7 +595,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
       busmap_kmedoid: pd.Series
           Busmap based on k-medoids clustering
       cpu_cores: string
-          numbers of cores used during multiprocessing 
+          numbers of cores used during multiprocessing
       Returns
       -------
       busmap (format: with labels)
@@ -656,6 +656,18 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
 
     settings = etrago.args["network_clustering"]
+    carrier = str(buses.carrier.unique()[0])
+
+
+    if carrier == "AC":
+        carrier = "elec"
+        num = str(settings["n_clusters_AC"])
+        csv = settings["k_elec_busmap"]
+    elif carrier == "CH4":
+        carrier = "ch4"
+        num = str(settings["n_clusters_gas"])
+        csv = settings["k_ch4_busmap"]
+
     # remove stubs
     if settings["remove_stubs"]:
 
@@ -664,7 +676,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         )
 
     # k-mean clustering
-    if not settings["k_busmap"]:
+    if not csv:
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
@@ -688,6 +700,9 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
             dtype=object,
         )
 
+        busmap.to_csv(
+            "kmedoids_" +carrier+ "_busmap_" + num + "_result.csv")
+
         # identify medoids per cluster -> k-medoids clustering
 
         distances = pd.DataFrame(
@@ -705,10 +720,12 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         busmap.index.name = "bus_id"
 
     else:
-        df = pd.read_csv(settings["k_busmap"])
+        df = pd.read_csv(csv)
         df = df.astype(str)
-        df = df.set_index("bus_id")
+        df = df.set_index("Bus")
         busmap = df.squeeze("columns")
+        busmap.index.name = "bus_id"
         # this method lacks the medoid_idx!
+        medoid_idx = []
 
     return busmap, medoid_idx
