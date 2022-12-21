@@ -118,8 +118,8 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -133,14 +133,14 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -447,22 +447,24 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()
-        [etrago.network.lines_t.s_max_pu.columns.isin(
-            etrago.network.lines.index)].transpose())
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
+        etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
+    ].transpose()
 
     # Set gas grid links bidirectional
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
+    ] = -1.0
 
     # Set efficiences of CHP
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
+        "efficiency",
+    ] = 0.43
 
-    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
     etrago.adjust_network()
 
