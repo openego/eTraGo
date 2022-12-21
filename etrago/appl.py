@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -102,10 +102,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "hac",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
-        "n_clusters_gas": 43,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -139,7 +139,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": 20,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -473,97 +473,100 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
 
     # The following lines and links are added to prevent sub_networks in the resp. grid
-    etrago.network.add(
-        "Line",
-        name="123456",
-        bus0="32461",
-        bus1="33483",
-        carrier="AC",
-        x=2.61,
-        r=0.76,
-        g=0,
-        b=8.18e-5,
-        s_nom=520,
-        s_nom_extendable=True,
-        s_nom_min=520,
-        lifetime=40,
-        num_parallel=1,
-    )
-    etrago.network.add(
-        "Line",
-        name="123457",
-        bus0="33515",
-        bus1="33162",
-        carrier="AC",
-        x=2.61,
-        r=0.76,
-        g=0,
-        b=8.18e-5,
-        s_nom=520,
-        s_nom_extendable=True,
-        s_nom_min=520,
-        lifetime=40,
-        num_parallel=1,
-    )
-    etrago.network.add(
-        "Link",
-        name="234567",
-        bus0="48044",
-        bus1="47391",
-        carrier="CH4",
-        efficiency=1.0,
-        p_nom=27125.0,
-        p_min_pu=-1.0,
-        country="DE",
-    )
-    etrago.network.add(
-        "Link",
-        name="234568",
-        bus0="47833",
-        bus1="47547",
-        carrier="CH4",
-        efficiency=1.0,
-        p_nom=27125.0,
-        p_min_pu=-1.0,
-        country="DE",
-    )
+    if etrago.args['network_clustering']['method'] == 'hac':
+        etrago.network.add(
+            "Line",
+            name="123456",
+            bus0="32461",
+            bus1="33483",
+            carrier="AC",
+            x=2.61,
+            r=0.76,
+            g=0,
+            b=8.18e-5,
+            s_nom=520,
+            s_nom_extendable=True,
+            s_nom_min=520,
+            lifetime=40,
+            num_parallel=1,
+        )
+        etrago.network.add(
+            "Line",
+            name="123457",
+            bus0="33515",
+            bus1="33162",
+            carrier="AC",
+            x=2.61,
+            r=0.76,
+            g=0,
+            b=8.18e-5,
+            s_nom=520,
+            s_nom_extendable=True,
+            s_nom_min=520,
+            lifetime=40,
+            num_parallel=1,
+        )
+
+    if etrago.args['network_clustering']['method_gas'] == 'hac':
+        etrago.network.add(
+            "Link",
+            name="234567",
+            bus0="48044",
+            bus1="47391",
+            carrier="CH4",
+            efficiency=1.0,
+            p_nom=27125.0,
+            p_min_pu=-1.0,
+            country="DE",
+        )
+        etrago.network.add(
+            "Link",
+            name="234568",
+            bus0="47833",
+            bus1="47547",
+            carrier="CH4",
+            efficiency=1.0,
+            p_nom=27125.0,
+            p_min_pu=-1.0,
+            country="DE",
+        )
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_300_8760_snapshots")
+    etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_30_10_snapshots")
 
     etrago.spatial_clustering_gas()
     etrago.plot_clusters(
-        carrier="CH4", save_path="final_ci_dump_HAC_CH4_43_8760_snapshots"
+        carrier="CH4", save_path="final_ci_dump_HAC_CH4_30_10_snapshots"
     )
 
-    etrago.export_to_csv("ci_dump_HAC_clustered_300_43")
+    # etrago.export_to_csv("ci_dump_HAC_clustered_300_43")
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
+    # etrago.args["load_shedding"] = True
+    # etrago.load_shedding()
 
-    # snapshot clustering
-    etrago.snapshot_clustering()
+    # # snapshot clustering
+    # etrago.snapshot_clustering()
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # # skip snapshots
+    # etrago.skip_snapshots()
 
-    # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
-    etrago.lopf()
+    # # start linear optimal powerflow calculations
+    # # needs to be adjusted for new sectors
+    # etrago.lopf()
 
-    # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.dispatch_disaggregation()
+    # # conduct lopf with full complex timeseries for dispatch disaggregation
+    # etrago.dispatch_disaggregation()
 
-    # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    # # start power flow based on lopf results
+    # etrago.pf_post_lopf()
 
-    # spatial disaggregation
-    # needs to be adjusted for new sectors
-    etrago.disaggregation()
+    # # spatial disaggregation
+    # # needs to be adjusted for new sectors
+    # etrago.disaggregation()
 
-    # calculate central etrago results
-    etrago.calc_results()
+    # # calculate central etrago results
+    # etrago.calc_results()
 
     return etrago
 

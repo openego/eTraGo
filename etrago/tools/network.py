@@ -223,8 +223,6 @@ class Etrago:
     set_trafo_costs = set_trafo_costs
 
     drop_sectors = drop_sectors
-
-    #adapt_crossborder_buses = adapt_crossborder_buses
     
     buses_by_country = buses_by_country
 
@@ -302,8 +300,6 @@ class Etrago:
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
-
-        #self.adapt_crossborder_buses()
         
         self.delete_dispensable_ac_buses()
 
