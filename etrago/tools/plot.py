@@ -1556,6 +1556,10 @@ def plot_background_grid(network, ax):
     None.
 
     """
+    
+    link_widths = pd.Series(index=network.links.index, data = 0)
+    
+    link_widths.loc[network.links.carrier=='DC'] = 0.3
 
     network.plot(
         ax=ax,
@@ -1563,15 +1567,13 @@ def plot_background_grid(network, ax):
         link_colors="grey",
         bus_sizes=0,
         line_widths=0.5,
-        link_widths=0.3,  # 0.55,
+        link_widths=link_widths,
         geomap=True,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
+        boundaries = [1.5,16,46.8,58]
     )
 
-    network.plot(ax=ax, line_colors='grey', link_colors='grey',
-                     bus_sizes=0, line_widths=0.5, link_widths=0.3,#0.55,
-                     geomap=True, projection=ccrs.PlateCarree(), color_geomap=True)
 
 def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
     """
@@ -1848,12 +1850,13 @@ def plot_grid(self,
         bus_sizes=bus_sizes,
         bus_colors=bus_colors,
         line_widths=line_widths,
-        link_widths=0,  # link_widths,
+        link_widths=link_widths,
         flow=flow,
         title=title,
         geomap=False,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
+        boundaries = [1.5,16,46.8,58]
     )
 
     # legends for bus sizes and colors
