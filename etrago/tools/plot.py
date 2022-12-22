@@ -1878,10 +1878,20 @@ def plot_grid(self,
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
-
+    elif bus_colors == "h2_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        bus_sizes = bus_sizes.reset_index()
+        bus_sizes = bus_sizes[bus_sizes.carrier.str.contains('H2')]
+        bus_sizes.set_index(['bus','carrier'],inplace=True)
+        bus_legend = "Storage expansion"
+        bus_unit = "GW"
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
+    if type(link_widths) != int:
+        link_widths.loc[network.links.carrier != 'DC'] = 0
+    
     ll = network.plot(
         line_colors=line_colors,
         link_colors=link_colors,
