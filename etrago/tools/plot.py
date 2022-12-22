@@ -2202,22 +2202,19 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     ax.autoscale()
 
 
-def plot_grid(
-    self,
-    line_colors,
-    bus_sizes=0.001,
-    bus_colors="grey",
-    timesteps=range(2),
-    osm=False,
-    boundaries=None,
-    filename=None,
-    disaggregated=False,
-    ext_min=0.1,
-    ext_width=False,
-):
-    """Function that plots etrago.network and results for lines and buses
-
-
+def plot_grid(self,
+              line_colors,
+              bus_sizes=0.001,
+              bus_colors='grey',
+              timesteps=range(2),
+              osm=False,
+              boundaries=None,
+              filename=None,
+              disaggregated=False,
+              ext_min=0.1,
+              ext_width=False,
+              legend_entries = 'all'):
+    """ Function that plots etrago.network and results for lines and buses
 
     Parameters
     ----------
@@ -2499,6 +2496,10 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             positive = mpatches.Patch(color="green", label="generation")
             negative = mpatches.Patch(color="red", label="consumption")
             handles = [positive, negative]
+        elif legend_entries != 'all':
+            for i in legend_entries:
+                patch = mpatches.Patch(color=network.carriers.color[i], label=i)
+                handles.append(patch)
         else:
             for i in network.carriers.color.index:
                 patch = mpatches.Patch(
@@ -2507,27 +2508,27 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
                 handles.append(patch)
 
         l3 = plt.legend(
-            handles=handles, loc="upper left", ncol=3, bbox_to_anchor=(-0.1, 0)
+            handles=handles, loc="upper left",
+            ncol=2, bbox_to_anchor=(0, 0)
         )
         ax.add_artist(l3)
 
-    # Set fixed boundaries if selected in parameters
-    if not boundaries:
-        boundaries = [
-            min(line_colors.min(), link_colors.min()),
-            max(line_colors.max(), link_colors.max()),
-        ]
-
-    # Create ticks for legend
-    v = np.linspace(boundaries[0], boundaries[1], 101)
-
-    # colorbar for line heatmap
-    cb = plt.colorbar(
-        ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
-    )
-
-    # Set legend label
-    cb.set_label(label)
+    if type(line_colors) != str:
+        print(111111)
+        # Set fixed boundaries if selected in parameters
+        if not boundaries:
+            boundaries = [
+                min(line_colors.min(), link_colors.min()),
+                max(line_colors.max(), link_colors.max()),
+            ]
+    
+        # Create ticks for legend
+        v = np.linspace(boundaries[0], boundaries[1], 101)
+    
+        # colorbar for line heatmap
+        cb = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
+        # Set legend label
+        cb.set_label(label)
 
     # Show plot or save to file
     if filename is None:
