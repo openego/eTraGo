@@ -1795,6 +1795,28 @@ def plot_grid(self,
         label = "flow in Mvar"
         line_colors = abs(network.lines_t.q0.abs().max() / (network.lines.s_nom))
         link_colors = pd.Series(data=0, index=network.links.index)
+    elif line_colors == "dlr":
+        title = "Dynamic line rating"
+        label = "MWh above nominal capacity"
+        plot_background_grid(network, ax)
+        line_loading = network.lines_t.p0.mul(1/network.lines.s_nom_opt)
+        dlr_usage = line_loading[line_loading.abs() > 1].fillna(0).mul(
+            network.snapshot_weightings.generators, axis = 0).abs().sum()
+        line_colors = dlr_usage
+        if ext_width != False:
+            line_widths = 0.5 + (line_colors / ext_width)
+        link_colors = pd.Series(data=0, index=network.links.index)
+
+    elif line_colors == 'blue':
+     title = ""
+     label = ""
+     line_colors = 'blue'
+     link_colors = 'blue'
+     plot_background_grid(network, ax)
+     link_widths = 0
+     line_widths = 0
+    
+            
     else:
         logger.warning("line_color {} undefined".format(line_colors))
 
