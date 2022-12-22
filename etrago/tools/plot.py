@@ -2442,6 +2442,14 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_sizes = bus_scaling * flex_links.groupby(['bus0', 'carrier']).p0_sum.sum()
         bus_unit = "TWh"
         bus_legend = "flexibility_usage"
+    elif bus_colors == "h2_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        bus_sizes = bus_sizes.reset_index()
+        bus_sizes = bus_sizes[bus_sizes.carrier.str.contains('H2')]
+        bus_sizes.set_index(['bus','carrier'],inplace=True)
+        bus_legend = "Storage expansion"
+        bus_unit = "GW"
     elif (
         bus_colors == "PowerToH2"
     ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
@@ -2456,9 +2464,6 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
-
-    # else:
-    #  logger.warning("bus_color {} undefined".format(bus_colors))
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
         # bus_unit = ""
@@ -2469,6 +2474,8 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_sizes[bus_sizes != "AC"] = 0
         bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
         bus_scaling = bus_sizes
+    else:
+        logger.warning("bus_color {} undefined".format(bus_colors))
         
     if cartopy_present:
         ll = network.plot(
@@ -2503,6 +2510,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             boundaries = [1.5,16,46.8,58],
         )
     
+
     # legends for bus sizes and colors
     if bus_colors != "grey":
         # if type(bus_sizes) != float:
