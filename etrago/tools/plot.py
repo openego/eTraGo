@@ -1423,7 +1423,8 @@ def mul_weighting(network, timeseries):
          timeseries considering snapshot_weightings
 
     """
-    return timeseries.mul(network.snapshot_weightings["objective"], axis=0)
+    return timeseries.mul(network.snapshot_weightings.generators, axis=0)
+
 
 
 def calc_ac_loading(network, timesteps):
