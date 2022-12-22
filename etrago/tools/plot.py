@@ -2425,7 +2425,23 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
-
+    elif bus_colors == 'flexibility_usage':
+        #import pdb; pdb.set_trace()
+        bus_scaling = bus_sizes
+        flex_links = network.links[network.links.carrier.isin([
+            'dsm', 'BEV charger', 
+            #'central_heat_store_charger',
+            #'central_heat_store_discharger', 
+            #'rural_heat_store_charger', 
+            #'rural_heat_store_discharger'
+            ])]
+        flex_links["p0_sum"] = network.links_t.p0[flex_links.index].mul(
+            network.snapshot_weightings.generators, axis=0).abs().sum()
+        flex_links["p1_sum"] = network.links_t.p1[flex_links.index].mul(
+            network.snapshot_weightings.generators, axis=0).sum()
+        bus_sizes = bus_scaling * flex_links.groupby(['bus0', 'carrier']).p0_sum.sum()
+        bus_unit = "TWh"
+        bus_legend = "flexibility_usage"
     elif (
         bus_colors == "PowerToH2"
     ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
