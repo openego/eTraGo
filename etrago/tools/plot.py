@@ -80,7 +80,6 @@ def set_epsg_network(network):
     set_epsg_network.counter = set_epsg_network.counter + 1
 
 
-
 def plot_osm(x, y, zoom, alpha=0.4):
     """
     Plots openstreetmap as background of network-plots
@@ -1227,7 +1226,6 @@ def storage_p_soc(network, mean="1H", filename=None):
     ax2.legend(loc=1)
     ax.set_title("Storage dispatch and state of charge")
 
-
     if filename is None:
         plt.show()
     else:
@@ -1556,10 +1554,10 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    
-    link_widths = pd.Series(index=network.links.index, data = 0)
-    
-    link_widths.loc[network.links.carrier=='DC'] = 0.3
+
+    link_widths = pd.Series(index=network.links.index, data=0)
+
+    link_widths.loc[network.links.carrier == "DC"] = 0.3
 
     network.plot(
         ax=ax,
@@ -1571,7 +1569,7 @@ def plot_background_grid(network, ax):
         geomap=True,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
-        boundaries = [1.5,16,46.8,58]
+        boundaries=[1.5, 16, 46.8, 58],
     )
 
 
@@ -1595,7 +1593,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     """
 
     colors = coloring()
-    line_colors="lightblue"
+    line_colors = "lightblue"
 
     # Set background
     if cartopy == True:
@@ -1626,7 +1624,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     else:
         line_widths = 0
 
-    title=""
+    title = ""
 
     network.plot(
         geomap=True,
@@ -1643,31 +1641,33 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     patchList = []
     for key in carrier_links:
         if key != "AC":
-            data_key = mpatches.Patch(color=colors[key], label=f'Link {key}')
+            data_key = mpatches.Patch(color=colors[key], label=f"Link {key}")
         else:
-            data_key = mpatches.Patch(color=line_colors, label=f'Line {key}')
+            data_key = mpatches.Patch(color=line_colors, label=f"Line {key}")
         patchList.append(data_key)
     for key in carrier_buses:
-        data_key = mpatches.Patch(color=colors[key], label=f'Bus {key}')
+        data_key = mpatches.Patch(color=colors[key], label=f"Bus {key}")
         patchList.append(data_key)
 
     ax.legend(handles=patchList, loc="lower left", ncol=1)
     ax.autoscale()
 
 
-def plot_grid(self,
-              line_colors,
-              bus_sizes=0.001,
-              bus_colors='grey',
-              timesteps=range(2),
-              osm=False,
-              boundaries=None,
-              filename=None,
-              disaggregated=False,
-              ext_min=0.1,
-              ext_width=False,
-              legend_entries = 'all'):
-    """ Function that plots etrago.network and results for lines and buses
+def plot_grid(
+    self,
+    line_colors,
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+):
+    """Function that plots etrago.network and results for lines and buses
 
 
 
@@ -1799,24 +1799,28 @@ def plot_grid(self,
         title = "Dynamic line rating"
         label = "MWh above nominal capacity"
         plot_background_grid(network, ax)
-        line_loading = network.lines_t.p0.mul(1/network.lines.s_nom_opt)
-        dlr_usage = line_loading[line_loading.abs() > 1].fillna(0).mul(
-            network.snapshot_weightings.generators, axis = 0).abs().sum()
+        line_loading = network.lines_t.p0.mul(1 / network.lines.s_nom_opt)
+        dlr_usage = (
+            line_loading[line_loading.abs() > 1]
+            .fillna(0)
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .abs()
+            .sum()
+        )
         line_colors = dlr_usage
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
 
-    elif line_colors == 'blue':
-     title = ""
-     label = ""
-     line_colors = 'blue'
-     link_colors = 'blue'
-     plot_background_grid(network, ax)
-     link_widths = 0
-     line_widths = 0
-    
-            
+    elif line_colors == "blue":
+        title = ""
+        label = ""
+        line_colors = "blue"
+        link_colors = "blue"
+        plot_background_grid(network, ax)
+        link_widths = 0
+        line_widths = 0
+
     else:
         logger.warning("line_color {} undefined".format(line_colors))
 
@@ -1847,21 +1851,33 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
-    elif bus_colors == 'flexibility_usage':
-        #import pdb; pdb.set_trace()
+    elif bus_colors == "flexibility_usage":
+        # import pdb; pdb.set_trace()
         bus_scaling = bus_sizes
-        flex_links = network.links[network.links.carrier.isin([
-            'dsm', 'BEV charger', 
-            #'central_heat_store_charger',
-            #'central_heat_store_discharger', 
-            #'rural_heat_store_charger', 
-            #'rural_heat_store_discharger'
-            ])]
-        flex_links["p0_sum"] = network.links_t.p0[flex_links.index].mul(
-            network.snapshot_weightings.generators, axis=0).abs().sum()
-        flex_links["p1_sum"] = network.links_t.p1[flex_links.index].mul(
-            network.snapshot_weightings.generators, axis=0).sum()
-        bus_sizes = bus_scaling * flex_links.groupby(['bus0', 'carrier']).p0_sum.sum()
+        flex_links = network.links[
+            network.links.carrier.isin(
+                [
+                    "dsm",
+                    "BEV charger",
+                    #'central_heat_store_charger',
+                    #'central_heat_store_discharger',
+                    #'rural_heat_store_charger',
+                    #'rural_heat_store_discharger'
+                ]
+            )
+        ]
+        flex_links["p0_sum"] = (
+            network.links_t.p0[flex_links.index]
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .abs()
+            .sum()
+        )
+        flex_links["p1_sum"] = (
+            network.links_t.p1[flex_links.index]
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .sum()
+        )
+        bus_sizes = bus_scaling * flex_links.groupby(["bus0", "carrier"]).p0_sum.sum()
         bus_unit = "TWh"
         bus_legend = "flexibility_usage"
     elif (
@@ -1882,16 +1898,16 @@ def plot_grid(self,
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         bus_sizes = bus_sizes.reset_index()
-        bus_sizes = bus_sizes[bus_sizes.carrier.str.contains('H2')]
-        bus_sizes.set_index(['bus','carrier'],inplace=True)
+        bus_sizes = bus_sizes[bus_sizes.carrier.str.contains("H2")]
+        bus_sizes.set_index(["bus", "carrier"], inplace=True)
         bus_legend = "Storage expansion"
         bus_unit = "GW"
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
     if type(link_widths) != int:
-        link_widths.loc[network.links.carrier != 'DC'] = 0
-    
+        link_widths.loc[network.links.carrier != "DC"] = 0
+
     ll = network.plot(
         line_colors=line_colors,
         link_colors=link_colors,
@@ -1906,7 +1922,7 @@ def plot_grid(self,
         geomap=False,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
-        boundaries = [1.5,16,46.8,58]
+        boundaries=[1.5, 16, 46.8, 58],
     )
 
     # legends for bus sizes and colors
@@ -1939,7 +1955,7 @@ def plot_grid(self,
             positive = mpatches.Patch(color="green", label="generation")
             negative = mpatches.Patch(color="red", label="consumption")
             handles = [positive, negative]
-        elif legend_entries != 'all':
+        elif legend_entries != "all":
             for i in legend_entries:
                 patch = mpatches.Patch(color=network.carriers.color[i], label=i)
                 handles.append(patch)
@@ -1949,8 +1965,7 @@ def plot_grid(self,
                 handles.append(patch)
 
         l3 = plt.legend(
-            handles=handles, loc="upper left",
-            ncol=2, bbox_to_anchor=(0, 0)
+            handles=handles, loc="upper left", ncol=2, bbox_to_anchor=(0, 0)
         )
         ax.add_artist(l3)
 
@@ -1962,12 +1977,14 @@ def plot_grid(self,
                 min(line_colors.min(), link_colors.min()),
                 max(line_colors.max(), link_colors.max()),
             ]
-    
+
         # Create ticks for legend
         v = np.linspace(boundaries[0], boundaries[1], 101)
-    
+
         # colorbar for line heatmap
-        cb = plt.colorbar(ll[2], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04)
+        cb = plt.colorbar(
+            ll[2], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
+        )
         # Set legend label
         cb.set_label(label)
 
