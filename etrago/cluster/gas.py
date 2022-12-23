@@ -343,7 +343,18 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
 
     # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
     if etrago.args["scn_name"] == "eGon2035":
-        H2_energy_share = 0.05053  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
+        H2_vol_share = etrago.args["H2_vol_share"]
+        def att_H2_energy_share(H2_vol_share):
+            H2_vol2en = {
+                0: 0,
+                2: 0.00612,
+                5: 0.01562,
+                10: 0.03242,
+                15: 0.05053,
+                20: 0.07011,
+            }
+            return H2_vol2en[H2_vol_share]
+        H2_energy_share = att_H2_energy_share(H2_vol_share)  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
         feed_in = network_gasgrid_c.links.loc[
             network_gasgrid_c.links.carrier == "H2_feedin"
         ]

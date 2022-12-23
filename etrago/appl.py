@@ -75,6 +75,7 @@ args = {
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
+    "H2_vol_share": 2,  # in % [20/15/10/5/2/0] allowed H2 volumetric share for feedin
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
