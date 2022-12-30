@@ -49,11 +49,11 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_line_costs,
                                     set_trafo_costs,
                                     drop_sectors,
-                                    adapt_crossborder_buses,
                                     update_busmap,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
-                                    get_clustering_data,)
+                                    get_clustering_data,
+                                    adjust_CH4_gen_carriers,)
 
 from etrago.tools.plot import plot_grid, plot_clusters
 from etrago.tools.extendable import extendable
@@ -62,15 +62,15 @@ from etrago.cluster.electrical import (run_spatial_clustering,
 from etrago.cluster.gas import run_spatial_clustering_gas
 
 
-from etrago.cluster.snapshot import (skip_snapshots,
-                                     snapshot_clustering)
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.tools.execute import lopf, dispatch_disaggregation, run_pf_post_lopf
 from etrago.tools.calc_results import calc_etrago_results
 
 logger = logging.getLogger(__name__)
 
-class Etrago():
+
+class Etrago:
     """
     Object containing pypsa.Network including the transmission grid,
     input parameters and optimization results.
@@ -96,13 +96,16 @@ class Etrago():
     Examples
     --------
     """
-    def __init__(self,
-                 args=None,
-                 json_path=None,
-                 csv_folder_name=None,
-                 name="",
-                 ignore_standard_types=False,
-                 **kwargs):
+
+    def __init__(
+        self,
+        args=None,
+        json_path=None,
+        csv_folder_name=None,
+        name="",
+        ignore_standard_types=False,
+        **kwargs
+    ):
 
         self.tool_version = __version__
 
@@ -128,7 +131,7 @@ class Etrago():
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=self.args['db'])
+            conn = db.connection(section=self.args["db"])
 
             session = sessionmaker(bind=conn)
 
@@ -140,24 +143,22 @@ class Etrago():
 
         elif csv_folder_name is not None:
 
-            self.get_args_setting(csv_folder_name + '/args.json')
+            self.get_args_setting(csv_folder_name + "/args.json")
 
-            self.network = Network(csv_folder_name,
-                                   name,
-                                   ignore_standard_types)
+            self.network = Network(csv_folder_name, name, ignore_standard_types)
 
-            if self.args['disaggregation'] is not None:
+            if self.args["disaggregation"] is not None:
 
                 self.disaggregated_network = Network(
-                    csv_folder_name + '/disaggregated_network',
+                    csv_folder_name + "/disaggregated_network",
                     name,
-                    ignore_standard_types)
+                    ignore_standard_types,
+                )
 
             self.get_clustering_data(csv_folder_name)
 
         else:
-            logger.error('Set args or csv_folder_name')
-
+            logger.error("Set args or csv_folder_name")
 
     # Add functions
     get_args_setting = get_args_setting
@@ -221,8 +222,6 @@ class Etrago():
     set_trafo_costs = set_trafo_costs
 
     drop_sectors = drop_sectors
-
-    adapt_crossborder_buses = adapt_crossborder_buses
     
     buses_by_country = buses_by_country
 
@@ -234,12 +233,14 @@ class Etrago():
 
     get_clustering_data = get_clustering_data
 
+    adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
+
     def dc_lines(self):
         return self.filter_links_by_carrier('DC', like=False)
 
     def build_network_from_db(self):
 
-        """ Function that imports transmission grid from chosen database
+        """Function that imports transmission grid from chosen database
 
         Returns
         -------
@@ -247,11 +248,13 @@ class Etrago():
 
         """
         self.scenario = NetworkScenario(
-            self.engine, self.session,
-            version=self.args['gridversion'],
-            start_snapshot=self.args['start_snapshot'],
-            end_snapshot=self.args['end_snapshot'],
-            scn_name=self.args['scn_name'])
+            self.engine,
+            self.session,
+            version=self.args["gridversion"],
+            start_snapshot=self.args["start_snapshot"],
+            end_snapshot=self.args["end_snapshot"],
+            scn_name=self.args["scn_name"],
+        )
 
         self.network = self.scenario.build_network()
 
@@ -259,7 +262,7 @@ class Etrago():
 
         self.decommissioning()
 
-        logger.info('Imported network from db')
+        logger.info("Imported network from db")
 
     def adjust_network(self):
         """
@@ -275,6 +278,8 @@ class Etrago():
         self.geolocation_buses()
 
         self.load_shedding()
+
+        self.adjust_CH4_gen_carriers()
 
         self.set_random_noise(0.01)
 
@@ -294,10 +299,9 @@ class Etrago():
                         grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
 
         self.convert_capital_costs()
-
-        self.adapt_crossborder_buses()
         
         self.delete_dispensable_ac_buses()
+
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

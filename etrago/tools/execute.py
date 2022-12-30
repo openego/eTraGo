@@ -310,9 +310,10 @@ def lopf(self):
 
     x = time.time()
 
-    iterate_lopf(self,
-                     Constraints(self.args).functionality,
-                     method=self.args['method'])
+    iterate_lopf(
+        self,
+        Constraints(self.args).functionality,
+        method=self.args['method'])
 
     y = time.time()
     z = (y - x) / 60
