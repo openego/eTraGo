@@ -403,6 +403,10 @@ def pf_post_lopf(etrago, calc_losses = True):
         None.
 
         """
+        constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
+        for load in constant_loads.index:
+            network.loads_t.p_set[load] = constant_loads[load]
+        
         n_bus = pd.Series(index=network.sub_networks.index)
 
         for i in network.sub_networks.index:
@@ -582,7 +586,7 @@ def pf_post_lopf(etrago, calc_losses = True):
     
     # execute non-linear pf
     pf_solution = sub_network_pf(sub_network=network.sub_networks["obj"][main_subnet],
-                             snapshots=network.snapshots[100:500], use_seed=True, distribute_slack=True)
+                             snapshots=network.snapshots, use_seed=True, distribute_slack=True)
     
 
     pf_solve = pd.DataFrame(index=pf_solution[0].index)
@@ -783,7 +787,7 @@ def calc_line_losses(network, converged):
     # trafo 1000 MVA: 99.8 %
     network.transformers = network.transformers.assign(
         losses=np.multiply(network.transformers.s_nom, (1 - 0.998)).values)
-    
+
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
     price_per_bus = network.buses_t.marginal_price[
         network.buses.sub_network[network.buses.sub_network==main_subnet].index]
