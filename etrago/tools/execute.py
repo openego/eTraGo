@@ -404,9 +404,11 @@ def pf_post_lopf(etrago, calc_losses = True):
         None.
 
         """
+        # Create series for constant loads
         constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
         for load in constant_loads.index:
             network.loads_t.p_set[load] = constant_loads[load]
+        network.loads.p_set = 0
         
         n_bus = pd.Series(index=network.sub_networks.index)
 
