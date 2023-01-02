@@ -331,7 +331,7 @@ def run_etrago(args, json_path):
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
            'cluster_foreign_AC': False, method_gas: 'kmeans',
            'n_clusters_gas': 30, 'cluster_foreign_gas': False,
-           'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
+           'k_elec_busmap': False, 'k_ch4_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
            'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
@@ -348,8 +348,8 @@ def run_etrago(args, json_path):
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
-        With ``'k_busmap'`` you can choose if you want to load cluster
-        coordinates from a previous run.
+        With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can choose if you
+        want to load cluster coordinates from a previous run for the respecting carrier.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
