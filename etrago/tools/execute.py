@@ -190,8 +190,23 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
     """
 
     args = etrago.args
+    path = args['csv_export']
+    lp_path = args['lpfile']
+
+    if args['dispatch_disaggregation'] is True and dispatch_disaggregation is False:
+        if not args['csv_export'] is False:
+            path = path+'/temporally_reduced'
+
+        if not args['lpfile'] is False:
+            lp_path = lp_path[0:-3]+'_temporally_reduced.lp'
 
     if dispatch_disaggregation:
+
+        if args['csv_export'] != False:
+            path = path+'/dispatch_disaggregation'
+
+        if not args['lpfile'] is False:
+            lp_path = lp_path[0:-3]+'_dispatch_disaggregation.lp'
 
         etrago.network_tsa.lines['s_nom'] = etrago.network.lines['s_nom_opt']
         etrago.network_tsa.lines['s_nom_extendable'] = False
@@ -211,12 +226,6 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
         args['snapshot_clustering']['active']=False
         args['skip_snapshots']=False
         args['extendable'] = []
-
-        if args['csv_export'] != False:
-            args['csv_export'] = args['csv_export']+'/dispatch_disaggregation'
-
-        if not args['lpfile'] is False:
-            args['lpfile'] = args['lpfile'][0:-3]+'_dispatch_disaggregation.lp'
 
         network = etrago.network_tsa
 
@@ -242,8 +251,8 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                 run_lopf(etrago, extra_functionality, method)
 
                 if args['csv_export'] != False:
-                    path = args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    etrago.export_to_csv(path)
+                    path_it = path + '/lopf_iteration_'+ str(i)
+                    etrago.export_to_csv(path_it)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = \
@@ -278,8 +287,8 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                 i += 1
 
                 if args['csv_export'] != False:
-                    path = args['csv_export'] + '/lopf_iteration_'+ str(i)
-                    etrago.export_to_csv(path)
+                    path_it = path + '/lopf_iteration_'+ str(i)
+                    etrago.export_to_csv(path_it)
 
                 if abs(pre-network.objective) <= diff_obj:
                     print('Threshold reached after ' + str(i) + ' iterations.')
@@ -289,12 +298,11 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
         run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=True)
 
     if args['csv_export'] != False:
-        path = args['csv_export']
         etrago.export_to_csv(path)
 
     if not args['lpfile'] is False:
         network.model.write(
-            args['lpfile'], io_options={
+            lp_path, io_options={
                 'symbolic_solver_labels': True})
 
     return network
@@ -340,6 +348,10 @@ def dispatch_disaggregation(self):
         self.network.storage_units['p_nom_extendable'] = self.network_tsa.storage_units['p_nom_extendable']
         self.network.stores['e_nom_extendable'] = self.network_tsa.stores['e_nom_extendable']
         self.network.links['p_nom_extendable'] = self.network_tsa.links['p_nom_extendable']
+
+        if self.args['csv_export'] != False:
+            path = self.args['csv_export']
+            self.export_to_csv(path)
 
         y = time.time()
         z = (y - x) / 60
