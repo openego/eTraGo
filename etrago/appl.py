@@ -467,8 +467,8 @@ def run_etrago(args, json_path):
     # Correct generator in RU and add one in NO
     RU_bus_index = etrago.network.buses[etrago.network.buses.country == 'RU'].index
     RU_gen =  etrago.network.generators[etrago.network.generators.bus == RU_bus_index[0]].index
-    etrago.network.generators.at[RU_gen[0], 'e_nom_max'] = 540600000
-    etrago.network.generators.at[RU_gen[0], 'p_nom'] = 61712.3
+    etrago.network.generators.at[RU_gen[0], 'e_nom_max'] = 277140951.4
+    etrago.network.generators.at[RU_gen[0], 'p_nom'] = 31637.1
 
     NO_bus_index = etrago.network.buses[
         (etrago.network.buses.country == 'NO') &
@@ -479,11 +479,11 @@ def run_etrago(args, json_path):
         name="NO_gen",
         bus=NO_bus_index[0],
         carrier="CH4",
-        p_nom=50821.9,
+        p_nom=20833.3,
         marginal_cost=40.9765,
     )
     etrago.network.generators.at["NO_gen", 'scn_name'] = "eGon2035"
-    etrago.network.generators.at["NO_gen", 'e_nom_max'] = 445200000.0
+    etrago.network.generators.at["NO_gen", 'e_nom_max'] = 182500000.0
 
     etrago.adjust_network()
 
