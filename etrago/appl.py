@@ -464,6 +464,24 @@ def run_etrago(args, json_path):
     etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
     etrago.network.links_t.efficiency.fillna(1., inplace=True)
 
+    # Adjust e_nom_max and marginal cost for gas generators abroad
+    gen_abroad = {
+        "BE": {"e_nom_max": 201411182.1, "marginal_cost": 40.5254,},
+        "FR": {"e_nom_max": 584000929.8, "marginal_cost": 38.3420,},
+        "NL": {"e_nom_max": 213747863.2, "marginal_cost": 39.2452,},
+        "PL": {"e_nom_max": 128604090.0, "marginal_cost": 37.8380,},
+        "SE": {"e_nom_max": 56214260.5, "marginal_cost": 36.6665,},
+        "GB": {"e_nom_max": 976813718.0, "marginal_cost": 40.4031,},
+    }
+    for key in gen_abroad:
+        bus_index = etrago.network.buses[
+            (etrago.network.buses.country == key) &
+            (etrago.network.buses.carrier == 'CH4')
+        ].index
+        gen = etrago.network.generators[etrago.network.generators.bus == bus_index[0]].index
+        etrago.network.generators.at[gen[0], "e_nom_max"] = gen_abroad[key]["e_nom_max"]
+        etrago.network.generators.at[gen[0], "marginal_cost"] = gen_abroad[key]["marginal_cost"]
+
     etrago.adjust_network()
 
     # ehv network clustering
