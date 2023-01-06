@@ -1577,6 +1577,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         DC-line expansion
 
     """
+    # ´breakpoint()
     all_network = network.copy()
     network.lines = network.lines[
         network.lines.s_nom_extendable
@@ -1603,7 +1604,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         if not linked.empty:
             if row["p_nom_opt"] < linked.p_nom_opt.values[0]:
                 network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
-
+    breakpoint()
     if method == "rel":
 
         extension_lines = (
@@ -1612,15 +1613,41 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
             / network.lines.s_nom
         )
 
+        # extension_links = (
+        # 100
+        # * (network.links.p_nom_opt - network.links.p_nom_min)
+        # / (network.links.p_nom)
+        # )
+
+        extension_links = pd.DataFrame(
+            data=network.links, index=network.links.index
+        )
+        extension_links[extension_links.carrier != "DC"] = 0
         extension_links = (
             100
             * (network.links.p_nom_opt - network.links.p_nom_min)
             / (network.links.p_nom)
         )
+        extension_links = extension_links.fillna(0)
+    # if method == "abs":
+    # extension_lines = network.lines.s_nom_opt - network.lines.s_nom_min
+
+    # extension_links = network.links.p_nom_opt - network.links.p_nom_min
+
+    # return all_network, extension_lines, extension_links
+
     if method == "abs":
         extension_lines = network.lines.s_nom_opt - network.lines.s_nom_min
 
+        extension_links = pd.DataFrame(
+            data=network.links, index=network.links.index
+        )
+        extension_links[extension_links.carrier != "DC"] = 0
         extension_links = network.links.p_nom_opt - network.links.p_nom_min
+        # extension_links = (
+        # network.links[(network.links.carrier == "DC")].p_nom_opt
+        # - network.links[(network.links.carrier == "DC")].p_nom_min
+    # ).set_index(network.links.index)
 
     return all_network, extension_lines, extension_links
 
@@ -1830,11 +1857,11 @@ def plot_grid(
     elif line_colors == "v_nom":
         title = "Voltage levels"
         label = "v_nom in kV"
-        # breakpoint()
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
         plot_background_grid(network, ax)
     elif line_colors == "expansion_abs":
+        breakpoint()
         title = "Network expansion"
         label = "network expansion in MW"
         all_network, line_colors, link_colors = calc_network_expansion(
@@ -1845,6 +1872,7 @@ def plot_grid(
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
     elif line_colors == "expansion_rel":
+        breakpoint()
         title = "Network expansion"
         label = "network expansion in %"
         all_network, line_colors, link_colors = calc_network_expansion(
