@@ -446,6 +446,79 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
+    
+    # Add missing foreign gas turbines
+    capacities = {
+        "AT": 2519.349998,
+        "BE": 8685.600013,
+        "CZ": 1349.700001,
+        "DK": 950.000000,
+        "FR": 7313.000003,
+        "NL": 9295.299998,
+        "PL" : 7501.000000,
+        "SE": 377.789001,
+    }
+
+    for c in capacities:   
+        bus0 = etrago.network.buses[
+            (etrago.network.buses.country == c) &
+            (etrago.network.buses.carrier == 'CH4')
+        ]
+        etrago.network.add(
+            "Link",
+            etrago.network.links.index.max()+'1',
+            bus0 = bus0.index.values[0],
+            bus1 = etrago.network.buses[
+                (etrago.network.buses.country == c) &
+                (etrago.network.buses.carrier == 'AC') & 
+                (etrago.network.buses.v_nom == 380) &
+                (etrago.network.buses.x==bus0.x.values[0])
+            ].index.values[0], 
+            efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+            p_nom = capacities[c]/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+            marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+            carrier = 'OCGT'
+            )
+
+    # GBNI
+    bus0 = etrago.network.buses[
+        (etrago.network.buses.country == 'GB') &
+        (etrago.network.buses.carrier == 'CH4') & 
+        (etrago.network.buses.x == -6.097540942585511)]
+
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = etrago.network.buses[
+            (etrago.network.buses.carrier == 'AC') & 
+            (etrago.network.buses.v_nom == 380) &
+            (etrago.network.buses.x==bus0.x.values[0])
+        ].index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 1513.000000/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
+
+    # GB Festland
+    bus1_gb = etrago.network.buses[
+        (etrago.network.buses.carrier == 'AC') & 
+        (etrago.network.buses.v_nom == 380) &
+        (etrago.network.buses.country == 'GB') & 
+        (etrago.network.buses.x != -6.097540942585511
+)
+    ]
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = bus1_gb.index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 37172.100038/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
 
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
