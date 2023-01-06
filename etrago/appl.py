@@ -550,6 +550,9 @@ def run_etrago(args, json_path):
     #etrago.args["load_shedding"] = True
     #etrago.load_shedding()
 
+    etrago.network.stores.e_cyclic[etrago.network.stores.carrier.str.contains('heat')] = True
+    etrago.network.storage_units.cyclic_state_of_charge = True
+
     # snapshot clustering
     etrago.snapshot_clustering()
 
