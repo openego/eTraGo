@@ -446,7 +446,47 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-    
+
+    # Adjust e_nom_max and marginal cost for gas generators abroad
+    gen_abroad = {
+        "BE": {"e_nom_max": 201411182.1, "marginal_cost": 52.4578,},
+        "FR": {"e_nom_max": 584000929.8, "marginal_cost": 48.5288,},
+        "NL": {"e_nom_max": 213747863.2, "marginal_cost": 48.8340,},
+        "PL": {"e_nom_max": 128604090.0, "marginal_cost": 43.5067,},
+        "SE": {"e_nom_max": 56214260.5, "marginal_cost": 45.5137,},
+        "GB": {"e_nom_max": 976813718.0, "marginal_cost": 50.9111,},
+    }
+    for key in gen_abroad:
+        bus_index = etrago.network.buses[
+            (etrago.network.buses.country == key) &
+            (etrago.network.buses.carrier == 'CH4')
+        ].index
+        gen = etrago.network.generators[etrago.network.generators.bus == bus_index[0]].index
+        etrago.network.generators.at[gen[0], "e_nom_max"] = gen_abroad[key]["e_nom_max"]
+        etrago.network.generators.at[gen[0], "marginal_cost"] = gen_abroad[key]["marginal_cost"]
+
+    # Correct generator in RU and add one in NO
+    RU_bus_index = etrago.network.buses[etrago.network.buses.country == 'RU'].index
+    RU_gen =  etrago.network.generators[etrago.network.generators.bus == RU_bus_index[0]].index
+    etrago.network.generators.at[RU_gen[0], 'e_nom_max'] = 277140951.4
+    etrago.network.generators.at[RU_gen[0], 'p_nom'] = 31637.1
+    etrago.network.generators.at[RU_gen[0], 'marginal_cost'] *= 1.3
+
+    NO_bus_index = etrago.network.buses[
+        (etrago.network.buses.country == 'NO') &
+        (etrago.network.buses.carrier == 'CH4')
+    ].index
+    etrago.network.add(
+        "Generator",
+        name="NO_gen",
+        bus=NO_bus_index[0],
+        carrier="CH4",
+        p_nom=20833.3,
+        marginal_cost=40.9765,
+    )
+    etrago.network.generators.at["NO_gen", 'scn_name'] = "eGon2035"
+    etrago.network.generators.at["NO_gen", 'e_nom_max'] = 182500000.0
+
     # Add missing foreign gas turbines
     capacities = {
         "AT": 2519.349998,
