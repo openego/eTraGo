@@ -2197,3 +2197,60 @@ def plot_clusters(
         plt.savefig(save_path, dpi=800)
 
     return
+
+def plot_flexibility(etrago, flexibility, agg='5H'):
+
+    fig, ax = plt.subplots()
+    potential = pd.DataFrame(columns=['p_min', 'p_max'])#, "e_min", "e_max"])
+    used = pd.DataFrame()
+
+    if flexibility == 'dsm':
+        l = etrago.network.links[etrago.network.links.carrier=='dsm']
+        s = etrago.network.stores[etrago.network.stores.carrier=='dsm']
+        potential["p_min"] = etrago.network.links_t.p_min_pu[l.index].mul(l.p_nom, axis=1).sum(axis=1).resample(agg).mean()
+        potential["p_max"] = etrago.network.links_t.p_max_pu[l.index].mul(l.p_nom, axis=1).sum(axis=1).resample(agg).mean()
+        used["p"] = etrago.network.links_t.p0[l.index].clip(lower=0).sum(axis=1).resample(agg).mean()
+        #potential["e_min"] = etrago.network.stores_t.e_min_pu[s.index].mul(s.e_nom, axis=1).sum(axis=1)
+        #potential["e_max"] = etrago.network.stores_t.e_max_pu[s.index].mul(s.e_nom, axis=1).sum(axis=1)
+    elif flexibility == 'bev':
+        l = etrago.network.links[etrago.network.links.carrier=='BEV charger']    
+        s = etrago.network.stores[etrago.network.stores.carrier=='battery storage']
+        potential["p_max"] = etrago.network.links_t.p_max_pu[l.index].mul(l.p_nom, axis=1).sum(axis=1).resample(agg).mean()
+        potential["p_min"] = 0
+        used["p"] = etrago.network.links_t.p0[l.index].sum(axis=1).resample(agg).mean()
+
+    elif flexibility == 'dlr':
+        l = etrago.network.lines[etrago.network.lines.index.isin(etrago.network.lines_t.s_max_pu.columns)]
+        potential["p_max"] = etrago.network.lines_t.s_max_pu[l.index].mul(l.s_nom_opt, axis=1).sum(axis=1).resample(agg).mean()
+        used["p"] = etrago.network.lines_t.p0[l.index].sum(axis=1).resample(agg).mean()
+
+    elif flexibility == 'all':
+        line_loading = etrago.network.lines_t.p0.mul(1 / etrago.network.lines.s_nom_opt)
+        line_loading[line_loading.abs() > 1].fillna(0)
+        l = etrago.network.lines[etrago.network.lines.index.isin(etrago.network.lines_t.s_max_pu.columns)]
+        potential["p_max"] = etrago.network.lines_t.s_max_pu[l.index].mul(l.s_nom_opt, axis=1).sum(axis=1).resample(agg).mean()
+        used["dlr"] = line_loading[line_loading.abs() > 1].fillna(0).abs().mul(l.s_nom_opt, axis=1).sum(axis=1).resample(agg).mean()
+
+        l = etrago.network.links[etrago.network.links.carrier=='dsm']
+        s = etrago.network.stores[etrago.network.stores.carrier=='dsm']
+        potential["p_max"] += etrago.network.links_t.p_max_pu[l.index].mul(l.p_nom, axis=1).sum(axis=1).resample(agg).mean()
+        used["dsm"] = etrago.network.links_t.p0[l.index].clip(lower=0).sum(axis=1).resample(agg).mean()
+
+        l = etrago.network.links[etrago.network.links.carrier=='BEV charger']    
+        s = etrago.network.stores[etrago.network.stores.carrier=='battery storage']
+        potential["p_max"] += etrago.network.links_t.p_max_pu[l.index].mul(l.p_nom, axis=1).sum(axis=1).resample(agg).mean()
+        used["e_Mob"] = etrago.network.links_t.p0[l.index].sum(axis=1).resample(agg).mean()
+
+        l = etrago.network.links[etrago.network.links.carrier.isin(['rural_heat_store_charger', 'central_heat_store_charger'])]   
+
+        used["heat"] = etrago.network.links_t.p0[l.index].clip(lower=0).sum(axis=1).resample(agg).mean()
+        l = etrago.network.links[etrago.network.links.carrier.isin(['rural_heat_store_discharger', 'central_heat_store_discharger'])]   
+
+    else:
+        print("Flexibility option not defined")
+
+    if flexibility != 'all':
+        potential.plot(ax = ax, kind="area")
+        used.plot(ax=ax)
+    else:
+        used.plot(ax=ax, kind="area")
