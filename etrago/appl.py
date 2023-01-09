@@ -599,6 +599,8 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-7, other=0., inplace=True)
+
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
