@@ -2379,10 +2379,25 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
 
     # TODO: implementieren
 
+def split_dispatch_disaggregation_constraints(self, n):
+
+    print("TODO")
+    
+    import pdb; pdb.set_trace()
+
+    # TODO: implementieren
+    
+def split_dispatch_disaggregation_constraints_nmp(self, n):
+
+    print("TODO")
+
+    # TODO: implementieren
+
 
 class Constraints:
-    def __init__(self, args):
+    def __init__(self, args, conduct_dispatch_disaggregation):
         self.args = args
+        self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -2397,6 +2412,7 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
+
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
             add_ch4_constraints(self, network, snapshots)
@@ -2498,6 +2514,12 @@ class Constraints:
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
                 )
+     
+        if self.conduct_dispatch_disaggregation is not False:
+            if self.args["method"]["pyomo"]:
+                split_dispatch_disaggregation_constraints(self, network)
+            else:
+                split_dispatch_disaggregation_constraints_nmp(self, network)
 
 
 def add_chp_constraints_nmp(n):

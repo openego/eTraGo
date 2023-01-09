@@ -91,7 +91,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
-def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False):
+def run_lopf(etrago, extra_functionality, method):
     """ Function that performs lopf with or without pyomo
 
 
@@ -114,7 +114,7 @@ def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False)
 
     x = time.time()
 
-    if dispatch_disaggregation:
+    if etrago.conduct_dispatch_disaggregation is not False:
 
         if method['pyomo']:
             etrago.network_tsa.lopf(
@@ -169,8 +169,7 @@ def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False)
 
     print("Time for LOPF [min]:", round(z, 2))
 
-def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
-                 dispatch_disaggregation=False):
+def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True}):
 
     """
     Run optimization of lopf. If network extension is included, the specified
@@ -193,14 +192,14 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
     path = args['csv_export']
     lp_path = args['lpfile']
 
-    if args['dispatch_disaggregation'] is True and dispatch_disaggregation is False:
+    if args['dispatch_disaggregation'] is True and etrago.conduct_dispatch_disaggregation is False:
         if not args['csv_export'] is False:
             path = path+'/temporally_reduced'
 
         if not args['lpfile'] is False:
             lp_path = lp_path[0:-3]+'_temporally_reduced.lp'
 
-    if dispatch_disaggregation:
+    if etrago.conduct_dispatch_disaggregation is not False:
 
         if args['csv_export'] != False:
             path = path+'/dispatch_disaggregation'
@@ -295,7 +294,7 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True},
                     break
 
     else:
-        run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=True)
+        run_lopf(etrago, extra_functionality, method)
 
     if args['csv_export'] != False:
         etrago.export_to_csv(path)
@@ -317,10 +316,12 @@ def lopf(self):
     """
 
     x = time.time()
+    
+    self.conduct_dispatch_disaggregation = False
 
     iterate_lopf(
         self,
-        Constraints(self.args).functionality,
+        Constraints(self.args, self.conduct_dispatch_disaggregation).functionality,
         method=self.args['method'])
 
     y = time.time()
@@ -333,11 +334,18 @@ def dispatch_disaggregation(self):
     if self.args["dispatch_disaggregation"] == True:
 
         x = time.time()
-
+        
+        index = self.network.storage_units.index.append(self.network.stores.index)
+        self.conduct_dispatch_disaggregation = pd.DataFrame(columns=range(0,5), index=index)
+        self.conduct_dispatch_disaggregation.loc[:,0] = self.network.storage_units_t.state_of_charge.iloc[0].append(self.network.stores_t.e.iloc[0])
+        self.conduct_dispatch_disaggregation.loc[:,1] = self.network.storage_units_t.state_of_charge.iloc[437].append(self.network.stores_t.e.iloc[437])
+        self.conduct_dispatch_disaggregation.loc[:,2] = self.network.storage_units_t.state_of_charge.iloc[875].append(self.network.stores_t.e.iloc[875])
+        self.conduct_dispatch_disaggregation.loc[:,3] = self.network.storage_units_t.state_of_charge.iloc[1315].append(self.network.stores_t.e.iloc[1315])
+        self.conduct_dispatch_disaggregation.loc[:,4] = self.network.storage_units_t.state_of_charge.iloc[1751].append(self.network.stores_t.e.iloc[1751])
+        
         iterate_lopf(self,
-                         Constraints(self.args).functionality,
-                         method=self.args['method'],
-                         dispatch_disaggregation=True)
+                         Constraints(self.args, self.conduct_dispatch_disaggregation).functionality,
+                         method=self.args['method'])
 
         network1 = self.network.copy()
         self.network = self.network_tsa.copy()
