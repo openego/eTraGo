@@ -1535,9 +1535,10 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         )
     if method == "abs":
         extension_lines = network.lines.s_nom_opt - network.lines.s_nom_min
-
+    
         extension_links = network.links.p_nom_opt - network.links.p_nom_min
 
+    
     return all_network, extension_lines, extension_links
 
 
