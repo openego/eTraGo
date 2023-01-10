@@ -1222,6 +1222,10 @@ def read_max_gas_generation(self):
             "CH4": 36000000,
             "biogas": 10000000,
         },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        "eGon2035_lowflex": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
         "eGon100RE": {
             "biogas": 14450103
         },  # [MWh] Value from reference p-e-s run used in eGon-data
@@ -1271,6 +1275,7 @@ def add_ch4_constraints(self, network, snapshots):
 
     carrier_names = {
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
     }
 

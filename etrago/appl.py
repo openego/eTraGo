@@ -255,23 +255,25 @@ def run_etrago(args, json_path):
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
                         from the database
-            'network': set all lines, links and transformers extendable
-            'german_network': set lines and transformers in German grid
-                            extendable
-            'foreign_network': set foreign lines and transformers extendable
+            'network': set all lines, links and transformers in electrical
+                            grid extendable
+            'german_network': set lines and transformers in German electrical
+                            grid extendable
+            'foreign_network': set foreign lines and transformers in electrical
+                            grid extendable
             'transformers': set all transformers extendable
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'storages': allow to install extendable storages
+            'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
-        Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'.
-        Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'.
-        Upper bounds for bordercrossing lines can be defined accrodingly
+        Upper bounds for electrical grid expansion can be defined for lines in
+        Germany relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two electrical buses
+        can be defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing electrical lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -442,7 +444,7 @@ def run_etrago(args, json_path):
     # Set efficiences of CHP
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-      
+     
    
     etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
     etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
@@ -450,7 +452,16 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.cyclic_state_of_charge= True  
     
     etrago.adjust_network() 
-    
+
+    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+
+    etrago.adjust_network()
+
+    # ehv network clustering
+    etrago.ehv_clustering()
+
     # spatial clustering
     etrago.spatial_clustering()
     
