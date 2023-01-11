@@ -2291,7 +2291,7 @@ def adjust_CH4_gen_carriers(self):
         ] = "CH4_biogas"
 
 
-def residual_load(etrago, sector="electricity"):
+def residual_load(network, sector="electricity"):
     """
     Calculates the residual load for the specified sector.
 
@@ -2305,9 +2305,9 @@ def residual_load(etrago, sector="electricity"):
 
     Parameters
     -----------
-    etrago : :class:`~.tools.network.Etrago`
-        Etrago object to retrieve load and generation time series, needed to determine
-        residual load, from.
+    network : PyPSA network
+        Network to retrieve load and generation time series from, needed to determine
+        residual load.
     sector : str
         Sector to determine residual load for. Possible options are 'electricity' and
         'central_heat'. Default: 'electricity'.
@@ -2315,7 +2315,7 @@ def residual_load(etrago, sector="electricity"):
     Returns
     --------
     pd.DataFrame
-        Dataframe with residual load for each bus in the etrago network. Columns of the
+        Dataframe with residual load for each bus in the network. Columns of the
         dataframe contain the corresponding bus name and index of the dataframe is
         a datetime index with the corresponding time step.
 
@@ -2334,11 +2334,11 @@ def residual_load(etrago, sector="electricity"):
             f"'electricity' and 'central_heat'."
         )
     # Calculate loads per bus and timestep
-    loads = etrago.network.loads[
-        etrago.network.loads.carrier.isin(carrier_load)
+    loads = network.loads[
+        network.loads.carrier.isin(carrier_load)
     ]
     loads_per_bus = (
-        etrago.network.loads_t.p_set[loads.index]
+        network.loads_t.p_set[loads.index]
         .groupby(loads.bus, axis=1)
         .sum()
     )
@@ -2348,12 +2348,12 @@ def residual_load(etrago, sector="electricity"):
         index=loads_per_bus.index, columns=loads_per_bus.columns, data=0
     )
 
-    renewable_generators = etrago.network.generators[
-        etrago.network.generators.carrier.isin(carrier_gen)
+    renewable_generators = network.generators[
+        network.generators.carrier.isin(carrier_gen)
     ]
 
     renewable_dispatch[renewable_generators.bus.unique()] = (
-        etrago.network.generators_t.p[renewable_generators.index]
+        network.generators_t.p[renewable_generators.index]
         .groupby(renewable_generators.bus, axis=1)
         .sum()
     )

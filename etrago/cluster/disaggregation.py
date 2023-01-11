@@ -322,7 +322,7 @@ class Disaggregation:
         Returns
         --------
         pd.DataFrame
-            Dataframe with residual load for each bus in the etrago network. Columns
+            Dataframe with residual load for each bus in the network. Columns
             of the dataframe contain the corresponding bus name and index of the
             dataframe is a datetime index with the corresponding time step.
 
