@@ -534,6 +534,10 @@ class UniformDisaggregation(Disaggregation):
                 "group_by": ("carrier", "max_hours"),
                 "series": ("p", "state_of_charge", "q"),
             },
+            "stores": {
+                "group_by": ("carrier",),
+                "series": ("e", "p"),
+            },
         }
         weights = {
             "p": ("p_nom_opt", "p_max_pu"),
@@ -548,14 +552,31 @@ class UniformDisaggregation(Disaggregation):
             "p0": ("p_nom_opt",),
             "p1": ("p_nom_opt",),
             "state_of_charge": ("p_nom_opt",),
+            "e": ("e_nom_opt",),
         }
         filters = {"q": lambda o: o.control == "PV"}
+
         for bustype in bustypes:
+            # Define attributeof components which are available
+            if bustype == "stores":
+                extendable_flag = "e_nom_extendable"
+                nominal_capacity = "e_nom"
+                optimal_capacity = "e_nom_opt"
+                maximal_capacity = "e_nom_max"
+                weights["p"] = ("e_nom_opt", "e_max_pu")
+            else:
+                extendable_flag = "p_nom_extendable"
+                nominal_capacity = "p_nom"
+                optimal_capacity = "p_nom_opt"
+                maximal_capacity = "p_nom_max"
+                weights["p"] = ("p_nom_opt", "p_max_pu")
+
             log.debug(f"Decomposing {bustype}.")
             pn_t = getattr(partial_network, bustype + "_t")
             cl_t = getattr(self.clustered_network, bustype + "_t")
             pn_buses = getattr(partial_network, bustype)
             cl_buses = getattr(self.clustered_network, bustype)
+
             groups = product(
                 *[
                     [
@@ -603,8 +624,8 @@ class UniformDisaggregation(Disaggregation):
                 )
 
                 if not (
-                    pnb.loc[:, "p_nom_extendable"].all()
-                    or not pnb.loc[:, "p_nom_extendable"].any()
+                    pnb.loc[:, extendable_flag].all()
+                    or not pnb.loc[:, extendable_flag].any()
                 ):
                     raise NotImplementedError(
                         "The `'p_nom_extendable'` flag for buses in the"
@@ -620,41 +641,41 @@ class UniformDisaggregation(Disaggregation):
                     )
                 else:
                     assert (
-                        pnb.loc[:, "p_nom_extendable"]
-                        == clb.iloc[0].at["p_nom_extendable"]
+                        pnb.loc[:, extendable_flag]
+                        == clb.iloc[0].at[extendable_flag]
                     ).all(), (
                         "The `'p_nom_extendable'` flag for the current"
                         " cluster's bus does not have the same value"
                         " it has on the buses of it's partial network."
                     )
 
-                if clb.iloc[0].at["p_nom_extendable"]:
+                if clb.iloc[0].at[extendable_flag]:
                     # That means, `p_nom` got computed via optimization and we
                     # have to distribute it into the subnetwork first.
-                    pnb_p_nom_max = pnb.loc[:, "p_nom_max"]
+                    pnb_p_nom_max = pnb.loc[:, maximal_capacity]
                     p_nom_max_global = pnb_p_nom_max.sum(axis="index")
-                    pnb.loc[:, "p_nom_opt"] = (
-                        clb.iloc[0].at["p_nom_opt"]
+                    pnb.loc[:, optimal_capacity] = (
+                        clb.iloc[0].at[optimal_capacity]
                         * pnb_p_nom_max
                         / p_nom_max_global
                     )
                     getattr(self.original_network, bustype).loc[
-                        pnb.index, "p_nom_opt"
-                    ] = pnb.loc[:, "p_nom_opt"]
-                    pnb.loc[:, "p_nom"] = pnb.loc[:, "p_nom_opt"]
+                        pnb.index, optimal_capacity
+                    ] = pnb.loc[:, optimal_capacity]
+                    pnb.loc[:, nominal_capacity] = pnb.loc[:, optimal_capacity]
                 else:
                     # That means 'p_nom_opt' didn't get computed and is
                     # potentially not present in the dataframe. But we want to
                     # always use 'p_nom_opt' in the remaining code, so save a
                     # view of the computed 'p_nom' values under 'p_nom_opt'.
-                    pnb.loc[:, "p_nom_opt"] = pnb.loc[:, "p_nom"]
+                    pnb.loc[:, optimal_capacity] = pnb.loc[:, nominal_capacity]
 
                 # This probably shouldn't be here, but rather in
                 # `transfer_results`, but it's easier to do it this way right
                 # now.
                 getattr(self.original_network, bustype).loc[
-                    pnb.index, "p_nom_opt"
-                ] = pnb.loc[:, "p_nom_opt"]
+                    pnb.index, optimal_capacity
+                ] = pnb.loc[:, optimal_capacity]
                 timed = (
                     lambda key, series=set(
                         s
