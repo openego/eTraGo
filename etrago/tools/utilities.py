@@ -2291,7 +2291,7 @@ def adjust_CH4_gen_carriers(self):
         ] = "CH4_biogas"
 
 
-def calc_residual_load(etrago, sector="electricity"):
+def residual_load(etrago, sector="electricity"):
     """
     Calculates the residual load for the specified sector.
 
