@@ -8,6 +8,8 @@ from pyomo.environ import Constraint
 from pypsa import Network
 import pandas as pd
 
+from etrago.tools.utilities import residual_load
+
 
 class Disaggregation:
     def __init__(
@@ -380,6 +382,29 @@ class Disaggregation:
         partial_network.lopf(
             scenario.timeindex, solver_name=solver, extra_functionality=extras
         )
+
+
+    def residual_load(self, sector="electricity"):
+        """
+        Calculates the residual load for the specified sector.
+
+        See :attr:`~.tools.utilities.residual_load` for more information.
+
+        Parameters
+        -----------
+        sector : str
+            Sector to determine residual load for. Possible options are 'electricity'
+            and 'central_heat'. Default: 'electricity'.
+
+        Returns
+        --------
+        pd.DataFrame
+            Dataframe with residual load for each bus in the network. Columns
+            of the dataframe contain the corresponding bus name and index of the
+            dataframe is a datetime index with the corresponding time step.
+
+        """
+        return residual_load(self.original_network, sector)
 
 
 class MiniSolverDisaggregation(Disaggregation):

@@ -44,7 +44,6 @@ from etrago.tools.extendable import extendable
 from etrago.tools.io import NetworkScenario, decommissioning, extension
 from etrago.tools.plot import plot_clusters, plot_grid
 from etrago.tools.utilities import (
-    adapt_crossborder_buses,
     add_missing_components,
     adjust_CH4_gen_carriers,
     buses_by_country,
@@ -233,8 +232,6 @@ class Etrago:
 
     drop_sectors = drop_sectors
 
-    adapt_crossborder_buses = adapt_crossborder_buses
-
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
@@ -321,8 +318,6 @@ class Etrago:
         )
 
         self.convert_capital_costs()
-
-        self.adapt_crossborder_buses()
 
         self.delete_dispensable_ac_buses()
 

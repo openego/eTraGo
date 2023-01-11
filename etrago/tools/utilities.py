@@ -1706,9 +1706,15 @@ def get_clustering_data(self, path):
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")
-        with open(os.path.join(path_clus, "busmap.json")) as f:
-            self.busmap["busmap"] = json.load(f)
-        self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        if os.path.exists(path_clus):
+            with open(os.path.join(path_clus, "busmap.json")) as f:
+                self.busmap["busmap"] = json.load(f)
+            self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+        else:
+            logger.info(
+            f"""There is no clustering data available in the loaded object."""
+        )
+            
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2123,8 +2129,9 @@ def check_args(etrago):
 
     """
 
-    assert etrago.args["scn_name"] in ["eGon2035", "eGon100RE"], (
-        "'scn_name' has to be in ['eGon2035', 'eGon100RE'] "
+    assert etrago.args["scn_name"] in [
+        "eGon2035", "eGon100RE","eGon2035_lowflex", "eGon100RE_lowflex"], (
+        "'scn_name' has to be in [eGon2035, eGon100RE, eGon2035_lowflex, eGon100RE_lowflex] "
         "but is " + etrago.args["scn_name"]
     )
 
@@ -2315,31 +2322,6 @@ def drop_sectors(self, drop_carriers):
         )
 
 
-def adapt_crossborder_buses(self):
-    """
-    Assign to the crossborder buses close to Germany the value "DE" in
-    the country column. It is only used when the kmean clustering is
-    activated and the user does not want to cluster the foreign buses.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    None.
-
-    """
-    if not self.args["network_clustering"]["cluster_foreign_AC"]:
-        buses = self.network.buses.copy()
-        loads = self.network.loads.copy()
-        pass_to_ger = buses[
-            (buses["country"] != "DE") & (buses["carrier"] == "AC")
-        ]
-        pass_to_ger = pass_to_ger[~pass_to_ger.index.isin(loads["bus"])]
-        self.network.buses.loc[pass_to_ger.index, "country"] = "DE"
-
-
 def update_busmap(self, new_busmap):
     """
     Update busmap after any clustering process
@@ -2433,3 +2415,73 @@ def adjust_CH4_gen_carriers(self):
             ].index,
             "carrier",
         ] = "CH4_biogas"
+
+
+def residual_load(network, sector="electricity"):
+    """
+    Calculates the residual load for the specified sector.
+
+    In case of the electricity sector residual load is calculated using all AC loads
+    and all renewable generators with carriers 'wind_onshore', 'wind_offshore', 'solar',
+    'solar_rooftop', 'biomass', 'run_of_river', and 'reservoir'.
+
+    In case of the central heat sector residual load is calculated using all central
+    heat loads and all renewable generators with carriers 'solar_thermal_collector' and
+    'geo_thermal'.
+
+    Parameters
+    -----------
+    network : PyPSA network
+        Network to retrieve load and generation time series from, needed to determine
+        residual load.
+    sector : str
+        Sector to determine residual load for. Possible options are 'electricity' and
+        'central_heat'. Default: 'electricity'.
+
+    Returns
+    --------
+    pd.DataFrame
+        Dataframe with residual load for each bus in the network. Columns of the
+        dataframe contain the corresponding bus name and index of the dataframe is
+        a datetime index with the corresponding time step.
+
+    """
+
+    if sector == "electricity":
+        carrier_gen = ["wind_onshore", "wind_offshore", "solar",
+                       "solar_rooftop", "biomass", "run_of_river", "reservoir"]
+        carrier_load = ["AC"]
+    elif sector == "central_heat":
+        carrier_gen = ["solar_thermal_collector", "geo_thermal"]
+        carrier_load = ["central_heat"]
+    else:
+        raise ValueError(
+            f"Specified sector {sector} is not a valid option. Valid options are "
+            f"'electricity' and 'central_heat'."
+        )
+    # Calculate loads per bus and timestep
+    loads = network.loads[
+        network.loads.carrier.isin(carrier_load)
+    ]
+    loads_per_bus = (
+        network.loads_t.p_set[loads.index]
+        .groupby(loads.bus, axis=1)
+        .sum()
+    )
+
+    # Calculate dispatch of renewable generators per bus of loads and timesteps
+    renewable_dispatch = pd.DataFrame(
+        index=loads_per_bus.index, columns=loads_per_bus.columns, data=0
+    )
+
+    renewable_generators = network.generators[
+        network.generators.carrier.isin(carrier_gen)
+    ]
+
+    renewable_dispatch[renewable_generators.bus.unique()] = (
+        network.generators_t.p[renewable_generators.index]
+        .groupby(renewable_generators.bus, axis=1)
+        .sum()
+    )
+
+    return loads_per_bus - renewable_dispatch
