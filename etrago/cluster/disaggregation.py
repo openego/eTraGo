@@ -392,15 +392,16 @@ class Disaggregation:
         Parameters
         -----------
         sector : str
-            Sector to determine residual load for. Possible options are 'electricity'
-            and 'central_heat'. Default: 'electricity'.
+            Sector to determine residual load for. Possible options are
+            'electricity' and 'central_heat'. Default: 'electricity'.
 
         Returns
         --------
         pd.DataFrame
-            Dataframe with residual load for each bus in the network. Columns
-            of the dataframe contain the corresponding bus name and index of the
-            dataframe is a datetime index with the corresponding time step.
+            Dataframe with residual load for each bus in the network.
+            Columns of the dataframe contain the corresponding bus name
+            and index of the dataframe is a datetime index with the
+            corresponding time step.
 
         """
         return residual_load(self.original_network, sector)

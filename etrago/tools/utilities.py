@@ -2128,11 +2128,10 @@ def check_args(etrago):
 
     """
 
-    assert etrago.args["scn_name"] in [
-        "eGon2035", "eGon100RE","eGon2035_lowflex", "eGon100RE_lowflex"], (
-        "'scn_name' has to be in [eGon2035, eGon100RE, eGon2035_lowflex, eGon100RE_lowflex] "
-        "but is " + etrago.args["scn_name"]
-    )
+    names = ["eGon2035", "eGon100RE", "eGon2035_lowflex", "eGon100RE_lowflex"]
+    assert (
+        etrago.args["scn_name"] in names
+    ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
 
     assert (
         etrago.args["start_snapshot"] <= etrago.args["end_snapshot"]
@@ -2420,29 +2419,31 @@ def residual_load(network, sector="electricity"):
     """
     Calculates the residual load for the specified sector.
 
-    In case of the electricity sector residual load is calculated using all AC loads
-    and all renewable generators with carriers 'wind_onshore', 'wind_offshore', 'solar',
-    'solar_rooftop', 'biomass', 'run_of_river', and 'reservoir'.
+    In case of the electricity sector residual load is calculated using
+    all AC loads and all renewable generators with carriers
+    'wind_onshore', 'wind_offshore', 'solar', 'solar_rooftop',
+    'biomass', 'run_of_river', and 'reservoir'.
 
-    In case of the central heat sector residual load is calculated using all central
-    heat loads and all renewable generators with carriers 'solar_thermal_collector' and
-    'geo_thermal'.
+    In case of the central heat sector residual load is calculated using
+    all central heat loads and all renewable generators with carriers
+    'solar_thermal_collector' and 'geo_thermal'.
 
     Parameters
     -----------
     network : PyPSA network
-        Network to retrieve load and generation time series from, needed to determine
-        residual load.
+        Network to retrieve load and generation time series from, needed
+        to determine residual load.
     sector : str
-        Sector to determine residual load for. Possible options are 'electricity' and
-        'central_heat'. Default: 'electricity'.
+        Sector to determine residual load for. Possible options are
+        'electricity' and 'central_heat'. Default: 'electricity'.
 
     Returns
     --------
     pd.DataFrame
-        Dataframe with residual load for each bus in the network. Columns of the
-        dataframe contain the corresponding bus name and index of the dataframe is
-        a datetime index with the corresponding time step.
+        Dataframe with residual load for each bus in the network.
+        Columns of the dataframe contain the corresponding bus name and
+        index of the dataframe is a datetime index with the
+        corresponding time step.
 
     """
 
@@ -2462,8 +2463,8 @@ def residual_load(network, sector="electricity"):
         carrier_load = ["central_heat"]
     else:
         raise ValueError(
-            f"Specified sector {sector} is not a valid option. Valid options are "
-            f"'electricity' and 'central_heat'."
+            f"Specified sector {sector} is not a valid option."
+            " Valid options are 'electricity' and 'central_heat'."
         )
     # Calculate loads per bus and timestep
     loads = network.loads[network.loads.carrier.isin(carrier_load)]
