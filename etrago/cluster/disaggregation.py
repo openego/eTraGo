@@ -383,7 +383,6 @@ class Disaggregation:
             scenario.timeindex, solver_name=solver, extra_functionality=extras
         )
 
-
     def residual_load(self, sector="electricity"):
         """
         Calculates the residual load for the specified sector.

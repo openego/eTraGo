@@ -1712,9 +1712,8 @@ def get_clustering_data(self, path):
             self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
         else:
             logger.info(
-            f"""There is no clustering data available in the loaded object."""
-        )
-            
+                "There is no clustering data available in the loaded object."
+            )
 
 
 def set_random_noise(self, sigma=0.01):
@@ -2448,8 +2447,15 @@ def residual_load(network, sector="electricity"):
     """
 
     if sector == "electricity":
-        carrier_gen = ["wind_onshore", "wind_offshore", "solar",
-                       "solar_rooftop", "biomass", "run_of_river", "reservoir"]
+        carrier_gen = [
+            "wind_onshore",
+            "wind_offshore",
+            "solar",
+            "solar_rooftop",
+            "biomass",
+            "run_of_river",
+            "reservoir",
+        ]
         carrier_load = ["AC"]
     elif sector == "central_heat":
         carrier_gen = ["solar_thermal_collector", "geo_thermal"]
@@ -2460,13 +2466,9 @@ def residual_load(network, sector="electricity"):
             f"'electricity' and 'central_heat'."
         )
     # Calculate loads per bus and timestep
-    loads = network.loads[
-        network.loads.carrier.isin(carrier_load)
-    ]
+    loads = network.loads[network.loads.carrier.isin(carrier_load)]
     loads_per_bus = (
-        network.loads_t.p_set[loads.index]
-        .groupby(loads.bus, axis=1)
-        .sum()
+        network.loads_t.p_set[loads.index].groupby(loads.bus, axis=1).sum()
     )
 
     # Calculate dispatch of renewable generators per bus of loads and timesteps
