@@ -2423,7 +2423,7 @@ def adjust_CH4_gen_carriers(self):
 
 def residual_load(network, sector="electricity"):
     """
-    Calculates the residual load for the specified sector.
+    Calculate the residual load for the specified sector.
 
     In case of the electricity sector residual load is calculated using
     all AC loads and all renewable generators with carriers
