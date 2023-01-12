@@ -766,7 +766,6 @@ def run_disaggregation(self):
             self.disaggregated_network.generators_t.p.fillna(0, inplace=True)
             self.disaggregated_network.generators_t.q.fillna(0, inplace=True)
 
-            self.disaggregated_network.results = self.network.results
             log.info(
                 "Time for overall desaggregation [min]: {:.2}".format(
                     (time.time() - t) / 60
