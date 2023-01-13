@@ -1,4 +1,6 @@
-import os
+from os.path import dirname, join
+import io
+import re
 
 from setuptools import find_packages, setup
 
@@ -16,11 +18,25 @@ __author__ = (
 )
 
 
+def read(*names, **kwargs):
+    with io.open(
+        join(dirname(__file__), *names),
+        encoding=kwargs.get("encoding", "utf8"),
+    ) as fh:
+        return fh.read()
+
+
 setup(
     name="eTraGo",
     author="DLR VE, ZNES Flensburg",
     author_email="",
     description="electric transmission grid optimization",
+    long_description="{}".format(
+        re.compile("^.. start-badges.*^.. end-header", re.M | re.S).sub(
+            "", read("README.rst")
+        )
+    ),
+    long_description_content_type="text/x-rst",
     version="0.8.0",
     url="https://github.com/openego/eTraGo",
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
@@ -50,5 +66,5 @@ setup(
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
     },
-    package_data={"etrago": [os.path.join("tools", "*.json")]},
+    package_data={"etrago": [join("tools", "*.json")]},
 )

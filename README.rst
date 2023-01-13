@@ -2,6 +2,8 @@
     :target: http://etrago.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. end-header
+
 eTraGo
 ======
 
