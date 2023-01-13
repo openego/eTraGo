@@ -1,4 +1,12 @@
-.. image:: https://readthedocs.org/projects/etrago/badge/?version=latest
+|ci| |docs|
+
+.. |ci| image::
+    https://img.shields.io/github/actions/workflow/status
+    /openego/eTraGo/ci.yaml?branch=dev&event=push&label=ci
+    :alt: GitHub Workflow Status
+
+.. |docs| image::
+    https://readthedocs.org/projects/etrago/badge/?version=latest
     :target: http://etrago.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
 
