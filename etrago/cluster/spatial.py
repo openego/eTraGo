@@ -568,12 +568,14 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             tol=kmean_settings["tol"],
             random_state=kmean_settings["random_state"]
         )
+        busmap.index.name = 'bus_id'
+        busmap.name = 'cluster'
         busmap.to_csv(
             "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
     else:
         df = pd.read_csv(kmean_settings["k_elec_busmap"])
         df = df.astype(str)
-        df = df.set_index("Bus")
+        df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
 
     return busmap
@@ -650,10 +652,10 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
-    return busmap
+    return busmap, busmap_ind
 
 
-def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
+def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters, export=True):
 
     settings = etrago.args["network_clustering"]
     carrier = str(buses.carrier.unique()[0])
@@ -700,9 +702,6 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
             dtype=object,
         )
 
-        busmap.to_csv(
-            "kmedoids_" +carrier+ "_busmap_" + num + "_result.csv")
-
         # identify medoids per cluster -> k-medoids clustering
 
         distances = pd.DataFrame(
@@ -715,17 +714,32 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(buses, connections, medoid_idx,
+        busmap, busmap_ind = dijkstras_algorithm(buses, connections, medoid_idx,
                                      etrago.args["network_clustering"]["CPU_cores"])
         busmap.index.name = "bus_id"
+        
+        if export:
+            
+            busmap.name = 'cluster'
+            busmap_ind.name='medoid_idx'
+        
+            export = pd.concat([busmap, busmap_ind], axis=1)
+            export.index.name = 'bus_id'
+            export.to_csv(
+                "kmedoids_" +carrier+ "_busmap_" + num + "_result.csv")
 
     else:
+        
         df = pd.read_csv(csv)
         df = df.astype(str)
-        df = df.set_index("Bus")
-        busmap = df.squeeze("columns")
-        busmap.index.name = "bus_id"
-        # this method lacks the medoid_idx!
-        medoid_idx = []
+        df = df.set_index("bus_id")
+
+        medoid_idx = df.drop_duplicates().set_index('cluster')
+        medoid_idx.index = medoid_idx.index.astype(int)
+        medoid_idx.sort_index(inplace=True)
+        medoid_idx = medoid_idx.squeeze("columns")
+        
+        busmap = df.drop('medoid_idx', axis=1)
+        busmap = busmap.squeeze("columns")
 
     return busmap, medoid_idx
