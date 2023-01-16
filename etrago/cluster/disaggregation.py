@@ -716,10 +716,12 @@ class UniformDisaggregation(Disaggregation):
                     pn_t[s].loc[:, new_columns.columns] = new_columns
 
     def transfer_results(self, *args, **kwargs):
-        kwargs["bustypes"] = ["generators", "storage_units"]
+        kwargs["bustypes"] = ["generators", "links", "storage_units", "stores"]
         kwargs["series"] = {
             "generators": {"p"},
+            "links": {"p0", "p1"},
             "storage_units": {"p", "state_of_charge"},
+            "stores": {"e", "p"},
         }
         return super().transfer_results(*args, **kwargs)
 
