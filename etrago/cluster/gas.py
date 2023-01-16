@@ -187,7 +187,8 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
             tol=settings["tol"],
             random_state=settings["random_state"],
         )
-
+        busmap_ch4.index.name = 'bus_id'
+        busmap_ch4.name = 'cluster'
         busmap_ch4.to_csv(
             "kmeans_ch4_busmap_" + str(settings["n_clusters_gas"]) + "_result.csv"
         )
@@ -195,8 +196,9 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
         df = pd.read_csv(settings["k_ch4_busmap"])
         df = df.astype(str)
-        df = df.set_index("Bus")
+        df = df.set_index("bus_id")
         busmap_ch4 = df.squeeze("columns")
+        
     return busmap_ch4
 
 
