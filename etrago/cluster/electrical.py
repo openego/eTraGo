@@ -518,7 +518,7 @@ def preprocessing(etrago):
             n_clusters = (foreign_buses_load.country == country).sum()
 
             busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
-                etrago, df, lines_plus_dc, weight, n_clusters
+                etrago, df, lines_plus_dc, weight, n_clusters, export=False
             )
             medoid_idx_country.index = medoid_idx_country.index.astype(str)
             busmap_country = busmap_country.map(medoid_idx_country)
@@ -629,7 +629,9 @@ def preprocessing(etrago):
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
-    etrago.network = unify_foreign_buses(etrago)
+    if settings["k_elec_busmap"] is False:
+
+        etrago.network = unify_foreign_buses(etrago)
 
     etrago.buses_by_country()
 
@@ -693,8 +695,8 @@ def postprocessing(etrago, busmap, medoid_idx=None):
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=settings["line_length_factor"],
     )
-
-    if method == "kmedoids-dijkstra" and len(medoid_idx) > 0:
+    
+    if method == "kmedoids-dijkstra":
         for i in clustering.network.buses[
             clustering.network.buses.carrier == "AC"
         ].index:
