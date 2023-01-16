@@ -505,20 +505,22 @@ def preprocessing(etrago):
         lines_plus_dc["carrier"] = "AC"
 
         busmap_foreign = pd.Series(dtype=str)
-        medoids_foreign = pd.Series(dtype=str)
 
         for country, df in foreign_buses.groupby(by="country"):
             weight = df.apply(lambda x: 1 if x.name in foreign_buses_load.index else 0, axis = 1)
             n_clusters = (foreign_buses_load.country == country).sum()
-
-            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
-                etrago, df, lines_plus_dc, weight, n_clusters
-            )
-            medoid_idx_country.index = medoid_idx_country.index.astype(str)
-            busmap_country = busmap_country.map(medoid_idx_country)
-
-            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
-            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
+            if n_clusters < len(df):
+                busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
+                    etrago, df, lines_plus_dc, weight, n_clusters
+                )
+                medoid_idx_country.index = medoid_idx_country.index.astype(str)
+                busmap_country = busmap_country.map(medoid_idx_country)
+    
+                busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            else:
+                for bus in df.index:
+                    busmap_foreign[bus] = bus
+                    
 
         settings = etrago.args["network_clustering"]
 
