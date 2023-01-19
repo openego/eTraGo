@@ -577,6 +577,10 @@ def run_etrago(args, json_path):
     etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
     etrago.network.links_t.efficiency.fillna(1., inplace=True)
 
+    # Set p_max_pu for run of river and reservoir
+    etrago.network.generators.loc[etrago.network.generators[
+        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu']
+
     etrago.adjust_network()
 
     # ehv network clustering
