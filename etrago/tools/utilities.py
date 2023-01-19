@@ -392,8 +392,9 @@ def foreign_links(self):
         ]
 
         foreign_links = network.links[
-            network.links.bus0.astype(str).isin(foreign_buses.index)
-            | network.links.bus1.astype(str).isin(foreign_buses.index)
+            (network.links.bus0.astype(str).isin(foreign_buses.index)
+            | network.links.bus1.astype(str).isin(foreign_buses.index))
+            & (network.links.carrier == "DC")
         ]
 
         network.links.loc[foreign_links.index, "p_min_pu"] = -1
