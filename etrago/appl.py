@@ -434,10 +434,20 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
+    medium_flex = False
+    if args["scn_name"] == "eGon2035_mediumflex":
+        args["scn_name"] = "eGon2035"
+        medium_flex = True
+
     etrago = Etrago(args, json_path)
 
     # import network from database
     etrago.build_network_from_db()
+
+    if medium_flex:
+        etrago.drop_sectors(
+        drop_carriers = ["H2_saltcavern", "central_heat_store", "rural_heat_store"]
+            )
 
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
