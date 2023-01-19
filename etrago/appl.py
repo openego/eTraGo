@@ -589,7 +589,7 @@ def run_etrago(args, json_path):
 
     # Set p_max_pu for run of river and reservoir
     etrago.network.generators.loc[etrago.network.generators[
-        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu']
+        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65
 
     etrago.adjust_network()
 
