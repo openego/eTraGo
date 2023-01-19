@@ -1,0 +1,22 @@
+[tool.black]
+exclude = '''
+/(
+    \.git
+  | build
+  | dist
+)/
+'''
+include = '\.pyi?$'
+line-length = 79
+target-version = ["py38", "py39", "py310", "py311"]
+
+[tool.flake8]
+max-line-length = 79
+extend-ignore = ["E203", "E741", "W503"]
+exclude = ["build", "dist"]
+
+[tool.isort]
+combine_as_imports = true
+from_first = true
+line_length = 79
+profile = "black"

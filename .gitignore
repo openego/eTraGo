@@ -1,3 +1,4 @@
-etrago/cluster/__pycache__/networkclustering.cpython-36.pyc
--eTraGo.egg-info/*
--src/* 
+**/__pycache__/*
+build/*
+dist/*
+eTraGo.egg-info/*
