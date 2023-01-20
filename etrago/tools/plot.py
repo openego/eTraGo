@@ -580,7 +580,7 @@ def plot_gen_diff(
             pd.concat(
                 [
                     network.generators_t.p.mul(
-                        etwork.snapshot_weightings, axis=0
+                        network.snapshot_weightings, axis=0
                     )[
                         network.generators[
                             network.generators.control != "Slack"
@@ -1651,7 +1651,7 @@ def plot_background_grid(network, ax):
     None.
 
     """
-
+    breakpoint()
     linkcarrier = pd.Series(
         data=network.links.carrier, index=network.links.index
     )
@@ -1792,7 +1792,7 @@ def plot_grid(
         network = self.disaggregated_network.copy()
     else:
         network = self.network.copy()
-
+        breakpoint()
     # Set colors for plotting
     plotting_colors(network)
 
@@ -1875,7 +1875,7 @@ def plot_grid(
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
-
+    breakpoint()
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -1916,8 +1916,18 @@ def plot_grid(
         bus_legend = "PowerToH2"
         bus_unit = "TW"
 
-    else:
-        logger.warning("bus_color {} undefined".format(bus_colors))
+    # else:
+    #  logger.warning("bus_color {} undefined".format(bus_colors))
+    elif bus_colors == "grey":
+        bus_scaling = bus_sizes
+        bus_unit = ""
+        bus_legend = ""
+        bus_sizes = pd.Series(
+            data=network.buses.carrier, index=network.buses.index
+        )
+        bus_sizes[bus_sizes != "AC"] = 0
+        bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
+        bus_scaling = bus_sizes
 
     ll = network.plot(
         line_colors=line_colors,
@@ -1936,7 +1946,8 @@ def plot_grid(
     )
 
     # legends for bus sizes and colors
-    if type(bus_sizes) != float:
+    if bus_colors != "grey":
+        # if type(bus_sizes) != float:
         handles = make_legend_circles_for(
             [bus_sizes.min(), bus_sizes.max()], scale=1, facecolor="gray"
         )
