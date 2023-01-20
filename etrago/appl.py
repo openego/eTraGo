@@ -129,7 +129,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None, #"uniform",  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -453,6 +453,84 @@ def run_etrago(args, json_path):
         [etrago.network.lines_t.s_max_pu.columns.isin(
             etrago.network.lines.index)].transpose())
 
+# Add missing foreign gas turbines
+    capacities = {
+        "AT": 2519.349998,
+        "BE": 8685.600013,
+        "CZ": 1349.700001,
+        "DK": 950.000000,
+        "FR": 7313.000003,
+        "NL": 9295.299998,
+        "PL" : 7501.000000,
+        "SE": 377.789001,
+    }
+
+    for c in capacities:   
+        bus0 = etrago.network.buses[
+            (etrago.network.buses.country == c) &
+            (etrago.network.buses.carrier == 'CH4')
+        ]
+        etrago.network.add(
+            "Link",
+            etrago.network.links.index.max()+'1',
+            bus0 = bus0.index.values[0],
+            bus1 = etrago.network.buses[
+                (etrago.network.buses.country == c) &
+                (etrago.network.buses.carrier == 'AC') & 
+                (etrago.network.buses.v_nom == 380) &
+                (etrago.network.buses.x==bus0.x.values[0])
+            ].index.values[0], 
+            efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+            p_nom = capacities[c]/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+            marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+            carrier = 'OCGT'
+            )
+
+    # GBNI
+    bus0 = etrago.network.buses[
+        (etrago.network.buses.country == 'GB') &
+        (etrago.network.buses.carrier == 'CH4') & 
+        (etrago.network.buses.x == -6.097540942585511)]
+
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = etrago.network.buses[
+            (etrago.network.buses.carrier == 'AC') & 
+            (etrago.network.buses.v_nom == 380) &
+            (etrago.network.buses.x==bus0.x.values[0])
+        ].index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 1513.000000/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
+
+    # GB Festland
+    bus1_gb = etrago.network.buses[
+        (etrago.network.buses.carrier == 'AC') & 
+        (etrago.network.buses.v_nom == 380) &
+        (etrago.network.buses.country == 'GB') & 
+        (etrago.network.buses.x != -6.097540942585511
+)
+    ]
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = bus1_gb.index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 37172.100038/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
+
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()
+        [etrago.network.lines_t.s_max_pu.columns.isin(
+            etrago.network.lines.index)].transpose())
+
     # Set gas grid links bidirectional
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
@@ -467,12 +545,12 @@ def run_etrago(args, json_path):
 
     # Adjust e_nom_max and marginal cost for gas generators abroad
     gen_abroad = {
-        "BE": {"e_nom_max": 201411182.1, "marginal_cost": 40.5254,},
-        "FR": {"e_nom_max": 584000929.8, "marginal_cost": 38.3420,},
-        "NL": {"e_nom_max": 213747863.2, "marginal_cost": 39.2452,},
-        "PL": {"e_nom_max": 128604090.0, "marginal_cost": 37.8380,},
-        "SE": {"e_nom_max": 56214260.5, "marginal_cost": 36.6665,},
-        "GB": {"e_nom_max": 976813718.0, "marginal_cost": 40.4031,},
+        "BE": {"e_nom_max": 201411182.1, "marginal_cost": 52.4578,},
+        "FR": {"e_nom_max": 584000929.8, "marginal_cost": 48.5288,},
+        "NL": {"e_nom_max": 213747863.2, "marginal_cost": 48.8340,},
+        "PL": {"e_nom_max": 128604090.0, "marginal_cost": 43.5067,},
+        "SE": {"e_nom_max": 56214260.5, "marginal_cost": 45.5137,},
+        "GB": {"e_nom_max": 976813718.0, "marginal_cost": 50.9111,},
     }
     for key in gen_abroad:
         bus_index = etrago.network.buses[
