@@ -841,14 +841,68 @@ def run_spatial_clustering(self):
 
             medoid_idx = buses_with_ts
             self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
-            busmap_pre_aggr = busmap.copy()
-
-            self.update_busmap(busmap)
+            # busmap_pre_aggr = busmap.copy() # maybe remove line
 
             if self.args["disaggregation"] != None:
                 self.disaggregated_network = self.network.copy()
             else:
                 self.disaggregated_network = self.network.copy(with_time=False)
+
+            self.update_busmap(busmap)
+
+            self.network = self.clustering.network.copy()
+
+            self.buses_by_country()
+
+            self.geolocation_buses()
+            
+            self.network.generators.control[
+                self.network.generators.control == ""
+            ] = "PV"
+
+            # Because the preaggregation above can lead to island buses which need 
+            # to be clustered before the HAC algorithm to prevent sub_networks
+            rel_buses = self.network.buses.loc[(self.network.buses.carrier == 'AC') & (self.network.buses.country == 'DE')]
+            inner_de_lines = self.network.lines.loc[(self.network.lines.bus0.isin(rel_buses.index))&(self.network.lines.bus1.isin(rel_buses.index))]
+            island_buses = rel_buses.loc[(~rel_buses.index.isin(inner_de_lines.bus0)) & (~rel_buses.index.isin(inner_de_lines.bus1))]
+            non_island_buses = rel_buses.loc[~rel_buses.index.isin(island_buses.index)]
+            a = np.ones((len(non_island_buses), 2))
+            b = np.ones((len(island_buses), 2))
+            a[:, 0] = non_island_buses.x.values
+            a[:, 1] = non_island_buses.y.values
+            b[:, 0] = island_buses.x.values
+            b[:, 1] = island_buses.y.values
+            D_spatial = haversine(b, a)
+
+            busmap2 = pd.Series(
+                self.network.buses.loc[non_island_buses.index]
+                .iloc[np.argmin(D_spatial, axis=1)]
+                .index,
+                index=island_buses.index,
+            )
+
+            r_idx = pd.Series(busmap).loc[pd.Series(busmap).isin(busmap2.index)]
+            r_idx = r_idx.loc[~r_idx.index.isin(busmap2.index)]
+            r_idx = pd.Series(busmap2[r_idx.values].values, index = r_idx.index)
+
+            busmap2 = pd.concat([busmap2, r_idx])
+
+
+            # Also add all nodes that have been clustered before into the island_buses
+            # to busmap2          
+
+
+            for i in busmap2.items():         #addd again if anything goes wrong (maybe in line 910)
+                busmap[i[0]] = i[1] 
+
+            # self.update_busmap(busmap)
+            # busmap_pre_aggr = busmap.copy()
+
+            medoid_idx = non_island_buses
+
+            self.clustering, busmap = postprocessing(self, busmap2.to_dict(), medoid_idx)
+
+            self.update_busmap(busmap)
 
             self.network = self.clustering.network.copy()
 
@@ -903,14 +957,27 @@ def run_spatial_clustering(self):
 
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
 
-        if self.args["network_clustering"]["method"] == "hac":
-            busmap_missing_index = pd.Series(
-                pd.Series(busmap)
-                .loc[pd.Series(busmap_pre_aggr).loc[buses_to_aggregate.index].values]
-                .values,
-                index=buses_to_aggregate.index,
-            ).to_dict()
-            busmap.update(busmap_missing_index)
+        # if self.args["network_clustering"]["method"] == "hac":
+        #     # update preaggregated busmap to new cluster centers
+        #     busmap2 = pd.Series(self.busmap['busmap'])
+        #     busmap2 = busmap2.loc[~busmap2.index.isin(busmap.keys())]
+        #     busmap2 = pd.Series(pd.Series(busmap)[pd.Series(busmap).values].values, index = busmap2.index)
+
+        #     r_idx = pd.Series(busmap2[r_idx.values].values, index = r_idx.index)
+
+        #     busmap2.loc[busmap2.index.isin(busmap.keys())]
+            
+        #     missing_idx =
+
+        #     busmap_missing_index = pd.Series(
+        #         pd.Series(busmap)
+        #         .loc[pd.Series(busmap_pre_aggr).loc[buses_to_aggregate.index].values]
+        #         .values,
+        #         index=buses_to_aggregate.index,
+        #     ).to_dict()
+
+
+        #     busmap.update(busmap_missing_index)
 
         self.update_busmap(busmap)
 

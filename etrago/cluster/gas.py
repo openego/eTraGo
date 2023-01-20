@@ -836,7 +836,43 @@ def run_spatial_clustering_gas(self):
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
             self.update_busmap(busmap)
 
+            # self.network.generators.control = "PV"
+
+            # # There can be DE island buses only connected to foreign buses. This fixes it
+            # rel_buses = self.network.buses.loc[(self.network.buses.carrier == 'CH4') & (self.network.buses.country == 'DE')]
+            # inner_de_links = self.network.links.loc[(self.network.links.bus0.isin(rel_buses.index))&(self.network.links.bus1.isin(rel_buses.index))]
+            # island_buses = rel_buses.loc[(~rel_buses.index.isin(inner_de_links.bus0)) & (~rel_buses.index.isin(inner_de_links.bus1))]
+            # non_island_buses = rel_buses.loc[~rel_buses.index.isin(island_buses.index)]
+            # a = np.ones((len(non_island_buses), 2))
+            # b = np.ones((len(island_buses), 2))
+            # a[:, 0] = non_island_buses.x.values
+            # a[:, 1] = non_island_buses.y.values
+            # b[:, 0] = island_buses.x.values
+            # b[:, 1] = island_buses.y.values
+            # D_spatial = haversine(b, a)
+
+            # busmap2 = pd.Series(
+            #     self.network.buses.loc[non_island_buses.index]
+            #     .iloc[np.argmin(D_spatial, axis=1)]
+            #     .index,
+            #     index=island_buses.index,
+            # )
+            
+            # r_idx = pd.Series(busmap).loc[pd.Series(busmap).isin(busmap2.index)]
+            # r_idx = r_idx.loc[~r_idx.index.isin(busmap2.index)]
+            # r_idx = pd.Series(busmap2[r_idx.values].values, index = r_idx.index)
+
+            # busmap2 = pd.concat([busmap2, r_idx])
+
+            # for i in busmap2.items():         #addd again if anything goes wrong (maybe in line 910)
+            #     busmap[i[0]] = i[1]
+
+            # medoid_idx = non_island_buses
+            # self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+
             logger.info("HAC_gas: Pre-aggregation finished")
+
+            # self.update_busmap(busmap)
 
             self.network.generators.control = "PV"
 
