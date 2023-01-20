@@ -56,7 +56,7 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
@@ -64,12 +64,13 @@ args = {
     "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        'BarConvTol': 1.e-5,
-        'FeasibilityTol': 1.e-5,
-        'method':2,
-        'crossover':0,
-        'logFile': 'solver_etragos.log',
-        'threads': 4},
+        "BarConvTol": 1.0e-5,
+        "FeasibilityTol": 1.0e-5,
+        "method": 2,
+        "crossover": 0,
+        "logFile": "solver_etragos.log",
+        "threads": 4,
+    },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
     # Scenario variations:
@@ -104,7 +105,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmeans",  # choose clustering method: kmeans (kmedoids-dijkstra not yet implemented)
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
@@ -118,14 +119,13 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6,
-    },  # affects clustering algorithm, only change when neccesary
+        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+    },
     "sector_coupled_clustering": {
         "active": False,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
-            "H2_ind_load": {"base": ["H2_grid"], "strategy": "consecutive"},
-            "central_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
-            "rural_heat": {"base": ["CH4", "AC"], "strategy": "consecutive"},
+            "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
@@ -247,7 +247,7 @@ def run_etrago(args, json_path):
     lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
-        False or '/path/tofolder'.import numpy as np
+        False or '/path/tofile.lp'
 
     csv_export : obj
         False,
@@ -272,23 +272,25 @@ def run_etrago(args, json_path):
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
                         from the database
-            'network': set all lines, links and transformers extendable
-            'german_network': set lines and transformers in German grid
-                            extendable
-            'foreign_network': set foreign lines and transformers extendable
+            'network': set all lines, links and transformers in electrical
+                            grid extendable
+            'german_network': set lines and transformers in German electrical
+                            grid extendable
+            'foreign_network': set foreign lines and transformers in electrical
+                            grid extendable
             'transformers': set all transformers extendable
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'storages': allow to install extendable storages
+            'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
-        Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'.
-        Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'.
-        Upper bounds for bordercrossing lines can be defined accrodingly
+        Upper bounds for electrical grid expansion can be defined for lines in
+        Germany relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two electrical buses
+        can be defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing electrical lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -306,21 +308,13 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
-                for all countries
-                (positiv: export from Germany)
+                Limit AC cross-border-flows between Germany and its neigbouring
+                countries, set values in MWh for all snapshots, e.g. [-x, y]
+                (with x Import, y Export, positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
-                Limit cross-border-flows between Germany and its neigbouring
-                countries, set values in p.u. of german loads in snapshots
-                for each country
-                (positiv: export from Germany)
-            'max_curtailment_per_gen': float
-                Limit curtailment of all wind and solar generators in Germany,
-                values set in p.u. of generation potential.
-            'max_curtailment_per_gen': float
-                Limit curtailment of each wind and solar generator in Germany,
-                values set in p.u. of generation potential.
+                Limit AC cross-border-flows between Germany and its neigbouring
+                countries, set values in in MWh for each country, e.g. [-x, y]
+                (with x Import, y Export, positiv: export from Germany)
             'capacity_factor': dict of arrays
                 Limit overall energy production for each carrier,
                 set upper/lower limit in p.u.
@@ -366,15 +360,13 @@ def run_etrago(args, json_path):
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
-         'H2_ind_load': {'base': ['H2_grid'], 'strategy': "consecutive"},
-         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "consecutive"},
-         'rural_heat': {'base': ['CH4', 'AC']}, 'strategy': "consecutive"}
+         'central_heat': {'base': ['CH4', 'AC'], 'strategy': "simultaneous"},
         }
         State if you want to apply clustering of sector coupled carriers, such
-        as central_heat or rural_heat. The approach builds on already clustered
+        as central_heat. The approach builds on already clustered
         buses (e.g. CH4 and AC) and builds clusters around the topology of the
         buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
-        ``'H2_ind_load'``. With ``'strategy'`` it is possible to apply either
+        ``'central_heat'``. With ``'strategy'`` it is possible to apply either
         ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
         strategy clusters around the buses of the first carrier in the list.
         The links to other buses are preserved. All buses, that have no
@@ -450,9 +442,6 @@ def run_etrago(args, json_path):
 
     # manual fixes for database-network from 16th of August
 
-    etrago.network.generators = etrago.network.generators[etrago.network.generators.carrier!='gas']
-    etrago.network.lines.type = ""
-    etrago.network.buses.v_mag_pu_set.fillna(1.0, inplace=True)
     etrago.network.storage_units.lifetime = 40
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
@@ -461,48 +450,29 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
-    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(0.0, inplace=True)
 
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
         [etrago.network.lines_t.s_max_pu.columns.isin(
             etrago.network.lines.index)].transpose())
 
-    for t in etrago.network.iterate_components():
-        if "p_min_pu" in t.df:
-            t.df["p_min_pu"].fillna(0.0, inplace=True)
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
 
-    for t in etrago.network.iterate_components():
-        if "p_max_pu" in t.df:
-            t.df["p_max_pu"].fillna(1., inplace=True)
+    # Set efficiences of CHP
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
 
-    # Temporary fix until egon-data issue #815 is solved
-    foreign_generators = etrago.network.generators[
-        etrago.network.generators.bus.isin(
-            etrago.network.buses.index[etrago.network.buses.country!="DE"]) &
-        (etrago.network.generators.index.isin(
-            etrago.network.generators_t.p_max_pu.columns))].index
-
-    if etrago.args["end_snapshot"] == 8760:
-        for i in foreign_generators:
-            etrago.network.generators_t.p_max_pu[i] = np.repeat(
-                etrago.network.generators_t.p_max_pu[i][:int(8760/3)].values, 3)
-
-    # Temporary fix missing marginal costs of foreign generators
-    etrago.network.generators.loc[etrago.network.generators.carrier=='solar', 'marginal_cost']  = 0
-    etrago.network.generators.loc[etrago.network.generators.carrier=='solar_rooftop', 'marginal_cost']  = 0
-    etrago.network.generators.loc[etrago.network.generators.carrier=='wind_onshore', 'marginal_cost'] = 1.3
-    etrago.network.generators.loc[etrago.network.generators.carrier=='wind_offshore', 'marginal_cost'] =2.5
-    etrago.network.generators.loc[etrago.network.generators.carrier=='nuclear', 'marginal_cost'] += 1.7
-    etrago.network.generators.loc[etrago.network.generators.carrier=='lignite', 'marginal_cost'] += 4 + 0.393* 76.5
-    etrago.network.generators.loc[etrago.network.generators.carrier=='coal', 'marginal_cost'] += 20.2 + 0.335 *  76.5
+    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links_t.efficiency.fillna(1., inplace=True)
 
     # only electricity sector, no DSM and no DLR
 
     etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
      'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
+    ### ch4-constraints in constraint.py!
 
     # no DLR
     etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
@@ -537,6 +507,8 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+
+    etrago.spatial_clustering_gas()
 
     print(' ')
     print('stop spatial clustering')
@@ -578,10 +550,10 @@ def run_etrago(args, json_path):
 
     etrago.args["load_shedding"] = False
     etrago.load_shedding()
-    # load shedding only in foreign countries
+    '''# load shedding only in foreign countries
     de_buses = network.buses[network.buses.country == "DE"]
     drop = etrago.network.generators[(etrago.network.generators.carrier=='load shedding') & (etrago.network.generators.bus.isin(de_buses.index))].index
-    etrago.network.generators.drop(drop, inplace=True)
+    etrago.network.generators.drop(drop, inplace=True)'''
 
     # snapshot clustering
     # etrago.snapshot_clustering()
@@ -603,8 +575,7 @@ def run_etrago(args, json_path):
     # conduct lopf with full complex timeseries for dispatch disaggregation
     # etrago.dispatch_disaggregation()
 
-    # TODO: check if should be combined with etrago.lopf()
-    # needs to be adjusted for new sectors
+    # start power flow based on lopf results
     # etrago.pf_post_lopf()
 
     # spatial disaggregation

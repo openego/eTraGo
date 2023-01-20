@@ -1,6 +1,16 @@
-.. image:: https://readthedocs.org/projects/etrago/badge/?version=latest
+|ci| |docs|
+
+.. |ci| image::
+    https://img.shields.io/github/actions/workflow/status
+    /openego/eTraGo/ci.yaml?branch=dev&event=push&label=ci
+    :alt: GitHub Workflow Status
+
+.. |docs| image::
+    https://readthedocs.org/projects/etrago/badge/?version=latest
     :target: http://etrago.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
+
+.. end-header
 
 eTraGo
 ======
@@ -56,6 +66,18 @@ Use the pip -e to install eTraGo directly from the cloned repository:
 
    $ pip3 install -e /path/to/eTraGo/ 
 
+When you want to draw geographical features in the background of network plots,
+please install cartopy:
+
+.. code-block::
+
+   $ pip3 install cartopy
+
+If you run into problems when using cartopy, try to install shapely without binaries:
+
+.. code-block::
+
+   $ pip3 install shapely --no-binary shapely
 
 Using a virtual environment
 ===========================

@@ -75,7 +75,7 @@ def _calc_storage_expansion(self):
                 )[self.network.storage_units.p_nom_extendable]\
                     .groupby(self.network.storage_units.carrier).sum()
 
-def _calc_store_expansion(self): ###
+def _calc_store_expansion(self):
         """ Function that calulates store expansion in MW
 
         Returns
@@ -101,10 +101,10 @@ def _calc_sectorcoupling_link_expansion(self):
 
         links = [0, 0, 0, 0]
 
-        l1 = ext_links[ext_links.carrier=='power_to_H2']
-        l2 = ext_links[ext_links.carrier=='H2_to_power']
-        l3 = ext_links[ext_links.carrier=='CH4_to_H2']
-        l4 = ext_links[ext_links.carrier=='H2_to_CH4']
+        l1 = ext_links[ext_links.carrier=='H2_to_power']
+        l2 = ext_links[ext_links.carrier=='power_to_H2']
+        l3 = ext_links[ext_links.carrier=='H2_to_CH4']
+        l4 = ext_links[ext_links.carrier=='CH4_to_H2']
 
         links[0] = (l1.p_nom_opt-l1.p_nom_min).sum()
         links[1] = (l2.p_nom_opt-l2.p_nom_min).sum()
@@ -113,7 +113,7 @@ def _calc_sectorcoupling_link_expansion(self):
 
         return links
 
-def _calc_network_expansion(self): ###
+def _calc_network_expansion(self):
         """ Function that calulates electrical network expansion in MW
 
         Returns
@@ -217,7 +217,7 @@ def calc_marginal_cost(self):
             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.generators.marginal_cost).sum()
         link = abs(network.links_t.p0).mul(
-            network.snapshot_weightings, axis=0).sum(axis=0).mul(
+            network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(
                 network.links.marginal_cost).sum()
         stor = network.storage_units_t.p.mul(
             network.snapshot_weightings.objective, axis=0).sum(axis=0).mul(

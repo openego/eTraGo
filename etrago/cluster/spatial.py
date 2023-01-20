@@ -74,6 +74,12 @@ def ext_storage(x):
     return v
 
 
+def sum_with_inf(x):
+    if (x == np.inf).any():
+        return np.inf
+    else:
+        return x.sum()
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -91,27 +97,22 @@ def strategies_one_ports():
             "standing_loss": np.mean,
             "e_nom": np.sum,
             "e_nom_min": np.sum,
-            "e_nom_max": np.sum,
+            "e_nom_max": sum_with_inf,
             "e_initial": np.sum,
         },
     }
 
-def agg_e_nom_max(x):
-    if (x == np.inf).any():
-        return np.inf
-    else:
-        return x.sum()
 
 def strategies_generators():
     return {
         "p_nom_min": np.min,
-        "p_nom_max": np.min,
+        "p_nom_max": sum_with_inf,
         "weight": np.sum,
         "p_nom": np.sum,
         "p_nom_opt": np.sum,
         "marginal_cost": np.mean,
         "capital_cost": np.mean,
-        "e_nom_max": agg_e_nom_max,
+        "e_nom_max": sum_with_inf,
     }
 
 def strategies_links():
@@ -122,14 +123,14 @@ def strategies_links():
         "carrier": _make_consense_links,
         "p_nom": np.sum,
         "p_nom_extendable": _make_consense_links,
-        "p_nom_max": np.sum,
+        "p_nom_max": sum_with_inf,
         "capital_cost": np.mean,
         "length": np.mean,
         "geom": nan_links,
         "topo": nan_links,
         "type": nan_links,
         "efficiency": np.mean,
-        "p_nom_min": np.min,
+        "p_nom_min": np.sum,
         "p_set": np.mean,
         "p_min_pu": np.min,
         "p_max_pu": np.max,
@@ -468,7 +469,7 @@ def busmap_from_psql(etrago):
     if not busmap:
         print("Busmap does not exist and will be created.\n")
 
-        cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
+        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
         if cpu_cores == 'max':
             cpu_cores = mp.cpu_count()
         else:
@@ -578,7 +579,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     return busmap
 
 
-def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
+def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
       Creates a busmap assigning the nodes of a original network
       to the nodes of a clustered network
@@ -593,6 +594,8 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
           Indices of k-medoids
       busmap_kmedoid: pd.Series
           Busmap based on k-medoids clustering
+      cpu_cores: string
+          numbers of cores used during multiprocessing 
       Returns
       -------
       busmap (format: with labels)
@@ -620,8 +623,10 @@ def dijkstras_algorithm(buses, connections, medoid_idx, busmap_kmedoid):
     M = graph_from_edges(edges)
 
     # processor count
+
     cpu_cores = 4
     '''cpu_cores = input(f"cpu_cores (default=4, max={mp.cpu_count()}): ") or "4"
+
     if cpu_cores == 'max':
         cpu_cores = mp.cpu_count()
     else:
@@ -715,7 +720,8 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(buses, connections, medoid_idx, busmap)
+        busmap = dijkstras_algorithm(buses, connections, medoid_idx,
+                                     etrago.args["network_clustering"]["CPU_cores"])
         busmap.index.name = "bus_id"
 
     else:

@@ -81,8 +81,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "H2_ind_load")
-        & (network2.buses["carrier"] != "rural_heat")
         & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
@@ -90,7 +88,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
-        "Li ion": "BEV charger"
+        "Li ion": "BEV charger",
+        "rural_heat": "rural_heat_pump"
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -153,10 +152,10 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         else:
             bus_cluster = str(max_bus + 1)
             max_bus = max_bus + 1
-            new = pd.Series(
-                {"cluster": busmap[bus_hv], "carrier": carry}, name=bus_cluster
-            )
-            no_elec_to_cluster = no_elec_to_cluster.append(new)
+            new = pd.DataFrame({"cluster": busmap[bus_hv], "carrier": carry},
+                                index = [bus_cluster])
+
+            no_elec_to_cluster = pd.concat([no_elec_to_cluster, new])
 
         busmap2[bus_ne] = bus_cluster
 
@@ -166,70 +165,47 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             connection to the electric network: {no_elec_conex}"""
         )
 
+    # rural_heat_store buses are clustered based on the AC buses connected to
+    # their corresponding rural_heat buses
+    links_rural_store = etrago.network.links[etrago.network.links.carrier ==
+                                             "rural_heat_store_charger"].copy()
+
+    busmap3 = {}
+    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
+    for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
+        cluster_bus = df.bus1.iat[0]
+        for rural_store_bus in df.bus1:
+            busmap3[rural_store_bus] = cluster_bus
+
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
-        | (network.buses["carrier"] == "H2_ind_load")
         | (network.buses["carrier"] == "CH4")
-        | (network.buses["carrier"] == "rural_heat")
-        | (network.buses["carrier"] == "rural_heat_store")
         | (network.buses["carrier"] == "central_heat")
         | (network.buses["carrier"] == "central_heat_store")
     ].index:
 
         busmap2[gas_bus] = gas_bus
 
-    busmap = {**busmap, **busmap2}
+    busmap = {**busmap, **busmap2, **busmap3}
 
     # The new buses based on the eHV network for not electrical buses are created
     if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": np.nan,
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": np.nan,
-                    "y": np.nan,
-                    "geom": np.nan,
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": np.nan,
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier
             )
-            network.buses = network.buses.append(new_bus)
 
     else:
-        for no_elec_bus in no_elec_to_cluster.index:
-            cluster_bus = no_elec_to_cluster.loc[no_elec_bus, :].cluster
-            carry = no_elec_to_cluster.loc[no_elec_bus, :].carrier
-            new_bus = pd.Series(
-                {
-                    "scn_name": network.buses.at[cluster_bus, "scn_name"],
-                    "v_nom": np.nan,
-                    "carrier": carry,
-                    "x": network.buses.at[cluster_bus, "x"],
-                    "y": network.buses.at[cluster_bus, "y"],
-                    "geom": network.buses.at[cluster_bus, "geom"],
-                    "type": "",
-                    "v_mag_pu_set": 1,
-                    "v_mag_pu_min": 0,
-                    "v_mag_pu_max": np.inf,
-                    "control": "PV",
-                    "sub_network": "",
-                    "country": network.buses.at[cluster_bus, "country"],
-                },
-                name=no_elec_bus,
+        network.madd(
+            "Bus",
+            names = no_elec_to_cluster.index,
+            carrier = no_elec_to_cluster.carrier.values,
+            x = network.buses.loc[no_elec_to_cluster.cluster.values, "x"].values,
+            y = network.buses.loc[no_elec_to_cluster.cluster.values, "y"].values,
+            country = network.buses.loc[no_elec_to_cluster.cluster.values, "country"].values,
             )
-            network.buses = network.buses.append(new_bus)
-
     return network, busmap
 
 
@@ -296,7 +272,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         .loc[lambda df: df.bus0 != df.bus1]
     )
 
-    new_links = new_links.append(dc_links)
+    new_links = pd.concat([new_links, dc_links])
     new_links["topo"] = np.nan
     io.import_components_from_dataframe(network_c, new_links, "Link")
 
@@ -506,33 +482,78 @@ def select_elec_network(etrago):
 
 
 def preprocessing(etrago):
-    """Function of the k-medoids Dijkstra Clustering approach. Maps an original
-    network to a new one with adjustable number of nodes and new coordinates.
-    This approach conducts a k-medoids Clustering followd by a Dijkstra's algortihm
-    assigning the original buses considering their electrical distances to the
-    identified medoids.
-    Parameters
-    ----------
-    network : :class:`pypsa.Network
-        Container for all network components.
-    n_clusters : int
-        Desired number of clusters.
-    load_cluster : boolean
-        Loads cluster coordinates from a former calculation.
-    line_length_factor : float
-        Factor to multiply the crow-flies distance between new buses in order
-        to get new line lengths.
-    bus_weight_tocsv : str
-        Creates a bus weighting based on conventional generation and load
-        and save it to a csv file.
-    bus_weight_fromcsv : str
-        Loads a bus weighting from a csv file to apply it to the clustering
-        algorithm.
-    Returns
-    -------
-    network : pypsa.Network object
-        Container for all network components.
-    """
+
+    def unify_foreign_buses(etrago):
+
+        network = etrago.network.copy()
+
+        foreign_buses = network.buses[(network.buses.country != "DE") &
+                                      (network.buses.carrier == "AC")]
+        foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
+                                            (foreign_buses.carrier=="AC")]
+
+        lines_col = network.lines.columns
+        # The Dijkstra clustering works using the shortest electrical path between
+        # buses. In some cases, a bus has just DC connections, which are considered
+        # links. Therefore it is necessary to include temporarily the DC links
+        # into the lines table.
+        dc = network.links[network.links.carrier == "DC"]
+        str1 = 'DC_'
+        dc.index = f"{str1}"+dc.index
+        lines_plus_dc = lines_plus_dc = pd.concat([network.lines, dc])
+        lines_plus_dc = lines_plus_dc[lines_col]
+        lines_plus_dc["carrier"] = "AC"
+
+        busmap_foreign = pd.Series(dtype=str)
+        medoids_foreign = pd.Series(dtype=str)
+
+        for country, df in foreign_buses.groupby(by="country"):
+            weight = df.apply(lambda x: 1 if x.name in foreign_buses_load.index else 0, axis = 1)
+            n_clusters = (foreign_buses_load.country == country).sum()
+
+            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
+                etrago, df, lines_plus_dc, weight, n_clusters
+            )
+            medoid_idx_country.index = medoid_idx_country.index.astype(str)
+            busmap_country = busmap_country.map(medoid_idx_country)
+
+            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
+
+        settings = etrago.args["network_clustering"]
+
+        full_busmap = pd.Series(data=network.buses.index,
+                                index= network.buses.index)
+
+        for bus in busmap_foreign.index:
+            full_busmap[bus] = busmap_foreign[bus]
+
+        network.generators["weight"] = network.generators["p_nom"]
+        aggregate_one_ports = network.one_port_components.copy()
+        aggregate_one_ports.discard("Generator")
+
+        clustering = get_clustering_from_busmap(
+            network,
+            full_busmap,
+            aggregate_generators_weighted=True,
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies=strategies_generators(),
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=settings["line_length_factor"],
+        )
+
+        # restore the coordinates of the foreign buses
+        for bus in foreign_buses_load.index:
+            clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
+            clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
+
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
+
+        etrago.update_busmap(full_busmap)
+
+        return clustering.network
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
@@ -587,12 +608,17 @@ def preprocessing(etrago):
         "Line",
     )
     network.lines.carrier = "AC"
+
     network.transformers.drop(trafo_index, inplace=True)
 
     for attr in network.transformers_t:
         network.transformers_t[attr] = network.transformers_t[attr].reindex(columns=[])
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
+
+    etrago.network = unify_foreign_buses(etrago)
+
+    etrago.buses_by_country()
 
     network_elec, n_clusters = select_elec_network(etrago)
 
@@ -606,7 +632,7 @@ def preprocessing(etrago):
         dc = network.links[network.links.carrier == "DC"]
         str1 = 'DC_'
         dc.index = f"{str1}"+dc.index
-        lines_plus_dc = network_elec.lines.append(dc)
+        lines_plus_dc = lines_plus_dc = pd.concat([network_elec.lines, dc])
         lines_plus_dc = lines_plus_dc[lines_col]
         network_elec.lines = lines_plus_dc.copy()
         network_elec.lines["carrier"] = "AC"
@@ -697,7 +723,7 @@ def weighting_for_scenario(network, save=None):
         clustering.
 
     """
-    def calc_capacity_factor(gen):
+    def calc_availability_factor(gen):
         if gen["carrier"] in time_dependent:
             try:
                 cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
@@ -714,25 +740,26 @@ def weighting_for_scenario(network, save=None):
         "wind_onshore",
         "wind_offshore",
     ]
-    #TASK: verify if the values used here are acceptable. Currentely based on
-    #https://www.statista.com/statistics/183680/us-average-capacity-factors-by-selected-energy-source-since-1998/
-    # + NEP C2035
+
     fixed_capacity_fac = {
-        "industrial_biomass_CHP": 0.65,
-        "biomass": 0.65,
-        "central_biomass_CHP": 0.65,
-        "other_non_renewable": 0.49,
-        "run_of_river": 0.49,
-        "reservoir": 0.49,
-        "gas": 0.49,
-        "oil": 0.49,
-        'central_gas_CHP': 0.64,
-        'industrial_gas_CHP': 0.64,
-        'OCGT': 0.29
+        # A value of 1 is given to power plants where its availability
+        #does not depend on the weather
+        "industrial_biomass_CHP": 1,
+        "biomass": 1,
+        "central_biomass_CHP": 1,
+        "other_non_renewable": 1,
+        "run_of_river": 0.50,
+        "reservoir": 1,
+        "gas": 1,
+        "oil": 1,
+        'central_gas_CHP': 1,
+        'industrial_gas_CHP': 1,
+        'OCGT': 1,
+        "others": 1,
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()
-    gen["cf"] = gen.apply(calc_capacity_factor, axis=1)
+    gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
     gen = gen.groupby("bus").weight.sum().reindex(
         network.buses.index, fill_value=0.0)
@@ -761,10 +788,6 @@ def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
 
-        if self.args["network_clustering_ehv"]:
-
-            self.adapt_crossborder_buses()
-
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters = preprocessing(self)
@@ -787,9 +810,10 @@ def run_spatial_clustering(self):
         self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
         self.update_busmap(busmap)
 
-
         if self.args["disaggregation"] != None:
             self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time= False)
 
         self.network = self.clustering.network.copy()
 

@@ -22,12 +22,14 @@
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
-from pyomo.environ import Constraint
+
+import numpy as np
 import pandas as pd
 import pyomo.environ as po
-import numpy as np
-from pypsa.linopt import get_var, linexpr, define_constraints, define_variables
+from egoio.tools import db
+from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
+from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
 from pypsa.pf import get_switchable_as_dense as get_as_dense
 
 logger = logging.getLogger(__name__)
@@ -87,11 +89,11 @@ def _get_crossborder_components(network, cntr="all"):
 
     cb0_link = network.links.index[
         (network.links.bus0.isin(buses_for)) & (network.links.bus1.isin(buses_de))
-    ]
+    & (network.links.carrier=='DC')]
 
     cb1_link = network.links.index[
         (network.links.bus0.isin(buses_de)) & (network.links.bus1.isin(buses_for))
-    ]
+    & (network.links.carrier=='DC')]
 
     return buses_de, buses_for, cb0, cb1, cb0_link, cb1_link
 
@@ -113,15 +115,20 @@ def _max_line_ext(self, network, snapshots):
     None
 
     """
-    lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
+
+    lines_snom = network.lines.s_nom_min.sum()
+
+    links_elec = network.links[network.links.carrier=='DC']
+    links_index = links_elec.index
+    links_pnom = links_elec.p_nom_min.sum()
 
     def _rule(m):
+
         lines_opt = sum(
             m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
         )
 
-        links_opt = sum(m.link_p_nom[index] for index in m.link_p_nom_index)
+        links_opt = sum(m.link_p_nom[index] for index in links_index)
 
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
             "extra_functionality"
@@ -149,7 +156,11 @@ def _max_line_ext_nmp(self, network, snapshots):
     """
 
     lines_snom = network.lines.s_nom.sum()
-    links_pnom = network.links.p_nom.sum()
+
+    links_elec = network.links[network.links.carrier=='DC']
+    links_index = links_elec.index
+    links_pnom = links_elec.p_nom_min.sum()
+
     get_var(network, "Line", "s_nom")
 
     def _rule(m):
@@ -157,7 +168,7 @@ def _max_line_ext_nmp(self, network, snapshots):
             m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
         )
 
-        links_opt = sum(m.link_p_nom[index] for index in m.link_p_nom_index)
+        links_opt = sum(m.link_p_nom[index] for index in links_index)
 
         return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
             "extra_functionality"
@@ -185,16 +196,21 @@ def _min_renewable_share_nmp(self, network, snapshots):
 
     """
 
-    renewables = ["wind_onshore", "wind_offshore", "biomass", "solar", "run_of_river"]
+    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
+                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
+                  'run_of_river', 'other_renewable',
+                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
 
     res = network.generators.index[network.generators.carrier.isin(renewables)]
 
     renew = (
         get_var(network, "Generator", "p")
         .loc[network.snapshots, res]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.generators, axis=0)
     )
-    total = get_var(network, "Generator", "p").mul(network.snapshot_weightings, axis=0)
+    total = get_var(network, "Generator", "p").mul(
+        network.snapshot_weightings.generators, axis=0
+    )
 
     renew_production = linexpr((1, renew)).sum().sum()
     total_production = (
@@ -227,7 +243,10 @@ def _min_renewable_share(self, network, snapshots):
 
     """
 
-    renewables = ["wind_onshore", "wind_offshore", "biomass", "solar", "run_of_river"]
+    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
+                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
+                  'run_of_river', 'other_renewable',
+                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
 
     res = list(network.generators.index[network.generators.carrier.isin(renewables)])
 
@@ -236,12 +255,12 @@ def _min_renewable_share(self, network, snapshots):
     def _rule(m):
 
         renewable_production = sum(
-            m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
             for gen in res
             for sn in snapshots
         )
         total_production = sum(
-            m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
             for gen in total
             for sn in snapshots
         )
@@ -391,9 +410,8 @@ def _cross_border_flow(self, network, snapshots):
 def _cross_border_flow_nmp(self, network, snapshots):
     """
     Extra_functionality that limits overall crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal percent of
-    im- and exports as a fraction of loads in Germany.
-    Example: {'cross_border_flow': [-0.1, 0.1]}
+    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -411,35 +429,30 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
     export = (
         pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     cb0_flow = (
         get_var(network, "Line", "s")
         .loc[snapshots, cb0]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb1_flow = (
         get_var(network, "Line", "s")
         .loc[snapshots, cb1]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb0_link_flow = (
         get_var(network, "Link", "p")
         .loc[snapshots, cb0_link]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     cb1_link_flow = (
         get_var(network, "Link", "p")
         .loc[snapshots, cb1_link]
-        .mul(network.snapshot_weightings, axis=0)
+        .mul(network.snapshot_weightings.objective, axis=0)
     )
 
     expr = (
@@ -455,12 +468,11 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
 def _cross_border_flow_per_country_nmp(self, network, snapshots):
     """
-    Extra_functionality that limits crossborder flows for each given
+    Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports as
-    a fraction of load in Germany.
-    Example: {'cross_border_flow_per_country': {'DK':[-0.05, 0.1], 'FR':[0,0]}}
+    define dictionary of country keys and desired limitations of im/exports in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -480,41 +492,41 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             cb0_flow = (
                 get_var(network, "Line", "s")
                 .loc[snapshots, cb0]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb1_flow = (
                 get_var(network, "Line", "s")
                 .loc[snapshots, cb1]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb0_link_flow = (
                 get_var(network, "Link", "p")
                 .loc[snapshots, cb0_link]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             cb1_link_flow = (
                 get_var(network, "Link", "p")
                 .loc[snapshots, cb1_link]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.objective, axis=0)
             )
 
             expr = (
@@ -544,12 +556,11 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
 def _cross_border_flow_per_country(self, network, snapshots):
     """
-    Extra_functionality that limits crossborder flows for each given
+    Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports as
-    a fraction of load in Germany.
-    Example: {'cross_border_flow_per_country': {'DK':[-0.05, 0.1], 'FR':[0,0]}}
+    define dictionary of country keys and desired limitations of im/exports in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -569,74 +580,73 @@ def _cross_border_flow_per_country(self, network, snapshots):
         pd.DataFrame(
             data=self.args["extra_functionality"]["cross_border_flow_per_country"]
         ).transpose()
-        * network.loads_t.p_set.mul(network.snapshot_weightings, axis=0)[
-            network.loads.index[network.loads.bus.isin(buses_de)]
-        ]
-        .sum()
-        .sum()
     )
 
     for cntr in export_per_country.index:
         if cntr in countries:
-            buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-                network, cntr
-            )
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
 
             def _rule_min(m):
                 cb_flow = (
                     -sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb0
                         for sn in snapshots
                     )
                     + sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb1
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
                 )
-
                 return cb_flow >= export_per_country[0][cntr]
 
             setattr(
                 network.model,
-                "min_cross_border" + cntr,
-                Constraint(cntr, rule=_rule_min),
+                "min_cross_border-" + cntr,
+                Constraint(rule=_rule_min),
             )
 
             def _rule_max(m):
                 cb_flow = (
                     -sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb0
                         for sn in snapshots
                     )
                     + sum(
                         m.passive_branch_p["Line", line, sn]
-                        * network.snapshot_weightings[sn]
+                        * network.snapshot_weightings.objective[sn]
                         for line in cb1
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings[sn]
+                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
@@ -645,8 +655,8 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
             setattr(
                 network.model,
-                "max_cross_border" + cntr,
-                Constraint(cntr, rule=_rule_max),
+                "max_cross_border-" + cntr,
+                Constraint(rule=_rule_max),
             )
 
 
@@ -689,7 +699,7 @@ def _generation_potential(network, carrier, cntr="all"):
             (
                 network.generators.p_nom[gens]
                 * network.generators_t.p_max_pu[gens].mul(
-                    network.snapshot_weightings, axis=0
+                    network.snapshot_weightings.generators, axis=0
                 )
             )
             .sum()
@@ -697,7 +707,8 @@ def _generation_potential(network, carrier, cntr="all"):
         )
     else:
         potential = (
-            network.snapshot_weightings.sum() * network.generators.p_nom[gens].sum()
+            network.snapshot_weightings.generators.sum()
+            * network.generators.p_nom[gens].sum()
         )
     return gens, potential
 
@@ -733,7 +744,7 @@ def _capacity_factor(self, network, snapshots):
         def _rule_max(m):
 
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -745,7 +756,7 @@ def _capacity_factor(self, network, snapshots):
         def _rule_min(m):
 
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings[sn]
+                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -785,7 +796,7 @@ def _capacity_factor_nmp(self, network, snapshots):
         generation = (
             get_var(network, "Generator", "p")
             .loc[snapshots, gens]
-            .mul(network.snapshot_weightings, axis=0)
+            .mul(network.snapshot_weightings.generators, axis=0)
         )
 
         define_constraints(
@@ -836,33 +847,38 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             factor = arg[cntr][c]
             gens, potential = _generation_potential(network, c, cntr)
 
-            def _rule_max(m):
+            if len(gens) > 0:
 
-                dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings[sn]
-                    for gen in gens
-                    for sn in snapshots
+                def _rule_max(m):
+
+                    dispatch = sum(
+                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        for gen in gens
+                        for sn in snapshots
+                    )
+
+                    return dispatch <= factor[1] * potential
+
+                setattr(
+                    network.model, "max_flh_" + cntr + "_" + c, Constraint(rule=_rule_max)
                 )
 
-                return dispatch <= factor[1] * potential
+                def _rule_min(m):
 
-            setattr(
-                network.model, "max_flh_" + cntr + "_" + c, Constraint(rule=_rule_max)
-            )
+                    dispatch = sum(
+                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        for gen in gens
+                        for sn in snapshots
+                    )
 
-            def _rule_min(m):
+                    return dispatch >= factor[0] * potential
 
-                dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings[sn]
-                    for gen in gens
-                    for sn in snapshots
+                setattr(
+                    network.model, "min_flh_" + cntr + "_" + c, Constraint(rule=_rule_min)
                 )
 
-                return dispatch >= factor[0] * potential
-
-            setattr(
-                network.model, "min_flh_" + cntr + "_" + c, Constraint(rule=_rule_min)
-            )
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_cntr_nmp(self, network, snapshots):
@@ -894,28 +910,33 @@ def _capacity_factor_per_cntr_nmp(self, network, snapshots):
         for c in carrier:
             gens, potential = _generation_potential(network, c, cntr)
 
-            generation = (
-                get_var(network, "Generator", "p")
-                .loc[snapshots, gens]
-                .mul(network.snapshot_weightings, axis=0)
-            )
+            if len(gens) > 0:
 
-            define_constraints(
-                network,
-                linexpr((1, generation)).sum().sum(),
-                ">=",
-                arg[cntr][c][0] * potential,
-                "Generator",
-                "min_flh_" + c + "_" + cntr,
-            )
-            define_constraints(
-                network,
-                linexpr((1, generation)).sum().sum(),
-                "<=",
-                arg[cntr][c][1] * potential,
-                "Generator",
-                "max_flh_" + c + "_" + cntr,
-            )
+                generation = (
+                    get_var(network, "Generator", "p")
+                    .loc[snapshots, gens]
+                    .mul(network.snapshot_weightings.generators, axis=0)
+                )
+
+                define_constraints(
+                    network,
+                    linexpr((1, generation)).sum().sum(),
+                    ">=",
+                    arg[cntr][c][0] * potential,
+                    "Generator",
+                    "min_flh_" + c + "_" + cntr,
+                )
+                define_constraints(
+                    network,
+                    linexpr((1, generation)).sum().sum(),
+                    "<=",
+                    arg[cntr][c][1] * potential,
+                    "Generator",
+                    "max_flh_" + c + "_" + cntr,
+                )
+
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_gen(self, network, snapshots):
@@ -952,7 +973,7 @@ def _capacity_factor_per_gen(self, network, snapshots):
                     (
                         network.generators.p_nom[g]
                         * network.generators_t.p_max_pu[g].mul(
-                            network.snapshot_weightings, axis=0
+                            network.snapshot_weightings.generators, axis=0
                         )
                     )
                     .sum()
@@ -960,31 +981,31 @@ def _capacity_factor_per_gen(self, network, snapshots):
                 )
             else:
                 potential = (
-                    network.snapshot_weightings.sum()
+                    network.snapshot_weightings.generators.sum()
                     * network.generators.p_nom[g].sum()
                 )
 
             def _rule_max(m):
 
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
                 return dispatch <= factor[1] * potential
 
-            setattr(network.model, "max_flh_" + g, Constraint(gens, rule=_rule_max))
+            setattr(network.model, "max_flh_" + g, Constraint(rule=_rule_max))
 
             def _rule_min(m):
 
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings[sn]
+                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
                 return dispatch >= factor[0] * potential
 
-            setattr(network.model, "min_flh_" + g, Constraint(gens, rule=_rule_min))
+            setattr(network.model, "min_flh_" + g, Constraint(rule=_rule_min))
 
 
 def _capacity_factor_per_gen_nmp(self, network, snapshots):
@@ -1020,7 +1041,7 @@ def _capacity_factor_per_gen_nmp(self, network, snapshots):
                     (
                         network.generators.p_nom[g]
                         * network.generators_t.p_max_pu[g].mul(
-                            network.snapshot_weightings, axis=0
+                            network.snapshot_weightings.generators, axis=0
                         )
                     )
                     .sum()
@@ -1028,14 +1049,14 @@ def _capacity_factor_per_gen_nmp(self, network, snapshots):
                 )
             else:
                 potential = (
-                    network.snapshot_weightings.sum()
+                    network.snapshot_weightings.generators.sum()
                     * network.generators.p_nom[g].sum()
                 )
 
             generation = (
                 get_var(network, "Generator", "p")
                 .loc[snapshots, g]
-                .mul(network.snapshot_weightings, axis=0)
+                .mul(network.snapshot_weightings.generators, axis=0)
             )
 
             define_constraints(
@@ -1094,53 +1115,57 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     )
                 )
             ]
-            for g in gens:
-                if c in ["wind_onshore", "wind_offshore", "solar"]:
-                    potential = (
-                        (
-                            network.generators.p_nom[g]
-                            * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings, axis=0
+
+            if len(gens) > 0:
+
+                for g in gens:
+                    if c in ["wind_onshore", "wind_offshore", "solar"]:
+                        potential = (
+                            (
+                                network.generators.p_nom[g]
+                                * network.generators_t.p_max_pu[g].mul(
+                                    network.snapshot_weightings.generators, axis=0
+                                )
                             )
+                            .sum()
+                            .sum()
                         )
-                        .sum()
-                        .sum()
-                    )
-                else:
-                    potential = (
-                        network.snapshot_weightings.sum()
-                        * network.generators.p_nom[g].sum()
-                    )
+                    else:
+                        potential = (
+                            network.snapshot_weightings.generators.sum()
+                            * network.generators.p_nom[g].sum()
+                        )
 
-                def _rule_max(m):
+                    def _rule_max(m):
 
-                    dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings[sn]
-                        for sn in snapshots
-                    )
+                        dispatch = sum(
+                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            for sn in snapshots
+                        )
+                        return dispatch <= factor[1] * potential
 
-                    return dispatch <= factor[1] * potential
-
-                setattr(
-                    network.model,
-                    "max_flh_" + cntr + "_" + g,
-                    Constraint(gens, rule=_rule_max),
-                )
-
-                def _rule_min(m):
-
-                    dispatch = sum(
-                        m.generator_p[g, sn] * network.snapshot_weightings[sn]
-                        for sn in snapshots
+                    setattr(
+                        network.model,
+                        "max_flh_" + cntr + "_" + g,
+                        Constraint(rule=_rule_max),
                     )
 
-                    return dispatch >= factor[0] * potential
+                    def _rule_min(m):
 
-                setattr(
-                    network.model,
-                    "min_flh_" + cntr + "_" + g,
-                    Constraint(rule=_rule_min),
-                )
+                        dispatch = sum(
+                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            for sn in snapshots
+                        )
+                        return dispatch >= factor[0] * potential
+
+                    setattr(
+                        network.model,
+                        "min_flh_" + cntr + "_" + g,
+                        Constraint(rule=_rule_min),
+                    )
+
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
 
 
 def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
@@ -1180,46 +1205,271 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                     )
                 )
             ]
-            for g in gens:
-                if c in ["wind_onshore", "wind_offshore", "solar"]:
-                    potential = (
-                        (
-                            network.generators.p_nom[g]
-                            * network.generators_t.p_max_pu[g].mul(
-                                network.snapshot_weightings, axis=0
+
+            if len(gens) > 0:
+
+                for g in gens:
+                    if c in ["wind_onshore", "wind_offshore", "solar"]:
+                        potential = (
+                            (
+                                network.generators.p_nom[g]
+                                * network.generators_t.p_max_pu[g].mul(
+                                    network.snapshot_weightings.generators, axis=0
+                                )
                             )
+                            .sum()
+                            .sum()
                         )
-                        .sum()
-                        .sum()
-                    )
-                else:
-                    potential = (
-                        network.snapshot_weightings.sum()
-                        * network.generators.p_nom[g].sum()
+                    else:
+                        potential = (
+                            network.snapshot_weightings.generators.sum()
+                            * network.generators.p_nom[g].sum()
+                        )
+
+                    generation = (
+                        get_var(network, "Generator", "p")
+                        .loc[snapshots, g]
+                        .mul(network.snapshot_weightings.generators, axis=0)
                     )
 
-                generation = (
-                    get_var(network, "Generator", "p")
-                    .loc[snapshots, g]
-                    .mul(network.snapshot_weightings, axis=0)
+                    define_constraints(
+                        network,
+                        linexpr((1, generation)).sum(),
+                        ">=",
+                        arg[cntr][c][0] * potential,
+                        "Generator",
+                        "min_flh_" + g,
+                    )
+                    define_constraints(
+                        network,
+                        linexpr((1, generation)).sum(),
+                        "<=",
+                        arg[cntr][c][1] * potential,
+                        "Generator",
+                        "max_flh_" + g,
+                    )
+
+            else:
+                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
+
+
+def read_max_gas_generation(self):
+    """Return the values limiting the gas production in Germany
+
+    Read max_gas_generation_overtheyear from
+    scenario.egon_scenario_parameters if the table is available in the
+    database and return the dictionnary containing the values needed
+    for the constraints to limit the gas production in Germany,
+    depending of the scenario.
+
+    Returns
+    -------
+    arg: dict
+
+    """
+    scn_name = self.args["scn_name"]
+    arg_def = {
+        "eGon2035": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        "eGon2035_lowflex": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        "eGon100RE": {
+            "biogas": 14450103
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
+    }
+
+    engine = db.connection(section=self.args["db"])
+    try:
+        sql = f"""
+        SELECT gas_parameters
+        FROM scenario.egon_scenario_parameters
+        WHERE name = '{scn_name}';"""
+        df = pd.read_sql(sql, engine)
+        arg = df["max_gas_generation_overtheyear"]
+    except:
+        arg = arg_def[scn_name]
+
+    return arg
+
+
+def add_ch4_constraints(self, network, snapshots):
+    """
+    Add CH4 constraints for optimization with pyomo
+
+    Functionality that limits the dispatch of CH4 generators. In
+    Germany, there is one limitation specific for biogas and one
+    limitation specific for natural gas (natural gas only in eGon2035).
+    Abroad, each generator has its own limitation contains in the
+    column e_nom_max.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
+
+    # Add constraint for Germany
+    arg = read_max_gas_generation(self)
+    gas_carrier = arg.keys()
+
+    carrier_names = {
+        "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon100RE": {"biogas": "CH4"},
+    }
+
+    for c in gas_carrier:
+        gens = network.generators.index[
+            (network.generators.carrier == carrier_names[scn_name][c])
+            & (
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+        if not gens.empty:
+            factor = arg[c]
+
+            def _rule_max(m):
+
+                dispatch = sum(
+                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                    for gen in gens
+                    for sn in snapshots
                 )
 
-                define_constraints(
-                    network,
-                    linexpr((1, generation)).sum(),
-                    ">=",
-                    arg[cntr][c][0] * potential,
-                    "Generator",
-                    "min_flh_" + g,
+                return dispatch <= factor * (n_snapshots / 8760)
+
+            setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
+
+    # Add contraints for neigbouring countries
+    gen_abroad = network.generators[
+        (network.generators.carrier == "CH4")
+        & (
+            network.generators.bus.astype(str).isin(
+                network.buses.index[network.buses.country != "DE"]
+            )
+        )
+        & (network.generators.e_nom_max != np.inf)
+    ]
+    for g in gen_abroad.index:
+        factor = network.generators.e_nom_max[g]
+
+        def _rule_max(m):
+
+            dispatch = sum(
+                m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                for sn in snapshots
+            )
+
+            return dispatch <= factor * (n_snapshots / 8760)
+
+        setattr(
+            network.model,
+            "max_flh_abroad_" + str(g).replace(" ", "_"),
+            Constraint(rule=_rule_max),
+        )
+
+
+def add_ch4_constraints_nmp(self, network, snapshots):
+    """
+    Add CH4 constraints for optimization without pyomo
+
+    Functionality that limits the dispatch of CH4 generators. In
+    Germany, there is one limitation specific for biogas and one
+    limitation specific for natural gas (natural gas only in eGon2035).
+    Abroad, each generator has its own limitation contains in the
+    column e_nom_max.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    scn_name = self.args["scn_name"]
+    n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
+
+    # Add constraint for Germany
+    arg = read_max_gas_generation(self)
+    gas_carrier = arg.keys()
+
+    carrier_names = {
+        "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon100RE": {"biogas": "CH4"},
+    }
+
+    for c in gas_carrier:
+        gens = network.generators.index[
+            (network.generators.carrier == carrier_names[scn_name][c])
+            & (
+                network.generators.bus.astype(str).isin(
+                    network.buses.index[network.buses.country == "DE"]
                 )
-                define_constraints(
-                    network,
-                    linexpr((1, generation)).sum(),
-                    "<=",
-                    arg[cntr][c][1] * potential,
-                    "Generator",
-                    "max_flh_" + g,
-                )
+            )
+        ]
+        if not gens.empty:
+            factor = arg[c]
+
+            generation = (
+                get_var(network, "Generator", "p")
+                .loc[snapshots, gens]
+                .mul(network.snapshot_weightings.generators, axis=0)
+            )
+
+            define_constraints(
+                network,
+                linexpr((1, generation)).sum().sum(),
+                "<=",
+                factor * (n_snapshots / 8760),
+                "Generator",
+                "max_flh_DE_" + c,
+            )
+
+    # Add contraints for neigbouring countries
+    gen_abroad = network.generators[
+        (network.generators.carrier == "CH4")
+        & (
+            network.generators.bus.astype(str).isin(
+                network.buses.index[network.buses.country != "DE"]
+            )
+        )
+        & (network.generators.e_nom_max != np.inf)
+    ]
+    for g in gen_abroad.index:
+        factor = network.generators.e_nom_max[g]
+
+        generation = (
+            get_var(network, "Generator", "p")
+            .loc[snapshots, g]
+            .mul(network.snapshot_weightings.generators, axis=0)
+        )
+
+        define_constraints(
+            network,
+            linexpr((1, generation)).sum(),
+            "<=",
+            factor * (n_snapshots / 8760),
+            "Generator",
+            "max_flh_DE_" + str(g).replace(" ", "_"),
+        )
 
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
@@ -1254,7 +1504,7 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
     period_ends = period_starts + pd.Timedelta(hours=23)
 
     eh = expand_series(
-        network.snapshot_weightings[period_ends], network.storage_units.index
+        network.snapshot_weightings.objective[period_ends], network.storage_units.index
     )  # elapsed hours
 
     eff_stand = expand_series(1 - network.df(c).standing_loss, period_ends).T
@@ -2186,7 +2436,7 @@ class Constraints:
         self.args = args
 
     def functionality(self, network, snapshots):
-        """ Add constraints to pypsa-model using extra-functionality.
+        """Add constraints to pypsa-model using extra-functionality.
         Serveral constraints can be choosen at once. Possible constraints are
         set and described in the above functions.
 
@@ -2198,6 +2448,12 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
+        '''if self.args["method"]["pyomo"]:
+            add_chp_constraints(network, snapshots)
+            add_ch4_constraints(self, network, snapshots)
+        else:
+            add_chp_constraints_nmp(network)
+            add_ch4_constraints_nmp(self, network, snapshots)'''
 
         for constraint in self.args["extra_functionality"].keys():
             try:
@@ -2293,3 +2549,172 @@ class Constraints:
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
                 )
+
+
+def add_chp_constraints_nmp(n):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+
+    Parameters
+    ----------
+    n : pypsa.Network
+        Network container
+
+    Returns
+    -------
+    None.
+
+    """
+    # backpressure limit
+    c_m = 0.75
+
+    # marginal loss for each additional generation of heat
+    c_v = 0.15
+    electric_bool = n.links.carrier == "central_gas_CHP"
+    heat_bool = n.links.carrier == "central_gas_CHP_heat"
+
+    electric = n.links.index[electric_bool]
+    heat = n.links.index[heat_bool]
+
+    n.links.loc[heat, "efficiency"] = (
+        n.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
+
+    ch4_nodes_with_chp = n.buses.loc[
+        n.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+
+        elec_chp = n.links[
+            (n.links.carrier == "central_gas_CHP") & (n.links.bus0 == i)
+        ].index
+
+        heat_chp = n.links[
+            (n.links.carrier == "central_gas_CHP_heat") & (n.links.bus0 == i)
+        ].index
+
+        link_p = get_var(n, "Link", "p")
+        # backpressure
+
+        lhs_1 = sum(
+            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp] for h_chp in heat_chp
+        )
+
+        lhs_2 = sum(
+            n.links.at[e_chp, "efficiency"] * link_p[e_chp] for e_chp in elec_chp
+        )
+
+        lhs = linexpr((1, lhs_1), (1, lhs_2))
+
+        define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
+
+        # top_iso_fuel_line
+        lhs, *ax = linexpr(
+            (1, sum(link_p[h_chp] for h_chp in heat_chp)),
+            (1, sum(link_p[h_e] for h_e in elec_chp)),
+            return_axes=True,
+        )
+
+        define_constraints(
+            n,
+            lhs,
+            "<=",
+            n.links.loc[elec_chp].p_nom.sum(),
+            "chplink_" + str(i),
+            "top_iso_fuel_line_fix",
+            axes=ax,
+        )
+
+
+def add_chp_constraints(network, snapshots):
+    """
+    Limits the dispatch of combined heat and power links based on
+    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
+    in a cost-optimised, highly renewable European energy system, 2018
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Network container
+    snapshots : pandas.DataFrame
+        Timesteps to optimize
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # backpressure limit
+    c_m = 0.75
+
+    # marginal loss for each additional generation of heat
+    c_v = 0.15
+    electric_bool = network.links.carrier == "central_gas_CHP"
+    heat_bool = network.links.carrier == "central_gas_CHP_heat"
+
+    electric = network.links.index[electric_bool]
+    heat = network.links.index[heat_bool]
+
+    network.links.loc[heat, "efficiency"] = (
+        network.links.loc[electric, "efficiency"] / c_v
+    ).values.mean()
+
+    ch4_nodes_with_chp = network.buses.loc[
+        network.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+
+        elec_chp = network.links[
+            (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+        ].index
+
+        heat_chp = network.links[
+            (network.links.carrier == "central_gas_CHP_heat")
+            & (network.links.bus0 == i)
+        ].index
+
+        # Guarantees c_m p_b1  \leq p_g1
+        def backpressure(model, snapshot):
+            lhs = sum(
+                c_m
+                * network.links.at[h_chp, "efficiency"]
+                * model.link_p[h_chp, snapshot]
+                for h_chp in heat_chp
+            )
+
+            rhs = sum(
+                network.links.at[e_chp, "efficiency"] * model.link_p[e_chp, snapshot]
+                for e_chp in elec_chp
+            )
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "backpressure_" + str(i),
+            Constraint(list(snapshots), rule=backpressure),
+        )
+
+        # Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
+        def top_iso_fuel_line(model, snapshot):
+
+            lhs = sum(model.link_p[h_chp, snapshot] for h_chp in heat_chp) + sum(
+                model.link_p[e_chp, snapshot] for e_chp in elec_chp
+            )
+
+            rhs = network.links[
+                (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+            ].p_nom.sum()
+
+            return lhs <= rhs
+
+        setattr(
+            network.model,
+            "top_iso_fuel_line_" + str(i),
+            Constraint(list(snapshots), rule=top_iso_fuel_line),
+        )
