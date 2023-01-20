@@ -2379,15 +2379,52 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
 
     # TODO: implementieren
 
-def split_dispatch_disaggregation_constraints(self, n):
-
-    print("TODO")
+def split_dispatch_disaggregation_constraints(self, n, sns):
     
-    import pdb; pdb.set_trace()
-
-    # TODO: implementieren
+    # TODO: check TODOs in constraints
+    # eg hourly stores?
     
-def split_dispatch_disaggregation_constraints_nmp(self, n):
+    # TODO: check?!
+    # no error, but optimized dispatches are missing (eg stores_t.p, lines_t.p, etc)
+    
+    print('constraints')
+    
+    #import pdb; pdb.set_trace()
+    
+    soc_values = self.conduct_dispatch_disaggregation.copy()
+    n.model.soc_values = soc_values.copy()
+    n.model.transits = sns[sns.isin(soc_values.columns)]
+    #n.model.transits = po.Set(initialize=transits, ordered=True)]
+    
+    n.model.storages = n.storage_units.index
+    
+    def disaggregation_soc_rule(m, s, h):
+        """
+        Sets soc of beginning and end of time slices in disptach_disaggregation
+        to values calculated in temporally reduced lopf without slices.
+        """
+        
+        return m.state_of_charge[s,h] == m.soc_values.at[s, h]
+        
+    n.model.split_dispatch_disaggregation = po.Constraint(
+        n.model.storages, n.model.transits, rule=disaggregation_soc_rule
+    )
+    
+    n.model.stores = n.stores.index
+    
+    def disaggregation_soc_rule_store(m, s, h):
+        """
+        Sets soc of beginning and end of time slices in disptach_disaggregation
+        to values calculated in temporally reduced lopf without slices.
+        """
+        
+        return m.store_e[s,h] == m.soc_values.at[s, h]
+    
+    n.model.split_dispatch_disaggregation_store = po.Constraint(
+        n.model.stores, n.model.transits, rule=disaggregation_soc_rule_store
+    )
+    
+def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
 
     print("TODO")
 
@@ -2517,9 +2554,9 @@ class Constraints:
      
         if self.conduct_dispatch_disaggregation is not False:
             if self.args["method"]["pyomo"]:
-                split_dispatch_disaggregation_constraints(self, network)
+                split_dispatch_disaggregation_constraints(self, network, snapshots)
             else:
-                split_dispatch_disaggregation_constraints_nmp(self, network)
+                split_dispatch_disaggregation_constraints_nmp(self, network, snapshots)
 
 
 def add_chp_constraints_nmp(n):
