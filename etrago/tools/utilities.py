@@ -22,6 +22,7 @@
 Utilities.py includes a wide range of useful functions.
 """
 
+import networkx as nx
 from collections.abc import Mapping
 from copy import deepcopy
 import json
@@ -2418,6 +2419,40 @@ def update_busmap(self, new_busmap):
         self.busmap["busmap"] = (
             pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()
         )
+        
+def modular_weight(network, busmap):
+    """
+    Calculate the modularity to evaluate the quality of a clustering process
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA. This must be the original network (before
+        the clustering)
+    new_busmap : dictionary
+        busmap used to cluster the network.
+    Returns
+    -------
+    modularity. The higher the best quality of the clustering.
+    """
+
+    busmap = pd.Series(busmap)
+    ac_buses = network.buses[network.buses.carrier == "AC"]
+    busmap = busmap[busmap.index.isin(ac_buses.index.astype(str))]
+    busmap.index = busmap.index.astype(str)
+
+    network.buses = network.buses[network.buses.carrier == "AC"]
+    network.calculate_dependent_values()
+    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom)).set_index(['bus0','bus1'])
+    links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
+
+    links = network.links[network.links.carrier == "DC"]
+    links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
+
+    G = nx.Graph()
+    G.add_nodes_from(network.buses.index)
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in lines.itertuples())
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
+    return nx.algorithms.community.quality.modularity(G, list(set(busmap[busmap==c].index) for c in busmap.unique()))
 
 
 def adjust_CH4_gen_carriers(self):
