@@ -738,18 +738,43 @@ if __name__ == "__main__":
     sys.stdout = log_file
 
     print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
-    print(datetime.datetime.now())
+    
+    spatial_resolution = [30, 30] # [50, 100, 150, 200, 250, 300, 400, 500] 
+    
+    spatial_method = ['kmeans', 'kmedoids-dijkstra']
+    
+    for i in range (0, len(spatial_method)):
 
-    sys.stdout = old_stdout
-    log_file.close()
-
+        args['network_clustering']['method'] = spatial_method[i]
+    
+        for j in range(0, len(spatial_resolution)): 
+    
+            args['network_clustering']['n_clusters_AC'] = spatial_resolution[i]
+            
+            args['csv_export'] = args['network_clustering']['method']+'/'+str(args['network_clustering']['n_clusters_AC'])
+            
+            print(' ')
+            print('method: ')
+            print(args['network_clustering']['method'])
+            print('resolution: ')
+            print(args['network_clustering']['n_clusters_AC'])
+            print(' ')
+            
+            old_stdout = sys.stdout
+            path_log = args['csv_export']
+            os.makedirs(path_log, exist_ok=True)
+            log_file = open(args['csv_export']+'/console.log',"w")
+            sys.stdout = log_file
+            
+            print(datetime.datetime.now())
+                        
+            etrago = run_etrago(args, json_path=None)
+            
+            args['load_shedding'] = False
+            
+            print(datetime.datetime.now())
+            
+            sys.stdout = old_stdout
+            log_file.close()
+            
     etrago.session.close()
-    # plots
-    # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
