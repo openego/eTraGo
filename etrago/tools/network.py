@@ -30,7 +30,6 @@ from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
 from etrago import __version__
-<<<<<<< HEAD
 from etrago.tools.io import (NetworkScenario,
                              extension,
                              decommissioning)
@@ -51,7 +50,6 @@ from etrago.tools.utilities import (set_branch_capacity,
                                     set_line_costs,
                                     set_trafo_costs,
                                     drop_sectors,
-                                    adapt_crossborder_buses,
                                     update_busmap,
                                     buses_by_country,
                                     delete_dispensable_ac_buses,
