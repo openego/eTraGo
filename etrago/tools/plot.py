@@ -2725,16 +2725,31 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
             ]
         )
     ].index
-    heat_gen_dispatch = self.network.generators_t.p.T.loc[heat_gen_ids].sum(
-        axis=0
+    heat_gen_dispatch = (
+        self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0) / 1e3
     )
 
-    heat_store_ids = self.network.stores.loc[
-        self.network.stores.carrier.isin(
-            ["central_heat_store", "rural_heat_store"]
+    links_id_hc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_charger", "rural_heat_store_charger"]
         )
     ].index
-    heat_store_dispatch = self.network.stores_t.p.T.loc[heat_store_ids].sum()
+    heat_store_charger_dispatch = (
+        self.network.links_t.p0.T.loc[links_id_hc].sum(axis=0) / 1e3
+    )
+
+    links_id_hdc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_discharger", "rural_heat_store_discharger"]
+        )
+    ].index
+    heat_store_discharger_dispatch = (
+        self.network.links_t.p1.T.loc[links_id_hdc].sum(axis=0) / 1e3
+    )
+
+    heat_store_dispatch_hb = (
+        -heat_store_discharger_dispatch - heat_store_charger_dispatch
+    )
 
     central_h = self.network.loads.loc[
         self.network.loads.carrier == "central_heat"
@@ -2742,16 +2757,20 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
     rural_h = self.network.loads.loc[
         self.network.loads.carrier == "rural_heat"
     ]
-    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1)
-    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1)
+    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1) / 1e3
+    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1) / 1e3
 
-    data = self.network.links_t.p1[
-        self.network.links.loc[
-            self.network.links.carrier == heat_gen_techs[0]
-        ].index.to_list()
-    ]
+    data = (
+        self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == heat_gen_techs[0]
+            ].index.to_list()
+        ]
+        / 1e3
+    )
 
     if stacked == True:
+        data = pd.DataFrame(-(data.sum(axis=1)))
         data = data.rename(columns={0: heat_gen_techs[0]})
 
         for i in heat_gen_techs[1:]:
@@ -2760,21 +2779,20 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
                     self.network.links.carrier == i
                 ].index.to_list()
             ]
-            data[i] = -(loads).sum(axis=1).resample(t_resolution).mean()
+            data[i] = -(loads).sum(axis=1) / 1e3
 
         fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
-        # (central_h_loads + rural_h_loads).resample('20H').mean().plot(ax = plt.gca(), label='central_heat + rural_heat Loads', legend=True)
-        data.plot.area(
+        data.resample(t_resolution).mean().plot.area(
             ax=ax,
             title="Stacked heat generation and demand",
-            ylabel="[MW]",
+            ylabel="[GW]",
             legend=True,
             stacked=True,
         )
 
-        (data.sum(axis=1) + heat_store_dispatch + heat_gen_dispatch).resample(
-            t_resolution
-        ).mean().plot.line(
+        (
+            data.sum(axis=1) + heat_store_dispatch_hb + heat_gen_dispatch
+        ).resample(t_resolution).mean().plot.line(
             ax=ax,
             legend=True,
             label="Total heat generation + heat store dispatch",
@@ -2782,11 +2800,11 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
         )
 
     else:
-        data = -data.sum(axis=1).resample(t_resolution).mean() / 1e3
+        data = -data.sum(axis=1) / 1e3
 
         fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
 
-        data.plot(
+        data.resample(t_resolution).mean().plot(
             ax=ax,
             title="Heat generation and demand",
             label=heat_gen_techs[0],
@@ -2800,16 +2818,23 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
                     self.network.links.carrier == i
                 ].index.to_list()
             ]
-            data = -data.sum(axis=1).resample(t_resolution).mean() / 1e3
-            data.plot(ax=ax, label=i, legend=True)
+            data = -data.sum(axis=1) / 1e3
+            data.resample(t_resolution).mean().plot(
+                ax=ax, label=i, legend=True
+            )
 
-    (
-        (central_h_loads + rural_h_loads).resample(t_resolution).mean() / 1e3
-    ).plot.line(
+    (central_h_loads + rural_h_loads).resample(t_resolution).mean().plot.line(
         ax=ax,
         legend=True,
         label="Total heat demand",
         color="black",
+        linestyle="dashed",
+    )
+    heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
+        ax=ax,
+        legend=True,
+        label="Heat store dispatch",
+        color="yellow",
         linestyle="dashed",
     )
 
