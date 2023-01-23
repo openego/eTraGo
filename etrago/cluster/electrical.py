@@ -419,13 +419,11 @@ def select_elec_network(etrago):
         n_clusters = settings["n_clusters_AC"]
     else:
         AC_filter = (elec_network.buses.carrier.values == "AC")
-
-        num_neighboring_country = len(
-            elec_network.buses[
-                AC_filter
-                & (elec_network.buses.country.values != "DE")
-            ]
-        )
+        
+        foreign_buses = elec_network.buses[(elec_network.buses.country != "DE") &
+                                      (elec_network.buses.carrier == "AC")]
+        
+        num_neighboring_country = len(foreign_buses[foreign_buses.index.isin(elec_network.loads.bus)])
 
         elec_network.buses = elec_network.buses[
             AC_filter
@@ -519,12 +517,13 @@ def preprocessing(etrago):
 
             busmap_foreign = pd.concat([busmap_foreign, busmap_country])
             medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
-
+        
+        """
         settings = etrago.args["network_clustering"]
 
         full_busmap = pd.Series(data=network.buses.index,
                                 index= network.buses.index)
-
+        
         for bus in busmap_foreign.index:
             full_busmap[bus] = busmap_foreign[bus]
 
@@ -552,8 +551,8 @@ def preprocessing(etrago):
         )
 
         etrago.update_busmap(full_busmap)
-
-        return clustering.network
+        """
+        return busmap_foreign
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
@@ -616,9 +615,9 @@ def preprocessing(etrago):
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
-    etrago.network = unify_foreign_buses(etrago)
+    busmap_foreign = unify_foreign_buses(etrago)
 
-    etrago.buses_by_country()
+    #etrago.buses_by_country()
 
     network_elec, n_clusters = select_elec_network(etrago)
 
@@ -654,19 +653,24 @@ def preprocessing(etrago):
             network=network_elec, save=False
         )
 
-    return network_elec, weight, n_clusters
+    return network_elec, weight, n_clusters, busmap_foreign
 
 
-def postprocessing(etrago, busmap, medoid_idx=None):
-
+def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     settings = etrago.args["network_clustering"]
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
-
+      
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method
     )
-
+    
+    # merge busmap for foreign buses with the German buses 
+    for bus in busmap_foreign.index:
+        busmap[bus] = busmap_foreign[bus]
+        if bus == busmap_foreign[bus]:
+            medoid_idx[bus] = bus
+    
     pd.DataFrame(
         busmap.items(), columns=["bus0", "bus1"]
     ).to_csv(
@@ -786,7 +790,7 @@ def run_spatial_clustering(self):
 
         self.network.generators.control = "PV"
 
-        elec_network, weight, n_clusters = preprocessing(self)
+        elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
 
@@ -803,7 +807,7 @@ def run_spatial_clustering(self):
                 self, elec_network.buses, elec_network.lines, weight, n_clusters
             )
 
-        self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
+        self.clustering, busmap = postprocessing(self, busmap, busmap_foreign, medoid_idx)
         self.update_busmap(busmap)
 
         if self.args["disaggregation"] != None:
