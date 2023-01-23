@@ -2685,3 +2685,60 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
+
+
+def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
+    """
+    Plots timeseries data for heat generation (and demand)
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    stacked : bool, optional
+        If True all TS data will be shown as stacked area plot. Total heat demand
+        will then also be plotted to check for matching generation and demand.
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    heat_gen_techs = ['central_resistive_heater', 'central_heat_pump', 'rural_heat_pump', 'central_gas_CHP_heat', 'central_gas_boiler', 'rural_gas_boiler']
+
+    if stacked == True:
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+        data = self.network.links_t.p1[self.network.links.loc[self.network.links.carrier == heat_gen_techs[0]].index.to_list()]
+        data = pd.DataFrame(-(data.sum(axis=1))).resample('20H').mean()
+        data = data.rename(columns={0:heat_gen_techs[0]})
+
+        for i in heat_gen_techs[1:]:
+            loads = self.network.links_t.p1[self.network.links.loc[self.network.links.carrier == i].index.to_list()]
+            data[i] = -(loads).sum(axis=1).resample('20H').mean()
+
+        heat_gen_ids = self.network.generators.loc[self.network.generators.carrier.isin(['solar_thermal_collector', 'geo_thermal', 'central_biomass_CHP_heat'])].index
+        heat_gen_dispatch = self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0)
+
+        heat_store_ids = self.network.stores.loc[self.network.stores.carrier.isin(['central_heat_store', 'rural_heat_store'])].index
+        heat_store_dispatch = self.network.stores_t.p.T.loc[heat_store_ids].sum()
+
+        central_h = self.network.loads.loc[self.network.loads.carrier == 'central_heat']
+        rural_h = self.network.loads.loc[self.network.loads.carrier == 'rural_heat']
+        central_h_loads = self.network.loads_t.p[central_h.index].sum(axis = 1)
+        rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis = 1)
+
+        #(central_h_loads + rural_h_loads).resample('20H').mean().plot(ax = plt.gca(), label='central_heat + rural_heat Loads', legend=True)
+        data.plot.area(ax = ax, title='Stacked Heat Generation and demand', ylabel = "[MW]", legend=True, stacked=True)
+
+        (data.sum(axis=1) + heat_store_dispatch + heat_gen_dispatch).resample('20H').mean().plot.line(ax = ax, legend=True, label = 'Total heat generation + heat store dispatch',  color = 'yellow')
+        (central_h_loads + rural_h_loads).resample('20H').mean().plot.line(ax = ax, legend=True, label = 'Total heat demand',  color = 'black', linestyle='dashed')
+
+    else:
+        print('a')
