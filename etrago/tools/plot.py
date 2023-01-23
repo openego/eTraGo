@@ -2822,19 +2822,20 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
             data.resample(t_resolution).mean().plot(
                 ax=ax, label=i, legend=True
             )
+        
+        heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Heat store dispatch",
+            color="yellow",
+            linestyle="dashed",
+        )
 
     (central_h_loads + rural_h_loads).resample(t_resolution).mean().plot.line(
         ax=ax,
         legend=True,
         label="Total heat demand",
         color="black",
-        linestyle="dashed",
-    )
-    heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
-        ax=ax,
-        legend=True,
-        label="Heat store dispatch",
-        color="yellow",
         linestyle="dashed",
     )
 
