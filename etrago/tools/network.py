@@ -42,7 +42,7 @@ from etrago.tools.execute import (
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import NetworkScenario, decommissioning, extension
-from etrago.tools.plot import plot_clusters, plot_grid
+from etrago.tools.plot import plot_grid, plot_clusters, plot_gas_generation, plot_gas_summary, plot_h2_generation, plot_h2_summary, plot_heat_loads
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
@@ -237,6 +237,16 @@ class Etrago:
     update_busmap = update_busmap
 
     plot_clusters = plot_clusters
+
+    plot_gas_generation = plot_gas_generation
+
+    plot_gas_summary = plot_gas_summary
+
+    plot_h2_generation = plot_h2_generation
+
+    plot_h2_summary = plot_h2_summary
+
+    plot_heat_loads = plot_heat_loads
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
