@@ -2252,9 +2252,7 @@ def plot_gas_generation(
     None.
 
     """
-    fig, ax = plt.subplots(
-        figsize=(20, 10), dpi=300
-    )
+    fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
 
     colors = coloring()
 
@@ -2280,7 +2278,7 @@ def plot_gas_generation(
         ylabel="[GW]",
         legend=True,
         label="Total Gas Dispatch",
-    ) 
+    )
     total_gen_per_t.plot(
         ax=ax, label="CH4 Generator Dispatch", legend=True, color=colors["CH4"]
     )
@@ -2709,36 +2707,111 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     """
 
-    heat_gen_techs = ['central_resistive_heater', 'central_heat_pump', 'rural_heat_pump', 'central_gas_CHP_heat', 'central_gas_boiler', 'rural_gas_boiler']
+    heat_gen_techs = [
+        "central_resistive_heater",
+        "central_heat_pump",
+        "rural_heat_pump",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        "rural_gas_boiler",
+    ]
+
+    heat_gen_ids = self.network.generators.loc[
+        self.network.generators.carrier.isin(
+            [
+                "solar_thermal_collector",
+                "geo_thermal",
+                "central_biomass_CHP_heat",
+            ]
+        )
+    ].index
+    heat_gen_dispatch = self.network.generators_t.p.T.loc[heat_gen_ids].sum(
+        axis=0
+    )
+
+    heat_store_ids = self.network.stores.loc[
+        self.network.stores.carrier.isin(
+            ["central_heat_store", "rural_heat_store"]
+        )
+    ].index
+    heat_store_dispatch = self.network.stores_t.p.T.loc[heat_store_ids].sum()
+
+    central_h = self.network.loads.loc[
+        self.network.loads.carrier == "central_heat"
+    ]
+    rural_h = self.network.loads.loc[
+        self.network.loads.carrier == "rural_heat"
+    ]
+    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1)
+    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1)
+
+    data = self.network.links_t.p1[
+        self.network.links.loc[
+            self.network.links.carrier == heat_gen_techs[0]
+        ].index.to_list()
+    ]
 
     if stacked == True:
+        data = data.rename(columns={0: heat_gen_techs[0]})
+
+        for i in heat_gen_techs[1:]:
+            loads = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data[i] = -(loads).sum(axis=1).resample(t_resolution).mean()
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        # (central_h_loads + rural_h_loads).resample('20H').mean().plot(ax = plt.gca(), label='central_heat + rural_heat Loads', legend=True)
+        data.plot.area(
+            ax=ax,
+            title="Stacked heat generation and demand",
+            ylabel="[MW]",
+            legend=True,
+            stacked=True,
+        )
+
+        (data.sum(axis=1) + heat_store_dispatch + heat_gen_dispatch).resample(
+            t_resolution
+        ).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total heat generation + heat store dispatch",
+            color="yellow",
+        )
+
+    else:
+        data = -data.sum(axis=1).resample(t_resolution).mean() / 1e3
 
         fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
 
-        data = self.network.links_t.p1[self.network.links.loc[self.network.links.carrier == heat_gen_techs[0]].index.to_list()]
-        data = pd.DataFrame(-(data.sum(axis=1))).resample('20H').mean()
-        data = data.rename(columns={0:heat_gen_techs[0]})
+        data.plot(
+            ax=ax,
+            title="Heat generation and demand",
+            label=heat_gen_techs[0],
+            ylabel="[GW]",
+            legend=True,
+        )
 
         for i in heat_gen_techs[1:]:
-            loads = self.network.links_t.p1[self.network.links.loc[self.network.links.carrier == i].index.to_list()]
-            data[i] = -(loads).sum(axis=1).resample('20H').mean()
+            data = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data = -data.sum(axis=1).resample(t_resolution).mean() / 1e3
+            data.plot(ax=ax, label=i, legend=True)
 
-        heat_gen_ids = self.network.generators.loc[self.network.generators.carrier.isin(['solar_thermal_collector', 'geo_thermal', 'central_biomass_CHP_heat'])].index
-        heat_gen_dispatch = self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0)
+    (
+        (central_h_loads + rural_h_loads).resample(t_resolution).mean() / 1e3
+    ).plot.line(
+        ax=ax,
+        legend=True,
+        label="Total heat demand",
+        color="black",
+        linestyle="dashed",
+    )
 
-        heat_store_ids = self.network.stores.loc[self.network.stores.carrier.isin(['central_heat_store', 'rural_heat_store'])].index
-        heat_store_dispatch = self.network.stores_t.p.T.loc[heat_store_ids].sum()
-
-        central_h = self.network.loads.loc[self.network.loads.carrier == 'central_heat']
-        rural_h = self.network.loads.loc[self.network.loads.carrier == 'rural_heat']
-        central_h_loads = self.network.loads_t.p[central_h.index].sum(axis = 1)
-        rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis = 1)
-
-        #(central_h_loads + rural_h_loads).resample('20H').mean().plot(ax = plt.gca(), label='central_heat + rural_heat Loads', legend=True)
-        data.plot.area(ax = ax, title='Stacked Heat Generation and demand', ylabel = "[MW]", legend=True, stacked=True)
-
-        (data.sum(axis=1) + heat_store_dispatch + heat_gen_dispatch).resample('20H').mean().plot.line(ax = ax, legend=True, label = 'Total heat generation + heat store dispatch',  color = 'yellow')
-        (central_h_loads + rural_h_loads).resample('20H').mean().plot.line(ax = ax, legend=True, label = 'Total heat demand',  color = 'black', linestyle='dashed')
-
-    else:
-        print('a')
+    if save_path:
+        plt.savefig(save_path, dpi=300)
