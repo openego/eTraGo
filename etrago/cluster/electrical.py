@@ -554,40 +554,6 @@ def preprocessing(etrago):
             busmap_foreign = pd.concat([busmap_foreign, busmap_country])
             medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
 
-        """
-        settings = etrago.args["network_clustering"]
-
-        full_busmap = pd.Series(data=network.buses.index,
-                                index= network.buses.index)
-        
-        for bus in busmap_foreign.index:
-            full_busmap[bus] = busmap_foreign[bus]
-
-        network.generators["weight"] = network.generators["p_nom"]
-        aggregate_one_ports = network.one_port_components.copy()
-        aggregate_one_ports.discard("Generator")
-
-        clustering = get_clustering_from_busmap(
-            network,
-            full_busmap,
-            aggregate_generators_weighted=True,
-            one_port_strategies=strategies_one_ports(),
-            generator_strategies=strategies_generators(),
-            aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=settings["line_length_factor"],
-        )
-
-        # restore the coordinates of the foreign buses
-        for bus in foreign_buses_load.index:
-            clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
-            clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
-
-        clustering.network.links, clustering.network.links_t = group_links(
-            clustering.network
-        )
-
-        etrago.update_busmap(full_busmap)
-        """
         return busmap_foreign
 
     network = etrago.network
@@ -662,8 +628,6 @@ def preprocessing(etrago):
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
     busmap_foreign = unify_foreign_buses(etrago)
-
-    # etrago.buses_by_country()
 
     network_elec, n_clusters = select_elec_network(etrago)
 
