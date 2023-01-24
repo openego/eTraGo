@@ -731,13 +731,13 @@ def weighting_for_scenario(network, save=None):
     """
     def calc_availability_factor(gen):
         if gen["carrier"] in time_dependent:
+            cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+        else:
             try:
-                cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
+                cf = fixed_capacity_fac[gen["carrier"]]
             except:
                 print(gen)
-                cf = 0.5
-        else:
-            cf = fixed_capacity_fac[gen["carrier"]]
+                cf = 1
         return cf
 
     time_dependent = [
@@ -758,6 +758,9 @@ def weighting_for_scenario(network, save=None):
         "gas": 1,
         "oil": 1,
         "others": 1,
+        "coal": 1,
+        "lignite": 1,
+        "nuclear": 1,
         }
 
     gen = network.generators[["bus", "carrier", "p_nom"]].copy()
