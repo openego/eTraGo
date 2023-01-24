@@ -660,17 +660,19 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     settings = etrago.args["network_clustering"]
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
-      
+
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method
     )
-    
+
     # merge busmap for foreign buses with the German buses 
-    for bus in busmap_foreign.index:
-        busmap[bus] = busmap_foreign[bus]
-        if bus == busmap_foreign[bus]:
-            medoid_idx[bus] = bus
-    
+    if settings["cluster_foreign_AC"] == False:
+        for bus in busmap_foreign.index:
+            busmap[bus] = busmap_foreign[bus]
+            if bus == busmap_foreign[bus]:
+                medoid_idx[bus] = bus
+            medoid_idx.index = medoid_idx.index.astype("int")
+
     pd.DataFrame(
         busmap.items(), columns=["bus0", "bus1"]
     ).to_csv(
@@ -697,8 +699,8 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
             cluster = int(i)
             if cluster in medoid_idx.index:
                 medoid = str(medoid_idx.loc[cluster])
-                clustering.network.buses.at[i, 'x'] = network.buses["x"].loc[medoid]
-                clustering.network.buses.at[i, 'y'] = network.buses["y"].loc[medoid]
+                clustering.network.buses.at[i, 'x'] = etrago.network.buses["x"].loc[medoid]
+                clustering.network.buses.at[i, 'y'] = etrago.network.buses["y"].loc[medoid]
 
     clustering.network.links, clustering.network.links_t = group_links(
         clustering.network
