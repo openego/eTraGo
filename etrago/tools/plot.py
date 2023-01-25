@@ -1651,7 +1651,7 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    breakpoint()
+    # breakpoint()
     linkcarrier = pd.Series(
         data=network.links.carrier, index=network.links.index
     )
@@ -1792,7 +1792,7 @@ def plot_grid(
         network = self.disaggregated_network.copy()
     else:
         network = self.network.copy()
-        breakpoint()
+        # breakpoint()
     # Set colors for plotting
     plotting_colors(network)
 
@@ -1875,7 +1875,7 @@ def plot_grid(
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
-    breakpoint()
+    # breakpoint()
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -1920,8 +1920,8 @@ def plot_grid(
     #  logger.warning("bus_color {} undefined".format(bus_colors))
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
-        bus_unit = ""
-        bus_legend = ""
+        # bus_unit = ""
+        # bus_legend = ""
         bus_sizes = pd.Series(
             data=network.buses.carrier, index=network.buses.index
         )
@@ -2002,6 +2002,7 @@ def plot_grid(
     cb = plt.colorbar(
         ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
     )
+
     # Set legend label
     cb.set_label(label)
 
