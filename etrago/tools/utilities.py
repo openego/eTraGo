@@ -2364,7 +2364,7 @@ def adjust_CH4_gen_carriers(self):
     the contraint applying differently to each of them.
     """
 
-    if self.args["scn_name"] == "eGon2035":
+    if "eGon2035" in self.args["scn_name"]:
 
         # Define marginal cost
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
@@ -2390,7 +2390,7 @@ def adjust_CH4_gen_carriers(self):
                 (self.network.generators.carrier == "CH4")
                 & (
                     self.network.generators.marginal_cost
-                    == marginal_cost["CH4"]
+                    != marginal_cost["biogas"]
                 )
                 & (
                     self.network.generators.bus.astype(str).isin(
