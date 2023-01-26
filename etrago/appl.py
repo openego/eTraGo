@@ -439,7 +439,7 @@ def run_etrago(args, json_path):
         args["scn_name"] = "eGon2035"
         medium_flex = True
 
-    etrago = Etrago(args, json_path)
+    etrago = Etrago(args, json_path=json_path)
 
     # import network from database
     etrago.build_network_from_db()
