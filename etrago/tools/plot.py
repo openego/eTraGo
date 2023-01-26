@@ -121,6 +121,7 @@ def coloring():
         "power_to_H2": "cyan",
         "H2_overground": "cyan",
         "H2_underground": "cyan",
+        "H2": "cyan",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -722,7 +723,7 @@ def calc_dispatch_per_carrier(network, timesteps):
     return dist
 
 
-def calc_storage_expansion_per_bus(network):
+def calc_storage_expansion_per_bus(network, carriers=["battery", "H2_overground", "H2_underground", "rural_heat_store", "central_heat_store"]):
     """Function that calculates storage expansion per bus and technology
 
     Parameters
@@ -736,77 +737,82 @@ def calc_storage_expansion_per_bus(network):
         storage expansion per bus and technology
 
     """
-
-    batteries = network.storage_units[network.storage_units.carrier == "battery"]
-    h2_overground = network.stores[network.stores.carrier == "H2_overground"]
-    h2_underground = network.stores[network.stores.carrier == "H2_underground"]
-    rural_heat = network.stores[network.stores.carrier == "rural_heat_store"]
-    central_heat = network.stores[network.stores.carrier == "central_heat_store"]
-    # hydrogen = network.storage_units[network.storage_units.carrier ==
-    #                                  'extendable_hydrogen_storage']
-    battery_distribution = (
-        network.storage_units.p_nom_opt[batteries.index]
-        .groupby(network.storage_units.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_over_distribution = (
-        network.stores.e_nom_opt[h2_overground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_under_distribution = (
-        network.stores.e_nom_opt[h2_underground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    rural_heat_distribution = (
-        network.stores.e_nom_opt[rural_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    central_heat_distribution = (
-        network.stores.e_nom_opt[central_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    # hydrogen_distribution =\
-    #     network.storage_units.p_nom_opt[hydrogen.index].groupby(
-    #         network.storage_units.bus).sum().reindex(
-    #             network.buses.index, fill_value=0.)
     index = [(idx, "battery") for idx in network.buses.index]
-    for c in [
-        "H2_overground",
-        "H2_underground",
-        "rural_heat_store",
-        "central_heat_store",
-    ]:
-        index.extend([(idx, c) for idx in network.buses.index])
+    for c in carriers:
+        if c != "battery":
+            index.extend([(idx, c) for idx in network.buses.index])
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
         index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]), dtype=float
     )
 
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "battery"
-    ] = battery_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_overground"
-    ] = h2_over_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_underground"
-    ] = h2_under_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "rural_heat_store"
-    ] = rural_heat_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "central_heat_store"
-    ] = central_heat_distribution.sort_index().values
+    if "battery" in carriers:
+        batteries = network.storage_units[network.storage_units.carrier == "battery"]
+        battery_distribution = (
+            network.storage_units.p_nom_opt[batteries.index]
+            .groupby(network.storage_units.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        ).mul(6)
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "battery"
+        ] = battery_distribution.sort_index().values
+    if "H2_overground" in carriers:        
+        h2_overground = network.stores[network.stores.carrier == "H2_overground"]
+        h2_over_distribution = (
+            network.stores.e_nom_opt[h2_overground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "H2_overground"
+        ] = h2_over_distribution.sort_index().values
+        
+    if "H2_overground" in carriers:        
+        h2_underground = network.stores[network.stores.carrier == "H2_underground"]
+        h2_under_distribution = (
+            network.stores.e_nom_opt[h2_underground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "H2_underground"
+        ] = h2_under_distribution.sort_index().values
+        
+    if "rural_heat_store" in carriers:        
+        rural_heat = network.stores[network.stores.carrier == "rural_heat_store"]
+        rural_heat_distribution = (
+            network.stores.e_nom_opt[rural_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "rural_heat_store"
+        ] = rural_heat_distribution.sort_index().values
+    if "central_heat_store" in carriers:
+        central_heat = network.stores[network.stores.carrier == "central_heat_store"]
+        central_heat_distribution = (
+            network.stores.e_nom_opt[central_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "central_heat_store"
+        ] = central_heat_distribution.sort_index().values
+    # hydrogen_distribution =\
+    #     network.storage_units.p_nom_opt[hydrogen.index].groupby(
+    #         network.storage_units.bus).sum().reindex(
+    #             network.buses.index, fill_value=0.)
+
+
+
+
     # dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
     #         hydrogen_distribution.sort_index().values
     # network.carriers.color['hydrogen_storage'] = 'orange'
@@ -1772,7 +1778,7 @@ def plot_grid(
         link_colors = network.links.v_nom
     elif line_colors == "expansion_abs":
         title = "Network expansion"
-        label = "network expansion in MW"
+        label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
@@ -1836,6 +1842,16 @@ def plot_grid(
     elif bus_colors == "storage_expansion":
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        
+        
+        #scale heat store representation
+        bus_sizes[bus_sizes.index.get_level_values('carrier').str.contains('heat')] /=10
+        
+        bus_legend = "Storage expansion"
+        bus_unit = "GW"
+    elif bus_colors == "h2_battery_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network, carriers=["battery", "H2_overground", "H2_underground"])
         bus_legend = "Storage expansion"
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
@@ -1909,8 +1925,8 @@ def plot_grid(
         link_widths.loc[network.links.carrier != "DC"] = 0
 
     ll = network.plot(
-        line_colors=line_colors,
-        link_colors=link_colors,
+        line_colors=line_colors.mul(1e-3),
+        link_colors=link_colors.mul(1e-3),
         line_cmap=plt.cm.jet,
         link_cmap=plt.cm.jet,
         bus_sizes=bus_sizes,
@@ -1928,14 +1944,18 @@ def plot_grid(
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
         handles = make_legend_circles_for(
-            [bus_sizes.min(), bus_sizes.max()], scale=1, facecolor="gray"
+             [bus_sizes.max(), bus_sizes.max(), bus_sizes.max()], scale=1, facecolor=["gray", "gray", "gray"]
         )
         labels = [
-            ("{} " + bus_unit).format(s)
-            for s in (
-                round(bus_sizes.min() / bus_scaling / 1000, 0),
-                round(bus_sizes.max() / bus_scaling / 1000, 0),
-            )
+            f"{round(bus_sizes.max() / bus_scaling / 1000, 0)} GWh_el",
+            f"{round(bus_sizes.max() / bus_scaling / 1000, 0)} GWh_H2",
+            f"{round(bus_sizes.max() / bus_scaling / 100, 0)} GWh_th",
+            
+            
+            # ("{} " + bus_unit).format(s)
+            # for s in (
+            #     round(bus_sizes.max() / bus_scaling / 1000, 0),
+            # )
         ]
 
         l2 = ax.legend(
@@ -1983,7 +2003,7 @@ def plot_grid(
 
         # colorbar for line heatmap
         cb = plt.colorbar(
-            ll[2], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
+            ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
         )
         # Set legend label
         cb.set_label(label)
