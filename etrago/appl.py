@@ -570,6 +570,69 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
 
+    # Russian (gas) bus
+    RU_bus_index = (etrago.network.buses[etrago.network.buses.country == "RU"].index)[0]
+    # Delete connexion RU - PL
+    PL_bus_index = (
+        etrago.network.buses[
+            (etrago.network.buses.country == "PL")
+            & (etrago.network.buses.carrier == "CH4")
+        ].index
+    )[0]
+    etrago.network.links = etrago.network.links[
+        ~(
+            (
+                (etrago.network.links.bus0 == RU_bus_index)
+                & (etrago.network.links.bus1 == PL_bus_index)
+            )
+            | (
+                (etrago.network.links.bus1 == RU_bus_index)
+                & (etrago.network.links.bus0 == PL_bus_index)
+            )
+        )
+    ]
+
+    # Add generator in PL
+    # LNG capacities from https://www.gie.eu/transparency/databases/lng-database/
+    conversion_factor_2 = 0.0105  # CM/h to MWh/h
+    conversion_factor_3 = 10500  # MCM to MWh
+    cap_PL = (550000 + 164000) * conversion_factor_2
+    cap_PL_y = 6100 * conversion_factor_3
+
+    etrago.network.add(
+        "Generator",
+        name="PL_gen_LNG",
+        bus=PL_bus_index,
+        carrier="CH4",
+        p_nom=cap_PL,
+        marginal_cost=(40.9765 * 1.3),
+        up_time_before=0,
+    )
+    etrago.network.generators.at["PL_gen_LNG", "scn_name"] = "eGon2035"
+    etrago.network.generators.at["PL_gen_LNG", "e_nom_max"] = cap_PL_y
+
+    # Modify RU generator -> LNG import in Germany
+    # LNG capacities from https://github.com/PyPSA/pypsa-eur-sec/blob/master/data/gas_network/planned_LNGs.csv
+    RU_gen = (
+        etrago.network.generators[etrago.network.generators.bus == RU_bus_index].index
+    )[0]
+    conversion_factor_1 = 437.5  # MCM/day to MWh/h
+    cap_DE = (27.4 + 19.2 + 32.9) * conversion_factor_1
+    etrago.network.generators.at[RU_gen, "p_nom"] = cap_DE
+    etrago.network.generators.at[RU_gen, "e_nom_max"] = cap_DE * 8760
+    etrago.network.generators.at[RU_gen, "marginal_cost"] *= 1.3
+    # Update connexion RU - DE
+    RU_DE_link_id = (
+        etrago.network.links[
+            (etrago.network.links.carrier == "CH4")
+            & (
+                (etrago.network.links.bus0 == RU_bus_index)
+                | ((etrago.network.links.bus1 == RU_bus_index))
+            )
+        ].index
+    )[0]
+    etrago.network.links.at[RU_DE_link_id, "p_nom"] = cap_DE
+
     # Set efficiences of CHP
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
