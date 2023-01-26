@@ -392,8 +392,10 @@ def foreign_links(self):
         ]
 
         foreign_links = network.links[
-            (network.links.bus0.astype(str).isin(foreign_buses.index)
-            | network.links.bus1.astype(str).isin(foreign_buses.index))
+            (
+                network.links.bus0.astype(str).isin(foreign_buses.index)
+                | network.links.bus1.astype(str).isin(foreign_buses.index)
+            )
             & (network.links.carrier == "DC")
         ]
 
@@ -2130,7 +2132,12 @@ def check_args(etrago):
 
     """
 
-    names = ["eGon2035", "eGon100RE", "eGon2035_lowflex", "eGon2035_mediumflex"]
+    names = [
+        "eGon2035",
+        "eGon100RE",
+        "eGon2035_lowflex",
+        "eGon2035_mediumflex",
+    ]
     assert (
         etrago.args["scn_name"] in names
     ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
