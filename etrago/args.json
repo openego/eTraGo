@@ -12,18 +12,26 @@
         "q_allocation": "p_nom"
     },
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",
-    "solver_options": {},
+    "solver_options": {
+        "BarConvTol": 0.00001,
+        "FeasibilityTol": 0.0001,
+        "crossover":0,
+        "logFile": "eGon2035_solver_etrago.log",
+        "threads": 4,
+        "method":2, 
+        "BarHomogeneous":1
+        },
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
     "scn_decommissioning": null,
     "lpfile": false,
-    "csv_export": "results",
+    "csv_export": "results_eGon2035",
     "extendable": {
         "extendable_components": [
-            "as_in_db"
+            "as_in_db","foreign_storage"
         ],
         "upper_bounds_grid": {
             "grid_max_D": null,
@@ -50,13 +58,27 @@
         }
     },
     "generator_noise": 789456,
-    "extra_functionality": {},
+    "extra_functionality": {
+    "cross_border_flow_per_country": {
+    "DK":[-17000000, 10000000000],
+    "FR":[-50000000, 10000000000],
+    "AT":[-8000000, 10000000000],
+    "CH":[-18000000, 10000000000],
+    "NL":[-12000000, 10000000000],
+    "SE":[-5000000, 10000000000],
+    "PL":[-5000000, 10000000000],
+    "CZ":[-6000000, 10000000000]
+    }
+    },
     "network_clustering": {
+        "random_state": 42,
+        "CPU_cores": 4,
         "active": true,
         "method": "kmedoids-dijkstra",
-        "n_clusters_AC": 30,
+        "method_gas": "kmeans",
+        "n_clusters_AC": 300,
         "cluster_foreign_AC": false,
-        "n_clusters_gas": 30,
+        "n_clusters_gas": 80,
         "cluster_foreign_gas": false,
         "k_busmap": false,
         "kmeans_gas_busmap": false,
@@ -74,30 +96,18 @@
     "sector_coupled_clustering": {
         "active": true,
         "carrier_data": {
-            "H2_ind_load": {
-                "base": [
-                    "H2_grid"
-                ],
-                "strategy": "consecutive"
-            },
             "central_heat": {
                 "base": [
                     "CH4",
                     "AC"
                 ],
-                "strategy": "consecutive"
-            },
-            "rural_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "consecutive"
+                "strategy": "simultaneous"
             }
         }
     },
     "network_clustering_ehv": false,
-    "disaggregation": "uniform",
+    "disaggregation": null,
+    "dispatch_disaggregation": false,
     "snapshot_clustering": {
         "active": false,
         "method": "typical_periods",
@@ -106,14 +116,14 @@
         "n_clusters": 5,
         "n_segments": 5
     },
-    "skip_snapshots": 3,
+    "skip_snapshots": 5,
     "branch_capacity_factor": {
         "HV": 0.5,
         "eHV": 0.7
     },
     "load_shedding": false,
     "foreign_lines": {
-        "carrier": "AC",
+        "carrier": "DC",
         "capacity": "osmTGmod"
     },
     "comments": null

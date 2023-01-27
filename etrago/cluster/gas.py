@@ -347,6 +347,9 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
         def att_H2_energy_share(H2_vol_share):
             H2_vol2en = {
                 0: 0,
+                0.001: 3e-6,
+                0.01: 3e-5,
+                0.1: 0.00030,
                 2: 0.00612,
                 5: 0.01562,
                 10: 0.03242,
