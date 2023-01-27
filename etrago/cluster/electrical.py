@@ -764,7 +764,8 @@ def weighting_for_scenario(network, save=None):
         network.buses.index, fill_value=0.0
     )
 
-    load = network.loads_t.p_set.mean().groupby(network.loads.bus).sum().reindex(
+    acloads = network.loads[network.loads.carrier == 'AC'].index
+    load = network.loads_t.p_set[acloads].mean().groupby(network.loads.bus).sum().reindex(
         network.buses.index, fill_value=0.0)
 
     w = gen + storage + load
@@ -778,7 +779,6 @@ def weighting_for_scenario(network, save=None):
         weight.to_csv(save)
 
     return weight
-
 
 def run_spatial_clustering(self):
 
