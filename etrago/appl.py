@@ -439,6 +439,7 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
