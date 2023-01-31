@@ -746,7 +746,7 @@ def export_to_csv(self, path):
             os.makedirs(path_clus, exist_ok=True)
 
         with open(os.path.join(path_clus, "busmap.json"), "w") as d:
-            json.dump(self.busmap["busmap"], d, indent=4)
+            json.dump(self.busmap["busmap"].to_dict(), d, indent=4)
         self.busmap["orig_network"].export_to_csv_folder(path_clus)
         data = pd.read_csv(os.path.join(path_clus, "network.csv"))
         data = data.apply(_enumerate_row, axis=1)

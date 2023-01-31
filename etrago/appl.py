@@ -436,7 +436,6 @@ def run_etrago(args, json_path):
 
     """
     etrago = Etrago(args, json_path)
-    # etrago = Etrago(csv_folder_name='Adjusted_network')
     # import network from database
     etrago.build_network_from_db()
 
@@ -549,14 +548,16 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     # etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_30_10_snapshots")
-    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ac")
+    # etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ac")
+    #etrago = Etrago(csv_folder_name='asdf_bug_test2')
+    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_yiha1")
 
     etrago.spatial_clustering_gas()
     # etrago.plot_clusters(
     #     carrier="CH4", save_path="final_ci_dump_HAC_CH4_30_10_snapshots"
     # )
 
-    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ch4")
+    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_yiha2")
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()

@@ -819,14 +819,14 @@ def run_spatial_clustering_gas(self):
             b[:, 1] = buses_to_aggregate.y.values
             D_spatial = haversine(b, a)
 
-            busmap = pd.Series(
+            pre_busmap = pd.Series(
                 self.network.buses.loc[buses_with_ts.index]
                 .iloc[np.argmin(D_spatial, axis=1)]
                 .index,
                 index=buses_to_aggregate.index,
             )
             busmap = pd.concat(
-                [busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
+                [pre_busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
             )
 
             medoid_idx = buses_with_ts
@@ -834,7 +834,9 @@ def run_spatial_clustering_gas(self):
             self.network.generators.control = "PV"
 
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+
             self.update_busmap(busmap)
+            #pre_aggr_links = clustering.links
 
             # self.network.generators.control = "PV"
 
@@ -891,6 +893,10 @@ def run_spatial_clustering_gas(self):
         elif method == "hac":
 
             busmap = hac_clustering(self, gas_network, n_clusters)
+            # pre_busmap[pre_busmap.index] = busmap[pre_busmap.values].values
+            # busmap = pd.concat(
+            #     [busmap, pre_busmap]
+            # )
             medoid_idx = None
 
         else:
