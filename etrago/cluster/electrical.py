@@ -932,12 +932,18 @@ def run_spatial_clustering(self):
             logger.info("HAC: Pre-aggregation finished")
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         else:
             elec_network, weight, n_clusters = preprocessing(self)
             self.network.generators.control = "PV"
 =======
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 >>>>>>> dev
+=======
+        # else:
+        elec_network, weight, n_clusters = preprocessing(self)
+        # self.network.generators.control = "PV"
+>>>>>>> Stashed changes
 =======
         # else:
         elec_network, weight, n_clusters = preprocessing(self)
