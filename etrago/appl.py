@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 40,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -102,10 +102,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "hac",  # choose clustering method: kmeans or kmedoids-dijkstra or hac
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
-        "n_clusters_gas": 30,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 43,  # total n    umber of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -128,7 +128,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -435,13 +435,11 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    #etrago = Etrago(args, json_path)
-    etrago = Etrago(csv_folder_name='ci_dump_HAC_clustered_300_43')
+    etrago = Etrago(args, json_path)
+    # etrago = Etrago(csv_folder_name='Adjusted_network')
     # import network from database
-    # etrago.build_network_from_db()
+    etrago.build_network_from_db()
 
-
-    etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -449,131 +447,142 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-    # etrago.network.storage_units.lifetime = np.inf
-    # etrago.network.transformers.lifetime = 40  # only temporal fix
-    # etrago.network.lines.lifetime = 40  # only temporal fix until either the
-    # # PyPSA network clustering function
-    # # is changed (taking the mean) or our
-    # # data model is altered, which will
-    # # happen in the next data creation run
 
-    # etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
-    #     etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
-    # ].transpose()
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
+        etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
+    ].transpose()
 
-    # # Set gas grid links bidirectional
-    # etrago.network.links.loc[
-    #     etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
-    # ] = -1.0
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
+    ] = -1.0
 
-    # # Set efficiences of CHP
-    # etrago.network.links.loc[
-    #     etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
-    #     "efficiency",
-    # ] = 0.43
+    # Set efficiences of CHP
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
+        "efficiency",
+    ] = 0.43
 
-    # etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
-    # etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
-    # etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
+    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
-    # etrago.adjust_network()
+    etrago.adjust_network()
 
-    # # ehv network clustering
-    # etrago.ehv_clustering()
+    # ehv network clustering
+    etrago.ehv_clustering()
 
-    # # The following lines and links are added to prevent sub_networks in the resp. grid
-    # if etrago.args['network_clustering']['method'] == 'hac':
-    #     etrago.network.add(
-    #         "Line",
-    #         name="123456",
-    #         bus0="32461",
-    #         bus1="33483",
-    #         carrier="AC",
-    #         x=2.61,
-    #         r=0.76,
-    #         g=0,
-    #         b=8.18e-5,
-    #         s_nom=520,
-    #         s_nom_extendable=True,
-    #         s_nom_min=520,
-    #         lifetime=40,
-    #         num_parallel=1,
-    #     )
-    #     etrago.network.add(
-    #         "Line",
-    #         name="123457",
-    #         bus0="33515",
-    #         bus1="33162",
-    #         carrier="AC",
-    #         x=2.61,
-    #         r=0.76,
-    #         g=0,
-    #         b=8.18e-5,
-    #         s_nom=520,
-    #         s_nom_extendable=True,
-    #         s_nom_min=520,
-    #         lifetime=40,
-    #         num_parallel=1,
-    #     )
+    # The following lines and links are added to prevent sub_networks in the resp. grid
+    if etrago.args['network_clustering']['method'] == 'hac':
+        etrago.network.add(
+            "Line",
+            name="123456",
+            bus0="32461",
+            bus1="33483",
+            carrier="AC",
+            x=2.61,
+            r=0.76,
+            g=0,
+            b=8.18e-5,
+            s_nom=520,
+            s_nom_extendable=True,
+            s_nom_min=520,
+            lifetime=40,
+            num_parallel=1,
+        )
+        etrago.network.add(
+            "Line",
+            name="123457",
+            bus0="33515",
+            bus1="33162",
+            carrier="AC",
+            x=2.61,
+            r=0.76,
+            g=0,
+            b=8.18e-5,
+            s_nom=520,
+            s_nom_extendable=True,
+            s_nom_min=520,
+            lifetime=40,
+            num_parallel=1,
+        )
 
-    # if etrago.args['network_clustering']['method_gas'] == 'hac':
-    #     etrago.network.add(
-    #         "Link",
-    #         name="234567",
-    #         bus0="48044",
-    #         bus1="47391",
-    #         carrier="CH4",
-    #         efficiency=1.0,
-    #         p_nom=27125.0,
-    #         p_min_pu=-1.0,
-    #     )
-    #     etrago.network.add(
-    #         "Link",
-    #         name="234568",
-    #         bus0="47833",
-    #         bus1="47547",
-    #         carrier="CH4",
-    #         efficiency=1.0,
-    #         p_nom=27125.0,
-    #         p_min_pu=-1.0,
-    #     )
+    etrago.network.add(
+            "Line",
+            name="123459",
+            bus0="28070",
+            bus1="27442",
+            carrier="AC",
+            x=2.61,
+            r=0.76,
+            g=0,
+            b=8.18e-5,
+            s_nom=520,
+            s_nom_extendable=True,
+            s_nom_min=520,
+            lifetime=40,
+            num_parallel=1,
+        )
 
-    # # spatial clustering
-    # etrago.spatial_clustering()
+    if etrago.args['network_clustering']['method_gas'] == 'hac':
+        etrago.network.add(
+            "Link",
+            name="234567",
+            bus0="48044",
+            bus1="47391",
+            carrier="CH4",
+            efficiency=1.0,
+            p_nom=27125.0,
+            p_min_pu=-1.0,
+        )
+        etrago.network.add(
+            "Link",
+            name="234568",
+            bus0="47833",
+            bus1="47547",
+            carrier="CH4",
+            efficiency=1.0,
+            p_nom=27125.0,
+            p_min_pu=-1.0,
+        )
+
+    # spatial clustering
+    etrago.spatial_clustering()
     # etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_30_10_snapshots")
+    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ac")
 
-    # etrago.spatial_clustering_gas()
+    etrago.spatial_clustering_gas()
     # etrago.plot_clusters(
     #     carrier="CH4", save_path="final_ci_dump_HAC_CH4_30_10_snapshots"
     # )
 
-    # etrago.export_to_csv("ci_dump_HAC_clustered_300_43")
+    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ch4")
 
-    # etrago.args["load_shedding"] = True
-    # etrago.load_shedding()
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
 
-    # # snapshot clustering
-    # etrago.snapshot_clustering()
+    # snapshot clustering
+    etrago.snapshot_clustering()
 
-    # # skip snapshots
-    # etrago.skip_snapshots()
+    # skip snapshots
+    etrago.skip_snapshots()
 
-    # # start linear optimal powerflow calculations
-    # # needs to be adjusted for new sectors
-    # etrago.lopf()
+    # start linear optimal powerflow calculations
+    # needs to be adjusted for new sectors
+    etrago.lopf()
 
-    # # conduct lopf with full complex timeseries for dispatch disaggregation
-    # etrago.dispatch_disaggregation()
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.dispatch_disaggregation()
 
-    # # start power flow based on lopf results
-    # etrago.pf_post_lopf()
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
-    # # spatial disaggregation
-    # # needs to be adjusted for new sectors
-    # etrago.disaggregation()
+    # spatial disaggregation
+    # needs to be adjusted for new sectors
+    etrago.disaggregation()
 
-    # # calculate central etrago results
-    # etrago.calc_results()
+    # calculate central etrago results
+    etrago.calc_results()
 
     return etrago
 
@@ -583,7 +592,7 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
-    #etrago.session.close()
+    etrago.session.close()
     # plots
     # make a line loading plot
     # plot_line_loading(network)

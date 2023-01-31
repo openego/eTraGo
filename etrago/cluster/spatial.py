@@ -835,7 +835,7 @@ def hac_clustering(etrago, selected_network, n_clusters, pre_aggr_lines = None):
             hac_feature = rel_loads_ts + rel_gen_avg_ts
 
             selected_network.lines = pre_aggr_lines
-            #selected_network.lines = selected_network.lines.loc[(selected_network.lines.bus0.isin(selected_network.buses.index)) & (selected_network.lines.bus1.isin(selected_network.buses.index))]
+            selected_network.lines = selected_network.lines.loc[(selected_network.lines.bus0.isin(hac_feature.index)) & (selected_network.lines.bus1.isin(hac_feature.index))]
 
         branch_component = {"Line"} if carrier == "AC" else {"Link"}
         
