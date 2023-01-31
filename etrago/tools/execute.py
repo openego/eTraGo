@@ -126,7 +126,7 @@ def run_lopf(etrago, extra_functionality, method):
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
-            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
                 raise  Exception('LOPF not solved.')
                 
             etrago.network_tsa.lopf(
@@ -137,7 +137,7 @@ def run_lopf(etrago, extra_functionality, method):
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
-            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
                 raise  Exception('LOPF not solved.')
                 
             etrago.network_tsa.lopf(
@@ -148,7 +148,7 @@ def run_lopf(etrago, extra_functionality, method):
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
-            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
                 raise  Exception('LOPF not solved.')
                 
             etrago.network_tsa.lopf(
@@ -159,7 +159,7 @@ def run_lopf(etrago, extra_functionality, method):
                 extra_functionality=extra_functionality,
                 formulation=etrago.args['model_formulation'])
 
-            if etrago.network.results["Solver"][0]["Status"] != 'ok':
+            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
                 raise  Exception('LOPF not solved.')
 
         else:
