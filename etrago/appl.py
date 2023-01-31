@@ -440,9 +440,7 @@ def run_etrago(args, json_path):
     # import network from database
     # etrago.build_network_from_db()
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+
     etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -451,11 +449,6 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
     # etrago.network.storage_units.lifetime = np.inf
     # etrago.network.transformers.lifetime = 40  # only temporal fix
     # etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -463,13 +456,6 @@ def run_etrago(args, json_path):
     # # is changed (taking the mean) or our
     # # data model is altered, which will
     # # happen in the next data creation run
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     # etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
     #     etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
