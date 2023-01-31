@@ -903,6 +903,7 @@ def run_spatial_clustering_gas(self):
         self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
         self.update_busmap(busmap)
+        
         logger.info(
             "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
                 len(
