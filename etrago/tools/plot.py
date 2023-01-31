@@ -1831,6 +1831,7 @@ def plot_grid(self,
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
+        bus_colors = coloring()
     elif (
         bus_colors == "PowerToH2"
     ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
@@ -1857,7 +1858,7 @@ def plot_grid(self,
         bus_sizes=bus_sizes,
         bus_colors=bus_colors,
         line_widths=line_widths,
-        link_widths=0,  # link_widths,
+        link_widths=link_widths,
         flow=flow,
         title=title,
         geomap=False,
