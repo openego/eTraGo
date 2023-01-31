@@ -430,9 +430,12 @@ def select_elec_network(etrago):
     elec_network = etrago.network.copy()
     settings = etrago.args["network_clustering"]
     if settings["cluster_foreign_AC"]:
-        elec_network.buses = elec_network.buses[elec_network.buses.carrier == "AC"]
+        elec_network.buses = elec_network.buses[
+            elec_network.buses.carrier == "AC"
+        ]
         elec_network.links = elec_network.links[
-            (elec_network.links.carrier == "AC") | (elec_network.links.carrier == "DC")
+            (elec_network.links.carrier == "AC")
+            | (elec_network.links.carrier == "DC")
         ]
         n_clusters = settings["n_clusters_AC"]
     else:
@@ -625,12 +628,12 @@ def preprocessing(etrago):
         )
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
-    
+
     if settings["k_elec_busmap"] is False:
         busmap_foreign = unify_foreign_buses(etrago)
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
-        
+
     network_elec, n_clusters = select_elec_network(etrago)
 
     if settings["method"] == "kmedoids-dijkstra":
@@ -669,30 +672,51 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     settings = etrago.args["network_clustering"]
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
-     
+
     if settings["k_elec_busmap"] == False:
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
         busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
-        busmap_elec = busmap_elec.join(pd.Series(medoid_idx.index.values.astype(str), medoid_idx, name= "medoid_idx"))
-        
+        busmap_elec = busmap_elec.join(
+            pd.Series(
+                medoid_idx.index.values.astype(str),
+                medoid_idx,
+                name="medoid_idx",
+            )
+        )
+
         busmap_elec.to_csv(
-            f"{method}_elecgrid_busmap_{num_clusters}_result.csv")
-    
+            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
+        )
+
     else:
-        busmap_foreign = pd.read_csv(settings["k_elec_busmap"], dtype={"bus":str, "foreign":str},
-                                     usecols=["bus", "foreign"], index_col = "bus").dropna()["foreign"]
-        busmap = pd.read_csv(settings["k_elec_busmap"], usecols=["bus", "cluster"], dtype={"bus":str, "cluster":str},
-                                 index_col = "bus").dropna()["cluster"]
-        medoid_idx = pd.read_csv(settings["k_elec_busmap"],
-                                 usecols=["bus", "medoid_idx"], index_col = "bus").dropna()["medoid_idx"]
+        busmap_foreign = pd.read_csv(
+            settings["k_elec_busmap"],
+            dtype={"bus": str, "foreign": str},
+            usecols=["bus", "foreign"],
+            index_col="bus",
+        ).dropna()["foreign"]
+        busmap = pd.read_csv(
+            settings["k_elec_busmap"],
+            usecols=["bus", "cluster"],
+            dtype={"bus": str, "cluster": str},
+            index_col="bus",
+        ).dropna()["cluster"]
+        medoid_idx = pd.read_csv(
+            settings["k_elec_busmap"],
+            usecols=["bus", "medoid_idx"],
+            index_col="bus",
+        ).dropna()["medoid_idx"]
 
-        medoid_idx = pd.Series(medoid_idx.index.values.astype(str), medoid_idx.values.astype(int))
-    
+        medoid_idx = pd.Series(
+            medoid_idx.index.values.astype(str), medoid_idx.values.astype(int)
+        )
 
-    network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met=method)
-    
-        # merge busmap for foreign buses with the German buses
+    network, busmap = adjust_no_electric_network(
+        etrago, busmap, cluster_met=method
+    )
+
+    # merge busmap for foreign buses with the German buses
     if settings["cluster_foreign_AC"] == False:
         for bus in busmap_foreign.index:
             busmap[bus] = busmap_foreign[bus]
@@ -838,14 +862,14 @@ def run_spatial_clustering(self):
         if self.args["network_clustering"]["method"] == "kmeans":
 
             logger.info("Start k-mean clustering")
-            
+
             busmap = kmean_clustering(self, elec_network, weight, n_clusters)
             medoid_idx = pd.Series(dtype=str)
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
 
             logger.info("Start k-medoids Dijkstra Clustering")
-            
+
             if self.args["network_clustering"]["k_elec_busmap"] == False:
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
