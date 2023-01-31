@@ -749,7 +749,7 @@ if __name__ == "__main__":
     
         for j in range(0, len(spatial_resolution)): 
     
-            args['network_clustering']['n_clusters_AC'] = spatial_resolution[i]
+            args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
             args['csv_export'] = args['network_clustering']['method']+'/'+str(args['network_clustering']['n_clusters_AC'])
             
@@ -777,4 +777,4 @@ if __name__ == "__main__":
             sys.stdout = old_stdout
             log_file.close()
             
-    etrago.session.close()
+            etrago.session.close()
