@@ -2389,7 +2389,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     
     print('constraints')
     
-    #import pdb; pdb.set_trace()
+    '''import pdb; pdb.set_trace()
     
     soc_values = self.conduct_dispatch_disaggregation.copy()
     n.model.soc_values = soc_values.copy()
@@ -2422,7 +2422,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     
     n.model.split_dispatch_disaggregation_store = po.Constraint(
         n.model.stores, n.model.transits, rule=disaggregation_soc_rule_store
-    )
+    )'''
     
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
 

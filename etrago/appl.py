@@ -55,12 +55,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after a lopf simulation
+        "active": False,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -102,10 +102,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -128,7 +128,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -140,7 +140,7 @@ args = {
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": True,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -434,6 +434,12 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
+    
+    # import args from optimized network
+    # in args = disaggregation: null, dispatch_disaggregation: true, load_shedding : false
+    import json
+    args = open("data1212_dsm_fix_eGon2035_300ac_80ch4_noloadshedding/lopf_iteration_2/args.json")
+    args = json.load(args)
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -478,8 +484,13 @@ def run_etrago(args, json_path):
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
+    
+    # import temporally reduced, optimized network to skip lopf
+    etrago.network_tsa = etrago.network.copy()
+    import pypsa
+    etrago.network = pypsa.Network("data1212_dsm_fix_eGon2035_300ac_80ch4_noloadshedding/lopf_iteration_2")
 
-    # snapshot clustering
+    '''# snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
@@ -487,7 +498,7 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()
+    etrago.lopf()'''
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
