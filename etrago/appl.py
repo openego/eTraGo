@@ -350,6 +350,8 @@ def run_etrago(args, json_path):
         k-medoids Dijkstra Clustering considering electrical distances between buses.
         With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can choose if you
         want to load cluster coordinates from a previous run for the respecting carrier.
+        It should be considered that once this option is set to True, the
+        provided number of clusters will be ignored.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described

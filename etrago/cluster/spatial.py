@@ -568,15 +568,8 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             tol=kmean_settings["tol"],
             random_state=kmean_settings["random_state"]
         )
-        busmap.index.name = 'bus_id'
-        busmap.name = 'cluster'
-        busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
     else:
-        df = pd.read_csv(kmean_settings["k_elec_busmap"])
-        df = df.astype(str)
-        df = df.set_index("bus_id")
-        busmap = df.squeeze("columns")
+        busmap = pd.Series(dtype=str)
 
     return busmap
 
