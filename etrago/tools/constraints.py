@@ -1353,7 +1353,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
-    """
+
     scn_name = self.args["scn_name"]
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
@@ -1420,7 +1420,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             "Generator",
             "max_flh_DE_" + str(g).replace(" ", "_"),
         )
-    """
+
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     # This will bound the storage level to 0.5 max_level every 24th hour.
@@ -2535,7 +2535,7 @@ def add_chp_constraints_nmp(n):
     ch4_nodes_with_chp = n.buses.loc[
         n.links.loc[electric, "bus0"].values
     ].index.unique()
-    breakpoint()
+
     for i in ch4_nodes_with_chp:
 
         elec_chp = n.links[
@@ -2597,7 +2597,7 @@ def add_chp_constraints(network, snapshots):
     None.
 
     """
-    breakpoint()
+
     # backpressure limit
     c_m = 0.75
 
