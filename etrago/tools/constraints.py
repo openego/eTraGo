@@ -1353,6 +1353,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
+    """
     scn_name = self.args["scn_name"]
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
@@ -1419,7 +1420,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             "Generator",
             "max_flh_DE_" + str(g).replace(" ", "_"),
         )
-
+    """
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     # This will bound the storage level to 0.5 max_level every 24th hour.
@@ -2545,18 +2546,15 @@ def add_chp_constraints_nmp(n):
             (n.links.carrier == "central_gas_CHP_heat") & (n.links.bus0 == i)
         ].index
 
-        link_p = get_var(n, "Link", "p")
+        link_p_elec = get_var(n, "Link", "p")[elec_chp]
+        link_p_heat = get_var(n, "Link", "p")[heat_chp]
+        all_var = link_p_elec.join(link_p_heat)
+        
         # backpressure
-
-        lhs_1 = sum(
-            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp] for h_chp in heat_chp
-        )
-
-        lhs_2 = sum(
-            n.links.at[e_chp, "efficiency"] * link_p[e_chp] for e_chp in elec_chp
-        )
-
-        lhs = linexpr((1, lhs_1), (1, lhs_2))
+        lhs_1k = -1 * c_m * n.links["efficiency"][n.links.index.isin(heat_chp)].reindex_like(all_var.T).fillna(0)
+        lhs_2k = n.links["efficiency"][n.links.index.isin(elec_chp)].reindex_like(all_var.T).fillna(0)
+        
+        lhs = linexpr((lhs_1k, all_var), (lhs_2k, all_var)).sum(axis=1)
 
         define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
 
@@ -2642,7 +2640,7 @@ def add_chp_constraints(network, snapshots):
             )
 
             return lhs <= rhs
-
+        breakpoint()
         setattr(
             network.model,
             "backpressure_" + str(i),
