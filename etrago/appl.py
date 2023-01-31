@@ -1,3 +1,28 @@
+# -*- coding: utf-8 -*-
+# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Europa-Universität Flensburg,
+# Centre for Sustainable Energy Systems,
+# DLR-Institute for Networked Energy Systems
+
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# File description
+"""
+This is the application file for the tool eTraGo.
+Define your connection parameters and power flow settings before executing
+the function etrago.
+"""
 
 
 import datetime
@@ -25,11 +50,10 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-#April 2160 2880
-#Januar 1 745
+
 args = {
     # Setup and Configuration:
-    "db": "etrago-data",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -37,12 +61,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 745,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -81,7 +105,7 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "network_clustering": {
-        "random_state": 30,  # random state for replicability of kmeans results
+        "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
@@ -121,7 +145,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": 4,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -193,9 +217,7 @@ def run_etrago(args, json_path):
          Current options: angles, cycles, kirchhoff, ptdf
 
      scn_name : str
-         'eGon2035',etrago.network.storage_units.efficiency_dispatch = 1   
-         etrago.network.storage_units.efficiency_store = 1
-         etrago.network.storage_units.standing_loss = 0
+         'eGon2035',
          Choose your scenario. Currently, there are two different
          scenarios: 'eGon2035', 'eGon100RE'.
 
@@ -400,7 +422,7 @@ def run_etrago(args, json_path):
         State here if you want to make use of the load shedding function which
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
-    run_etrago    generators cannot do so.
+        generators cannot do so.
 
     foreign_lines : dict
         {'carrier':'AC', 'capacity': 'osmTGmod}'
@@ -431,7 +453,7 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-    
+
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
         [etrago.network.lines_t.s_max_pu.columns.isin(
@@ -449,9 +471,7 @@ def run_etrago(args, json_path):
     etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
     etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
     
-    etrago.network.storage_units.cyclic_state_of_charge= True  
-    
-    etrago.adjust_network() 
+    etrago.network.storage_units.cyclic_state_of_charge= True 
 
     etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
     etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
@@ -465,37 +485,28 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     
-    lines=etrago.network.lines[['s_nom', 's_nom_min']]
-    etrago.network.lines.s_nom = etrago.network.lines.s_nom_min
-    
+ 
     #etrago.spatial_clustering_gas()
     etrago.network.storage_units.efficiency_dispatch = 1   
     etrago.network.storage_units.efficiency_store = 1
     etrago.network.storage_units.standing_loss = 0
    
-    #Markt Network zuweisen, um 2 LOPF zu ermöglichen
-   
-    # ehv network clusteringlines=etrago.network.lines[['s_nom', 's_nom_min']]
-    etrago.ehv_clustering()
-
+    etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
     # snapshot clustering
     etrago.snapshot_clustering()
-    #import pdb; pdb.set_trace()
+
     # skip snapshots
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
-    #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
-    
     
     etrago.lopf()
-    
+
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
@@ -507,17 +518,16 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    
     etrago.calc_results()
-    
+
     etrago.plot_grid(line_colors='expansion_abs')
-    return etrago, lines
+    return etrago
 
 
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
-    etrago, lines = run_etrago(args, json_path=None)
+    etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
     # plots
