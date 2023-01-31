@@ -442,6 +442,7 @@ def run_etrago(args, json_path):
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -453,6 +454,8 @@ def run_etrago(args, json_path):
 =======
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
     # etrago.network.storage_units.lifetime = np.inf
     # etrago.network.transformers.lifetime = 40  # only temporal fix
     # etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -461,6 +464,9 @@ def run_etrago(args, json_path):
     # # data model is altered, which will
     # # happen in the next data creation run
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
