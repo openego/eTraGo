@@ -27,6 +27,7 @@
     "scn_name": "eGon2035",
     "scn_extension": null,
     "scn_decommissioning": null,
+    "H2_vol_share": 0,
     "lpfile": false,
     "csv_export": "results_eGon2035",
     "extendable": {
