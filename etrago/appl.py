@@ -697,7 +697,7 @@ def run_etrago(args, json_path):
                           'p_nom']
     #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False'''
 
-    #etrago.args["load_shedding"] = True
+    #etrago.args["load_shedding"] = False
     #etrago.load_shedding()
     '''# load shedding only in foreign countries
     de_buses = network.buses[network.buses.country == "DE"]
@@ -780,8 +780,6 @@ if __name__ == "__main__":
             print(datetime.datetime.now())
                         
             etrago = run_etrago(args, json_path=None)
-            
-            args['load_shedding'] = False
             
             print(datetime.datetime.now())
             
