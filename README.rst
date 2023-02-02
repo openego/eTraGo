@@ -3,7 +3,7 @@
 .. |ci| image::
     https://img.shields.io/github/actions/workflow/status
     /openego/eTraGo/ci.yaml?branch=dev&event=push&label=ci
-    :alt: GitHub Workflow Status
+    :alt: Continuous Integration Workflow Status
     :target: https://github.com/openego/eTraGo/actions/workflows/ci.yaml
 
 .. |docs| image::
