@@ -108,7 +108,7 @@ args = {
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
-        "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
+        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  #
