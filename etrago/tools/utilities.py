@@ -52,7 +52,6 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def filter_links_by_carrier(self, carrier, like=True):
-
     if isinstance(carrier, str):
         if like:
             df = self.network.links[
@@ -756,7 +755,6 @@ def export_to_csv(self, path):
 
 
 def loading_minimization(network, snapshots):
-
     network.model.number1 = Var(
         network.model.passive_branch_p_index, within=PositiveReals
     )
@@ -1537,7 +1535,6 @@ def convert_capital_costs(self):
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
-
     """
     Function that returns snapshots with maximum and/or minimum feed-in of
     selected carrier.
@@ -1844,7 +1841,6 @@ def set_line_country_tags(network):
 
 
 def crossborder_capacity_tyndp2020():
-
     from urllib.request import urlretrieve
     import zipfile
 
@@ -1997,7 +1993,6 @@ def crossborder_capacity(self):
             }
 
         elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
-
             cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
@@ -2023,7 +2018,6 @@ def crossborder_capacity(self):
         )
 
         for country in cap_per_country:
-
             index_HV = network.lines[
                 (network.lines.country == country)
                 & (network.lines.v_nom == 110)
@@ -2082,7 +2076,6 @@ def crossborder_capacity(self):
 
 
 def set_branch_capacity(etrago):
-
     """
     Set branch capacity factor of lines and transformers, different factors for
     HV (110kV) and eHV (220kV, 380kV).
@@ -2153,15 +2146,12 @@ def check_args(etrago):
         ), "gridversion does not exist"
 
     if etrago.args["snapshot_clustering"]["active"]:
-
         # typical periods
 
         if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
-
             # typical days
 
             if etrago.args["snapshot_clustering"]["how"] == "daily":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2188,7 +2178,6 @@ def check_args(etrago):
             # typical weeks
 
             if etrago.args["snapshot_clustering"]["how"] == "weekly":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2214,7 +2203,6 @@ def check_args(etrago):
             # typical months
 
             if etrago.args["snapshot_clustering"]["how"] == "monthly":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2299,7 +2287,6 @@ def drop_sectors(self, drop_carriers):
     for one_port in self.network.iterate_components(
         ["Load", "Generator", "Store", "StorageUnit"]
     ):
-
         self.network.mremove(
             one_port.name,
             one_port.df[~one_port.df.bus.isin(self.network.buses.index)].index,
@@ -2308,7 +2295,6 @@ def drop_sectors(self, drop_carriers):
     for two_port in self.network.iterate_components(
         ["Line", "Link", "Transformer"]
     ):
-
         self.network.mremove(
             two_port.name,
             two_port.df[
@@ -2367,7 +2353,6 @@ def adjust_CH4_gen_carriers(self):
     """
 
     if self.args["scn_name"] == "eGon2035":
-
         # Define marginal cost
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 

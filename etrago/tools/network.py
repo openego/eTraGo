@@ -107,7 +107,6 @@ class Etrago:
         name="",
         **kwargs,
     ):
-
         self.tool_version = __version__
 
         self.clustering = None
@@ -133,7 +132,6 @@ class Etrago:
         self.busmap = {}
 
         if args is not None:
-
             self.args = args
 
             self.get_args_setting(json_path)
@@ -149,7 +147,6 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
-
             self.get_args_setting(csv_folder_name + "/args.json")
 
             self.network = Network(
@@ -157,7 +154,6 @@ class Etrago:
             )
 
             if self.args["disaggregation"] is not None:
-
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -248,7 +244,6 @@ class Etrago:
         return self.filter_links_by_carrier("DC", like=False)
 
     def build_network_from_db(self):
-
         """Function that imports transmission grid from chosen database
 
         Returns
