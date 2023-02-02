@@ -2,6 +2,14 @@ from pprint import pformat
 
 import nox
 
+cleaned = [
+    "etrago/cluster/disaggregation.py",
+    "etrago/tools/network.py",
+    "etrago/tools/utilities.py",
+    "noxfile.py",
+    "setup.py",
+]
+
 
 def setdefaults(session):
     session.env["PYTHONUNBUFFERED"] = "yes"
@@ -13,13 +21,6 @@ def check(session):
     packages = ["Flake8-pyproject"]
     packages.extend(["black", "flake8", "isort >= 5", "twine"])
     session.install(*packages)
-    cleaned = [
-        "etrago/cluster/disaggregation.py",
-        "etrago/tools/network.py",
-        "etrago/tools/utilities.py",
-        "noxfile.py",
-        "setup.py",
-    ]
     assert cleaned == sorted(set(cleaned)), (
         "The list of cleaned files contains duplicates and/or isn't sorted"
         " alphabetically."
