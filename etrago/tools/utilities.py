@@ -2076,7 +2076,6 @@ def crossborder_capacity(self):
 
 
 def set_branch_capacity(etrago):
-
     """
     Set branch capacity factor of lines and transformers, different factors for
     HV (110kV) and eHV (220kV, 380kV).
