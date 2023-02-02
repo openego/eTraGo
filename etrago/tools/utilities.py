@@ -2076,6 +2076,7 @@ def crossborder_capacity(self):
 
 
 def set_branch_capacity(etrago):
+
     """
     Set branch capacity factor of lines and transformers, different factors for
     HV (110kV) and eHV (220kV, 380kV).
@@ -2093,13 +2094,32 @@ def set_branch_capacity(etrago):
         network.buses.v_nom
     )
 
-    network.lines.s_max_pu[network.lines.v_nom == 110] = args[
-        "branch_capacity_factor"
-    ]["HV"]
+    # If any line has a time dependend s_max_pu, use the time dependend
+    # factor for all lines, to avoid problems in the clustering
+    if not network.lines_t.s_max_pu.empty:
+        # Set time dependend s_max_pu for lines without dynamic line rating to 1.0
+        network.lines_t.s_max_pu[
+            network.lines[
+                ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
+            ].index
+        ] = 1.0
 
-    network.lines.s_max_pu[network.lines.v_nom > 110] = args[
-        "branch_capacity_factor"
-    ]["eHV"]
+        # Multiply time dependend s_max_pu with static branch capacitiy fator
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom == 110].index
+        ] *= args["branch_capacity_factor"]["HV"]
+
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom > 110].index
+        ] *= args["branch_capacity_factor"]["eHV"]
+    else:
+        network.lines.s_max_pu[network.lines.v_nom == 110] = args[
+            "branch_capacity_factor"
+        ]["HV"]
+
+        network.lines.s_max_pu[network.lines.v_nom > 110] = args[
+            "branch_capacity_factor"
+        ]["eHV"]
 
     network.transformers.s_max_pu[network.transformers.v_nom0 == 110] = args[
         "branch_capacity_factor"
