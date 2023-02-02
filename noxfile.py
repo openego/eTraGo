@@ -51,7 +51,7 @@ def flake8(session):
     session.run("flake8", *cleaned)
 
 
-@nox.session(python="3")
+@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
     setdefaults(session)
