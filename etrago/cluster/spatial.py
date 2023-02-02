@@ -550,7 +550,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["k_busmap"]:
+    if not kmean_settings["k_elec_busmap"]:
         busmap = busmap_by_kmeans(
             selected_network,
             bus_weightings=pd.Series(weight),
@@ -560,14 +560,8 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             tol=kmean_settings["tol"],
             random_state=kmean_settings["random_state"],
         )
-        busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv"
-        )
     else:
-        df = pd.read_csv(kmean_settings["k_busmap"])
-        df = df.astype(str)
-        df = df.set_index("Bus")
-        busmap = df.squeeze("columns")
+        busmap =pd.Series(dtype=str)
 
     return busmap
 
@@ -643,10 +637,10 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
-    return busmap
+    return busmap, busmap_ind
 
 
-def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
+def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters, export=True):
     """Main function of the k-medoids Dijkstra clustering approach. Creates a busmap
     mapping an original network to a new one with adjustable number of
     nodes.
@@ -674,6 +668,18 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         Maps old bus_ids to new bus_ids.
     """
     settings = etrago.args["network_clustering"]
+    carrier = str(buses.carrier.unique()[0])
+
+
+    if carrier == "AC":
+        carrier = "elec"
+        num = str(settings["n_clusters_AC"])
+        csv = settings["k_elec_busmap"]
+    elif carrier == "CH4":
+        carrier = "ch4"
+        num = str(settings["n_clusters_gas"])
+        csv = settings["k_ch4_busmap"]
+
     # remove stubs
     if settings["remove_stubs"]:
 
@@ -682,7 +688,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         )
 
     # k-mean clustering
-    if not settings["k_busmap"]:
+    if not csv:
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index

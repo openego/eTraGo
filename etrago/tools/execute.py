@@ -142,6 +142,7 @@ def run_lopf(etrago, extra_functionality, method, dispatch_disaggregation=False)
     else:
 
         if method['pyomo']:
+            
             etrago.network.lopf(
                 etrago.network.snapshots,
                 solver_name=etrago.args['solver'],
