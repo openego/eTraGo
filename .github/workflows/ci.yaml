@@ -4,7 +4,7 @@ on: {push: {branches: ['**']}, pull_request: {branches: [dev, master]}}
 
 jobs:
   build:
-    name: Build on ${{ matrix.os.name }}
+    name: ${{ matrix.os.name }}
     runs-on: ${{ matrix.os.image }}
 
     strategy:
