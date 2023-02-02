@@ -64,12 +64,13 @@ args = {
     "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        "BarConvTol": 1.0e-5,
-        "FeasibilityTol": 1.0e-5,
-        "method": 2,
+        "BarConvTol": 1e-05,
+        "FeasibilityTol": 1e-05,
         "crossover": 0,
-        "logFile": "solver_etragos.log",
+        "logFile": "solver_etrago.log",
         "threads": 4,
+        "method": 2,
+        "BarHomogeneous": 1
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
@@ -81,7 +82,7 @@ args = {
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
-        "extendable_components": ["network"],  # Array of components to optimize
+        "extendable_components": ["as_in_db", "foreign_storage"],  # Array of components to optimize
         "upper_bounds_grid": {  # Set upper bounds for grid expansion
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
@@ -92,12 +93,47 @@ args = {
                 "dc": 0,
             },
             # border crossing lines
-            "grid_max_foreign": 2,  # relative to existing capacity
+            "grid_max_foreign": 4,  # relative to existing capacity
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {'min_renewable_share_de':0.73, 'cross_border_flow': [-5e6, 5e6]},  # Choose function name or {} # 'cross_border_flow':[-0.1, 1.0]
+    "extra_functionality": {
+        "cross_border_flow_per_country": {
+            "DK": [
+                -17000000,
+                10000000000
+            ],
+            "FR": [
+                -50000000,
+                10000000000
+            ],
+            "AT": [
+                -8000000,
+                10000000000
+            ],
+            "CH": [
+                -18000000,
+                10000000000
+            ],
+            "NL": [
+                -12000000,
+                10000000000
+            ],
+            "SE": [
+                -5000000,
+                10000000000
+            ],
+            "PL": [
+                -5000000,
+                10000000000
+            ],
+            "CZ": [
+                -6000000,
+                10000000000
+            ]
+        }
+    }, # Choose function name or {} #  {'min_renewable_share_de':0.73, 'cross_border_flow': [-5e6, 5e6]}
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
@@ -435,41 +471,19 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path)
+    etrago = Etrago(args, json_path=json_path)
 
     # import network from database
     etrago.build_network_from_db()
 
-    # manual fixes for database-network from 16th of August
-
-    etrago.network.storage_units.lifetime = 40
-    etrago.network.transformers.lifetime = 40
-    etrago.network.lines.lifetime = 40
-    # only temporal fix until either the
+    etrago.network.storage_units.lifetime = np.inf
+    etrago.network.transformers.lifetime = 40  # only temporal fix
+    etrago.network.lines.lifetime = 40  # only temporal fix until either the
     # PyPSA network clustering function
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
 
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()
-        [etrago.network.lines_t.s_max_pu.columns.isin(
-            etrago.network.lines.index)].transpose())
-
-    # Set gas grid links bidirectional
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
-
-    # Set efficiences of CHP
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-
-    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links_t.efficiency.fillna(1., inplace=True)
-
-    #####    
-    
     # Adjust e_nom_max and marginal cost for gas generators abroad
     gen_abroad = {
         "BE": {"e_nom_max": 201411182.1, "marginal_cost": 52.4578,},
@@ -522,7 +536,6 @@ def run_etrago(args, json_path):
         "SE": 377.789001,
     }
 
-
     for c in capacities:   
         bus0 = etrago.network.buses[
             (etrago.network.buses.country == c) &
@@ -543,14 +556,75 @@ def run_etrago(args, json_path):
             marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
             carrier = 'OCGT'
             )
-        
-    #####
+
+    # GBNI
+    bus0 = etrago.network.buses[
+        (etrago.network.buses.country == 'GB') &
+        (etrago.network.buses.carrier == 'CH4') & 
+        (etrago.network.buses.x == -6.097540942585511)]
+
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = etrago.network.buses[
+            (etrago.network.buses.carrier == 'AC') & 
+            (etrago.network.buses.v_nom == 380) &
+            (etrago.network.buses.x==bus0.x.values[0])
+        ].index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 1513.000000/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
+
+    # GB Festland
+    bus1_gb = etrago.network.buses[
+        (etrago.network.buses.carrier == 'AC') & 
+        (etrago.network.buses.v_nom == 380) &
+        (etrago.network.buses.country == 'GB') & 
+        (etrago.network.buses.x != -6.097540942585511
+)
+    ]
+    etrago.network.add(
+        "Link",
+        etrago.network.links.index.max()+'1',
+        bus0 = bus0.index.values[0],
+        bus1 = bus1_gb.index.values[0], 
+        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        p_nom = 37172.100038/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
+        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
+        carrier = 'OCGT'
+        )
+
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()
+        [etrago.network.lines_t.s_max_pu.columns.isin(
+            etrago.network.lines.index)].transpose())
+
+    # Set gas grid links bidirectional
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+
+    # Set efficiences of CHP
+    etrago.network.links.loc[etrago.network.links[
+        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
+    # Enlarge gas boilers as backup heat supply
+    etrago.network.links.loc[etrago.network.links[
+    etrago.network.links.carrier.str.contains('gas_boiler')].index, 'p_nom'] *= 1000
+
+    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+    
+    # Set p_max_pu for run of river and reservoir
+    etrago.network.generators.loc[etrago.network.generators[
+        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65
     
     # only electricity sector, no DSM and no DLR
-
+    ### ch4-constraints in constraint.py!
     etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
      'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
-    ### ch4-constraints in constraint.py!
 
     # no DLR
     etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
@@ -560,7 +634,6 @@ def run_etrago(args, json_path):
     # 2) includes changing parameters according to extendable-settings
 
     #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
-
     '''# Set foreign batteries extendable
     etrago.network.storage_units["country"] = etrago.network.buses.loc[
         etrago.network.storage_units.bus.values, "country"
@@ -593,71 +666,9 @@ def run_etrago(args, json_path):
 
     etrago.export_to_csv("after_spatial")
 
-    #etrago.spatial_clustering_gas()
-    
-    #####    
-    
-    '''# GBNI
-    bus0 = etrago.network.buses[
-        (etrago.network.buses.country == 'GB') &
-        (etrago.network.buses.carrier == 'CH4') & 
-        (etrago.network.buses.x == -6.097540942585511)]
-    
-    etrago.network.add(
-        "Link",
-        etrago.network.links.index.max()+'1',
-        bus0 = bus0.index.values[0],
-        bus1 = etrago.network.buses[
-            (etrago.network.buses.carrier == 'AC') & 
-            (etrago.network.buses.v_nom == 380) &
-            (etrago.network.buses.x==bus0.x.values[0])
-        ].index.values[0], 
-        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
-        p_nom = (1513.000000)/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
-        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
-        carrier = 'OCGT'
-        )
+    #etrago.spatial_clustering_gas() 
 
-    # GB Festland
-    """
-    bus_ni = etrago.network.buses[
-            (etrago.network.buses.carrier == 'AC') & 
-            (etrago.network.buses.v_nom == 380) &
-            (etrago.network.buses.x==bus0.x.values[0])
-        ].index.values[0]
-    """
-    bus1_gb = etrago.network.buses[
-        (etrago.network.buses.carrier == 'AC') & 
-        (etrago.network.buses.v_nom == 380) &
-        (etrago.network.buses.country == 'GB') & 
-        (etrago.network.buses.x != -6.097540942585511
-)
-    ].index.values[0]
-    
-    """
-    etrago.network.links[(etrago.network.links.bus1==bus_ni) & (etrago.network.links.bus0==bus1_gb)].p_nom_extendable = False
-    etrago.network.links[(etrago.network.links.bus1==bus_ni) & (etrago.network.links.bus0==bus1_gb)].p_nom *= 1000
-    """
-    etrago.network.add(
-        "Link",
-        etrago.network.links.index.max()+'1',
-        bus0 = bus0.index.values[0],
-        bus1 = bus1_gb, 
-        efficiency = etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
-        p_nom = 37172.100038/etrago.network.links[etrago.network.links.carrier=='OCGT' ].efficiency.mean(),
-        marginal_cost = etrago.network.links[etrago.network.links.carrier=='OCGT' ].marginal_cost.mean(),
-        carrier = 'OCGT'
-        )
-
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('DC')].index, 'marginal_cost'] = 0
-    
-    etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
-     'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])'''
-    
-    #####    
-
-    # avoid usage of cheap storages in foreign countries to provoke network expansion
+    '''# avoid usage of cheap storages in foreign countries to provoke network expansion
     aus = etrago.network.buses[etrago.network.buses.country!='DE']
     sto_aus = etrago.network.storage_units[etrago.network.storage_units.bus.isin(aus.index)]
     sto_aus_bat = sto_aus[sto_aus.carrier=='battery']
@@ -684,15 +695,15 @@ def run_etrago(args, json_path):
                           'p_nom_min']  = network.links.loc[(network.links.bus0.isin(foreign_buses.index)) |
                               (network.links.bus1.isin(foreign_buses.index)),
                           'p_nom']
-    #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False
+    #etrago.network.links.loc[etrago.network.links.p_nom_min==etrago.network.links.p_nom_max,'p_nom_extendable']=False'''
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
+    #etrago.args["load_shedding"] = True
+    #etrago.load_shedding()
     '''# load shedding only in foreign countries
     de_buses = network.buses[network.buses.country == "DE"]
     drop = etrago.network.generators[(etrago.network.generators.carrier=='load shedding') & (etrago.network.generators.bus.isin(de_buses.index))].index
     etrago.network.generators.drop(drop, inplace=True)'''
-    
+
     etrago.network.stores.e_cyclic = True
     etrago.network.storage_units.cyclic_state_of_charge = True
 
@@ -718,7 +729,7 @@ def run_etrago(args, json_path):
     # etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
-    # etrago.pf_post_lopf()
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
@@ -739,7 +750,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [50, 100, 150, 200, 250, 300, 400, 500] 
+    spatial_resolution = [10, 20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
     
     spatial_method = ['kmeans', 'kmedoids-dijkstra']
     
