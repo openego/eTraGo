@@ -27,7 +27,23 @@ jobs:
           python --version
           pip --version
           nox --version
-      - name: "Build"
-        run: "python -m nox"
+      - name: "Run custom checks"
+        run: "python -m nox -s check"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `black`"
+        run: "python -m nox -s black"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `flake8`"
+        run: "python -m nox -s flake8"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `isort`"
+        run: "python -m nox -s isort"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Build and check for packaging errors"
+        run: "python -m nox -s build"
         env:
           PLATFORM: ${{ matrix.os.image }}

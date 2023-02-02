@@ -17,18 +17,44 @@ def setdefaults(session):
 
 @nox.session(python="3")
 def check(session):
+    """Run custom checks."""
     setdefaults(session)
-    packages = ["Flake8-pyproject"]
-    packages.extend(["black", "flake8", "isort >= 5", "twine"])
-    session.install(*packages)
     assert cleaned == sorted(set(cleaned)), (
         "The list of cleaned files contains duplicates and/or isn't sorted"
         " alphabetically."
         f"\nExpected:\n{pformat(sorted(set(cleaned)))}"
         f"\nGot:\n{pformat(cleaned)}"
     )
+
+
+@nox.session(python="3")
+def black(session):
+    """Check for happy little style accidents with `black`."""
+    setdefaults(session)
+    session.install("black")
     session.run("black", "--check", "--diff", *cleaned)
+
+
+@nox.session(python="3")
+def isort(session):
+    """Check import ordering with `isort`."""
+    setdefaults(session)
+    session.install("isort >= 5")
     session.run("isort", "--check-only", "--diff", *cleaned)
+
+
+@nox.session(python="3")
+def flake8(session):
+    """Check for happy little style accidents with `flake8`."""
+    setdefaults(session)
+    session.install("Flake8-pyproject", "flake8")
     session.run("flake8", *cleaned)
+
+
+@nox.session(python="3")
+def build(session):
+    """Build the package and check for packaging errors."""
+    setdefaults(session)
+    session.install("twine")
     session.run("python", "setup.py", "bdist", "bdist_wheel")
     session.run("twine", "check", "dist/eTraGo*")
