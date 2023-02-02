@@ -176,7 +176,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     # Creation of the busmap
 
-    if not settings["k_ch4_busmap"]:
+    if not settings["k_gas_busmap"]:
 
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
@@ -194,7 +194,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
         )
     else:
 
-        df = pd.read_csv(settings["k_ch4_busmap"])
+        df = pd.read_csv(settings["k_gas_busmap"])
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap_ch4 = df.squeeze("columns")
