@@ -1,4 +1,3 @@
-from pathlib import Path
 from pprint import pformat
 
 import nox
@@ -59,11 +58,3 @@ def build(session):
     session.install("twine")
     session.run("python", "setup.py", "bdist", "bdist_wheel")
     session.run("twine", "check", "dist/eTraGo*")
-
-
-@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
-def install(session):
-    """Install the package."""
-    setdefaults(session)
-    session.run("python", "-mpip", "install", "--upgrade", "pip")
-    session.run("python", "-mpip", "install", *Path("dist").glob("*.whl"))
