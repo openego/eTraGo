@@ -10,9 +10,9 @@ jobs:
     strategy:
       matrix:
         os:
-          - {image: macos-latest, name: macOS}
           - {image: ubuntu-latest, name: Linux}
           - {image: windows-latest, name: Windows}
+          - {image: macos-latest, name: macOS}
       max-parallel: 4
       fail-fast: false
 
