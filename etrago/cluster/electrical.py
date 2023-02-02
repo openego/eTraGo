@@ -546,8 +546,7 @@ def preprocessing(etrago):
             n_clusters = (foreign_buses_load.country == country).sum()
 
             busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
-                etrago, df, lines_plus_dc, weight, n_clusters, export=False
-            )
+                etrago, df, lines_plus_dc, weight, n_clusters)
             medoid_idx_country.index = medoid_idx_country.index.astype(str)
             busmap_country = busmap_country.map(medoid_idx_country)
 
@@ -674,6 +673,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     num_clusters = settings["n_clusters_AC"]
 
     if settings["k_elec_busmap"] == False:
+        busmap.name = 'cluster'
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
         busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
@@ -690,6 +690,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         )
 
     else:
+        logger.info("Import Busmap for spatial clustering")
         busmap_foreign = pd.read_csv(
             settings["k_elec_busmap"],
             dtype={"bus": str, "foreign": str},
@@ -861,22 +862,28 @@ def run_spatial_clustering(self):
 
         if self.args["network_clustering"]["method"] == "kmeans":
 
-            logger.info("Start k-mean clustering")
+            if self.args["network_clustering"]["k_elec_busmap"] == False:
+                
+                logger.info("Start k-means Clustering")
 
-            busmap = kmean_clustering(self, elec_network, weight, n_clusters)
-            medoid_idx = pd.Series(dtype=str)
+                busmap = kmean_clustering(self, elec_network, weight, n_clusters)
+                medoid_idx = pd.Series(dtype=str)
+            else:
+                busmap = pd.Series(dtype=str)
+                medoid_idx = pd.Series(dtype=str)
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
 
-            logger.info("Start k-medoids Dijkstra Clustering")
-
             if self.args["network_clustering"]["k_elec_busmap"] == False:
+                
+                logger.info("Start k-medoids Dijkstra Clustering")
+                
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,
                     elec_network.lines,
                     weight,
-                    n_clusters,
+                    n_clusters
                 )
             else:
                 busmap = pd.Series(dtype=str)
