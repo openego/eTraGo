@@ -750,7 +750,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [10, 20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
+    spatial_resolution = [15, 20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
     
     spatial_method = ['kmeans', 'kmedoids-dijkstra']
     
