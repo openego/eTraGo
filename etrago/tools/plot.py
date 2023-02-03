@@ -1956,23 +1956,25 @@ def flexibility_usage(
         )
 
     elif flexibility == "battery":
+        
+        df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
         su = self.network.storage_units[
             (self.network.storage_units.carrier == "battery")
             & (self.network.storage_units.bus.isin(buses))
         ]
 
-        potential["p_min"] = su.p_nom_opt.sum() * (-1)
-        potential["p_max"] = su.p_nom_opt.sum()
-        used["p"] = (
+        df["p_min"] = su.p_nom_opt.sum() * (-1)
+        df["p_max"] = su.p_nom_opt.sum()
+        df["p"] = (
             self.network.storage_units_t.p[su.index]
             .sum(axis=1)
             .iloc[snapshots]
         )
 
-        potential["e_min"] = 0
-        potential["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
-        used["e"] = (
+        df["e_min"] = 0
+        df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
+        df["e"] = (
             self.network.storage_units_t.state_of_charge[su.index]
             .sum(axis=1)
             .iloc[snapshots]
