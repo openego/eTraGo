@@ -674,7 +674,7 @@ def preprocessing(etrago):
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
-    if settings["k_elec_busmap"] is False:
+    if settings["k_busmap"] is False:
         busmap_foreign = unify_foreign_buses(etrago)
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
@@ -710,7 +710,7 @@ def preprocessing(etrago):
     else:
         weight = weighting_for_scenario(network=network_elec, save=False)
 
-    return network_elec, weight, n_clusters, busmap_foreign
+    return network_elec, weight, n_clusters#, busmap_foreign
 
 
 def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
@@ -718,7 +718,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
 
-    if settings["k_elec_busmap"] == False:
+    if settings["k_busmap"] == False:
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
         busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
@@ -736,19 +736,19 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
 
     else:
         busmap_foreign = pd.read_csv(
-            settings["k_elec_busmap"],
+            settings["k_busmap"],
             dtype={"bus": str, "foreign": str},
             usecols=["bus", "foreign"],
             index_col="bus",
         ).dropna()["foreign"]
         busmap = pd.read_csv(
-            settings["k_elec_busmap"],
+            settings["k_busmap"],
             usecols=["bus", "cluster"],
             dtype={"bus": str, "cluster": str},
             index_col="bus",
         ).dropna()["cluster"]
         medoid_idx = pd.read_csv(
-            settings["k_elec_busmap"],
+            settings["k_busmap"],
             usecols=["bus", "medoid_idx"],
             index_col="bus",
         ).dropna()["medoid_idx"]
@@ -980,7 +980,7 @@ def run_spatial_clustering(self):
             #busmap = kmean_clustering(self, elec_network, weight, n_clusters)
 
 
-            df = pd.read_csv(self.args["network_clustering"]["k_elec_busmap"])
+            df = pd.read_csv(self.args["network_clustering"]["k_busmap"])
             #breakpoint()
             #df = df.to_dict()
             busmap = pd.Series(df['bus1'], index = df['bus0'])
@@ -994,7 +994,7 @@ def run_spatial_clustering(self):
 
             logger.info("Start k-medoids Dijkstra Clustering")
 
-            if self.args["network_clustering"]["k_elec_busmap"] == False:
+            if self.args["network_clustering"]["k_busmap"] == False:
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,

@@ -550,7 +550,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
         weight = weight.groupby(busmap.values).sum()
 
     # k-mean clustering
-    if not kmean_settings["k_elec_busmap"]:
+    if not kmean_settings["k_busmap"]:
         busmap = busmap_by_kmeans(
             selected_network,
             bus_weightings=pd.Series(weight),
@@ -674,7 +674,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters,
     if carrier == "AC":
         carrier = "elec"
         num = str(settings["n_clusters_AC"])
-        csv = settings["k_elec_busmap"]
+        csv = settings["k_busmap"]
     elif carrier == "CH4":
         carrier = "ch4"
         num = str(settings["n_clusters_gas"])
@@ -724,7 +724,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters,
         medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
-        busmap = dijkstras_algorithm(
+        busmap,_ = dijkstras_algorithm(
             buses,
             connections,
             medoid_idx,
@@ -779,8 +779,8 @@ def hac_clustering(etrago, selected_network, n_clusters):#, pre_aggr_branch_comp
         ].index
         rel_loads = rel_loads[rel_loads.isin(etrago.network.loads_t.p_set.columns)]
         rel_loads_ts = etrago.network.loads_t.p_set.T.loc[rel_loads]
-        a = [i[: i.find(" ")] for i in rel_loads_ts.index]
-        rel_loads_ts = rel_loads_ts.set_index(pd.Series(a))
+        #a = [i[: i.find(" ")] for i in rel_loads_ts.index]
+        #rel_loads_ts = rel_loads_ts.set_index(pd.Series(a))
         a = (rel_loads_ts.max(axis=1)).groupby(level=0).sum()
         b = rel_loads_ts.groupby(level=0).sum()
         rel_loads_ts = b.div(a, axis="index")
@@ -796,9 +796,10 @@ def hac_clustering(etrago, selected_network, n_clusters):#, pre_aggr_branch_comp
             rel_gens = rel_gens[
                 rel_gens.isin(etrago.network.generators_t.p_max_pu.columns)
             ]
+            breakpoint()
             rel_gen_avg_ts = (
                 etrago.network.generators_t.p_max_pu.T.loc[rel_gens]
-                .groupby(etrago.network.generators.bus)
+                .groupby(etrago.network.generators.loc[rel_gens].bus.values)
                 .mean()
             )
             # TODO: Add weighting of TS regarding p_nom of different generators etrago.network.generators.p_nom
