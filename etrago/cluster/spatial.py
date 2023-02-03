@@ -742,7 +742,7 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters,
     return busmap, medoid_idx
 
 
-def hac_clustering(etrago, selected_network, n_clusters, pre_aggr_branch_component = None):
+def hac_clustering(etrago, selected_network, n_clusters):#, pre_aggr_branch_component = None):
 
     """Main function of the Hierarchical Agglomerative Clustering (HAC) approach.
     Creates a busmap mapping buses from the original network to a new network
@@ -840,7 +840,7 @@ def hac_clustering(etrago, selected_network, n_clusters, pre_aggr_branch_compone
 
             hac_feature = rel_loads_ts + rel_gen_avg_ts
 
-            selected_network.lines = pre_aggr_branch_component
+            #selected_network.lines = pre_aggr_branch_component
             selected_network.lines = selected_network.lines.loc[(selected_network.lines.bus0.isin(hac_feature.index)) & (selected_network.lines.bus1.isin(hac_feature.index))]
         
         # else:
@@ -860,11 +860,11 @@ def hac_clustering(etrago, selected_network, n_clusters, pre_aggr_branch_compone
             linkage="ward",
         )
 
-    else:
-        df = pd.read_csv(settings["k_busmap"])
-        df = df.astype(str)
-        df = df.set_index("Bus")
-        busmap = df.squeeze("columns")
+    # else:
+    #     df = pd.read_csv(settings["k_busmap"])
+    #     df = df.astype(str)
+    #     df = df.set_index("Bus")
+    #     busmap = df.squeeze("columns")
 
     # etrago.update_busmap(busmap)
 
