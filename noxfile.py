@@ -65,5 +65,6 @@ def build(session):
 def install(session):
     """Install the package."""
     setdefaults(session)
+    session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
     session.run("python", "-mpip", "install", "--upgrade", "pip")
     session.run("python", "-mpip", "install", *Path("dist").glob("*.whl"))
