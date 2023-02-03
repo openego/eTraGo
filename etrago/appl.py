@@ -102,9 +102,9 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "hac",  # choose clustering method: kmeans or kmedoids-dijkstra or hac
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 170,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
         "n_clusters_gas": 43,  # total n    umber of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
@@ -550,14 +550,13 @@ def run_etrago(args, json_path):
     # etrago.plot_clusters(save_path="final_ci_dump_HAC_AC_30_10_snapshots")
     # etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_after_ac")
     #etrago = Etrago(csv_folder_name='asdf_bug_test2')
-    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_yiha1")
 
     etrago.spatial_clustering_gas()
     # etrago.plot_clusters(
     #     carrier="CH4", save_path="final_ci_dump_HAC_CH4_30_10_snapshots"
     # )
 
-    etrago.export_to_csv("asdf_hac_clustered_300_43_40ss_yiha2")
+    etrago.export_to_csv("qwertz_hac_dijkstra_clustered_170_43_1_40")
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()

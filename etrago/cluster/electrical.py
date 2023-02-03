@@ -494,6 +494,40 @@ def preprocessing(etrago):
 
         network = etrago.network.copy()
 
+        ac_de_buses = etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "AC")
+            & (etrago.network.buses.country == "DE")]
+
+        rel_generator_buses = etrago.network.generators.loc[
+            etrago.network.generators_t.p_max_pu.columns
+        ].bus.values
+        rel_load_buses = etrago.network.loads.loc[
+            etrago.network.loads_t.p_set.columns
+        ].bus.values
+        buses_with_ts = ac_de_buses.loc[
+            ac_de_buses.index.isin(rel_generator_buses)
+            | ac_de_buses.index.isin(rel_load_buses)
+        ]
+        buses_to_aggregate = ac_de_buses.loc[
+            ~ac_de_buses.index.isin(buses_with_ts.index)
+        ]
+
+        # Aggregate buses to nearest buses with time series data
+        a = np.ones((len(buses_with_ts), 2))
+        b = np.ones((len(buses_to_aggregate), 2))
+        a[:, 0] = buses_with_ts.x.values
+        a[:, 1] = buses_with_ts.y.values
+        b[:, 0] = buses_to_aggregate.x.values
+        b[:, 1] = buses_to_aggregate.y.values
+        D_spatial = haversine(b, a)
+
+        busmap_pre = pd.Series(
+            etrago.network.buses.loc[buses_with_ts.index]
+            .iloc[np.argmin(D_spatial, axis=1)]
+            .index,
+            index=buses_to_aggregate.index,
+        )
+
         foreign_buses = network.buses[(network.buses.country != "DE") &
                                       (network.buses.carrier == "AC")]
         foreign_buses_load = foreign_buses[(foreign_buses.index.isin(network.loads.bus)) &
@@ -534,6 +568,9 @@ def preprocessing(etrago):
 
         for bus in busmap_foreign.index:
             full_busmap[bus] = busmap_foreign[bus]
+
+        for bus in busmap_pre.index:
+            full_busmap[bus] = busmap_pre[bus]
 
         network.generators["weight"] = network.generators["p_nom"]
         aggregate_one_ports = network.one_port_components.copy()
@@ -797,51 +834,51 @@ def run_spatial_clustering(self):
 
         self.network.generators.control = "PV"
 
-        if self.args["network_clustering"]["method"] == "hac":
-            logger.info("HAC: Starting Pre-aggregation")
+        # if self.args["network_clustering"]["method"] == "hac":
+        #     logger.info("HAC: Starting Pre-aggregation")
 
-            ac_de_buses = self.network.buses.loc[
-                (self.network.buses.carrier == "AC")
-                & (self.network.buses.country == "DE")
-            ]
+        #     ac_de_buses = self.network.buses.loc[
+        #         (self.network.buses.carrier == "AC")
+        #         & (self.network.buses.country == "DE")
+        #     ]
 
-            # Find nodes that have time series data attached to them
-            rel_generator_buses = self.network.generators.loc[
-                self.network.generators_t.p_max_pu.columns
-            ].bus.values
-            rel_load_buses = self.network.loads.loc[
-                self.network.loads_t.p_set.columns
-            ].bus.values
-            buses_with_ts = ac_de_buses.loc[
-                ac_de_buses.index.isin(rel_generator_buses)
-                | ac_de_buses.index.isin(rel_load_buses)
-            ]
-            buses_to_aggregate = ac_de_buses.loc[
-                ~ac_de_buses.index.isin(buses_with_ts.index)
-            ]
+        #     # Find nodes that have time series data attached to them
+        #     rel_generator_buses = self.network.generators.loc[
+        #         self.network.generators_t.p_max_pu.columns
+        #     ].bus.values
+        #     rel_load_buses = self.network.loads.loc[
+        #         self.network.loads_t.p_set.columns
+        #     ].bus.values
+        #     buses_with_ts = ac_de_buses.loc[
+        #         ac_de_buses.index.isin(rel_generator_buses)
+        #         | ac_de_buses.index.isin(rel_load_buses)
+        #     ]
+        #     buses_to_aggregate = ac_de_buses.loc[
+        #         ~ac_de_buses.index.isin(buses_with_ts.index)
+        #     ]
 
-            # Aggregate buses to nearest buses with time series data
-            a = np.ones((len(buses_with_ts), 2))
-            b = np.ones((len(buses_to_aggregate), 2))
-            a[:, 0] = buses_with_ts.x.values
-            a[:, 1] = buses_with_ts.y.values
-            b[:, 0] = buses_to_aggregate.x.values
-            b[:, 1] = buses_to_aggregate.y.values
-            D_spatial = haversine(b, a)
+        #     # Aggregate buses to nearest buses with time series data
+        #     a = np.ones((len(buses_with_ts), 2))
+        #     b = np.ones((len(buses_to_aggregate), 2))
+        #     a[:, 0] = buses_with_ts.x.values
+        #     a[:, 1] = buses_with_ts.y.values
+        #     b[:, 0] = buses_to_aggregate.x.values
+        #     b[:, 1] = buses_to_aggregate.y.values
+        #     D_spatial = haversine(b, a)
 
-            pre_busmap = pd.Series(
-                self.network.buses.loc[buses_with_ts.index]
-                .iloc[np.argmin(D_spatial, axis=1)]
-                .index,
-                index=buses_to_aggregate.index,
-            )
-            busmap = pd.concat(
-                [pre_busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
-            )
+        #     pre_busmap = pd.Series(
+        #         self.network.buses.loc[buses_with_ts.index]
+        #         .iloc[np.argmin(D_spatial, axis=1)]
+        #         .index,
+        #         index=buses_to_aggregate.index,
+        #     )
+        #     busmap = pd.concat(
+        #         [pre_busmap, pd.Series(buses_with_ts.index, index=buses_with_ts.index)]
+        #     )
 
-            medoid_idx = buses_with_ts
-            self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
-            pre_aggr_lines = self.clustering.network.lines
+        #     medoid_idx = buses_with_ts
+        #     self.clustering, busmap = postprocessing(self, busmap, medoid_idx)
+        #     pre_aggr_lines = self.clustering.network.lines
             # busmap_pre_aggr = busmap.copy()
 
             # self.update_busmap(busmap)
@@ -868,7 +905,7 @@ def run_spatial_clustering(self):
             #     (elec_network.lines.bus0.isin(elec_network.buses.index))
             #     & (elec_network.lines.bus1.isin(elec_network.buses.index))
             # ]
-            logger.info("HAC: Pre-aggregation finished")
+            #logger.info("HAC: Pre-aggregation finished")
 
         # else:
         elec_network, weight, n_clusters = preprocessing(self)
@@ -893,11 +930,11 @@ def run_spatial_clustering(self):
 
             logger.info ("Start HAC Clustering")
 
-            busmap = hac_clustering(self, elec_network, n_clusters, pre_aggr_lines)
-            pre_busmap[pre_busmap.index] = busmap[pre_busmap.values].values
-            busmap = pd.concat(
-                [busmap, pre_busmap]
-            )
+            busmap = hac_clustering(self, elec_network, n_clusters)#, pre_aggr_lines)
+            # pre_busmap[pre_busmap.index] = busmap[pre_busmap.values].values
+            # busmap = pd.concat(
+            #     [busmap, pre_busmap]
+            # )
             medoid_idx = None
 
         else:
