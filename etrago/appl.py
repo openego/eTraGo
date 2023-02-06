@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-DE",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -55,20 +55,21 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after a lopf simulation
+        "active": False,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        "BarConvTol": 1.0e-5,
-        "FeasibilityTol": 1.0e-5,
-        "method": 2,
+        "BarConvTol": 1e-05,
+        "FeasibilityTol": 1e-05,
         "crossover": 0,
-        "logFile": "solver_etragos.log",
+        "logFile": "solver_etrago.log",
         "threads": 4,
+        "method": 2,
+        "BarHomogeneous": 1
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
@@ -80,7 +81,7 @@ args = {
     "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
-        "extendable_components": ["as_in_db"],  # Array of components to optimize
+        "extendable_components": ["as_in_db", "foreign_storage"],  # Array of components to optimize
         "upper_bounds_grid": {  # Set upper bounds for grid expansion
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
@@ -96,7 +97,42 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "cross_border_flow_per_country": {
+            "DK": [
+                -17000000,
+                10000000000
+            ],
+            "FR": [
+                -50000000,
+                10000000000
+            ],
+            "AT": [
+                -8000000,
+                10000000000
+            ],
+            "CH": [
+                -18000000,
+                10000000000
+            ],
+            "NL": [
+                -12000000,
+                10000000000
+            ],
+            "SE": [
+                -5000000,
+                10000000000
+            ],
+            "PL": [
+                -5000000,
+                10000000000
+            ],
+            "CZ": [
+                -6000000,
+                10000000000
+            ]
+        }
+    },  # Choose function name or {}
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
@@ -128,7 +164,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -145,7 +181,7 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",
     },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     "comments": None,
@@ -436,19 +472,8 @@ def run_etrago(args, json_path):
     """
     etrago = Etrago(args, json_path=json_path)
 
-    medium_flex = False
-
-    if etrago.args["scn_name"] == "eGon2035_mediumflex":
-        etrago.args["scn_name"] = "eGon2035"
-        medium_flex = True
-
     # import network from database
     etrago.build_network_from_db()
-
-    if medium_flex:
-        etrago.drop_sectors(
-        drop_carriers = ["H2_saltcavern", "central_heat_store", "rural_heat_store"]
-            )
 
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -593,17 +618,45 @@ def run_etrago(args, json_path):
 
     # Set p_max_pu for run of river and reservoir
     etrago.network.generators.loc[etrago.network.generators[
-        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65
+        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65  
+    
+    # only electricity sector, no DSM and no DLR
+    ### ch4-constraints in constraint.py!
+    etrago.drop_sectors(['CH4', 'H2_saltcavern', 'H2_grid', 'H2_ind_load', 'dsm', 'central_heat',
+     'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
+    
+    # no DLR
+    etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
 
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
+    
+    etrago.export_to_csv("before_spatial")
+    
+    print(' ')
+    print('start spatial clustering')
+    print(datetime.datetime.now())
+    print(' ')
 
     # spatial clustering
     etrago.spatial_clustering()
+    
+    print(' ')
+    print('stop spatial clustering')
+    print(datetime.datetime.now())
+    print(' ')
+    
+    etrago.export_to_csv("after_spatial")
+    
+    from etrago.tools.utilities import modular_weight
+    print(' ')
+    print('Modularity')
+    print(modular_weight(etrago.busmap['orig_network'],etrago.busmap['busmap']))
+    print(' ')
 
-    etrago.spatial_clustering_gas()
+    #etrago.spatial_clustering_gas()
 
     #etrago.args["load_shedding"] = True
     #etrago.load_shedding()
@@ -634,22 +687,56 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    etrago.calc_results()
+    #etrago.calc_results()
 
     return etrago
 
 
 if __name__ == "__main__":
     # execute etrago function
+    
+    import sys
+
+    old_stdout = sys.stdout
+    log_file = open('console.log',"w")
+    sys.stdout = log_file
+
     print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
-    print(datetime.datetime.now())
-    etrago.session.close()
-    # plots
-    # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
+    
+    spatial_resolution = [15, 20]#, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
+    
+    spatial_method = ['kmeans', 'kmedoids-dijkstra']
+    
+    for i in range (0, len(spatial_method)):
+
+        args['network_clustering']['method'] = spatial_method[i]
+    
+        for j in range(0, len(spatial_resolution)): 
+    
+            args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
+            
+            args['csv_export'] = args['network_clustering']['method']+'/'+str(args['network_clustering']['n_clusters_AC'])
+            
+            print(' ')
+            print('method: ')
+            print(args['network_clustering']['method'])
+            print('resolution: ')
+            print(args['network_clustering']['n_clusters_AC'])
+            print(' ')
+            
+            old_stdout = sys.stdout
+            path_log = args['csv_export']
+            os.makedirs(path_log, exist_ok=True)
+            log_file = open(args['csv_export']+'/console.log',"w")
+            sys.stdout = log_file
+            
+            print(datetime.datetime.now())
+                        
+            etrago = run_etrago(args, json_path=None)
+            
+            print(datetime.datetime.now())
+            
+            sys.stdout = old_stdout
+            log_file.close()
+            
+            etrago.session.close()
