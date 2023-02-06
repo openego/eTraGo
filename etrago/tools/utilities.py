@@ -22,6 +22,7 @@
 Utilities.py includes a wide range of useful functions.
 """
 
+import networkx as nx
 from collections.abc import Mapping
 from copy import deepcopy
 import json
@@ -2293,6 +2294,28 @@ def drop_sectors(self, drop_carriers):
     None.
 
     """
+    if self.scenario.scn_name == "eGon2035":
+
+        if 'CH4' in drop_carriers:
+            # create gas generators from links in order to not lose them when dropping non-electric carriers
+            gas_to_add = ['central_gas_CHP', 'industrial_gas_CHP', 'OCGT']
+            gen = self.network.generators
+
+            for i in gas_to_add:
+                gen_empty = gen.drop(gen.index)
+                gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
+                gen_empty.p_nom = self.network.links[self.network.links.carrier == i].p_nom * self.network.links[self.network.links.carrier == i].efficiency
+                gen_empty.marginal_cost = self.network.links[self.network.links.carrier == i].marginal_cost
+                gen_empty.marginal_cost += 35.851 # fuel costs nach NEP
+                gen_empty.carrier = i
+                gen_empty.scn_name = 'eGon2035'
+                gen_empty.p_nom_extendable = False
+                gen_empty.sign = 1
+                gen_empty.p_min_pu = 0
+                gen_empty.p_max_pu = 1
+                gen_empty.control = 'PV'
+                gen_empty.fillna(0, inplace=True)
+                self.network.generators = self.network.generators.append(gen_empty, verify_integrity=True)
 
     self.network.mremove(
         "Bus",
@@ -2502,3 +2525,37 @@ def residual_load(network, sector="electricity"):
     )
 
     return loads_per_bus - renewable_dispatch
+
+def modular_weight(network, busmap):
+    """
+    Calculate the modularity to evaluate the quality of a clustering process
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA. This must be the original network (before
+        the clustering)
+    new_busmap : dictionary
+        busmap used to cluster the network.
+    Returns
+    -------
+    modularity. The higher the best quality of the clustering.
+    """
+
+    busmap = pd.Series(busmap)
+    ac_buses = network.buses[network.buses.carrier == "AC"]
+    busmap = busmap[busmap.index.isin(ac_buses.index.astype(str))]
+    busmap.index = busmap.index.astype(str)
+
+    network.buses = network.buses[network.buses.carrier == "AC"]
+    network.calculate_dependent_values()
+    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom)).set_index(['bus0','bus1'])
+    links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
+
+    links = network.links[network.links.carrier == "DC"]
+    links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
+
+    G = nx.Graph()
+    G.add_nodes_from(network.buses.index)
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in lines.itertuples())
+    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
+    return nx.algorithms.community.quality.modularity(G, list(set(busmap[busmap==c].index) for c in busmap.unique()))
