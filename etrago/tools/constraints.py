@@ -2397,12 +2397,12 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
-        if self.args["method"]["pyomo"]:
+        '''if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
             add_ch4_constraints(self, network, snapshots)
         else:
             add_chp_constraints_nmp(network)
-            add_ch4_constraints_nmp(self, network, snapshots)
+            add_ch4_constraints_nmp(self, network, snapshots)'''
 
         for constraint in self.args["extra_functionality"].keys():
             try:
