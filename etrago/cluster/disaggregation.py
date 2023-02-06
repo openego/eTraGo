@@ -653,7 +653,13 @@ class UniformDisaggregation(Disaggregation):
                     # That means, `p_nom` got computed via optimization and we
                     # have to distribute it into the subnetwork first.
                     pnb_p_nom_max = pnb.loc[:, maximal_capacity]
+
+                    # If upper limit is infinite, replace it by a very large
+                    # number to avoid NaN values in the calculation
+                    pnb_p_nom_max.replace(float("inf"), 10000000, inplace=True)
+
                     p_nom_max_global = pnb_p_nom_max.sum(axis="index")
+
                     pnb.loc[:, optimal_capacity] = (
                         clb.iloc[0].at[optimal_capacity]
                         * pnb_p_nom_max
