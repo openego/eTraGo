@@ -743,9 +743,12 @@ def weighting_for_scenario(network, save=None):
     fixed_capacity_fac = {
         # A value of 1 is given to power plants where its availability
         #does not depend on the weather
+        "industrial_gas_CHP":1,
         "industrial_biomass_CHP": 1,
         "biomass": 1,
         "central_biomass_CHP": 1,
+        "central_gas_CHP": 1,
+        "OCGT":1,
         "other_non_renewable": 1,
         "run_of_river": 0.50,
         "reservoir": 1,
