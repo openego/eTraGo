@@ -698,10 +698,23 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         distances = distances.apply(pd.to_numeric)
 
         medoid_idx = distances.idxmin()
+        
+        import datetime
+        print(' ')
+        print('start Dijkstras algorithm')
+        print(datetime.datetime.now())
+        print(' ')
 
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(buses, connections, medoid_idx,
                                      etrago.args["network_clustering"]["CPU_cores"])
+        
+        print(' ')
+        print('stop Dijkstras algorithm')
+        print(datetime.datetime.now())
+        print(' ')
+
+        
         busmap.index.name = "bus_id"
 
     else:
