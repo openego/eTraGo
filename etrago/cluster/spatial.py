@@ -58,6 +58,7 @@ __author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
 
 
 def _make_consense_links(x):
+    """Checks if all link data of a cluster are the same, e.g. bus0 and bus1"""
     v = x.iat[0]
     assert (
         x == v
@@ -81,6 +82,7 @@ def sum_with_inf(x):
         return x.sum()
 
 def strategies_one_ports():
+    """Aggregate specific columns of components connected to a single bus"""
     return {
         "StorageUnit": {
             "marginal_cost": np.mean,
@@ -104,6 +106,7 @@ def strategies_one_ports():
 
 
 def strategies_generators():
+    """Aggregate specific columns of generators"""
     return {
         "p_nom_min": np.min,
         "p_nom_max": sum_with_inf,
@@ -116,6 +119,7 @@ def strategies_generators():
     }
 
 def strategies_links():
+    """Aggregate specific columns of links"""
     return {
         "scn_name": _make_consense_links,
         "bus0": _make_consense_links,
@@ -412,6 +416,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df.rename(columns={"source": "bus0", "target": "bus1"}, inplace=True)
     df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
+    # push the busmap back to the database
     df.to_sql(
         "egon_etrago_hv_busmap", con=etrago.engine, schema="grid", if_exists="append"
     )
@@ -475,6 +480,7 @@ def busmap_from_psql(etrago):
         else:
             cpu_cores = int(cpu_cores)
 
+        # create the busmap and push it to the database
         busmap_by_shortest_path(
             etrago,
             scn_name,
@@ -482,6 +488,7 @@ def busmap_from_psql(etrago):
             tolvl=[220, 380, 400, 450],
             cpu_cores=cpu_cores,
         )
+        # fetch the busmap from database
         busmap = fetch()
 
     return busmap
@@ -527,7 +534,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     """
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
-    # remove stubs
+    # remove stubs preprocessing step
     if kmean_settings["remove_stubs"]:
         network.determine_network_topology()
         busmap = busmap_by_stubs(network)
@@ -544,6 +551,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
                 busmap, ["x", "y"]
             ].values
 
+        # intermediate clustering of the network based on the removed stubs busmap
         clustering = get_clustering_from_busmap(
             network,
             busmap,
@@ -559,6 +567,7 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
     # k-mean clustering
     if not kmean_settings["k_busmap"]:
+        # build busmap from kmeans algorithm
         busmap = busmap_by_kmeans(
             selected_network,
             bus_weightings=pd.Series(weight),
@@ -569,8 +578,10 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             random_state=kmean_settings["random_state"]
         )
         busmap.to_csv(
-            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv")
+            "kmeans_elec_busmap_" + str(kmean_settings["n_clusters_AC"]) + "_result.csv"
+        )
     else:
+        # load the busmap from a csv file
         df = pd.read_csv(kmean_settings["k_busmap"])
         df = df.astype(str)
         df = df.set_index("Bus")
@@ -595,7 +606,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
       busmap_kmedoid: pd.Series
           Busmap based on k-medoids clustering
       cpu_cores: string
-          numbers of cores used during multiprocessing 
+          numbers of cores used during multiprocessing
       Returns
       -------
       busmap (format: with labels)
@@ -666,12 +677,14 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
     # k-mean clustering
     if not settings["k_busmap"]:
 
+        # run the kmeans algorithm separated from getting busmap
+        # very likely, this does the same as in the kmeans clustering,
+        # so there is potential to cut short here
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
         points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
-
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -705,10 +718,11 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         busmap.index.name = "bus_id"
 
     else:
+        # read the busmap from a csv file
+        # this method lacks the medoid_idx!!!
         df = pd.read_csv(settings["k_busmap"])
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap = df.squeeze("columns")
-        # this method lacks the medoid_idx!
 
     return busmap, medoid_idx
