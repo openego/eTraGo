@@ -130,6 +130,7 @@ def geolocation_buses(self):
     """
     network = self.network
 
+    # get border crossing lines: one of both buses is not in Germany
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
             network.buses.index[network.buses["country"] != "DE"]
@@ -150,12 +151,20 @@ def geolocation_buses(self):
         network.lines.loc[transborder_lines_1, "bus1"].values, "country"
     ].values
     network.lines["country"].fillna("DE", inplace=True)
+    # check which lines have both buses in foreign countries
     doubles = list(set(transborder_lines_0.intersection(transborder_lines_1)))
+    # this needs clarification: it looks like lines/links connecting non DE
+    # buses will get something like ATCH as tag
     for line in doubles:
         c_bus0 = network.buses.loc[network.lines.loc[line, "bus0"], "country"]
         c_bus1 = network.buses.loc[network.lines.loc[line, "bus1"], "country"]
         network.lines.loc[line, "country"] = "{}{}".format(c_bus0, c_bus1)
 
+    # the below section does the same as the above section, but for links
+    # refactoring: pass additional artument to the function containing the lines
+    # or the links, so network.links/network.lines becomes just links. Then the
+    # function can be called once witht he links provided and once with the
+    # lines provided
     transborder_links_0 = network.links[
         network.links["bus0"].isin(
             network.buses.index[network.buses["country"] != "DE"]
@@ -231,31 +240,40 @@ def buses_by_country(self):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
+    # create point geometries for every bus
+    # this might work without copying the whole dataframe
     geobuses = self.network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point([x["x"], x["y"]]), axis=1
     )
-
+    # build a geodataframe from the point geometries
     geobuses = gpd.GeoDataFrame(
         data=geobuses, geometry="geom", crs="EPSG:4326"
     )
     geobuses["country"] = np.nan
-
+    # for all countries, check which buses are within its shape and write
+    # that into the country column of the buses
     for country in countries:
         geobuses["country"][
             self.network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
-
+    # change crs to 3035 to calculate distances
     shapes = shapes.to_crs(3035)
     geobuses = geobuses.to_crs(3035)
 
+    # for buses without a country tag/with missing country tag, assign them to
+    # the nearest country shape
     for bus in geobuses[geobuses["country"].isna()].index:
         distances = shapes.distance(geobuses.loc[bus, "geom"])
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
+    # write back the bus country information to the network
+    # this might change the datatype of the network, is that intended?
+    # it would also be possible to just write the country column to the network
+    # buses
     self.network.buses = geobuses.drop(columns="geom")
 
     return
