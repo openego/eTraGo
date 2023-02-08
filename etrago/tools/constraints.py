@@ -1292,7 +1292,6 @@ def add_ch4_constraints(self, network, snapshots):
             factor = arg[c]
 
             def _rule_max(m):
-
                 dispatch = sum(
                     m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
                     for gen in gens
@@ -1353,7 +1352,6 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
-    """
     scn_name = self.args["scn_name"]
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 
@@ -1363,6 +1361,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
 
     carrier_names = {
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
+        "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
     }
 
@@ -1420,7 +1419,6 @@ def add_ch4_constraints_nmp(self, network, snapshots):
             "Generator",
             "max_flh_DE_" + str(g).replace(" ", "_"),
         )
-    """
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     # This will bound the storage level to 0.5 max_level every 24th hour.
@@ -2570,6 +2568,7 @@ def add_chp_constraints_nmp(n):
             "chplink_" + str(i),
             "top_iso_fuel_line_fix",
         )
+
 
 
 def add_chp_constraints(network, snapshots):
