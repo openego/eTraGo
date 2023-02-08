@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1e-05,
@@ -703,7 +703,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [15, 20]#, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
+    spatial_resolution = [15, 20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
     
     spatial_method = ['kmeans', 'kmedoids-dijkstra']
     
