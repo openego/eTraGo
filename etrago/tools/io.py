@@ -854,6 +854,23 @@ def calc_nearest_point(bus1, network):
     return bus0
 
 
+def add_ch4_h2_correspondence(self):
+    """
+    Method adding the database table grid.egon_etrago_ch4_h2 to self.
+    It contains the mapping from H2 buses to their corresponding CH4 buses.
+
+    """
+
+    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
+
+    table = pd.read_sql(sql, self.engine)
+    
+    self.ch4_h2_mapping = pd.Series(table.bus_H2.values, index = table.bus_CH4.values.astype(str))
+    self.ch4_h2_mapping.index.name = 'CH4_bus'
+    self.ch4_h2_mapping = self.ch4_h2_mapping.astype(str)
+
+
+
 if __name__ == '__main__':
     if pypsa.__version__ not in ['0.6.2', '0.11.0']:
         print('Pypsa version %s not supported.' % pypsa.__version__)
