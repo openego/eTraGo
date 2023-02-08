@@ -2559,11 +2559,8 @@ def add_chp_constraints_nmp(n):
         define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
 
         # top_iso_fuel_line
-        lhs, *ax = linexpr(
-            (1, sum(link_p[h_chp] for h_chp in heat_chp)),
-            (1, sum(link_p[h_e] for h_e in elec_chp)),
-            return_axes=True,
-        )
+        lhs= linexpr(
+            (1, all_var)).sum(axis=1)
 
         define_constraints(
             n,
@@ -2572,7 +2569,6 @@ def add_chp_constraints_nmp(n):
             n.links.loc[elec_chp].p_nom.sum(),
             "chplink_" + str(i),
             "top_iso_fuel_line_fix",
-            axes=ax,
         )
 
 
@@ -2640,7 +2636,7 @@ def add_chp_constraints(network, snapshots):
             )
 
             return lhs <= rhs
-        breakpoint()
+        
         setattr(
             network.model,
             "backpressure_" + str(i),
@@ -2649,7 +2645,6 @@ def add_chp_constraints(network, snapshots):
 
         # Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
         def top_iso_fuel_line(model, snapshot):
-
             lhs = sum(model.link_p[h_chp, snapshot] for h_chp in heat_chp) + sum(
                 model.link_p[e_chp, snapshot] for e_chp in elec_chp
             )
