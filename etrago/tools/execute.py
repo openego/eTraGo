@@ -360,7 +360,7 @@ def run_pf_post_lopf(self):
         pf_post_lopf(self)
 
 
-def pf_post_lopf(etrago, calc_losses = True):
+def pf_post_lopf(etrago, calc_losses = False):
 
     """
     Function that prepares and runs non-linar load flow using PyPSA pf.
