@@ -28,7 +28,9 @@ if 'READTHEDOCS' not in os.environ:
     import pandas as pd
     import numpy as np
     from pypsa.linopf import network_lopf
+    from pypsa.networkclustering import aggregategenerators
     from pypsa.pf import sub_network_pf
+    from etrago.cluster.spatial import strategies_generators
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -533,6 +535,30 @@ def pf_post_lopf(etrago, calc_losses = False):
             if not network.links_t[df].empty:
                 network.links_t[df].drop(columns=gas_to_add_orig.index,
                                          inplace=True, errors= "ignore")
+
+        # Group generators per bus if needed
+        if not (network.generators.groupby(["bus", "carrier"]).p_nom.count() == 1).all():
+            network.generators["weight"] = network.generators.p_nom
+            df, df_t = aggregategenerators(
+                network,
+                busmap=pd.Series(index = network.buses.index, data=network.buses.index),
+                custom_strategies=strategies_generators(),
+                )
+
+            # Keep control arguments from generators
+            control = network.generators.groupby(["bus", "carrier"]).control.first()
+            control.index = control.index.get_level_values(0) + ' ' + control.index.get_level_values(1)
+            df.control = control
+
+            # Drop non-aggregated generators
+            network.mremove("Generator", network.generators.index)
+
+            # Insert aggregated generators and time series
+            network.import_components_from_dataframe(df, "Generator")
+
+            for attr, data in df_t.items():
+                if not data.empty:
+                    network.import_series_from_dataframe(data, "Generator", attr)
 
         return
 
