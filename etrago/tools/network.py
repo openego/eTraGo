@@ -41,7 +41,12 @@ from etrago.tools.execute import (
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
-from etrago.tools.io import NetworkScenario, decommissioning, extension, add_ch4_h2_correspondence
+from etrago.tools.io import (
+    NetworkScenario,
+    decommissioning,
+    extension,
+    add_ch4_h2_correspondence,
+)
 from etrago.tools.plot import (
     flexibility_usage,
     plot_clusters,
@@ -50,7 +55,7 @@ from etrago.tools.plot import (
     bev_flexibility_potential,
     heat_stores,
     hydrogen_stores,
-    )
+)
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
