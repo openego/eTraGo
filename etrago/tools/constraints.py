@@ -2514,7 +2514,6 @@ def add_chp_constraints_nmp(n):
     None.
 
     """
-    """
     # backpressure limit
     c_m = 0.75
 
@@ -2554,7 +2553,7 @@ def add_chp_constraints_nmp(n):
         
         lhs = linexpr((lhs_1k, all_var), (lhs_2k, all_var)).sum(axis=1)
 
-        define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
+        define_constraints(n, lhs, ">=", 0, "chplink_" + str(i), "backpressure")
 
         # top_iso_fuel_line
         lhs= linexpr(
@@ -2568,8 +2567,6 @@ def add_chp_constraints_nmp(n):
             "chplink_" + str(i),
             "top_iso_fuel_line_fix",
         )
-    """
-
 
 
 def add_chp_constraints(network, snapshots):
