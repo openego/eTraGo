@@ -41,7 +41,12 @@ from etrago.tools.execute import (
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
-from etrago.tools.io import NetworkScenario, decommissioning, extension
+from etrago.tools.io import (
+    NetworkScenario,
+    decommissioning,
+    extension,
+    add_ch4_h2_correspondence,
+)
 from etrago.tools.plot import (
     flexibility_usage,
     plot_clusters,
@@ -50,7 +55,7 @@ from etrago.tools.plot import (
     bev_flexibility_potential,
     heat_stores,
     hydrogen_stores,
-    )
+)
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
@@ -139,6 +144,8 @@ class Etrago:
 
         self.busmap = {}
 
+        self.ch4_h2_mapping = {}
+
         if args is not None:
             self.args = args
 
@@ -203,6 +210,8 @@ class Etrago:
     set_branch_capacity = set_branch_capacity
 
     decommissioning = decommissioning
+
+    add_ch4_h2_correspondence = add_ch4_h2_correspondence
 
     plot_grid = plot_grid
 
@@ -283,6 +292,8 @@ class Etrago:
         self.extension()
 
         self.decommissioning()
+
+        self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 
