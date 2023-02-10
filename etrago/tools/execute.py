@@ -24,13 +24,15 @@ execute.py defines optimization and simulation methods for Etrago object.
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import time
     import logging
-    import pandas as pd
-    import numpy as np
+    import time
+
     from pypsa.linopf import network_lopf
     from pypsa.networkclustering import aggregategenerators
     from pypsa.pf import sub_network_pf
+    import numpy as np
+    import pandas as pd
+
     from etrago.cluster.spatial import strategies_generators
     from etrago.tools.constraints import Constraints
 
