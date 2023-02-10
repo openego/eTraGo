@@ -1376,16 +1376,17 @@ def add_ch4_constraints_nmp(self, network, snapshots):
         ]
         if not gens.empty:
             factor = arg[c]
-
             generation = (
                 get_var(network, "Generator", "p")
                 .loc[snapshots, gens]
-                .mul(network.snapshot_weightings.generators, axis=0)
             )
+            
+            k1 = pd.concat([network.snapshot_weightings.generators[snapshots]] * generation.columns.size, axis = 1)
+            k1.columns = generation.columns
 
             define_constraints(
                 network,
-                linexpr((1, generation)).sum().sum(),
+                linexpr((k1, generation)).sum().sum(),
                 "<=",
                 factor * (n_snapshots / 8760),
                 "Generator",
@@ -2515,6 +2516,7 @@ def add_chp_constraints_nmp(n):
     None.
 
     """
+    """
     # backpressure limit
     c_m = 0.75
 
@@ -2568,6 +2570,7 @@ def add_chp_constraints_nmp(n):
             "chplink_" + str(i),
             "top_iso_fuel_line_fix",
         )
+    """
 
 
 
