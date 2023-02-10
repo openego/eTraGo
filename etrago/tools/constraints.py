@@ -1406,15 +1406,13 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     for g in gen_abroad.index:
         factor = network.generators.e_nom_max[g]
 
-        generation = (
-            get_var(network, "Generator", "p")
-            .loc[snapshots, g]
-            .mul(network.snapshot_weightings.generators, axis=0)
-        )
+        generation = get_var(network, "Generator", "p").loc[snapshots, g]
+        
+        k2 = network.snapshot_weightings.generators
 
         define_constraints(
             network,
-            linexpr((1, generation)).sum(),
+            linexpr((k2, generation)).sum(),
             "<=",
             factor * (n_snapshots / 8760),
             "Generator",
