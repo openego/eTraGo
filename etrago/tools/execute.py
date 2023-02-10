@@ -544,7 +544,10 @@ def pf_post_lopf(etrago, calc_losses = False):
 
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
-    
+
+    if args["disaggregation"]:
+        import_gen_from_links(etrago.disaggregated_network)
+
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
         columns=network.generators.index)
@@ -627,6 +630,12 @@ def pf_post_lopf(etrago, calc_losses = False):
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'),
                                index=True)
+
+        if args["disaggregation"]:
+            etrago.disaggregated_network.export_to_csv_folder(
+                path + "/disaggregated_network"
+                )
+
     return network
 
 
