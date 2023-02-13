@@ -53,7 +53,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -466,12 +466,8 @@ def run_etrago(args, json_path):
     # Set efficiences of CHP
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-     
-   
-    etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
-    etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
     
-    etrago.network.storage_units.cyclic_state_of_charge= True 
+    #etrago.network.storage_units.cyclic_state_of_charge= True 
 
     etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
     etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
@@ -487,11 +483,11 @@ def run_etrago(args, json_path):
     
  
     #etrago.spatial_clustering_gas()
-    etrago.network.storage_units.efficiency_dispatch = 1   
-    etrago.network.storage_units.efficiency_store = 1
-    etrago.network.storage_units.standing_loss = 0
+    # etrago.network.storage_units.efficiency_dispatch = 1   
+    # etrago.network.storage_units.efficiency_store = 1
+    # etrago.network.storage_units.standing_loss = 0
    
-    etrago.spatial_clustering_gas()
+    #etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
@@ -511,7 +507,7 @@ def run_etrago(args, json_path):
     etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+   # etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors

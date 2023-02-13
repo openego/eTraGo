@@ -48,8 +48,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 1,
-    "end_snapshot": 2,
+    "start_snapshot": 5052,
+    "end_snapshot": 5060,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -91,7 +91,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 15,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 1,  # total number of resulting CH4 nodes (DE+foreign)
@@ -454,7 +454,7 @@ def run_etrago(args, json_path):
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
           
     #Speicher gleicher Stand wie am Beginn
-    etrago.network.storage_units.cyclic_state_of_charge= True
+    #etrago.network.storage_units.cyclic_state_of_charge= True
     
     # etrago.adjust_network() 
     

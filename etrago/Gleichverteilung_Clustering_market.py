@@ -90,7 +90,7 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 1,  # total number of resulting CH4 nodes (DE+foreign)
@@ -453,34 +453,34 @@ def run_etrago(args, json_path):
     etrago.network.buses['country']= etrago.network.buses.apply(lambda x: 'DE' if x.country == None else x.country, axis=1)    
 
     #mögliche Offshore Anbindungen in der Zukunft
-    etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
-    etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
+    # etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
+    # etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
     
     #Speicher gleicher Stand wie am Beginn
-    etrago.network.storage_units.cyclic_state_of_charge= True
+    #etrago.network.storage_units.cyclic_state_of_charge= True
     
     etrago.adjust_network() 
     #etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
     #breakpoint()
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
+    # etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
     
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300')
     
-    etrago.args["network_clustering"]["n_clusters_AC"] = 30  
-    etrago.spatial_clustering() 
+    # etrago.args["network_clustering"]["n_clusters_AC"] = 30  
+    # etrago.spatial_clustering() 
     
     # Fehler im Clustering s_nom teils ungleich (<) s_nom_min, behoben? dev pullen
     #lines=etrago.network.lines[['s_nom', 's_nom_min']]
-    etrago.network.lines.s_nom = etrago.network.lines.s_nom_min
+    #etrago.network.lines.s_nom = etrago.network.lines.s_nom_min
     # import pdb; pdb.set_trace()
 
     #Speicherverluste = 0 auslandspeicher auch gleichsetzen?
-    etrago.network.storage_units.efficiency_dispatch = 1   
-    etrago.network.storage_units.efficiency_store = 1
-    etrago.network.storage_units.standing_loss = 0
+    # etrago.network.storage_units.efficiency_dispatch = 1   
+    # etrago.network.storage_units.efficiency_store = 1
+    # etrago.network.storage_units.standing_loss = 0
           
      # Marktzonen Zuweisung
   
@@ -519,6 +519,7 @@ def run_etrago(args, json_path):
     # etrago.network.lines.s_nom_min= etrago.network.lines.s_nom
     
     #etrago.spatial_clustering_gas()
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -533,16 +534,16 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
     
 
-    
+    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sector   
     etrago.lopf()
-    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')    
+     
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    # etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
@@ -559,31 +560,31 @@ def run_etrago(args, json_path):
     # import pdb; pdb.set_trace()
    
     from etrago import Etrago
-    market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market')
-    uncluster = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
+    # market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market')
+    # uncluster = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
     etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
-    geo_bus= geopandas.GeoDataFrame(uncluster.network.buses, geometry= geopandas.points_from_xy(uncluster.network.buses.x, uncluster.network.buses.y))
-    geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
+    # geo_bus= geopandas.GeoDataFrame(uncluster.network.buses, geometry= geopandas.points_from_xy(uncluster.network.buses.x, uncluster.network.buses.y))
+    # geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
-    #geodf europ. Länder ohne Rus | Koordinatensystem ändern | einstampfen
-    europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
-    #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
-    #rus = rus.to_crs(4326)
-    europe = europe.to_crs(4326)
-    europe = europe[['NUTS_NAME','FID','geometry']]
+    # #geodf europ. Länder ohne Rus | Koordinatensystem ändern | einstampfen
+    # europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
+    # #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
+    # #rus = rus.to_crs(4326)
+    # europe = europe.to_crs(4326)
+    # europe = europe[['NUTS_NAME','FID','geometry']]
     
-    # Knoten und Länder zusammenführen | Marktzonen zuweisen und reassignen 
-    buses_with_country = geo_bus.sjoin(europe, how="left", predicate='intersects')   
-    buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
-    buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
-    buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
+    # # Knoten und Länder zusammenführen | Marktzonen zuweisen und reassignen 
+    # buses_with_country = geo_bus.sjoin(europe, how="left", predicate='intersects')   
+    # buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
+    # buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
+    # buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
     
-    # Länderknoten zuweisen und Generatoren Zonen zuweisen    
-    uncluster.network.buses= buses_with_country
-    uncluster.network.buses.index.names =['bus']
-    uncluster.network.generators=uncluster.network.generators.reset_index().merge(uncluster.network.buses[['FID','zone']], how='left', on='bus').set_index(uncluster.network.generators.index)
+    # # Länderknoten zuweisen und Generatoren Zonen zuweisen    
+    # uncluster.network.buses= buses_with_country
+    # uncluster.network.buses.index.names =['bus']
+    # uncluster.network.generators=uncluster.network.generators.reset_index().merge(uncluster.network.buses[['FID','zone']], how='left', on='bus').set_index(uncluster.network.generators.index)
     
     return etrago, market
 
