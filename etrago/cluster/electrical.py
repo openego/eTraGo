@@ -567,6 +567,10 @@ def preprocessing(etrago):
         for bus in busmap_pre.index:
             full_busmap[bus] = busmap_pre[bus]
 
+        network, full_busmap = adjust_no_electric_network(
+            etrago, full_busmap, cluster_met='hac'
+        )
+
         network.generators["weight"] = network.generators["p_nom"]
         aggregate_one_ports = network.one_port_components.copy()
         aggregate_one_ports.discard("Generator")
@@ -590,9 +594,9 @@ def preprocessing(etrago):
             clustering.network
         )
         
-        clustering.network, busmap = adjust_no_electric_network(
-            etrago, busmap, cluster_met='hac'
-        )
+        # clustering.network, full_busmap = adjust_no_electric_network(
+        #     etrago, full_busmap, cluster_met='hac'
+        # )
 
         etrago.update_busmap(full_busmap)
 
