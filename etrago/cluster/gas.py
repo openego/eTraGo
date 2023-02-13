@@ -317,31 +317,67 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
     # aggregation of the links and links time series
     network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(network_gasgrid_c)
 
-    # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
-    if etrago.args["scn_name"] == "eGon2035":
-        H2_energy_share = 0.05053  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
-        feed_in = network_gasgrid_c.links.loc[
-            network_gasgrid_c.links.carrier == "H2_feedin"
-        ]
-        pipeline_capacities = network_gasgrid_c.links.loc[
-            network_gasgrid_c.links.carrier == "CH4"
+    # Overwrite p_nom of links with carrier "H2_feedin"
+    if "H2_feedin" in network_gasgrid_c.links.carrier.to_list():
+
+        H2_vol_share = etrago.args["H2_vol_share"]
+
+        def att_H2_energy_share(H2_vol_share):
+            """
+            Return the fraction of H2 with respect to energy in a H2 CH4 mixture
+
+            The calculation of the values in the dictionary has been
+            made using the function H2_CH4_mix_energy_fractions of
+            https://github.com/openego/eGon-data/blob/dev/src/egon/data/datasets/hydrogen_etrago/h2_to_ch4.py
+            with T=25 (°C) and p=50 (bar).
+
+            Parameters
+            ----------
+            H2_vol_share : float
+                Volumetric fraction of H2 in the mixture
+
+            Returns
+            -------
+            H2_vol2en[H2_vol_share] : float
+                Fraction of H2 in mixture with respect to energy (LHV)
+
+            """
+            H2_vol2en = {
+                0: 0,
+                1: 0.00304,
+                2: 0.00612,
+                5: 0.01562,
+                10: 0.03242,
+                15: 0.05053,
+                20: 0.07011,
+                50: 0.23170,
+            }
+            return H2_vol2en[H2_vol_share]
+
+        rel_ch4_loads_carriers = ["rural_gas_boiler", "CH4_for_industry"]
+        ch4_loads = network_gasgrid_c.loads.loc[
+            network_gasgrid_c.loads.carrier.isin(rel_ch4_loads_carriers)
         ]
 
-        for bus in feed_in["bus1"].values:
-            # calculate the total pipeline capacity connected to a specific bus
-            nodal_capacity = pipeline_capacities.loc[
-                (pipeline_capacities["bus0"] == bus)
-                | (pipeline_capacities["bus1"] == bus),
-                "p_nom",
-            ].sum()
-            # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
+        for bus in ch4_loads["bus"].unique():
+            # Calculate the sum of the CH4 loads at each CH4 bus (this sum is a time series)
+            load_names = ch4_loads.loc[ch4_loads["bus"].values == bus].index
+            ch4_loads_set = network_gasgrid_c.loads_t.p_set.loc[
+                :, load_names
+            ].sum(axis=1)
+            # Overwrite the "p_nom" values of the H2_link with a share of the CH4 total load
+            feedin_link = network_gasgrid_c.links.loc[
+                (network_gasgrid_c.links["carrier"].values == "H2_feedin")
+                & (network_gasgrid_c.links["bus1"].values == bus)
+            ]
+            # p_nom is the max of the share of the CH4 total load
             network_gasgrid_c.links.loc[
-                (network_gasgrid_c.links["bus1"].values == bus)
-                & (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
-                "p_nom",
-            ] = (
-                nodal_capacity * H2_energy_share
-            )
+                feedin_link.index, "p_nom"
+            ] = ch4_loads_set.max() * att_H2_energy_share(H2_vol_share)
+            # and p_max_pu the time serie of the total CH4 load, normalized by its max value
+            network_gasgrid_c.links_t.p_max_pu.loc[
+                ch4_loads_set.index, feedin_link.index
+            ] = (ch4_loads_set / ch4_loads_set.max())
 
     # Insert components not related to the gas clustering
     other_components = ["Line", "StorageUnit", "ShuntImpedance", "Transformer"]
