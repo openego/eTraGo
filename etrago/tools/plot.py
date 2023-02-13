@@ -1811,7 +1811,7 @@ def plot_grid(
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
-
+    # breakpoint()
     # Set line colors
     if line_colors == "line_loading":
         title = (
@@ -1901,6 +1901,7 @@ def plot_grid(
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
+
     elif (
         bus_colors == "PowerToH2"
     ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
