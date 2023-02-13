@@ -74,7 +74,7 @@ def _leading(busmap, df):
     return leader
 
 
-def adjust_no_electric_network(etrago, busmap, cluster_met):
+def adjust_no_electric_network(etrago, busmap, cluster_met, check = False, bs=None):
 
     network = etrago.network.copy()
     # network2 is supposed to contain all the not electrical or gas buses and links
@@ -107,13 +107,17 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap2 = {}
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
-    if (not(etrago.args["network_clustering"]["cluster_foreign_AC"]) &
-        (cluster_met in ["kmeans", "kmedoids-dijkstra", "hac"])):
-        buses_orig = network.buses.copy()
-        ac_buses_out = buses_orig[(buses_orig["country"] != "DE") &
-                                  (buses_orig["carrier"] == "AC")]
-        for bus_out in ac_buses_out.index:
-            busmap2[bus_out] = bus_out
+    if check==False: # new line to not revert changes in busmap done before
+        if (not(etrago.args["network_clustering"]["cluster_foreign_AC"]) &
+            (cluster_met in ["kmeans", "kmedoids-dijkstra", "hac"])):
+            buses_orig = network.buses.copy()
+            ac_buses_out = buses_orig[(buses_orig["country"] != "DE") &
+                                    (buses_orig["carrier"] == "AC")]
+            for bus_out in ac_buses_out.index:
+                busmap2[bus_out] = bus_out
+    
+    else:
+        busmap2 = bs.to_dict()
 
     for bus_ne in network2.buses.index:
         bus_hv = -1
@@ -536,7 +540,7 @@ def preprocessing(etrago):
         dc = network.links[network.links.carrier == "DC"]
         str1 = 'DC_'
         dc.index = f"{str1}"+dc.index
-        lines_plus_dc = lines_plus_dc = pd.concat([network.lines, dc])
+        lines_plus_dc = pd.concat([network.lines, dc])
         lines_plus_dc = lines_plus_dc[lines_col]
         lines_plus_dc["carrier"] = "AC"
 
@@ -568,7 +572,7 @@ def preprocessing(etrago):
             full_busmap[bus] = busmap_pre[bus]
 
         network, full_busmap = adjust_no_electric_network(
-            etrago, full_busmap, cluster_met='hac'
+            etrago, full_busmap, cluster_met='hac', check = True, bs = busmap_foreign
         )
 
         network.generators["weight"] = network.generators["p_nom"]

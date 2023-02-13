@@ -436,7 +436,7 @@ def run_etrago(args, json_path):
 
     """
     # etrago = Etrago(args, json_path)
-    etrago = Etrago(csv_folder_name='debugging/Carlos_hac_dijkstra_clustered_300_43_1_100')
+    etrago = Etrago(csv_folder_name='debugging/new_Carlos_hac_dijkstra_clustered_300_43_1_100')
     # # import network from database
     # etrago.build_network_from_db()
     # # etrago = Etrago(csv_folder_name='ci_dump_not_clustered_100SS')
@@ -547,7 +547,7 @@ def run_etrago(args, json_path):
     #         p_min_pu=-1.0,
     #     )
 
-    # etrago.export_to_csv('Carlos_hac_dijkstra_clustered_300_43_1_100_pre_clustering')
+    # #etrago.export_to_csv('Carlos_hac_dijkstra_clustered_300_43_1_100_pre_clustering')
 
     # # spatial clustering
     # etrago.spatial_clustering()
@@ -560,7 +560,7 @@ def run_etrago(args, json_path):
     # #     carrier="CH4", save_path="final_ci_dump_HAC_CH4_30_10_snapshots"
     # # )
 
-    # etrago.export_to_csv("Carlos_hac_dijkstra_clustered_300_43_1_100")
+    # #etrago.export_to_csv("Carlos_hac_dijkstra_clustered_300_43_1_100")
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
