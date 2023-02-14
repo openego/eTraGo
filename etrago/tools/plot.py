@@ -1873,17 +1873,12 @@ def plot_grid(
         bus_legend = "Dispatch"
         bus_unit = "TW"
     elif bus_colors == "flexibility_usage":
-        # import pdb; pdb.set_trace()
         bus_scaling = bus_sizes
         flex_links = network.links[
             network.links.carrier.isin(
                 [
                     "dsm",
                     "BEV charger",
-                    #'central_heat_store_charger',
-                    #'central_heat_store_discharger',
-                    #'rural_heat_store_charger',
-                    #'rural_heat_store_discharger'
                 ]
             )
         ]
