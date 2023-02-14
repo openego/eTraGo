@@ -90,6 +90,7 @@ def strategies_one_ports():
             "efficiency_store": np.mean,
             "p_min_pu": np.min,
             "p_nom_extendable": ext_storage,
+            "p_nom_max": sum_with_inf,
         },
         "Store": {
             "marginal_cost": np.mean,
