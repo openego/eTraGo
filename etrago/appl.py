@@ -29,12 +29,6 @@ import datetime
 import os
 import os.path
 import numpy as np
-import geopandas
-import pandas as pd
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
-from pypsa.descriptors import get_switchable_as_dense as as_dense
-
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -113,8 +107,8 @@ args = {
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
-        "k_busmap": False,  # False or path/to/busmap.csv
-        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "k_elec_busmap": False,  # False or path/to/busmap.csv
+        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  #
@@ -124,8 +118,8 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": False,  # choose if clustering is activated
@@ -139,14 +133,14 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -337,7 +331,7 @@ def run_etrago(args, json_path):
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
            'cluster_foreign_AC': False, method_gas: 'kmeans',
            'n_clusters_gas': 30, 'cluster_foreign_gas': False,
-           'k_busmap': False, 'kmeans_gas_busmap': False, 'line_length_factor': 1,
+           'k_elec_busmap': False, 'k_ch4_busmap': False, 'line_length_factor': 1,
            'remove_stubs': False, 'use_reduced_coordinates': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
            'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
@@ -354,8 +348,10 @@ def run_etrago(args, json_path):
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
-        With ``'k_busmap'`` you can choose if you want to load cluster
-        coordinates from a previous run.
+        With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can choose if you
+        want to load cluster coordinates from a previous run for the respecting carrier.
+        It should be considered that once this option is set to True, the
+        provided number of clusters will be ignored.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
@@ -444,8 +440,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',
-      'central_heat_store', 'Li ion', 'H2_ind_load', 'rural_heat', 'rural_heat_store'])
+
+    etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -454,24 +450,24 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()
-        [etrago.network.lines_t.s_max_pu.columns.isin(
-            etrago.network.lines.index)].transpose())
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
+        etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
+    ].transpose()
 
     # Set gas grid links bidirectional
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
+    ] = -1.0
 
     # Set efficiences of CHP
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-    
-    #etrago.network.storage_units.cyclic_state_of_charge= True 
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
+        "efficiency",
+    ] = 0.43
 
-    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
     etrago.adjust_network()
 
@@ -480,14 +476,8 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    
- 
-    #etrago.spatial_clustering_gas()
-    # etrago.network.storage_units.efficiency_dispatch = 1   
-    # etrago.network.storage_units.efficiency_store = 1
-    # etrago.network.storage_units.standing_loss = 0
-   
-    #etrago.spatial_clustering_gas()
+
+    etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
@@ -500,14 +490,13 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
-   # etrago.pf_post_lopf()
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
@@ -516,7 +505,6 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     etrago.calc_results()
 
-    etrago.plot_grid(line_colors='expansion_abs')
     return etrago
 
 
