@@ -111,7 +111,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         buses_orig = network.buses.copy()
         ac_buses_out = buses_orig[
             (buses_orig["country"] != "DE") & (buses_orig["carrier"] == "AC")
-        ]
+        ].dropna(subset=["country", "carrier"])
+        
         for bus_out in ac_buses_out.index:
             busmap2[bus_out] = bus_out
 
