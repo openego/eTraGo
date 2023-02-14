@@ -1923,10 +1923,12 @@ def plot_grid(
 
     if type(link_widths) != int:
         link_widths.loc[network.links.carrier != "DC"] = 0
-
+    if type(link_colors) != str:
+        link_colors=link_colors.mul(1e-3)
+        line_colors=line_colors.mul(1e-3)
     ll = network.plot(
-        line_colors=line_colors.mul(1e-3),
-        link_colors=link_colors.mul(1e-3),
+        line_colors=line_colors,
+        link_colors=link_colors,
         line_cmap=plt.cm.jet,
         link_cmap=plt.cm.jet,
         bus_sizes=bus_sizes,
