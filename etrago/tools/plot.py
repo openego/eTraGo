@@ -153,6 +153,7 @@ def coloring():
         "H2_grid": "green",
         "H2_saltcavern": "darkgreen",
         "central_heat_store": "firebrick",
+        "heat": "firebrick",
         "rural_heat_store": "salmon",
         "AC": "blue",
         "nuclear": "palegreen",
