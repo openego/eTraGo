@@ -1,10 +1,29 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 17 09:24:48 2023
+## -*- coding: utf-8 -*-
+# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Europa-Universität Flensburg,
+# Centre for Sustainable Energy Systems,
+# DLR-Institute for Networked Energy Systems
 
-@author: student
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Affero General Public License as
+# published by the Free Software Foundation; either version 3 of the
+# License, or (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+
+# You should have received a copy of the GNU Affero General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# File description
 """
+This is the application file for the tool eTraGo.
+Define your connection parameters and power flow settings before executing
+the function etrago.
+"""
+
 
 import datetime
 import os
@@ -31,8 +50,7 @@ if "READTHEDOCS" not in os.environ:
     # Do not import internal packages directly
 
     from etrago import Etrago
-#April 2160 2880
-#Januar 1 745
+
 args = {
     # Setup and Configuration:
     "db": "etrago-data",  # database session
@@ -43,12 +61,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 5052,
-    "end_snapshot": 5060,
+    "start_snapshot": 1,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -90,10 +108,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 1,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_busmap": False,  # False or path/to/busmap.csv
         "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -199,9 +217,7 @@ def run_etrago(args, json_path):
          Current options: angles, cycles, kirchhoff, ptdf
 
      scn_name : str
-         'eGon2035',etrago.network.storage_units.efficiency_dispatch = 1   
-         etrago.network.storage_units.efficiency_store = 1
-         etrago.network.storage_units.standing_loss = 0
+         'eGon2035',
          Choose your scenario. Currently, there are two different
          scenarios: 'eGon2035', 'eGon100RE'.
 
@@ -233,7 +249,7 @@ def run_etrago(args, json_path):
             'nep2035_b2' includes all lines that will be replaced in
             NEP-scenario 2035 B2
 
-    lpfile : obj7
+    lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'
@@ -261,23 +277,25 @@ def run_etrago(args, json_path):
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
                         from the database
-            'network': set all lines, links and transformers extendable
-            'german_network': set lines and transformers in German grid
-                            extendable
-            'foreign_network': set foreign lines and transformers extendable
+            'network': set all lines, links and transformers in electrical
+                            grid extendable
+            'german_network': set lines and transformers in German electrical
+                            grid extendable
+            'foreign_network': set foreign lines and transformers in electrical
+                            grid extendable
             'transformers': set all transformers extendable
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'storages': allow to install extendable storages
+            'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
-        Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'.
-        Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'.
-        Upper bounds for bordercrossing lines can be defined accrodingly
+        Upper bounds for electrical grid expansion can be defined for lines in
+        Germany relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two electrical buses
+        can be defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing electrical lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -295,7 +313,7 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit AC cross-border-flows7 between Germany and its neigbouring
+                Limit AC cross-border-flows between Germany and its neigbouring
                 countries, set values in MWh for all snapshots, e.g. [-x, y]
                 (with x Import, y Export, positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
@@ -404,7 +422,7 @@ def run_etrago(args, json_path):
         State here if you want to make use of the load shedding function which
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
-    run_etrago    generators cannot do so.
+        generators cannot do so.
 
     foreign_lines : dict
         {'carrier':'AC', 'capacity': 'osmTGmod}'
@@ -435,7 +453,7 @@ def run_etrago(args, json_path):
     # is changed (taking the mean) or our
     # data model is altered, which will
     # happen in the next data creation run
-    
+
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
         [etrago.network.lines_t.s_max_pu.columns.isin(
@@ -448,43 +466,35 @@ def run_etrago(args, json_path):
     # Set efficiences of CHP
     etrago.network.links.loc[etrago.network.links[
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-      
-    #Manuelle Eingabe von leeren Länder Einträgen
-    etrago.network.buses['country']= etrago.network.buses.apply(lambda x: 'DE' if x.country == None else x.country, axis=1)    
+    
+    etrago.network.buses['country']= etrago.network.buses.apply(lambda x: 'DE' if x.country == None else x.country, axis=1) 
+    #etrago.network.storage_units.cyclic_state_of_charge= True 
 
-    #mögliche Offshore Anbindungen in der Zukunft
-    # etrago.network.generators_=etrago.network.generators.drop(['9286','9152'])
-    # etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['9286','9152'], axis=1)
-    
-    #Speicher gleicher Stand wie am Beginn
-    #etrago.network.storage_units.cyclic_state_of_charge= True
-    
-    etrago.adjust_network() 
-    #etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
-    #breakpoint()
+    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
+    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+
+    etrago.adjust_network()
+
+    # ehv network clustering
+    etrago.ehv_clustering()
+
+    etrago.network.storage_units.p_nom_max =np.inf
+
     # spatial clustering
     etrago.spatial_clustering()
-    # etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300')
     
-    # etrago.args["network_clustering"]["n_clusters_AC"] = 30  
-    # etrago.spatial_clustering() 
-    
-    # Fehler im Clustering s_nom teils ungleich (<) s_nom_min, behoben? dev pullen
-    #lines=etrago.network.lines[['s_nom', 's_nom_min']]
-    #etrago.network.lines.s_nom = etrago.network.lines.s_nom_min
-    # import pdb; pdb.set_trace()
-
-    #Speicherverluste = 0 auslandspeicher auch gleichsetzen?
+    etrago.args["network_clustering"]["n_clusters_AC"] = 30  
+    etrago.spatial_clustering() 
+ 
+    #etrago.spatial_clustering_gas()
     # etrago.network.storage_units.efficiency_dispatch = 1   
     # etrago.network.storage_units.efficiency_store = 1
     # etrago.network.storage_units.standing_loss = 0
-          
-     # Marktzonen Zuweisung
-  
-    #Buses df to geodf | filter AC bus
     geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
     geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
@@ -513,32 +523,25 @@ def run_etrago(args, json_path):
     #Liste deropy( Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
-   
-    # etrago.network.lines.s_nom = etrago.network.lines.s_nom*0.1
-    # etrago.network.lines.s_nom_max= etrago.network.lines.s_nom
-    # etrago.network.lines.s_nom_min= etrago.network.lines.s_nom
-    
-    #etrago.spatial_clustering_gas()
-    
-    # ehv network clustering
-    etrago.ehv_clustering()
 
-
-    etrago.args["load_shedding"] = False
+    etrago.args["load_shedding"] = True
     etrago.load_shedding()
 
     # snapshot clustering
     etrago.snapshot_clustering()
-    #import pdb; pdb.set_trace()
+    
     # skip snapshots
     etrago.skip_snapshots()
-    
 
-    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')
     # start linear optimal powerflow calculations
-    # needs to be adjusted for new sector   
+    # needs to be adjusted for new sectors
+    etrago.network.storage_units.p_nom_max =np.inf
+    
+    # from etrago import Etrago
+    # market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
     etrago.lopf()
-     
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
@@ -550,55 +553,22 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    
     etrago.calc_results()
-    
-    
+
     etrago.plot_grid(line_colors='expansion_abs')
-    
-    
-    # import pdb; pdb.set_trace()
-   
-    from etrago import Etrago
-    # market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market')
-    # uncluster = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
-    etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
-    # from etrago import Etrago
-    # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/ungeclustered')
-    # geo_bus= geopandas.GeoDataFrame(uncluster.network.buses, geometry= geopandas.points_from_xy(uncluster.network.buses.x, uncluster.network.buses.y))
-    # geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
-    
-    # #geodf europ. Länder ohne Rus | Koordinatensystem ändern | einstampfen
-    # europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
-    # #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
-    # #rus = rus.to_crs(4326)
-    # europe = europe.to_crs(4326)
-    # europe = europe[['NUTS_NAME','FID','geometry']]
-    
-    # # Knoten und Länder zusammenführen | Marktzonen zuweisen und reassignen 
-    # buses_with_country = geo_bus.sjoin(europe, how="left", predicate='intersects')   
-    # buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
-    # buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
-    # buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
-    
-    # # Länderknoten zuweisen und Generatoren Zonen zuweisen    
-    # uncluster.network.buses= buses_with_country
-    # uncluster.network.buses.index.names =['bus']
-    # uncluster.network.generators=uncluster.network.generators.reset_index().merge(uncluster.network.buses[['FID','zone']], how='left', on='bus').set_index(uncluster.network.generators.index)
-    
-    return etrago, market
+    return etrago
 
 
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
-    etrago, market = run_etrago(args, json_path=None)
+    etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
     # plots
     # make a line loading plot
     # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep-
+    # plot stacked sum of nominal power for each generator type and timestep
     # plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
     # storage_distribution(network)

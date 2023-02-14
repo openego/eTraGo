@@ -48,8 +48,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 5052,
-    "end_snapshot": 5060,
+    "start_snapshot": 1,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -436,9 +436,13 @@ def run_etrago(args, json_path):
     # # is changed (taking the mean) or our
     # # data model is altered, which will
     # # happen in the next data creation run
+  
+    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
+    market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
     
-    etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300_Sommer')
-    market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')
+    # list_shedding=market.network.generators.loc[market.network.generators.carrier!='load shedding'].index.tolist()
+    # market.network.generators =  market.network.generators.loc[market.network.generators.carrier != 'load shedding']
+    # market.network.generators_t.p = market.network.generators_t.p.T.loc[list_shedding]
     
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
@@ -460,7 +464,8 @@ def run_etrago(args, json_path):
     
     # # spatial clustering
     # etrago.spatial_clustering()
-        
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()   
     market_t_p_sum = market.network.generators_t.p.sum()
     # Fehler im Clustering s_nom teils ungleich (<) s_nom_min, behoben? dev pullen
     #lines=etrago.network.lines[['s_nom', 's_nom_min']]
@@ -470,9 +475,9 @@ def run_etrago(args, json_path):
     # import pdb; pdb.set_trace()
 
     #Speicherverluste = 0 auslandspeicher auch gleichsetzen?
-    etrago.network.storage_units.efficiency_dispatch = 1   
-    etrago.network.storage_units.efficiency_store = 1
-    etrago.network.storage_units.standing_loss = 0
+    # etrago.network.storage_units.efficiency_dispatch = 1   
+    # etrago.network.storage_units.efficiency_store = 1
+    # etrago.network.storage_units.standing_loss = 0
          
     p_t_per_tech_m = market.network.generators_t.p.groupby(market.network.generators.carrier, axis=1).sum()
   
@@ -484,14 +489,14 @@ def run_etrago(args, json_path):
     p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
     
     
-    p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
+    p_sum_per_tech_n = p_nom_p_max_pu.groupby(market.network.generators.carrier).sum()
     market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
     
     tst= pd.DataFrame()
     tst1= pd.Series()
     tst2= pd.Series()
     a=pd.DataFrame()
-    #breakpoint()
+    
     for i in market_gen_carrier_list:
         #import pdb; pdb.set_trace()
         p = pd.DataFrame()
