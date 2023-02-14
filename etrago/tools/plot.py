@@ -1651,24 +1651,21 @@ def plot_background_grid(network, ax):
     None.
 
     """
-    # breakpoint()
-    linkcarrier = pd.Series(
-        data=network.links.carrier, index=network.links.index
-    )
 
-    linkcarrier[linkcarrier != "DC"] = 0
-    linkcarrier[linkcarrier == "DC"] = 0.3
-    linkcarrier = linkcarrier.astype(float)
+    link_widths = pd.Series(index=network.links.index, data=0)
+    link_widths.loc[network.links.carrier == "DC"] = 0.3
+
     network.plot(
         ax=ax,
         line_colors="grey",
         link_colors="grey",
         bus_sizes=0,
         line_widths=0.5,
-        link_widths=linkcarrier,  # 0.3,
+        link_widths=link_widths,  # 0.3,
         geomap=True,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
+        # boundaries=[1.5, 16, 46.8, 58],
     )
 
 
@@ -1792,7 +1789,7 @@ def plot_grid(
         network = self.disaggregated_network.copy()
     else:
         network = self.network.copy()
-        # breakpoint()
+
     # Set colors for plotting
     plotting_colors(network)
 
@@ -1811,7 +1808,7 @@ def plot_grid(
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
-    # breakpoint()
+
     # Set line colors
     if line_colors == "line_loading":
         title = (
@@ -1875,7 +1872,7 @@ def plot_grid(
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
-    # breakpoint()
+
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
