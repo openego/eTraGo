@@ -1576,7 +1576,7 @@ def plot_background_grid(network, ax):
         geomap=True,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
-        boundaries=[1.5, 16, 46.8, 58],
+        boundaries=[-2.5, 16, 46.8, 58],
     )
 
 
