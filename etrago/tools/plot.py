@@ -2203,19 +2203,26 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     ax.autoscale()
 
 
-def plot_grid(self,
-              line_colors,
-              bus_sizes=0.001,
-              bus_colors='grey',
-              timesteps=range(2),
-              osm=False,
-              boundaries=None,
-              filename=None,
-              disaggregated=False,
-              ext_min=0.1,
-              ext_width=False,
-              legend_entries = 'all'):
-    """ Function that plots etrago.network and results for lines and buses
+def plot_grid(
+    self,
+    line_colors,
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion = {
+    "H2": 50,
+    "heat": 0.1,
+    "battery": 10,
+    }
+):
+    """Function that plots etrago.network and results for lines and buses
 
     Parameters
     ----------
@@ -2411,6 +2418,13 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     elif bus_colors == "storage_expansion":
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        for store_carrier in ["H2", "heat", "battery"]:
+            bus_sizes[bus_sizes.index.get_level_values('carrier').str.contains(store_carrier)] *= scaling_store_expansion[store_carrier]
+        bus_legend = "Storage expansion"
+        bus_unit = "GW"
+    elif bus_colors == "h2_battery_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network, carriers=["battery", "H2_overground", "H2_underground"])
         bus_legend = "Storage expansion"
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
@@ -2480,8 +2494,8 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         
     if cartopy_present:
         ll = network.plot(
-            line_colors=line_colors,
-            link_colors=link_colors,
+            line_colors=line_colors.mul(1e-3),
+            link_colors=link_colors.mul(1e-3),
             line_cmap=plt.cm.jet,
             link_cmap=plt.cm.jet,
             bus_sizes=bus_sizes,
@@ -2489,16 +2503,16 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            title=title,
+            #title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58]
+            boundaries=[-2.5, 16, 46.8, 58],
         )
     else:
-        ll = network.plot(
-            line_colors=line_colors,
-            link_colors=link_colors,
+        ll =network.plot(
+            line_colors=line_colors.mul(1e-3),
+            link_colors=link_colors.mul(1e-3),
             line_cmap=plt.cm.jet,
             link_cmap=plt.cm.jet,
             bus_sizes=bus_sizes,
@@ -2506,25 +2520,29 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            title=title,
+            #title=title,
             geomap=False,
-            boundaries=[-2.5, 16, 46.8, 58]
+            boundaries=[-2.5, 16, 46.8, 58],
         )
     
 
     # legends for bus sizes and colors
-    if bus_colors != "grey":
-        # if type(bus_sizes) != float:
-        handles = make_legend_circles_for(
-            [bus_sizes.min(), bus_sizes.max()], scale=1, facecolor="gray"
-        )
-        labels = [
-            ("{} " + bus_unit).format(s)
-            for s in (
-                round(bus_sizes.min() / bus_scaling / 1000, 0),
-                round(bus_sizes.max() / bus_scaling / 1000, 0),
-            )
-        ]
+    if type(bus_sizes) != float:
+        handles = []
+        labels = []
+        for i in legend_entries:
+            try: 
+                max_value = bus_sizes[bus_sizes.index.get_level_values('carrier').str.contains(i)].max()
+            except: 
+                max_value = bus_sizes.max()
+            handles.append(make_legend_circles_for(
+                 [max_value], scale=1, facecolor=network.carriers.color[i],
+            )[0])
+            
+            if  scaling_store_expansion:
+                labels.append(f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 2)} GWh " + i)
+            else:
+                labels.append(f"{round(max_value / bus_scaling /1000, 2)} GWh " + i)
 
         l2 = ax.legend(
             handles,
@@ -2535,33 +2553,35 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             framealpha=1.0,
             title=bus_legend,
             handler_map=make_handler_map_to_scale_circles_as_in(ax),
+            prop={'size': 8}
         )
         ax.add_artist(l2)
 
-        handles = []
-        if bus_legend == "Nodal production balance":
-            positive = mpatches.Patch(color="green", label="generation")
-            negative = mpatches.Patch(color="red", label="consumption")
-            handles = [positive, negative]
-        elif legend_entries != 'all':
-            for i in legend_entries:
-                patch = mpatches.Patch(color=network.carriers.color[i], label=i)
-                handles.append(patch)
-        else:
-            for i in network.carriers.color.index:
-                patch = mpatches.Patch(
-                    color=network.carriers.color[i], label=i
-                )
-                handles.append(patch)
+        plt.setp(l2.get_title(),fontsize='9')
 
-        l3 = plt.legend(
-            handles=handles, loc="upper left",
-            ncol=2, bbox_to_anchor=(0, 0)
-        )
-        ax.add_artist(l3)
+        if not scaling_store_expansion:
+
+            handles = []
+            if bus_legend == "Nodal production balance":
+                positive = mpatches.Patch(color="green", label="generation")
+                negative = mpatches.Patch(color="red", label="consumption")
+                handles = [positive, negative]
+            elif legend_entries != "all":
+                for i in legend_entries:
+                    patch = mpatches.Patch(color=network.carriers.color[i], label=i)
+                    handles.append(patch)
+            else:
+                for i in network.carriers.color.index:
+                    patch = mpatches.Patch(color=network.carriers.color[i], label=i)
+                    handles.append(patch)
+    
+            l3 = plt.legend(
+                handles=handles, loc="upper left", ncol=2, bbox_to_anchor=(0, 0)
+            )
+            ax.add_artist(l3)
 
     if type(line_colors) != str:
-        print(111111)
+
         # Set fixed boundaries if selected in parameters
         if not boundaries:
             boundaries = [
