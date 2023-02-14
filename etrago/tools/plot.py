@@ -2008,11 +2008,15 @@ def plot_grid(
 
         # Create ticks for legend
         v = np.linspace(boundaries[0], boundaries[1], 101)
+        
+        for l_collection in ll:
+            l_collection.set_clim(boundaries[0], boundaries[1])
 
         # colorbar for line heatmap
         cb = plt.colorbar(
-            ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
-        )
+            ll[1], values=v, ticks=v[0:101:10], fraction=0.028, pad=0.04,
+            
+        )        
         # Set legend label
         cb.set_label(label)
 
