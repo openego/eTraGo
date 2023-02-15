@@ -353,7 +353,6 @@ def gas_postprocessing(etrago, busmap, medoid_idx):
 
             """
             H2_vol2en = {
-                0: 0,
                 1: 0.00304,
                 2: 0.00612,
                 5: 0.01562,

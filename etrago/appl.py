@@ -249,6 +249,7 @@ def run_etrago(args, json_path):
         Allowed H2 volumetric share of the CH4 loads that could be fed
         into the CH4 grid if H2_feedin links are present in the network
         Possible values are: [50/20/15/10/5/2/1/0]
+        If 0 is set, the H2_feedin links are deleted of the network.
 
     lpfile : obj
         False,
