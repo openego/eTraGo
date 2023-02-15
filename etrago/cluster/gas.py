@@ -176,7 +176,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     # Creation of the busmap
 
-    if not settings["k_ch4_busmap"]:
+    if not settings["k_gas_busmap"]:
 
         busmap_ch4 = busmap_by_kmeans(
             network_ch4,
@@ -194,7 +194,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
         )
     else:
 
-        df = pd.read_csv(settings["k_ch4_busmap"])
+        df = pd.read_csv(settings["k_gas_busmap"])
         df = df.astype(str)
         df = df.set_index("bus_id")
         busmap_ch4 = df.squeeze("columns")
@@ -202,39 +202,15 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     return busmap_ch4
 
 
-def gas_clustering_appendix(etrago, busmap_ch4):
-    # This section is very specific to the eGon2035 scenario
-    # it depends on the existance of H2_feedin points and it should be
-    # rewritten
+def get_h2_clusters(etrago, busmap_ch4):
+    
+    # Mapping of H2 buses to new CH4 cluster IDs
+    busmap_h2 = pd.Series(busmap_ch4.loc[etrago.ch4_h2_mapping.index].values, index = etrago.ch4_h2_mapping.values)
 
-    # Add H2_grid buses to busmap
-    df_correspondance_H2_CH4 = etrago.network.links[
-        (etrago.network.links["carrier"] == "H2_feedin")
-    ]
-    df_correspondance_H2_CH4 = df_correspondance_H2_CH4[
-        ["bus0", "bus1", "scn_name"]
-    ].rename(columns={"bus0": "bus_H2", "bus1": "bus_CH4"})
-    df_correspondance_H2_CH4["bus_CH4"] = df_correspondance_H2_CH4["bus_CH4"].astype(
-        str
-    )
-    df_correspondance_H2_CH4 = df_correspondance_H2_CH4.set_index(["bus_CH4"])
-    busmap_h2 = pd.concat(
-        [df_correspondance_H2_CH4, busmap_ch4.rename("CH4_nodes_c")],
-        axis=1,
-        join="inner",
-    )
-    CH4_clusters = busmap_h2["CH4_nodes_c"].tolist()
-    CH4_clusters_unique = list(set(CH4_clusters))
+    # Create unique H2 cluster IDs
     n_gas = etrago.args["network_clustering"]["n_clusters_gas"]
-    H2_clusters = range(n_gas, n_gas + len(set(CH4_clusters)))
-    corr = pd.DataFrame(
-        list(zip(CH4_clusters_unique, H2_clusters)),
-        columns=["CH4_nodes_c", "H2_clusters"],
-    )
-    busmap_h2 = busmap_h2.merge(corr, on="CH4_nodes_c", how="inner")
-    busmap_h2 = busmap_h2.drop(columns=["scn_name", "CH4_nodes_c"]).set_index(
-        ["bus_H2"]
-    )
+    busmap_h2 = (busmap_h2.astype(int) + n_gas).astype(str)
+
     busmap_h2 = busmap_h2.squeeze()
 
     busmap = pd.concat([busmap_ch4, busmap_h2])
@@ -244,7 +220,7 @@ def gas_clustering_appendix(etrago, busmap_ch4):
 
 def gas_postprocessing(etrago, busmap, medoid_idx):
 
-    busmap = gas_clustering_appendix(etrago, busmap)
+    busmap = get_h2_clusters(etrago, busmap)
 
     settings = etrago.args["network_clustering"]
     # Add all other buses to busmap

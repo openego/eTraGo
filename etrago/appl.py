@@ -108,7 +108,7 @@ args = {
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
-        "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
+        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  #
@@ -350,6 +350,8 @@ def run_etrago(args, json_path):
         k-medoids Dijkstra Clustering considering electrical distances between buses.
         With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can choose if you
         want to load cluster coordinates from a previous run for the respecting carrier.
+        It should be considered that once this option is set to True, the
+        provided number of clusters will be ignored.
         Option ``'remove_stubs'`` reduces the overestimating of line meshes.
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
@@ -446,6 +448,7 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    etrago.network.lines.type = ""
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
