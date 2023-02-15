@@ -47,11 +47,11 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-SH",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
@@ -102,10 +102,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_ch4_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -436,10 +436,11 @@ def run_etrago(args, json_path):
     """
     
     # import args from optimized network
-    # in args = disaggregation: null, dispatch_disaggregation: true, load_shedding : false
-    import json
-    args = open("data1212_dsm_fix_eGon2035_300ac_80ch4_noloadshedding/lopf_iteration_2/args.json")
-    args = json.load(args)
+    # in args = disaggregation: null, dispatch_disaggregation: true, load_shedding : false, pf_post_lopf : false
+    # k_elec_ und k_ch4_busmap
+    '''import json
+    args = open("optimized_network/args.json")
+    args = json.load(args)'''
     etrago = Etrago(args, json_path)
 
     # import network from database
@@ -485,12 +486,23 @@ def run_etrago(args, json_path):
     etrago.args["load_shedding"] = True
     etrago.load_shedding()
     
-    # import temporally reduced, optimized network to skip lopf
-    etrago.network_tsa = etrago.network.copy()
+    '''# import temporally reduced, optimized network to skip lopf
+    
+    # Clara:
+    #etrago.network.export_to_csv_folder('exported_network')
+    
+    # import networks:
     import pypsa
-    etrago.network = pypsa.Network("data1212_dsm_fix_eGon2035_300ac_80ch4_noloadshedding/lopf_iteration_2")
+    # exported network not optimized
+    etrago.network_tsa = pypsa.Network("exported_network")
+    # optimized network temporally reduced
+    etrago.network = pypsa.Network("optimized_network")
+    # adapt args again
+    etrago.args = args
+    # make sure dispatch disaggregation is True
+    etrago.args['dispatch_disaggregation'] = True'''
 
-    '''# snapshot clustering
+    # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
@@ -498,12 +510,67 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()'''
+    etrago.lopf()
+    
+    ### manually add load shedding to network for dispatch_disaggregation
+    
+    '''import pandas as pd
+    
+    marginal_cost= 10000  # network.generators.marginal_cost.max()*2
+    p_nom = etrago.network_tsa.loads_t.p_set.max().max()
+
+    etrago.network_tsa.add("Carrier", "load")
+    start = (
+            etrago.network_tsa.generators.index.to_series()
+            .str.rsplit(" ")
+            .str[0]
+            .astype(int)
+            .sort_values()
+            .max()
+            + 1
+        )
+
+    if start != start:
+    	start = 0
+    	
+    index = list(range(start, start + len(etrago.network_tsa.buses.index)))
+    etrago.network_tsa.import_components_from_dataframe(
+            pd.DataFrame(
+                dict(
+                    marginal_cost=marginal_cost,
+                    p_nom=p_nom,
+                    carrier="load shedding",
+                    bus=etrago.network_tsa.buses.index,
+                ),
+                index=index,
+            ),
+            "Generator",
+        )
+    
+    ###'''
+    
+    import sys
+
+    old_stdout = sys.stdout
+    log_file = open('RAM.log',"w")
+    sys.stdout = log_file
+
+    print(datetime.datetime.now())
+    
+    #from vresutils.benchmark import memory_logger
+    #with memory_logger(filename='memory_log_file.log', interval=30.) as mem:
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
+    
+    #print("Maximum memory usage: {}".format(mem.mem_usage))
+    
+    print(datetime.datetime.now())
+            
+    sys.stdout = old_stdout
+    log_file.close()
 
-    # start power flow based on lopf results
+    '''# start power flow based on lopf results
     etrago.pf_post_lopf()
 
     # spatial disaggregation
@@ -511,9 +578,7 @@ def run_etrago(args, json_path):
     # etrago.disaggregation()
 
     # calculate central etrago results
-    etrago.calc_results()
-
-    return etrago
+    etrago.calc_results()'''
 
 
 if __name__ == "__main__":
