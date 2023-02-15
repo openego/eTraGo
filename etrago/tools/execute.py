@@ -118,10 +118,8 @@ def run_lopf(etrago, extra_functionality, method):
 
         if method['pyomo']:
             
-            import pdb; pdb.set_trace()
-            
             etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[0],#[0:2190],
+                etrago.network_tsa.snapshots[0:2190],
                 solver_name=etrago.args['solver'],
                 solver_options=etrago.args['solver_options'],
                 pyomo=True,
