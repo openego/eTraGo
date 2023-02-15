@@ -118,8 +118,10 @@ def run_lopf(etrago, extra_functionality, method):
 
         if method['pyomo']:
             
+            import pdb; pdb.set_trace()
+            
             etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[0:2190],
+                etrago.network_tsa.snapshots[0],#[0:2190],
                 solver_name=etrago.args['solver'],
                 solver_options=etrago.args['solver_options'],
                 pyomo=True,
@@ -275,6 +277,9 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True})
 
         etrago.network_tsa.lines['s_nom'] = etrago.network.lines['s_nom_opt']
         etrago.network_tsa.lines['s_nom_extendable'] = False
+        
+        etrago.network_tsa.links['p_nom'] = etrago.network.links['p_nom_opt']
+        etrago.network_tsa.links['p_nom_extendable'] = False
 
         etrago.network_tsa.transformers['s_nom'] = etrago.network.transformers['s_nom_opt']
         etrago.network_tsa.transformers.s_nom_extendable = False
@@ -284,9 +289,9 @@ def iterate_lopf(etrago, extra_functionality, method={'n_iter':4, 'pyomo':True})
 
         etrago.network_tsa.stores['e_nom'] = etrago.network.stores['e_nom_opt']
         etrago.network_tsa.stores['e_nom_extendable'] = False
-
-        etrago.network_tsa.links['p_nom'] = etrago.network.links['p_nom_opt']
-        etrago.network_tsa.links['p_nom_extendable'] = False
+        
+        etrago.network_tsa.storage_units.cyclic_state_of_charge = False
+        etrago.network_tsa.stores.e_cyclic = False
 
         args['snapshot_clustering']['active']=False
         args['skip_snapshots']=False
@@ -395,7 +400,6 @@ def lopf(self):
         path = self.args['csv_export']+'/temporally_reduced'
         self.export_to_csv(path)
 
-
 def dispatch_disaggregation(self):
 
     if self.args["dispatch_disaggregation"] == True:
@@ -426,10 +430,12 @@ def dispatch_disaggregation(self):
         self.network_tsa = network1.copy()
 
         self.network.lines['s_nom_extendable'] = self.network_tsa.lines['s_nom_extendable']
+        self.network.links['p_nom_extendable'] = self.network_tsa.links['p_nom_extendable']
         self.network.transformers.s_nom_extendable = self.network_tsa.transformers.s_nom_extendable
         self.network.storage_units['p_nom_extendable'] = self.network_tsa.storage_units['p_nom_extendable']
         self.network.stores['e_nom_extendable'] = self.network_tsa.stores['e_nom_extendable']
-        self.network.links['p_nom_extendable'] = self.network_tsa.links['p_nom_extendable']
+        self.network.storage_units.cyclic_state_of_charge = self.network_tsa.storage_units.cyclic_state_of_charge
+        self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
 
         if self.args['csv_export'] != False:
             path = self.args['csv_export']+'/dispatch_disaggregaton'
