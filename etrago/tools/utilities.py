@@ -470,15 +470,14 @@ def set_q_foreign_loads(self, cos_phi=1):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     cos_phi: float
         Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None
 
     """
     network = self.network
@@ -510,6 +509,7 @@ def set_q_foreign_loads(self, cos_phi=1):
     network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
         str
     )
+
 
 
 def connected_grid_lines(network, busids):
