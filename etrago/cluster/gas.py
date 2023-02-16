@@ -740,7 +740,7 @@ def get_clustering_from_busmap(
 
 
 def run_spatial_clustering_gas(self):
-    if self.args["network_clustering"]["active"]:
+    if (self.args["network_clustering"]["active"]) and ('CH4' in self.network.buses.carrier.values):
 
         self.network.generators.control = "PV"
         method = self.args["network_clustering"]["method_gas"]
