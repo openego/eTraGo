@@ -43,18 +43,18 @@ from etrago.tools.execute import (
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
     NetworkScenario,
+    add_ch4_h2_correspondence,
     decommissioning,
     extension,
-    add_ch4_h2_correspondence,
 )
 from etrago.tools.plot import (
-    flexibility_usage,
-    plot_clusters,
-    plot_grid,
-    demand_side_management,
     bev_flexibility_potential,
+    demand_side_management,
+    flexibility_usage,
     heat_stores,
     hydrogen_stores,
+    plot_clusters,
+    plot_grid,
 )
 from etrago.tools.utilities import (
     add_missing_components,
