@@ -360,7 +360,7 @@ def run_pf_post_lopf(self):
         pf_post_lopf(self)
 
 
-def pf_post_lopf(etrago, calc_losses = True):
+def pf_post_lopf(etrago, calc_losses = False):
 
     """
     Function that prepares and runs non-linar load flow using PyPSA pf.
@@ -404,6 +404,12 @@ def pf_post_lopf(etrago, calc_losses = True):
         None.
 
         """
+        # Create series for constant loads
+        constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
+        for load in constant_loads.index:
+            network.loads_t.p_set[load] = constant_loads[load]
+        network.loads.p_set = 0
+        
         n_bus = pd.Series(index=network.sub_networks.index)
 
         for i in network.sub_networks.index:
@@ -538,7 +544,7 @@ def pf_post_lopf(etrago, calc_losses = True):
 
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
-
+    
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
         columns=network.generators.index)
@@ -565,19 +571,26 @@ def pf_post_lopf(etrago, calc_losses = True):
         foreign_bus, foreign_comp, foreign_series = \
             drop_foreign_components(network)
 
-    # Set slack bus
+    # Assign generators control strategy
     ac_bus = network.buses[network.buses.carrier == "AC"]
     network.generators.control[network.generators.bus.isin(ac_bus.index)] = "PV"
     network.generators.control[network.generators.carrier == "load shedding"] = "PQ"
-    network = set_slack(network)
-    foreign_buses = network.buses[network.buses.country != "DE"].index
-    network.generators.control[(network.generators.bus.isin(foreign_buses))
-                               &(network.generators.bus.isin(ac_bus.index))] = "Slack"
 
-    # execute non-linear pf esults of the network inside Germany
+    # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
+    
+    # Delete very small p_set and q_set values to avoid problems with the solver
+    network.generators_t['p_set'][np.abs(network.generators_t['p_set']) < 0.001] = 0
+    network.generators_t['q_set'][np.abs(network.generators_t['q_set']) < 0.001] = 0
+    network.loads_t['p_set'][np.abs(network.loads_t['p_set']) < 0.001] = 0
+    network.loads_t['q_set'][np.abs(network.loads_t['q_set']) < 0.001] = 0
+    network.storage_units_t["p_set"][np.abs(network.storage_units_t["p_set"]) < 0.001] = 0
+    network.storage_units_t["q_set"][np.abs(network.storage_units_t["p_set"]) < 0.001] = 0
+    
+    # execute non-linear pf
     pf_solution = sub_network_pf(sub_network=network.sub_networks["obj"][main_subnet],
-                                 snapshots=network.snapshots, use_seed=True)
+                             snapshots=network.snapshots, use_seed=True, distribute_slack=True)
+    
 
     pf_solve = pd.DataFrame(index=pf_solution[0].index)
     pf_solve['converged'] = pf_solution[2].values
@@ -614,7 +627,6 @@ def pf_post_lopf(etrago, calc_losses = True):
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, 'pf_solution.csv'),
                                index=True)
-
     return network
 
 
@@ -757,7 +769,7 @@ def calc_line_losses(network, converged):
     s0_lines = ((network.lines_t.p0**2 + network.lines_t.q0**2).
                 apply(np.sqrt))
     # in case some snapshots did not converge, discard them from the calculation
-    s0_lines = s0_lines[converged]
+    s0_lines.loc[converged[converged==False].index,:] = np.nan
     # calculate current I = S / U [in A]
     i0_lines = np.multiply(s0_lines, 1000000) / \
         np.multiply(network.lines.v_nom, 1000)
@@ -779,11 +791,15 @@ def calc_line_losses(network, converged):
     network.transformers = network.transformers.assign(
         losses=np.multiply(network.transformers.s_nom, (1 - 0.998)).values)
 
+    main_subnet = str(network.buses.sub_network.value_counts().argmax())
+    price_per_bus = network.buses_t.marginal_price[
+        network.buses.sub_network[network.buses.sub_network==main_subnet].index]
+
     # calculate total losses (possibly enhance with adding these values
     # to network container)
     losses_total = sum(network.lines.losses) + sum(network.transformers.losses)
     print("Total lines losses for all snapshots [MW]:", round(losses_total, 2))
-    losses_costs = losses_total * np.average(network.buses_t.marginal_price)
+    losses_costs = losses_total * np.average(price_per_bus)
     print("Total costs for these losses [EUR]:", round(losses_costs, 2))
     if (~converged).sum() > 0:
         print(f"Note: {(~converged).sum()} snapshot(s) was/were excluded " +

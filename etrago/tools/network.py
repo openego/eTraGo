@@ -23,50 +23,63 @@ Define class Etrago
 """
 
 import logging
-import json
-import pandas as pd
-from pypsa.components import Network
+
 from egoio.tools import db
+from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
+import pandas as pd
+
 from etrago import __version__
-from etrago.tools.io import (NetworkScenario,
-                             extension,
-                             decommissioning)
-from etrago.tools.utilities import (set_branch_capacity,
-                                    add_missing_components,
-                                    set_random_noise,
-                                    geolocation_buses,
-                                    check_args,
-                                    load_shedding,
-                                    set_q_national_loads,
-                                    set_q_foreign_loads,
-                                    foreign_links,
-                                    crossborder_capacity,
-                                    convert_capital_costs,
-                                    get_args_setting,
-                                    export_to_csv,
-                                    filter_links_by_carrier,
-                                    set_line_costs,
-                                    set_trafo_costs,
-                                    drop_sectors,
-                                    adapt_crossborder_buses,
-                                    update_busmap,
-                                    buses_by_country,
-                                    delete_dispensable_ac_buses,
-                                    get_clustering_data,
-                                    adjust_CH4_gen_carriers,)
-
-from etrago.tools.plot import plot_grid, plot_clusters
-from etrago.tools.extendable import extendable
-from etrago.cluster.electrical import (run_spatial_clustering,
-                                              ehv_clustering)
-from etrago.cluster.gas import run_spatial_clustering_gas
-
-
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.cluster.disaggregation import run_disaggregation
-from etrago.tools.execute import lopf, dispatch_disaggregation, run_pf_post_lopf
+from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import calc_etrago_results
+from etrago.tools.execute import (
+    dispatch_disaggregation,
+    lopf,
+    run_pf_post_lopf,
+)
+from etrago.tools.extendable import extendable
+from etrago.tools.io import (
+    NetworkScenario,
+    decommissioning,
+    extension,
+    add_ch4_h2_correspondence,
+)
+from etrago.tools.plot import (
+    flexibility_usage,
+    plot_clusters,
+    plot_grid,
+    demand_side_management,
+    bev_flexibility_potential,
+    heat_stores,
+    hydrogen_stores,
+)
+from etrago.tools.utilities import (
+    add_missing_components,
+    adjust_CH4_gen_carriers,
+    buses_by_country,
+    check_args,
+    convert_capital_costs,
+    crossborder_capacity,
+    delete_dispensable_ac_buses,
+    drop_sectors,
+    export_to_csv,
+    filter_links_by_carrier,
+    foreign_links,
+    geolocation_buses,
+    get_args_setting,
+    get_clustering_data,
+    load_shedding,
+    set_branch_capacity,
+    set_line_costs,
+    set_q_foreign_loads,
+    set_q_national_loads,
+    set_random_noise,
+    set_trafo_costs,
+    update_busmap,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,13 +114,12 @@ class Etrago:
     def __init__(
         self,
         args=None,
-        json_path=None,
         csv_folder_name=None,
-        name="",
         ignore_standard_types=False,
-        **kwargs
+        json_path=None,
+        name="",
+        **kwargs,
     ):
-
         self.tool_version = __version__
 
         self.clustering = None
@@ -120,14 +132,21 @@ class Etrago:
 
         self.disaggregated_network = Network()
 
-        self.__re_carriers = ['wind_onshore', 'wind_offshore', 'solar',
-                              'biomass', 'run_of_river', 'reservoir']
-        self.__vre_carriers = ['wind_onshore', 'wind_offshore', 'solar']
+        self.__re_carriers = [
+            "wind_onshore",
+            "wind_offshore",
+            "solar",
+            "biomass",
+            "run_of_river",
+            "reservoir",
+        ]
+        self.__vre_carriers = ["wind_onshore", "wind_offshore", "solar"]
 
         self.busmap = {}
 
-        if args is not None:
+        self.ch4_h2_mapping = {}
 
+        if args is not None:
             self.args = args
 
             self.get_args_setting(json_path)
@@ -143,13 +162,13 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
-
             self.get_args_setting(csv_folder_name + "/args.json")
 
-            self.network = Network(csv_folder_name, name, ignore_standard_types)
+            self.network = Network(
+                csv_folder_name, name, ignore_standard_types
+            )
 
             if self.args["disaggregation"] is not None:
-
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -192,6 +211,8 @@ class Etrago:
 
     decommissioning = decommissioning
 
+    add_ch4_h2_correspondence = add_ch4_h2_correspondence
+
     plot_grid = plot_grid
 
     spatial_clustering = run_spatial_clustering
@@ -224,14 +245,22 @@ class Etrago:
 
     drop_sectors = drop_sectors
 
-    adapt_crossborder_buses = adapt_crossborder_buses
-    
     buses_by_country = buses_by_country
 
     update_busmap = update_busmap
-    
+
     plot_clusters = plot_clusters
-    
+
+    plot_flexibility_usage = flexibility_usage
+
+    demand_side_management = demand_side_management
+
+    bev_flexibility_potential = bev_flexibility_potential
+
+    heat_stores = heat_stores
+
+    hydrogen_stores = hydrogen_stores
+
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
     get_clustering_data = get_clustering_data
@@ -239,10 +268,9 @@ class Etrago:
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     def dc_lines(self):
-        return self.filter_links_by_carrier('DC', like=False)
+        return self.filter_links_by_carrier("DC", like=False)
 
     def build_network_from_db(self):
-
         """Function that imports transmission grid from chosen database
 
         Returns
@@ -264,6 +292,8 @@ class Etrago:
         self.extension()
 
         self.decommissioning()
+
+        self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 
@@ -296,17 +326,24 @@ class Etrago:
 
         self.set_branch_capacity()
 
-        self.extendable(grid_max_D= self.args["extendable"]['upper_bounds_grid']['grid_max_D'],
-                        grid_max_abs_D= self.args["extendable"]['upper_bounds_grid']['grid_max_abs_D'],
-                        grid_max_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_foreign'],
-                        grid_max_abs_foreign=self.args["extendable"]['upper_bounds_grid']['grid_max_abs_foreign'])
+        self.extendable(
+            grid_max_D=self.args["extendable"]["upper_bounds_grid"][
+                "grid_max_D"
+            ],
+            grid_max_abs_D=self.args["extendable"]["upper_bounds_grid"][
+                "grid_max_abs_D"
+            ],
+            grid_max_foreign=self.args["extendable"]["upper_bounds_grid"][
+                "grid_max_foreign"
+            ],
+            grid_max_abs_foreign=self.args["extendable"]["upper_bounds_grid"][
+                "grid_max_abs_foreign"
+            ],
+        )
 
         self.convert_capital_costs()
 
-        self.adapt_crossborder_buses()
-        
         self.delete_dispensable_ac_buses()
-
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
