@@ -444,13 +444,9 @@ def set_q_national_loads(self, cos_phi=1):
     national_buses = network.buses[
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
-
-    network.loads_t["q_set"].loc[
-        :,
-        network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
-        ].astype(int),
-    ] = network.loads_t["p_set"].loc[
+    
+    # Calculate q national loads based on p and cos_phi
+    new_q_loads = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
             network.loads.bus.astype(str).isin(national_buses.index)
@@ -458,12 +454,15 @@ def set_q_national_loads(self, cos_phi=1):
     ] * math.tan(
         math.acos(cos_phi)
     )
-    # To avoid a problem when the index of the load is the weather year,
-    # the column names were temporarily set to `int` and changed back to
-    # `str`.
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
-        str
-    )
+        
+    # insert the calculated q in loads_t. Only loads without previous assignment
+    # are affected
+    network.loads_t.q_set = pd.merge(network.loads_t.q_set, new_q_loads,
+                                     how="inner", right_index= True,
+                                     left_index=True, suffixes=("", "delete_"))
+    network.loads_t.q_set.drop(
+        [i for i in network.loads_t.q_set.columns if 'delete' in i],
+        axis=1, inplace=True)
 
 
 def set_q_foreign_loads(self, cos_phi=1):
