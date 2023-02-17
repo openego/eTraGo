@@ -514,7 +514,7 @@ def select_elec_network(etrago):
 def preprocessing(etrago):
     def unify_foreign_buses(etrago):
 
-        network = etrago.network.copy()
+        network = etrago.network.copy(with_time=False)
 
         foreign_buses = network.buses[
             (network.buses.country != "DE") & (network.buses.carrier == "AC")
@@ -537,7 +537,6 @@ def preprocessing(etrago):
         lines_plus_dc["carrier"] = "AC"
 
         busmap_foreign = pd.Series(dtype=str)
-        medoids_foreign = pd.Series(dtype=str)
 
         for country, df in foreign_buses.groupby(by="country"):
             weight = df.apply(
@@ -545,14 +544,16 @@ def preprocessing(etrago):
                 axis=1,
             )
             n_clusters = (foreign_buses_load.country == country).sum()
+            if n_clusters < len(df):
+                busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
+                    etrago, df, lines_plus_dc, weight, n_clusters)
+                medoid_idx_country.index = medoid_idx_country.index.astype(str)
+                busmap_country = busmap_country.map(medoid_idx_country)             
+                busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            else:
+                for bus in df.index:
+                    busmap_foreign[bus] = bus
 
-            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
-                etrago, df, lines_plus_dc, weight, n_clusters)
-            medoid_idx_country.index = medoid_idx_country.index.astype(str)
-            busmap_country = busmap_country.map(medoid_idx_country)
-
-            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
-            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
         busmap_foreign.name = "foreign"
         busmap_foreign.index.name = "bus"
 
@@ -858,7 +859,7 @@ def run_spatial_clustering(self):
     if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
-
+        
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
