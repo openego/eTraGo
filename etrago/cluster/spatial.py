@@ -40,7 +40,7 @@ if "READTHEDOCS" not in os.environ:
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
-
+    from threadpoolctl import threadpool_limits
     from etrago.tools.utilities import *
 
     logger = logging.getLogger(__name__)
@@ -647,70 +647,75 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 
 
 def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
-
+    
     settings = etrago.args["network_clustering"]
-
-    # remove stubs
-    if settings["remove_stubs"]:
-
-        logger.info(
-            "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
-        )
-        
-    ### if-condition is only necessary for gas sector, because import of busmap for AC checked before calling of this function
-    ### can be deleted after busmaps are adapted in gas sector aswell
-
-    if ((str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]) or (str(buses.carrier.unique()[0]) == 'AC')):
-           
-        ###
-
-        bus_weightings = pd.Series(weight)
-        buses_i = buses.index
-        points = buses.loc[buses_i, ["x", "y"]].values.repeat(
-            bus_weightings.reindex(buses_i).astype(int), axis=0
-        )
-
-        kmeans = KMeans(
-            init="k-means++",
-            n_clusters=n_clusters,
-            n_init=settings["n_init"],
-            max_iter=settings["max_iter"],
-            tol=settings["tol"],
-            random_state=settings["random_state"],
-        )
-        kmeans.fit(points)
-
-        busmap = pd.Series(
-            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
-            index=buses_i,
-            dtype=object,
-        )
-
-        # identify medoids per cluster -> k-medoids clustering
-
-        distances = pd.DataFrame(
-            data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
-            index=buses_i,
-            dtype=object,
-        )
-        distances = distances.apply(pd.to_numeric)
-
-        medoid_idx = distances.idxmin()
+    
+    # n_jobs was deprecated for the function fit(). scikit-learn recommends
+    # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
+    with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
+        # remove stubs
+        if settings["remove_stubs"]:
+    
+            logger.info(
+                "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
+            )
+            
+        ### if-condition is only necessary for gas sector, because import of busmap for AC checked before calling of this function
+        ### can be deleted after busmaps are adapted in gas sector aswell
+    
+        if ((str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]) or (str(buses.carrier.unique()[0]) == 'AC')):
+               
+            ###
+    
+            bus_weightings = pd.Series(weight)
+            buses_i = buses.index
+            points = buses.loc[buses_i, ["x", "y"]].values.repeat(
+                bus_weightings.reindex(buses_i).astype(int), axis=0
+            )
+    
+            kmeans = KMeans(
+                init="k-means++",
+                n_clusters=n_clusters,
+                n_init=settings["n_init"],
+                max_iter=settings["max_iter"],
+                tol=settings["tol"],
+                random_state=settings["random_state"],
+            )
+            
+            
+            kmeans.fit(points)
+    
+            busmap = pd.Series(
+                data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
+                index=buses_i,
+                dtype=object,
+            )
+    
+            # identify medoids per cluster -> k-medoids clustering
+    
+            distances = pd.DataFrame(
+                data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
+                index=buses_i,
+                dtype=object,
+            )
+            distances = distances.apply(pd.to_numeric)
+    
+            medoid_idx = distances.idxmin()
 
         # dijkstra's algorithm
         busmap, busmap_ind = dijkstras_algorithm(buses, connections, medoid_idx,
                                      etrago.args["network_clustering"]["CPU_cores"])
         busmap.index.name = "bus_id"
         
-        if (str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]):
-            
-            busmap.name = 'cluster'
-            busmap_ind.name='medoid_idx'
+    if (str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]):
         
-            export = pd.concat([busmap, busmap_ind], axis=1)
-            export.index.name = 'bus_id'
-            export.to_csv(
-                "kmedoids_ch4_busmap_" + str(settings["n_clusters_gas"]) + "_result.csv")
+        busmap.name = 'cluster'
+        busmap_ind.name='medoid_idx'
+    
+        export = pd.concat([busmap, busmap_ind], axis=1)
+        export.index.name = 'bus_id'
+        export.to_csv(
+            "kmedoids_ch4_busmap_" + str(settings["n_clusters_gas"]) + "_result.csv")
             
 
     ### this export should be shifted to the gas.py analog to the procedure for the electrical network
