@@ -74,9 +74,9 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
 
-    network = etrago.network.copy()
+    network = etrago.network
     # network2 is supposed to contain all the not electrical or gas buses and links
-    network2 = network.copy()
+    network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
@@ -859,7 +859,7 @@ def run_spatial_clustering(self):
     if self.args["network_clustering"]["active"]:
 
         self.network.generators.control = "PV"
-        
+
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
@@ -879,7 +879,7 @@ def run_spatial_clustering(self):
             if self.args["network_clustering"]["k_elec_busmap"] == False:
                 
                 logger.info("Start k-medoids Dijkstra Clustering")
-                
+
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,
@@ -887,6 +887,7 @@ def run_spatial_clustering(self):
                     weight,
                     n_clusters
                 )
+
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
@@ -901,7 +902,7 @@ def run_spatial_clustering(self):
         else:
             self.disaggregated_network = self.network.copy(with_time=False)
 
-        self.network = self.clustering.network.copy()
+        self.network = self.clustering.network
 
         self.buses_by_country()
 
