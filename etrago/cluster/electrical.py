@@ -630,6 +630,22 @@ def preprocessing(etrago):
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
+    if network.buses.country.isna().any():
+        logger.info(
+            f"""
+
+                    ----------------------- WARNING ---------------------------
+                    THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
+                        {network.buses[network.buses.country.isna()].index.to_list()}.
+                    THEY WILL BE ASSIGNED TO GERMANY, BUT IT IS POTENTIALLY A
+                    SIGN OF A PROBLEM IN THE DATASET.
+                    ----------------------- WARNING ---------------------------
+
+                    """
+        )
+        network.buses.country.loc[network.buses.country.isna()] = "DE"
+    
+    
     if settings["k_elec_busmap"] is False:
         busmap_foreign = unify_foreign_buses(etrago)
     else:
