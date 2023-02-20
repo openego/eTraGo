@@ -669,9 +669,8 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
     
             bus_weightings = pd.Series(weight)
             buses_i = buses.index
-            points = buses.loc[buses_i, ["x", "y"]].values.repeat(
-                bus_weightings.reindex(buses_i).astype(int), axis=0
-            )
+
+            points = buses[["x","y"]]
     
             kmeans = KMeans(
                 init="k-means++",
@@ -681,10 +680,9 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
                 tol=settings["tol"],
                 random_state=settings["random_state"],
             )
-            
-            
-            kmeans.fit(points)
-    
+
+            kmeans.fit(points, sample_weight=bus_weightings)
+
             busmap = pd.Series(
                 data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
                 index=buses_i,
