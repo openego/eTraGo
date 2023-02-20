@@ -47,11 +47,11 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-SH",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 200,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -440,12 +440,12 @@ def run_etrago(args, json_path):
     # import args from optimized network
     # in args = disaggregation: null, dispatch_disaggregation: true, load_shedding : false, pf_post_lopf : false
     # k_elec_ und k_ch4_busmap
-    import json
+    '''import json
     args = open("optimized_network/args.json")
-    args = json.load(args)
+    args = json.load(args)'''
     etrago = Etrago(args, json_path)
 
-    '''# import network from database
+    # import network from database
     etrago.build_network_from_db()
 
     etrago.network.lines.type = ""
@@ -487,9 +487,9 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering_gas()
 
     etrago.args["load_shedding"] = True
-    etrago.load_shedding()'''
+    etrago.load_shedding()
     
-    # import temporally reduced, optimized network to skip lopf
+    '''# import temporally reduced, optimized network to skip lopf
     
     # Clara:
     #etrago.network.export_to_csv_folder('exported_network')
@@ -503,9 +503,9 @@ def run_etrago(args, json_path):
     # adapt args again
     etrago.args = args
     # make sure dispatch disaggregation is True
-    etrago.args['dispatch_disaggregation'] = True
+    etrago.args['dispatch_disaggregation'] = True'''
 
-    '''# snapshot clustering
+    # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
@@ -513,9 +513,9 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.lopf()'''
+    etrago.lopf()
     
-    ### delete extra functionlities
+    '''### delete extra functionlities
     
     etrago.args['extra_functionality'] = {}
     
@@ -554,7 +554,7 @@ def run_etrago(args, json_path):
             "Generator",
         )
     
-    ###
+    ###'''
     
     import sys
 
@@ -577,15 +577,15 @@ def run_etrago(args, json_path):
     sys.stdout = old_stdout
     log_file.close()
 
-    '''# start power flow based on lopf results
-    etrago.pf_post_lopf()
+    # start power flow based on lopf results
+    # etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
 
     # calculate central etrago results
-    etrago.calc_results()'''
+    etrago.calc_results()
 
 
 if __name__ == "__main__":
