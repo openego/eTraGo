@@ -1729,7 +1729,8 @@ def get_clustering_data(self, path):
                     )
             else:
                 logger.info(
-                    "There is no CH4 to H2 bus mapping data available in the loaded object."
+                    """There is no CH4 to H2 bus mapping data
+                    available in the loaded object."""
                 )
 
             busmap_path = os.path.join(path_clus, "busmap.json")
@@ -2129,7 +2130,8 @@ def set_branch_capacity(etrago):
     # If any line has a time dependend s_max_pu, use the time dependend
     # factor for all lines, to avoid problems in the clustering
     if not network.lines_t.s_max_pu.empty:
-        # Set time dependend s_max_pu for lines without dynamic line rating to 1.0
+        # Set time dependend s_max_pu for
+        # lines without dynamic line rating to 1.0
         network.lines_t.s_max_pu[
             network.lines[
                 ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
