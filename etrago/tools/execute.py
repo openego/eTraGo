@@ -115,97 +115,39 @@ def run_lopf(etrago, extra_functionality, method):
     x = time.time()
 
     if etrago.conduct_dispatch_disaggregation is not False:
+        
+        slice_len = int(len(etrago.network_tsa.snapshots)/4)
+        slices = [0, slice_len, 2*slice_len, 3*slice_len, len(etrago.network_tsa.snapshots)]
 
         if method['pyomo']:
             
-            etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[0:2190],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
-                raise  Exception('LOPF not solved.')
-                
-            etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[2190:4380],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
-                raise  Exception('LOPF not solved.')
-                
-            etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[4380:6570],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
-                raise  Exception('LOPF not solved.')
-                
-            etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots[6570:8760],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
-                raise  Exception('LOPF not solved.')
+            for i in range (0,4):
+            
+                etrago.network_tsa.lopf(
+                    etrago.network_tsa.snapshots[slices[i]:slices[i+1]],
+                    solver_name=etrago.args['solver'],
+                    solver_options=etrago.args['solver_options'],
+                    pyomo=True,
+                    extra_functionality=extra_functionality,
+                    formulation=etrago.args['model_formulation'])
+    
+                if etrago.network_tsa.results["Solver"][0]["Status"] != 'ok':
+                    raise  Exception('LOPF not solved.')
 
         else:
-            status, termination_condition = network_lopf(
-                etrago.network_tsa,
-                etrago.network_tsa.snapshots[0:2189],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if status != 'ok':
-                raise  Exception('LOPF not solved.')
-        
-            status, termination_condition = network_lopf(
-                etrago.network_tsa,
-                etrago.network_tsa.snapshots[2190:4379],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if status != 'ok':
-                raise  Exception('LOPF not solved.')
-                
-            status, termination_condition = network_lopf(
-                etrago.network_tsa,
-                etrago.network_tsa.snapshots[4380:6569],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if status != 'ok':
-                raise  Exception('LOPF not solved.')
-                
-            status, termination_condition = network_lopf(
-                etrago.network_tsa,
-                etrago.network_tsa.snapshots[6570:8759],
-                solver_name=etrago.args['solver'],
-                solver_options=etrago.args['solver_options'],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args['model_formulation'])
-
-            if status != 'ok':
-                raise  Exception('LOPF not solved.')
+            
+            for i in range (0,4):
+            
+                status, termination_condition = network_lopf(
+                    etrago.network_tsa,
+                    etrago.network_tsa.snapshots[slices[i]:slices[i+1]],
+                    solver_name=etrago.args['solver'],
+                    solver_options=etrago.args['solver_options'],
+                    extra_functionality=extra_functionality,
+                    formulation=etrago.args['model_formulation'])
+    
+                if status != 'ok':
+                    raise  Exception('LOPF not solved.')
 
     else:
 
@@ -404,21 +346,15 @@ def dispatch_disaggregation(self):
 
         x = time.time()
         
-        index = self.network.storage_units.index.append(self.network.stores.index)
-        sns = self.network_tsa.snapshots.copy()[0], self.network_tsa.snapshots.copy()[2189], \
-                self.network_tsa.snapshots.copy()[2190], self.network_tsa.snapshots.copy()[4379], \
-                self.network_tsa.snapshots.copy()[4380], self.network_tsa.snapshots.copy()[6569], \
-                self.network_tsa.snapshots.copy()[6570], self.network_tsa.snapshots.copy()[8759]
-        self.conduct_dispatch_disaggregation = pd.DataFrame(columns=sns, index=index)
-        self.conduct_dispatch_disaggregation.loc[:,sns[0]] = self.network.storage_units_t.state_of_charge.iloc[0].append(self.network.stores_t.e.iloc[0])
-        self.conduct_dispatch_disaggregation.loc[:,sns[1]] = self.network.storage_units_t.state_of_charge.iloc[437].append(self.network.stores_t.e.iloc[437])
-        self.conduct_dispatch_disaggregation.loc[:,sns[2]] = self.network.storage_units_t.state_of_charge.iloc[437].append(self.network.stores_t.e.iloc[437])
-        self.conduct_dispatch_disaggregation.loc[:,sns[3]] = self.network.storage_units_t.state_of_charge.iloc[875].append(self.network.stores_t.e.iloc[875])
-        self.conduct_dispatch_disaggregation.loc[:,sns[4]] = self.network.storage_units_t.state_of_charge.iloc[875].append(self.network.stores_t.e.iloc[875])
-        self.conduct_dispatch_disaggregation.loc[:,sns[5]] = self.network.storage_units_t.state_of_charge.iloc[1315].append(self.network.stores_t.e.iloc[1315])
-        self.conduct_dispatch_disaggregation.loc[:,sns[6]] = self.network.storage_units_t.state_of_charge.iloc[1315].append(self.network.stores_t.e.iloc[1315])
-        self.conduct_dispatch_disaggregation.loc[:,sns[7]] = self.network.storage_units_t.state_of_charge.iloc[1751].append(self.network.stores_t.e.iloc[1751])
-        
+        # split dispatch_disaggregation into subproblems, but keep some information on soc to reproduce saisonality
+        no_soc = int(len(self.network_tsa.snapshots)/len(self.network.snapshots))*2
+        soc_len = int(len(self.network.snapshots)/no_soc)
+        self.conduct_dispatch_disaggregation = pd.DataFrame(columns=self.network.storage_units.index.append(self.network.stores.index), index=self.network.snapshots[0::soc_len])
+        for storage in self.network.storage_units.index:
+            self.conduct_dispatch_disaggregation[storage] = self.network.storage_units_t.state_of_charge[storage]
+        for store in self.network.stores.index:
+            self.conduct_dispatch_disaggregation[store] = self.network.stores_t.e[store]
+            
         iterate_lopf(self,
                          Constraints(self.args, self.conduct_dispatch_disaggregation).functionality,
                          method=self.args['method'])
