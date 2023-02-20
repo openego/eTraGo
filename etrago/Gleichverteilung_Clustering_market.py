@@ -65,8 +65,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 1,
-    "end_snapshot": 2,
+    "start_snapshot": 2170,
+    "end_snapshot": 2180,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -113,8 +113,8 @@ args = {
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
-        "k_busmap": False,  # False or path/to/busmap.csv
-        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "k_elec_busmap": False,  # False or path/to/busmap.csv
+        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  #
@@ -124,8 +124,8 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": False,  # choose if clustering is activated
@@ -139,14 +139,14 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": False,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -454,39 +454,36 @@ def run_etrago(args, json_path):
     # data model is altered, which will
     # happen in the next data creation run
 
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()
-        [etrago.network.lines_t.s_max_pu.columns.isin(
-            etrago.network.lines.index)].transpose())
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.s_max_pu.transpose()[
+        etrago.network.lines_t.s_max_pu.columns.isin(etrago.network.lines.index)
+    ].transpose()
 
     # Set gas grid links bidirectional
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier=='CH4'].index, 'p_min_pu'] = -1.
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier == "CH4"].index, "p_min_pu"
+    ] = -1.0
 
     # Set efficiences of CHP
-    etrago.network.links.loc[etrago.network.links[
-        etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
-    
-    etrago.network.buses['country']= etrago.network.buses.apply(lambda x: 'DE' if x.country == None else x.country, axis=1) 
-    #etrago.network.storage_units.cyclic_state_of_charge= True 
+    etrago.network.links.loc[
+        etrago.network.links[etrago.network.links.carrier.str.contains("CHP")].index,
+        "efficiency",
+    ] = 0.43
 
-    etrago.network.links_t.p_min_pu.fillna(0., inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1., inplace=True)
-    etrago.network.links_t.efficiency.fillna(1., inplace=True)
+    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
+    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
+    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
 
-    etrago.network.storage_units.p_nom_max =np.inf
-
     # spatial clustering
     etrago.spatial_clustering()
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     
-    # from etrago import Etrago
-    # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/300')
+    #from etrago import Etrago
+    #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     
     etrago.args["network_clustering"]["n_clusters_AC"] = 30  
     etrago.spatial_clustering() 
@@ -523,10 +520,11 @@ def run_etrago(args, json_path):
     #Liste deropy( Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
-
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
-
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap')
+    
+    etrago.args["load_shedding"] =False
+    etrago.load_shedding()   
+    
     # snapshot clustering
     etrago.snapshot_clustering()
     
@@ -535,11 +533,14 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
-    etrago.network.storage_units.p_nom_max =np.inf
     
     # from etrago import Etrago
-    # market = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/market_Sommer')
+    # e_300 = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap')
     # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
+    # etrago.network.lines.s_nom = etrago.network.lines.s_nom*0.1
+    # etrago.network.lines.s_nom_max=etrago.network.lines.s_nom
+    # etrago.network.lines.s_nom_min= etrago.network.lines.s_nom_max
     etrago.lopf()
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
     # conduct lopf with full complex timeseries for dispatch disaggregation

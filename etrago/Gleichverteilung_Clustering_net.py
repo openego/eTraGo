@@ -44,12 +44,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 1,
-    "end_snapshot": 2,
+    "start_snapshot": 2160,
+    "end_snapshot": 2880,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -74,9 +74,9 @@ args = {
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
             "grid_max_abs_D": {  # absolute capacity per voltage level
-                "380": {"i": 1020, "wires": 4, "circuits": 4},
-                "220": {"i": 1020, "wires": 4, "circuits": 4},
-                "110": {"i": 1020, "wires": 4, "circuits": 2},
+                "380": {"i": 102000, "wires": 4000, "circuits": 4},
+                "220": {"i": 10200, "wires": 4000, "circuits": 4},
+                "110": {"i": 102000, "wires": 4000, "circuits": 2},
                 "dc": 0,
             },
             # border crossing lines
@@ -91,13 +91,13 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 1,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
-        "k_busmap": False,  # False or path/to/busmap.csv
-        "kmeans_gas_busmap": False,  # False or path/to/ch4_busmap.csv
+        "k_elec_busmap": False,  # False or path/to/busmap.csv
+        "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
         "line_length_factor": 1,  #
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  #
@@ -107,8 +107,8 @@ args = {
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
-        "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
+        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": False,  # choose if clustering is activated
@@ -122,14 +122,14 @@ args = {
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": False,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False, # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -200,9 +200,7 @@ def run_etrago(args, json_path):
          Current options: angles, cycles, kirchhoff, ptdf
 
      scn_name : str
-         'eGon2035',etrago.network.storage_units.efficiency_dispatch = 1   
-         etrago.network.storage_units.efficiency_store = 1
-         etrago.network.storage_units.standing_loss = 0
+         'eGon2035',
          Choose your scenario. Currently, there are two different
          scenarios: 'eGon2035', 'eGon100RE'.
 
@@ -234,7 +232,7 @@ def run_etrago(args, json_path):
             'nep2035_b2' includes all lines that will be replaced in
             NEP-scenario 2035 B2
 
-    lpfile : obj7
+    lpfile : obj
         False,
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'
@@ -262,23 +260,25 @@ def run_etrago(args, json_path):
         The most important possibilities:
             'as_in_db': leaves everything as it is defined in the data coming
                         from the database
-            'network': set all lines, links and transformers extendable
-            'german_network': set lines and transformers in German grid
-                            extendable
-            'foreign_network': set foreign lines and transformers extendable
+            'network': set all lines, links and transformers in electrical
+                            grid extendable
+            'german_network': set lines and transformers in German electrical
+                            grid extendable
+            'foreign_network': set foreign lines and transformers in electrical
+                            grid extendable
             'transformers': set all transformers extendable
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'storages': allow to install extendable storages
+            'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
+            'overlay_network': set all components of the 'scn_extension'
+                               extendable
             'network_preselection': set only preselected lines extendable,
                                     method is chosen in function call
-        Upper bounds for grid expansion can be set for lines in Germany can be
-        defined relative to the existing capacity using 'grid_max_D'.
-        Alternatively, absolute maximum capacities between two buses can be
-        defined per voltage level using 'grid_max_abs_D'.
-        Upper bounds for bordercrossing lines can be defined accrodingly
+        Upper bounds for electrical grid expansion can be defined for lines in
+        Germany relative to the existing capacity using 'grid_max_D'.
+        Alternatively, absolute maximum capacities between two electrical buses
+        can be defined per voltage level using 'grid_max_abs_D'.
+        Upper bounds for bordercrossing electrical lines can be defined accrodingly
         using 'grid_max_foreign' or 'grid_max_abs_foreign'.
 
     generator_noise : bool or int
@@ -296,7 +296,7 @@ def run_etrago(args, json_path):
             'min_renewable_share': float
                 Minimal share of renewable generation in p.u.
             'cross_border_flow': array of two floats
-                Limit AC cross-border-flows7 between Germany and its neigbouring
+                Limit AC cross-border-flows between Germany and its neigbouring
                 countries, set values in MWh for all snapshots, e.g. [-x, y]
                 (with x Import, y Export, positiv: export from Germany)
             'cross_border_flows_per_country': dict of cntr and array of floats
@@ -405,7 +405,7 @@ def run_etrago(args, json_path):
         State here if you want to make use of the load shedding function which
         is helpful when debugging: a very expensive generator is set to each
         bus and meets the demand when regular
-    run_etrago    generators cannot do so.
+        generators cannot do so.
 
     foreign_lines : dict
         {'carrier':'AC', 'capacity': 'osmTGmod}'
@@ -436,9 +436,12 @@ def run_etrago(args, json_path):
     # # is changed (taking the mean) or our
     # # data model is altered, which will
     # # happen in the next data creation run
-  
+    #from etrago import Etrago
     etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
+    
+    etrago.network.generators=etrago.network.generators.drop(['271 wind_offshore','55 wind_offshore'])
+    etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['271 wind_offshore','55 wind_offshore'], axis=1)
     
     # list_shedding=market.network.generators.loc[market.network.generators.carrier!='load shedding'].index.tolist()
     # market.network.generators =  market.network.generators.loc[market.network.generators.carrier != 'load shedding']
@@ -464,13 +467,10 @@ def run_etrago(args, json_path):
     
     # # spatial clustering
     # etrago.spatial_clustering()
-    etrago.args["load_shedding"] = True
+    etrago.args["load_shedding"] = False
     etrago.load_shedding()   
-    market_t_p_sum = market.network.generators_t.p.sum()
-    # Fehler im Clustering s_nom teils ungleich (<) s_nom_min, behoben? dev pullen
-    #lines=etrago.network.lines[['s_nom', 's_nom_min']]
-    etrago.network.lines.s_nom = etrago.network.lines.s_nom_min
     
+    market_t_p_sum = market.network.generators_t.p.sum()
     #etrago.spatial_clustering_gas()
     # import pdb; pdb.set_trace()
 
@@ -489,30 +489,38 @@ def run_etrago(args, json_path):
     p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
     
     
-    p_sum_per_tech_n = p_nom_p_max_pu.groupby(market.network.generators.carrier).sum()
+    p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
     market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
     
     tst= pd.DataFrame()
-    tst1= pd.Series()
+    
     tst2= pd.Series()
     a=pd.DataFrame()
-    
+   
     for i in market_gen_carrier_list:
         #import pdb; pdb.set_trace()
         p = pd.DataFrame()
         tst[i] = p_t_per_tech_m.T.loc[i]/p_sum_per_tech_n.loc[i]
-        tst1 = (etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)
+        tst3 = etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i]
+        if tst3.empty:  
+            tst1= pd.DataFrame(columns=etrago.network.generators_t.p.index)
+            for column in tst1:
+                tst1[column] = etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom
+        else:
+            tst1 = ((etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)*etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i].T).T
+            #tst1 = tst1.fillna(1)
         tst2= tst2.append(etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)
-        for x in range(len(tst1)):
-            p[x]=(tst1[x]*tst[i])
+        p=(tst1*tst[i])
         if not a.empty: 
-            a= pd.concat([a,p],axis=1)
+            a= pd.concat([a,p])
         else:
             a=p
-       
+        
         #t = t.append(tst1.loc[tst1.index.str.contains(i)].values*tst[i].values, columns=tst.columns, index=tst.index)
+    a=a.T
     etrago.network.generators=etrago.network.generators.reindex(tst2.index)
     a.columns = etrago.network.generators.index
+    
     a = a.fillna(0)
     etrago.network.generators_t.p=a
     
@@ -535,8 +543,7 @@ def run_etrago(args, json_path):
     # Länderknoten zuweisen und Generatoren Zonen zuweisen    
     etrago.network.buses= buses_with_country
     etrago.network.buses.index.names =['bus']
-    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
-    
+    etrago.network.generators=etrago.network.generators.reset_index(drop=True).merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
     #Bus mit Zone filtern und zu Series machen
     zones = buses_with_country[['zone']]
     zones = zones.squeeze()
@@ -545,57 +552,72 @@ def run_etrago(args, json_path):
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
     # Marktzonen Zuweisung
-    #für storage_units Ausbau nochmal vergleichen mit marktsim, oder NB einbringen: P_ausbau_n >= P_ausbau_m, oder NEP etc. gucken wie es dort addresiert wird.
     
-    # tst1.to_frame()
-    # tst1.index=tst1.index.str.split(pat= ' ', expand=True)
-    # tst1 = tst1.reset_index(level=[1])
-    # tst1['Nr']=tst1.index
-    # tst1 = tst1.set_index('level_1')
-    
-    g_p = etrago.network.generators_t.p / etrago.network.generators.p_nom
-    etrago.network.generators_t.p_min_pu = g_p
-    etrago.network.generators_t.p_max_pu = g_p
+  
     
     #Store Units Füllstand und Leistung pu zuweisen
     # s_p = market.network.storage_units_t.p / market.network.storage_units.p_nom
     # etrago.network.storage_units_t.p_min = s_p
     # etrago.network.storage_units_t.p_max = s_p
-    # etrago.network.storage_units_t.state_of_charge = market.network.storage_units_t.state_of_charge 
+    # etrago.network.storage_units_t.state_of_charge = market.network.storage_units_t.state_of_charge
     
-    g_up = etrago.network.generators.loc[(etrago.network.generators['FID'] == 'DE')].copy()
-    g_down = etrago.network.generators.loc[(etrago.network.generators['FID'] == 'DE')].copy()
-    
+    g_up = etrago.network.generators.copy()
+    g_down = etrago.network.generators.copy()
+    g_down = g_down.loc[(g_down['FID'] =='DE').T]
+    g_up = g_up.loc[(g_up['FID'] =='DE').T]
     g_up.index = g_up.index.map(lambda x: x + " ramp up")
     g_down.index = g_down.index.map(lambda x: x + " ramp down")
    
     
+    # up = (
+    #     as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.p_nom
+    
+    # up=up.dropna(axis='columns')
+    # up.index=up.index.astype('datetime64[ns]')
+   
+    # #import pdb; pdb.set_trace()
+    # down =  -etrago.network.generators_t.p / etrago.network.generators.p_nom
+    # down= down.dropna(axis='columns')
+    # down.index=up.index.astype('datetime64[ns]')
+    
     up = (
         as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
-    up=up.dropna(axis='columns')
+    up=up.T.loc[etrago.network.generators['FID'] =='DE'].T
+    #up=up.dropna(axis='columns')
+    up.loc[:, up.isna().any()]=1
     up.index=up.index.astype('datetime64[ns]')
-    
+   
     #import pdb; pdb.set_trace()
     down =  -etrago.network.generators_t.p / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
-    down= down.dropna(axis='columns')
-    down.index=up.index.astype('datetime64[ns]')
+    #down= down.dropna(axis='columns')
+    down=down.T.loc[etrago.network.generators['FID'] =='DE'].T
+    down.loc[:, down.isna().any()]=0
+    down.index=down.index.astype('datetime64[ns]')
     
     #import pdb; pdb.set_trace()
     
     up.columns = up.columns.map(lambda x: x + " ramp up")
     down.columns = down.columns.map(lambda x: x + " ramp down")
     
+    g_p = etrago.network.generators_t.p / etrago.network.generators.p_nom
+    etrago.network.generators_t.p_min_pu = g_p
+    etrago.network.generators_t.p_max_pu = g_p
+    breakpoint()
+    #etrago.network.generators_t.p.drop(etrago.network.generators_t.p.index, inplace=True)
     #etrago.network.generators_t.p_max_pu.index = etrago.network.generators_t.p_max_pu.index.astype(object)
+    
     etrago.network.madd("Generator", g_up.index, p_max_pu=up, **g_up.drop(["p_max_pu"], axis=1))
     #import pdb; pdb.set_trace()
         
     etrago.network.madd("Generator", g_down.index, p_min_pu=down, p_max_pu=0, **g_down.drop(["p_max_pu", "p_min_pu"], axis=1))
-    # ehv network clustering
+    
+    
+    #ehv fnetwork clustering
     etrago.ehv_clustering()
+    
 
-
-    etrago.args["load_shedding"] = False
-    etrago.load_shedding()
+    # etrago.args["load_shedding"] = False
+    # etrago.load_shedding()
 
     # snapshot clustering
     etrago.snapshot_clustering()
@@ -607,7 +629,6 @@ def run_etrago(args, json_path):
     # needs to be adjusted for new sectors
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
-    
     breakpoint()
     etrago.lopf()
         
@@ -615,7 +636,7 @@ def run_etrago(args, json_path):
     etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    #etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
@@ -627,18 +648,52 @@ def run_etrago(args, json_path):
     
     etrago.plot_grid(line_colors='expansion_abs')
     etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
-    
+    # from etrago import Etrago
+    # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
     # import pdb; pdb.set_trace()
-   
-    return etrago
+    fig, axs = plt.subplots(
+    1, 3, figsize=(20, 10), subplot_kw={"projection": ccrs.AlbersEqualArea()}
+    )
+    
+    mkt = (
+        market.network.generators_t.p[market.network.generators.index].groupby(market.network.generators.bus, axis=1)
+        .sum()
+        .div(2e4)
+    
+    )
+    market.network.plot(ax=axs[0],bus_sizes= mkt.sum(), title="Market simulation", geomap=False)
+    
+    #up
+    redispatch_up = (
+        etrago.network.generators_t.p.filter(like="ramp up").groupby(etrago.network.generators.bus,axis=1)
+        .sum()
+        .div(2e4)
+    )
+    
+    
+    etrago.network.plot(
+        ax=axs[1], bus_sizes=redispatch_up.sum(), bus_colors="blue", title="Redispatch: ramp up",geomap=False
+    )
+    
+    #down
+    redispatch_down = (
+        etrago.network.generators_t.p.filter(like="ramp down").groupby(etrago.network.generators.bus,axis=1)
+        .sum()
+        .div(-2e4)
+    )
+    
+    etrago.network.plot(
+        ax=axs[2], bus_sizes=redispatch_down.sum(), bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
+    );
+    return etrago, market
 
 
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
+    etrago, market = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
-    etrago.session.close()
+   #etrago.session.close()
     # plots
     # make a line loading plot
     # plot_line_loading(network)
