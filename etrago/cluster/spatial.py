@@ -528,46 +528,48 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     """
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
-    # remove stubs
-    if kmean_settings["remove_stubs"]:
-        network.determine_network_topology()
-        busmap = busmap_by_stubs(network)
-        network.generators["weight"] = network.generators["p_nom"]
-        aggregate_one_ports = network.one_port_components.copy()
-        aggregate_one_ports.discard("Generator")
-
-        # reset coordinates to the new reduced guys, rather than taking an
-        # average (copied from pypsa.networkclustering)
-        if kmean_settings["use_reduced_coordinates"]:
-            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
-            # i.e. network is changed in place!!
-            network.buses.loc[busmap.index, ["x", "y"]] = network.buses.loc[
-                busmap, ["x", "y"]
-            ].values
-
-        clustering = get_clustering_from_busmap(
-            network,
-            busmap,
-            aggregate_generators_weighted=True,
-            one_port_strategies=strategies_one_ports(),
-            generator_strategies=strategies_generators(),
-            aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=kmean_settings["line_length_factor"],
+    
+    with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
+        # remove stubs
+        if kmean_settings["remove_stubs"]:
+            network.determine_network_topology()
+            busmap = busmap_by_stubs(network)
+            network.generators["weight"] = network.generators["p_nom"]
+            aggregate_one_ports = network.one_port_components.copy()
+            aggregate_one_ports.discard("Generator")
+    
+            # reset coordinates to the new reduced guys, rather than taking an
+            # average (copied from pypsa.networkclustering)
+            if kmean_settings["use_reduced_coordinates"]:
+                # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+                # i.e. network is changed in place!!
+                network.buses.loc[busmap.index, ["x", "y"]] = network.buses.loc[
+                    busmap, ["x", "y"]
+                ].values
+    
+            clustering = get_clustering_from_busmap(
+                network,
+                busmap,
+                aggregate_generators_weighted=True,
+                one_port_strategies=strategies_one_ports(),
+                generator_strategies=strategies_generators(),
+                aggregate_one_ports=aggregate_one_ports,
+                line_length_factor=kmean_settings["line_length_factor"],
+            )
+            etrago.network = clustering.network
+    
+            weight = weight.groupby(busmap.values).sum()
+    
+        # k-mean clustering
+        busmap = busmap_by_kmeans(
+            selected_network,
+            bus_weightings=pd.Series(weight),
+            n_clusters=n_clusters,
+            n_init=kmean_settings["n_init"],
+            max_iter=kmean_settings["max_iter"],
+            tol=kmean_settings["tol"],
+            random_state=kmean_settings["random_state"]
         )
-        etrago.network = clustering.network
-
-        weight = weight.groupby(busmap.values).sum()
-
-    # k-mean clustering
-    busmap = busmap_by_kmeans(
-        selected_network,
-        bus_weightings=pd.Series(weight),
-        n_clusters=n_clusters,
-        n_init=kmean_settings["n_init"],
-        max_iter=kmean_settings["max_iter"],
-        tol=kmean_settings["tol"],
-        random_state=kmean_settings["random_state"]
-    )
 
     return busmap
 
