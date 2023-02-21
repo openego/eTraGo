@@ -181,7 +181,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     settings = etrago.args["network_clustering"]
 
-    busmap_ch4 = busmap_by_kmeans(
+    busmap = busmap_by_kmeans(
         network_ch4,
         bus_weightings=weight,
         n_clusters=n_clusters,
@@ -190,15 +190,8 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
         tol=settings["tol"],
         random_state=settings["random_state"],
     )
-    busmap_ch4.index.name = "bus_id"
-    busmap_ch4.name = "cluster"
-    busmap_ch4.to_csv(
-        "kmeans_gasgrid_busmap_"
-        + str(settings["n_clusters_gas"])
-        + "_result.csv"
-    )
 
-    return busmap_ch4, None
+    return busmap, None
 
 
 def get_h2_clusters(etrago, busmap_ch4):
@@ -220,9 +213,36 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
-def gas_postprocessing(etrago, busmap, medoid_idx):
+def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     settings = etrago.args["network_clustering"]
+
+    if settings["k_gas_busmap"] == False:
+        if settings["method_gas"] == "kmeans":
+            busmap.index.name = "bus_id"
+            busmap.name = "cluster"
+            busmap.to_csv(
+                "kmeans_gasgrid_busmap_"
+                + str(settings["n_clusters_gas"])
+                + "_result.csv"
+            )
+
+        else:
+            busmap.name = "cluster"
+            busmap_ind = pd.Series(
+                medoid_idx[busmap.values.astype(int)].values,
+                index=busmap.index,
+                dtype=pd.StringDtype(),
+            )
+            busmap_ind.name = "medoid_idx"
+
+            export = pd.concat([busmap, busmap_ind], axis=1)
+            export.index.name = "bus_id"
+            export.to_csv(
+                "kmedoids_gasgrid_busmap_"
+                + str(settings["n_clusters_gas"])
+                + "_result.csv"
+            )
 
     busmap = get_h2_clusters(etrago, busmap)
 

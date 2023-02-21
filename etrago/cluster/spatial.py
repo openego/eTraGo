@@ -676,7 +676,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
-    return busmap, busmap_ind
+    return busmap
 
 
 def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
@@ -724,25 +724,12 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
     medoid_idx = distances.idxmin()
 
     # dijkstra's algorithm
-    busmap, busmap_ind = dijkstras_algorithm(
+    busmap = dijkstras_algorithm(
         buses,
         connections,
         medoid_idx,
         etrago.args["network_clustering"]["CPU_cores"],
     )
     busmap.index.name = "bus_id"
-
-    if str(buses.carrier.unique()[0]) == "CH4":
-
-        busmap.name = "cluster"
-        busmap_ind.name = "medoid_idx"
-
-        export = pd.concat([busmap, busmap_ind], axis=1)
-        export.index.name = "bus_id"
-        export.to_csv(
-            "kmedoids_gasgrid_busmap_"
-            + str(settings["n_clusters_gas"])
-            + "_result.csv"
-        )
 
     return busmap, medoid_idx
