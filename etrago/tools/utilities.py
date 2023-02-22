@@ -444,12 +444,13 @@ def set_q_national_loads(self, cos_phi):
     national_buses = network.buses[
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
-    
+
     # Calculate q national loads based on p and cos_phi
     new_q_loads = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
+            (network.loads.bus.astype(str).isin(national_buses.index))
+            & (network.loads.carrier.astype(str) == "AC")
         ],
     ] * math.tan(
         math.acos(cos_phi)
