@@ -422,7 +422,7 @@ def foreign_links(self):
         self.geolocation_buses()
 
 
-def set_q_national_loads(self, cos_phi=1):
+def set_q_national_loads(self, cos_phi):
     """
     Set q component of national loads based on the p component and cos_phi
 
@@ -465,7 +465,7 @@ def set_q_national_loads(self, cos_phi=1):
         axis=1, inplace=True)
 
 
-def set_q_foreign_loads(self, cos_phi=1):
+def set_q_foreign_loads(self, cos_phi):
     """Set reative power timeseries of loads in neighbouring countries
 
     Parameters
