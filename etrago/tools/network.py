@@ -47,7 +47,6 @@ from etrago.tools.io import (
     decommissioning,
     extension,
 )
-
 from etrago.tools.plot import (
     bev_flexibility_potential,
     demand_side_management,
@@ -55,9 +54,9 @@ from etrago.tools.plot import (
     heat_stores,
     hydrogen_stores,
     plot_clusters,
-    plot_grid,
     plot_gas_generation,
     plot_gas_summary,
+    plot_grid,
     plot_h2_generation,
     plot_h2_summary,
     plot_heat_loads,

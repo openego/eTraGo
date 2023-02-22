@@ -21,15 +21,16 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
+from math import log10, sqrt
 import logging
 import os
+
 from matplotlib import pyplot as plt
-import matplotlib.patches as mpatches
-import matplotlib
-import pandas as pd
-import numpy as np
-from math import sqrt, log10
 from pyproj import Proj, transform
+import matplotlib
+import matplotlib.patches as mpatches
+import numpy as np
+import pandas as pd
 import tilemapbase
 
 cartopy_present = True
@@ -40,9 +41,9 @@ try:
     import requests
 except ImportError:
     cartopy_present = False
-import geopandas as gpd
 from pypsa.plot import draw_map_cartopy
 from shapely.geometry import LineString, MultiPoint, Point, Polygon
+import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
