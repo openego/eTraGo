@@ -1665,10 +1665,444 @@ def plot_background_grid(network, ax):
         color_geomap=True,
     )
 
+def demand_side_management(self, buses, snapshots, agg="5h", used=False):
+    """Calculate shifting potential of demand side management
 
-def plot_carrier(
-    network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True
+    Parameters
+    ----------
+    buses : array
+        List of electricity buses.
+    snapshots : array
+        List of snapshots.
+    agg : str, optional
+        Temporal resolution. The default is '5h'.
+    used : boolean, optional
+        State if usage should be included in the results. The default is False.
+
+    Returns
+    -------
+    potential : pandas.DataFrame
+        Shifting potential (and usage) of power (MW) and energy (MWh)
+
+    """
+    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+    l = self.network.links[
+        (self.network.links.carrier == "dsm")
+        & (self.network.links.bus0.isin(buses))
+    ]
+    s = self.network.stores[
+        (self.network.stores.carrier == "dsm")
+        & (self.network.stores.bus.isin(l.bus1.values))
+    ]
+
+    df["p_min"] = (
+        self.network.links_t.p_min_pu[l.index]
+        .mul(l.p_nom, axis=1)
+        .sum(axis=1)
+        .resample(agg)
+        .mean()
+        .iloc[snapshots]
+    )
+    df["p_max"] = (
+        self.network.links_t.p_max_pu[l.index]
+        .mul(l.p_nom, axis=1)
+        .sum(axis=1)
+        .resample(agg)
+        .mean()
+        .iloc[snapshots]
+    )
+
+    df["e_min"] = (
+        self.network.stores_t.e_min_pu[s.index]
+        .mul(s.e_nom, axis=1)
+        .sum(axis=1)
+        .iloc[snapshots]
+    )
+    df["e_max"] = (
+        self.network.stores_t.e_max_pu[s.index]
+        .mul(s.e_nom, axis=1)
+        .sum(axis=1)
+        .iloc[snapshots]
+    )
+
+    if used:
+        df["p"] = (
+            self.network.links_t.p0[l.index]
+            .clip(lower=0)
+            .sum(axis=1)
+            .resample(agg)
+            .mean()[snapshots]
+        )
+        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+
+    return df
+
+
+def bev_flexibility_potential(
+    self,
+    buses,
+    snapshots,
+    agg="5h",
+    used=False,
 ):
+    """Calculate shifting potential of electric vehicles
+
+    Parameters
+    ----------
+    buses : array
+        List of electricity buses.
+    snapshots : array
+        List of snapshots.
+    agg : str, optional
+        Temporal resolution. The default is '5h'.
+    used : boolean, optional
+        State if usage should be included in the results. The default is False.
+
+    Returns
+    -------
+    potential : pandas.DataFrame
+        Shifting potential (and usage) of power (MW) and energy (MWh)
+
+    """
+
+    # Initialize DataFrame
+    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+    # Select BEV buses and links
+    bev_buses = self.network.buses[
+        self.network.buses.carrier.str.contains("Li ion")
+    ]
+    bev_links = self.network.links[
+        (self.network.links.bus1.isin(bev_buses.index.values))
+        & (self.network.links.bus0.isin(buses))
+    ]
+    bev_buses = bev_links.bus1.values
+
+    # Maximum loading of BEV charger in MW per BEV bus
+    bev_links_t = (
+        self.network.links_t.p_max_pu[bev_links.index]
+        .mul(bev_links.p_nom, axis=1)
+        .iloc[snapshots]
+    )
+    bev_links_t.columns = bev_links_t.columns.map(bev_links.bus1)
+
+    # BEV loads per bus
+    bev_loads = self.network.loads[self.network.loads.bus.isin(bev_buses)]
+    bev_loads_t = self.network.loads_t.p_set[bev_loads.index].iloc[snapshots]
+    bev_loads_t.columns = bev_loads_t.columns.map(bev_loads.bus)
+
+    # Maximal positive shifting df is max. loading of charger minus fixed loads
+    df["p_max"] = (bev_links_t - bev_loads_t).sum(axis=1).resample(agg).mean()
+
+    # Maximal negative shifting is minus fixed loads
+    df["p_min"] = bev_loads_t.mul(-1).sum(axis=1).resample(agg).mean()
+
+    # Select BEV stores (batteries of vehicles)
+    bev_stores = self.network.stores[self.network.stores.bus.isin(bev_buses)]
+
+    # Calculate maximum and minumum state of charges of battries
+    df["e_max"] = (
+        self.network.stores_t.e_max_pu[bev_stores.index]
+        .mul(bev_stores.e_nom, axis=1)
+        .iloc[snapshots]
+        .sum(axis=1)
+        .resample(agg)
+        .mean()
+    )
+    df["e_min"] = (
+        self.network.stores_t.e_min_pu[bev_stores.index]
+        .mul(bev_stores.e_nom, axis=1)
+        .iloc[snapshots]
+        .sum(axis=1)
+        .resample(agg)
+        .mean()
+    )
+
+    if used:
+        bev_links_t_used = self.network.links_t.p0[bev_links.index].iloc[
+            snapshots
+        ]
+
+        bev_links_t_used.columns = bev_links_t_used.columns.map(bev_links.bus1)
+
+        bev_usage = bev_links_t_used - bev_loads_t
+
+        df["p"] = (
+            bev_usage.clip(lower=0).sum(axis=1).resample(agg).mean()
+            + bev_usage.clip(upper=0)  # always > 0
+            .sum(axis=1)
+            .resample(agg)
+            .mean()
+        )  # always < 0
+        df["e"] = (
+            self.network.stores_t.e[bev_stores.index]
+            .sum(axis=1)
+            .resample(agg)
+            .mean()
+            .iloc[snapshots]
+        )
+
+    return df
+
+
+def heat_stores(
+    self,
+    buses,
+    snapshots,
+    agg="5h",
+    used=False,
+):
+    """Calculate shifting potential (and usage) of heat stores
+
+    Parameters
+    ----------
+    buses : array
+        List of electricity buses.
+    snapshots : array
+        List of snapshots.
+    agg : str, optional
+        Temporal resolution. The default is '5h'.
+    used : boolean, optional
+        State if usage should be included in the results. The default is False.
+
+    Returns
+    -------
+    potential : pandas.DataFrame
+        Shifting potential (and usage) of power (MW) and energy (MWh)
+
+    """
+    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+    heat_buses = self.network.links[
+        self.network.links.bus0.isin(
+            self.network.buses[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.index.isin(buses))
+            ].index
+        )
+        & self.network.links.bus1.isin(
+            self.network.buses[
+                self.network.buses.carrier.str.contains("heat")
+            ].index
+        )
+    ].bus1.unique()
+
+    l_charge = self.network.links[
+        (self.network.links.carrier.str.contains("heat_store_charger"))
+        & (self.network.links.bus0.isin(heat_buses))
+    ]
+    l_discharge = self.network.links[
+        (self.network.links.carrier.str.contains("heat_store_discharger"))
+        & (self.network.links.bus1.isin(heat_buses))
+    ]
+
+    s = self.network.stores[
+        (self.network.stores.carrier.str.contains("heat_store"))
+        & (self.network.stores.bus.isin(l_charge.bus1.values))
+    ]
+
+    df["p_min"] = l_discharge.p_nom_opt.mul(-1 * l_discharge.efficiency).sum()
+    df["p_max"] = l_charge.p_nom_opt.mul(l_charge.efficiency).sum()
+
+    df["e_min"] = 0
+    df["e_max"] = s.e_nom_opt.sum()
+
+    if used:
+        df["p"] = (
+            self.network.links_t.p1[l_charge.index]
+            .mul(-1)
+            .sum(axis=1)
+            .resample(agg)
+            .mean()[snapshots]
+            + self.network.links_t.p0[l_discharge.index]
+            .mul(-1)
+            .sum(axis=1)
+            .resample(agg)
+            .mean()[snapshots]
+        )
+        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+
+    return df
+
+
+def hydrogen_stores(
+    self,
+    buses,
+    snapshots,
+    agg="5h",
+    used=False,
+):
+    """Calculate shifting potential (and usage) of heat stores
+
+    Parameters
+    ----------
+    buses : array
+        List of electricity buses.
+    snapshots : array
+        List of snapshots.
+    agg : str, optional
+        Temporal resolution. The default is '5h'.
+    used : boolean, optional
+        State if usage should be included in the results. The default is False.
+
+    Returns
+    -------
+    potential : pandas.DataFrame
+        Shifting potential (and usage) of power (MW) and energy (MWh)
+
+    """
+    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+    h2_buses = self.network.links[
+        self.network.links.bus0.isin(
+            self.network.buses[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.index.isin(buses))
+            ].index
+        )
+        & self.network.links.bus1.isin(
+            self.network.buses[
+                self.network.buses.carrier.str.contains("H2")
+            ].index
+        )
+    ].bus1.unique()
+
+    s = self.network.stores[self.network.stores.bus.isin(h2_buses)]
+
+    df["p_min"] = self.network.stores_t.p[s.index].sum(axis=1).min()
+    df["p_max"] = self.network.stores_t.p[s.index].sum(axis=1).max()
+
+    df["e_min"] = 0
+    df["e_max"] = s.e_nom_opt.sum()
+
+    if used:
+        df["p"] = self.network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+
+    return df
+
+
+def flexibility_usage(
+    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None
+):
+    """Plots temporal distribution of potential and usage for flexibilities
+
+    Parameters
+    ----------
+    flexibility : str
+        Name of flexibility option.
+    agg : str, optional
+        Temporal resolution. The default is "5h".
+    snapshots : list, optional
+        Considered snapshots, if empty all are considered. The default is [].
+    buses : list, optional
+        Considered components at AC buses, if empty all are considered. The default is [].
+    pre_path : str, optional
+        State of and where you want to store the figure. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    colors = coloring()
+    colors["dlr"] = "orange"
+    colors["h2_store"] = colors["H2_underground"]
+    colors["heat"] = colors["central_heat_store"]
+
+    potential = pd.DataFrame(index=self.network.snapshots[snapshots])
+    used = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+    if not buses:
+        buses = self.network.buses.index
+
+    if len(snapshots) == 0:
+        snapshots = range(1, len(self.network.snapshots))
+
+    if flexibility == "dsm":
+        df = demand_side_management(
+            self,
+            buses,
+            snapshots,
+            agg,
+            used=True,
+        )
+
+    elif flexibility == "BEV charger":
+        df = bev_flexibility_potential(
+            self,
+            buses,
+            snapshots,
+            agg,
+            used=True,
+        )
+
+    elif flexibility == "heat":
+        df = heat_stores(
+            self,
+            buses,
+            snapshots,
+            agg,
+            used=True,
+        )
+
+    elif flexibility == "battery":
+        
+        df = pd.DataFrame(index=self.network.snapshots[snapshots])
+
+        su = self.network.storage_units[
+            (self.network.storage_units.carrier == "battery")
+            & (self.network.storage_units.bus.isin(buses))
+        ]
+
+        df["p_min"] = su.p_nom_opt.sum() * (-1)
+        df["p_max"] = su.p_nom_opt.sum()
+        df["p"] = (
+            self.network.storage_units_t.p[su.index]
+            .sum(axis=1)
+            .iloc[snapshots]
+        )
+
+        df["e_min"] = 0
+        df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
+        df["e"] = (
+            self.network.storage_units_t.state_of_charge[su.index]
+            .sum(axis=1)
+            .iloc[snapshots]
+        )
+
+    elif flexibility == "h2_store":
+        df = hydrogen_stores(
+            self,
+            buses,
+            snapshots,
+            agg,
+            used=True,
+        )
+
+    fig, ax = plt.subplots(figsize=(15, 5))
+    ax.fill_between(
+        df.index, df.p_min, df.p_max, color=colors[flexibility], alpha=0.2
+    )
+    ax.plot(df.index, df.p, color=colors[flexibility])
+    ax.set_ylabel("shifted power in MW")
+    ax.set_xlim(df.index[0], df.index[-1])
+    if pre_path:
+        fig.savefig(pre_path + f"shifted_p_{flexibility}")
+
+    fig_e, ax_e = plt.subplots(figsize=(15, 5))
+    ax_e.fill_between(
+        df.index, df.e_min, df.e_max, color=colors[flexibility], alpha=0.2
+    )
+    ax_e.plot(df.index, df.e, color=colors[flexibility])
+    ax_e.set_ylabel("stored energy in MWh")
+    ax_e.set_xlim(df.index[0], df.index[-1])
+    if pre_path:
+        fig_e.savefig(pre_path + f"stored_e_{flexibility}")
+
+
+def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
     """
     Parameters
     ----------
