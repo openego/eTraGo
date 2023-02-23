@@ -49,7 +49,7 @@ def snapshot_clustering(self):
     if self.args['snapshot_clustering']['active'] == True:
 
         # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"] == True:
+        if self.args["dispatch_disaggregation"]["active"] == True:
             self.network_tsa = self.network.copy()
 
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
@@ -563,18 +563,26 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 def skip_snapshots(self):
 
     # save second network for optional dispatch disaggregation
-    if self.args["dispatch_disaggregation"] == True and self.args['snapshot_clustering']['active'] == False:
+    if self.args["dispatch_disaggregation"]["active"] == True and self.args['snapshot_clustering']['active'] == False:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args['skip_snapshots']
 
     if n_skip:
-
+        
+        last_weight = int((self.network.snapshots[-1] - self.network.snapshots[::n_skip][-1]).seconds/3600)+1
+            
         self.network.snapshots = self.network.snapshots[::n_skip]
 
         self.network.snapshot_weightings['objective'] = n_skip
         self.network.snapshot_weightings['stores'] = n_skip
         self.network.snapshot_weightings['generators'] = n_skip
+        
+        if last_weight < n_skip:
+            self.network.snapshot_weightings.loc[self.network.snapshot_weightings.index[-1]]['objective'] = last_weight
+            self.network.snapshot_weightings.loc[self.network.snapshot_weightings.index[-1]]['stores'] = last_weight
+            self.network.snapshot_weightings.loc[self.network.snapshot_weightings.index[-1]]['generators'] = last_weight
+        
 
 ####################################
 def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
