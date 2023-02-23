@@ -52,7 +52,6 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def filter_links_by_carrier(self, carrier, like=True):
-
     if isinstance(carrier, str):
         if like:
             df = self.network.links[
@@ -752,11 +751,17 @@ def export_to_csv(self, path):
         data = data.apply(_enumerate_row, axis=1)
         data.to_csv(os.path.join(path_clus, "network.csv"), index=False)
 
+    if isinstance(self.ch4_h2_mapping, pd.Series):
+        path_clus = os.path.join(path, "clustering")
+        if not os.path.exists(path_clus):
+            os.makedirs(path_clus, exist_ok=True)
+        with open(os.path.join(path_clus, "ch4_h2_mapping.json"), "w") as d:
+            self.ch4_h2_mapping.to_json(d, indent=4)
+
     return
 
 
 def loading_minimization(network, snapshots):
-
     network.model.number1 = Var(
         network.model.passive_branch_p_index, within=PositiveReals
     )
@@ -1157,6 +1162,15 @@ def delete_dispensable_ac_buses(etrago):
     return
 
 
+def delete_h2_feedin(self):
+    """Delete H2_feedin links if H2_vol_share = 0"""
+
+    if self.args["H2_vol_share"] == 0:
+        self.network.links = self.network.links[
+            self.network.links.carrier != "H2_feedin"
+        ]
+
+
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """Set capital costs for extendable lines in respect to PyPSA [€/MVA]
 
@@ -1537,7 +1551,6 @@ def convert_capital_costs(self):
 
 
 def find_snapshots(network, carrier, maximum=True, minimum=True, n=3):
-
     """
     Function that returns snapshots with maximum and/or minimum feed-in of
     selected carrier.
@@ -1711,9 +1724,36 @@ def get_clustering_data(self, path):
     ):
         path_clus = os.path.join(path, "clustering")
         if os.path.exists(path_clus):
-            with open(os.path.join(path_clus, "busmap.json")) as f:
-                self.busmap["busmap"] = json.load(f)
-            self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+            ch4_h2_mapping_path = os.path.join(
+                path_clus, "ch4_h2_mapping.json"
+            )
+            if os.path.exists(ch4_h2_mapping_path):
+                with open(ch4_h2_mapping_path) as f:
+                    self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
+                        str
+                    )
+                    self.ch4_h2_mapping.index.name = "CH4_bus"
+                    self.ch4_h2_mapping.index = (
+                        self.ch4_h2_mapping.index.astype(str)
+                    )
+            else:
+                logger.info(
+                    """There is no CH4 to H2 bus mapping data
+                    available in the loaded object."""
+                )
+
+            busmap_path = os.path.join(path_clus, "busmap.json")
+            if os.path.exists(busmap_path):
+                with open(busmap_path) as f:
+                    self.busmap["busmap"] = json.load(f)
+                self.busmap["orig_network"] = pypsa.Network(
+                    path_clus, name="orig"
+                )
+            else:
+                logger.info(
+                    "There is no busmap data available in the loaded object."
+                )
+
         else:
             logger.info(
                 "There is no clustering data available in the loaded object."
@@ -1844,7 +1884,6 @@ def set_line_country_tags(network):
 
 
 def crossborder_capacity_tyndp2020():
-
     from urllib.request import urlretrieve
     import zipfile
 
@@ -1997,7 +2036,6 @@ def crossborder_capacity(self):
             }
 
         elif self.args["foreign_lines"]["capacity"] == "tyndp2020":
-
             cap_per_country = crossborder_capacity_tyndp2020()
 
         else:
@@ -2023,7 +2061,6 @@ def crossborder_capacity(self):
         )
 
         for country in cap_per_country:
-
             index_HV = network.lines[
                 (network.lines.country == country)
                 & (network.lines.v_nom == 110)
@@ -2082,7 +2119,6 @@ def crossborder_capacity(self):
 
 
 def set_branch_capacity(etrago):
-
     """
     Set branch capacity factor of lines and transformers, different factors for
     HV (110kV) and eHV (220kV, 380kV).
@@ -2100,13 +2136,33 @@ def set_branch_capacity(etrago):
         network.buses.v_nom
     )
 
-    network.lines.s_max_pu[network.lines.v_nom == 110] = args[
-        "branch_capacity_factor"
-    ]["HV"]
+    # If any line has a time dependend s_max_pu, use the time dependend
+    # factor for all lines, to avoid problems in the clustering
+    if not network.lines_t.s_max_pu.empty:
+        # Set time dependend s_max_pu for
+        # lines without dynamic line rating to 1.0
+        network.lines_t.s_max_pu[
+            network.lines[
+                ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
+            ].index
+        ] = 1.0
 
-    network.lines.s_max_pu[network.lines.v_nom > 110] = args[
-        "branch_capacity_factor"
-    ]["eHV"]
+        # Multiply time dependend s_max_pu with static branch capacitiy fator
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom == 110].index
+        ] *= args["branch_capacity_factor"]["HV"]
+
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom > 110].index
+        ] *= args["branch_capacity_factor"]["eHV"]
+    else:
+        network.lines.s_max_pu[network.lines.v_nom == 110] = args[
+            "branch_capacity_factor"
+        ]["HV"]
+
+        network.lines.s_max_pu[network.lines.v_nom > 110] = args[
+            "branch_capacity_factor"
+        ]["eHV"]
 
     network.transformers.s_max_pu[network.transformers.v_nom0 == 110] = args[
         "branch_capacity_factor"
@@ -2158,15 +2214,12 @@ def check_args(etrago):
         ), "gridversion does not exist"
 
     if etrago.args["snapshot_clustering"]["active"]:
-
         # typical periods
 
         if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
-
             # typical days
 
             if etrago.args["snapshot_clustering"]["how"] == "daily":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2193,7 +2246,6 @@ def check_args(etrago):
             # typical weeks
 
             if etrago.args["snapshot_clustering"]["how"] == "weekly":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2219,7 +2271,6 @@ def check_args(etrago):
             # typical months
 
             if etrago.args["snapshot_clustering"]["how"] == "monthly":
-
                 assert (
                     etrago.args["end_snapshot"]
                     / etrago.args["start_snapshot"]
@@ -2304,7 +2355,6 @@ def drop_sectors(self, drop_carriers):
     for one_port in self.network.iterate_components(
         ["Load", "Generator", "Store", "StorageUnit"]
     ):
-
         self.network.mremove(
             one_port.name,
             one_port.df[~one_port.df.bus.isin(self.network.buses.index)].index,
@@ -2313,7 +2363,6 @@ def drop_sectors(self, drop_carriers):
     for two_port in self.network.iterate_components(
         ["Line", "Link", "Transformer"]
     ):
-
         self.network.mremove(
             two_port.name,
             two_port.df[

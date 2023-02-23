@@ -41,8 +41,27 @@ from etrago.tools.execute import (
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
-from etrago.tools.io import NetworkScenario, decommissioning, extension
-from etrago.tools.plot import plot_clusters, plot_grid
+from etrago.tools.io import (
+    NetworkScenario,
+    add_ch4_h2_correspondence,
+    decommissioning,
+    extension,
+)
+from etrago.tools.plot import (
+    bev_flexibility_potential,
+    demand_side_management,
+    flexibility_usage,
+    heat_stores,
+    hydrogen_stores,
+    plot_clusters,
+    plot_gas_generation,
+    plot_gas_summary,
+    plot_grid,
+    plot_h2_generation,
+    plot_h2_summary,
+    plot_heat_loads,
+    plot_heat_summary,
+)
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
@@ -51,6 +70,7 @@ from etrago.tools.utilities import (
     convert_capital_costs,
     crossborder_capacity,
     delete_dispensable_ac_buses,
+    delete_h2_feedin,
     drop_sectors,
     export_to_csv,
     filter_links_by_carrier,
@@ -107,7 +127,6 @@ class Etrago:
         name="",
         **kwargs,
     ):
-
         self.tool_version = __version__
 
         self.clustering = None
@@ -132,8 +151,9 @@ class Etrago:
 
         self.busmap = {}
 
-        if args is not None:
+        self.ch4_h2_mapping = {}
 
+        if args is not None:
             self.args = args
 
             self.get_args_setting(json_path)
@@ -149,7 +169,6 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
-
             self.get_args_setting(csv_folder_name + "/args.json")
 
             self.network = Network(
@@ -157,7 +176,6 @@ class Etrago:
             )
 
             if self.args["disaggregation"] is not None:
-
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -200,7 +218,7 @@ class Etrago:
 
     decommissioning = decommissioning
 
-    plot_grid = plot_grid
+    add_ch4_h2_correspondence = add_ch4_h2_correspondence
 
     spatial_clustering = run_spatial_clustering
 
@@ -236,9 +254,35 @@ class Etrago:
 
     update_busmap = update_busmap
 
+    plot_grid = plot_grid
+
     plot_clusters = plot_clusters
 
+    plot_gas_generation = plot_gas_generation
+
+    plot_gas_summary = plot_gas_summary
+
+    plot_h2_generation = plot_h2_generation
+
+    plot_h2_summary = plot_h2_summary
+
+    plot_heat_loads = plot_heat_loads
+
+    plot_heat_summary = plot_heat_summary
+
+    plot_flexibility_usage = flexibility_usage
+
+    demand_side_management = demand_side_management
+
+    bev_flexibility_potential = bev_flexibility_potential
+
+    heat_stores = heat_stores
+
+    hydrogen_stores = hydrogen_stores
+
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
+
+    delete_h2_feedin = delete_h2_feedin
 
     get_clustering_data = get_clustering_data
 
@@ -248,7 +292,6 @@ class Etrago:
         return self.filter_links_by_carrier("DC", like=False)
 
     def build_network_from_db(self):
-
         """Function that imports transmission grid from chosen database
 
         Returns
@@ -270,6 +313,8 @@ class Etrago:
         self.extension()
 
         self.decommissioning()
+
+        self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 
@@ -320,6 +365,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        self.delete_h2_feedin()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

@@ -1353,6 +1353,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     -------
     None.
     """
+
     scn_name = self.args["scn_name"]
     n_snapshots = self.args["end_snapshot"] - self.args["start_snapshot"] + 1
 

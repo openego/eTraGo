@@ -4,15 +4,15 @@ on: {push: {branches: ['**']}, pull_request: {branches: [dev, master]}}
 
 jobs:
   build:
-    name: Build on ${{ matrix.os.name }}
+    name: ${{ matrix.os.name }}
     runs-on: ${{ matrix.os.image }}
 
     strategy:
       matrix:
         os:
-          - {image: macos-latest, name: macOS}
           - {image: ubuntu-latest, name: Linux}
           - {image: windows-latest, name: Windows}
+          - {image: macos-latest, name: macOS}
       max-parallel: 4
       fail-fast: false
 
@@ -20,14 +20,35 @@ jobs:
       - uses: "actions/checkout@main"
       - uses: "actions/setup-python@main"
         with:
-          python-version: 3
+          python-version: |
+            3
+            3.8
+            3.9
+            3.10
+            3.11
       - name: "Install dependencies"
         run: |
           python -mpip install --progress-bar=off nox
           python --version
           pip --version
           nox --version
-      - name: "Build"
-        run: "python -m nox"
+      - name: "Run custom checks"
+        run: "python -m nox -s check"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `black`"
+        run: "python -m nox -s black"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `flake8`"
+        run: "python -m nox -s flake8"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Check with `isort`"
+        run: "python -m nox -s isort"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
+      - name: "Build and check for packaging errors"
+        run: "python -m nox -s build"
         env:
           PLATFORM: ${{ matrix.os.image }}
