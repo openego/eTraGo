@@ -127,15 +127,34 @@ def run_lopf(etrago, extra_functionality, method):
 
     if etrago.conduct_dispatch_disaggregation is not False:
         
-        slice_len = int(len(etrago.network_tsa.snapshots)/4)
-        slices = [0, slice_len, 2*slice_len, 3*slice_len, len(etrago.network_tsa.snapshots)]
+        # parameters defining the start and end point of the slices
+        no_slices = etrago.args["dispatch_disaggregation"]["no_slices"]
+        skipped = etrago.network.snapshot_weightings.iloc[0].objective
+        transits = np.where(etrago.network_tsa.snapshots.isin(etrago.conduct_dispatch_disaggregation.index))[0]
 
         if method['pyomo']:
             
-            for i in range (0,4):
+            # repeat the optimization for all slices
+            for i in range (0,no_slices):
+
+                # keep information on the initial state of charge for the respectng slice
+                initial = transits[i-1]
+                soc_initial = etrago.conduct_dispatch_disaggregation.loc[[etrago.network_tsa.snapshots[initial]]].transpose()
+                etrago.network_tsa.storage_units.state_of_charge_initial = soc_initial
+                etrago.network_tsa.stores.e_initial = soc_initial
+                # the final state of charge per slice is set within 
+                # split_dispatch_disaggregation_constraints in constraints.py
+                
+                # adapt start and end snapshot of respecting slice
+                start = transits[i-1]+skipped
+                end = transits[i]+(skipped-1)
+                if i == 0:
+                    start = 0
+                elif (i == no_slices-1):
+                    end = len(etrago.network_tsa.snapshots)
             
                 etrago.network_tsa.lopf(
-                    etrago.network_tsa.snapshots[slices[i]:slices[i+1]],
+                    etrago.network_tsa.snapshots[start:end+1],
                     solver_name=etrago.args['solver'],
                     solver_options=etrago.args['solver_options'],
                     pyomo=True,
@@ -147,11 +166,11 @@ def run_lopf(etrago, extra_functionality, method):
 
         else:
             
-            for i in range (0,4):
+            for i in range (0,no_slices):
             
                 status, termination_condition = network_lopf(
                     etrago.network_tsa,
-                    etrago.network_tsa.snapshots[slices[i]:slices[i+1]],
+                    etrago.network_tsa.snapshots[start:end+1],
                     solver_name=etrago.args['solver'],
                     solver_options=etrago.args['solver_options'],
                     extra_functionality=extra_functionality,
@@ -159,6 +178,9 @@ def run_lopf(etrago, extra_functionality, method):
     
                 if status != 'ok':
                     raise  Exception('LOPF not solved.')
+                
+        etrago.network_tsa.storage_units.state_of_charge_initial = 0
+        etrago.network_tsa.stores.e_initial = 0
 
     else:
 
@@ -219,7 +241,7 @@ def iterate_lopf(
     path = args['csv_export']
     lp_path = args['lpfile']
 
-    if args['dispatch_disaggregation'] is True and etrago.conduct_dispatch_disaggregation is False:
+    if args['dispatch_disaggregation']["active"] is True and etrago.conduct_dispatch_disaggregation is False:
         
         if not args['csv_export'] is False:
             path = path+'/temporally_reduced'
@@ -232,7 +254,6 @@ def iterate_lopf(
         if not args['lpfile'] is False:
             lp_path = lp_path[0:-3]+'_dispatch_disaggregation.lp'
 
-<<<<<<< HEAD
         etrago.network_tsa.lines['s_nom'] = etrago.network.lines['s_nom_opt']
         etrago.network_tsa.lines['s_nom_extendable'] = False
         
@@ -337,7 +358,6 @@ def iterate_lopf(
 
     return network
 
-
 def lopf(self):
     """Functions that runs lopf accordning to arguments
 
@@ -361,32 +381,63 @@ def lopf(self):
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
     
     if self.args['csv_export'] != False:
-        path = self.args['csv_export']+'/temporally_reduced'
+        path = self.args['csv_export']
+        if self.args['dispatch_disaggregation']["active"] is True:
+            path = path+'/temporally_reduced'
         self.export_to_csv(path)
 
 def dispatch_disaggregation(self):
+    """
+    Function running the dispatch disaggregation meaning the optimization 
+    of dispatch in the temporally fully resolved network; therfore, the problem
+    is reduced to smaller subproblems by slicing the whole considered time span
+    while keeping inforation on the state of charge of storage units and stores
+    to ensure compatibility and to reproduce saisonality.
+    
+    Returns
+    -------
+    None.
 
-    if self.args["dispatch_disaggregation"] == True:
+    """
+
+    if self.args["dispatch_disaggregation"]["active"]:
 
         x = time.time()
         
-        # split dispatch_disaggregation into subproblems, but keep some information on soc to reproduce saisonality
-        no_soc = int(len(self.network_tsa.snapshots)/len(self.network.snapshots))*2
-        soc_len = int(len(self.network.snapshots)/no_soc)
-        self.conduct_dispatch_disaggregation = pd.DataFrame(columns=self.network.storage_units.index.append(self.network.stores.index), index=self.network.snapshots[0::soc_len])
-        for storage in self.network.storage_units.index:
-            self.conduct_dispatch_disaggregation[storage] = self.network.storage_units_t.state_of_charge[storage]
-        for store in self.network.stores.index:
-            self.conduct_dispatch_disaggregation[store] = self.network.stores_t.e[store]
+        if self.args["dispatch_disaggregation"]["no_slices"]:
+        
+            # split dispatch_disaggregation into subproblems
+            # keep some information on soc in beginning and end of slices 
+            # to ensure compatibility and to reproduce saisonality
+            
+            # define number of slices and corresponding slice length
+            no_slices = self.args["dispatch_disaggregation"]["no_slices"]
+            slice_len = int(len(self.network.snapshots)/no_slices)
+            # transition snapshots defining start and end of slices
+            transits = self.network.snapshots[0::slice_len]
+            transits = transits[1:]
+            if transits[-1] != self.network_tsa.snapshots[-1]:
+                transits = transits.insert((len(transits)), self.network.snapshots[-1])
+            
+            # save state of charge of storage units and stores at those transition snapshots
+            self.conduct_dispatch_disaggregation = pd.DataFrame(columns=self.network.storage_units.index.append(self.network.stores.index), index=transits)
+            for storage in self.network.storage_units.index:
+                self.conduct_dispatch_disaggregation[storage] = self.network.storage_units_t.state_of_charge[storage]
+            for store in self.network.stores.index:
+                self.conduct_dispatch_disaggregation[store] = self.network.stores_t.e[store]
             
         iterate_lopf(self,
                          Constraints(self.args, self.conduct_dispatch_disaggregation).functionality,
                          method=self.args['method'])
-
+        
+        # switch to temporally fully resolved network as standard network,
+        # temporally reduced network is stored in network_tsa
         network1 = self.network.copy()
         self.network = self.network_tsa.copy()
         self.network_tsa = network1.copy()
+        network1 = 0
 
+        # keep original settings
         self.network.lines['s_nom_extendable'] = self.network_tsa.lines['s_nom_extendable']
         self.network.links['p_nom_extendable'] = self.network_tsa.links['p_nom_extendable']
         self.network.transformers.s_nom_extendable = self.network_tsa.transformers.s_nom_extendable
@@ -396,8 +447,9 @@ def dispatch_disaggregation(self):
         self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
 
         if self.args['csv_export'] != False:
-            path = self.args['csv_export']+'/dispatch_disaggregaton'
+            path = self.args['csv_export']
             self.export_to_csv(path)
+            self.export_to_csv(path+'/dispatch_disaggregaton')
 
         y = time.time()
         z = (y - x) / 60
