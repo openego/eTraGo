@@ -814,6 +814,7 @@ def calc_storage_expansion_per_bus(
     dist = pd.Series(
         index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]),
         dtype=float,
+    )
     batteries = network.storage_units[
         network.storage_units.carrier == "battery"
     ]

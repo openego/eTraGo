@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "ci_dump",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -55,12 +55,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after a lopf simulation
+        "active": False,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -78,10 +78,10 @@ args = {
     "H2_vol_share": 15,  # in % [50/20/15/10/5/2/1/0] allowed H2 volumetric share for feedin
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "csv_export": "/srv/ES2050/eGoN/data/eTraGo/results/results_base_case", #"results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
-        "extendable_components": ["as_in_db"],  # Array of components to optimize
+        "extendable_components": ["as_in_db", "foreign_storage"],  # Array of components to optimize
         "upper_bounds_grid": {  # Set upper bounds for grid expansion
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
@@ -97,16 +97,51 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "cross_border_flow_per_country": {
+            "DK": [
+                -17000000,
+                10000000000
+            ],
+            "FR": [
+                -50000000,
+                10000000000
+            ],
+            "AT": [
+                -8000000,
+                10000000000
+            ],
+            "CH": [
+                -18000000,
+                10000000000
+            ],
+            "NL": [
+                -12000000,
+                10000000000
+            ],
+            "SE": [
+                -5000000,
+                10000000000
+            ],
+            "PL": [
+                -5000000,
+                10000000000
+            ],
+            "CZ": [
+                -6000000,
+                10000000000
+            ],
+        }
+    },  # Choose function name or {}
     # Spatial Complexity:
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -146,12 +181,11 @@ args = {
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
-        "carrier": "AC",  # 'DC' for modeling foreign lines as links
+        "carrier": "DC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",
     },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     "comments": None,
 }
-
 
 def run_etrago(args, json_path):
     """The etrago function works with following arguments:
