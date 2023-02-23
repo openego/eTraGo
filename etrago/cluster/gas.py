@@ -6,7 +6,6 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
-
     import numpy as np
     import pandas as pd
     import pypsa.io as io
@@ -59,7 +58,6 @@ def preprocessing(etrago):
 
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
-
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
         ]
@@ -178,7 +176,6 @@ def preprocessing(etrago):
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
-
     settings = etrago.args["network_clustering"]
 
     busmap = busmap_by_kmeans(
@@ -195,7 +192,6 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
 
 def get_h2_clusters(etrago, busmap_ch4):
-
     # Mapping of H2 buses to new CH4 cluster IDs
     busmap_h2 = pd.Series(
         busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
@@ -214,7 +210,6 @@ def get_h2_clusters(etrago, busmap_ch4):
 
 
 def gas_postprocessing(etrago, busmap, medoid_idx=None):
-
     settings = etrago.args["network_clustering"]
 
     if settings["k_gas_busmap"] == False:
@@ -239,7 +234,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
             export = pd.concat([busmap, busmap_ind], axis=1)
             export.index.name = "bus_id"
             export.to_csv(
-                "kmedoids_gasgrid_busmap_"
+                "kmedoids-dijkstra_gasgrid_busmap_"
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
@@ -263,7 +258,6 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
         for name, data in etrago.args["sector_coupled_clustering"][
             "carrier_data"
         ].items():
-
             strategy = data["strategy"]
             if strategy == "consecutive":
                 busmap_sector_coupling = consecutive_sector_coupling(
@@ -574,7 +568,6 @@ def consecutive_sector_coupling(
     busmap_sc = {}
 
     for base in carrier_based:
-
         # remove already clustered buses
         buses_to_cluster = buses_to_cluster[
             ~buses_to_cluster.index.isin(busmap_sc.keys())
@@ -599,7 +592,6 @@ def consecutive_sector_coupling(
         busmap_by_base = sc_single_carrier_based(connected_links)
         bus_num = 0
         for bus_id, bus_num in busmap_by_base.items():
-
             busmap_by_base[bus_id] = bus_num + next_bus_id
         next_bus_id = bus_num + next_bus_id + 1
         busmap_sc.update(busmap_by_base)
@@ -720,7 +712,6 @@ def get_clustering_from_busmap(
     bus_strategies=dict(),
     one_port_strategies=dict(),
 ):
-
     network_gasgrid_c = Network()
 
     # Aggregate buses
@@ -793,11 +784,9 @@ def get_clustering_from_busmap(
 
 
 def run_spatial_clustering_gas(self):
-
     settings = self.args["network_clustering"]
 
     if settings["active"]:
-
         self.network.generators.control = "PV"
         method = settings["method_gas"]
         logger.info(f"Start {method} clustering GAS")
