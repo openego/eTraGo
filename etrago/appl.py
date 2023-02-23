@@ -51,7 +51,7 @@ args = {
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 3,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
@@ -164,7 +164,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
