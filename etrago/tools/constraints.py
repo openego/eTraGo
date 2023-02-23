@@ -2381,49 +2381,56 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     # TODO: implementieren
 
 def split_dispatch_disaggregation_constraints(self, n, sns):
+    """
+    Add constraints for state of charge of storage units and stores 
+    when separating the optimization into smaller subproblems
+    while conducting thedispatch_disaggregation in temporally fully resolved network
+
+    The state of charge at the end of each slice is set to the value
+    calculated in the optimization with the temporally reduced network
+    to account to ensure compatibility and to reproduce saisonality
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
     
-    # TODO: check TODOs in constraints
-    # eg hourly stores?
+    tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
     
-    # TODO: check?!
-    # no error, but optimized dispatches are missing (eg stores_t.p, lines_t.p, etc)
+    sus = n.storage_units.index
+    sto = n.stores.index
     
-    print('constraints')
-    
-    '''import pdb; pdb.set_trace()
-    
-    soc_values = self.conduct_dispatch_disaggregation.copy()
-    n.model.soc_values = soc_values.copy()
-    n.model.transits = sns[sns.isin(soc_values.columns)]
-    #n.model.transits = po.Set(initialize=transits, ordered=True)]
-    
-    n.model.storages = n.storage_units.index
-    
-    def disaggregation_soc_rule(m, s, h):
+    def disaggregation_sus_soc(m, s, h):
         """
-        Sets soc of beginning and end of time slices in disptach_disaggregation
-        to values calculated in temporally reduced lopf without slices.
+        Sets soc at beginning of time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
         """
+        return m.state_of_charge[s,h] == m.soc_values[s].values[0]
+        #return abs(m.state_of_charge[s,h] - m.soc_values[s].values[0]) <= 5
         
-        return m.state_of_charge[s,h] == m.soc_values.at[s, h]
-        
-    n.model.split_dispatch_disaggregation = po.Constraint(
-        n.model.storages, n.model.transits, rule=disaggregation_soc_rule
+    n.model.split_dispatch_sus_soc = po.Constraint(
+        sus, sns[-1:], rule=disaggregation_sus_soc
     )
     
-    n.model.stores = n.stores.index
-    
-    def disaggregation_soc_rule_store(m, s, h):
+    def disaggregation_sto_soc(m, s, h):
         """
-        Sets soc of beginning and end of time slices in disptach_disaggregation
-        to values calculated in temporally reduced lopf without slices.
+        Sets soc at beginning of time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
         """
+        return m.store_e[s,h] == m.soc_values[s].values[0]
+        #return abs(m.store_e[s,h] - m.soc_values[s].values[0]) <= 5
         
-        return m.store_e[s,h] == m.soc_values.at[s, h]
-    
-    n.model.split_dispatch_disaggregation_store = po.Constraint(
-        n.model.stores, n.model.transits, rule=disaggregation_soc_rule_store
-    )'''
+    n.model.split_dispatch_sto_soc = po.Constraint(
+        sto, sns[-1:], rule=disaggregation_sto_soc
+    )
     
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
 
