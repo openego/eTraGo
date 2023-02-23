@@ -607,6 +607,10 @@ def run_etrago(args, json_path):
     etrago.network.generators.loc[etrago.network.generators[
         etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65
 
+    # Adjust CH4 loads abroad
+    CH4_loads_abroad = etrago.network.loads[etrago.network.loads.carrier == 'CH4']
+    etrago.network.loads_t.p_set[CH4_loads_abroad.index] *= 8760
+
     etrago.adjust_network()
 
     # ehv network clustering
