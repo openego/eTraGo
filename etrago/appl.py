@@ -140,7 +140,10 @@ args = {
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": True,  # choose if full complex dispatch optimization should be conducted
+    "dispatch_disaggregation": {
+        "active": True,  # choose if full complex dispatch optimization should be conducted
+        "no_slices": 4, # number of subproblems optimization is seperated into; at the moment only working with skip_snapshots
+    },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
@@ -475,6 +478,13 @@ def run_etrago(args, json_path):
     etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
     etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
     etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
+    
+    ###
+    etrago.network.storage_units.efficiency_store = 1
+    etrago.network.storage_units.standing_loss = 0
+    etrago.network.storage_units.efficiency_dispatch = 1
+    etrago.network.stores.standing_loss = 0
+    ###
 
     etrago.adjust_network()
 
@@ -583,6 +593,8 @@ def run_etrago(args, json_path):
     # spatial disaggregation
     # needs to be adjusted for new sectors
     # etrago.disaggregation()
+    
+    import pdb; pdb.set_trace()
 
     # calculate central etrago results
     etrago.calc_results()
