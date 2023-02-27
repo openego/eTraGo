@@ -2406,15 +2406,17 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
     
     sus = n.storage_units.index
-    sto = n.stores.index
+    sto = n.stores[n.stores.carrier!='battery storage']
+    sto = sto[sto.carrier!='dsm']
+    sto = sto[sto.e_nom>1].index
     
     def disaggregation_sus_soc(m, s, h):
         """
-        Sets soc at beginning of time slice in disptach_disaggregation
+        Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
         return m.state_of_charge[s,h] == m.soc_values[s].values[0]
-        #return abs(m.state_of_charge[s,h] - m.soc_values[s].values[0]) <= 5
+        #return m.state_of_charge[s,h] - m.soc_values[s].values[0] <= 5
         
     n.model.split_dispatch_sus_soc = po.Constraint(
         sus, sns[-1:], rule=disaggregation_sus_soc
@@ -2422,11 +2424,11 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     
     def disaggregation_sto_soc(m, s, h):
         """
-        Sets soc at beginning of time slice in disptach_disaggregation
+        Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
         return m.store_e[s,h] == m.soc_values[s].values[0]
-        #return abs(m.store_e[s,h] - m.soc_values[s].values[0]) <= 5
+        #return m.store_e[s,h] - m.soc_values[s].values[0] <= 5
         
     n.model.split_dispatch_sto_soc = po.Constraint(
         sto, sns[-1:], rule=disaggregation_sto_soc
