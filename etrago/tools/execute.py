@@ -128,7 +128,7 @@ def run_lopf(etrago, extra_functionality, method):
     if etrago.conduct_dispatch_disaggregation is not False:
         
         # parameters defining the start and end point of the slices
-        no_slices = etrago.args["dispatch_disaggregation"]["no_slices"]
+        no_slices = etrago.args["temporal_disaggregation"]["no_slices"]
         skipped = etrago.network.snapshot_weightings.iloc[0].objective
         transits = np.where(etrago.network_tsa.snapshots.isin(etrago.conduct_dispatch_disaggregation.index))[0]
 
@@ -241,7 +241,7 @@ def iterate_lopf(
     path = args['csv_export']
     lp_path = args['lpfile']
 
-    if args['dispatch_disaggregation']["active"] is True and etrago.conduct_dispatch_disaggregation is False:
+    if args['temporal_disaggregation']["active"] is True and etrago.conduct_dispatch_disaggregation is False:
         
         if not args['csv_export'] is False:
             path = path+'/temporally_reduced'
@@ -382,7 +382,7 @@ def lopf(self):
     
     if self.args['csv_export'] != False:
         path = self.args['csv_export']
-        if self.args['dispatch_disaggregation']["active"] is True:
+        if self.args['temporal_disaggregation']["active"] is True:
             path = path+'/temporally_reduced'
         self.export_to_csv(path)
 
@@ -400,18 +400,18 @@ def dispatch_disaggregation(self):
 
     """
 
-    if self.args["dispatch_disaggregation"]["active"]:
+    if self.args["temporal_disaggregation"]["active"]:
 
         x = time.time()
         
-        if self.args["dispatch_disaggregation"]["no_slices"]:
+        if self.args["temporal_disaggregation"]["no_slices"]:
         
             # split dispatch_disaggregation into subproblems
             # keep some information on soc in beginning and end of slices 
             # to ensure compatibility and to reproduce saisonality
             
             # define number of slices and corresponding slice length
-            no_slices = self.args["dispatch_disaggregation"]["no_slices"]
+            no_slices = self.args["temporal_disaggregation"]["no_slices"]
             slice_len = int(len(self.network.snapshots)/no_slices)
             # transition snapshots defining start and end of slices
             transits = self.network.snapshots[0::slice_len]
@@ -449,7 +449,7 @@ def dispatch_disaggregation(self):
         if self.args['csv_export'] != False:
             path = self.args['csv_export']
             self.export_to_csv(path)
-            self.export_to_csv(path+'/dispatch_disaggregaton')
+            self.export_to_csv(path+'/temporal_disaggregaton')
 
         y = time.time()
         z = (y - x) / 60
