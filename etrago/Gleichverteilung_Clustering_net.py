@@ -437,10 +437,13 @@ def run_etrago(args, json_path):
     # # data model is altered, which will
     # # happen in the next data creation run
     
+    
+    # import der Netze, Markt und Netz
     #from etrago import Etrago
     etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_1')
     market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
     
+    # Fehlerhafte Generatoren droppen
     etrago.network.generators=etrago.network.generators.drop(['271 wind_offshore','55 wind_offshore'])
     etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['271 wind_offshore','55 wind_offshore'], axis=1)
         
@@ -467,31 +470,31 @@ def run_etrago(args, json_path):
     etrago.args["load_shedding"] = False
     etrago.load_shedding()   
     
-    market_t_p_sum = market.network.generators_t.p.sum()
     #etrago.spatial_clustering_gas()
-    # import pdb; pdb.set_trace()
 
-    # etrago.network.storage_units.efficiency_dispatch = 1   
-    # etrago.network.storage_units.efficiency_store = 1
-    # etrago.network.storage_units.standing_loss = 0
-         
+    # Dessaggregation der Erzueugung auf Ursprungsknoten
+    
+    # Erzeugung je Kraftwerkstyp
     p_t_per_tech_m = market.network.generators_t.p.groupby(market.network.generators.carrier, axis=1).sum()
   
+    # Struktur für Zeitreihenbasierte Erzeugung bspw. Windkraftanlagen | p_nom*p_max_pu
     p_nom_p_max_pu = pd.DataFrame(columns=etrago.network.generators_t.p.index, index= etrago.network.generators.index)
-   
     for column in p_nom_p_max_pu:
         p_nom_p_max_pu[column] = etrago.network.generators.p_nom   
-   
     p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
 
+    # P_nom mit berücksichtigtem p_max_pu je Kraftwerksart    
     p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
+   
+    # Liste aller Kraftwerksarten  
     market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
     
+    # blöde Testnamen, Initialisierung von Dataframe/Series Objekten
     tst= pd.DataFrame()
-    
     tst2= pd.Series()
     a=pd.DataFrame()
-   
+    
+    # Zeitreihen Dessaggregation
     for i in market_gen_carrier_list:
         #import pdb; pdb.set_trace()
         p = pd.DataFrame()
@@ -515,14 +518,15 @@ def run_etrago(args, json_path):
     a=a.T
     etrago.network.generators=etrago.network.generators.reindex(tst2.index)
     a.columns = etrago.network.generators.index
-    
     a = a.fillna(0)
     etrago.network.generators_t.p=a
     
+   
+    # Knoten zu GeoDataFrame macehn
     geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
     geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
-    #geodf europ. Länder ohne Rus | Koordinatensystem ändern | einstampfen
+    # geodf europ. Länder ohne Russland | Koordinatensystem ändern | einstampfen auf benötigte Spalten | hier wären auch andere Grenzen möglich, daür die Datei ändern
     europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
     #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
     #rus = rus.to_crs(4326)
@@ -538,16 +542,18 @@ def run_etrago(args, json_path):
     # Länderknoten zuweisen und Generatoren Zonen zuweisen    
     etrago.network.buses= buses_with_country
     etrago.network.buses.index.names =['bus']
-    etrago.network.generators=etrago.network.generators.reset_index(drop=True).merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
-    #Bus mit Zone filtern und zu Series machen
+    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index.names)
+    
+    # Bus mit Zone filtern und zu Series machen
     zones = buses_with_country[['zone']]
     zones = zones.squeeze()
     
-    #Liste deropy( Zonen erstellen
+    # Liste der Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
     
-    # Marktzonen Zuweisung
+    # Regelleistungs Genereratoren erstellen
+    
     g_up = etrago.network.generators.copy()
     g_down = etrago.network.generators.copy()
     g_down = g_down.loc[(g_down['FID'] =='DE').T]
@@ -555,7 +561,6 @@ def run_etrago(args, json_path):
     g_up.index = g_up.index.map(lambda x: x + " ramp up")
     g_down.index = g_down.index.map(lambda x: x + " ramp down")
    
-    
     # up = (
     #     as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.p_nom
     
@@ -566,6 +571,7 @@ def run_etrago(args, json_path):
     # down= down.dropna(axis='columns')
     # down.index=up.index.astype('datetime64[ns]')
     
+    # p_max_pu berechnen für up and down Kapazitäten der Generatoren, auf DEU beschränkt
     up = (
         as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
     up=up.T.loc[etrago.network.generators['FID'] =='DE'].T
@@ -613,11 +619,11 @@ def run_etrago(args, json_path):
     etrago.network.storage_units.efficiency_dispatch = 1   
     etrago.network.storage_units.efficiency_store = 1
     etrago.network.storage_units.standing_loss = 0
-    
-    #breakpoint()
+
+    # Start Optimierung
     etrago.lopf()
     
-    # LPF plot von überlasteten Leitungen
+    ## LPF durchführen und plot von überlasteten Leitungen
     # etrago.network.lpf()
     
     # line=etrago.network.lines.s_nom
@@ -637,7 +643,9 @@ def run_etrago(args, json_path):
     # )
     # plt.colorbar(collection[2], fraction=0.04, pad=0.004, label="Auslastung Leitungen")
     
+    # plot von Netzausbau
     etrago.plot_grid(line_colors='expansion_abs')
+    
     #conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
@@ -651,7 +659,8 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     
     etrago.calc_results()
-    etrago.plot_grid(line_colors='expansion_abs')
+    
+    # Plot von Generation aus Marktsimulation und Ausgleichsmaßnahmen
     etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer_1')
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
@@ -663,7 +672,7 @@ def run_etrago(args, json_path):
     mkt = (
         market.network.generators_t.p[market.network.generators.index].groupby(market.network.generators.bus, axis=1)
         .sum()
-        .div(2e3)
+        .div(2e4)
     
     )
     market.network.plot(ax=axs[0],bus_sizes= mkt.iloc[5], title="Market simulation", geomap=False)

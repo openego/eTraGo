@@ -444,6 +444,8 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
+    
+    # Sektoren auf Strom begrenzen
     etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',
       'central_heat_store', 'Li ion', 'H2_ind_load', 'rural_heat', 'rural_heat_store'])
     etrago.network.storage_units.lifetime = np.inf
@@ -473,33 +475,40 @@ def run_etrago(args, json_path):
     etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
     etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
 
+    # Netzwerkanpassungen
     etrago.adjust_network()
 
     # ehv network clustering
     etrago.ehv_clustering()
 
-    # spatial clustering
+    # spatial clustering, erste Aggregation auf 300 In- und 14 Auslandsknoten / Ausgangsgröße für Netzberechnung
     etrago.spatial_clustering()
+    
+    #Export des Netzwerkes, bitte eigenen Speicherpfad angeben
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_1')
     
+    ## Eventueller reimport des Networks
     #from etrago import Etrago
     #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     
+    # Zweite Aggregation auf 14 Auslandsknoten und 1 Inlandsknoten
     etrago.args["network_clustering"]["n_clusters_AC"] = 15
-    #from etrago import Etrago
-    
     etrago.spatial_clustering() 
     
     #etrago.spatial_clustering_gas()
     
+    # Speicherwirkungsgrad und Verluste optimal, nur für Testzwecke
     etrago.network.storage_units.efficiency_dispatch = 1   
     etrago.network.storage_units.efficiency_store = 1
     etrago.network.storage_units.standing_loss = 0
     
+    # Marktzonenzuweisung
+    
+    # Knoten zu GeoDataFrame macehn
     geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
     geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
-    #geodf europ. Länder ohne Rus | Koordinatensystem ändern | einstampfen
+    # geodf europ. Länder ohne Russland | Koordinatensystem ändern | einstampfen auf benötigte Spalten | hier wären auch andere Grenzen möglich, daür die Datei ändern
     europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
     #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
     #rus = rus.to_crs(4326)
@@ -517,35 +526,36 @@ def run_etrago(args, json_path):
     etrago.network.buses.index.names =['bus']
     etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index.names)
     
-    #Bus mit Zone filtern und zu Series machen
+    # Bus mit Zone filtern und zu Series machen
     zones = buses_with_country[['zone']]
     zones = zones.squeeze()
     
-    #Liste deropy( Zonen erstellen
+    # Liste der Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
+    
+    # Network vor Optimerung exportieren mit allen Snapshots
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_1')
     
+    # Load Shedding einstellen, für schwer lösbare Konstellation nötig
     etrago.args["load_shedding"] = False
     etrago.load_shedding()   
     
+    # Speicherstand gleich Anfangsspeicherstand
     etrago.network.storage_units.cyclic_state_of_charge= True
+    
     # snapshot clustering
     etrago.snapshot_clustering()
     
     # skip snapshots
     etrago.skip_snapshots()
 
-    # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
-    
-    from etrago import Etrago
-    # e_300 = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
-    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_1')
-    #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
-
+    # Start Optimierung
     etrago.lopf()
+    
+    # export Daten des optimierten Netzes
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
+    
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
