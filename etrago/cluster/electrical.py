@@ -197,7 +197,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap = {**busmap, **busmap2, **busmap3}
 
     # The new buses based on the eHV network for not electrical buses are created
-    if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
+    if cluster_met in ["kmeans", "kmedoids-dijkstra", "hac"]:
         network.madd(
             "Bus",
             names=no_elec_to_cluster.index,
@@ -654,7 +654,7 @@ def preprocessing(etrago):
     if settings["method"] == "hac":
 
         etrago.drop_sectors(["Li ion"])
-        
+
         ac_de_buses = etrago.network.buses.loc[
             (etrago.network.buses.carrier == "AC")
             & (etrago.network.buses.country == "DE")]
@@ -702,8 +702,7 @@ def preprocessing(etrago):
             full_busmap[bus] = busmap_pre[bus]
 
         network, full_busmap = adjust_no_electric_network(
-            etrago, full_busmap, cluster_met='hac', check = True, bs = busmap_foreign
-        )
+            etrago, full_busmap, cluster_met='hac')
 #################################################
 #################################################
 
