@@ -140,7 +140,7 @@ args = {
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": {
+    "temporal_disaggregation": {
         "active": True,  # choose if full complex dispatch optimization should be conducted
         "no_slices": 4, # number of subproblems optimization is seperated into; at the moment only working with skip_snapshots
     },
@@ -407,9 +407,14 @@ def run_etrago(args, json_path):
         State if you only want to consider every n-th timestep
         to reduce temporal complexity.
 
-    dispatch_disaggregation : bool
+    temporal_disaggregation : dict
+    {'active': True, 'no_slices': 4},
         State if you to apply a second lopf considering dispatch only
         to disaggregate the dispatch to the whole temporal complexity.
+        With "no_slices" the optimization problem will be calculated as a given
+        number of subproblems while using some information on the state of charge
+        of storage units and stores from the former optimization (at the moment
+        only possible with skip_snapshots)
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -480,6 +485,8 @@ def run_etrago(args, json_path):
     etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
     
     ###
+    etrago.network.storage_units.cyclic_state_of_charge = True
+    etrago.network.stores.e_cyclic = True
     etrago.network.storage_units.efficiency_store = 1
     etrago.network.storage_units.standing_loss = 0
     etrago.network.storage_units.efficiency_dispatch = 1
@@ -513,7 +520,7 @@ def run_etrago(args, json_path):
     # adapt args again
     etrago.args = args
     # make sure dispatch disaggregation is True
-    etrago.args['dispatch_disaggregation'] = True'''
+    etrago.args['temporal_disaggregation'] = True'''
 
     # snapshot clustering
     etrago.snapshot_clustering()
