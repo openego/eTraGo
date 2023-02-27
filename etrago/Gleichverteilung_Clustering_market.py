@@ -480,18 +480,22 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_1')
     
     #from etrago import Etrago
     #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
     
-    etrago.args["network_clustering"]["n_clusters_AC"] = 30  
+    etrago.args["network_clustering"]["n_clusters_AC"] = 15
+    #from etrago import Etrago
+    
     etrago.spatial_clustering() 
- 
+    
     #etrago.spatial_clustering_gas()
-    # etrago.network.storage_units.efficiency_dispatch = 1   
-    # etrago.network.storage_units.efficiency_store = 1
-    # etrago.network.storage_units.standing_loss = 0
+    
+    etrago.network.storage_units.efficiency_dispatch = 1   
+    etrago.network.storage_units.efficiency_store = 1
+    etrago.network.storage_units.standing_loss = 0
+    
     geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
     geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
@@ -520,11 +524,12 @@ def run_etrago(args, json_path):
     #Liste deropy( Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_1')
     
-    etrago.args["load_shedding"] =False
+    etrago.args["load_shedding"] = False
     etrago.load_shedding()   
     
+    etrago.network.storage_units.cyclic_state_of_charge= True
     # snapshot clustering
     etrago.snapshot_clustering()
     
@@ -534,15 +539,13 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     
-    # from etrago import Etrago
+    from etrago import Etrago
     # e_300 = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
-    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap')
-    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
-    # etrago.network.lines.s_nom = etrago.network.lines.s_nom*0.1
-    # etrago.network.lines.s_nom_max=etrago.network.lines.s_nom
-    # etrago.network.lines.s_nom_min= etrago.network.lines.s_nom_max
+    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_1')
+    #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
+
     etrago.lopf()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 

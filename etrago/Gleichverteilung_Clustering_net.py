@@ -48,8 +48,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 2160,
-    "end_snapshot": 2880,
+    "start_snapshot": 2170,
+    "end_snapshot": 2180,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -74,9 +74,9 @@ args = {
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
             "grid_max_abs_D": {  # absolute capacity per voltage level
-                "380": {"i": 102000, "wires": 4000, "circuits": 4},
-                "220": {"i": 10200, "wires": 4000, "circuits": 4},
-                "110": {"i": 102000, "wires": 4000, "circuits": 2},
+                "380": {"i": 1020, "wires": 4, "circuits": 4},
+                "220": {"i": 1020, "wires": 4, "circuits": 4},
+                "110": {"i": 1020, "wires": 4, "circuits": 2},
                 "dc": 0,
             },
             # border crossing lines
@@ -436,17 +436,14 @@ def run_etrago(args, json_path):
     # # is changed (taking the mean) or our
     # # data model is altered, which will
     # # happen in the next data creation run
+    
     #from etrago import Etrago
-    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300')
-    market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market')
+    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_1')
+    market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
     
     etrago.network.generators=etrago.network.generators.drop(['271 wind_offshore','55 wind_offshore'])
     etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['271 wind_offshore','55 wind_offshore'], axis=1)
-    
-    # list_shedding=market.network.generators.loc[market.network.generators.carrier!='load shedding'].index.tolist()
-    # market.network.generators =  market.network.generators.loc[market.network.generators.carrier != 'load shedding']
-    # market.network.generators_t.p = market.network.generators_t.p.T.loc[list_shedding]
-    
+        
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
         [etrago.network.lines_t.s_max_pu.columns.isin(
@@ -461,7 +458,7 @@ def run_etrago(args, json_path):
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
           
     #Speicher gleicher Stand wie am Beginn
-    #etrago.network.storage_units.cyclic_state_of_charge= True
+    etrago.network.storage_units.cyclic_state_of_charge= True
     
     # etrago.adjust_network() 
     
@@ -474,7 +471,6 @@ def run_etrago(args, json_path):
     #etrago.spatial_clustering_gas()
     # import pdb; pdb.set_trace()
 
-    #Speicherverluste = 0 auslandspeicher auch gleichsetzen?
     # etrago.network.storage_units.efficiency_dispatch = 1   
     # etrago.network.storage_units.efficiency_store = 1
     # etrago.network.storage_units.standing_loss = 0
@@ -482,13 +478,12 @@ def run_etrago(args, json_path):
     p_t_per_tech_m = market.network.generators_t.p.groupby(market.network.generators.carrier, axis=1).sum()
   
     p_nom_p_max_pu = pd.DataFrame(columns=etrago.network.generators_t.p.index, index= etrago.network.generators.index)
-    
+   
     for column in p_nom_p_max_pu:
-        p_nom_p_max_pu[column] = etrago.network.generators.p_nom 
+        p_nom_p_max_pu[column] = etrago.network.generators.p_nom   
    
     p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
-    
-    
+
     p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
     market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
     
@@ -551,16 +546,8 @@ def run_etrago(args, json_path):
     #Liste deropy( Zonen erstellen
     lst_zone = buses_with_country['zone'].unique()
     lst_zone = lst_zone.tolist()
+    
     # Marktzonen Zuweisung
-    
-  
-    
-    #Store Units Füllstand und Leistung pu zuweisen
-    # s_p = market.network.storage_units_t.p / market.network.storage_units.p_nom
-    # etrago.network.storage_units_t.p_min = s_p
-    # etrago.network.storage_units_t.p_max = s_p
-    # etrago.network.storage_units_t.state_of_charge = market.network.storage_units_t.state_of_charge
-    
     g_up = etrago.network.generators.copy()
     g_down = etrago.network.generators.copy()
     g_down = g_down.loc[(g_down['FID'] =='DE').T]
@@ -575,7 +562,6 @@ def run_etrago(args, json_path):
     # up=up.dropna(axis='columns')
     # up.index=up.index.astype('datetime64[ns]')
    
-    # #import pdb; pdb.set_trace()
     # down =  -etrago.network.generators_t.p / etrago.network.generators.p_nom
     # down= down.dropna(axis='columns')
     # down.index=up.index.astype('datetime64[ns]')
@@ -587,7 +573,6 @@ def run_etrago(args, json_path):
     up.loc[:, up.isna().any()]=1
     up.index=up.index.astype('datetime64[ns]')
    
-    #import pdb; pdb.set_trace()
     down =  -etrago.network.generators_t.p / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
     #down= down.dropna(axis='columns')
     down=down.T.loc[etrago.network.generators['FID'] =='DE'].T
@@ -602,7 +587,7 @@ def run_etrago(args, json_path):
     g_p = etrago.network.generators_t.p / etrago.network.generators.p_nom
     etrago.network.generators_t.p_min_pu = g_p
     etrago.network.generators_t.p_max_pu = g_p
-    breakpoint()
+   
     #etrago.network.generators_t.p.drop(etrago.network.generators_t.p.index, inplace=True)
     #etrago.network.generators_t.p_max_pu.index = etrago.network.generators_t.p_max_pu.index.astype(object)
     
@@ -611,17 +596,12 @@ def run_etrago(args, json_path):
         
     etrago.network.madd("Generator", g_down.index, p_min_pu=down, p_max_pu=0, **g_down.drop(["p_max_pu", "p_min_pu"], axis=1))
     
-    
     #ehv fnetwork clustering
     etrago.ehv_clustering()
-    
-
-    # etrago.args["load_shedding"] = False
-    # etrago.load_shedding()
 
     # snapshot clustering
     etrago.snapshot_clustering()
-    #import pdb; pdb.set_trace()
+    
     # skip snapshots
     etrago.skip_snapshots()
 
@@ -629,10 +609,36 @@ def run_etrago(args, json_path):
     # needs to be adjusted for new sectors
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
-    breakpoint()
+   
+    etrago.network.storage_units.efficiency_dispatch = 1   
+    etrago.network.storage_units.efficiency_store = 1
+    etrago.network.storage_units.standing_loss = 0
+    
+    #breakpoint()
     etrago.lopf()
-        
-    # conduct lopf with full complex timeseries for dispatch disaggregation
+    
+    # LPF plot von überlasteten Leitungen
+    # etrago.network.lpf()
+    
+    # line=etrago.network.lines.s_nom
+    # line_p=etrago.network.lines_t.p1
+    
+    # line_p[line_p < 0]=  line_p[line_p < 0]*(-1)
+    # line_p=line_p/line
+    # line_p[line_p > 1]= 1
+    # line_p[line_p < 1]= 0
+
+    # collection= etrago.network.plot(
+    # line_colors=abs(line_p.iloc[1]),
+    # line_cmap=plt.cm.jet,
+    # title="Line loading",
+    # bus_sizes=1e-3,
+    # bus_alpha=0.7,
+    # )
+    # plt.colorbar(collection[2], fraction=0.04, pad=0.004, label="Auslastung Leitungen")
+    
+    etrago.plot_grid(line_colors='expansion_abs')
+    #conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
     # start power flow based on lopf results
@@ -645,9 +651,8 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     
     etrago.calc_results()
-    
     etrago.plot_grid(line_colors='expansion_abs')
-    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
+    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer_1')
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
     # import pdb; pdb.set_trace()
@@ -658,32 +663,35 @@ def run_etrago(args, json_path):
     mkt = (
         market.network.generators_t.p[market.network.generators.index].groupby(market.network.generators.bus, axis=1)
         .sum()
-        .div(2e4)
+        .div(2e3)
     
     )
-    market.network.plot(ax=axs[0],bus_sizes= mkt.sum(), title="Market simulation", geomap=False)
+    market.network.plot(ax=axs[0],bus_sizes= mkt.iloc[5], title="Market simulation", geomap=False)
     
     #up
     redispatch_up = (
         etrago.network.generators_t.p.filter(like="ramp up").groupby(etrago.network.generators.bus,axis=1)
         .sum()
-        .div(2e4)
+        .div(2e3)
     )
-    
-    
-    etrago.network.plot(
-        ax=axs[1], bus_sizes=redispatch_up.sum(), bus_colors="blue", title="Redispatch: ramp up",geomap=False
-    )
-    
+   
     #down
     redispatch_down = (
         etrago.network.generators_t.p.filter(like="ramp down").groupby(etrago.network.generators.bus,axis=1)
         .sum()
-        .div(-2e4)
+        .div(-2e3)
+    )
+    
+    balancing = redispatch_up-redispatch_down
+    redispatch_up=balancing.clip(lower=0)
+    redispatch_down=balancing.clip(upper=0)*(-1)
+    
+    etrago.network.plot(
+        ax=axs[1], bus_sizes=redispatch_up.iloc[5], bus_colors="blue", title="Redispatch: ramp up",geomap=False
     )
     
     etrago.network.plot(
-        ax=axs[2], bus_sizes=redispatch_down.sum(), bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
+        ax=axs[2], bus_sizes=redispatch_down.iloc[5], bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
     );
     return etrago, market
 
@@ -696,7 +704,7 @@ if __name__ == "__main__":
    #etrago.session.close()
     # plots
     # make a line loading plot
-    # plot_line_loading(network)
+    # plot_line_loading(etrago.network)
     # plot stacked sum of nominal power for each generator type and timestep-
     # plot_stacked_gen(network, resolution="MW")
     # plot to show extendable storages
