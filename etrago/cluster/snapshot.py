@@ -49,7 +49,7 @@ def snapshot_clustering(self):
     if self.args['snapshot_clustering']['active'] == True:
 
         # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"]["active"] == True:
+        if self.args["temporal_disaggregation"]["active"] == True:
             self.network_tsa = self.network.copy()
 
         if self.args['snapshot_clustering']['method'] == 'segmentation' :
@@ -563,7 +563,7 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 def skip_snapshots(self):
 
     # save second network for optional dispatch disaggregation
-    if self.args["dispatch_disaggregation"]["active"] == True and self.args['snapshot_clustering']['active'] == False:
+    if self.args["temporal_disaggregation"]["active"] == True and self.args['snapshot_clustering']['active'] == False:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args['skip_snapshots']
