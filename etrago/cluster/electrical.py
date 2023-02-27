@@ -36,6 +36,7 @@ if "READTHEDOCS" not in os.environ:
         aggregateoneport,
         get_clustering_from_busmap,
     )
+    from pypsa.geo import haversine
     from six import iteritems
 
     from etrago.cluster.spatial import (
@@ -650,6 +651,89 @@ def preprocessing(etrago):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
+    if settings["method"] == "hac":
+
+        etrago.drop_sectors(["Li ion"])
+        
+        ac_de_buses = etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "AC")
+            & (etrago.network.buses.country == "DE")]
+
+        rel_generator_buses = etrago.network.generators.loc[
+            etrago.network.generators_t.p_max_pu.columns
+        ].bus.values
+        rel_load_buses = etrago.network.loads.loc[
+            etrago.network.loads_t.p_set.columns
+        ].bus.values
+        buses_with_ts = ac_de_buses.loc[
+            ac_de_buses.index.isin(rel_generator_buses)
+            | ac_de_buses.index.isin(rel_load_buses)
+        ]
+        buses_to_aggregate = ac_de_buses.loc[
+            ~ac_de_buses.index.isin(buses_with_ts.index)
+        ]
+
+        # Aggregate buses to nearest buses with time series data
+        a = np.ones((len(buses_with_ts), 2))
+        b = np.ones((len(buses_to_aggregate), 2))
+        a[:, 0] = buses_with_ts.x.values
+        a[:, 1] = buses_with_ts.y.values
+        b[:, 0] = buses_to_aggregate.x.values
+        b[:, 1] = buses_to_aggregate.y.values
+        D_spatial = haversine(b, a)
+
+        busmap_pre = pd.Series(
+            etrago.network.buses.loc[buses_with_ts.index]
+            .iloc[np.argmin(D_spatial, axis=1)]
+            .index,
+            index=buses_to_aggregate.index,
+        )
+
+###############################################
+###############################################
+
+        full_busmap = pd.Series(data=network.buses.index,
+                                index= network.buses.index)
+
+        for bus in busmap_foreign.index:
+            full_busmap[bus] = busmap_foreign[bus]
+        
+        for bus in busmap_pre.index:
+            full_busmap[bus] = busmap_pre[bus]
+
+        network, full_busmap = adjust_no_electric_network(
+            etrago, full_busmap, cluster_met='hac', check = True, bs = busmap_foreign
+        )
+#################################################
+#################################################
+
+        clustering = get_clustering_from_busmap(
+            network,
+            full_busmap,
+            aggregate_generators_weighted=True,
+            one_port_strategies=strategies_one_ports(),
+            generator_strategies=strategies_generators(),
+            aggregate_one_ports=aggregate_one_ports,
+            line_length_factor=settings["line_length_factor"],
+        )
+
+        # restore the coordinates of the foreign buses
+        for bus in foreign_buses_load.index:
+            clustering.network.buses.at[bus, "x"] = foreign_buses_load.at[bus, "x"]
+            clustering.network.buses.at[bus, "y"] = foreign_buses_load.at[bus, "y"]
+
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
+
+        etrago.network = clustering.network.copy()
+
+        etrago.buses_by_country()
+
+###############################################
+###############################################
+
+
     network_elec, n_clusters = select_elec_network(etrago)
 
     if settings["method"] == "kmedoids-dijkstra":
@@ -900,6 +984,21 @@ def run_spatial_clustering(self):
                     elec_network.buses,
                     elec_network.lines,
                     weight,
+                    n_clusters
+                )
+            else:
+                busmap = pd.Series(dtype=str)
+                medoid_idx = pd.Series(dtype=str)
+
+        elif self.args["network_clustering"]["method"] == "hac":
+
+            if self.args["network_clustering"]["k_elec_busmap"] == False:
+                
+                logger.info("Start HAC Clustering")
+                
+                busmap, medoid_idx = hac_clustering(
+                    self,
+                    elec_network,
                     n_clusters
                 )
             else:

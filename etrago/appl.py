@@ -101,7 +101,7 @@ args = {
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
-        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method": "hac",  # choose clustering method: kmeans, kmedoids-dijkstra or hac
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
