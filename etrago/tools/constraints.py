@@ -23,14 +23,14 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
 
-import numpy as np
-import pandas as pd
-import pyomo.environ as po
 from egoio.tools import db
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
 from pypsa.pf import get_switchable_as_dense as get_as_dense
+import numpy as np
+import pandas as pd
+import pyomo.environ as po
 
 logger = logging.getLogger(__name__)
 

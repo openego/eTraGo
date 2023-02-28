@@ -6,9 +6,6 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -16,11 +13,14 @@ if "READTHEDOCS" not in os.environ:
         busmap_by_kmeans,
     )
     from six import iteritems
+    import numpy as np
+    import pandas as pd
+    import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        sum_with_inf,
         group_links,
         kmedoids_dijkstra_clustering,
+        sum_with_inf,
     )
     from etrago.tools.utilities import *
 
