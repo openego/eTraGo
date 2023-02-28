@@ -47,7 +47,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "etrago-DE",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -473,8 +473,6 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.ehv_clustering()
-    
-    etrago.drop_sectors(['CH4'])
 
     # spatial clustering
     etrago.spatial_clustering()
