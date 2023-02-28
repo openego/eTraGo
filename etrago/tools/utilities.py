@@ -2324,8 +2324,9 @@ def drop_sectors(self, drop_carriers):
     ----------
     drop_carriers : array
         List of sectors that will be dropped.
-        e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat', 'rural_heat',
-         'central_heat_store', 'rural_heat_store', 'Li ion'] means everything but AC
+        e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 
+              'central_heat', 'rural_heat', 'central_heat_store', 
+              'rural_heat_store', 'Li ion'] means everything but AC
 
     Returns
     -------
@@ -2335,7 +2336,8 @@ def drop_sectors(self, drop_carriers):
 
     if self.scenario.scn_name == "eGon2035":
         if "CH4" in drop_carriers:
-            # create gas generators from links in order to not lose them when dropping non-electric carriers
+            # create gas generators from links 
+            # in order to not lose them when dropping non-electric carriers
             gas_to_add = ["central_gas_CHP", "industrial_gas_CHP", "OCGT"]
             gen = self.network.generators
 
