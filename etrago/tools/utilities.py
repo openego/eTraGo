@@ -1729,7 +1729,8 @@ def get_clustering_data(self, path):
                     )
             else:
                 logger.info(
-                    "There is no CH4 to H2 bus mapping data available in the loaded object."
+                    """There is no CH4 to H2 bus mapping data
+                    available in the loaded object."""
                 )
 
             busmap_path = os.path.join(path_clus, "busmap.json")
@@ -2129,7 +2130,8 @@ def set_branch_capacity(etrago):
     # If any line has a time dependend s_max_pu, use the time dependend
     # factor for all lines, to avoid problems in the clustering
     if not network.lines_t.s_max_pu.empty:
-        # Set time dependend s_max_pu for lines without dynamic line rating to 1.0
+        # Set time dependend s_max_pu for
+        # lines without dynamic line rating to 1.0
         network.lines_t.s_max_pu[
             network.lines[
                 ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
@@ -2332,7 +2334,6 @@ def drop_sectors(self, drop_carriers):
     """
 
     if self.scenario.scn_name == "eGon2035":
-
         if "CH4" in drop_carriers:
             # create gas generators from links in order to not lose them when dropping non-electric carriers
             gas_to_add = ["central_gas_CHP", "industrial_gas_CHP", "OCGT"]
@@ -2340,13 +2341,19 @@ def drop_sectors(self, drop_carriers):
 
             for i in gas_to_add:
                 gen_empty = gen.drop(gen.index)
-                gen_empty.bus = self.network.links[self.network.links.carrier == i].bus1
+                gen_empty.bus = self.network.links[
+                    self.network.links.carrier == i
+                ].bus1
                 gen_empty.p_nom = (
                     self.network.links[self.network.links.carrier == i].p_nom
-                    * self.network.links[self.network.links.carrier == i].efficiency
+                    * self.network.links[
+                        self.network.links.carrier == i
+                    ].efficiency
                 )
                 gen_empty.marginal_cost = (
-                    self.network.links[self.network.links.carrier == i].marginal_cost
+                    self.network.links[
+                        self.network.links.carrier == i
+                    ].marginal_cost
                     + 35.851
                 )  # add fuel costs (source: NEP)
                 gen_empty.efficiency = 1
