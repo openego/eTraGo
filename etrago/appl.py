@@ -436,7 +436,7 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path)
+    etrago = Etrago(args, json_path=json_path)
 
     # import network from database
     etrago.build_network_from_db()
@@ -489,7 +489,6 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
