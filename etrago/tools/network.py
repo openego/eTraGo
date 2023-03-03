@@ -39,7 +39,7 @@ from etrago.tools.calc_results import (
     ac_export_per_country,
     calc_etrago_results,
     dc_export,
-    dc_export_per_country
+    dc_export_per_country,
 )
 from etrago.tools.execute import (
     dispatch_disaggregation,
