@@ -469,6 +469,166 @@ def system_costs_germany(self):
     return marginal_cost, invest_cost, import_costs
 
 
+def ac_export(self):
+    """Calculate electricity exports and imports over AC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+    exp = self.network.lines[
+        (self.network.lines.bus0.isin(de_buses.index))
+        & (self.network.lines.bus1.isin(for_buses.index))
+    ]
+    imp = self.network.lines[
+        (self.network.lines.bus1.isin(de_buses.index))
+        & (self.network.lines.bus0.isin(for_buses.index))
+    ]
+
+    return (
+        self.network.lines_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+        + self.network.lines_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+    )
+
+
+def ac_export_per_country(self):
+    """Calculate electricity exports and imports over AC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = self.network.lines[
+            (self.network.lines.bus0.isin(de_buses.index))
+            & (
+                self.network.lines.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = self.network.lines[
+            (self.network.lines.bus1.isin(de_buses.index))
+            & (
+                self.network.lines.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            self.network.lines_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+            + self.network.lines_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
+
+
+def dc_export(self):
+    """Calculate electricity exports and imports over DC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+    exp = self.network.links[
+        (self.network.links.carrier == "DC")
+        & (self.network.links.bus0.isin(de_buses.index))
+        & (self.network.links.bus1.isin(for_buses.index))
+    ]
+    imp = self.network.links[
+        (self.network.links.carrier == "DC")
+        & (self.network.links.bus1.isin(de_buses.index))
+        & (self.network.links.bus0.isin(for_buses.index))
+    ]
+    return (
+        self.network.links_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+        + self.network.links_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+    )
+
+
+def dc_export_per_country(self):
+    """Calculate electricity exports and imports over DC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = self.network.links[
+            (self.network.links.carrier == "DC")
+            & (self.network.links.bus0.isin(de_buses.index))
+            & (
+                self.network.links.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = self.network.links[
+            (self.network.links.carrier == "DC")
+            & (self.network.links.bus1.isin(de_buses.index))
+            & (
+                self.network.links.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            self.network.links_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+            + self.network.links_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
+
 def calc_etrago_results(self):
     """Function that calculates main results of grid optimization
     and adds them to Etrago object.

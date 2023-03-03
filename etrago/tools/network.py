@@ -34,7 +34,13 @@ from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.tools.calc_results import calc_etrago_results
+from etrago.tools.calc_results import (
+    ac_export,
+    ac_export_per_country,
+    calc_etrago_results,
+    dc_export,
+    dc_export_per_country
+)
 from etrago.tools.execute import (
     dispatch_disaggregation,
     lopf,
@@ -239,6 +245,14 @@ class Etrago:
     disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
+
+    calc_ac_export = ac_export()
+
+    calc_ac_export_per_country = ac_export_per_country()
+
+    calc_dc_export = dc_export()
+
+    calc_dc_export_per_country = dc_export_per_country()
 
     export_to_csv = export_to_csv
 
