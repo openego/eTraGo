@@ -626,7 +626,8 @@ def run_etrago(args, json_path):
      'rural_heat', 'central_heat_store', 'rural_heat_store', 'Li ion'])
     
     # no DLR
-    etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
+    #etrago.network.lines_t.s_max_pu[etrago.network.lines_t.s_max_pu != 1] = 1
+    etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0.copy()
 
     etrago.adjust_network()
 
@@ -658,8 +659,8 @@ def run_etrago(args, json_path):
 
     #etrago.spatial_clustering_gas()
 
-    #etrago.args["load_shedding"] = True
-    #etrago.load_shedding()
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()
 
     etrago.network.stores.e_cyclic = True
     etrago.network.storage_units.cyclic_state_of_charge = True
@@ -703,7 +704,7 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500] 
+    spatial_resolution = [20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500]
     
     spatial_method = ['kmeans', 'kmedoids-dijkstra']
     
@@ -712,7 +713,7 @@ if __name__ == "__main__":
         args['network_clustering']['method'] = spatial_method[i]
     
         for j in range(0, len(spatial_resolution)): 
-    
+            
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
             args['csv_export'] = args['network_clustering']['method']+'/'+str(args['network_clustering']['n_clusters_AC'])
@@ -733,6 +734,8 @@ if __name__ == "__main__":
             print(datetime.datetime.now())
                         
             etrago = run_etrago(args, json_path=None)
+            
+            etrago.args["load_shedding"] = False
             
             print(datetime.datetime.now())
             
