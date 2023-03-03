@@ -665,7 +665,7 @@ class UniformDisaggregation(Disaggregation):
                     if s in self.skip:
                         continue
                     filtered = pnb.loc[filters.get(s, slice(None))]
-                    clt = cl_t[s].loc[:, next(clb.itertuples()).Index]
+                    clt = cl_t[s].loc[:, clb.index[0]]
                     weight = reduce(
                         multiply,
                         (
