@@ -3276,3 +3276,126 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
+
+def shifted_energy(self, carrier, buses):
+    """Calulate shifted energy for a specific carrier
+
+    Parameters
+    ----------
+    carrier : str
+        Name of energy carrier
+    buses : list
+        List of considered bus indices
+
+    Returns
+    -------
+    shifted : pandas.Series
+        Shifted energy per time step
+
+    """
+
+    buses = self.network.links[
+        self.network.links.bus0.isin(
+            self.network.buses[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.index.isin(buses))
+            ].index
+        )
+        & self.network.links.bus1.isin(
+            self.network.buses[
+                self.network.buses.carrier.str.contains(carrier)
+            ].index
+        )
+    ].bus1.unique()
+
+    supply = self.network.links_t.p1[
+        self.network.links[
+            (self.network.links.bus1.isin(buses))
+            & ~(self.network.links.carrier.str.contains("charger"))
+        ].index
+    ].mul(-1).sum(axis=1) + (
+        self.network.generators_t.p[
+            self.network.generators[
+                self.network.generators.bus.isin(buses)
+            ].index
+        ].sum(axis=1)
+    )
+
+    demand = self.network.loads_t.p[
+        self.network.loads[self.network.loads.bus.isin(buses)].index
+    ].sum(axis=1) + (
+        self.network.links_t.p0[
+            self.network.links[
+                (self.network.links.bus0.isin(buses))
+                & ~(self.network.links.carrier.str.contains("charger"))
+            ].index
+        ].sum(axis=1)
+    )
+
+    shifted = supply - demand
+    return shifted
+
+
+def flexibility_duration_curve(self, buses, filename=None):
+    """Plot duration curves of flexibility options
+
+    Parameters
+    ----------
+    buses : list
+        List of considered bus indices
+    filename : str, optional
+        Name of file to save plot. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    fig, ax = plt.subplots(figsize=(15, 8))
+    df = pd.DataFrame(index=range(len(self.network.snapshots)))
+
+    df["dsm"] = (
+        self.demand_side_management(
+            buses=buses,
+            snapshots=range(len(self.network.snapshots)),
+            used=True,
+        )
+        .e.sort_values()
+        .reset_index()
+        .e
+    )
+
+    df["mobility"] = (
+        (
+            self.bev_flexibility_potential(
+                buses=buses,
+                snapshots=range(len(self.network.snapshots)),
+                used=True,
+            ).e
+            - self.bev_flexibility_potential(
+                buses=buses,
+                snapshots=range(len(self.network.snapshots)),
+                used=True,
+            )[["e_max", "e_min"]].mean(axis=1)
+        )
+        .sort_values()
+        .reset_index()[0]
+    )
+    df["mobility"]
+    df["heat"] = (
+        shifted_energy(self, "heat", buses).sort_values().reset_index()[0]
+    )
+
+    df["hydrogen_stores"] = (
+        shifted_energy(self, "H2", buses).sort_values().reset_index()[0]
+    )
+
+    df.mul(1e-3).plot(ax=ax)
+    ax.set_ylabel("Usage in GWh")
+    plt.axhline(y=0.0, color="grey", linestyle="dotted")
+
+    if filename is None:
+        plt.show()
+    else:
+        matplotlib.pylab.savefig(filename, dpi=400, bbox_inches="tight")
+        plt.close()
