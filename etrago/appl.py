@@ -489,7 +489,6 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
