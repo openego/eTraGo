@@ -47,27 +47,27 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "etrago-SH",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": False,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 200,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
         "FeasibilityTol": 1.0e-5,
         "method": 2,
         "crossover": 0,
-        "logFile": "solver_etragos.log",
+        "logFile": "solver_etrago.log",
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
@@ -146,7 +146,7 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 4,  # number of subproblems optimization is divided into
     },
     # Simplifications:
@@ -531,11 +531,3 @@ if __name__ == "__main__":
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
-    # plots
-    # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
