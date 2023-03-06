@@ -423,6 +423,10 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
+        
+        if not(self.args["network_clustering"]["active"]):
+            self.load_shedding()
+
         logger.info("Network clustered to EHV-grid")
 
 

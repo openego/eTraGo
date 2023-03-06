@@ -479,9 +479,6 @@ def run_etrago(args, json_path):
 
     etrago.spatial_clustering_gas()
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
-
     # snapshot clustering
     etrago.snapshot_clustering()
 
