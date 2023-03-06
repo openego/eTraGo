@@ -2553,7 +2553,9 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
     sus = n.storage_units.index
     # for stores, exclude emob and dsm because of their special constraints
-    sto = n.stores[(n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")].index
+    sto = n.stores[
+        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+    ].index
 
     def disaggregation_sus_soc(m, s, h):
         """

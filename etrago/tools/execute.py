@@ -423,13 +423,14 @@ def dispatch_disaggregation(self):
                     (len(transits)), self.network.snapshots[-1]
                 )
             # for stores, exclude emob and dsm because of their special constraints
-            sto = self.network.stores[(self.network.stores.carrier != "battery storage") & (self.network.stores.carrier != "dsm")]
+            sto = self.network.stores[
+                (self.network.stores.carrier != "battery storage")
+                & (self.network.stores.carrier != "dsm")
+            ]
 
             # save state of charge of storage units and stores at those transition snapshots
             self.conduct_dispatch_disaggregation = pd.DataFrame(
-                columns=self.network.storage_units.index.append(
-                    sto.index
-                ),
+                columns=self.network.storage_units.index.append(sto.index),
                 index=transits,
             )
             for storage in self.network.storage_units.index:
