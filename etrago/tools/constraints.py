@@ -2548,15 +2548,12 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     -------
     None.
     """
-
     tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
     n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
 
     sus = n.storage_units.index
-    # in stores, exclude emob, dsm and very small stores
-    sto = n.stores[n.stores.carrier != "battery storage"]
-    sto = sto[sto.carrier != "dsm"]
-    sto = sto[sto.e_nom > 1].index
+    # for stores, exclude emob and dsm because of their special constraints
+    sto = n.stores[(n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")].index
 
     def disaggregation_sus_soc(m, s, h):
         """

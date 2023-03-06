@@ -146,6 +146,7 @@ def run_lopf(etrago, extra_functionality, method):
                     soc_initial
                 )
                 etrago.network_tsa.stores.e_initial = soc_initial
+                etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
                 # the state of charge at the end of each slice is set within
                 # split_dispatch_disaggregation_constraints in constraints.py
 
@@ -421,11 +422,13 @@ def dispatch_disaggregation(self):
                 transits = transits.insert(
                     (len(transits)), self.network.snapshots[-1]
                 )
+            # for stores, exclude emob and dsm because of their special constraints
+            sto = self.network.stores[(self.network.stores.carrier != "battery storage") & (self.network.stores.carrier != "dsm")]
 
             # save state of charge of storage units and stores at those transition snapshots
             self.conduct_dispatch_disaggregation = pd.DataFrame(
                 columns=self.network.storage_units.index.append(
-                    self.network.stores.index
+                    sto.index
                 ),
                 index=transits,
             )
@@ -433,7 +436,7 @@ def dispatch_disaggregation(self):
                 self.conduct_dispatch_disaggregation[
                     storage
                 ] = self.network.storage_units_t.state_of_charge[storage]
-            for store in self.network.stores.index:
+            for store in sto.index:
                 self.conduct_dispatch_disaggregation[
                     store
                 ] = self.network.stores_t.e[store]
