@@ -2685,3 +2685,614 @@ def plot_clusters(
         plt.savefig(save_path, dpi=800)
 
     return
+
+
+def plot_gas_generation(
+    self, t_resolution="20H", save_path=False
+):  # FIXXXXXXXXXXXXXXXX
+    """
+    Plots timeseries data for gas generation
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+    colors = coloring()
+
+    ch4_gens_feedin = self.network.generators_t.p[
+        [col for col in self.network.generators_t.p.columns if "CH4" in col]
+    ]  # active power at bus
+    ch4_links_feedin = -self.network.links_t.p1[
+        self.network.links.loc[self.network.links.carrier == "H2_to_CH4"].index
+    ]  # p1 is output p of H2_to_CH4
+    h2_links_feedin = -self.network.links_t.p1[
+        self.network.links.loc[self.network.links.carrier == "H2_feedin"].index
+    ]
+
+    total_gen_per_t = ch4_gens_feedin.sum(axis=1) / 1e3
+    total_link_per_t = ch4_links_feedin.sum(axis=1) / 1e3
+    total_h2_per_t = h2_links_feedin.sum(axis=1) / 1e3
+
+    (total_gen_per_t + total_link_per_t + total_h2_per_t).resample(
+        t_resolution
+    ).mean().plot(
+        ax=ax,
+        title="Gas Generation",
+        ylabel="[GW]",
+        legend=True,
+        label="Total Gas Dispatch",
+    )
+    total_gen_per_t.plot(
+        ax=ax, label="CH4 Generator Dispatch", legend=True, color=colors["CH4"]
+    )
+    total_h2_per_t.resample(t_resolution).mean().plot(
+        ax=ax,
+        label="H2_feedin Dispatch",
+        legend=True,
+        color=colors["H2_feedin"],
+    )
+    total_link_per_t.resample(t_resolution).mean().plot(
+        ax=ax,
+        label="H2_to_CH4 Link Dispatch",
+        legend=True,
+        color=colors["H2_to_CH4"],
+    )
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+
+def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
+    """
+    Plots timeseries data for gas loads (and generation)
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    stacked : bool, optional
+        If True all TS data will be shown as stacked area plot. Total gas generation
+        will then also be plotted to check for matching demand and generation.
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    colors = coloring()
+
+    ch4_load_carrier = ["rural_gas_boiler", "CH4_for_industry", "CH4"]
+
+    rel_ch4_loads = self.network.links.loc[
+        self.network.links.bus0.isin(
+            self.network.buses.loc[self.network.buses.carrier == "CH4"].index
+        )
+    ].carrier.unique()
+    rel_ch4_loads = np.delete(rel_ch4_loads, np.where(rel_ch4_loads == "CH4"))
+
+    data = self.network.links_t.p0[
+        self.network.links.loc[
+            self.network.links.carrier == rel_ch4_loads[0]
+        ].index.to_list()
+    ]
+
+    if stacked:
+        data = (
+            pd.DataFrame(data.sum(axis=1)).resample(t_resolution).mean() / 1e3
+        )
+        data = data.rename(columns={0: rel_ch4_loads[0]})
+
+        for i in rel_ch4_loads[1:]:
+            loads = self.network.links_t.p0[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
+
+        for i in ch4_load_carrier:
+            loads = self.network.loads_t.p[
+                self.network.loads.loc[
+                    self.network.loads.carrier == i
+                ].index.to_list()
+            ]
+            data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.plot.area(
+            ax=ax,
+            title="Stacked Gas Loads and Generation by carrier",
+            ylabel="[GW]",
+            legend=True,
+            stacked=True,
+        )
+
+        ch4_gens_feedin = self.network.generators_t.p[
+            [
+                col
+                for col in self.network.generators_t.p.columns
+                if "CH4" in col
+            ]
+        ]  # active power at bus
+        ch4_links_feedin = -self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == "H2_to_CH4"
+            ].index
+        ]  # p1 is output p of H2_to_CH4
+        h2_links_feedin = -self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == "H2_feedin"
+            ].index
+        ]
+
+        total_gen_per_t = ch4_gens_feedin.sum(axis=1) / 1e3
+        total_link_per_t = ch4_links_feedin.sum(axis=1) / 1e3
+        total_h2_per_t = h2_links_feedin.sum(axis=1) / 1e3
+
+        (total_gen_per_t + total_link_per_t + total_h2_per_t).resample(
+            t_resolution
+        ).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total_Gas_generation",
+            color=colors["CH4"],
+            linestyle="dashed",
+        )
+
+        stores = self.network.stores.loc[self.network.stores.carrier == "CH4"]
+        a = self.network.stores_t.p[stores.index].sum(axis=1) / 1e3
+        (total_gen_per_t + total_link_per_t + total_h2_per_t + a).resample(
+            t_resolution
+        ).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total_Gas_generation + Gas Storage dispatch",
+            color="black",
+            linestyle="dashed",
+        )
+
+    else:
+        data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.plot(
+            ax=ax,
+            title="Gas Loads by carrier",
+            label=rel_ch4_loads[0],
+            ylabel="[GW]",
+            legend=True,
+        )
+
+        for i in rel_ch4_loads[1:]:
+            data = self.network.links_t.p0[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+            data.plot(ax=ax, label=i, legend=True)
+
+        data = self.network.loads_t.p[
+            self.network.loads.loc[
+                self.network.loads.carrier == ch4_load_carrier[0]
+            ].index.to_list()
+        ]
+        data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+        data.plot(ax=ax, label=ch4_load_carrier[0], ylabel="[GW]", legend=True)
+
+        for i in ch4_load_carrier[1:]:
+            data = self.network.loads_t.p[
+                self.network.loads.loc[
+                    self.network.loads.carrier == i
+                ].index.to_list()
+            ]
+            data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+            data.plot(ax=ax, label=i, legend=True)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+
+def plot_h2_generation(self, t_resolution="20H", save_path=False):
+    """
+    Plots timeseries data for H2 generation
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+    colors = coloring()
+
+    h2_CH4_gen = -self.network.links_t.p1[
+        self.network.links.loc[self.network.links.carrier == "CH4_to_H2"].index
+    ]
+    h2_power_gen = -self.network.links_t.p1[
+        self.network.links.loc[
+            self.network.links.carrier == "power_to_H2"
+        ].index
+    ]
+
+    (h2_CH4_gen.sum(axis=1) / 1e3 + h2_power_gen.sum(axis=1) / 1e3).resample(
+        t_resolution
+    ).mean().plot(
+        ax=ax,
+        title="H2 Generation",
+        legend=True,
+        ylabel="[GW]",
+        label="Total dispatch",
+        lw=5,
+    )
+    (h2_CH4_gen.sum(axis=1) / 1e3).resample(t_resolution).mean().plot(
+        ax=ax,
+        label="CH4_to_H2 Dispatch",
+        legend=True,
+        color=colors["CH4_to_H2"],
+    )
+    (h2_power_gen.sum(axis=1) / 1e3).resample(t_resolution).mean().plot(
+        ax=ax,
+        label="power_to_H2 Dispatch",
+        legend=True,
+        color=colors["power_to_H2"],
+    )
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+
+def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
+    """
+    Plots timeseries data for H2 loads (and generation)
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    stacked : bool, optional
+        If True all TS data will be shown as stacked area plot. Total H2 generation
+        will then also be plotted to check for matching demand and generation.
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    colors = coloring()
+
+    rel_h2_links = ["H2_feedin", "H2_to_CH4", "H2_to_power"]
+    rel_h2_loads = ["H2_for_industry", "H2_hgv_load"]
+
+    data = self.network.links_t.p0[
+        self.network.links.loc[
+            self.network.links.carrier == rel_h2_links[0]
+        ].index.to_list()
+    ]
+
+    if stacked:
+        data = (
+            pd.DataFrame(data.sum(axis=1)).resample(t_resolution).mean() / 1e3
+        )
+        data = data.rename(columns={0: rel_h2_links[0]})
+
+        for i in rel_h2_links[1:]:
+            loads = self.network.links_t.p0[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
+
+        DE_loads = self.network.loads.loc[
+            self.network.loads.bus.isin(
+                self.network.buses.loc[
+                    self.network.buses.country == "DE"
+                ].index
+            )
+        ]
+        for i in rel_h2_loads:
+            loads = self.network.loads_t.p[
+                DE_loads.loc[DE_loads.carrier == i].index.to_list()
+            ]
+            data[i] = loads.sum(axis=1).resample(t_resolution).mean() / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.plot.area(
+            ax=ax,
+            title="Stacked H2 Loads by carrier",
+            ylabel="[GW]",
+            legend=True,
+            stacked=True,
+        )
+
+        h2_CH4_gen = -self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == "CH4_to_H2"
+            ].index
+        ]
+        h2_power_gen = -self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == "power_to_H2"
+            ].index
+        ]
+        (
+            h2_CH4_gen.sum(axis=1) / 1e3 + h2_power_gen.sum(axis=1) / 1e3
+        ).resample(t_resolution).mean().plot(
+            ax=ax,
+            legend=True,
+            label="H2 Generation",
+            color="black",
+            linestyle="dashed",
+        )
+
+    else:
+        data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.plot(
+            ax=ax,
+            title="H2 Loads by carrier",
+            label=rel_h2_links[0],
+            ylabel="[GW]",
+            legend=True,
+        )
+
+        for i in rel_h2_links[1:]:
+            data = self.network.links_t.p0[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+            data.plot(ax=ax, label=i, legend=True)
+
+        DE_loads = self.network.loads.loc[
+            self.network.loads.bus.isin(
+                self.network.buses.loc[
+                    self.network.buses.country == "DE"
+                ].index
+            )
+        ]
+        data = self.network.loads_t.p[
+            DE_loads.loc[DE_loads.carrier == rel_h2_loads[0]].index.to_list()
+        ]
+        data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+        data.plot(ax=ax, label=rel_h2_loads[0], ylabel="[GW]", legend=True)
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+
+def plot_heat_loads(self, t_resolution="20H", save_path=False):
+    """
+    Plots timeseries data for heat loads
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+    central_h = self.network.loads.loc[
+        self.network.loads.carrier == "central_heat"
+    ]
+    rural_h = self.network.loads.loc[
+        self.network.loads.carrier == "rural_heat"
+    ]
+    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1)
+    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1)
+
+    ((central_h_loads + rural_h_loads) / 1e3).resample(
+        t_resolution
+    ).mean().plot(
+        ax=ax,
+        title="Central and rural heat loads",
+        label="central_heat + rural_heat",
+        legend=True,
+        ylabel="[GW]",
+    )
+    (central_h_loads / 1e3).resample(t_resolution).mean().plot(
+        ax=ax, label="central_heat", legend=True
+    )
+    (rural_h_loads / 1e3).resample(t_resolution).mean().plot(
+        ax=ax, label="rural_heat", legend=True
+    )
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
+
+
+def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
+    """
+    Plots timeseries data for heat generation (and demand)
+
+    Parameters
+    ----------
+    self : :class:`Etrago
+        Overall container of Etrago
+    t_resolution : str, optional
+        sets the resampling rate of timeseries data to allow for smoother line plots
+    stacked : bool, optional
+        If True all TS data will be shown as stacked area plot. Total heat demand
+        will then also be plotted to check for matching generation and demand.
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    heat_gen_techs = [
+        "central_resistive_heater",
+        "central_heat_pump",
+        "rural_heat_pump",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        "rural_gas_boiler",
+    ]
+
+    heat_gen_ids = self.network.generators.loc[
+        self.network.generators.carrier.isin(
+            [
+                "solar_thermal_collector",
+                "geo_thermal",
+                "central_biomass_CHP_heat",
+            ]
+        )
+    ].index
+    heat_gen_dispatch = (
+        self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0) / 1e3
+    )
+
+    links_id_hc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_charger", "rural_heat_store_charger"]
+        )
+    ].index
+    heat_store_charger_dispatch = (
+        self.network.links_t.p0.T.loc[links_id_hc].sum(axis=0) / 1e3
+    )
+
+    links_id_hdc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_discharger", "rural_heat_store_discharger"]
+        )
+    ].index
+    heat_store_discharger_dispatch = (
+        self.network.links_t.p1.T.loc[links_id_hdc].sum(axis=0) / 1e3
+    )
+
+    heat_store_dispatch_hb = (
+        -heat_store_discharger_dispatch - heat_store_charger_dispatch
+    )
+
+    central_h = self.network.loads.loc[
+        self.network.loads.carrier == "central_heat"
+    ]
+    rural_h = self.network.loads.loc[
+        self.network.loads.carrier == "rural_heat"
+    ]
+    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1) / 1e3
+    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1) / 1e3
+
+    data = (
+        self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == heat_gen_techs[0]
+            ].index.to_list()
+        ]
+        / 1e3
+    )
+
+    if stacked == True:
+        data = pd.DataFrame(-(data.sum(axis=1)))
+        data = data.rename(columns={0: heat_gen_techs[0]})
+
+        for i in heat_gen_techs[1:]:
+            loads = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data[i] = -(loads).sum(axis=1) / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.resample(t_resolution).mean().plot.area(
+            ax=ax,
+            title="Stacked heat generation and demand",
+            ylabel="[GW]",
+            legend=True,
+            stacked=True,
+        )
+
+        (
+            data.sum(axis=1) + heat_store_dispatch_hb + heat_gen_dispatch
+        ).resample(t_resolution).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total heat generation + heat store dispatch",
+            color="yellow",
+        )
+
+    else:
+        data = -data.sum(axis=1) / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+        data.resample(t_resolution).mean().plot(
+            ax=ax,
+            title="Heat generation and demand",
+            label=heat_gen_techs[0],
+            ylabel="[GW]",
+            legend=True,
+        )
+
+        for i in heat_gen_techs[1:]:
+            data = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            data = -data.sum(axis=1) / 1e3
+            data.resample(t_resolution).mean().plot(
+                ax=ax, label=i, legend=True
+            )
+        
+        heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Heat store dispatch",
+            color="yellow",
+            linestyle="dashed",
+        )
+
+    (central_h_loads + rural_h_loads).resample(t_resolution).mean().plot.line(
+        ax=ax,
+        legend=True,
+        label="Total heat demand",
+        color="black",
+        linestyle="dashed",
+    )
+
+    if save_path:
+        plt.savefig(save_path, dpi=300)
