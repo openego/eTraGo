@@ -1033,8 +1033,13 @@ def nodal_gen_dispatch(
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+    elif (osm == False) and cartopy_present:
+        fig, ax = plt.subplots(
+            subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
+        )
+
     else:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(figsize=(5, 5))
 
     if techs:
         gens = network.generators[network.generators.carrier.isin(techs)]
@@ -1097,10 +1102,9 @@ def nodal_gen_dispatch(
         }
         dispatch = dispatch.abs()
         subcolors = {"negative": "red", "positive": "green"}
-    import cartopy.crs as ccrs
 
-    fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
     network.plot(
+        geomap=(cartopy_present | osm),
         bus_sizes=dispatch * scaling,
         bus_colors=colors,
         line_widths=0.2,
@@ -1641,30 +1645,29 @@ def plot_background_grid(network, ax):
     None.
 
     """
+    if cartopy_present:
+        network.plot(
+            ax=ax,
+            line_colors="grey",
+            link_colors="grey",
+            bus_sizes=0,
+            line_widths=0.5,
+            link_widths=0.3,  # 0.55,
+            geomap=True,
+            projection=ccrs.PlateCarree(),
+            color_geomap=True,
+        )
+    else:
+        network.plot(
+            ax=ax,
+            line_colors="grey",
+            link_colors="grey",
+            bus_sizes=0,
+            line_widths=0.5,
+            link_widths=0.3,  # 0.55,
+            geomap=False,
+        )
 
-    network.plot(
-        ax=ax,
-        line_colors="grey",
-        link_colors="grey",
-        bus_sizes=0,
-        line_widths=0.5,
-        link_widths=0.3,  # 0.55,
-        geomap=True,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
-
-    network.plot(
-        ax=ax,
-        line_colors="grey",
-        link_colors="grey",
-        bus_sizes=0,
-        line_widths=0.5,
-        link_widths=0.3,  # 0.55,
-        geomap=True,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
 
 def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     """Calculate shifting potential of demand side management
@@ -2049,7 +2052,7 @@ def flexibility_usage(
         )
 
     elif flexibility == "battery":
-        
+
         df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
         su = self.network.storage_units[
@@ -2103,7 +2106,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
+def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     """
     Parameters
     ----------
@@ -2126,7 +2129,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     line_colors = "lightblue"
 
     # Set background
-    if cartopy == True:
+    if cartopy_present:
         plt.rcParams["figure.autolayout"] = True
         fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
         draw_map_cartopy(ax, color_geomap=True)
@@ -2157,7 +2160,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     title = ""
 
     network.plot(
-        geomap=True,
+        geomap=cartopy_present,
         bus_sizes=bus_sizes,
         link_widths=link_width,
         line_widths=line_widths,
@@ -2265,10 +2268,13 @@ def plot_grid(
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
 
-    else:
+    elif (osm == False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
+
+    else:
+        fig, ax = plt.subplots(figsize=(5, 5))
 
     # Set line colors
     if line_colors == "line_loading":
@@ -2376,21 +2382,36 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    ll = network.plot(
-        line_colors=line_colors,
-        link_colors=link_colors,
-        line_cmap=plt.cm.jet,
-        link_cmap=plt.cm.jet,
-        bus_sizes=bus_sizes,
-        bus_colors=bus_colors,
-        line_widths=line_widths,
-        link_widths=0,  # link_widths,
-        flow=flow,
-        title=title,
-        geomap=False,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
+    if cartopy_present:
+        ll = network.plot(
+            line_colors=line_colors,
+            link_colors=link_colors,
+            line_cmap=plt.cm.jet,
+            link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths,
+            link_widths=0,  # link_widths,
+            flow=flow,
+            title=title,
+            geomap=False,
+            projection=ccrs.PlateCarree(),
+            color_geomap=True,
+        )
+    else:
+        ll = network.plot(
+            line_colors=line_colors,
+            link_colors=link_colors,
+            line_cmap=plt.cm.jet,
+            link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths,
+            link_widths=0,  # link_widths,
+            flow=flow,
+            title=title,
+            geomap=False,
+        )
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
@@ -2520,7 +2541,6 @@ def plot_clusters(
     self,
     carrier="AC",
     save_path=False,
-    cartopy=True,
     transmission_lines=False,
     gas_pipelines=False,
 ):
@@ -2574,7 +2594,7 @@ def plot_clusters(
     )
 
     # Set background
-    if cartopy == True:
+    if cartopy_present:
         plt.rcParams["figure.autolayout"] = True
         fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
         draw_map_cartopy(ax, color_geomap=True)
