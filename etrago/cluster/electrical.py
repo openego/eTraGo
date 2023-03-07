@@ -73,7 +73,6 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
-
     network = etrago.network
     # network2 is supposed to contain all the not electrical or gas buses and links
     network2 = network.copy(with_time=False)
@@ -147,7 +146,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             (no_elec_to_cluster.cluster == busmap[bus_hv])
             & (no_elec_to_cluster.carrier == carry)
         ).any():
-
             bus_cluster = no_elec_to_cluster[
                 (no_elec_to_cluster.cluster == busmap[bus_hv])
                 & (no_elec_to_cluster.carrier == carry)
@@ -190,7 +188,6 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         | (network.buses["carrier"] == "central_heat")
         | (network.buses["carrier"] == "central_heat_store")
     ].index:
-
         busmap2[gas_bus] = gas_bus
 
     busmap = {**busmap, **busmap2, **busmap3}
@@ -406,9 +403,7 @@ def delete_ehv_buses_no_lines(network):
 
 
 def ehv_clustering(self):
-
     if self.args["network_clustering_ehv"]:
-
         logger.info("Start ehv clustering")
 
         self.network.generators.control = "PV"
@@ -423,11 +418,14 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
+
+        if not (self.args["network_clustering"]["active"]):
+            self.load_shedding()
+
         logger.info("Network clustered to EHV-grid")
 
 
 def select_elec_network(etrago):
-
     elec_network = etrago.network.copy()
     settings = etrago.args["network_clustering"]
     if settings["cluster_foreign_AC"]:
@@ -513,7 +511,6 @@ def select_elec_network(etrago):
 
 def preprocessing(etrago):
     def unify_foreign_buses(etrago):
-
         network = etrago.network.copy(with_time=False)
 
         foreign_buses = network.buses[
@@ -874,17 +871,13 @@ def weighting_for_scenario(network, save=None):
 
 
 def run_spatial_clustering(self):
-
     if self.args["network_clustering"]["active"]:
-
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
-
             if self.args["network_clustering"]["k_elec_busmap"] == False:
-
                 logger.info("Start k-means Clustering")
 
                 busmap = kmean_clustering(
@@ -896,9 +889,7 @@ def run_spatial_clustering(self):
                 medoid_idx = pd.Series(dtype=str)
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
-
             if self.args["network_clustering"]["k_elec_busmap"] == False:
-
                 logger.info("Start k-medoids Dijkstra Clustering")
 
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
