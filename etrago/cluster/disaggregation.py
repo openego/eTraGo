@@ -682,15 +682,12 @@ class UniformDisaggregation(Disaggregation):
                 getattr(self.original_network, bustype).loc[
                     pnb.index, optimal_capacity
                 ] = pnb.loc[:, optimal_capacity]
-                timed = (
-                    lambda key, series=set(
-                        s
-                        for s in cl_t
-                        if not cl_t[s].empty
-                        if not pn_t[s].columns.intersection(pnb.index).empty
-                    ): key
-                    in series
-                )
+                timed = lambda key, series={  # noqa: 731
+                    s
+                    for s in cl_t
+                    if not cl_t[s].empty
+                    if not pn_t[s].columns.intersection(pnb.index).empty
+                }: (key in series)
 
                 for s in bustypes[bustype]["series"]:
                     if s in self.skip:
