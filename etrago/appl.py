@@ -521,7 +521,7 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
-    
+
     return etrago
 
 
@@ -529,6 +529,8 @@ if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
-    import pdb; pdb.set_trace()
+    import pdb
+
+    pdb.set_trace()
     print(datetime.datetime.now())
     etrago.session.close()

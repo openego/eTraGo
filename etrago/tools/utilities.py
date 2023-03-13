@@ -555,7 +555,7 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding(self, temporal_disaggregation = False, **kwargs):
+def load_shedding(self, temporal_disaggregation=False, **kwargs):
     """Implement load shedding in existing network to identify
     feasibility problems
 
@@ -572,12 +572,11 @@ def load_shedding(self, temporal_disaggregation = False, **kwargs):
 
     """
     if self.args["load_shedding"]:
-        
         if temporal_disaggregation:
             network = self.network_tsa
         else:
-            network=self.network        
-        
+            network = self.network
+
         marginal_cost_def = 10000  # network.generators.marginal_cost.max()*2
         p_nom_def = network.loads_t.p_set.max().max()
 
