@@ -147,8 +147,8 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
-        "no_slices": 4,  # number of subproblems optimization is divided into
+        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -417,10 +417,11 @@ def run_etrago(args, json_path):
     {'active': True, 'no_slices': 4},
         State if you to apply a second lopf considering dispatch only
         to disaggregate the dispatch to the whole temporal complexity.
+        Be aware that a load shedding will be applied in this optimization.
         With "no_slices" the optimization problem will be calculated as a given
         number of subproblems while using some information on the state of charge
         of storage units and stores from the former optimization (at the moment
-        only possible with skip_snapshots)
+        only possible with skip_snapshots; extra_functionalities disregarded)
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},

@@ -441,6 +441,14 @@ def dispatch_disaggregation(self):
                 self.conduct_dispatch_disaggregation[
                     store
                 ] = self.network.stores_t.e[store]
+                
+            extra_func = self.args['extra_functionality']
+            self.args['extra_functionality'] = {}
+
+        load_shedding = self.args['load_shedding']
+        if not load_shedding:
+            self.args['load_shedding'] = True
+            self.load_shedding(temporal_disaggregation=True)
 
         iterate_lopf(
             self,
@@ -458,6 +466,11 @@ def dispatch_disaggregation(self):
         network1 = 0
 
         # keep original settings
+        
+        if self.args["temporal_disaggregation"]["no_slices"]:
+            self.args['extra_functionality'] = extra_func
+        self.args['load_shedding'] = load_shedding
+        
         self.network.lines["s_nom_extendable"] = self.network_tsa.lines[
             "s_nom_extendable"
         ]

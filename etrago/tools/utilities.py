@@ -555,7 +555,7 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding(self, **kwargs):
+def load_shedding(self, temporal_disaggregation = False, **kwargs):
     """Implement load shedding in existing network to identify
     feasibility problems
 
@@ -572,15 +572,21 @@ def load_shedding(self, **kwargs):
 
     """
     if self.args["load_shedding"]:
+        
+        if temporal_disaggregation:
+            network = self.network_tsa
+        else:
+            network=self.network        
+        
         marginal_cost_def = 10000  # network.generators.marginal_cost.max()*2
-        p_nom_def = self.network.loads_t.p_set.max().max()
+        p_nom_def = network.loads_t.p_set.max().max()
 
         marginal_cost = kwargs.get("marginal_cost", marginal_cost_def)
         p_nom = kwargs.get("p_nom", p_nom_def)
 
-        self.network.add("Carrier", "load")
+        network.add("Carrier", "load")
         start = (
-            self.network.generators.index.to_series()
+            network.generators.index.to_series()
             .str.rsplit(" ")
             .str[0]
             .astype(int)
@@ -592,14 +598,14 @@ def load_shedding(self, **kwargs):
         if start != start:
             start = 0
 
-        index = list(range(start, start + len(self.network.buses.index)))
-        self.network.import_components_from_dataframe(
+        index = list(range(start, start + len(network.buses.index)))
+        network.import_components_from_dataframe(
             pd.DataFrame(
                 dict(
                     marginal_cost=marginal_cost,
                     p_nom=p_nom,
                     carrier="load shedding",
-                    bus=self.network.buses.index,
+                    bus=network.buses.index,
                 ),
                 index=index,
             ),
