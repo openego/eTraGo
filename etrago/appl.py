@@ -28,6 +28,7 @@ the function etrago.
 import datetime
 import os
 import os.path
+
 import numpy as np
 
 __copyright__ = (
@@ -498,9 +499,6 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
 
-    etrago.args["load_shedding"] = True
-    etrago.load_shedding()
-
     # snapshot clustering
     etrago.snapshot_clustering()
 
@@ -508,7 +506,6 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
-    # needs to be adjusted for new sectors
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
