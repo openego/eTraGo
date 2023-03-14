@@ -524,7 +524,7 @@ def run_etrago(args, json_path):
    
     # Knoten zu GeoDataFrame macehn
     geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
-    geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
+    #geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
     # geodf europ. Länder ohne Russland | Koordinatensystem ändern | einstampfen auf benötigte Spalten | hier wären auch andere Grenzen möglich, daür die Datei ändern
     europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
@@ -542,7 +542,8 @@ def run_etrago(args, json_path):
     # Länderknoten zuweisen und Generatoren Zonen zuweisen    
     etrago.network.buses= buses_with_country
     etrago.network.buses.index.names =['bus']
-    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index.names)
+    breakpoint()
+    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
     
     # Bus mit Zone filtern und zu Series machen
     zones = buses_with_country[['zone']]
