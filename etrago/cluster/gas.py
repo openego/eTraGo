@@ -27,18 +27,24 @@ if "READTHEDOCS" not in os.environ:
 
 def preprocessing(etrago):
     """
-    Create a bus map from the clustering of buses in space with a weighting.
+    Preprocesses the gas network data from the given Etrago object for the spatial
+    clustering process of the CH4 grid.
 
     Parameters
     ----------
-    network : pypsa.Network
-        The buses must have coordinates x,y.
+    etrago : Etrago
+        An instance of the Etrago class
+
     Returns
     -------
-    busmap : pandas.Series
-        Mapping of network.buses to k-means clusters (indexed by
-        non-negative integers).
+    None
+
+    Raises
+    ------
+    ValueError
+        If `settings["n_clusters_gas"]` is less than or equal to the number of neighboring country gas buses.
     """
+
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
 
@@ -90,8 +96,9 @@ def preprocessing(etrago):
         ----------
         ch4_buses : pandas.DataFrame
             Dataframe with CH4 etrago.network.buses to weight.
-        save: path
+        save : str or bool
             Path to save weightings to as .csv
+
         Returns
         -------
         weightings : pandas.Series
@@ -171,6 +178,27 @@ def preprocessing(etrago):
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
+    """
+    Performs K-means clustering on the gas network data in the given `network_ch4` pypsa.Network object.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    network_ch4 : pypsa.Network
+        A Network object containing the gas network data.
+    weight : str or None
+        The name of the bus weighting column to use for clustering. If None, unweighted clustering is performed.
+    n_clusters : int
+        The number of clusters to create.
+
+    Returns
+    -------
+    busmap : pandas.Series 
+        A pandas.Series object mapping each bus in the CH4 network to its corresponding cluster ID
+    None
+        None is returned because k-means clustering makes no use of medoids
+    """
     settings = etrago.args["network_clustering"]
 
     busmap = busmap_by_kmeans(
@@ -187,6 +215,21 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
 
 def get_h2_clusters(etrago, busmap_ch4):
+    """
+    Maps H2 buses to CH4 cluster IDds and creates unique H2 cluster IDs.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    busmap_ch4 : pd.Series
+        A Pandas Series mapping each bus in the CH4 network to its corresponding cluster ID.
+
+    Returns
+    -------
+    busmap : pd.Series
+        A Pandas Series mapping each bus in the combined CH4 and H2 network to its corresponding cluster ID.
+    """    
     # Mapping of H2 buses to new CH4 cluster IDs
     busmap_h2 = pd.Series(
         busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
@@ -205,6 +248,27 @@ def get_h2_clusters(etrago, busmap_ch4):
 
 
 def gas_postprocessing(etrago, busmap, medoid_idx=None):
+    """
+    Performs the postprocessing for the gas grid clustering based on the provided busmap
+    and returns the clustered network. 
+    
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    busmap : pd.Series
+        A Pandas Series mapping each bus to its corresponding cluster ID.
+    medoid_idx : pd.Series
+        A pandas.Series object containing the medoid indices for the gas network.
+
+    Returns
+    -------
+    Tuple containing:
+        network_gasgrid_c : pypsa.Network
+            A pypsa.Network containing the clustered network.
+        busmap : pd.Series
+            A Pandas Series mapping each bus to its corresponding cluster ID.
+    """
     settings = etrago.args["network_clustering"]
 
     if settings["k_gas_busmap"] == False:
@@ -408,12 +472,12 @@ def highestInteger(potentially_numbers):
 
     Parameters
     ----------
-    potentially_numbers : pandas.core.series.Series
+    potentially_numbers : pandas.Series
         Series with mixed dtypes, potentially containing numbers.
 
     Returns
     -------
-    int
+    highest : int
         Highest integer found in series.
     """
     highest = 0
@@ -430,7 +494,8 @@ def highestInteger(potentially_numbers):
 def simultaneous_sector_coupling(
     network, busmap, carrier_based, carrier_to_cluster
 ):
-    """Cluster sector coupling technology based on multiple connected carriers.
+    """
+    Cluster sector coupling technology based on multiple connected carriers.
 
     The topology of the sector coupling technology must be in a way, that the
     links connected to other sectors do only point inwards. E.g. for the heat
@@ -527,7 +592,8 @@ def simultaneous_sector_coupling(
 def consecutive_sector_coupling(
     network, busmap, carrier_based, carrier_to_cluster
 ):
-    """Cluster sector coupling technology based on single connected carriers.
+    """
+    Cluster sector coupling technology based on single connected carriers.
 
     The topology of the sector coupling technology must be in a way, that the
     links connected to other sectors do only point inwards. E.g. for the heat
@@ -547,8 +613,8 @@ def consecutive_sector_coupling(
 
     Returns
     -------
-    dict
-        Busmap for the sector coupling cluster.
+    busmap_sc : dict
+        Busmap for the sector coupled cluster.
     """
     next_bus_id = highestInteger(busmap.values) + 1
     buses_to_skip = network.buses[
@@ -639,7 +705,8 @@ def consecutive_sector_coupling(
 
 
 def sc_multi_carrier_based(buses_to_cluster, connected_links):
-    """Create busmap for sector coupled carrier based on multiple other carriers.
+    """
+    Create busmap for sector coupled carrier based on multiple other carriers.
 
     Parameters
     ----------
@@ -652,8 +719,8 @@ def sc_multi_carrier_based(buses_to_cluster, connected_links):
 
     Returns
     -------
-    dict
-        Busmap for the sector cupled carrier.
+    busmap : dict
+        Busmap for the sector coupled carrier.
     """
     clusters = pd.Series()
     for bus_id in buses_to_cluster.index:
@@ -676,7 +743,8 @@ def sc_multi_carrier_based(buses_to_cluster, connected_links):
 
 
 def sc_single_carrier_based(connected_links):
-    """Create busmap for sector coupled carrier based on single other carrier.
+    """
+    Create busmap for sector coupled carrier based on single other carrier.
 
     Parameters
     ----------
@@ -686,8 +754,8 @@ def sc_single_carrier_based(connected_links):
 
     Returns
     -------
-    dict
-        Busmap for the sector cupled carrier.
+    busmap : dict
+        Busmap for the sector coupled carrier.
     """
     busmap = {}
     clusters = connected_links["bus0_clustered"].unique()
@@ -707,6 +775,29 @@ def get_clustering_from_busmap(
     bus_strategies=dict(),
     one_port_strategies=dict(),
 ):
+    """
+    Aggregates components of the given network based on a bus mapping and returns a clustered gas grid pypsa.Network.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        The input pypsa.Network object
+    busmap : pandas.Sereies : 
+        A mapping of buses to clusters
+    line_length_factor : float
+        A factor used to adjust the length of new links created during aggregation. Default is 1.0.
+    with_time : bool
+        Determines whether to copy the time-dependent properties of the input network to the output network. Default is True.
+    bus_strategies : dict
+        A dictionary of custom strategies to use during the aggregation step. Default is an empty dictionary.
+    one_port_strategies : dict 
+        A dictionary of custom strategies to use during the one-port component aggregation step. Default is an empty dictionary.
+
+    Returns
+    -------
+    network_gasgrid_c : pypsa.Network
+        A new gas grid pypsa.Network object with aggregated components based on the bus mapping.
+    """
     network_gasgrid_c = Network()
 
     # Aggregate buses
@@ -779,6 +870,17 @@ def get_clustering_from_busmap(
 
 
 def run_spatial_clustering_gas(self):
+    """
+    Performs spatial clustering on the gas network using either K-means or K-medoids-Dijkstra algorithm. Updates the 
+    network topology by aggregating buses and links, and then performs postprocessing to finalize the changes.
+
+    Returns
+        None
+
+    Raises
+        ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
+
+    """
     settings = self.args["network_clustering"]
 
     if settings["active"]:
