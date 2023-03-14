@@ -23,15 +23,12 @@
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import logging
-    import multiprocessing as mp
     from itertools import product
     from math import ceil
     from pickle import dump
+    import logging
+    import multiprocessing as mp
 
-    import networkx as nx
-    import numpy as np
-    import pandas as pd
     from networkx import NetworkXNoPath
     from pypsa.networkclustering import (
         _flatten_multiindex,
@@ -40,6 +37,10 @@ if "READTHEDOCS" not in os.environ:
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
+    from threadpoolctl import threadpool_limits
+    import networkx as nx
+    import numpy as np
+    import pandas as pd
 
     from etrago.tools.utilities import *
 
@@ -61,7 +62,9 @@ def _make_consense_links(x):
     v = x.iat[0]
     assert (
         x == v
-    ).all() or x.isnull().all(), f"No consense in table links column {x.name}: \n {x}"
+    ).all() or x.isnull().all(), (
+        f"No consense in table links column {x.name}: \n {x}"
+    )
     return v
 
 
@@ -79,6 +82,7 @@ def sum_with_inf(x):
         return np.inf
     else:
         return x.sum()
+
 
 def strategies_one_ports():
     return {
@@ -115,6 +119,7 @@ def strategies_generators():
         "capital_cost": np.mean,
         "e_nom_max": sum_with_inf,
     }
+
 
 def strategies_links():
     return {
@@ -173,15 +178,21 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     def normed_or_uniform(x):
         return (
-            x / x.sum() if x.sum(skipna=False) > 0 else pd.Series(1.0 / len(x), x.index)
+            x / x.sum()
+            if x.sum(skipna=False) > 0
+            else pd.Series(1.0 / len(x), x.index)
         )
 
-    weighting = links.p_nom.groupby(grouper, axis=0).transform(normed_or_uniform)
+    weighting = links.p_nom.groupby(grouper, axis=0).transform(
+        normed_or_uniform
+    )
     strategies = strategies_links()
     strategies.update(cus_strateg)
     new_df = links.groupby(grouper, axis=0).agg(strategies)
     new_df.index = _flatten_multiindex(new_df.index).rename("name")
-    new_df = pd.concat([new_df, network.links.loc[~links_agg_b]], axis=0, sort=False)
+    new_df = pd.concat(
+        [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
+    )
     new_df["new_id"] = np.arange(len(new_df)).astype(str)
     cluster_id = new_df["new_id"].to_dict()
     new_df.set_index("new_id", inplace=True)
@@ -194,9 +205,13 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
             df_agg = df.loc[:, pnl_links_agg_b].astype(float)
             if not df_agg.empty:
                 if attr in ["efficiency", "p_max_pu", "p_min_pu"]:
-                    df_agg = df_agg.multiply(weighting.loc[df_agg.columns], axis=1)
+                    df_agg = df_agg.multiply(
+                        weighting.loc[df_agg.columns], axis=1
+                    )
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename("name")
+                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                    "name"
+                )
                 new_pnl[attr] = pd.concat(
                     [df.loc[:, ~pnl_links_agg_b], pnl_df], axis=1, sort=False
                 )
@@ -285,14 +300,14 @@ def shortest_path(paths, graph):
 
     df_isna = df.isnull()
     for s, t in paths:
-        while (df_isna.loc[(s, t), 'path_length'] == True):
+        while df_isna.loc[(s, t), "path_length"] == True:
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s)
                 for t in idx.levels[1]:
                     if t in s_to_other:
-                        df.loc[(s, t), 'path_length'] = s_to_other[t]
+                        df.loc[(s, t), "path_length"] = s_to_other[t]
                     else:
-                        df.loc[(s,t),'path_length'] = np.inf
+                        df.loc[(s, t), "path_length"] = np.inf
             except NetworkXNoPath:
                 continue
             df_isna = df.isnull()
@@ -350,7 +365,9 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     ppaths = list(product(s_buses, t_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()]
+    edges = [
+        (row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()
+    ]
     M = graph_from_edges(edges)
 
     # applying multiprocessing
@@ -371,13 +388,20 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     # rename temporary endpoints
     df.reset_index(inplace=True)
     df.target = df.target.map(
-        dict(zip(etrago.network.transformers.bus0, etrago.network.transformers.bus1))
+        dict(
+            zip(
+                etrago.network.transformers.bus0,
+                etrago.network.transformers.bus1,
+            )
+        )
     )
 
     # append to busmap buses only connected to transformer
     transformer = etrago.network.transformers
     idx = list(
-        set(buses_of_vlvl(etrago.network, fromlvl)).symmetric_difference(set(s_buses))
+        set(buses_of_vlvl(etrago.network, fromlvl)).symmetric_difference(
+            set(s_buses)
+        )
     )
     mask = transformer.bus0.isin(idx)
 
@@ -414,7 +438,10 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
     df.to_sql(
-        "egon_etrago_hv_busmap", con=etrago.engine, schema="grid", if_exists="append"
+        "egon_etrago_hv_busmap",
+        con=etrago.engine,
+        schema="grid",
+        if_exists="append",
     )
 
     return
@@ -444,7 +471,9 @@ def busmap_from_psql(etrago):
     scn_name = (
         etrago.args["scn_name"]
         if etrago.args["scn_extension"] == None
-        else etrago.args["scn_name"] + "_ext_" + "_".join(etrago.args["scn_extension"])
+        else etrago.args["scn_name"]
+        + "_ext_"
+        + "_".join(etrago.args["scn_extension"])
     )
 
     from saio.grid import egon_etrago_hv_busmap
@@ -457,7 +486,9 @@ def busmap_from_psql(etrago):
     def fetch():
 
         query = (
-            etrago.session.query(egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1)
+            etrago.session.query(
+                egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1
+            )
             .filter(egon_etrago_hv_busmap.scn_name == scn_name)
             .filter(egon_etrago_hv_busmap.version == filter_version)
         )
@@ -471,7 +502,7 @@ def busmap_from_psql(etrago):
         print("Busmap does not exist and will be created.\n")
 
         cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
-        if cpu_cores == 'max':
+        if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
@@ -528,46 +559,49 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     """
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
-    # remove stubs
-    if kmean_settings["remove_stubs"]:
-        network.determine_network_topology()
-        busmap = busmap_by_stubs(network)
-        network.generators["weight"] = network.generators["p_nom"]
-        aggregate_one_ports = network.one_port_components.copy()
-        aggregate_one_ports.discard("Generator")
 
-        # reset coordinates to the new reduced guys, rather than taking an
-        # average (copied from pypsa.networkclustering)
-        if kmean_settings["use_reduced_coordinates"]:
-            # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
-            # i.e. network is changed in place!!
-            network.buses.loc[busmap.index, ["x", "y"]] = network.buses.loc[
-                busmap, ["x", "y"]
-            ].values
+    with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
+        
+        # remove stubs
+        if kmean_settings["remove_stubs"]:
+            network.determine_network_topology()
+            busmap = busmap_by_stubs(network)
+            network.generators["weight"] = network.generators["p_nom"]
+            aggregate_one_ports = network.one_port_components.copy()
+            aggregate_one_ports.discard("Generator")
 
-        clustering = get_clustering_from_busmap(
-            network,
-            busmap,
-            aggregate_generators_weighted=True,
-            one_port_strategies=strategies_one_ports(),
-            generator_strategies=strategies_generators(),
-            aggregate_one_ports=aggregate_one_ports,
-            line_length_factor=kmean_settings["line_length_factor"],
+            # reset coordinates to the new reduced guys, rather than taking an
+            # average (copied from pypsa.networkclustering)
+            if kmean_settings["use_reduced_coordinates"]:
+                # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
+                # i.e. network is changed in place!!
+                network.buses.loc[
+                    busmap.index, ["x", "y"]
+                ] = network.buses.loc[busmap, ["x", "y"]].values
+
+            clustering = get_clustering_from_busmap(
+                network,
+                busmap,
+                aggregate_generators_weighted=True,
+                one_port_strategies=strategies_one_ports(),
+                generator_strategies=strategies_generators(),
+                aggregate_one_ports=aggregate_one_ports,
+                line_length_factor=kmean_settings["line_length_factor"],
+            )
+            etrago.network = clustering.network
+
+            weight = weight.groupby(busmap.values).sum()
+
+        # k-mean clustering
+        busmap = busmap_by_kmeans(
+            selected_network,
+            bus_weightings=pd.Series(weight),
+            n_clusters=n_clusters,
+            n_init=kmean_settings["n_init"],
+            max_iter=kmean_settings["max_iter"],
+            tol=kmean_settings["tol"],
+            random_state=kmean_settings["random_state"],
         )
-        etrago.network = clustering.network
-
-        weight = weight.groupby(busmap.values).sum()
-
-    # k-mean clustering
-    busmap = busmap_by_kmeans(
-        selected_network,
-        bus_weightings=pd.Series(weight),
-        n_clusters=n_clusters,
-        n_init=kmean_settings["n_init"],
-        max_iter=kmean_settings["max_iter"],
-        tol=kmean_settings["tol"],
-        random_state=kmean_settings["random_state"]
-    )
 
     return busmap
 
@@ -604,11 +638,14 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     ppathss = list(product(o_buses, c_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in connections.iterrows()]
+    edges = [
+        (row.bus0, row.bus1, row.length, ix)
+        for ix, row in connections.iterrows()
+    ]
     M = graph_from_edges(edges)
 
     # processor count
-    if cpu_cores == 'max':
+    if cpu_cores == "max":
         cpu_cores = mp.cpu_count()
     else:
         cpu_cores = int(cpu_cores)
@@ -643,33 +680,32 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
-    return busmap, busmap_ind
+    return busmap
 
 
-def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters):
+def kmedoids_dijkstra_clustering(
+    etrago, buses, connections, weight, n_clusters
+):
 
     settings = etrago.args["network_clustering"]
 
-    # remove stubs
-    if settings["remove_stubs"]:
-
-        logger.info(
+    # n_jobs was deprecated for the function fit(). scikit-learn recommends
+    # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
+    with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
+    
+        # remove stubs
+        if settings["remove_stubs"]:
+            
+            logger.info(
             "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
         )
-        
-    ### if-condition is only necessary for gas sector, because import of busmap for AC checked before calling of this function
-    ### can be deleted after busmaps are adapted in gas sector aswell
-
-    if ((str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]) or (str(buses.carrier.unique()[0]) == 'AC')):
-           
-        ###
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
         points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
-
+    
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -679,56 +715,31 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
             random_state=settings["random_state"],
         )
         kmeans.fit(points)
-
+    
         busmap = pd.Series(
             data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
             index=buses_i,
             dtype=object,
         )
-
+    
         # identify medoids per cluster -> k-medoids clustering
-
+    
         distances = pd.DataFrame(
             data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
         distances = distances.apply(pd.to_numeric)
-
-        medoid_idx = distances.idxmin()
-
-        # dijkstra's algorithm
-        busmap, busmap_ind = dijkstras_algorithm(buses, connections, medoid_idx,
-                                     etrago.args["network_clustering"]["CPU_cores"])
-        busmap.index.name = "bus_id"
-        
-        if (str(buses.carrier.unique()[0]) == 'CH4' and not settings["k_gas_busmap"]):
-            
-            busmap.name = 'cluster'
-            busmap_ind.name='medoid_idx'
-        
-            export = pd.concat([busmap, busmap_ind], axis=1)
-            export.index.name = 'bus_id'
-            export.to_csv(
-                "kmedoids_ch4_busmap_" + str(settings["n_clusters_gas"]) + "_result.csv")
-            
-
-    ### this export should be shifted to the gas.py analog to the procedure for the electrical network
     
-    elif (str(buses.carrier.unique()[0]) == 'CH4' and settings["k_gas_busmap"] is False):
-        
-        df = pd.read_csv(settings["k_gas_busmap"])
-        df = df.astype(str)
-        df = df.set_index("bus_id")
-
-        medoid_idx = df.drop_duplicates().set_index('cluster')
-        medoid_idx.index = medoid_idx.index.astype(int)
-        medoid_idx.sort_index(inplace=True)
-        medoid_idx = medoid_idx.squeeze("columns")
-        
-        busmap = df.drop('medoid_idx', axis=1)
-        busmap = busmap.squeeze("columns")
-        
-        ###
+        medoid_idx = distances.idxmin()
+    
+        # dijkstra's algorithm
+        busmap = dijkstras_algorithm(
+            buses,
+            connections,
+            medoid_idx,
+            etrago.args["network_clustering"]["CPU_cores"],
+        )
+        busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
