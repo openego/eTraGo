@@ -48,7 +48,9 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, gnn, pieterhexen, fwitte, KathiEsterl, MGlauer, birgits, AmeliaNadal,
+MarlonSchlemminger, wheitkoetter, jankaeh"""
 
 
 def filter_links_by_carrier(self, carrier, like=True):
