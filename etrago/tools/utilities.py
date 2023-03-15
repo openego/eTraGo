@@ -634,7 +634,9 @@ def data_manipulation_sh(network):
     network : :class:`pypsa.Network
         Overall container of PyPSA
 
-
+    Returns
+    -------
+    None
 
     """
     from geoalchemy2.shape import from_shape, to_shape
@@ -731,6 +733,9 @@ def export_to_csv(self, path):
     path: str or False or None
         Choose path for csv-files. Specify `""`, `False` or `None` to
         not do anything.
+    Returns
+    -------
+    None
 
     """
     if not path:
@@ -781,6 +786,22 @@ def export_to_csv(self, path):
 
 
 def loading_minimization(network, snapshots):
+    """
+    Minimizes the sum of the products of each element in the passive_branches
+    of the model.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
+        snapshots to perform the minimization
+
+    Returns
+    -------
+    None
+
+    """
     network.model.number1 = Var(
         network.model.passive_branch_p_index, within=PositiveReals
     )
