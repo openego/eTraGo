@@ -57,7 +57,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
 
 
 def set_epsg_network(network):
