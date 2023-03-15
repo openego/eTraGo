@@ -420,6 +420,10 @@ def plot_residual_load(network):
     Parameters
     ----------
     network : PyPSA network containter
+    
+    Returns
+    -------
+    Plot
     """
 
     renewables = network.generators[
@@ -590,7 +594,7 @@ def plot_gen_diff(
             pd.concat(
                 [
                     network.generators_t.p.mul(
-                        etwork.snapshot_weightings, axis=0
+                        network.snapshot_weightings, axis=0
                     )[
                         network.generators[
                             network.generators.control != "Slack"
@@ -924,6 +928,10 @@ def gen_dist_diff(
     filename : str
         Specify filename
         If not given, figure will be show directly
+        
+    Returns
+    -------
+    None.
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -1037,6 +1045,10 @@ def nodal_gen_dispatch(
                 'x': array of two floats, x axis boundaries (lat)
                 'y': array of two floats, y axis boundaries (long)
                 'zoom' : resolution of osm
+    
+    Returns
+    -------
+    None.
     """
 
     if osm != False:
@@ -1201,6 +1213,10 @@ def storage_p_soc(network, mean="1H", filename=None):
     mean : str
         Defines over how many snapshots the p and soc values will averaged.
     filename : path to folder
+    
+    Returns
+    -------
+    None.
 
     """
 
@@ -1335,6 +1351,10 @@ def storage_soc_sorted(network, filename=None):
         Holds topology of grid including results from powerflow analysis
 
     filename : path to folder
+    
+    Returns
+    -------
+    None.
 
     """
     sbatt = network.storage_units.index[
@@ -1695,7 +1715,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1775,7 +1795,7 @@ def bev_flexibility_potential(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1882,7 +1902,7 @@ def heat_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1962,7 +1982,7 @@ def hydrogen_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -2575,8 +2595,6 @@ def plot_clusters(
     -------
     None.
     """
-    # TODO: Make this function available for other carriers
-    # Create geometries
     new_geom = self.network.buses[
         [
             "carrier",
