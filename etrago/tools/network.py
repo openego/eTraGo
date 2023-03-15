@@ -89,6 +89,16 @@ from etrago.tools.utilities import (
 
 logger = logging.getLogger(__name__)
 
+__copyright__ = (
+    "Flensburg University of Applied Sciences, "
+    "Europa-Universität Flensburg, "
+    "Centre for Sustainable Energy Systems, "
+    "DLR-Institute for Networked Energy Systems"
+)
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = """AmeliaNadal, CarlosEpia, ClaraBuettner, KathiEsterl, gnn, fwitte,
+ ulfmueller, pieterhexen"""
+
 
 class Etrago:
     """
