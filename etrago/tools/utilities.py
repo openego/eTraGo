@@ -1821,6 +1821,9 @@ def get_clustering_data(self, path):
     ----------
     path : str
         Name of folder from which to import CSVs of network data.
+    Returns
+    None
+    -------
     """
 
     if (self.args["network_clustering_ehv"]) | (
@@ -1988,6 +1991,20 @@ def set_line_country_tags(network):
 
 
 def crossborder_capacity_tyndp2020():
+    """
+    This function downloads and extracts a scenario datafile for the TYNDP 2020
+    (Ten-Year Network Development Plan), reads a specific sheet from the file,
+    filters it based on certain criteria, and then calculates the minimum
+    cross-border capacities for a list of European countries. The minimum
+    cross-border capacity is the minimum of the export and import capacities
+    between two countries.
+
+    Returns
+    -------
+    dict
+        Dictionary with cossborder capacities.
+
+    """
     from urllib.request import urlretrieve
     import zipfile
 
