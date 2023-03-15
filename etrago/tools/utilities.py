@@ -861,6 +861,22 @@ def _make_consense(component, attr):
 
 
 def _normed(s):
+    """
+    Given a pandas Series `s`, normalizes the series by dividing each element
+    by the sum of the series. If the sum of the series is zero, returns 1.0 to
+    avoid division by zero errors.
+    
+    Parameters
+    ----------
+    s : pandas.Series
+        A pandas Series.
+
+    Returns
+    -------
+    pandas.Series
+        A normalized pandas Series.
+
+    """
     tot = s.sum()
     if tot == 0:
         return 1.0
