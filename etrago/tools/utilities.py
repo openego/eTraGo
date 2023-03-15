@@ -885,6 +885,25 @@ def _normed(s):
 
 
 def agg_series_lines(l, network):
+    """
+    Given a pandas DataFrame `l` containing information about lines in a
+    network and a network object, aggregates the data in `l` for all its
+    attributes. Returns a pandas Series containing the aggregated data.
+    
+
+    Parameters
+    ----------
+    l : pandas.DataFrame
+        contain information about lines in a network.
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    pandas.Series
+        A pandas Series containing aggregated data for the lines in the network.
+
+    """
     attrs = network.components["Line"]["attrs"]
     columns = set(
         attrs.index[attrs.static & attrs.status.str.startswith("Input")]
