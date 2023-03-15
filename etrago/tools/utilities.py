@@ -826,6 +826,29 @@ def loading_minimization(network, snapshots):
 
 
 def _make_consense(component, attr):
+    """
+    Returns a function `consense` that will be used to generate a consensus
+    value for the attribute `attr` of the given `component`. This consensus
+    value is derived from the input DataFrame `x`. If all values in the
+    DataFrame are equal, the consensus value will be that common value.
+    If all values are missing (NaN), the consensus value will be NaN. Otherwise,
+    an assertion error will be raised.
+
+    Parameters
+    ----------
+    component : str
+        specify the name of the component being clustered.
+    attr : str
+        specify the name of the attribute of the commponent being considered.
+
+
+    Returns
+    -------
+    function
+        A function that takes a DataFrame as input and returns a single value
+        as output when all the elements of the commponent attribute are the same.
+
+    """
     def consense(x):
         v = x.iat[0]
         assert (x == v).all() or x.isnull().all(), (
