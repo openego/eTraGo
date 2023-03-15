@@ -52,6 +52,25 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
 
 def filter_links_by_carrier(self, carrier, like=True):
+    """
+
+    Parameters
+    ----------
+    carrier : list or str
+        name of the carriers of interest. Can be a list of carriers or single
+        sting.
+    like : bool, optional
+        When like set to True, the links with carrier names that includes the
+        carrier(s) supplied are returned, Not just exact matches.
+        The default is True.
+
+    Returns
+    -------
+    df : pandas.DataFrame object
+        Dataframe that contains just links with carriers of the types given
+        in the argument carrier.
+
+    """
     if isinstance(carrier, str):
         if like:
             df = self.network.links[
