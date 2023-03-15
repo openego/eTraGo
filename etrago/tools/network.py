@@ -92,13 +92,13 @@ logger = logging.getLogger(__name__)
 
 class Etrago:
     """
-    Object containing pypsa.Network including the transmission grid,
-    input parameters and optimization results.
+    Object containing pypsa.Network including the transmission grid, not
+    electric sectors, input parameters and optimization results.
 
     Parameters
     ----------
     args : dict
-        Dictionary including all inpu parameters.
+        Dictionary including all input parameters.
     csv_folder_name : string
         Name of folder from which to import CSVs of network data.
     name : string, default ""
