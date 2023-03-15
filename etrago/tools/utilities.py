@@ -1785,7 +1785,22 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
 
 def merge_dicts(dict1, dict2):
-    """Return a new dictionary by merging two dictionaries recursively."""
+    """
+    Return a new dictionary by merging two dictionaries recursively.
+
+    Parameters
+    ----------
+    dict1 : dict
+        dictionary 1.
+    dict2 : dict
+        dictionary 2.
+
+    Returns
+    -------
+    result : dict
+        Union of dict1 and dict2
+
+    """
 
     result = deepcopy(dict1)
 
