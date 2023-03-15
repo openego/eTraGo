@@ -117,6 +117,16 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 
 def coloring():
+    """
+    Return a dictionary with a color assign to each kind of carrier used in
+    etrago.network. This is used for plotting porpuses.
+
+    Returns
+    -------
+    colors : dict
+        Color for each kind of carrier.
+
+    """
 
     colors = {
         "load": "red",
