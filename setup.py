@@ -14,7 +14,8 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = (
     "ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, "
     "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, "
-    "mariusves"
+    "mariusves", "CarlosEpia", "KathiEsterl", "pieterhexen",
+    "fwitte", "AmeliaNadal"
 )
 
 
