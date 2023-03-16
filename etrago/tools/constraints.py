@@ -1461,7 +1461,21 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
 
 
 def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
+    """
+    Bound the storage level to 0.5 max_level every 24th hour.
 
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps that will be constrained
+
+    Returns
+    -------
+    None
+
+    """
     c = "StorageUnit"
 
     period_starts = snapshots[0::24]
