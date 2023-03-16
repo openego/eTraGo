@@ -48,10 +48,31 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, gnn, pieterhexen, fwitte, KathiEsterl, MGlauer, birgits, AmeliaNadal,
+MarlonSchlemminger, wheitkoetter, jankaeh"""
 
 
 def filter_links_by_carrier(self, carrier, like=True):
+    """
+
+    Parameters
+    ----------
+    carrier : list or str
+        name of the carriers of interest. Can be a list of carriers or single
+        sting.
+    like : bool, optional
+        When like set to True, the links with carrier names that includes the
+        carrier(s) supplied are returned, Not just exact matches.
+        The default is True.
+
+    Returns
+    -------
+    df : pandas.DataFrame object
+        Dataframe that contains just links with carriers of the types given
+        in the argument carrier.
+
+    """
     if isinstance(carrier, str):
         if like:
             df = self.network.links[
@@ -615,7 +636,9 @@ def data_manipulation_sh(network):
     network : :class:`pypsa.Network
         Overall container of PyPSA
 
-
+    Returns
+    -------
+    None
 
     """
     from geoalchemy2.shape import from_shape, to_shape
@@ -712,6 +735,9 @@ def export_to_csv(self, path):
     path: str or False or None
         Choose path for csv-files. Specify `""`, `False` or `None` to
         not do anything.
+    Returns
+    -------
+    None
 
     """
     if not path:
@@ -762,6 +788,22 @@ def export_to_csv(self, path):
 
 
 def loading_minimization(network, snapshots):
+    """
+    Minimizes the sum of the products of each element in the passive_branches
+    of the model.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : 'pandas.core.indexes.datetimes.DatetimeIndex'
+        snapshots to perform the minimization
+
+    Returns
+    -------
+    None
+
+    """
     network.model.number1 = Var(
         network.model.passive_branch_p_index, within=PositiveReals
     )
@@ -786,6 +828,30 @@ def loading_minimization(network, snapshots):
 
 
 def _make_consense(component, attr):
+    """
+    Returns a function `consense` that will be used to generate a consensus
+    value for the attribute `attr` of the given `component`. This consensus
+    value is derived from the input DataFrame `x`. If all values in the
+    DataFrame are equal, the consensus value will be that common value.
+    If all values are missing (NaN), the consensus value will be NaN. Otherwise,
+    an assertion error will be raised.
+
+    Parameters
+    ----------
+    component : str
+        specify the name of the component being clustered.
+    attr : str
+        specify the name of the attribute of the commponent being considered.
+
+
+    Returns
+    -------
+    function
+        A function that takes a DataFrame as input and returns a single value
+        as output when all the elements of the commponent attribute are the same.
+
+    """
+
     def consense(x):
         v = x.iat[0]
         assert (x == v).all() or x.isnull().all(), (
@@ -798,6 +864,22 @@ def _make_consense(component, attr):
 
 
 def _normed(s):
+    """
+    Given a pandas Series `s`, normalizes the series by dividing each element
+    by the sum of the series. If the sum of the series is zero, returns 1.0 to
+    avoid division by zero errors.
+
+    Parameters
+    ----------
+    s : pandas.Series
+        A pandas Series.
+
+    Returns
+    -------
+    pandas.Series
+        A normalized pandas Series.
+
+    """
     tot = s.sum()
     if tot == 0:
         return 1.0
@@ -806,6 +888,25 @@ def _normed(s):
 
 
 def agg_series_lines(l, network):
+    """
+    Given a pandas DataFrame `l` containing information about lines in a
+    network and a network object, aggregates the data in `l` for all its
+    attributes. Returns a pandas Series containing the aggregated data.
+
+
+    Parameters
+    ----------
+    l : pandas.DataFrame
+        contain information about lines in a network.
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    pandas.Series
+        A pandas Series containing aggregated data for the lines in the network.
+
+    """
     attrs = network.components["Line"]["attrs"]
     columns = set(
         attrs.index[attrs.static & attrs.status.str.startswith("Input")]
@@ -1687,7 +1788,22 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
 
 def merge_dicts(dict1, dict2):
-    """Return a new dictionary by merging two dictionaries recursively."""
+    """
+    Return a new dictionary by merging two dictionaries recursively.
+
+    Parameters
+    ----------
+    dict1 : dict
+        dictionary 1.
+    dict2 : dict
+        dictionary 2.
+
+    Returns
+    -------
+    result : dict
+        Union of dict1 and dict2
+
+    """
 
     result = deepcopy(dict1)
 
@@ -1708,6 +1824,9 @@ def get_clustering_data(self, path):
     ----------
     path : str
         Name of folder from which to import CSVs of network data.
+    Returns
+    None
+    -------
     """
 
     if (self.args["network_clustering_ehv"]) | (
@@ -1875,6 +1994,20 @@ def set_line_country_tags(network):
 
 
 def crossborder_capacity_tyndp2020():
+    """
+    This function downloads and extracts a scenario datafile for the TYNDP 2020
+    (Ten-Year Network Development Plan), reads a specific sheet from the file,
+    filters it based on certain criteria, and then calculates the minimum
+    cross-border capacities for a list of European countries. The minimum
+    cross-border capacity is the minimum of the export and import capacities
+    between two countries.
+
+    Returns
+    -------
+    dict
+        Dictionary with cossborder capacities.
+
+    """
     from urllib.request import urlretrieve
     import zipfile
 
