@@ -41,7 +41,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, AmeliaNadal,
+CarlosEpia, ClaraBuettner, KathiEsterl"""
 
 
 def _get_crossborder_components(network, cntr="all"):
