@@ -851,6 +851,7 @@ def _make_consense(component, attr):
         as output when all the elements of the commponent attribute are the same.
 
     """
+
     def consense(x):
         v = x.iat[0]
         assert (x == v).all() or x.isnull().all(), (
@@ -867,7 +868,7 @@ def _normed(s):
     Given a pandas Series `s`, normalizes the series by dividing each element
     by the sum of the series. If the sum of the series is zero, returns 1.0 to
     avoid division by zero errors.
-    
+
     Parameters
     ----------
     s : pandas.Series
@@ -891,7 +892,7 @@ def agg_series_lines(l, network):
     Given a pandas DataFrame `l` containing information about lines in a
     network and a network object, aggregates the data in `l` for all its
     attributes. Returns a pandas Series containing the aggregated data.
-    
+
 
     Parameters
     ----------
