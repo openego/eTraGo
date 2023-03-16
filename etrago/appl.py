@@ -362,8 +362,6 @@ def run_etrago(args, json_path):
         The other options affect the kmeans algorithm and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with
-        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
     sector_coupled_clustering : nested dict
         {'active': True, 'carrier_data': {
