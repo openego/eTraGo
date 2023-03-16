@@ -1516,7 +1516,30 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
 
 
 def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=False):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
 
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+    simplified : bool, optional
+        A flag indicating whether to use a simplified version of the model that
+        does not include intra-temporal constraints and variables.
+
+    Returns
+    -------
+    None
+    """
     sus = network.storage_units
     sto = network.stores
 
@@ -2245,7 +2268,27 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
 
 
 def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
 
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+
+    Returns
+    -------
+    None
+    """
     # TODO: updaten mit stores (Sektorkopplung)
 
     network.model.del_component("state_of_charge_all")
@@ -2330,7 +2373,30 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
 
 
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
 
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    n : :class:`pypsa.Network
+        Overall container of PyPSA
+    sns : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+    simplified : bool, optional
+        A flag indicating whether to use a simplified version of the model that
+        does not include intra-temporal constraints and variables.
+
+    Returns
+    -------
+    None
+    """
     # TODO: so noch nicht korrekt...
     # TODO: updaten mit stores (Sektorkopplung)
     # TODO: simplified ergänzen
@@ -2403,7 +2469,27 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
 
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    n : :class:`pypsa.Network
+        Overall container of PyPSA
+    sns : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+
+    Returns
+    -------
+    None
+    """
     print("TODO")
 
     # TODO: implementieren
