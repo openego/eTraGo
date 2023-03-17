@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -19,7 +19,7 @@
 
 # File description
 """
-Extendable.py defines function to set PyPSA-components extendable.
+Extendable.py defines function to set PyPSA components extendable.
 """
 from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
@@ -39,7 +39,7 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner, KathiEsterl, CarlosEpia"
 
 
 def extendable(
@@ -54,30 +54,26 @@ def extendable(
     grid_max_foreign=4,
     grid_max_abs_foreign=None,
 ):
-
     """
-    Function that sets selected components extendable
-
-    'network' for all lines, links and transformers
-    'german_network' for all lines, links and transformers located in Germany
-    'foreign_network' for all foreign lines, links and transformers
-    'transformers' for all transformers
-    'storages' for extendable storages
-    'overlay_network' for lines, links and trafos in extension scenerio(s)
+    Function that sets selected components extendable.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args  : dict
-        Arguments set in appl.py
-
+    grid_max_D : int, optional
+        Upper bounds for electrical grid expansion relative to existing capacity. The default is None.
+    grid_max_abs_D : dict, optional
+        Absolute upper bounds for electrical grid expansion in Germany.
+    grid_max_foreign : int, optional
+        Upper bounds for expansion of electrical foreign lines relative to the existing capacity. The default is 4.
+    grid_max_abs_foreign : dict, optional
+        Absolute upper bounds for expansion of foreign electrical grid. The default is None.
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None.
+    
     """
+
     network = self.network
     extendable_settings = self.args["extendable"]
 
@@ -449,10 +445,28 @@ def extendable(
             grid_max_foreign * network.transformers.s_nom
         )
 
-    return network
-
 
 def snommax(i=1020, u=380, wires=4, circuits=4):
+    """
+    Function to calculate limitation for capacity expansion.
+
+    Parameters
+    ----------
+    i : int, optional
+        Current. The default is 1020.
+    u : int, optional
+        Voltage level. The default is 380.
+    wires : int, optional
+        Number of wires per line. The default is 4.
+    circuits : int, optional
+        Number of circuits. The default is 4.
+
+    Returns
+    -------
+    s_nom_max : float
+        Limitation for capacity expansion.
+
+    """
     s_nom_max = (i * u * sqrt(3) * wires * circuits) / 1000
     return s_nom_max
 
@@ -467,6 +481,23 @@ def line_max_abs(
         "dc": 0,
     },
 ):
+    """
+    Function to calculate limitation for capacity expansion of lines in network.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    buses : pypsa.Network buses
+        Considered buses in network.
+    line_max_abs : dict, optional
+        Line parameters considered to calculate maximum capacity.
+
+    Returns
+    -------
+    None.
+
+    """
     # calculate the cables of the route between two buses
     cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
     cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
@@ -547,6 +578,21 @@ def line_max_abs(
 
 
 def transformer_max_abs(network, buses):
+    """
+    Function to calculate limitation for capacity expansion of transformers in network.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    buses : pypsa.Network buses
+        Considered buses in network.
+
+    Returns
+    -------
+    None.
+
+    """
 
     # To determine the maximum extendable capacity of a transformer, the sum of
     # the maximum capacities of the lines connected to it is calculated for each
@@ -603,10 +649,10 @@ def extension_preselection(etrago, method, days=3):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     args  : dict
-        Arguments set in appl.py
+        Arguments set in appl.py.
     method: str
         Choose method of selection:
         'extreme_situations' for remarkable timsteps
@@ -617,8 +663,8 @@ def extension_preselection(etrago, method, days=3):
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     """
     network = etrago.network
     args = etrago.args
@@ -694,13 +740,12 @@ def extension_preselection(etrago, method, days=3):
 
 
 def print_expansion_costs(network):
-    """Function that prints network and storage investment costs
-
+    """Function that prints network and storage investment costs.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
 
     Returns
     -------
