@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2013  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems
 
@@ -18,16 +18,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" This module contains functions for calculating representative days/weeks
-based on a pyPSA network object. It is designed to be used for the `lopf`
-method. Essentially the tsam package
-( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by
-Leander Kotzur is used.
-
-Remaining questions/tasks:
-
-- Does it makes sense to cluster normed values?
-- Include scaling method for yearly sums
+""" This module contains functions for reducing the complexity of a PyPSA network in temporal dimension by
+a) downsampling to every n-th snapshot
+b) clustering to typical periods (eg days, weeks)
+c) clustering to segments of variable length
+Essentially used is the tsam package
+( https://github.com/FZJ-IEK3-VSA/tsam ) developed by Leander Kotzur et al.
 """
 
 import pandas as pd
@@ -485,8 +481,8 @@ def run(network, n_clusters=None, how='daily', segmented_to=False, extreme_perio
     
     Parameters
     ----------
-    network : pypsa.Network
-        Network getting reduced in temporal dimension.
+    network : pypsa.Network object
+        Container for all network components.
     n_clusters : int, optional
         Number of clusters for typical_periods. The default is None.
     how : {'daily', 'weekly', 'monthly'}, optional
@@ -499,8 +495,8 @@ def run(network, n_clusters=None, how='daily', segmented_to=False, extreme_perio
 
     Returns
     -------
-    network : pypsa.Network
-        Network reduced in temporal dimension.
+    network : pypsa.Network object
+        Container for all network components.
 
     """
 
@@ -556,8 +552,8 @@ def prepare_pypsa_timeseries(network):
     
     Parameters
     ----------
-    network : pypsa.Network
-        Network getting reduced in temporal dimension.
+    network : pypsa.Network object
+        Container for all network components.
 
     Returns
     -------
@@ -589,8 +585,8 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
     Parameters
     ----------
-    network : pypsa.Network
-        Network getting reduced in temporal dimension
+    network : pypsa.Network object
+        Container for all network components.
     cluster_weights : dict
         Weightings per cluster after clustering to typical periods.
     dates : DatetimeIndex
@@ -604,8 +600,8 @@ def update_data_frames(network, cluster_weights, dates, hours, timeseries, segme
 
     Returns
     -------
-    network : pypsa.Network
-        Network reduced in temporal dimension
+    network : pypsa.Network object
+        Container for all network components.
 
     """
     if segmentation:
