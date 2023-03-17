@@ -45,8 +45,10 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = ("ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
-              "ClaraBuettner, CarlosEpia, AmeliaNadal")
+__author__ = (
+    "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
+    "ClaraBuettner, CarlosEpia, AmeliaNadal"
+)
 
 
 def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
@@ -62,11 +64,11 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
         s_nom of ac-lines in previous iteration.
     t_snom_pre: pandas.Series
         s_nom of transformers in previous iteration.
-        
+
     Returns
     -------
     None.
-    
+
     """
 
     network.lines.x[network.lines.s_nom_extendable] = (
@@ -564,7 +566,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         None.
 
         """
-        
+
         # Create series for constant loads
         constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
         for load in constant_loads.index:
@@ -661,7 +663,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         """
         Creates gas generators from links in order to not lose them when
         dropping non-electric carriers.
-        
+
         Parameters
         ----------
         network : pypsa.Network object
@@ -670,9 +672,9 @@ def pf_post_lopf(etrago, calc_losses=False):
         Returns
         -------
         None.
-                
+
         """
-        
+
         # Discard all generators < 1kW
         discard_gen = network.links[network.links["p_nom"] <= 0.001].index
         network.links.drop(discard_gen, inplace=True)
@@ -917,7 +919,7 @@ def distribute_q(network, allocation="p_nom"):
     None.
 
     """
-    
+
     ac_bus = network.buses[network.buses.carrier == "AC"]
 
     gen_elec = network.generators[
@@ -1043,7 +1045,7 @@ def calc_line_losses(network, converged):
         Container for all network components.
     converged : pd.Series
         List of snapshots with their status (converged or not).
-        
+
     Returns
     -------
     None.
@@ -1117,7 +1119,7 @@ def set_slack(network):
         Container for all network components.
 
     """
-    
+
     old_slack = network.generators.index[
         network.generators.control == "Slack"
     ][0]
