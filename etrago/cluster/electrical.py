@@ -139,7 +139,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap2 = {}
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
-    if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
+    if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
         buses_orig = network.buses.copy()
@@ -370,7 +370,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return (network_c.copy(), busmap)
+    return (network_c, busmap)
 
 
 def delete_ehv_buses_no_lines(network):

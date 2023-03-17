@@ -56,9 +56,10 @@ def snapshot_clustering(self):
     None.
 
     """
+
     if self.args["snapshot_clustering"]["active"] == True:
         # save second network for optional dispatch disaggregation
-        if self.args["dispatch_disaggregation"] == True:
+        if self.args["temporal_disaggregation"]["active"] == True:
             self.network_tsa = self.network.copy()
 
         if self.args["snapshot_clustering"]["method"] == "segmentation":
@@ -697,7 +698,7 @@ def prepare_pypsa_timeseries(network):
         Timeseries to be considered when clustering.
 
     """
-
+    
     loads = network.loads_t.p_set.copy()
     loads.columns = "L" + loads.columns
 
@@ -794,10 +795,10 @@ def skip_snapshots(self):
     None.
 
     """
-
+    
     # save second network for optional dispatch disaggregation
     if (
-        self.args["dispatch_disaggregation"] == True
+        self.args["temporal_disaggregation"]["active"] == True
         and self.args["snapshot_clustering"]["active"] == False
     ):
         self.network_tsa = self.network.copy()
@@ -805,8 +806,32 @@ def skip_snapshots(self):
     n_skip = self.args["skip_snapshots"]
 
     if n_skip:
+
+        last_weight = (
+            int(
+                (
+                    self.network.snapshots[-1]
+                    - self.network.snapshots[::n_skip][-1]
+                ).seconds
+                / 3600
+            )
+            + 1
+        )
+
         self.network.snapshots = self.network.snapshots[::n_skip]
 
         self.network.snapshot_weightings["objective"] = n_skip
         self.network.snapshot_weightings["stores"] = n_skip
         self.network.snapshot_weightings["generators"] = n_skip
+
+        if last_weight < n_skip:
+            self.network.snapshot_weightings.loc[
+                self.network.snapshot_weightings.index[-1]
+            ]["objective"] = last_weight
+            self.network.snapshot_weightings.loc[
+                self.network.snapshot_weightings.index[-1]
+            ]["stores"] = last_weight
+            self.network.snapshot_weightings.loc[
+                self.network.snapshot_weightings.index[-1]
+            ]["generators"] = last_weight
+
