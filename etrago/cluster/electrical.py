@@ -57,7 +57,7 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
+__author__ = "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
 
 # TODO: Workaround because of agg
 
