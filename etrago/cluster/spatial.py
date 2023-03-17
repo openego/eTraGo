@@ -343,7 +343,7 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     Parameters
     ----------
-    network : pypsa.Network 
+    network : pypsa.Network
         Container for all network components.
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
@@ -558,14 +558,14 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
     Returns
     -------
-    network : pypsa.Network 
+    network : pypsa.Network
         Container for all network components.
     """
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
 
     with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
-        
+
         # remove stubs
         if kmean_settings["remove_stubs"]:
             network.determine_network_topology()
@@ -618,7 +618,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 
     Parameters
     ----------
-    network : pypsa.Network 
+    network : pypsa.Network
         Container for all network components.
     medoid_idx : pandas.Series
         Indices of k-medoids
@@ -629,7 +629,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 
     Returns
     -------
-    busmap : pandas.Series 
+    busmap : pandas.Series
         Mapping from bus ids to medoids ids
     """
 
@@ -721,20 +721,20 @@ def kmedoids_dijkstra_clustering(
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
     # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
-    
+
         # remove stubs
         if settings["remove_stubs"]:
-            
+
             logger.info(
-            "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
-        )
+                "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
+            )
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
         points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
-    
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -744,24 +744,24 @@ def kmedoids_dijkstra_clustering(
             random_state=settings["random_state"],
         )
         kmeans.fit(points)
-    
+
         busmap = pd.Series(
             data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
             index=buses_i,
             dtype=object,
         )
-    
+
         # identify medoids per cluster -> k-medoids clustering
-    
+
         distances = pd.DataFrame(
             data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
         distances = distances.apply(pd.to_numeric)
-    
+
         medoid_idx = distances.idxmin()
-    
+
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(
             buses,

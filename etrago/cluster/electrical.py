@@ -88,14 +88,14 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
     """
-    Adjusts the non-electric network based on the electrical network (esp. eHV network), 
+    Adjusts the non-electric network based on the electrical network (esp. eHV network),
     adds the gas buses to the busmap, and creates the new buses for the non-electric network.
 
     Parameters
     ----------
     etrago : Etrago
         An instance of the Etrago class.
-    busmap : dict 
+    busmap : dict
         A dictionary that maps old bus_ids to new bus_ids.
     cluster_met : str
         A string indicating the clustering method to be used.
@@ -441,14 +441,14 @@ def ehv_clustering(self):
     """
     Cluster the network based on Extra High Voltage (EHV) grid.
 
-    If `network_clustering_ehv` argument is True, the function clusters the network based on the EHV grid. 
+    If `network_clustering_ehv` argument is True, the function clusters the network based on the EHV grid.
     If `network_clustering` argument is not active, it calls the `load_shedding` function to apply load shedding.
 
     Parameters
     ----------
     self: Etrago object pointer
         The object pointer for an Etrago object.
-        
+
     Returns
     -------
     None
@@ -490,7 +490,7 @@ def select_elec_network(etrago):
     Tuple containing:
         elec_network : pypsa.Network
             Contains the electric network
-        n_clusters : int    
+        n_clusters : int
             number of clusters used in the clustering process.
     """
     elec_network = etrago.network.copy()
@@ -803,7 +803,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         mapping between foreign buses and clusters
     medoid_idx : pandas.DataFrame
         mapping between cluster indices and medoids
-    
+
     Returns
     -------
     Tuple containing:
@@ -943,12 +943,12 @@ def weighting_for_scenario(network, save=None):
 
         Notes
         -----
-        Availability factor is defined as the ratio of the average power output of the generator 
-        over the maximum power output capacity of the generator. 
-        If the generator is time-dependent, its average power output is calculated using the 
-        `network.generators_t` DataFrame. Otherwise, its availability factor is obtained from 
-        the `fixed_capacity_fac` dictionary, which contains pre-defined factors for fixed 
-        capacity generators. If the generator's availability factor cannot be found in the 
+        Availability factor is defined as the ratio of the average power output of the generator
+        over the maximum power output capacity of the generator.
+        If the generator is time-dependent, its average power output is calculated using the
+        `network.generators_t` DataFrame. Otherwise, its availability factor is obtained from
+        the `fixed_capacity_fac` dictionary, which contains pre-defined factors for fixed
+        capacity generators. If the generator's availability factor cannot be found in the
         dictionary, it is assumed to be 1.
 
         """
@@ -1026,10 +1026,10 @@ def run_spatial_clustering(self):
     """
     Main method for running spatial clustering on the electrical network.
     Allows for clustering based on k-means and k-medoids dijkstra.
-    
+
     Parameters
     -----------
-    self 
+    self
         The object pointer for an Etrago object containing all relevant parameters and data
 
     Returns

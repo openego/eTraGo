@@ -24,9 +24,6 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -34,11 +31,14 @@ if "READTHEDOCS" not in os.environ:
         busmap_by_kmeans,
     )
     from six import iteritems
+    import numpy as np
+    import pandas as pd
+    import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        sum_with_inf,
         group_links,
         kmedoids_dijkstra_clustering,
+        sum_with_inf,
     )
     from etrago.tools.utilities import *
 
@@ -212,7 +212,7 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
 
     Returns
     -------
-    busmap : pandas.Series 
+    busmap : pandas.Series
         A pandas.Series object mapping each bus in the CH4 network to its corresponding cluster ID
     None
         None is returned because k-means clustering makes no use of medoids
@@ -247,7 +247,7 @@ def get_h2_clusters(etrago, busmap_ch4):
     -------
     busmap : pd.Series
         A Pandas Series mapping each bus in the combined CH4 and H2 network to its corresponding cluster ID.
-    """    
+    """
     # Mapping of H2 buses to new CH4 cluster IDs
     busmap_h2 = pd.Series(
         busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
@@ -268,8 +268,8 @@ def get_h2_clusters(etrago, busmap_ch4):
 def gas_postprocessing(etrago, busmap, medoid_idx=None):
     """
     Performs the postprocessing for the gas grid clustering based on the provided busmap
-    and returns the clustered network. 
-    
+    and returns the clustered network.
+
     Parameters
     ----------
     etrago : Etrago
@@ -800,7 +800,7 @@ def get_clustering_from_busmap(
     ----------
     network : pypsa.Network
         The input pypsa.Network object
-    busmap : pandas.Sereies : 
+    busmap : pandas.Sereies :
         A mapping of buses to clusters
     line_length_factor : float
         A factor used to adjust the length of new links created during aggregation. Default is 1.0.
@@ -808,7 +808,7 @@ def get_clustering_from_busmap(
         Determines whether to copy the time-dependent properties of the input network to the output network. Default is True.
     bus_strategies : dict
         A dictionary of custom strategies to use during the aggregation step. Default is an empty dictionary.
-    one_port_strategies : dict 
+    one_port_strategies : dict
         A dictionary of custom strategies to use during the one-port component aggregation step. Default is an empty dictionary.
 
     Returns
@@ -889,7 +889,7 @@ def get_clustering_from_busmap(
 
 def run_spatial_clustering_gas(self):
     """
-    Performs spatial clustering on the gas network using either K-means or K-medoids-Dijkstra algorithm. Updates the 
+    Performs spatial clustering on the gas network using either K-means or K-medoids-Dijkstra algorithm. Updates the
     network topology by aggregating buses and links, and then performs postprocessing to finalize the changes.
 
     Returns
