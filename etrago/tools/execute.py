@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -19,7 +19,7 @@
 
 # File description
 """
-execute.py defines optimization and simulation methods for Etrago object.
+execute.py defines optimization and simulation methods for the etrago object.
 """
 import os
 
@@ -45,22 +45,28 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = ("ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
+              "ClaraBuettner, CarlosEpia, AmeliaNadal")
 
 
 def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     """
     Update electrical parameters of active branch components
-    considering s_nom of previous iteration
+    considering s_nom of previous iteration.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     l_snom_pre: pandas.Series
-        s_nom of ac-lines in previous iteration
+        s_nom of ac-lines in previous iteration.
     t_snom_pre: pandas.Series
-        s_nom of transformers in previous iteration
+        s_nom of transformers in previous iteration.
+        
+    Returns
+    -------
+    None.
+    
     """
 
     network.lines.x[network.lines.s_nom_extendable] = (
@@ -103,18 +109,19 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
 
 
 def run_lopf(etrago, extra_functionality, method):
-    """Function that performs lopf with or without pyomo
+    """
+    Function that performs lopf with or without pyomo
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
-    extra_functionality: str
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
+    extra_functionality: dict
         Define extra constranits.
     method: dict
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
-        of iteration until the threshold of the objective function is reached
+        of iteration until the threshold of the objective function is reached.
 
     Returns
     -------
@@ -230,14 +237,14 @@ def iterate_lopf(
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
-    extra_functionality: str
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
+    extra_functionality: dict
         Define extra constranits.
     method: dict
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
-        of iteration until the threshold of the objective function is reached
+        of iteration until the threshold of the objective function is reached.
 
     """
 
@@ -359,7 +366,8 @@ def iterate_lopf(
 
 
 def lopf(self):
-    """Functions that runs lopf accordning to arguments
+    """
+    Functions that runs lopf according to arguments.
 
     Returns
     -------
@@ -392,7 +400,7 @@ def lopf(self):
 
 def dispatch_disaggregation(self):
     """
-    Function running the dispatch disaggregation meaning the optimization
+    Function running the tempral disaggregation meaning the optimization
     of dispatch in the temporally fully resolved network; therfore, the problem
     is reduced to smaller subproblems by slicing the whole considered time span
     while keeping inforation on the state of charge of storage units and stores
@@ -502,7 +510,8 @@ def dispatch_disaggregation(self):
 
 
 def run_pf_post_lopf(self):
-    """Functions that runs pf_post_lopf accordning to arguments
+    """
+    Function that runs pf_post_lopf according to arguments.
 
     Returns
     -------
@@ -517,8 +526,6 @@ def run_pf_post_lopf(self):
 def pf_post_lopf(etrago, calc_losses=False):
     """
     Function that prepares and runs non-linar load flow using PyPSA pf.
-
-
     If crossborder lines are DC-links, pf is only applied on german network.
     Crossborder flows are still considerd due to the active behavior of links.
     To return a network containing the whole grid, the optimised solution of the
@@ -526,11 +533,11 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
-        foreign lines are DC
+        foreign lines are DC.
     q_allocation: str
         Choose allocation of reactive power. Possible settings are listed in
         distribute_q function.
@@ -545,19 +552,19 @@ def pf_post_lopf(etrago, calc_losses=False):
     def drop_foreign_components(network):
         """
         Function that drops foreign components which are only connected via
-        DC-links and saves their optimization results in pandas.DataFrame
-
+        DC-links and saves their optimization results in pd.DataFrame.
 
         Parameters
         ----------
-        network : :class:`pypsa.Network
-            Overall container of PyPSA
+        network : pypsa.Network object
+            Container for all network components.
 
         Returns
         -------
         None.
 
         """
+        
         # Create series for constant loads
         constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
         for load in constant_loads.index:
@@ -652,9 +659,20 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     def import_gen_from_links(network):
         """
-        create gas generators from links in order to not lose them when
-        dropping non-electric carriers
+        Creates gas generators from links in order to not lose them when
+        dropping non-electric carriers.
+        
+        Parameters
+        ----------
+        network : pypsa.Network object
+            Container for all network components.
+
+        Returns
+        -------
+        None.
+                
         """
+        
         # Discard all generators < 1kW
         discard_gen = network.links[network.links["p_nom"] <= 0.001].index
         network.links.drop(discard_gen, inplace=True)
@@ -881,23 +899,25 @@ def pf_post_lopf(etrago, calc_losses=False):
 
 
 def distribute_q(network, allocation="p_nom"):
-    """Function that distributes reactive power at bus to all installed
+    """
+    Function that distributes reactive power at bus to all installed
     generators and storages.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     allocation: str
         Choose key to distribute reactive power:
         'p_nom' to dirstribute via p_nom
-        'p' to distribute via p_set
+        'p' to distribute via p_set.
 
     Returns
     -------
-
+    None.
 
     """
+    
     ac_bus = network.buses[network.buses.carrier == "AC"]
 
     gen_elec = network.generators[
@@ -1014,19 +1034,19 @@ def distribute_q(network, allocation="p_nom"):
 
 
 def calc_line_losses(network, converged):
-    """Calculate losses per line with PF result data
+    """
+    Calculate losses per line with PF result data.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    converged : pandas.series
-        list of snapshots with their status (converged or not)
-    s0 : series
-        apparent power of line
-    i0 : series
-        current of line
+    network : pypsa.Network object
+        Container for all network components.
+    converged : pd.Series
+        List of snapshots with their status (converged or not).
+        
+    Returns
     -------
+    None.
 
     """
     # Line losses
@@ -1080,27 +1100,24 @@ def calc_line_losses(network, converged):
             f"Note: {(~converged).sum()} snapshot(s) was/were excluded "
             + "because the PF did not converge"
         )
-    return
 
 
 def set_slack(network):
     """
-    Function that chosses the bus with the maximum installed power as slack
+    Function that chosses the bus with the maximum installed power as slack.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-
-
+    network : pypsa.Network object
+        Container for all network components.
 
     """
-
+    
     old_slack = network.generators.index[
         network.generators.control == "Slack"
     ][0]
