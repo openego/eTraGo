@@ -1545,6 +1545,7 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
     None
 
     """
+
     c = "StorageUnit"
 
     period_starts = snapshots[0::24]
@@ -1621,6 +1622,7 @@ def snapshot_clustering_seasonal_storage(
     -------
     None
     """
+
     sus = network.storage_units
     sto = network.stores
 
@@ -2437,6 +2439,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     -------
     None
     """
+
     # TODO: updaten mit stores (Sektorkopplung)
 
     network.model.del_component("state_of_charge_all")
@@ -2544,6 +2547,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
     -------
     None
     """
+
     # TODO: so noch nicht korrekt...
     # TODO: updaten mit stores (Sektorkopplung)
     # TODO: simplified ergänzen
@@ -2642,14 +2646,76 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
     -------
     None
     """
+
+    print("TODO")
+
+    # TODO: implementieren
+
+
+def split_dispatch_disaggregation_constraints(self, n, sns):
+    """
+    Add constraints for state of charge of storage units and stores
+    when separating the optimization into smaller subproblems
+    while conducting thedispatch_disaggregation in temporally fully resolved network
+
+    The state of charge at the end of each slice is set to the value
+    calculated in the optimization with the temporally reduced network
+    to account to ensure compatibility and to reproduce saisonality
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
+
+    sus = n.storage_units.index
+    # for stores, exclude emob and dsm because of their special constraints
+    sto = n.stores[
+        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+    ].index
+
+    def disaggregation_sus_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.state_of_charge[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sus_soc = po.Constraint(
+        sus, sns[-1:], rule=disaggregation_sus_soc
+    )
+
+    def disaggregation_sto_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.store_e[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sto_soc = po.Constraint(
+        sto, sns[-1:], rule=disaggregation_sto_soc
+    )
+
+
+def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
+
     print("TODO")
 
     # TODO: implementieren
 
 
 class Constraints:
-    def __init__(self, args):
+    def __init__(self, args, conduct_dispatch_disaggregation):
         self.args = args
+        self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -2664,6 +2730,7 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
+
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
             add_ch4_constraints(self, network, snapshots)
@@ -2767,6 +2834,16 @@ class Constraints:
                 logger.error(
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
+                )
+
+        if self.conduct_dispatch_disaggregation is not False:
+            if self.args["method"]["pyomo"]:
+                split_dispatch_disaggregation_constraints(
+                    self, network, snapshots
+                )
+            else:
+                split_dispatch_disaggregation_constraints_nmp(
+                    self, network, snapshots
                 )
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2013  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -21,7 +21,7 @@
 """
 This is the application file for the tool eTraGo.
 Define your connection parameters and power flow settings before executing
-the function etrago.
+the function run_etrago.
 """
 
 
@@ -37,8 +37,10 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
-
+__author__ = (
+    "ulfmueller, lukasol, wolfbunke, mariusves, s3pp, ClaraBuettner, "
+    "CarlosEpia, KathiEsterl, fwitte, gnn, pieterhexen, AmeliaNadal"
+)
 
 if "READTHEDOCS" not in os.environ:
     # Sphinx does not run this code.
@@ -53,13 +55,13 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "pyomo": True,
-    },  # set if pyomo is used for model building
+        "pyomo": True,  # set if pyomo is used for model building
+    },
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after lopf
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
-        "q_allocation": "p_nom",
-    },  # allocate reactive power via 'p_nom' or 'p'
+        "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
+    },
     "start_snapshot": 1,
     "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
@@ -68,11 +70,11 @@ args = {
         "FeasibilityTol": 1.0e-5,
         "method": 2,
         "crossover": 0,
-        "logFile": "solver_etragos.log",
+        "logFile": "solver_etrago.log",
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # a scenario: eGon2035 or eGon100RE
+    "scn_name": "eGon2035",  # scenario: eGon2035 or eGon100RE
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -101,8 +103,8 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
+    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
     "network_clustering": {
-        "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
@@ -112,55 +114,57 @@ args = {
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
-        "line_length_factor": 1,  #
-        "remove_stubs": False,  # remove stubs bevore kmeans clustering
-        "use_reduced_coordinates": False,  #
         "bus_weight_tocsv": None,  # None or path/to/bus_weight.csv
         "bus_weight_fromcsv": None,  # None or path/to/bus_weight.csv
         "gas_weight_tocsv": None,  # None or path/to/gas_bus_weight.csv
         "gas_weight_fromcsv": None,  # None or path/to/gas_bus_weight.csv
+        "line_length_factor": 1,  # Factor to multiply distance between new buses for new line lengths
+        "remove_stubs": False,  # remove stubs bevore kmeans clustering
+        "use_reduced_coordinates": False,  # If True, do not average cluster coordinates
+        "random_state": 42,  # random state for replicability of clustering results
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
+        "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {
                 "base": ["CH4", "AC"],
-                "strategy": "simultaneous",
+                "strategy": "simultaneous",  # select strategy to cluster other sectors
             },
         },
     },
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
-        "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
+        "how": "daily",  # type of period - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
-        "n_segments": 5,
-    },  # number of segments - only relevant for segmentation
+        "n_segments": 5,  # number of segments - only relevant for segmentation
+    },
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
+    "temporal_disaggregation": {
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
+        "no_slices": 8,  # number of subproblems optimization is divided into
+    },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
     "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
-        "capacity": "osmTGmod",
-    },  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
+        "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
+    },
     "comments": None,
 }
 
 
 def run_etrago(args, json_path):
-    """The etrago function works with following arguments:
-
+    """Function to conduct optimization considering the following arguments.
 
      Parameters
      ----------
@@ -176,7 +180,7 @@ def run_etrago(args, json_path):
          (e.g. 'v0.4.6') for the grid schema.
 
      method : dict
-         {'type': 'lopf', 'n_iter': 5, 'pyomo': True},
+         {'type': 'lopf', 'n_iter': 4, 'pyomo': True},
          Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
          have to be performed. Choose either 'n_init' and a fixed number of
          iterations or 'thershold' and a threashold of the objective function as
@@ -184,7 +188,7 @@ def run_etrago(args, json_path):
          Set 'pyomo' to False for big optimization problems, currently only
          possible when solver is 'gurobi'.
 
-     pf_post_lopf :dict
+     pf_post_lopf : dict
          {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
          Option to run a non-linear power flow (pf) directly after the
          linear optimal power flow (and thus the dispatch) has finished.
@@ -199,29 +203,29 @@ def run_etrago(args, json_path):
      end_snapshot : int
          2,
          End hour of the scenario year to be calculated.
-         If temporal clustering is used, the selected snapshots should cover
-         whole days.
+         If snapshot clusterung is used, the selected snapshots should cover
+         the number of periods / segments.
 
      solver : str
          'glpk',
          Choose your preferred solver. Current options: 'glpk' (open-source),
          'cplex' or 'gurobi'.
 
-     solver_options: dict
+     solver_options : dict
          Choose settings of solver to improve simulation time and result.
-         Options are described in documentation of choosen solver.
+         Options are described in documentation of chosen solver.
 
-     model_formulation: str
-         'angles'
+     model_formulation : str
+         'kirchoff',
          Choose formulation of pyomo-model.
          Current options: angles, cycles, kirchhoff, ptdf
 
-     scn_name : str
+    scn_name : str
          'eGon2035',
          Choose your scenario. Currently, there are two different
          scenarios: 'eGon2035', 'eGon100RE'.
 
-    scn_extension : NoneType or list
+    scn_extension : NoneType or str
         None,
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
@@ -235,8 +239,8 @@ def run_etrago(args, json_path):
             'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
             adds BE and NO as electrical neighbours
 
-     scn_decommissioning : str
-         None,
+     scn_decommissioning : NoneType or str
+        None,
         Choose an extra scenario which includes lines you want to decommise
         from the existing network. Data of the decommissioning scenarios are
         located in extension-tables
@@ -249,12 +253,12 @@ def run_etrago(args, json_path):
             'nep2035_b2' includes all lines that will be replaced in
             NEP-scenario 2035 B2
 
-    lpfile : obj
+    lpfile : bool or str
         False,
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'
 
-    csv_export : obj
+    csv_export : bool or str
         False,
         State if and where you want to save results as csv files.Options:
         False or '/path/tofolder'.
@@ -287,10 +291,6 @@ def run_etrago(args, json_path):
             'storages' / 'stores': allow to install extendable storages
                         (unlimited in size) at each grid node in order to meet
                         the flexibility demand.
-            'overlay_network': set all components of the 'scn_extension'
-                               extendable
-            'network_preselection': set only preselected lines extendable,
-                                    method is chosen in function call
         Upper bounds for electrical grid expansion can be defined for lines in
         Germany relative to the existing capacity using 'grid_max_D'.
         Alternatively, absolute maximum capacities between two electrical buses
@@ -303,9 +303,9 @@ def run_etrago(args, json_path):
         of each generator in order to prevent an optima plateau. To reproduce
         a noise, choose the same integer (seed number).
 
-    extra_functionality : dict or None
+    extra_functionality : dict
         None,
-        Choose extra functionalities and their parameters for PyPSA-model.
+        Choose extra functionalities and their parameters.
         Settings can be added in /tools/constraints.py.
         Current options are:
             'max_line_ext': float
@@ -333,46 +333,54 @@ def run_etrago(args, json_path):
                 Limit overall energy production country-wise for each generator
                 by carrier, set upper/lower limit in p.u.
 
+    network_clustering_ehv : bool
+        False,
+        Choose if you want to cluster the full HV/EHV dataset down to only the
+        EHV buses. In that case, all HV buses are assigned to their closest EHV
+        substation, taking into account the shortest distance on power lines.
+
     network_clustering : dict
           {'active': True, method: 'kmedoids-dijkstra', 'n_clusters_AC': 30,
-           'cluster_foreign_AC': False, method_gas: 'kmeans',
-           'n_clusters_gas': 30, 'cluster_foreign_gas': False,
-           'k_elec_busmap': False, 'k_ch4_busmap': False, 'line_length_factor': 1,
-           'remove_stubs': False, 'use_reduced_coordinates': False,
+           'cluster_foreign_AC': False, method_gas: 'kmeans', 'n_clusters_gas': 30,
+           'cluster_foreign_gas': False, 'k_elec_busmap': False, 'k_gas_busmap': False,
            'bus_weight_tocsv': None, 'bus_weight_fromcsv': None,
-           'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, 'n_init': 10,
-           'max_iter': 100, 'tol': 1e-6},
+           'gas_weight_tocsv': None, 'gas_weight_fromcsv': None, '
+           line_length_factor': 1, 'remove_stubs': False, 'use_reduced_coordinates': False,
+           'random_state': 42, 'n_init': 10, 'max_iter': 100, 'tol': 1e-6},
         State if you want to apply a clustering of all network buses.
-        When ``'active'`` is set to True, the AC buses are clustered down to
-        ``'n_clusters_AC'`` and ``'n_clusters_gas'``buses. If ``'cluster_foreign_AC'`` is set to False,
-        the AC buses outside Germany are not clustered, and the buses inside
-        Germany are clustered to complete ``'n_clusters'`` buses.
-        The weighting takes place considering generation and load at each node. CH-4 nodes also take
-        non-transport capacities into account.
-        ``'cluster_foreign_gas'`` controls whether gas buses of Germanies
-        neighboring countries are considered for clustering.
+        When ``'active'`` is set to True, the AC buses are clustered down to ``'n_clusters_AC'``
+        and the gas buses are clustered down to``'n_clusters_gas'``.
+        If ``'cluster_foreign_AC'`` is set to False, the AC buses outside Germany are not
+        clustered and the buses inside Germany are clustered to complete ``'n_clusters'``.
+        ``'cluster_foreign_gas'`` controls whether gas buses of neighboring countries
+        are considered for clustering.
         With ``'method'`` you can choose between two clustering methods:
         k-means Clustering considering geopraphical locations of buses or
         k-medoids Dijkstra Clustering considering electrical distances between buses.
-        With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can choose if you
-        want to load cluster coordinates from a previous run for the respecting carrier.
-        It should be considered that once this option is set to True, the
-        provided number of clusters will be ignored.
-        Option ``'remove_stubs'`` reduces the overestimating of line meshes.
-        The other options affect the kmeans algorithm and should only be
+        With ``'k_elec_busmap'`` or ``'k_ch4_busmap'``you can load cluster coordinates
+        from a previous run for the respecting carrier. It should be considered that
+        once this option is set to True, the provided number of clusters will be ignored.
+        In genral, the weighting takes place considering generation and load at each node.
+        CH4 nodes also take non-transport capacities into account.
+        With the ``'bus_weight_tocsv'`` you can load an own weighting for the buses
+        or store the weighting with ``'bus_weight_fromcsv'``.
+        ``'line_length_factor'`` defines the factor to multiply the crow-flies distance
+        between new buses in order to get new line lengths.
+        Option ``'remove_stubs'`` reduces the overestimating of line meshes and
+        ``'use_reduced_coordinates'`` does not average cluster coordinates, but take
+        from busmap; both only within the k-means Clustering.
+        The other options affect the clustering algorithm in both methods and should only be
         changed carefully, documentation and possible settings are described
         in sklearn-package (sklearn/cluster/k_means_.py).
-        This function doesn't work together with
-        ``'network_clustering_kmedoids_dijkstra`` and ``'line_grouping = True'``.
 
-    sector_coupled_clustering : nested dict
+    sector_coupled_clustering : dict
         {'active': True, 'carrier_data': {
          'central_heat': {'base': ['CH4', 'AC'], 'strategy': "simultaneous"},
         }
         State if you want to apply clustering of sector coupled carriers, such
         as central_heat. The approach builds on already clustered
-        buses (e.g. CH4 and AC) and builds clusters around the topology of the
-        buses with carrier ``'base'`` for all buses of a specific carrier, e.g.
+        buses (AC and CH4) building clusters around the topology of those buses
+        with carrier ``'base'`` for all buses of a specific carrier, e.g.
         ``'central_heat'``. With ``'strategy'`` it is possible to apply either
         ``'consecutive'`` or ``'simultaneous'`` clustering. The consecutive
         strategy clusters around the buses of the first carrier in the list.
@@ -385,18 +393,12 @@ def run_etrago(args, json_path):
         only form a cluster with other buses, if these have the same links to
         the same clusters of CH4 and AC.
 
-    network_clustering_ehv : bool
-        False,
-        Choose if you want to cluster the full HV/EHV dataset down to only the
-        EHV buses. In that case, all HV buses are assigned to their closest EHV
-        sub-station, taking into account the shortest distance on power lines.
-
     snapshot_clustering : dict
-        {'active': False, 'method':'typical_periods', 'how': 'daily',
-         'extreme_periods': None, 'storage_constraints': '', 'n_clusters': 5, 'n_segments': 5},
+        {'active': False, 'method':'typical_periods', 'extreme_periods': None, 'how': 'daily',
+         'storage_constraints': 'soc_constraints', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
-        You can choose between a method clustering to typical periods, e.g. days
+        You can choose between a method clustering to typical periods, e.g. days or weeks
         or a method clustering to segments of adjacent hours.
         With ``'extreme_periods'`` you define the consideration of timesteps with
         extreme residual load while temporal aggregation.
@@ -410,9 +412,15 @@ def run_etrago(args, json_path):
         State if you only want to consider every n-th timestep
         to reduce temporal complexity.
 
-    dispatch_disaggregation : bool
+    temporal_disaggregation : dict
+    {'active': False, 'no_slices': 4},
         State if you to apply a second lopf considering dispatch only
         to disaggregate the dispatch to the whole temporal complexity.
+        Be aware that a load shedding will be applied in this optimization.
+        With "no_slices" the optimization problem will be calculated as a given
+        number of subproblems while using some information on the state of charge
+        of storage units and stores from the former optimization (at the moment
+        only possible with skip_snapshots; extra_functionalities disregarded)
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -437,8 +445,8 @@ def run_etrago(args, json_path):
 
     Returns
     -------
-    network : `pandas.DataFrame<dataframe>`
-        eTraGo result network based on `PyPSA network
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
@@ -489,7 +497,6 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
@@ -523,11 +530,10 @@ if __name__ == "__main__":
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
-    # plots
+    # plots: more in tools/plot.py
     # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
+    # etrago.plot_grid(line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
+    # network and storage
+    # etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.0001)
+    # flexibility usage
+    # etrago.flexibility_usage('DSM')
