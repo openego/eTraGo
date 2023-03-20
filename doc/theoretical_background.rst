@@ -19,11 +19,7 @@ At the moment, there are two scenarios available basing on scenario C2035 of the
 
 You can see the modelling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimized endogenously in capacity and dispatch.
 
-.. figure:: images/eGon2035.png
-   :align: center
-   :scale: 75%
-   
-.. figure:: images/eGon100RE.png
+.. figure:: images/modelling_conept.png
    :align: center
    :scale: 75%
 
