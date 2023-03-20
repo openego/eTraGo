@@ -57,21 +57,28 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+__author__ = (
+    "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, "
+    "ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, "
+    "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+)
+
 
 # TODO: Workaround because of agg
 
 
 def _leading(busmap, df):
     """
-    Returns a function that computes the leading bus_id for a given mapped list of buses.
+    Returns a function that computes the leading bus_id for a given mapped 
+    list of buses.
 
     Parameters
     -----------
     busmap : dict
         A dictionary that maps old bus_ids to new bus_ids.
     df : pandas.DataFrame
-        A DataFrame containing network.buses data. Each row corresponds to a unique bus
+        A DataFrame containing network.buses data. Each row corresponds
+        to a unique bus
 
     Returns
     --------
@@ -88,8 +95,9 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
     """
-    Adjusts the non-electric network based on the electrical network (esp. eHV network),
-    adds the gas buses to the busmap, and creates the new buses for the non-electric network.
+    Adjusts the non-electric network based on the electrical network 
+    (esp. eHV network), adds the gas buses to the busmap, and creates the
+    new buses for the non-electric network.
 
     Parameters
     ----------
@@ -109,7 +117,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         Maps old bus_ids to new bus_ids including all sectors.
     """
     network = etrago.network
-    # network2 is supposed to contain all the not electrical or gas buses and links
+    # network2 is supposed to contain all the not electrical or gas buses 
+    # and links
     network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
         (network2.buses["carrier"] != "AC")
@@ -138,7 +147,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # eHV network
     busmap2 = {}
 
-    # Map crossborder AC buses in case that they were not part of the k-mean clustering
+    # Map crossborder AC buses in case that they were not part of the 
+    # k-mean clustering
     if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
@@ -227,7 +237,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     busmap = {**busmap, **busmap2, **busmap3}
 
-    # The new buses based on the eHV network for not electrical buses are created
+    # The new buses based on the eHV network for not electrical buses are
+    # created
     if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
         network.madd(
             "Bus",
@@ -375,10 +386,10 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
 def delete_ehv_buses_no_lines(network):
     """
-    When there are AC buses totally isolated, this function deletes them in order
-    to make possible the creation of busmaps based on electrical connections
-    and other purposes. Additionally, it throws a warning to inform the user
-    in case that any correction should be done.
+    When there are AC buses totally isolated, this function deletes them in 
+    order to make possible the creation of busmaps based on electrical
+    connections and other purposes. Additionally, it throws a warning to 
+    inform the user in case that any correction should be done.
 
     Parameters
     ----------
@@ -410,13 +421,13 @@ def delete_ehv_buses_no_lines(network):
         logger.info(
             f"""
 
-                    ----------------------- WARNING ---------------------------
-                    THE FOLLOWING BUSES WERE DELETED BECAUSE THEY WERE ISOLATED:
-                        {delete_buses.to_list()}.
-                    IT IS POTENTIALLY A SIGN OF A PROBLEM IN THE DATASET
-                    ----------------------- WARNING ---------------------------
+                ----------------------- WARNING ---------------------------
+                THE FOLLOWING BUSES WERE DELETED BECAUSE THEY WERE ISOLATED:
+                    {delete_buses.to_list()}.
+                IT IS POTENTIALLY A SIGN OF A PROBLEM IN THE DATASET
+                ----------------------- WARNING ---------------------------
 
-                    """
+                """
         )
 
     network.mremove("Bus", delete_buses)
@@ -441,8 +452,9 @@ def ehv_clustering(self):
     """
     Cluster the network based on Extra High Voltage (EHV) grid.
 
-    If `network_clustering_ehv` argument is True, the function clusters the network based on the EHV grid.
-    If `network_clustering` argument is not active, it calls the `load_shedding` function to apply load shedding.
+    If `network_clustering_ehv` argument is True, the function clusters the
+    network based on the EHV grid. If `network_clustering` argument is not 
+    active, it calls the `load_shedding` function to apply load shedding.
 
     Parameters
     ----------
@@ -478,7 +490,8 @@ def ehv_clustering(self):
 
 def select_elec_network(etrago):
     """
-    Selects the electric network based on the clustering settings specified in the Etrago object.
+    Selects the electric network based on the clustering settings specified
+    in the Etrago object.
 
     Parameters
     ----------
@@ -739,14 +752,14 @@ def preprocessing(etrago):
         logger.info(
             f"""
 
-                    ----------------------- WARNING ---------------------------
-                    THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
-                        {network.buses[network.buses.country.isna()].index.to_list()}.
-                    THEY WILL BE ASSIGNED TO GERMANY, BUT IT IS POTENTIALLY A
-                    SIGN OF A PROBLEM IN THE DATASET.
-                    ----------------------- WARNING ---------------------------
+                ----------------------- WARNING ---------------------------
+                THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
+                    {network.buses[network.buses.country.isna()].index.to_list()}.
+                THEY WILL BE ASSIGNED TO GERMANY, BUT IT IS POTENTIALLY A
+                SIGN OF A PROBLEM IN THE DATASET.
+                ----------------------- WARNING ---------------------------
 
-                    """
+                """
         )
         network.buses.country.loc[network.buses.country.isna()] = "DE"
 
@@ -760,10 +773,10 @@ def preprocessing(etrago):
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
 
-        # The Dijkstra clustering works using the shortest electrical path between
-        # buses. In some cases, a bus has just DC connections, which are considered
-        # links. Therefore it is necessary to include temporarily the DC links
-        # into the lines table.
+        # The Dijkstra clustering works using the shortest electrical path 
+        # between buses. In some cases, a bus has just DC connections, which
+        # are considered links. Therefore it is necessary to include 
+        # temporarily the DC links into the lines table.
         dc = network.links[network.links.carrier == "DC"]
         str1 = "DC_"
         dc.index = f"{str1}" + dc.index
@@ -943,13 +956,14 @@ def weighting_for_scenario(network, save=None):
 
         Notes
         -----
-        Availability factor is defined as the ratio of the average power output of the generator
-        over the maximum power output capacity of the generator.
-        If the generator is time-dependent, its average power output is calculated using the
-        `network.generators_t` DataFrame. Otherwise, its availability factor is obtained from
-        the `fixed_capacity_fac` dictionary, which contains pre-defined factors for fixed
-        capacity generators. If the generator's availability factor cannot be found in the
-        dictionary, it is assumed to be 1.
+        Availability factor is defined as the ratio of the average power 
+        output of the generator over the maximum power output capacity of 
+        the generator. If the generator is time-dependent, its average power
+        output is calculated using the `network.generators_t` DataFrame. 
+        Otherwise, its availability factor is obtained from the
+        `fixed_capacity_fac` dictionary, which contains pre-defined factors
+        for fixed capacity generators. If the generator's availability factor
+        cannot be found in the dictionary, it is assumed to be 1.
 
         """
 
@@ -1030,7 +1044,8 @@ def run_spatial_clustering(self):
     Parameters
     -----------
     self
-        The object pointer for an Etrago object containing all relevant parameters and data
+        The object pointer for an Etrago object containing all relevant
+        parameters and data
 
     Returns
     -------

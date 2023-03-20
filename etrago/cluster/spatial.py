@@ -53,15 +53,19 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+__author__ = (
+    "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, "
+    "ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, "
+    "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+)
 
 # TODO: Workaround because of agg
 
 
 def _make_consense_links(x):
     """
-    Ensure that all elements in the input Series `x` are identical, or that they
-    are all NaN.
+    Ensure that all elements in the input Series `x` are identical, or that
+    they are all NaN.
 
     Parameters
     ----------
@@ -175,7 +179,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     with_time : bool
         says if the network object contains timedependent series.
     carriers : list of strings
-        Describe which typed of carriers should be aggregated. The default is None.
+        Describe which typed of carriers should be aggregated. The default is
+        None.
     strategies : dictionary
         custom strategies to perform the aggregation
 
@@ -613,8 +618,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     """
     Function for combination of k-medoids Clustering and Dijkstra's algorithm.
-    Creates a busmap assigning the nodes of a original network to the nodes of a clustered network
-    considering the electrical distances based on Dijkstra's shortest path.
+    Creates a busmap assigning the nodes of a original network to the nodes of
+    a clustered network considering the electrical distances based on
+    Dijkstra's shortest path.
 
     Parameters
     ----------
@@ -655,8 +661,8 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     else:
         cpu_cores = int(cpu_cores)
 
-    # calculation of shortest path between original points and k-medoids centers
-    # using multiprocessing
+    # calculation of shortest path between original points and k-medoids
+    # centers using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
@@ -692,7 +698,8 @@ def kmedoids_dijkstra_clustering(
     etrago, buses, connections, weight, n_clusters
 ):
     """
-    Applies k-medoids clustering to the given gas network using Dijkstra's algorithm.
+    Applies k-medoids clustering to the given gas network using Dijkstra's
+    algorithm.
 
     Parameters
     ----------
@@ -701,7 +708,8 @@ def kmedoids_dijkstra_clustering(
     buses : pandas.DataFrame
         DataFrame with information about the buses of the network.
     connections : pandas.DataFrame
-        DataFrame with information about the connections of the network (links or lines).
+        DataFrame with information about the connections of the network
+        (links or lines).
     weight : pandas.Series
         Series with the weight for each bus.
     n_clusters : int
@@ -719,14 +727,16 @@ def kmedoids_dijkstra_clustering(
     settings = etrago.args["network_clustering"]
 
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
-    # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
+    # to use threadpool_limits:
+    # https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
 
         # remove stubs
         if settings["remove_stubs"]:
 
             logger.info(
-                "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
+                "options remove_stubs and use_reduced_coordinates not "
+                "reasonable for k-medoids Dijkstra Clustering"
             )
 
         bus_weightings = pd.Series(weight)

@@ -49,13 +49,17 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+__author__ = (
+    "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, "
+    "ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, "
+    "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+)
 
 
 def preprocessing(etrago):
     """
-    Preprocesses the gas network data from the given Etrago object for the spatial
-    clustering process of the CH4 grid.
+    Preprocesses the gas network data from the given Etrago object for the
+    spatial clustering process of the CH4 grid.
 
     Parameters
     ----------
@@ -69,7 +73,8 @@ def preprocessing(etrago):
     Raises
     ------
     ValueError
-        If `settings["n_clusters_gas"]` is less than or equal to the number of neighboring country gas buses.
+        If `settings["n_clusters_gas"]` is less than or equal to the number of
+        neighboring country gas buses.
     """
 
     # Create network_ch4 (grid nodes in order to create the busmap basis)
@@ -89,7 +94,8 @@ def preprocessing(etrago):
         ch4_filter & (network_ch4.buses["country"] != "DE")
     ).sum()
 
-    # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
+    # select buses dependent on whether they should be clustered in (only DE
+    # or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
@@ -99,7 +105,8 @@ def preprocessing(etrago):
             msg = (
                 "The number of clusters for the gas sector ("
                 + str(settings["n_clusters_gas"])
-                + ") must be higher than the number of neighboring country gas buses ("
+                + ") must be higher than the number of neighboring country "
+                + "gas buses ("
                 + str(num_neighboring_country)
                 + ")."
             )
@@ -132,7 +139,8 @@ def preprocessing(etrago):
             Integer weighting for each ch4_buses.index
         """
 
-        MAX_WEIGHT = 1e5  # relevant only for foreign nodes with extra high CH4 generation capacity
+        MAX_WEIGHT = 1e5  # relevant only for foreign nodes with extra high
+        # CH4 generation capacity
 
         to_neglect = [
             "CH4",
@@ -206,7 +214,8 @@ def preprocessing(etrago):
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     """
-    Performs K-means clustering on the gas network data in the given `network_ch4` pypsa.Network object.
+    Performs K-means clustering on the gas network data in the given
+    `network_ch4` pypsa.Network object.
 
     Parameters
     ----------
@@ -215,14 +224,16 @@ def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     network_ch4 : pypsa.Network
         A Network object containing the gas network data.
     weight : str or None
-        The name of the bus weighting column to use for clustering. If None, unweighted clustering is performed.
+        The name of the bus weighting column to use for clustering. If None,
+        unweighted clustering is performed.
     n_clusters : int
         The number of clusters to create.
 
     Returns
     -------
     busmap : pandas.Series
-        A pandas.Series object mapping each bus in the CH4 network to its corresponding cluster ID
+        A pandas.Series object mapping each bus in the CH4 network to its
+        corresponding cluster ID
     None
         None is returned because k-means clustering makes no use of medoids
     """
@@ -250,12 +261,14 @@ def get_h2_clusters(etrago, busmap_ch4):
     etrago : Etrago
         An instance of the Etrago class
     busmap_ch4 : pd.Series
-        A Pandas Series mapping each bus in the CH4 network to its corresponding cluster ID.
+        A Pandas Series mapping each bus in the CH4 network to its
+        corresponding cluster ID.
 
     Returns
     -------
     busmap : pd.Series
-        A Pandas Series mapping each bus in the combined CH4 and H2 network to its corresponding cluster ID.
+        A Pandas Series mapping each bus in the combined CH4 and H2 network
+        to its corresponding cluster ID.
     """
     # Mapping of H2 buses to new CH4 cluster IDs
     busmap_h2 = pd.Series(
@@ -276,7 +289,8 @@ def get_h2_clusters(etrago, busmap_ch4):
 
 def gas_postprocessing(etrago, busmap, medoid_idx=None):
     """
-    Performs the postprocessing for the gas grid clustering based on the provided busmap
+    Performs the postprocessing for the gas grid clustering based on the
+    provided busmap
     and returns the clustered network.
 
     Parameters
@@ -286,7 +300,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     busmap : pd.Series
         A Pandas Series mapping each bus to its corresponding cluster ID.
     medoid_idx : pd.Series
-        A pandas.Series object containing the medoid indices for the gas network.
+        A pandas.Series object containing the medoid indices for the gas
+        network.
 
     Returns
     -------
@@ -298,7 +313,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     """
     settings = etrago.args["network_clustering"]
 
-    if settings["k_gas_busmap"] == False:
+    if settings["k_gas_busmap"] is False:
         if settings["method_gas"] == "kmeans":
             busmap.index.name = "bus_id"
             busmap.name = "cluster"
@@ -410,7 +425,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
     if etrago.args["scn_name"] == "eGon2035":
-        H2_energy_share = 0.05053  # H2 energy share via volumetric share outsourced in a mixture of H2 and CH4 with 15 %vol share
+        H2_energy_share = 0.05053  # H2 energy share via volumetric share
+        # outsourced in a mixture of H2 and CH4 with 15 %vol share
         feed_in = network_gasgrid_c.links.loc[
             network_gasgrid_c.links.carrier == "H2_feedin"
         ]
@@ -425,7 +441,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 | (pipeline_capacities["bus1"] == bus),
                 "p_nom",
             ].sum()
-            # multiply total pipeline capacity with H2 energy share corresponding to volumetric share
+            # multiply total pipeline capacity with H2 energy share
+            # corresponding to volumetric share
             network_gasgrid_c.links.loc[
                 (network_gasgrid_c.links["bus1"].values == bus)
                 & (network_gasgrid_c.links["carrier"].values == "H2_feedin"),
@@ -803,7 +820,8 @@ def get_clustering_from_busmap(
     one_port_strategies=dict(),
 ):
     """
-    Aggregates components of the given network based on a bus mapping and returns a clustered gas grid pypsa.Network.
+    Aggregates components of the given network based on a bus mapping and
+    returns a clustered gas grid pypsa.Network.
 
     Parameters
     ----------
@@ -812,18 +830,23 @@ def get_clustering_from_busmap(
     busmap : pandas.Sereies :
         A mapping of buses to clusters
     line_length_factor : float
-        A factor used to adjust the length of new links created during aggregation. Default is 1.0.
+        A factor used to adjust the length of new links created during
+        aggregation. Default is 1.0.
     with_time : bool
-        Determines whether to copy the time-dependent properties of the input network to the output network. Default is True.
+        Determines whether to copy the time-dependent properties of the input
+        network to the output network. Default is True.
     bus_strategies : dict
-        A dictionary of custom strategies to use during the aggregation step. Default is an empty dictionary.
+        A dictionary of custom strategies to use during the aggregation step.
+        Default is an empty dictionary.
     one_port_strategies : dict
-        A dictionary of custom strategies to use during the one-port component aggregation step. Default is an empty dictionary.
+        A dictionary of custom strategies to use during the one-port component
+        aggregation step. Default is an empty dictionary.
 
     Returns
     -------
     network_gasgrid_c : pypsa.Network
-        A new gas grid pypsa.Network object with aggregated components based on the bus mapping.
+        A new gas grid pypsa.Network object with aggregated components based
+        on the bus mapping.
     """
     network_gasgrid_c = Network()
 
@@ -898,14 +921,16 @@ def get_clustering_from_busmap(
 
 def run_spatial_clustering_gas(self):
     """
-    Performs spatial clustering on the gas network using either K-means or K-medoids-Dijkstra algorithm. Updates the
-    network topology by aggregating buses and links, and then performs postprocessing to finalize the changes.
+    Performs spatial clustering on the gas network using either K-means or
+    K-medoids-Dijkstra algorithm. Updates the network topology by aggregating
+    buses and links, and then performs postprocessing to finalize the changes.
 
     Returns
         None
 
     Raises
-        ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
+        ValueError: If the selected method is not "kmeans" or
+        "kmedoids-dijkstra".
 
     """
     settings = self.args["network_clustering"]
@@ -965,7 +990,8 @@ def run_spatial_clustering_gas(self):
         self.load_shedding()
 
         logger.info(
-            "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+            "GAS Network clustered to {} DE-buses and {} foreign buses "
+            "with {} algorithm.".format(
                 len(
                     self.network.buses.loc[
                         (self.network.buses.carrier == "CH4")
