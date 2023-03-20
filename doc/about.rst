@@ -20,7 +20,7 @@ Research projects
 This software project was initially developed in the research project
 `open_eGo <https://openegoproject.wordpress.com>`_.
 It is constantly further developed in different reserach projects, 
-e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/`_. 
+e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_. 
 
 
 The OpenEnergy Platform
@@ -71,7 +71,7 @@ packages were initially developed in the research project
 
 
 Data model creation
-==============
+===================
 For the eGon project the python-tool `eGon-data <https://github.com/openego/eGon-data>`_ was implemented, which creates input data  for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses. 
 
 eGon-data is a further development of the `Data processing <https://github.com/openego/data_processing>`_ developed in the former research project `open_eGo <https://openegoproject.wordpress.com/>`_. It aims for an extensions of the data models as well as for a better replicability and manageability of the data preparation and processing. 
