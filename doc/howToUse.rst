@@ -54,5 +54,7 @@ Examples and tutorial notebooks
 
 .. toctree::
    :maxdepth: 7
-
+   eTraGo version 0.5.1: 
    OpenMod  <https://github.com/openego/eGo/blob/master/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>
+   eTraGo version 0.9:
+   Tutorial notebook will be available in the next release.
