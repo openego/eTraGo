@@ -49,8 +49,8 @@ __copyright__ = (
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner,
-CarlosEpia, gnn, pieterhexen, fwitte, KathiEsterl, MGlauer, birgits, AmeliaNadal,
-MarlonSchlemminger, wheitkoetter, jankaeh"""
+CarlosEpia, gnn, pieterhexen, fwitte, KathiEsterl, MGlauer, birgits,
+ AmeliaNadal, MarlonSchlemminger, wheitkoetter, jankaeh"""
 
 
 def filter_links_by_carrier(self, carrier, like=True):
@@ -838,8 +838,8 @@ def _make_consense(component, attr):
     value for the attribute `attr` of the given `component`. This consensus
     value is derived from the input DataFrame `x`. If all values in the
     DataFrame are equal, the consensus value will be that common value.
-    If all values are missing (NaN), the consensus value will be NaN. Otherwise,
-    an assertion error will be raised.
+    If all values are missing (NaN), the consensus value will be NaN.
+    Otherwise, an assertion error will be raised.
 
     Parameters
     ----------
@@ -853,7 +853,8 @@ def _make_consense(component, attr):
     -------
     function
         A function that takes a DataFrame as input and returns a single value
-        as output when all the elements of the commponent attribute are the same.
+        as output when all the elements of the commponent attribute are the
+        same.
 
     """
 
@@ -909,7 +910,8 @@ def agg_series_lines(l, network):
     Returns
     -------
     pandas.Series
-        A pandas Series containing aggregated data for the lines in the network.
+        A pandas Series containing aggregated data for the lines in the
+        network.
 
     """
     attrs = network.components["Line"]["attrs"]

@@ -96,8 +96,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = """AmeliaNadal, CarlosEpia, ClaraBuettner, KathiEsterl, gnn, fwitte,
- ulfmueller, pieterhexen"""
+__author__ = """AmeliaNadal, CarlosEpia, ClaraBuettner, KathiEsterl, gnn,
+ fwitte, ulfmueller, pieterhexen"""
 
 
 class Etrago:
