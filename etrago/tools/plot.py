@@ -1440,7 +1440,7 @@ def calc_ac_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        ACC line loading in MVA
+        AC line loading in MVA
 
     """
     loading_lines = (
@@ -2318,11 +2318,11 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         ].sum()
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
-        link_widths = 2 + pd.Series(1, index=link_colors.index)
-        link_widths[link_colors.index.isin(network.links[network.links.carrier!="DC"].index)] = 0
+        link_widths = network.links.carrier
+        link_widths = link_widths.apply(lambda x: 2 if x == "DC" else 0)
         label = "line loading in p.u."
         #Only active flow direction is displayed!
-        flow = pd.Series(index=network.branches().index, dtype="float64")
+        flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
             mul_weighting(network, network.lines_t.p0)
             .loc[network.snapshots[timesteps]]
@@ -2333,11 +2333,13 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         flow.iloc[flow.index.get_level_values("component") == "Link"] = (
             calc_dc_loading(network, timesteps) / rep_snapshots
         ).values
+
         flow = flow[(flow.index.get_level_values("component")=="Line")|
-              (flow.index.isin(link_widths[link_colors.index.isin(
+              (flow.index.isin(link_widths[link_widths.index.isin(
                   network.links[network.links.carrier=="DC"].index)
                   ].index, level=1))]
-        flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
+        flow[flow<0] = -1
+        flow[flow>0] = 1
         
     elif line_colors == "v_nom":
         title = "Voltage levels"
@@ -2461,7 +2463,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             title=title,
             geomap=False,
         )
-
+    
     # legends for bus sizes and colors
     if bus_colors != "grey":
         # if type(bus_sizes) != float:
