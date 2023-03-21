@@ -2326,8 +2326,10 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
         link_widths = network.links.carrier
-        link_widths = link_widths.apply(lambda x: 2 if x == "DC" else 0)
+        link_widths = link_widths.apply(lambda x: 10 if x == "DC" else 0)
+        line_widths = 10
         label = "line loading in p.u."
+        plot_background_grid(network, ax)
         #Only active flow direction is displayed!
         flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
@@ -2364,6 +2366,8 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
+        else:
+            link_widths = 2.0
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
@@ -2499,7 +2503,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
         
-    if type(link_colors) != str:
+    if not isinstance(link_colors, (pd.Series, float)):
         link_colors=link_colors.mul(1e-3)
         line_colors=line_colors.mul(1e-3)
     if cartopy_present:
@@ -2537,7 +2541,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     
 
     # legends for bus sizes and colors
-    if type(bus_sizes) != float:
+    if not isinstance(bus_sizes, (pd.Series, float)):
         handles = []
         labels = []
         for i in legend_entries:
@@ -2613,7 +2617,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
 
     # Show plot or save to file
     if filename is None:
-        if type(bus_sizes) != float:
+        if not isinstance(bus_sizes, (pd.Series, float)):
             logger.warning("Legend of bus sizes will change when zooming")
         plt.show()
     else:
