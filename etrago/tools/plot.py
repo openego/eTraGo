@@ -2499,10 +2499,13 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
         
+    if type(link_colors) != str:
+        link_colors=link_colors.mul(1e-3)
+        line_colors=line_colors.mul(1e-3)
     if cartopy_present:
         ll = network.plot(
-            line_colors=line_colors.mul(1e-3),
-            link_colors=link_colors.mul(1e-3),
+            line_colors=line_colors,
+            link_colors=link_colors,
             line_cmap=plt.cm.jet,
             link_cmap=plt.cm.jet,
             bus_sizes=bus_sizes,
@@ -2518,8 +2521,8 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         )
     else:
         ll =network.plot(
-            line_colors=line_colors.mul(1e-3),
-            link_colors=link_colors.mul(1e-3),
+            line_colors=line_colors,
+            link_colors=link_colors,
             line_cmap=plt.cm.jet,
             link_cmap=plt.cm.jet,
             bus_sizes=bus_sizes,
