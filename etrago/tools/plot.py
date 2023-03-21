@@ -1672,7 +1672,7 @@ def plot_background_grid(network, ax):
             geomap=True,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries = [1.5,16,46.8,58],
+            boundaries=[-2.5, 16, 46.8, 58],
         )
     else:
         network.plot(
@@ -2493,7 +2493,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries = [1.5,16,46.8,58],
+            boundaries=[-2.5, 16, 46.8, 58]
         )
     else:
         ll = network.plot(
@@ -2508,7 +2508,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             flow=flow,
             title=title,
             geomap=False,
-            boundaries = [1.5,16,46.8,58],
+            boundaries=[-2.5, 16, 46.8, 58]
         )
     
 
