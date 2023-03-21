@@ -1167,6 +1167,15 @@ def delete_dispensable_ac_buses(etrago):
     return
 
 
+def delete_h2_feedin(self):
+    """Delete H2_feedin links if H2_vol_share = 0"""
+
+    if self.args["H2_vol_share"] == 0:
+        self.network.links = self.network.links[
+            self.network.links.carrier != "H2_feedin"
+        ]
+
+
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """Set capital costs for extendable lines in respect to PyPSA [€/MVA]
 
