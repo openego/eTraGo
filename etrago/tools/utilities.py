@@ -452,18 +452,23 @@ def set_q_national_loads(self, cos_phi):
             (network.loads.bus.astype(str).isin(national_buses.index))
             & (network.loads.carrier.astype(str) == "AC")
         ],
-    ] * math.tan(
-        math.acos(cos_phi)
-    )
-        
+    ] * math.tan(math.acos(cos_phi))
+
     # insert the calculated q in loads_t. Only loads without previous assignment
     # are affected
-    network.loads_t.q_set = pd.merge(network.loads_t.q_set, new_q_loads,
-                                     how="inner", right_index= True,
-                                     left_index=True, suffixes=("", "delete_"))
+    network.loads_t.q_set = pd.merge(
+        network.loads_t.q_set,
+        new_q_loads,
+        how="inner",
+        right_index=True,
+        left_index=True,
+        suffixes=("", "delete_"),
+    )
     network.loads_t.q_set.drop(
-        [i for i in network.loads_t.q_set.columns if 'delete' in i],
-        axis=1, inplace=True)
+        [i for i in network.loads_t.q_set.columns if "delete" in i],
+        axis=1,
+        inplace=True,
+    )
 
 
 def set_q_foreign_loads(self, cos_phi):
@@ -510,7 +515,6 @@ def set_q_foreign_loads(self, cos_phi):
     network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
         str
     )
-
 
 
 def connected_grid_lines(network, busids):
