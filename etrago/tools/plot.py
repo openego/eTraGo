@@ -1895,6 +1895,8 @@ def plot_grid(
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
+        link_colors = link_colors.mul(1e-3)
+        line_colors = line_colors.mul(1e-3)
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
@@ -1916,7 +1918,8 @@ def plot_grid(
         title = "Dynamic line rating"
         label = "MWh above nominal capacity"
         plot_background_grid(network, ax)
-        line_loading = network.lines_t.p0.mul(1 / network.lines.s_nom_opt)
+
+        line_loading = network.lines_t.p0.mul(1 / (network.lines.s_nom_opt*network.lines.s_max_pu))
         dlr_usage = (
             line_loading[line_loading.abs() > 1]
             .fillna(0)
@@ -2036,9 +2039,7 @@ def plot_grid(
 
     if type(link_widths) != int:
         link_widths.loc[network.links.carrier != "DC"] = 0
-    if type(link_colors) != str:
-        link_colors = link_colors.mul(1e-3)
-        line_colors = line_colors.mul(1e-3)
+
     ll = network.plot(
         line_colors=line_colors,
         link_colors=link_colors,
@@ -2060,30 +2061,40 @@ def plot_grid(
     if type(bus_sizes) != float:
         handles = []
         labels = []
-        for i in legend_entries:
-            try:
-                max_value = bus_sizes[
-                    bus_sizes.index.get_level_values("carrier").str.contains(i)
-                ].max()
-            except:
-                max_value = bus_sizes.max()
+        if scaling_store_expansion:
+            for i in legend_entries:
+                try:
+                    max_value = bus_sizes[
+                        bus_sizes.index.get_level_values("carrier").str.contains(i)
+                    ].max()
+                except:
+                    max_value = bus_sizes.max()
+                handles.append(
+                    make_legend_circles_for(
+                        [max_value],
+                        scale=1,
+                        facecolor=network.carriers.color[i],
+                    )[0]
+                )
+    
+               
+                labels.append(
+                    f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 0).astype(int)} GWh "
+                    + i
+                )
+        else:
+            max_value = bus_sizes.max()
+            labels.append(
+                f"{round(max_value / bus_scaling /1000, 0)} GWh " 
+            )
             handles.append(
                 make_legend_circles_for(
                     [max_value],
                     scale=1,
-                    facecolor=network.carriers.color[i],
+                    facecolor="grey",
                 )[0]
             )
 
-            if scaling_store_expansion:
-                labels.append(
-                    f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 2)} GWh "
-                    + i
-                )
-            else:
-                labels.append(
-                    f"{round(max_value / bus_scaling /1000, 2)} GWh " + i
-                )
 
         l2 = ax.legend(
             handles,
