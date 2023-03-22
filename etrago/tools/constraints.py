@@ -2523,7 +2523,6 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
-
     print("TODO")
 
     # TODO: implementieren
@@ -2583,7 +2582,6 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
 
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
-
     print("TODO")
 
     # TODO: implementieren
