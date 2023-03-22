@@ -830,7 +830,7 @@ def run_spatial_clustering_gas(self):
                     'Please select "kmeans" or "kmedoids-dijkstra" as '
                     "spatial clustering method for the gas network"
                 )
-            	raise ValueError(msg)
+                raise ValueError(msg)
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
             
             self.update_busmap(busmap)

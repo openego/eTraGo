@@ -272,10 +272,7 @@ def _min_renewable_share(self, network, snapshots):
         "wind_onshore",
         "run_of_river",
         "other_renewable",
-<<<<<<< HEAD
         "CH4_biogas",
-=======
->>>>>>> dev
         "central_biomass_CHP_heat",
         "solar_thermal_collector",
         "geo_thermal",
@@ -2526,8 +2523,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
-<<<<<<< HEAD
-=======
+
     print("TODO")
 
     # TODO: implementieren
@@ -2587,7 +2583,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
 
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
->>>>>>> dev
+
     print("TODO")
 
     # TODO: implementieren
