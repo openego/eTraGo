@@ -823,6 +823,11 @@ def pf_post_lopf(etrago, calc_losses=False):
         network.generators.carrier == "load shedding"
     ] = "PQ"
 
+    # Assign storage units control strategy
+    network.storage_units.control[
+        network.storage_units.bus.isin(ac_bus.index)
+    ] = "PV"
+
     # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
 

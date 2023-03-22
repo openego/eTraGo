@@ -422,7 +422,7 @@ def foreign_links(self):
         self.geolocation_buses()
 
 
-def set_q_national_loads(self, cos_phi=1):
+def set_q_national_loads(self, cos_phi):
     """
     Set q component of national loads based on the p component and cos_phi
 
@@ -445,41 +445,45 @@ def set_q_national_loads(self, cos_phi=1):
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
 
-    network.loads_t["q_set"].loc[
+    # Calculate q national loads based on p and cos_phi
+    new_q_loads = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
-        ].astype(int),
-    ] = network.loads_t["p_set"].loc[
-        :,
-        network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
+            (network.loads.bus.astype(str).isin(national_buses.index))
+            & (network.loads.carrier.astype(str) == "AC")
         ],
-    ] * math.tan(
-        math.acos(cos_phi)
+    ] * math.tan(math.acos(cos_phi))
+
+    # insert the calculated q in loads_t. Only loads without previous
+    # assignment are affected
+    network.loads_t.q_set = pd.merge(
+        network.loads_t.q_set,
+        new_q_loads,
+        how="inner",
+        right_index=True,
+        left_index=True,
+        suffixes=("", "delete_"),
     )
-    # To avoid a problem when the index of the load is the weather year,
-    # the column names were temporarily set to `int` and changed back to
-    # `str`.
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
-        str
+    network.loads_t.q_set.drop(
+        [i for i in network.loads_t.q_set.columns if "delete" in i],
+        axis=1,
+        inplace=True,
     )
 
 
-def set_q_foreign_loads(self, cos_phi=1):
+def set_q_foreign_loads(self, cos_phi):
     """Set reative power timeseries of loads in neighbouring countries
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     cos_phi: float
         Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None
 
     """
     network = self.network
