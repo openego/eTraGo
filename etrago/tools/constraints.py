@@ -272,7 +272,10 @@ def _min_renewable_share(self, network, snapshots):
         "wind_onshore",
         "run_of_river",
         "other_renewable",
+<<<<<<< HEAD
         "CH4_biogas",
+=======
+>>>>>>> dev
         "central_biomass_CHP_heat",
         "solar_thermal_collector",
         "geo_thermal",
@@ -2523,14 +2526,77 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
+<<<<<<< HEAD
+=======
+    print("TODO")
+
+    # TODO: implementieren
+
+
+def split_dispatch_disaggregation_constraints(self, n, sns):
+    """
+    Add constraints for state of charge of storage units and stores
+    when separating the optimization into smaller subproblems
+    while conducting thedispatch_disaggregation in temporally fully resolved network
+
+    The state of charge at the end of each slice is set to the value
+    calculated in the optimization with the temporally reduced network
+    to account to ensure compatibility and to reproduce saisonality
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
+
+    sus = n.storage_units.index
+    # for stores, exclude emob and dsm because of their special constraints
+    sto = n.stores[
+        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+    ].index
+
+    def disaggregation_sus_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.state_of_charge[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sus_soc = po.Constraint(
+        sus, sns[-1:], rule=disaggregation_sus_soc
+    )
+
+    def disaggregation_sto_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.store_e[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sto_soc = po.Constraint(
+        sto, sns[-1:], rule=disaggregation_sto_soc
+    )
+
+
+def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
+>>>>>>> dev
     print("TODO")
 
     # TODO: implementieren
 
 
 class Constraints:
-    def __init__(self, args):
+    def __init__(self, args, conduct_dispatch_disaggregation):
         self.args = args
+        self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -2649,6 +2715,16 @@ class Constraints:
                 logger.error(
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
+                )
+
+        if self.conduct_dispatch_disaggregation is not False:
+            if self.args["method"]["pyomo"]:
+                split_dispatch_disaggregation_constraints(
+                    self, network, snapshots
+                )
+            else:
+                split_dispatch_disaggregation_constraints_nmp(
+                    self, network, snapshots
                 )
 
 

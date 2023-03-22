@@ -73,9 +73,9 @@ def _leading(busmap, df):
 
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
-    network = etrago.network.copy()
+    network = etrago.network
     # network2 is supposed to contain all the not electrical or gas buses and links
-    network2 = network.copy()
+    network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
@@ -104,7 +104,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap2 = {}
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
-    if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
+    if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
         buses_orig = network.buses.copy()
@@ -337,7 +337,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return (network_c.copy(), busmap)
+    return (network_c, busmap)
 
 
 def delete_ehv_buses_no_lines(network):
@@ -418,6 +418,10 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
+
+        if not (self.args["network_clustering"]["active"]):
+            self.load_shedding()
+
         logger.info("Network clustered to EHV-grid")
 
 
@@ -507,7 +511,7 @@ def select_elec_network(etrago):
 
 def preprocessing(etrago):
     def unify_foreign_buses(etrago):
-        network = etrago.network.copy()
+        network = etrago.network.copy(with_time=False)
 
         foreign_buses = network.buses[
             (network.buses.country != "DE") & (network.buses.carrier == "AC")
@@ -530,7 +534,6 @@ def preprocessing(etrago):
         lines_plus_dc["carrier"] = "AC"
 
         busmap_foreign = pd.Series(dtype=str)
-        medoids_foreign = pd.Series(dtype=str)
 
         for country, df in foreign_buses.groupby(by="country"):
             weight = df.apply(
@@ -538,15 +541,20 @@ def preprocessing(etrago):
                 axis=1,
             )
             n_clusters = (foreign_buses_load.country == country).sum()
+            if n_clusters < len(df):
+                (
+                    busmap_country,
+                    medoid_idx_country,
+                ) = kmedoids_dijkstra_clustering(
+                    etrago, df, lines_plus_dc, weight, n_clusters
+                )
+                medoid_idx_country.index = medoid_idx_country.index.astype(str)
+                busmap_country = busmap_country.map(medoid_idx_country)
+                busmap_foreign = pd.concat([busmap_foreign, busmap_country])
+            else:
+                for bus in df.index:
+                    busmap_foreign[bus] = bus
 
-            busmap_country, medoid_idx_country = kmedoids_dijkstra_clustering(
-                etrago, df, lines_plus_dc, weight, n_clusters
-            )
-            medoid_idx_country.index = medoid_idx_country.index.astype(str)
-            busmap_country = busmap_country.map(medoid_idx_country)
-
-            busmap_foreign = pd.concat([busmap_foreign, busmap_country])
-            medoids_foreign = pd.concat([medoids_foreign, medoid_idx_country])
         busmap_foreign.name = "foreign"
         busmap_foreign.index.name = "bus"
 
@@ -894,6 +902,7 @@ def run_spatial_clustering(self):
                     weight,
                     n_clusters,
                 )
+
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
@@ -908,7 +917,7 @@ def run_spatial_clustering(self):
         else:
             self.disaggregated_network = self.network.copy(with_time=False)
 
-        self.network = self.clustering.network.copy()
+        self.network = self.clustering.network
 
         self.buses_by_country()
 

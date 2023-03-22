@@ -830,24 +830,26 @@ def run_spatial_clustering_gas(self):
                     'Please select "kmeans" or "kmedoids-dijkstra" as '
                     "spatial clustering method for the gas network"
                 )
-                raise ValueError(msg)
+            	raise ValueError(msg)
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
-
+            
             self.update_busmap(busmap)
+            self.load_shedding()
+            
             logger.info(
-                "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
-                    len(
-                        self.network.buses.loc[
-                            (self.network.buses.carrier == "CH4")
-                            & (self.network.buses.country == "DE")
-                        ]
-                    ),
-                    len(
-                        self.network.buses.loc[
-                            (self.network.buses.carrier == "CH4")
-                            & (self.network.buses.country != "DE")
-                        ]
-                    ),
-                    method,
-                )
+            "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country == "DE")
+                    ]
+                ),
+                len(
+                    self.network.buses.loc[
+                        (self.network.buses.carrier == "CH4")
+                        & (self.network.buses.country != "DE")
+                    ]
+                ),
+                method,
             )
+        )

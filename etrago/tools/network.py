@@ -328,7 +328,11 @@ class Etrago:
 
         self.geolocation_buses()
 
-        self.load_shedding()
+        if not (
+            self.args["network_clustering_ehv"]
+            | self.args["network_clustering"]["active"]
+        ):
+            self.load_shedding()
 
         self.adjust_CH4_gen_carriers()
 
