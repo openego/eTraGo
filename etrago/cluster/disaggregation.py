@@ -520,6 +520,7 @@ class UniformDisaggregation(Disaggregation):
     def solve_partial_network(
         self, cluster, partial_network, scenario, solver=None
     ):
+        log.debug("Solving partial network.")
         bustypes = {
             "generators": {"group_by": ("carrier",), "series": ("p", "q")},
             "storage_units": {
@@ -541,6 +542,7 @@ class UniformDisaggregation(Disaggregation):
         }
         filters = {"q": lambda o: o.control == "PV"}
         for bustype in bustypes:
+            log.debug(f"Decomposing {bustype}.")
             pn_t = getattr(partial_network, bustype + "_t")
             cl_t = getattr(self.clustered_network, bustype + "_t")
             pn_buses = getattr(partial_network, bustype)
@@ -720,6 +722,7 @@ def update_constraints(network, externals):
 
 
 def run_disaggregation(self):
+    log.debug("Running disaggregation.")
     if self.clustering:
         disagg = self.args.get("disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
