@@ -606,9 +606,9 @@ class UniformDisaggregation(Disaggregation):
                         pnb.loc[:, "p_nom_extendable"]
                         == clb.iloc[0].at["p_nom_extendable"]
                     ).all(), (
-                        "The `'p_nom_extendable'` flag for the current "
-                        + "cluster's bus does not have the same value "
-                        + "it has on the buses of it's partial network."
+                        "The `'p_nom_extendable'` flag for the current"
+                        " cluster's bus does not have the same value"
+                        " it has on the buses of it's partial network."
                     )
 
                 if clb.iloc[0].at["p_nom_extendable"]:
