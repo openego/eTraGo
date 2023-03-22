@@ -2407,6 +2407,8 @@ def drop_sectors(self, drop_carriers):
                 ~two_port.df.bus1.isin(self.network.buses.index)
             ].index,
         )
+        
+    logger.info("The following sectors are dropped: "+str(drop_carriers))
 
 
 def update_busmap(self, new_busmap):
