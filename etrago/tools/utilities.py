@@ -454,8 +454,8 @@ def set_q_national_loads(self, cos_phi):
         ],
     ] * math.tan(math.acos(cos_phi))
 
-    # insert the calculated q in loads_t. Only loads without previous assignment
-    # are affected
+    # insert the calculated q in loads_t. Only loads without previous
+    # assignment are affected
     network.loads_t.q_set = pd.merge(
         network.loads_t.q_set,
         new_q_loads,
