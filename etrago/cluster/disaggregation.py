@@ -286,7 +286,7 @@ class Disaggregation:
         profile = cProfile.Profile()
         profile = noops
         for i, cluster in enumerate(sorted(clusters)):
-            log.info("Decompose cluster %s (%d/%d)" % (cluster, i + 1, n))
+            log.info(f"Decompose {cluster=} ({i + 1}/{n})")
             profile.enable()
             t = time.time()
             partial_network, externals = self.construct_partial_network(
@@ -326,9 +326,7 @@ class Disaggregation:
             ("generators", {"p": fs, "q": fs}),
             ("storage_units", {"p": fs, "state_of_charge": fs, "q": fs}),
         ):
-            log.info(
-                "Attribute sums, {}, clustered - disaggregated:".format(bt)
-            )
+            log.info(f"Attribute sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt)
             onb = getattr(self.original_network, bt)
             log.info(
@@ -340,7 +338,7 @@ class Disaggregation:
                 )
             )
 
-            log.info("Series sums, {}, clustered - disaggregated:".format(bt))
+            log.info(f"Series sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt + "_t")
             onb = getattr(self.original_network, bt + "_t")
             for s in ts:
@@ -575,10 +573,8 @@ class UniformDisaggregation(Disaggregation):
                 if len(clb) == 0:
                     continue
                 assert len(clb) == 1, (
-                    "Cluster {} has {} buses for group {}.\n".format(
-                        cluster, len(clb), group
-                    )
-                    + "Should be exactly one."
+                    f"Cluster {cluster} has {len(clb)} buses for {group=}."
+                    "\nShould be exactly one."
                 )
                 # Remove buses not belonging to the partial network
                 pnb = pn_buses.iloc[
