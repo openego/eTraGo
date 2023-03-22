@@ -961,6 +961,7 @@ def delete_dispensable_ac_buses(etrago):
     Parameters
     ----------
     etrago : etrago object
+    
     Returns
     -------
     None.
@@ -2323,7 +2324,8 @@ def check_args(etrago):
 
 def drop_sectors(self, drop_carriers):
     """
-    Manually drop secors from eTraGo network, used for debugging
+    Manually drop secors from network.
+    Makes sure the network can be calculated without the dropped sectors.
 
     Parameters
     ----------
