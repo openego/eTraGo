@@ -15,7 +15,7 @@ Assumptions on Data
 
 eTraGo fetches the input data from the `OpenEnergy Platform <https://openenergy-platform.org/>`_. The data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) and data on additional electrical flexibilities such as Dynamic Line Rating or Demand Side Management. More details on the data model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_.
 
-At the moment, there are two scenarios available basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021. The base one is called eGon2035. To analyse the effect of flexibility option, there is an eGon2035_lowflex scenario available which depicts a lower penetration of flexibilities. More scenarios are being developed. A eGon100RE scenario is being implemented which is characterised by a 100% renewable generation. Analog to the scenario above, a eGon100RE_lowflex scenario is available.
+At the moment, there are two scenarios available basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021. The base one is called eGon2035. To analyse the effect of flexibility options, there is an eGon2035_lowflex scenario available which depicts a lower penetration of flexibilities. More scenarios are being developed. The eGon100RE scenario is being implemented which is characterised by a 100% renewable generation. Analog to the scenario above, a eGon100RE_lowflex scenario is available.
 
 You can see the modelling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimized endogenously in capacity and dispatch.
 
@@ -31,7 +31,7 @@ Methods
 Optimization with PyPSA
 -----------------------
 
-Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network. The power flow simulations and optimizations are performed with a linear approximation aussuming eTraGo to fulfill the assumptions to perfom a LOPF (small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimization, the overall system costs are considered.
+Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network. The power flow simulations and optimizations are performed with a linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimization, the overall system costs are considered.
 
 With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
 
@@ -66,7 +66,7 @@ By using the method called **Segmentation**, a hierarchical clustering of consec
 
 The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering of time periods with a predefined length (e.g. days or weeks) to typical periods. Those typical periods are weighted according to the number of periods in their cluster. This method optionally includes the linkage of the typical periods in a second time layer to account for the intertemporal dependencies following [Kotzur]_.
 
-By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimising grid and storage expansion using the complexity-reduced time series in the first step and optimising dispatch using the fully complex time series in the second step.
+By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimising dispatch using the fullcomplex time series in the second step after having optimised grid and storage expansion using the complexity-reduced time series in the first step.
 
 
 Grid and Storage / Store expansion
