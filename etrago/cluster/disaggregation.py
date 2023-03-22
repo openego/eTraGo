@@ -4,6 +4,7 @@ from operator import methodcaller as mc, mul as multiply
 import cProfile
 import time
 
+from loguru import logger as log
 from pyomo.environ import Constraint
 from pypsa import Network
 import pandas as pd
@@ -275,8 +276,7 @@ class Disaggregation:
         }
         profile = cProfile.Profile()
         for i, cluster in enumerate(sorted(clusters)):
-            print("---")
-            print("Decompose cluster %s (%d/%d)" % (cluster, i + 1, n))
+            log.info("Decompose cluster %s (%d/%d)" % (cluster, i + 1, n))
             profile.enable()
             t = time.time()
             partial_network, externals = self.construct_partial_network(
@@ -284,9 +284,9 @@ class Disaggregation:
             )
             profile.disable()
             self.stats["clusters"].loc[cluster, "decompose"] = time.time() - t
-            print(
-                "Decomposed in ",
-                self.stats["clusters"].loc[cluster, "decompose"],
+            log.info(
+                "Decomposed in "
+                f'{self.stats["clusters"].loc[cluster, "decompose"]}'
             )
             t = time.time()
             profile.enable()
@@ -295,32 +295,33 @@ class Disaggregation:
             )
             profile.disable()
             self.stats["clusters"].loc[cluster, "spread"] = time.time() - t
-            print(
-                "Result distributed in ",
-                self.stats["clusters"].loc[cluster, "spread"],
+            log.info(
+                "Result distributed in "
+                f'{self.stats["clusters"].loc[cluster, "spread"]}'
             )
             profile.enable()
             t = time.time()
             self.transfer_results(partial_network, externals)
             profile.disable()
             self.stats["clusters"].loc[cluster, "transfer"] = time.time() - t
-            print(
-                "Results transferred in ",
-                self.stats["clusters"].loc[cluster, "transfer"],
+            log.info(
+                "Results transferred in "
+                f'{self.stats["clusters"].loc[cluster, "transfer"]}'
             )
 
         profile.enable()
         t = time.time()
-        print("---")
         fs = (mc("sum"), mc("sum"))
         for bt, ts in (
             ("generators", {"p": fs, "q": fs}),
             ("storage_units", {"p": fs, "state_of_charge": fs, "q": fs}),
         ):
-            print("Attribute sums, {}, clustered - disaggregated:".format(bt))
+            log.info(
+                "Attribute sums, {}, clustered - disaggregated:".format(bt)
+            )
             cnb = getattr(self.clustered_network, bt)
             onb = getattr(self.original_network, bt)
-            print(
+            log.info(
                 "{:>{}}: {}".format(
                     "p_nom_opt",
                     4 + len("state_of_charge"),
@@ -329,11 +330,11 @@ class Disaggregation:
                 )
             )
 
-            print("Series sums, {}, clustered - disaggregated:".format(bt))
+            log.info("Series sums, {}, clustered - disaggregated:".format(bt))
             cnb = getattr(self.clustered_network, bt + "_t")
             onb = getattr(self.original_network, bt + "_t")
             for s in ts:
-                print(
+                log.info(
                     "{:>{}}: {}".format(
                         s,
                         4 + len("state_of_charge"),
@@ -343,7 +344,7 @@ class Disaggregation:
                 )
         profile.disable()
         self.stats["check"] = time.time() - t
-        print("Checks computed in ", self.stats["check"])
+        log.info("Checks computed in {self.stats['check']}")
 
         # profile.print_stats(sort='cumtime')
 
@@ -749,7 +750,7 @@ def run_disaggregation(self):
             self.disaggregated_network.generators_t.q.fillna(0, inplace=True)
 
             self.disaggregated_network.results = self.network.results
-            print(
+            log.info(
                 "Time for overall desaggregation [min]: {:.2}".format(
                     (time.time() - t) / 60
                 )
