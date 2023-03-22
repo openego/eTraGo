@@ -733,9 +733,9 @@ def run_disaggregation(self):
                 )
             elif disagg == "uniform":
                 disaggregation = UniformDisaggregation(
-                    self.disaggregated_network,
-                    self.network,
-                    self.clustering,
+                    original_network=self.disaggregated_network,
+                    clustered_network=self.network,
+                    clustering=self.clustering,
                     skip=skip,
                 )
 
