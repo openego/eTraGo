@@ -80,20 +80,26 @@ def _get_crossborder_components(network, cntr="all"):
         buses_for = network.buses.index[network.buses.country == cntr]
 
     cb0 = network.lines.index[
-        (network.lines.bus0.isin(buses_for)) & (network.lines.bus1.isin(buses_de))
+        (network.lines.bus0.isin(buses_for))
+        & (network.lines.bus1.isin(buses_de))
     ]
 
     cb1 = network.lines.index[
-        (network.lines.bus1.isin(buses_for)) & (network.lines.bus0.isin(buses_de))
+        (network.lines.bus1.isin(buses_for))
+        & (network.lines.bus0.isin(buses_de))
     ]
 
     cb0_link = network.links.index[
-        (network.links.bus0.isin(buses_for)) & (network.links.bus1.isin(buses_de))
-    & (network.links.carrier=='DC')]
+        (network.links.bus0.isin(buses_for))
+        & (network.links.bus1.isin(buses_de))
+        & (network.links.carrier == "DC")
+    ]
 
     cb1_link = network.links.index[
-        (network.links.bus0.isin(buses_de)) & (network.links.bus1.isin(buses_for))
-    & (network.links.carrier=='DC')]
+        (network.links.bus0.isin(buses_de))
+        & (network.links.bus1.isin(buses_for))
+        & (network.links.carrier == "DC")
+    ]
 
     return buses_de, buses_for, cb0, cb1, cb0_link, cb1_link
 
@@ -118,21 +124,21 @@ def _max_line_ext(self, network, snapshots):
 
     lines_snom = network.lines.s_nom_min.sum()
 
-    links_elec = network.links[network.links.carrier=='DC']
+    links_elec = network.links[network.links.carrier == "DC"]
     links_index = links_elec.index
     links_pnom = links_elec.p_nom_min.sum()
 
     def _rule(m):
-
         lines_opt = sum(
-            m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
+            m.passive_branch_s_nom[index]
+            for index in m.passive_branch_s_nom_index
         )
 
         links_opt = sum(m.link_p_nom[index] for index in links_index)
 
-        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
-            "extra_functionality"
-        ]["max_line_ext"]
+        return (lines_opt + links_opt) <= (
+            lines_snom + links_pnom
+        ) * self.args["extra_functionality"]["max_line_ext"]
 
     network.model.max_line_ext = Constraint(rule=_rule)
 
@@ -157,7 +163,7 @@ def _max_line_ext_nmp(self, network, snapshots):
 
     lines_snom = network.lines.s_nom.sum()
 
-    links_elec = network.links[network.links.carrier=='DC']
+    links_elec = network.links[network.links.carrier == "DC"]
     links_index = links_elec.index
     links_pnom = links_elec.p_nom_min.sum()
 
@@ -165,14 +171,15 @@ def _max_line_ext_nmp(self, network, snapshots):
 
     def _rule(m):
         lines_opt = sum(
-            m.passive_branch_s_nom[index] for index in m.passive_branch_s_nom_index
+            m.passive_branch_s_nom[index]
+            for index in m.passive_branch_s_nom_index
         )
 
         links_opt = sum(m.link_p_nom[index] for index in links_index)
 
-        return (lines_opt + links_opt) <= (lines_snom + links_pnom) * self.args[
-            "extra_functionality"
-        ]["max_line_ext"]
+        return (lines_opt + links_opt) <= (
+            lines_snom + links_pnom
+        ) * self.args["extra_functionality"]["max_line_ext"]
 
     network.model.max_line_ext = Constraint(rule=_rule)
 
@@ -196,10 +203,20 @@ def _min_renewable_share_nmp(self, network, snapshots):
 
     """
 
-    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
-                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
-                  'run_of_river', 'other_renewable',
-                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
+    renewables = [
+        "biomass",
+        "central_biomass_CHP",
+        "industrial_biomass_CHP",
+        "solar",
+        "solar_rooftop",
+        "wind_offshore",
+        "wind_onshore",
+        "run_of_river",
+        "other_renewable",
+        "central_biomass_CHP_heat",
+        "solar_thermal_collector",
+        "geo_thermal",
+    ]
 
     res = network.generators.index[network.generators.carrier.isin(renewables)]
 
@@ -214,7 +231,9 @@ def _min_renewable_share_nmp(self, network, snapshots):
 
     renew_production = linexpr((1, renew)).sum().sum()
     total_production = (
-        linexpr((-self.args["extra_functionality"]["min_renewable_share"], total))
+        linexpr(
+            (-self.args["extra_functionality"]["min_renewable_share"], total)
+        )
         .sum()
         .sum()
     )
@@ -243,17 +262,28 @@ def _min_renewable_share(self, network, snapshots):
 
     """
 
-    renewables = ['biomass', 'central_biomass_CHP', 'industrial_biomass_CHP',
-                  'solar', 'solar_rooftop', 'wind_offshore', 'wind_onshore',
-                  'run_of_river', 'other_renewable',
-                  'central_biomass_CHP_heat', 'solar_thermal_collector', 'geo_thermal']
+    renewables = [
+        "biomass",
+        "central_biomass_CHP",
+        "industrial_biomass_CHP",
+        "solar",
+        "solar_rooftop",
+        "wind_offshore",
+        "wind_onshore",
+        "run_of_river",
+        "other_renewable",
+        "central_biomass_CHP_heat",
+        "solar_thermal_collector",
+        "geo_thermal",
+    ]
 
-    res = list(network.generators.index[network.generators.carrier.isin(renewables)])
+    res = list(
+        network.generators.index[network.generators.carrier.isin(renewables)]
+    )
 
     total = list(network.generators.index)
 
     def _rule(m):
-
         renewable_production = sum(
             m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
             for gen in res
@@ -290,12 +320,17 @@ def _cross_border_flow(self, network, snapshots):
 
     """
 
-    buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-        network
-    )
+    (
+        buses_de,
+        buses_for,
+        cb0,
+        cb1,
+        cb0_link,
+        cb1_link,
+    ) = _get_crossborder_components(network)
 
-    export = (
-        pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
+    export = pd.Series(
+        data=self.args["extra_functionality"]["cross_border_flow"]
     )
 
     def _rule_min(m):
@@ -372,12 +407,17 @@ def _cross_border_flow_nmp(self, network, snapshots):
 
     """
 
-    buses_de, buses_for, cb0, cb1, cb0_link, cb1_link = _get_crossborder_components(
-        network
-    )
+    (
+        buses_de,
+        buses_for,
+        cb0,
+        cb1,
+        cb0_link,
+        cb1_link,
+    ) = _get_crossborder_components(network)
 
-    export = (
-        pd.Series(data=self.args["extra_functionality"]["cross_border_flow"])
+    export = pd.Series(
+        data=self.args["extra_functionality"]["cross_border_flow"]
     )
 
     cb0_flow = (
@@ -437,11 +477,9 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
 
     countries = network.buses.country.unique()
 
-    export_per_country = (
-        pd.DataFrame(
-            data=self.args["extra_functionality"]["cross_border_flow_per_country"]
-        ).transpose()
-    )
+    export_per_country = pd.DataFrame(
+        data=self.args["extra_functionality"]["cross_border_flow_per_country"]
+    ).transpose()
 
     for cntr in export_per_country.index:
         if cntr in countries:
@@ -525,11 +563,9 @@ def _cross_border_flow_per_country(self, network, snapshots):
 
     countries = network.buses.country.unique()
 
-    export_per_country = (
-        pd.DataFrame(
-            data=self.args["extra_functionality"]["cross_border_flow_per_country"]
-        ).transpose()
-    )
+    export_per_country = pd.DataFrame(
+        data=self.args["extra_functionality"]["cross_border_flow_per_country"]
+    ).transpose()
 
     for cntr in export_per_country.index:
         if cntr in countries:
@@ -557,12 +593,14 @@ def _cross_border_flow_per_country(self, network, snapshots):
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
+                        m.link_p[link, sn]
+                        * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
+                        m.link_p[link, sn]
+                        * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
@@ -590,12 +628,14 @@ def _cross_border_flow_per_country(self, network, snapshots):
                         for sn in snapshots
                     )
                     - sum(
-                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
+                        m.link_p[link, sn]
+                        * network.snapshot_weightings.objective[sn]
                         for link in cb0_link
                         for sn in snapshots
                     )
                     + sum(
-                        m.link_p[link, sn] * network.snapshot_weightings.objective[sn]
+                        m.link_p[link, sn]
+                        * network.snapshot_weightings.objective[sn]
                         for link in cb1_link
                         for sn in snapshots
                     )
@@ -691,9 +731,9 @@ def _capacity_factor(self, network, snapshots):
         gens, potential = _generation_potential(network, c, cntr="all")
 
         def _rule_max(m):
-
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                m.generator_p[gen, sn]
+                * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -703,9 +743,9 @@ def _capacity_factor(self, network, snapshots):
         setattr(network.model, "max_flh_" + c, Constraint(rule=_rule_max))
 
         def _rule_min(m):
-
             dispatch = sum(
-                m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                m.generator_p[gen, sn]
+                * network.snapshot_weightings.generators[sn]
                 for gen in gens
                 for sn in snapshots
             )
@@ -799,9 +839,9 @@ def _capacity_factor_per_cntr(self, network, snapshots):
             if len(gens) > 0:
 
                 def _rule_max(m):
-
                     dispatch = sum(
-                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[gen, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for gen in gens
                         for sn in snapshots
                     )
@@ -809,13 +849,15 @@ def _capacity_factor_per_cntr(self, network, snapshots):
                     return dispatch <= factor[1] * potential
 
                 setattr(
-                    network.model, "max_flh_" + cntr + "_" + c, Constraint(rule=_rule_max)
+                    network.model,
+                    "max_flh_" + cntr + "_" + c,
+                    Constraint(rule=_rule_max),
                 )
 
                 def _rule_min(m):
-
                     dispatch = sum(
-                        m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                        m.generator_p[gen, sn]
+                        * network.snapshot_weightings.generators[sn]
                         for gen in gens
                         for sn in snapshots
                     )
@@ -823,11 +865,19 @@ def _capacity_factor_per_cntr(self, network, snapshots):
                     return dispatch >= factor[0] * potential
 
                 setattr(
-                    network.model, "min_flh_" + cntr + "_" + c, Constraint(rule=_rule_min)
+                    network.model,
+                    "min_flh_" + cntr + "_" + c,
+                    Constraint(rule=_rule_min),
                 )
 
             else:
-                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
+                print(
+                    "Carrier "
+                    + c
+                    + " is not available in "
+                    + cntr
+                    + ". Skipping this constraint."
+                )
 
 
 def _capacity_factor_per_cntr_nmp(self, network, snapshots):
@@ -860,7 +910,6 @@ def _capacity_factor_per_cntr_nmp(self, network, snapshots):
             gens, potential = _generation_potential(network, c, cntr)
 
             if len(gens) > 0:
-
                 generation = (
                     get_var(network, "Generator", "p")
                     .loc[snapshots, gens]
@@ -885,7 +934,13 @@ def _capacity_factor_per_cntr_nmp(self, network, snapshots):
                 )
 
             else:
-                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
+                print(
+                    "Carrier "
+                    + c
+                    + " is not available in "
+                    + cntr
+                    + ". Skipping this constraint."
+                )
 
 
 def _capacity_factor_per_gen(self, network, snapshots):
@@ -935,9 +990,9 @@ def _capacity_factor_per_gen(self, network, snapshots):
                 )
 
             def _rule_max(m):
-
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                    m.generator_p[g, sn]
+                    * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
@@ -946,9 +1001,9 @@ def _capacity_factor_per_gen(self, network, snapshots):
             setattr(network.model, "max_flh_" + g, Constraint(rule=_rule_max))
 
             def _rule_min(m):
-
                 dispatch = sum(
-                    m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                    m.generator_p[g, sn]
+                    * network.snapshot_weightings.generators[sn]
                     for sn in snapshots
                 )
 
@@ -1051,7 +1106,6 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
     """
     arg = self.args["extra_functionality"]["capacity_factor_per_gen_cntr"]
     for cntr in arg.keys():
-
         carrier = arg[cntr].keys()
         snapshots = network.snapshots
         for c in carrier:
@@ -1066,14 +1120,14 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
             ]
 
             if len(gens) > 0:
-
                 for g in gens:
                     if c in ["wind_onshore", "wind_offshore", "solar"]:
                         potential = (
                             (
                                 network.generators.p_nom[g]
                                 * network.generators_t.p_max_pu[g].mul(
-                                    network.snapshot_weightings.generators, axis=0
+                                    network.snapshot_weightings.generators,
+                                    axis=0,
                                 )
                             )
                             .sum()
@@ -1086,9 +1140,9 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                         )
 
                     def _rule_max(m):
-
                         dispatch = sum(
-                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            m.generator_p[g, sn]
+                            * network.snapshot_weightings.generators[sn]
                             for sn in snapshots
                         )
                         return dispatch <= factor[1] * potential
@@ -1100,9 +1154,9 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     )
 
                     def _rule_min(m):
-
                         dispatch = sum(
-                            m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                            m.generator_p[g, sn]
+                            * network.snapshot_weightings.generators[sn]
                             for sn in snapshots
                         )
                         return dispatch >= factor[0] * potential
@@ -1114,7 +1168,13 @@ def _capacity_factor_per_gen_cntr(self, network, snapshots):
                     )
 
             else:
-                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
+                print(
+                    "Carrier "
+                    + c
+                    + " is not available in "
+                    + cntr
+                    + ". Skipping this constraint."
+                )
 
 
 def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
@@ -1142,7 +1202,6 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
     """
     arg = self.args["extra_functionality"]["capacity_factor_per_gen_cntr"]
     for cntr in arg.keys():
-
         carrier = arg[cntr].keys()
 
         for c in carrier:
@@ -1156,14 +1215,14 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
             ]
 
             if len(gens) > 0:
-
                 for g in gens:
                     if c in ["wind_onshore", "wind_offshore", "solar"]:
                         potential = (
                             (
                                 network.generators.p_nom[g]
                                 * network.generators_t.p_max_pu[g].mul(
-                                    network.snapshot_weightings.generators, axis=0
+                                    network.snapshot_weightings.generators,
+                                    axis=0,
                                 )
                             )
                             .sum()
@@ -1199,7 +1258,13 @@ def _capacity_factor_per_gen_cntr_nmp(self, network, snapshots):
                     )
 
             else:
-                print('Carrier '+c+' is not available in '+cntr+'. Skipping this constraint.')
+                print(
+                    "Carrier "
+                    + c
+                    + " is not available in "
+                    + cntr
+                    + ". Skipping this constraint."
+                )
 
 
 def read_max_gas_generation(self):
@@ -1292,16 +1357,18 @@ def add_ch4_constraints(self, network, snapshots):
             factor = arg[c]
 
             def _rule_max(m):
-
                 dispatch = sum(
-                    m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+                    m.generator_p[gen, sn]
+                    * network.snapshot_weightings.generators[sn]
                     for gen in gens
                     for sn in snapshots
                 )
 
                 return dispatch <= factor * (n_snapshots / 8760)
 
-            setattr(network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max))
+            setattr(
+                network.model, "max_flh_DE_" + c, Constraint(rule=_rule_max)
+            )
 
     # Add contraints for neigbouring countries
     gen_abroad = network.generators[
@@ -1317,9 +1384,9 @@ def add_ch4_constraints(self, network, snapshots):
         factor = network.generators.e_nom_max[g]
 
         def _rule_max(m):
-
             dispatch = sum(
-                m.generator_p[g, sn] * network.snapshot_weightings.generators[sn]
+                m.generator_p[g, sn]
+                * network.snapshot_weightings.generators[sn]
                 for sn in snapshots
             )
 
@@ -1438,7 +1505,8 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
         soc of the last hour of the day (i.e. + 23 hours)
         """
         return (
-            m.state_of_charge[s, p] == m.state_of_charge[s, p + pd.Timedelta(hours=23)]
+            m.state_of_charge[s, p]
+            == m.state_of_charge[s, p + pd.Timedelta(hours=23)]
         )
 
     network.model.period_bound = Constraint(
@@ -1447,27 +1515,34 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
 
 
 def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
-
     c = "StorageUnit"
 
     period_starts = snapshots[0::24]
     period_ends = period_starts + pd.Timedelta(hours=23)
 
     eh = expand_series(
-        network.snapshot_weightings.objective[period_ends], network.storage_units.index
+        network.snapshot_weightings.objective[period_ends],
+        network.storage_units.index,
     )  # elapsed hours
 
     eff_stand = expand_series(1 - network.df(c).standing_loss, period_ends).T
-    eff_dispatch = expand_series(network.df(c).efficiency_dispatch, period_ends).T
+    eff_dispatch = expand_series(
+        network.df(c).efficiency_dispatch, period_ends
+    ).T
     eff_store = expand_series(network.df(c).efficiency_store, period_ends).T
 
     soc = get_var(network, c, "state_of_charge").loc[period_ends, :]
 
-    soc_peroid_start = get_var(network, c, "state_of_charge").loc[period_starts]
+    soc_peroid_start = get_var(network, c, "state_of_charge").loc[
+        period_starts
+    ]
 
     coeff_var = [
         (-1, soc),
-        (-1 / eff_dispatch * eh, get_var(network, c, "p_dispatch").loc[period_ends, :]),
+        (
+            -1 / eff_dispatch * eh,
+            get_var(network, c, "p_dispatch").loc[period_ends, :],
+        ),
         (eff_store * eh, get_var(network, c, "p_store").loc[period_ends, :]),
     ]
 
@@ -1480,15 +1555,18 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
             .values
         )
 
-    lhs += masked_term(eff_stand, soc_peroid_start, network.storage_units.index)
+    lhs += masked_term(
+        eff_stand, soc_peroid_start, network.storage_units.index
+    )
 
     rhs = -get_as_dense(network, c, "inflow", period_ends).mul(eh)
 
     define_constraints(network, lhs, "==", rhs, "daily_bounds")
 
 
-def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=False):
-
+def snapshot_clustering_seasonal_storage(
+    self, network, snapshots, simplified=False
+):
     sus = network.storage_units
     sto = network.stores
 
@@ -1508,13 +1586,15 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
     network.model.candidates = po.Set(initialize=candidates, ordered=True)
 
     if simplified == False:
-
         # create intra soc variable for each storage/store and each hour
-        network.model.state_of_charge_intra = po.Var(sus.index, network.snapshots)
-        network.model.state_of_charge_intra_store = po.Var(sto.index, network.snapshots)
+        network.model.state_of_charge_intra = po.Var(
+            sus.index, network.snapshots
+        )
+        network.model.state_of_charge_intra_store = po.Var(
+            sto.index, network.snapshots
+        )
 
     else:
-
         network.model.state_of_charge_intra_max = po.Var(
             sus.index, network.model.candidates
         )
@@ -1529,8 +1609,12 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         )
 
         # create intra soc variable for each storage and each hour
-        network.model.state_of_charge_intra = po.Var(sus.index, network.snapshots)
-        network.model.state_of_charge_intra_store = po.Var(sto.index, network.snapshots)
+        network.model.state_of_charge_intra = po.Var(
+            sus.index, network.snapshots
+        )
+        network.model.state_of_charge_intra_store = po.Var(
+            sto.index, network.snapshots
+        )
 
         def intra_max(model, st, h):
             cand = network.cluster_ts["Candidate_day"][h]
@@ -1597,7 +1681,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             and h in network.snapshot_weightings[0::720].index
         ):
             expr = m.state_of_charge_intra[s, h] == 0
-        elif self.args["snapshot_clustering"]["how"] == "daily" and h.hour == 0:
+        elif (
+            self.args["snapshot_clustering"]["how"] == "daily" and h.hour == 0
+        ):
             expr = m.state_of_charge_intra[s, h] == 0
         else:
             expr = m.state_of_charge_intra[s, h] == m.state_of_charge_intra[
@@ -1611,7 +1697,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         return expr
 
     def intra_soc_rule_store(m, s, h):
-
         if (
             self.args["snapshot_clustering"]["how"] == "weekly"
             and h in network.snapshot_weightings[0::168].index
@@ -1622,7 +1707,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             and h in network.snapshot_weightings[0::720].index
         ):
             expr = m.state_of_charge_intra_store[s, h] == 0
-        elif self.args["snapshot_clustering"]["how"] == "daily" and h.hour == 0:
+        elif (
+            self.args["snapshot_clustering"]["how"] == "daily" and h.hour == 0
+        ):
             expr = m.state_of_charge_intra_store[s, h] == 0
         else:
             expr = (
@@ -1672,9 +1759,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                 hrs = 720
             else:
                 hrs = 24
-            expr = m.state_of_charge_inter[s, i + 1] == m.state_of_charge_inter[
-                s, i
-            ] * (
+            expr = m.state_of_charge_inter[
+                s, i + 1
+            ] == m.state_of_charge_inter[s, i] * (
                 1 - network.storage_units.at[s, "standing_loss"]
             ) ** hrs + m.state_of_charge_intra[
                 s, last_hour
@@ -1689,7 +1776,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         return expr
 
     def inter_store_soc_rule(m, s, i):
-
         if i == network.model.candidates[-1]:
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
@@ -1743,15 +1829,18 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         return (
             m.state_of_charge[s, h]
             == m.state_of_charge_intra[s, h]
-            + m.state_of_charge_inter[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
         )
 
     def total_state_of_charge_store(m, s, h):
-
         return (
             m.store_e[s, h]
             == m.state_of_charge_intra_store[s, h]
-            + m.state_of_charge_inter_store[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter_store[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
         )
 
     network.model.total_storage_constraint = po.Constraint(
@@ -1785,7 +1874,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=167)
             period_start = network.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
@@ -1793,7 +1884,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=719)
             period_start = network.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
@@ -1811,18 +1904,21 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
 
         return (
             m.state_of_charge_intra[s, intra_hour]
-            + m.state_of_charge_inter[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
             >= 0
         )
 
     def state_of_charge_lower_store(m, s, h):
-
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=167)
             period_start = network.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
@@ -1830,7 +1926,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=719)
             period_start = network.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
@@ -1847,13 +1945,18 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             intra_hour = pd.to_datetime(date + " " + hour)
 
         if "DSM" in s:
-            low = network.stores.e_nom[s] * network.stores_t.e_min_pu.at[intra_hour, s]
+            low = (
+                network.stores.e_nom[s]
+                * network.stores_t.e_min_pu.at[intra_hour, s]
+            )
         else:
             low = 0
 
         return (
             m.state_of_charge_intra_store[s, intra_hour]
-            + m.state_of_charge_inter_store[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter_store[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
             >= low
         )
@@ -1875,14 +1978,17 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             hrs = 24  # 0
 
         return (
-            m.state_of_charge_intra_min[s, network.cluster_ts["Candidate_day"][h]]
-            + m.state_of_charge_inter[s, network.cluster_ts["Candidate_day"][h]]
+            m.state_of_charge_intra_min[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
+            + m.state_of_charge_inter[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
             >= 0
         )
 
     def state_of_charge_lower_store_simplified(m, s, h):
-
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
         elif self.args["snapshot_clustering"]["how"] == "monthly":
@@ -1918,20 +2024,29 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                 ).split(" ")[0]
                 hour = str(h).split(" ")[1]
                 intra_hour = pd.to_datetime(date + " " + hour)
-            low = network.stores.e_nom[s] * network.stores_t.e_min_pu.at[intra_hour, s]
+            low = (
+                network.stores.e_nom[s]
+                * network.stores_t.e_min_pu.at[intra_hour, s]
+            )
         else:
             low = 0
 
         return (
-            m.state_of_charge_intra_store_min[s, network.cluster_ts["Candidate_day"][h]]
-            + m.state_of_charge_inter_store[s, network.cluster_ts["Candidate_day"][h]]
+            m.state_of_charge_intra_store_min[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
+            + m.state_of_charge_inter_store[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
             >= low
         )
 
     if simplified:
         network.model.state_of_charge_lower = po.Constraint(
-            sus.index, network.cluster_ts.index, rule=state_of_charge_lower_simplified
+            sus.index,
+            network.cluster_ts.index,
+            rule=state_of_charge_lower_simplified,
         )
         network.model.state_of_charge_lower_store = po.Constraint(
             sto.index,
@@ -1944,7 +2059,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             sus.index, network.cluster_ts.index, rule=state_of_charge_lower
         )
         network.model.state_of_charge_lower_store = po.Constraint(
-            sto.index, network.cluster_ts.index, rule=state_of_charge_lower_store
+            sto.index,
+            network.cluster_ts.index,
+            rule=state_of_charge_lower_store,
         )
 
     network.model.del_component("state_of_charge_upper")
@@ -1958,12 +2075,13 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
     network.model.del_component("store_e_upper_index_1")
 
     def state_of_charge_upper(m, s, h):
-
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=167)
             period_start = network.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
@@ -1971,7 +2089,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=719)
             period_start = network.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
@@ -1994,18 +2114,21 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
 
         return (
             m.state_of_charge_intra[s, intra_hour]
-            + m.state_of_charge_inter[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
     def state_of_charge_upper_store(m, s, h):
-
         # Choose datetime of representive day
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=167)
             period_start = network.cluster_ts.index[0::168][candidate - 1]
             delta_t = h - period_start
@@ -2013,7 +2136,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
             candidate = network.cluster_ts["Candidate_day"][h]
-            last_hour = network.cluster.loc[candidate]["last_hour_RepresentativeDay"]
+            last_hour = network.cluster.loc[candidate][
+                "last_hour_RepresentativeDay"
+            ]
             first_hour = last_hour - pd.DateOffset(hours=719)
             period_start = network.cluster_ts.index[0::720][candidate - 1]
             delta_t = h - period_start
@@ -2042,13 +2167,14 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
 
         return (
             m.state_of_charge_intra_store[s, intra_hour]
-            + m.state_of_charge_inter_store[s, network.cluster_ts["Candidate_day"][h]]
+            + m.state_of_charge_inter_store[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
             <= e_nom
         )
 
     def state_of_charge_upper_simplified(m, s, h):
-
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
         elif self.args["snapshot_clustering"]["how"] == "monthly":
@@ -2062,14 +2188,17 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
             p_nom = network.storage_units.p_nom[s]
 
         return (
-            m.state_of_charge_intra_max[s, network.cluster_ts["Candidate_day"][h]]
-            + m.state_of_charge_inter[s, network.cluster_ts["Candidate_day"][h]]
+            m.state_of_charge_intra_max[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
+            + m.state_of_charge_inter[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
     def state_of_charge_upper_store_simplified(m, s, h):
-
         if self.args["snapshot_clustering"]["how"] == "weekly":
             hrs = 168
         elif self.args["snapshot_clustering"]["how"] == "monthly":
@@ -2087,7 +2216,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=167)
-                    period_start = network.cluster_ts.index[0::168][candidate - 1]
+                    period_start = network.cluster_ts.index[0::168][
+                        candidate - 1
+                    ]
                     delta_t = h - period_start
                     intra_hour = first_hour + delta_t
 
@@ -2097,7 +2228,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                         "last_hour_RepresentativeDay"
                     ]
                     first_hour = last_hour - pd.DateOffset(hours=719)
-                    period_start = network.cluster_ts.index[0::720][candidate - 1]
+                    period_start = network.cluster_ts.index[0::720][
+                        candidate - 1
+                    ]
                     delta_t = h - period_start
                     intra_hour = first_hour + delta_t
 
@@ -2105,7 +2238,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                     date = str(
                         network.snapshots[
                             network.snapshots.dayofyear - 1
-                            == network.cluster["RepresentativeDay"][h.dayofyear]
+                            == network.cluster["RepresentativeDay"][
+                                h.dayofyear
+                            ]
                         ][0]
                     ).split(" ")[0]
                     hour = str(h).split(" ")[1]
@@ -2119,16 +2254,21 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
                 e_nom = network.stores.e_nom[s]
 
         return (
-            m.state_of_charge_intra_store_max[s, network.cluster_ts["Candidate_day"][h]]
-            + m.state_of_charge_inter_store[s, network.cluster_ts["Candidate_day"][h]]
+            m.state_of_charge_intra_store_max[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
+            + m.state_of_charge_inter_store[
+                s, network.cluster_ts["Candidate_day"][h]
+            ]
             * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
             <= e_nom
         )
 
     if simplified:
-
         network.model.state_of_charge_upper = po.Constraint(
-            sus.index, network.cluster_ts.index, rule=state_of_charge_upper_simplified
+            sus.index,
+            network.cluster_ts.index,
+            rule=state_of_charge_upper_simplified,
         )
         network.model.state_of_charge_upper_store = po.Constraint(
             sto.index,
@@ -2137,12 +2277,13 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         )
 
     else:
-
         network.model.state_of_charge_upper = po.Constraint(
             sus.index, network.cluster_ts.index, rule=state_of_charge_upper
         )
         network.model.state_of_charge_upper_store = po.Constraint(
-            sto.index, network.cluster_ts.index, rule=state_of_charge_upper_store
+            sto.index,
+            network.cluster_ts.index,
+            rule=state_of_charge_upper_store,
         )
 
     def cyclic_state_of_charge(m, s):
@@ -2151,7 +2292,9 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         There are small differences to original results.
         """
         last_day = network.cluster.index[-1]
-        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][last_day]
+        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+            last_day
+        ]
         last_inter = m.state_of_charge_inter[s, last_day]
         last_intra = m.state_of_charge_intra[s, last_calc_hour]
         first_day = network.cluster.index[0]
@@ -2181,9 +2324,10 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         )
 
     def cyclic_state_of_charge_store(m, s):
-
         last_day = network.cluster.index[-1]
-        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][last_day]
+        last_calc_hour = network.cluster["last_hour_RepresentativeDay"][
+            last_day
+        ]
         last_inter = m.state_of_charge_inter_store[s, last_day]
         last_intra = m.state_of_charge_intra_store[s, last_calc_hour]
         first_day = network.cluster.index[0]
@@ -2202,7 +2346,8 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
         first_intra = m.state_of_charge_intra_store[s, first_calc_hour]
 
         expr = first_intra + first_inter == (
-            (last_intra + last_inter) * (1 - network.stores.at[s, "standing_loss"])
+            (last_intra + last_inter)
+            * (1 - network.stores.at[s, "standing_loss"])
             + m.store_p[s, last_calc_hour]
         )
 
@@ -2217,7 +2362,6 @@ def snapshot_clustering_seasonal_storage(self, network, snapshots, simplified=Fa
 
 
 def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
-
     # TODO: updaten mit stores (Sektorkopplung)
 
     network.model.del_component("state_of_charge_all")
@@ -2238,7 +2382,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     network.model.storages = network.storage_units.index
 
     def set_soc_all(m, s, h):
-
         if h == self.args["start_snapshot"]:
             prev = (
                 network.cluster.index.get_level_values(0)[-1]
@@ -2249,11 +2392,13 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
         else:
             prev = h - 1
 
-        cluster_hour = network.cluster["Hour"][h + 1 - self.args["start_snapshot"]]
+        cluster_hour = network.cluster["Hour"][
+            h + 1 - self.args["start_snapshot"]
+        ]
 
-        expr = m.state_of_charge_all[s, h] == m.state_of_charge_all[s, prev] * (
-            1 - network.storage_units.at[s, "standing_loss"]
-        ) - (
+        expr = m.state_of_charge_all[s, h] == m.state_of_charge_all[
+            s, prev
+        ] * (1 - network.storage_units.at[s, "standing_loss"]) - (
             m.storage_p_dispatch[s, cluster_hour]
             / network.storage_units.at[s, "efficiency_dispatch"]
             - network.storage_units.at[s, "efficiency_store"]
@@ -2268,7 +2413,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     )
 
     def soc_equals_soc_all(m, s, h):
-
         hour = (h.dayofyear - 1) * 24 + h.hour
 
         return m.state_of_charge_all[s, hour] == m.state_of_charge[s, h]
@@ -2283,7 +2427,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
     network.model.del_component("state_of_charge_upper_index_1")
 
     def state_of_charge_upper(m, s, h):
-
         if network.storage_units.p_nom_extendable[s]:
             p_nom = m.storage_p_nom[s]
         else:
@@ -2302,7 +2445,6 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
 
 
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
-
     # TODO: so noch nicht korrekt...
     # TODO: updaten mit stores (Sektorkopplung)
     # TODO: simplified ergänzen
@@ -2367,7 +2509,12 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
     coeff_var = [
         (-1, soc_total),
         (1, soc_intra),
-        (1, soc_inter.loc[n.cluster_ts.loc[sns, "Candidate_day"]].set_index(sns)),
+        (
+            1,
+            soc_inter.loc[n.cluster_ts.loc[sns, "Candidate_day"]].set_index(
+                sns
+            ),
+        ),
     ]
     lhs, *axes = linexpr(*coeff_var, return_axes=True)
 
@@ -2375,15 +2522,74 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
+    print("TODO")
 
+    # TODO: implementieren
+
+
+def split_dispatch_disaggregation_constraints(self, n, sns):
+    """
+    Add constraints for state of charge of storage units and stores
+    when separating the optimization into smaller subproblems
+    while conducting thedispatch_disaggregation in temporally fully resolved network
+
+    The state of charge at the end of each slice is set to the value
+    calculated in the optimization with the temporally reduced network
+    to account to ensure compatibility and to reproduce saisonality
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+    """
+    tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
+
+    sus = n.storage_units.index
+    # for stores, exclude emob and dsm because of their special constraints
+    sto = n.stores[
+        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+    ].index
+
+    def disaggregation_sus_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.state_of_charge[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sus_soc = po.Constraint(
+        sus, sns[-1:], rule=disaggregation_sus_soc
+    )
+
+    def disaggregation_sto_soc(m, s, h):
+        """
+        Sets soc at the end of the time slice in disptach_disaggregation
+        to value calculated in temporally reduced lopf without slices.
+        """
+        return m.store_e[s, h] == m.soc_values[s].values[0]
+
+    n.model.split_dispatch_sto_soc = po.Constraint(
+        sto, sns[-1:], rule=disaggregation_sto_soc
+    )
+
+
+def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
     print("TODO")
 
     # TODO: implementieren
 
 
 class Constraints:
-    def __init__(self, args):
+    def __init__(self, args, conduct_dispatch_disaggregation):
         self.args = args
+        self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -2398,6 +2604,7 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
+
         if self.args["method"]["pyomo"]:
             add_chp_constraints(network, snapshots)
             add_ch4_constraints(self, network, snapshots)
@@ -2410,7 +2617,9 @@ class Constraints:
                 type(network.model)
                 try:
                     eval("_" + constraint + "(self, network, snapshots)")
-                    logger.info("Added extra_functionality {}".format(constraint))
+                    logger.info(
+                        "Added extra_functionality {}".format(constraint)
+                    )
                 except:
                     logger.warning(
                         "Constraint {} not defined".format(constraint)
@@ -2421,33 +2630,35 @@ class Constraints:
                 try:
                     eval("_" + constraint + "_nmp(self, network, snapshots)")
                     logger.info(
-                        "Added extra_functionality {} without pyomo".format(constraint)
+                        "Added extra_functionality {} without pyomo".format(
+                            constraint
+                        )
                     )
                 except:
-                    logger.warning("Constraint {} not defined".format(constraint))
+                    logger.warning(
+                        "Constraint {} not defined".format(constraint)
+                    )
 
         if (
             self.args["snapshot_clustering"]["active"]
             and self.args["snapshot_clustering"]["method"] == "typical_periods"
         ):
-
             if (
                 self.args["snapshot_clustering"]["storage_constraints"]
                 == "daily_bounds"
             ):
-
                 if self.args["method"]["pyomo"]:
                     snapshot_clustering_daily_bounds(self, network, snapshots)
                 else:
-                    snapshot_clustering_daily_bounds_nmp(self, network, snapshots)
+                    snapshot_clustering_daily_bounds_nmp(
+                        self, network, snapshots
+                    )
 
             elif (
                 self.args["snapshot_clustering"]["storage_constraints"]
                 == "soc_constraints"
             ):
-
                 if self.args["snapshot_clustering"]["how"] == "hourly":
-
                     if self.args["method"]["pyomo"]:
                         snapshot_clustering_seasonal_storage_hourly(
                             self, network, snapshots
@@ -2457,9 +2668,10 @@ class Constraints:
                             self, network, snapshots
                         )
                 else:
-
                     if self.args["method"]["pyomo"]:
-                        snapshot_clustering_seasonal_storage(self, network, snapshots)
+                        snapshot_clustering_seasonal_storage(
+                            self, network, snapshots
+                        )
                     else:
                         snapshot_clustering_seasonal_storage_nmp(
                             self, network, snapshots
@@ -2469,9 +2681,7 @@ class Constraints:
                 self.args["snapshot_clustering"]["storage_constraints"]
                 == "soc_constraints_simplified"
             ):
-
                 if self.args["snapshot_clustering"]["how"] == "hourly":
-
                     logger.info(
                         "soc_constraints_simplified not possible while hourly clustering -> changed to soc_constraints"
                     )
@@ -2498,6 +2708,16 @@ class Constraints:
                 logger.error(
                     "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
                     + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
+                )
+
+        if self.conduct_dispatch_disaggregation is not False:
+            if self.args["method"]["pyomo"]:
+                split_dispatch_disaggregation_constraints(
+                    self, network, snapshots
+                )
+            else:
+                split_dispatch_disaggregation_constraints_nmp(
+                    self, network, snapshots
                 )
 
 
@@ -2537,7 +2757,6 @@ def add_chp_constraints_nmp(n):
     ].index.unique()
 
     for i in ch4_nodes_with_chp:
-
         elec_chp = n.links[
             (n.links.carrier == "central_gas_CHP") & (n.links.bus0 == i)
         ].index
@@ -2550,16 +2769,20 @@ def add_chp_constraints_nmp(n):
         # backpressure
 
         lhs_1 = sum(
-            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp] for h_chp in heat_chp
+            c_m * n.links.at[h_chp, "efficiency"] * link_p[h_chp]
+            for h_chp in heat_chp
         )
 
         lhs_2 = sum(
-            n.links.at[e_chp, "efficiency"] * link_p[e_chp] for e_chp in elec_chp
+            n.links.at[e_chp, "efficiency"] * link_p[e_chp]
+            for e_chp in elec_chp
         )
 
         lhs = linexpr((1, lhs_1), (1, lhs_2))
 
-        define_constraints(n, lhs, "<=", 0, "chplink_" + str(i), "backpressure")
+        define_constraints(
+            n, lhs, "<=", 0, "chplink_" + str(i), "backpressure"
+        )
 
         # top_iso_fuel_line
         lhs, *ax = linexpr(
@@ -2618,9 +2841,9 @@ def add_chp_constraints(network, snapshots):
     ].index.unique()
 
     for i in ch4_nodes_with_chp:
-
         elec_chp = network.links[
-            (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+            (network.links.carrier == "central_gas_CHP")
+            & (network.links.bus0 == i)
         ].index
 
         heat_chp = network.links[
@@ -2638,7 +2861,8 @@ def add_chp_constraints(network, snapshots):
             )
 
             rhs = sum(
-                network.links.at[e_chp, "efficiency"] * model.link_p[e_chp, snapshot]
+                network.links.at[e_chp, "efficiency"]
+                * model.link_p[e_chp, snapshot]
                 for e_chp in elec_chp
             )
 
@@ -2652,13 +2876,13 @@ def add_chp_constraints(network, snapshots):
 
         # Guarantees p_g1 +c_v p_b1 \leq p_g1_nom
         def top_iso_fuel_line(model, snapshot):
-
-            lhs = sum(model.link_p[h_chp, snapshot] for h_chp in heat_chp) + sum(
-                model.link_p[e_chp, snapshot] for e_chp in elec_chp
-            )
+            lhs = sum(
+                model.link_p[h_chp, snapshot] for h_chp in heat_chp
+            ) + sum(model.link_p[e_chp, snapshot] for e_chp in elec_chp)
 
             rhs = network.links[
-                (network.links.carrier == "central_gas_CHP") & (network.links.bus0 == i)
+                (network.links.carrier == "central_gas_CHP")
+                & (network.links.bus0 == i)
             ].p_nom.sum()
 
             return lhs <= rhs
