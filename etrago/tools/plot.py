@@ -2467,7 +2467,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         plot_background_grid(network, ax)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
-        label = "network expansion in MW"
+        label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
@@ -2477,6 +2477,8 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             link_widths = 0.5 + (link_colors / ext_width)
         else:
             link_widths = 2.0
+        link_colors = link_colors.mul(1e-3)
+        line_colors = line_colors.mul(1e-3)
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
@@ -2499,9 +2501,14 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         title = "Dynamic line rating"
         label = "MWh above nominal capacity"
         plot_background_grid(network, ax)
-        line_loading = network.lines_t.p0.mul(1/network.lines.s_nom_opt)
-        dlr_usage = line_loading[line_loading.abs() > 1].fillna(0).mul(
-            network.snapshot_weightings.generators, axis = 0).abs().sum()
+        line_loading = network.lines_t.p0.mul(1 / (network.lines.s_nom_opt*network.lines.s_max_pu))
+        dlr_usage = (
+            line_loading[line_loading.abs() > 1]
+            .fillna(0)
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .abs()
+            .sum()
+        )
         line_colors = dlr_usage
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
@@ -2613,13 +2620,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
         
-    if not isinstance(link_colors, (pd.Series, float)):
-        link_colors=link_colors.mul(1e-3)
-        line_colors=line_colors.mul(1e-3)
     if cartopy_present:
-        #breakpoint()
-        
-        
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
@@ -2652,24 +2653,44 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             boundaries=[-2.5, 16, 46.8, 58],
         )
     
-
     # legends for bus sizes and colors
-    if not isinstance(bus_sizes, (pd.Series, float)):
+    if type(bus_sizes) != float:
         handles = []
         labels = []
-        for i in legend_entries:
-            try: 
-                max_value = bus_sizes[bus_sizes.index.get_level_values('carrier').str.contains(i)].max()
-            except: 
-                max_value = bus_sizes.max()
-            handles.append(make_legend_circles_for(
-                 [max_value], scale=1, facecolor=network.carriers.color[i],
-            )[0])
-            
-            if  scaling_store_expansion:
-                labels.append(f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 2)} GWh " + i)
-            else:
-                labels.append(f"{round(max_value / bus_scaling /1000, 2)} GWh " + i)
+
+        if scaling_store_expansion:
+            for i in legend_entries:
+                try:
+                    max_value = bus_sizes[
+                        bus_sizes.index.get_level_values("carrier").str.contains(i)
+                    ].max()
+                except:
+                    max_value = bus_sizes.max()
+                handles.append(
+                    make_legend_circles_for(
+                        [max_value],
+                        scale=1,
+                        facecolor=network.carriers.color[i],
+                    )[0]
+                )
+    
+               
+                labels.append(
+                    f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 0).astype(int)} GWh "
+                    + i
+                )
+        else:
+            max_value = bus_sizes.max()
+            labels.append(
+                f"{round(max_value / bus_scaling /1000, 0)} GWh " 
+            )
+            handles.append(
+                make_legend_circles_for(
+                    [max_value],
+                    scale=1,
+                    facecolor="grey",
+                )[0]
+            )
 
         l2 = ax.legend(
             handles,
