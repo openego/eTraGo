@@ -2550,6 +2550,10 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     None.
     """
     tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    if len(tsa_hour) > 1:
+        tsa_hour = tsa_hour[-1]
+    else:
+        tsa_hour = tsa_hour[0]
     n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
 
     sus = n.storage_units.index
@@ -2563,7 +2567,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
         Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
-        return m.state_of_charge[s, h] == m.soc_values[s].values[0]
+        return m.state_of_charge[s, h] == m.soc_values[s]
 
     n.model.split_dispatch_sus_soc = po.Constraint(
         sus, sns[-1:], rule=disaggregation_sus_soc
@@ -2574,7 +2578,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
         Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
-        return m.store_e[s, h] == m.soc_values[s].values[0]
+        return m.store_e[s, h] == m.soc_values[s]
 
     n.model.split_dispatch_sto_soc = po.Constraint(
         sto, sns[-1:], rule=disaggregation_sto_soc
