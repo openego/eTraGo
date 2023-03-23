@@ -108,6 +108,10 @@ class Disaggregation:
             # TODO: These are all time series, not just the ones from lines
             #       residing entirely inside the cluster.
             #       Is this a problem?
+            #       I hope not, because neither is `rows.index` a subset
+            #       of the columns of one of the values of `timeseries`,
+            #       nor the other way around, so it's not clear how to
+            #       align both.
             setattr(partial_network, line_type + "_t", timeseries)
 
             # Copy all lines whose `bus0` lies within the cluster
