@@ -94,6 +94,9 @@ class Disaggregation:
         line_types = ["lines", "links", "transformers"]
         for line_type in line_types:
             rows: pd.DataFrame = getattr(self.original_network, line_type)
+            timeseries: dict[str, pd.DataFrame] = getattr(
+                self.original_network, line_type + "_t"
+            )
             # Copy all lines that reside entirely inside the cluster ...
             setattr(
                 partial_network,
@@ -105,11 +108,7 @@ class Disaggregation:
             # TODO: These are all time series, not just the ones from lines
             #       residing entirely in side the cluster.
             #       Is this a problem?
-            setattr(
-                partial_network,
-                line_type + "_t",
-                getattr(self.original_network, line_type + "_t"),
-            )
+            setattr(partial_network, line_type + "_t", timeseries)
 
             # Copy all lines whose `bus0` lies within the cluster
             left_external_connectors = filter_left_external_connector(
