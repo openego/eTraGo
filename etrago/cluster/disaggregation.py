@@ -93,14 +93,12 @@ class Disaggregation:
 
         line_types = ["lines", "links", "transformers"]
         for line_type in line_types:
+            rows: pd.DataFrame = getattr(self.original_network, line_type)
             # Copy all lines that reside entirely inside the cluster ...
             setattr(
                 partial_network,
                 line_type,
-                filter_internal_connector(
-                    getattr(self.original_network, line_type),
-                    is_bus_in_cluster,
-                ),
+                filter_internal_connector(rows, is_bus_in_cluster),
             )
 
             # ... and their time series
@@ -115,7 +113,7 @@ class Disaggregation:
 
             # Copy all lines whose `bus0` lies within the cluster
             left_external_connectors = filter_left_external_connector(
-                getattr(self.original_network, line_type), is_bus_in_cluster
+                rows, is_bus_in_cluster
             )
 
             def from_busmap(x):
@@ -134,7 +132,7 @@ class Disaggregation:
 
             # Copy all lines whose `bus1` lies within the cluster
             right_external_connectors = filter_right_external_connector(
-                getattr(self.original_network, line_type), is_bus_in_cluster
+                rows, is_bus_in_cluster
             )
             if not right_external_connectors.empty:
                 ca_option = pd.get_option("mode.chained_assignment")
