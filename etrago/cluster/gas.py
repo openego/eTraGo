@@ -216,7 +216,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-
+            
         else:
             busmap.name = "cluster"
             busmap_ind = pd.Series(
@@ -233,7 +233,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-
+            
     busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
@@ -708,8 +708,11 @@ def get_clustering_from_busmap(
     one_port_strategies=dict(),
 ):
     network_gasgrid_c = Network()
-
     # Aggregate buses
+    
+    #eigene Zeile
+    busmap = busmap.loc[~busmap.index.duplicated()]
+    
     new_buses = aggregatebuses(
         network,
         busmap,
@@ -830,8 +833,11 @@ def run_spatial_clustering_gas(self):
                 "spatial clustering method for the gas network"
             )
             raise ValueError(msg)
+       
+        #eigene Zeile
+        busmap = busmap.loc[~busmap.index.duplicated()]
+        
         self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
-
         self.update_busmap(busmap)
         self.load_shedding()
 

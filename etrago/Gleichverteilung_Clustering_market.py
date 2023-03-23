@@ -110,7 +110,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
@@ -125,7 +125,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
+        "CPU_cores": 4  ,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -497,7 +497,11 @@ def run_etrago(args, json_path):
     
     # spatial clustering, erste Aggregation auf 300 In- und 14 Auslandsknoten / Ausgangsgröße für Netzberechnung
     etrago.spatial_clustering()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')   
+    
+    # from etrago import Etrago
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')
+    
     etrago.spatial_clustering_gas()
     
     #Export des Netzwerkes, bitte eigenen Speicherpfad angeben
@@ -505,64 +509,38 @@ def run_etrago(args, json_path):
     
     # Zweite Aggregation auf 14 Auslandsknoten und 1 Inlandsknoten
     etrago.args["network_clustering"]["n_clusters_AC"] = 15
-    etrago.args["network_clustering"]["n_clusters_gas"] = 14
+    
    
     etrago.spatial_clustering() 
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec_strom')
     
     # Eventueller reimport des Networks
-    # from etrago import Etrago
-    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')
+   
+    ch4_h2 = pd.read_csv('/home/student/eTraGo/git/eTraGo/etrago/kmeans_gasgrid_80_result.csv')
+    #ch4 = pd.read_csv('/home/student/eTraGo/git/eTraGo/etrago/kmeans_ch4_busmap_14_result.csv')
+    # ch4_h2.set_index('bus1', inplace=True)
+    # ch4_h2.index = ch4_h2.index.astype(str)
+    # ch4 = ch4_h2.loc[etrago.network.buses.carrier == 'CH4']
+    # h2 = ch4_h2.loc[etrago.network.buses.carrier.str.contains('H2')]
+    #ch4 = ch4.index.unique()
+    #h2 = h2.index.unique()
+    liste = etrago.network.buses.loc[(etrago.network.buses.carrier == 'H2_grid')  | (etrago.network.buses.carrier == 'CH4')]
+    liste = liste.loc[liste.duplicated(subset=['x','y'],keep=False)]
+    etrago.ch4_h2_mapping= pd.DataFrame(None)
+    etrago.ch4_h2_mapping.index= liste.loc[liste.carrier == 'CH4'].index
+    etrago.ch4_h2_mapping['0'] = liste.loc[liste.carrier == 'H2_grid'].index
+    etrago.ch4_h2_mapping.index.names =['CH4_bus']
+    etrago.ch4_h2_mapping['0'] = etrago.ch4_h2_mapping['0'].astype(int)
+    etrago.ch4_h2_mapping = etrago.ch4_h2_mapping.squeeze()
+    #conn = psycopg2.connect("dbname=test user=postgres")
     
-    ## to qgis
-    # import pandas as pd
-    # import geopandas as gpd
-    # import numpy as np
-    # from shapely.geometry import Point, LineString
-
-    # def to_gis(network, path="/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom"):
-    #     buses = network.buses
-    #     buses['x'] = buses['x'].apply(float)
-    #     buses['y'] = buses['y'].apply(float)
-    #     buses['geom'] = buses.apply(lambda x: Point(x.x, x.y), axis= 1)
-    #     buses = gpd.GeoDataFrame(buses, geometry= "geom", crs= 4326)
-        
-    #     #links = gpd.GeoDataFrame(links, geometry= "geom", crs= 4326)
-        
-    #     ##############
-    #     #breakpoint()
-    #     # gen_t = network.generators_t
-    #     # time_problem = gen_t.p.loc[gen_t.p["44158"] > 0.1, :]
-        
-    #     # lines_t = network.lines_t.p0
-    #     # lines = network.lines
-        
-    #     # lines_problem = lines[(lines.bus0 == "86")|(lines.bus1 == "86")]
-
-    #     # lines_problem_t = lines_t.loc[time_problem.index, :]
-    #     # network.lines["load"] = lines_problem_t.iloc[0,:]
-    #     # network.lines["load"] = network.lines["load"]/network.lines["s_nom_opt"]
-    #     # network.lines["load"] = network.lines["load"].abs()
-    #     #############
-            
-    #     lines = network.lines
-    #     lines['geom'] = lines.apply(lambda x: LineString([buses.at[x.bus0, 'geom'],
-    #                                                       buses.at[x.bus1, 'geom']]),
-    #                                 axis= 1)
-    #     lines = gpd.GeoDataFrame(lines, geometry= "geom", crs= 4326)
-        
-    #     links = network.links
-    #     links = gpd.GeoDataFrame(links, geometry= "geom", crs= 4326)
-    #     links['geom'] = links.apply(lambda x: LineString([buses.at[x.bus0, 'geom'],
-    #                                                       buses.at[x.bus1, 'geom']]),
-    #                                 axis= 1)
-        
-    #     buses.to_file(path + "/gis/buses_gis.geojson", driver='GeoJSON')
-    #     lines.to_file(path + "/gis/lines_gis.geojson", driver='GeoJSON')
-    #     links.to_file(path + "/gis/links_gis.geojson", driver='GeoJSON')
-
-    # to_gis(etrago.network, path="/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom")
+    # from egoio.tools import db
     
+    # conn = db.connection(section=etrago.args["db"])
+    
+    # with conn.connect().execution_options(autocommit=True) as con:
+    #     con.execute("DELETE FROM grid.egon_etrago_ch4_h2")
+    etrago.args["network_clustering"]["n_clusters_gas"] = 14  
     etrago.spatial_clustering_gas()
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec')
     # Speicherwirkungsgrad und Verluste optimal, nur für Testzwecke
@@ -605,8 +583,7 @@ def run_etrago(args, json_path):
     # Network vor Optimerung exportieren mit allen Snapshots
     etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_allsec')
     
-    # from etrago import Etrago
-    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_allsec')
+    
     
     # Load Shedding einstellen, für schwer lösbare Konstellation nötig
     etrago.args["load_shedding"] = False

@@ -94,7 +94,7 @@ args = {
         "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -111,7 +111,7 @@ args = {
         "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
-        "active": False,  # choose if clustering is activated
+        "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
@@ -425,27 +425,26 @@ def run_etrago(args, json_path):
     """
     etrago = Etrago(args, json_path)
 
-    # import network from database
-    # etrago.build_network_from_db()
-    # etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',
-    #   'central_heat_store', 'Li ion', 'H2_ind_load', 'rural_heat', 'rural_heat_store'])
-    # etrago.network.storage_units.lifetime = np.inf
-    # etrago.network.transformers.lifetime = 40  # only temporal fix
-    # etrago.network.lines.lifetime = 40  # only temporal fix until either the
-    # # PyPSA network clustering function
-    # # is changed (taking the mean) or our
-    # # data model is altered, which will
-    # # happen in the next data creation run
+    #import network from database
+    etrago.build_network_from_db()
+    etrago.drop_sectors(['Li ion'])
+    etrago.network.storage_units.lifetime = np.inf
+    etrago.network.transformers.lifetime = 40  # only temporal fix
+    etrago.network.lines.lifetime = 40  # only temporal fix until either the
+    # PyPSA network clustering function
+    # is changed (taking the mean) or our
+    # data model is altered, which will
+    # happen in the next data creation run
     
     
     # import der Netze, Markt und Netz
     #from etrago import Etrago
-    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_1')
-    market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_1')
+    #etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec')
+    #market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_allsec')
     
     # Fehlerhafte Generatoren droppen
-    etrago.network.generators=etrago.network.generators.drop(['271 wind_offshore','55 wind_offshore'])
-    etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['271 wind_offshore','55 wind_offshore'], axis=1)
+    # etrago.network.generators=etrago.network.generators.drop(['224 wind_offshore','55 wind_offshore'])
+    # etrago.network.generators_t.p_max_pu= etrago.network.generators_t.p_max_pu.drop(['224 wind_offshore','55 wind_offshore'], axis=1)
         
     etrago.network.lines_t.s_max_pu = (
         etrago.network.lines_t.s_max_pu.transpose()
@@ -461,147 +460,146 @@ def run_etrago(args, json_path):
         etrago.network.links.carrier.str.contains('CHP')].index, 'efficiency'] = 0.43
           
     #Speicher gleicher Stand wie am Beginn
-    etrago.network.storage_units.cyclic_state_of_charge= True
+    etrago.network.storage_units.cyclic_state_of_charge= False
     
-    # etrago.adjust_network() 
+    etrago.adjust_network() 
     
-    # # spatial clustering
-    # etrago.spatial_clustering()
-    etrago.args["load_shedding"] = False
-    etrago.load_shedding()   
     
-    #etrago.spatial_clustering_gas()
+    # spatial clustering
+    etrago.spatial_clustering()
+    
+    
+    etrago.spatial_clustering_gas()
 
     # Dessaggregation der Erzueugung auf Ursprungsknoten
     
     # Erzeugung je Kraftwerkstyp
-    p_t_per_tech_m = market.network.generators_t.p.groupby(market.network.generators.carrier, axis=1).sum()
+    # p_t_per_tech_m = market.network.generators_t.p.groupby(market.network.generators.carrier, axis=1).sum()
   
-    # Struktur für Zeitreihenbasierte Erzeugung bspw. Windkraftanlagen | p_nom*p_max_pu
-    p_nom_p_max_pu = pd.DataFrame(columns=etrago.network.generators_t.p.index, index= etrago.network.generators.index)
-    for column in p_nom_p_max_pu:
-        p_nom_p_max_pu[column] = etrago.network.generators.p_nom   
-    p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
+    # # Struktur für Zeitreihenbasierte Erzeugung bspw. Windkraftanlagen | p_nom*p_max_pu
+    # p_nom_p_max_pu = pd.DataFrame(columns=etrago.network.generators_t.p.index, index= etrago.network.generators.index)
+    # for column in p_nom_p_max_pu:
+    #     p_nom_p_max_pu[column] = etrago.network.generators.p_nom   
+    # p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]= p_nom_p_max_pu.loc[etrago.network.generators_t.p_max_pu.columns]*etrago.network.generators_t.p_max_pu.T
 
-    # P_nom mit berücksichtigtem p_max_pu je Kraftwerksart    
-    p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
+    # # P_nom mit berücksichtigtem p_max_pu je Kraftwerksart    
+    # p_sum_per_tech_n = p_nom_p_max_pu.groupby(etrago.network.generators.carrier).sum()
    
-    # Liste aller Kraftwerksarten  
-    market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
+    # # Liste aller Kraftwerksarten  
+    # market_gen_carrier_list= market.network.generators.carrier.unique().tolist()
     
-    # blöde Testnamen, Initialisierung von Dataframe/Series Objekten
-    tst= pd.DataFrame()
-    tst2= pd.Series()
-    a=pd.DataFrame()
+    # # blöde Testnamen, Initialisierung von Dataframe/Series Objekten
+    # tst= pd.DataFrame()
+    # tst2= pd.Series()
+    # a=pd.DataFrame()
     
-    # Zeitreihen Dessaggregation
-    for i in market_gen_carrier_list:
-        #import pdb; pdb.set_trace()
-        p = pd.DataFrame()
-        tst[i] = p_t_per_tech_m.T.loc[i]/p_sum_per_tech_n.loc[i]
-        tst3 = etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i]
-        if tst3.empty:  
-            tst1= pd.DataFrame(columns=etrago.network.generators_t.p.index)
-            for column in tst1:
-                tst1[column] = etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom
-        else:
-            tst1 = ((etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)*etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i].T).T
-            #tst1 = tst1.fillna(1)
-        tst2= tst2.append(etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)
-        p=(tst1*tst[i])
-        if not a.empty: 
-            a= pd.concat([a,p])
-        else:
-            a=p
+    # # Zeitreihen Dessaggregation
+    # for i in market_gen_carrier_list:
+    #     #import pdb; pdb.set_trace()
+    #     p = pd.DataFrame()
+    #     tst[i] = p_t_per_tech_m.T.loc[i]/p_sum_per_tech_n.loc[i]
+    #     tst3 = etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i]
+    #     if tst3.empty:  
+    #         tst1= pd.DataFrame(columns=etrago.network.generators_t.p.index)
+    #         for column in tst1:
+    #             tst1[column] = etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom
+    #     else:
+    #         tst1 = ((etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)*etrago.network.generators_t.p_max_pu.T.loc[etrago.network.generators.carrier == i].T).T
+    #         #tst1 = tst1.fillna(1)
+    #     tst2= tst2.append(etrago.network.generators.loc[etrago.network.generators.carrier == i].p_nom)
+    #     p=(tst1*tst[i])
+    #     if not a.empty: 
+    #         a= pd.concat([a,p])
+    #     else:
+    #         a=p
         
-        #t = t.append(tst1.loc[tst1.index.str.contains(i)].values*tst[i].values, columns=tst.columns, index=tst.index)
-    a=a.T
-    etrago.network.generators=etrago.network.generators.reindex(tst2.index)
-    a.columns = etrago.network.generators.index
-    a = a.fillna(0)
-    etrago.network.generators_t.p=a
+    #     #t = t.append(tst1.loc[tst1.index.str.contains(i)].values*tst[i].values, columns=tst.columns, index=tst.index)
+    # a=a.T
+    # etrago.network.generators=etrago.network.generators.reindex(tst2.index)
+    # a.columns = etrago.network.generators.index
+    # a = a.fillna(0)
+    # etrago.network.generators_t.p=a
     
    
     # Knoten zu GeoDataFrame macehn
-    geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
-    #geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
+    # geo_bus= geopandas.GeoDataFrame(etrago.network.buses, geometry= geopandas.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+    # #geo_bus= geo_bus.loc[geo_bus['carrier'] == 'AC']
     
-    # geodf europ. Länder ohne Russland | Koordinatensystem ändern | einstampfen auf benötigte Spalten | hier wären auch andere Grenzen möglich, daür die Datei ändern
-    europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
-    #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
-    #rus = rus.to_crs(4326)
-    europe = europe.to_crs(4326)
-    europe = europe[['NUTS_NAME','FID','geometry']]
+    # # geodf europ. Länder ohne Russland | Koordinatensystem ändern | einstampfen auf benötigte Spalten | hier wären auch andere Grenzen möglich, daür die Datei ändern
+    # europe = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/NUTS_RG_01M_2016_3035_LEVL_0.shp')
+    # #rus = geopandas.read_file('/home/student/Documents/Masterthesis/EU Grenzen/Nut/Russland/RUS_adm0.shp')
+    # #rus = rus.to_crs(4326)
+    # europe = europe.to_crs(4326)
+    # europe = europe[['NUTS_NAME','FID','geometry']]
     
-    # Knoten und Länder zusammenführen | Marktzonen zuweisen und reassignen 
-    buses_with_country = geo_bus.sjoin(europe, how="left", predicate='intersects')   
-    buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
-    buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
-    buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
+    # # Knoten und Länder zusammenführen | Marktzonen zuweisen und reassignen 
+    # buses_with_country = geo_bus.sjoin(europe, how="left", predicate='intersects')   
+    # buses_with_country.loc[buses_with_country['FID'].isnull(), ['FID']] = buses_with_country['country']
+    # buses_with_country.loc[(buses_with_country['FID'] == 'DE') | (buses_with_country['FID'] == 'LU'), ['zone']] = 'DE/LU'
+    # buses_with_country.loc[buses_with_country['zone'].isnull(), ['zone']] = buses_with_country['FID']
     
-    # Länderknoten zuweisen und Generatoren Zonen zuweisen    
-    etrago.network.buses= buses_with_country
-    etrago.network.buses.index.names =['bus']
-    breakpoint()
-    etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
+    # # Länderknoten zuweisen und Generatoren Zonen zuweisen    
+    # etrago.network.buses= buses_with_country
+    # etrago.network.buses.index.names =['bus']
+    # etrago.network.generators=etrago.network.generators.reset_index().merge(etrago.network.buses[['FID','zone']], how='left', on='bus').set_index(etrago.network.generators.index)
     
-    # Bus mit Zone filtern und zu Series machen
-    zones = buses_with_country[['zone']]
-    zones = zones.squeeze()
+    # # Bus mit Zone filtern und zu Series machen
+    # zones = buses_with_country[['zone']]
+    # zones = zones.squeeze()
     
-    # Liste der Zonen erstellen
-    lst_zone = buses_with_country['zone'].unique()
-    lst_zone = lst_zone.tolist()
+    # # Liste der Zonen erstellen
+    # lst_zone = buses_with_country['zone'].unique()
+    # lst_zone = lst_zone.tolist()
     
-    # Regelleistungs Genereratoren erstellen
+    # # Regelleistungs Genereratoren erstellen
     
-    g_up = etrago.network.generators.copy()
-    g_down = etrago.network.generators.copy()
-    g_down = g_down.loc[(g_down['FID'] =='DE').T]
-    g_up = g_up.loc[(g_up['FID'] =='DE').T]
-    g_up.index = g_up.index.map(lambda x: x + " ramp up")
-    g_down.index = g_down.index.map(lambda x: x + " ramp down")
+    # g_up = etrago.network.generators.copy()
+    # g_down = etrago.network.generators.copy()
+    # g_down = g_down.loc[(g_down['FID'] =='DE').T]
+    # g_up = g_up.loc[(g_up['FID'] =='DE').T]
+    # g_up.index = g_up.index.map(lambda x: x + " ramp up")
+    # g_down.index = g_down.index.map(lambda x: x + " ramp down")
    
-    # up = (
-    #     as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.p_nom
+    # # up = (
+    # #     as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.p_nom
     
-    # up=up.dropna(axis='columns')
+    # # up=up.dropna(axis='columns')
+    # # up.index=up.index.astype('datetime64[ns]')
+   
+    # # down =  -etrago.network.generators_t.p / etrago.network.generators.p_nom
+    # # down= down.dropna(axis='columns')
+    # # down.index=up.index.astype('datetime64[ns]')
+    
+    # # p_max_pu berechnen für up and down Kapazitäten der Generatoren, auf DEU beschränkt
+    # up = (
+    #     as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
+    # up=up.T.loc[etrago.network.generators['FID'] =='DE'].T
+    # #up=up.dropna(axis='columns')
+    # up.loc[:, up.isna().any()]=1
     # up.index=up.index.astype('datetime64[ns]')
    
-    # down =  -etrago.network.generators_t.p / etrago.network.generators.p_nom
-    # down= down.dropna(axis='columns')
-    # down.index=up.index.astype('datetime64[ns]')
+    # down =  -etrago.network.generators_t.p / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
+    # #down= down.dropna(axis='columns')
+    # down=down.T.loc[etrago.network.generators['FID'] =='DE'].T
+    # down.loc[:, down.isna().any()]=0
+    # down.index=down.index.astype('datetime64[ns]')
     
-    # p_max_pu berechnen für up and down Kapazitäten der Generatoren, auf DEU beschränkt
-    up = (
-        as_dense(etrago.network, "Generator", "p_max_pu") * etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom - etrago.network.generators_t.p).clip(0) / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
-    up=up.T.loc[etrago.network.generators['FID'] =='DE'].T
-    #up=up.dropna(axis='columns')
-    up.loc[:, up.isna().any()]=1
-    up.index=up.index.astype('datetime64[ns]')
+    # #import pdb; pdb.set_trace()
+    
+    # up.columns = up.columns.map(lambda x: x + " ramp up")
+    # down.columns = down.columns.map(lambda x: x + " ramp down")
+    
+    # g_p = etrago.network.generators_t.p / etrago.network.generators.p_nom
+    # etrago.network.generators_t.p_min_pu = g_p
+    # etrago.network.generators_t.p_max_pu = g_p
    
-    down =  -etrago.network.generators_t.p / etrago.network.generators.loc[etrago.network.generators['FID'] =='DE'].p_nom
-    #down= down.dropna(axis='columns')
-    down=down.T.loc[etrago.network.generators['FID'] =='DE'].T
-    down.loc[:, down.isna().any()]=0
-    down.index=down.index.astype('datetime64[ns]')
+    # #etrago.network.generators_t.p.drop(etrago.network.generators_t.p.index, inplace=True)
+    # #etrago.network.generators_t.p_max_pu.index = etrago.network.generators_t.p_max_pu.index.astype(object)
     
-    #import pdb; pdb.set_trace()
-    
-    up.columns = up.columns.map(lambda x: x + " ramp up")
-    down.columns = down.columns.map(lambda x: x + " ramp down")
-    
-    g_p = etrago.network.generators_t.p / etrago.network.generators.p_nom
-    etrago.network.generators_t.p_min_pu = g_p
-    etrago.network.generators_t.p_max_pu = g_p
-   
-    #etrago.network.generators_t.p.drop(etrago.network.generators_t.p.index, inplace=True)
-    #etrago.network.generators_t.p_max_pu.index = etrago.network.generators_t.p_max_pu.index.astype(object)
-    
-    etrago.network.madd("Generator", g_up.index, p_max_pu=up, **g_up.drop(["p_max_pu"], axis=1))
-    #import pdb; pdb.set_trace()
+    # etrago.network.madd("Generator", g_up.index, p_max_pu=up, **g_up.drop(["p_max_pu"], axis=1))
+    # #import pdb; pdb.set_trace()
         
-    etrago.network.madd("Generator", g_down.index, p_min_pu=down, p_max_pu=0, **g_down.drop(["p_max_pu", "p_min_pu"], axis=1))
+    # etrago.network.madd("Generator", g_down.index, p_min_pu=down, p_max_pu=0, **g_down.drop(["p_max_pu", "p_min_pu"], axis=1))
     
     #ehv fnetwork clustering
     etrago.ehv_clustering()
@@ -609,18 +607,22 @@ def run_etrago(args, json_path):
     # snapshot clustering
     etrago.snapshot_clustering()
     
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()   
+    
     # skip snapshots
     etrago.skip_snapshots()
-
+    
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp up"), "marginal_cost"] *= 2
     #etrago.network.generators.loc[etrago.network.generators.index.str.contains("ramp down"), "marginal_cost"] *= -0.5
    
-    etrago.network.storage_units.efficiency_dispatch = 1   
-    etrago.network.storage_units.efficiency_store = 1
-    etrago.network.storage_units.standing_loss = 0
-
+    # etrago.network.storage_units.efficiency_dispatch = 1   
+    # etrago.network.storage_units.efficiency_store = 1
+    # etrago.network.storage_units.standing_loss = 0
+    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/allesec_vorlopf')
+    #breakpoint()
     # Start Optimierung
     etrago.lopf()
     
@@ -662,47 +664,47 @@ def run_etrago(args, json_path):
     etrago.calc_results()
     
     # Plot von Generation aus Marktsimulation und Ausgleichsmaßnahmen
-    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer_1')
+    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/allesec_nachlopf')
     # from etrago import Etrago
     # etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/Redispatch_funktioniert/Gleichverteilung/net_Sommer')
     # import pdb; pdb.set_trace()
-    fig, axs = plt.subplots(
-    1, 3, figsize=(20, 10), subplot_kw={"projection": ccrs.AlbersEqualArea()}
-    )
+    # fig, axs = plt.subplots(
+    # 1, 3, figsize=(20, 10), subplot_kw={"projection": ccrs.AlbersEqualArea()}
+    # )
     
-    mkt = (
-        market.network.generators_t.p[market.network.generators.index].groupby(market.network.generators.bus, axis=1)
-        .sum()
-        .div(2e4)
+    # mkt = (
+    #     market.network.generators_t.p[market.network.generators.index].groupby(market.network.generators.bus, axis=1)
+    #     .sum()
+    #     .div(2e4)
     
-    )
-    market.network.plot(ax=axs[0],bus_sizes= mkt.iloc[5], title="Market simulation", geomap=False)
+    # )
+    # market.network.plot(ax=axs[0],bus_sizes= mkt.iloc[5], title="Market simulation", geomap=False)
     
-    #up
-    redispatch_up = (
-        etrago.network.generators_t.p.filter(like="ramp up").groupby(etrago.network.generators.bus,axis=1)
-        .sum()
-        .div(2e3)
-    )
+    # #up
+    # redispatch_up = (
+    #     etrago.network.generators_t.p.filter(like="ramp up").groupby(etrago.network.generators.bus,axis=1)
+    #     .sum()
+    #     .div(2e3)
+    # )
    
-    #down
-    redispatch_down = (
-        etrago.network.generators_t.p.filter(like="ramp down").groupby(etrago.network.generators.bus,axis=1)
-        .sum()
-        .div(-2e3)
-    )
+    # #down
+    # redispatch_down = (
+    #     etrago.network.generators_t.p.filter(like="ramp down").groupby(etrago.network.generators.bus,axis=1)
+    #     .sum()
+    #     .div(-2e3)
+    # )
     
-    balancing = redispatch_up-redispatch_down
-    redispatch_up=balancing.clip(lower=0)
-    redispatch_down=balancing.clip(upper=0)*(-1)
+    # balancing = redispatch_up-redispatch_down
+    # redispatch_up=balancing.clip(lower=0)
+    # redispatch_down=balancing.clip(upper=0)*(-1)
     
-    etrago.network.plot(
-        ax=axs[1], bus_sizes=redispatch_up.iloc[5], bus_colors="blue", title="Redispatch: ramp up",geomap=False
-    )
+    # etrago.network.plot(
+    #     ax=axs[1], bus_sizes=redispatch_up.iloc[5], bus_colors="blue", title="Redispatch: ramp up",geomap=False
+    # )
     
-    etrago.network.plot(
-        ax=axs[2], bus_sizes=redispatch_down.iloc[5], bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
-    );
+    # etrago.network.plot(
+    #     ax=axs[2], bus_sizes=redispatch_down.iloc[5], bus_colors="red",title="Redispatch: ramp down / curtail", geomap=False,  
+    # );
     return etrago, market
 
 

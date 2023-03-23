@@ -2375,6 +2375,11 @@ def update_busmap(self, new_busmap):
     -------
     None.
     """
+
+    if type(new_busmap) == pd.Series:
+        # eigene Zeile 
+        new_busmap = new_busmap.loc[~new_busmap.index.duplicated()]
+    
     if "busmap" not in self.busmap.keys():
         self.busmap["busmap"] = new_busmap
         self.busmap["orig_network"] = pypsa.Network()
@@ -2387,7 +2392,7 @@ def update_busmap(self, new_busmap):
         pypsa.io.import_components_from_dataframe(
             self.busmap["orig_network"], self.network.links, "Link"
         )
-
+    
     else:
         self.busmap["busmap"] = (
             pd.Series(self.busmap["busmap"]).map(new_busmap).to_dict()

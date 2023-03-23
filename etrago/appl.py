@@ -60,8 +60,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 2170,
-    "end_snapshot": 2180,
+    "start_snapshot": 1,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -105,10 +105,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 23,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -125,7 +125,7 @@ args = {
         "CPU_cores": 4,  # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
-        "active": False,  # choose if clustering is activated
+        "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {
                 "base": ["CH4", "AC"],
@@ -498,6 +498,8 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    etrago.args["load_shedding"] = True
+    etrago.load_shedding()  
     # start linear optimal powerflow calculations
     etrago.lopf()
 
