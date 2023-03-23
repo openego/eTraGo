@@ -106,7 +106,7 @@ class Disaggregation:
 
             # ... and their time series
             # TODO: These are all time series, not just the ones from lines
-            #       residing entirely in side the cluster.
+            #       residing entirely inside the cluster.
             #       Is this a problem?
             setattr(partial_network, line_type + "_t", timeseries)
 
