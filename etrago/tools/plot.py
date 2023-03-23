@@ -2487,7 +2487,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
             link_widths = 0.5 + (link_colors / ext_width)
     elif line_colors == "q_flow_max":
         title = "Maximum reactive power flows"
-        label = "flow in Mvar"
+        label = "flow in pu"
         line_colors = abs(
             network.lines_t.q0.abs().max() / (network.lines.s_nom)
         )
