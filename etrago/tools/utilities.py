@@ -29,7 +29,6 @@ import logging
 import math
 import os
 
-from etrago.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
 from shapely.geometry import LineString, Point
 import geopandas as gpd
@@ -37,6 +36,8 @@ import numpy as np
 import pandas as pd
 import pypsa
 import sqlalchemy.exc
+
+from etrago.tools import db
 
 logger = logging.getLogger(__name__)
 

@@ -24,7 +24,6 @@ Define class Etrago
 
 import logging
 
-from etrago.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
@@ -34,6 +33,7 @@ from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.tools import db
 from etrago.tools.calc_results import calc_etrago_results
 from etrago.tools.execute import (
     dispatch_disaggregation,
