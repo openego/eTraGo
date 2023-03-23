@@ -77,7 +77,7 @@ class Disaggregation:
         # find all lines that have at least one bus inside the cluster
         busflags = self.buses["cluster"] == cluster
 
-        def is_bus_in_cluster(conn):
+        def is_bus_in_cluster(conn, busflags=busflags):
             return busflags[conn]
 
         # Copy configurations to new network
