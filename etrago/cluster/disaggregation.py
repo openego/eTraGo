@@ -181,8 +181,8 @@ class Disaggregation:
         self.reindex_with_prefix(externals_to_insert)
 
         # .. and insert them as well as their time series
-        partial_network.buses = partial_network.buses.append(
-            externals_to_insert
+        partial_network.buses = pd.concat(
+            [partial_network.buses, externals_to_insert]
         )
         partial_network.buses_t = self.original_network.buses_t
 
@@ -214,7 +214,9 @@ class Disaggregation:
             setattr(
                 partial_network,
                 bustype,
-                getattr(partial_network, bustype).append(buses_to_insert),
+                pd.concat(
+                    [getattr(partial_network, bustype), buses_to_insert]
+                ),
             )
 
             # Also copy their time series
