@@ -164,7 +164,7 @@ def run_lopf(etrago, extra_functionality, method):
                 end = transits[i] + (skipped - 1)
                 if i == 0:
                     start = 0
-                elif i == no_slices - 1:
+                if i == no_slices - 1:
                     end = len(etrago.network_tsa.snapshots)
 
                 etrago.network_tsa.lopf(
@@ -427,7 +427,8 @@ def dispatch_disaggregation(self):
             slice_len = int(len(self.network.snapshots) / no_slices)
             # transition snapshots defining start and end of slices
             transits = self.network.snapshots[0::slice_len]
-            transits = transits[1:]
+            if len(transits) > 1:
+                transits = transits[1:]
             if transits[-1] != self.network_tsa.snapshots[-1]:
                 transits = transits.insert(
                     (len(transits)), self.network.snapshots[-1]
