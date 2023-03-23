@@ -2424,12 +2424,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
 
     # Set line colors
     if line_colors == "line_loading":
-        title = (
-            "Mean loading from "
-            + str(network.snapshots[timesteps[0]])
-            + " to "
-            + str(network.snapshots[timesteps[-1]])
-        )
+        title = "Mean line loading"
         rep_snapshots = network.snapshot_weightings["objective"][
             network.snapshots[timesteps]
         ].sum()
