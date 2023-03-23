@@ -24,7 +24,7 @@ Define class Etrago
 
 import logging
 
-from egoio.tools import db
+from etrago.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd

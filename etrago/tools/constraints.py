@@ -23,7 +23,7 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
 
-from egoio.tools import db
+from etrago.tools import db
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr

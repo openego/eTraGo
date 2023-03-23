@@ -29,7 +29,7 @@ import logging
 import math
 import os
 
-from egoio.tools import db
+from etrago.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
 from shapely.geometry import LineString, Point
 import geopandas as gpd
