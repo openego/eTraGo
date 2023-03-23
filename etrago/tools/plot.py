@@ -124,6 +124,7 @@ def coloring():
         "power_to_H2": "cyan",
         "H2_overground": "cyan",
         "H2_underground": "cyan",
+        "H2": "cyan",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -2528,6 +2529,14 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
+    if bus_colors in ["nodal_production_balance", "storage_expansion",
+                      "h2_battery_storage_expansion", "storage_distribution",
+                      "gen_dist",  "flexibility_usage", "h2_storage_expansion",
+                      "PowerToH2", 
+                      ]:
+        use_legend = True
+    else:
+        use_legend = False
 
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
@@ -2654,11 +2663,12 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         )
     
     # legends for bus sizes and colors
-    if type(bus_sizes) != float:
+    if use_legend:
         handles = []
         labels = []
-
         if scaling_store_expansion:
+            if not isinstance(legend_entries, list):
+                raise Exception("When using scaling_store_expansion, the argument legend_entries must be a list of carrier of interest")
             for i in legend_entries:
                 try:
                     max_value = bus_sizes[
@@ -2673,8 +2683,6 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
                         facecolor=network.carriers.color[i],
                     )[0]
                 )
-    
-               
                 labels.append(
                     f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 0).astype(int)} GWh "
                     + i
