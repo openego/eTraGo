@@ -133,6 +133,8 @@ def coloring():
         "central_resistive_heater": "blueviolet",
         "rural_heat_pump": "violet",
         "CH4": "yellow",
+        "CH4_biogas": "yellow",
+        "CH4_NG": "yellow",
         "CH4_to_H2": "yellowgreen",
         "industrial_gas_CHP": "olive",
         "rural_gas_boiler": "sandybrown",
@@ -181,6 +183,7 @@ def coloring():
         "battery": "blue",
         "pumped_hydro": "indigo",
         "BEV charger": "indigo",
+        "others": "dimgrey"
     }
 
     return colors
