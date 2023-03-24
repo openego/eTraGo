@@ -1794,7 +1794,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
 
     Returns
     -------
-    all_network : :class:`pypsa.Network
+    network_c : :class:`pypsa.Network
         Whole network including not extended lines
     extension_lines : pandas.Series
         AC-line expansion
@@ -1803,64 +1803,66 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
 
     """
 
-    all_network = network.copy()
+    network_c = network.copy()
 
-    network.lines = network.lines[
-        network.lines.s_nom_extendable
+    network_c.lines = network_c.lines[
+        network_c.lines.s_nom_extendable
         & (
-            (network.lines.s_nom_opt - network.lines.s_nom_min)
-            / network.lines.s_nom
+            (network_c.lines.s_nom_opt - network_c.lines.s_nom_min)
+            / network_c.lines.s_nom
             >= ext_min
         )
     ]
-    network.links = network.links[
-        network.links.p_nom_extendable
-        & (network.links.carrier == "DC")
+    network_c.links = network_c.links[
+        network_c.links.p_nom_extendable
+        & (network_c.links.carrier == "DC")
         & (
-            (network.links.p_nom_opt - network.links.p_nom_min)
-            / network.links.p_nom
+            (network_c.links.p_nom_opt - network_c.links.p_nom_min)
+            / network_c.links.p_nom
             >= ext_min
         )
     ]
 
-    for i, row in network.links.iterrows():
-        linked = network.links[
-            (row["bus1"] == network.links.bus0)
-            & (row["bus0"] == network.links.bus1)
+    for i, row in network_c.links.iterrows():
+        linked = network_c.links[
+            (row["bus1"] == network_c.links.bus0)
+            & (row["bus0"] == network_c.links.bus1)
         ]
         if not linked.empty:
             if row["p_nom_opt"] < linked.p_nom_opt.values[0]:
-                network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
+                network_c.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
 
     if method == "rel":
 
         extension_lines = (
             100
-            * (network.lines.s_nom_opt - network.lines.s_nom_min)
-            / network.lines.s_nom
+            * (network_c.lines.s_nom_opt - network_c.lines.s_nom_min)
+            / network_c.lines.s_nom
         )
 
         extension_links = pd.DataFrame(
-            data=network.links, index=network.links.index
+            data=network_c.links, index=network_c.links.index
         )
         extension_links[extension_links.carrier != "DC"] = 0
         extension_links = (
             100
-            * (network.links.p_nom_opt - network.links.p_nom_min)
-            / (network.links.p_nom)
+            * (network_c.links.p_nom_opt - network_c.links.p_nom_min)
+            / (network_c.links.p_nom)
         )
         extension_links = extension_links.fillna(0)
 
     if method == "abs":
-        extension_lines = network.lines.s_nom_opt - network.lines.s_nom_min
+        extension_lines = network_c.lines.s_nom_opt - network_c.lines.s_nom_min
 
         extension_links = pd.DataFrame(
-            data=network.links, index=network.links.index
+            data=network_c.links, index=network_c.links.index
         )
         extension_links[extension_links.carrier != "DC"] = 0
-        extension_links = network.links.p_nom_opt - network.links.p_nom_min
+        extension_links = network_c.links.p_nom_opt - network_c.links.p_nom_min
 
-    return all_network, extension_lines, extension_links
+    extension_lines = pd.Series(data=extension_lines, index= network.lines.index).fillna(0)
+    extension_links = pd.Series(data=extension_links, index= network.links.index).fillna(0)
+    return network, extension_lines, extension_links
 
 
 def plot_background_grid(network, ax):
@@ -2582,9 +2584,12 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         plot_background_grid(all_network, ax)
         if ext_width != False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = 0.5 + (link_colors / ext_width)
+            link_widths = 0.5 + (line_colors / ext_width)
         else:
-            link_widths = 2.0
+            dc_link = network.links.index[network.links.carrier == "DC"]
+            link_widths = pd.Series(0, index=network.links.index)
+            link_widths.loc[dc_link] = 2
+
         link_colors = link_colors.mul(1e-3)
         line_colors = line_colors.mul(1e-3)
     elif line_colors == "expansion_rel":
@@ -2725,8 +2730,6 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_unit = "TW"
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
-        # bus_unit = ""
-        # bus_legend = ""
         bus_sizes = pd.Series(
             data=network.buses.carrier, index=network.buses.index
         )
@@ -2829,6 +2832,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
                 positive = mpatches.Patch(color="green", label="generation")
                 negative = mpatches.Patch(color="red", label="consumption")
                 handles = [positive, negative]
+
             elif legend_entries != "all":
                 for i in legend_entries:
                     patch = mpatches.Patch(color=network.carriers.color[i], label=i)
