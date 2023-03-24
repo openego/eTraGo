@@ -680,9 +680,13 @@ class UniformDisaggregation(Disaggregation):
                         else ()
                     )
                     ws = weight.sum(axis=len(loc))
-                    for bus_id in filtered.index:
-                        values = clt * weight.loc[loc + (bus_id,)] / ws
-                        pn_t[s].insert(len(pn_t[s].columns), bus_id, values)
+                    new_columns = pd.DataFrame(
+                        {
+                            bus_id: clt * weight.loc[loc + (bus_id,)] / ws
+                            for bus_id in filtered.index
+                        }
+                    )
+                    pn_t[s].loc[:, new_columns.columns] = new_columns
 
     def transfer_results(self, *args, **kwargs):
         kwargs["bustypes"] = ["generators", "storage_units"]
