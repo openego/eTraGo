@@ -892,74 +892,30 @@ def calc_dispatch_per_carrier(network, timesteps):
     return dist
 
 
-def calc_storage_expansion_per_bus(network):
-    """Function that calculates storage expansion per bus and technology
-
-    Parameters
-    ----------
-    network : PyPSA network container
-        Holds topology of grid including results from powerflow analysis
-
-    Returns
-    -------
-    dist : pandas.Series
-        storage expansion per bus and technology
-
-    """
-
-    batteries = network.storage_units[
-        network.storage_units.carrier == "battery"
-    ]
-    h2_overground = network.stores[network.stores.carrier == "H2_overground"]
-    h2_underground = network.stores[network.stores.carrier == "H2_underground"]
-    rural_heat = network.stores[network.stores.carrier == "rural_heat_store"]
-    central_heat = network.stores[
-        network.stores.carrier == "central_heat_store"
-    ]
-    # hydrogen = network.storage_units[network.storage_units.carrier ==
-    #                                  'extendable_hydrogen_storage']
-    battery_distribution = (
-        network.storage_units.p_nom_opt[batteries.index]
-        .groupby(network.storage_units.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_over_distribution = (
-        network.stores.e_nom_opt[h2_overground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_under_distribution = (
-        network.stores.e_nom_opt[h2_underground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    rural_heat_distribution = (
-        network.stores.e_nom_opt[rural_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    central_heat_distribution = (
-        network.stores.e_nom_opt[central_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    # hydrogen_distribution =\
-    #     network.storage_units.p_nom_opt[hydrogen.index].groupby(
-    #         network.storage_units.bus).sum().reindex(
-    #             network.buses.index, fill_value=0.)
-    index = [(idx, "battery") for idx in network.buses.index]
-    for c in [
+def calc_storage_expansion_per_bus(
+    network,
+    carriers=[
+        "battery",
         "H2_overground",
         "H2_underground",
         "rural_heat_store",
         "central_heat_store",
-    ]:
-        index.extend([(idx, c) for idx in network.buses.index])
+    ],
+):
+    """Function that calculates storage expansion per bus and technology
+    Parameters
+    ----------
+    network : PyPSA network container
+        Holds topology of grid including results from powerflow analysis
+    Returns
+    -------
+    dist : pandas.Series
+        storage expansion per bus and technology
+    """
+    index = [(idx, "battery") for idx in network.buses.index]
+    for c in carriers:
+        if c != "battery":
+            index.extend([(idx, c) for idx in network.buses.index])
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
@@ -967,25 +923,74 @@ def calc_storage_expansion_per_bus(network):
         dtype=float,
     )
 
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "battery"
-    ] = battery_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_overground"
-    ] = h2_over_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_underground"
-    ] = h2_under_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "rural_heat_store"
-    ] = rural_heat_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "central_heat_store"
-    ] = central_heat_distribution.sort_index().values
-    # dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
-    #         hydrogen_distribution.sort_index().values
-    # network.carriers.color['hydrogen_storage'] = 'orange'
-    # network.carriers.color['battery_storage'] = 'blue'
+    if "battery" in carriers:
+        batteries = network.storage_units[
+            network.storage_units.carrier == "battery"
+        ]
+        battery_distribution = (
+            network.storage_units.p_nom_opt[batteries.index]
+            .groupby(network.storage_units.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        ).mul(6)
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "battery"
+        ] = battery_distribution.sort_index().values
+    if "H2_overground" in carriers:
+        h2_overground = network.stores[
+            network.stores.carrier == "H2_overground"
+        ]
+        h2_over_distribution = (
+            network.stores.e_nom_opt[h2_overground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "H2_overground"
+        ] = h2_over_distribution.sort_index().values
+
+    if "H2_overground" in carriers:
+        h2_underground = network.stores[
+            network.stores.carrier == "H2_underground"
+        ]
+        h2_under_distribution = (
+            network.stores.e_nom_opt[h2_underground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "H2_underground"
+        ] = h2_under_distribution.sort_index().values
+
+    if "rural_heat_store" in carriers:
+        rural_heat = network.stores[
+            network.stores.carrier == "rural_heat_store"
+        ]
+        rural_heat_distribution = (
+            network.stores.e_nom_opt[rural_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "rural_heat_store"
+        ] = rural_heat_distribution.sort_index().values
+    if "central_heat_store" in carriers:
+        central_heat = network.stores[
+            network.stores.carrier == "central_heat_store"
+        ]
+        central_heat_distribution = (
+            network.stores.e_nom_opt[central_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+        dist.iloc[
+            dist.index.get_level_values("carrier") == "central_heat_store"
+        ] = central_heat_distribution.sort_index().values
 
     return dist
 
