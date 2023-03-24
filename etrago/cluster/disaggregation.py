@@ -249,18 +249,13 @@ class Disaggregation:
         for line_type in line_types:
             rows = getattr(partial_network, line_type)
 
-            sane = rows.bus0.isin(partial_network.buses.index)
-            assert rows.loc[~sane, :].empty, (
-                f"Not all `partial_network.{line_type}.bus0` entries are"
+            left = rows.bus0.isin(partial_network.buses.index)
+            right = rows.bus1.isin(partial_network.buses.index)
+            assert rows.loc[~(left | right), :].empty, (
+                f"Not all `partial_network.{line_type}` have an endpoint,"
+                " i.e. `bus0` or `bus1`,"
                 f" contained in `partial_network.buses.index`."
-                f" Spurious additional rows:\nf{rows.loc[~sane, :]}"
-            )
-
-            sane = rows.bus1.isin(partial_network.buses.index)
-            assert rows.loc[~sane, :].empty, (
-                f"Not all `partial_network.{line_type}.bus1` entries are"
-                f" contained in `partial_network.buses.index`."
-                f" Spurious additional rows:\nf{rows.loc[~sane, :]}"
+                f" Spurious additional rows:\nf{rows.loc[~(left | right), :]}"
             )
 
         return partial_network, external_buses
@@ -530,6 +525,10 @@ class UniformDisaggregation(Disaggregation):
     ):
         log.debug("Solving partial network.")
         bustypes = {
+            "links": {
+                "group_by": ("carrier", "bus1"),
+                "series": ("p0", "p1"),
+            },
             "generators": {"group_by": ("carrier",), "series": ("p", "q")},
             "storage_units": {
                 "group_by": ("carrier", "max_hours"),
@@ -546,6 +545,8 @@ class UniformDisaggregation(Disaggregation):
                 )
                 else ("p_nom_opt", "p_max_pu")
             ),
+            "p0": ("p_nom_opt",),
+            "p1": ("p_nom_opt",),
             "state_of_charge": ("p_nom_opt",),
         }
         filters = {"q": lambda o: o.control == "PV"}
@@ -565,7 +566,11 @@ class UniformDisaggregation(Disaggregation):
                 ]
             )
             for group in groups:
-                clb = cl_buses[cl_buses.bus == cluster]
+                clb = (
+                    cl_buses[cl_buses.bus == cluster]
+                    if "bus" in cl_buses.columns
+                    else cl_buses[cl_buses.bus0 == cluster]
+                )
                 query = " & ".join(
                     ["({key} == {value!r})".format(**axis) for axis in group]
                 )
@@ -581,7 +586,10 @@ class UniformDisaggregation(Disaggregation):
                     [
                         i
                         for i, row in enumerate(pn_buses.itertuples())
-                        if not row.bus.startswith(self.idx_prefix)
+                        for bus in [
+                            row.bus if hasattr(row, "bus") else row.bus1
+                        ]
+                        if not bus.startswith(self.idx_prefix)
                     ]
                 ]
                 pnb = pnb.query(query)
@@ -701,7 +709,7 @@ def swap_series(s):
 
 def filter_internal_connector(conn, is_bus_in_cluster):
     return conn[
-        conn.bus0.apply(is_bus_in_cluster) & conn.bus1.apply(is_bus_in_cluster)
+        conn.bus0.apply(is_bus_in_cluster) | conn.bus1.apply(is_bus_in_cluster)
     ]
 
 
