@@ -2663,6 +2663,11 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         bus_legend = "Nodal production balance"
         bus_unit = "TWh"
     elif bus_colors == "storage_expansion":
+        if not isinstance(scaling_store_expansion, dict):
+            raise Exception("""To plot storage_expansion, the argument scaling_store_expansion must be a dictionary like: 
+                            {"H2": 50,
+                            "heat": 0.1,
+                            "battery": 10}""")
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
         for store_carrier in ["H2", "heat", "battery"]:
