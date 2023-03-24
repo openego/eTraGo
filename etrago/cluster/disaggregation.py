@@ -9,6 +9,7 @@ from pyomo.environ import Constraint
 from pypsa import Network
 import pandas as pd
 
+from etrago.tools import noops
 from etrago.tools.utilities import residual_load
 
 
@@ -283,6 +284,7 @@ class Disaggregation:
             )
         }
         profile = cProfile.Profile()
+        profile = noops
         for i, cluster in enumerate(sorted(clusters)):
             log.info("Decompose cluster %s (%d/%d)" % (cluster, i + 1, n))
             profile.enable()
@@ -354,7 +356,7 @@ class Disaggregation:
         self.stats["check"] = time.time() - t
         log.info("Checks computed in {self.stats['check']}")
 
-        # profile.print_stats(sort='cumtime')
+        profile.print_stats(sort="cumtime")
 
     def transfer_results(
         self,
