@@ -246,16 +246,13 @@ class Disaggregation:
         # Just a simple sanity check
         # TODO: Remove when sure that disaggregation will not go insane anymore
         for line_type in line_types:
-            assert (
-                getattr(partial_network, line_type)
-                .bus0.isin(partial_network.buses.index)
-                .all()
-            )
-            assert (
-                getattr(partial_network, line_type)
-                .bus1.isin(partial_network.buses.index)
-                .all()
-            )
+            rows = getattr(partial_network, line_type)
+
+            sane = rows.bus0.isin(partial_network.buses.index)
+            assert rows.loc[~sane, :].empty
+
+            sane = rows.bus1.isin(partial_network.buses.index)
+            assert rows.loc[~sane, :].empty
 
         return partial_network, external_buses
 
