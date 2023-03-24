@@ -422,7 +422,7 @@ def foreign_links(self):
         self.geolocation_buses()
 
 
-def set_q_national_loads(self, cos_phi=1):
+def set_q_national_loads(self, cos_phi):
     """
     Set q component of national loads based on the p component and cos_phi
 
@@ -445,41 +445,45 @@ def set_q_national_loads(self, cos_phi=1):
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
 
-    network.loads_t["q_set"].loc[
+    # Calculate q national loads based on p and cos_phi
+    new_q_loads = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
-        ].astype(int),
-    ] = network.loads_t["p_set"].loc[
-        :,
-        network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
+            (network.loads.bus.astype(str).isin(national_buses.index))
+            & (network.loads.carrier.astype(str) == "AC")
         ],
-    ] * math.tan(
-        math.acos(cos_phi)
+    ] * math.tan(math.acos(cos_phi))
+
+    # insert the calculated q in loads_t. Only loads without previous
+    # assignment are affected
+    network.loads_t.q_set = pd.merge(
+        network.loads_t.q_set,
+        new_q_loads,
+        how="inner",
+        right_index=True,
+        left_index=True,
+        suffixes=("", "delete_"),
     )
-    # To avoid a problem when the index of the load is the weather year,
-    # the column names were temporarily set to `int` and changed back to
-    # `str`.
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
-        str
+    network.loads_t.q_set.drop(
+        [i for i in network.loads_t.q_set.columns if "delete" in i],
+        axis=1,
+        inplace=True,
     )
 
 
-def set_q_foreign_loads(self, cos_phi=1):
+def set_q_foreign_loads(self, cos_phi):
     """Set reative power timeseries of loads in neighbouring countries
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     cos_phi: float
         Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None
 
     """
     network = self.network
@@ -555,7 +559,7 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding(self, **kwargs):
+def load_shedding(self, temporal_disaggregation=False, **kwargs):
     """Implement load shedding in existing network to identify
     feasibility problems
 
@@ -572,15 +576,20 @@ def load_shedding(self, **kwargs):
 
     """
     if self.args["load_shedding"]:
+        if temporal_disaggregation:
+            network = self.network_tsa
+        else:
+            network = self.network
+
         marginal_cost_def = 10000  # network.generators.marginal_cost.max()*2
-        p_nom_def = self.network.loads_t.p_set.max().max()
+        p_nom_def = network.loads_t.p_set.max().max()
 
         marginal_cost = kwargs.get("marginal_cost", marginal_cost_def)
         p_nom = kwargs.get("p_nom", p_nom_def)
 
-        self.network.add("Carrier", "load")
+        network.add("Carrier", "load")
         start = (
-            self.network.generators.index.to_series()
+            network.generators.index.to_series()
             .str.rsplit(" ")
             .str[0]
             .astype(int)
@@ -592,14 +601,14 @@ def load_shedding(self, **kwargs):
         if start != start:
             start = 0
 
-        index = list(range(start, start + len(self.network.buses.index)))
-        self.network.import_components_from_dataframe(
+        index = list(range(start, start + len(network.buses.index)))
+        network.import_components_from_dataframe(
             pd.DataFrame(
                 dict(
                     marginal_cost=marginal_cost,
                     p_nom=p_nom,
                     carrier="load shedding",
-                    bus=self.network.buses.index,
+                    bus=network.buses.index,
                 ),
                 index=index,
             ),
@@ -750,6 +759,13 @@ def export_to_csv(self, path):
         data = pd.read_csv(os.path.join(path_clus, "network.csv"))
         data = data.apply(_enumerate_row, axis=1)
         data.to_csv(os.path.join(path_clus, "network.csv"), index=False)
+
+    if isinstance(self.ch4_h2_mapping, pd.Series):
+        path_clus = os.path.join(path, "clustering")
+        if not os.path.exists(path_clus):
+            os.makedirs(path_clus, exist_ok=True)
+        with open(os.path.join(path_clus, "ch4_h2_mapping.json"), "w") as d:
+            self.ch4_h2_mapping.to_json(d, indent=4)
 
     return
 
@@ -949,6 +965,7 @@ def delete_dispensable_ac_buses(etrago):
     Parameters
     ----------
     etrago : etrago object
+
     Returns
     -------
     None.
@@ -1708,9 +1725,36 @@ def get_clustering_data(self, path):
     ):
         path_clus = os.path.join(path, "clustering")
         if os.path.exists(path_clus):
-            with open(os.path.join(path_clus, "busmap.json")) as f:
-                self.busmap["busmap"] = json.load(f)
-            self.busmap["orig_network"] = pypsa.Network(path_clus, name="orig")
+            ch4_h2_mapping_path = os.path.join(
+                path_clus, "ch4_h2_mapping.json"
+            )
+            if os.path.exists(ch4_h2_mapping_path):
+                with open(ch4_h2_mapping_path) as f:
+                    self.ch4_h2_mapping = pd.read_json(f, typ="series").astype(
+                        str
+                    )
+                    self.ch4_h2_mapping.index.name = "CH4_bus"
+                    self.ch4_h2_mapping.index = (
+                        self.ch4_h2_mapping.index.astype(str)
+                    )
+            else:
+                logger.info(
+                    """There is no CH4 to H2 bus mapping data
+                    available in the loaded object."""
+                )
+
+            busmap_path = os.path.join(path_clus, "busmap.json")
+            if os.path.exists(busmap_path):
+                with open(busmap_path) as f:
+                    self.busmap["busmap"] = json.load(f)
+                self.busmap["orig_network"] = pypsa.Network(
+                    path_clus, name="orig"
+                )
+            else:
+                logger.info(
+                    "There is no busmap data available in the loaded object."
+                )
+
         else:
             logger.info(
                 "There is no clustering data available in the loaded object."
@@ -2093,13 +2137,33 @@ def set_branch_capacity(etrago):
         network.buses.v_nom
     )
 
-    network.lines.s_max_pu[network.lines.v_nom == 110] = args[
-        "branch_capacity_factor"
-    ]["HV"]
+    # If any line has a time dependend s_max_pu, use the time dependend
+    # factor for all lines, to avoid problems in the clustering
+    if not network.lines_t.s_max_pu.empty:
+        # Set time dependend s_max_pu for
+        # lines without dynamic line rating to 1.0
+        network.lines_t.s_max_pu[
+            network.lines[
+                ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
+            ].index
+        ] = 1.0
 
-    network.lines.s_max_pu[network.lines.v_nom > 110] = args[
-        "branch_capacity_factor"
-    ]["eHV"]
+        # Multiply time dependend s_max_pu with static branch capacitiy fator
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom == 110].index
+        ] *= args["branch_capacity_factor"]["HV"]
+
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom > 110].index
+        ] *= args["branch_capacity_factor"]["eHV"]
+    else:
+        network.lines.s_max_pu[network.lines.v_nom == 110] = args[
+            "branch_capacity_factor"
+        ]["HV"]
+
+        network.lines.s_max_pu[network.lines.v_nom > 110] = args[
+            "branch_capacity_factor"
+        ]["eHV"]
 
     network.transformers.s_max_pu[network.transformers.v_nom0 == 110] = args[
         "branch_capacity_factor"
@@ -2264,18 +2328,59 @@ def check_args(etrago):
 
 def drop_sectors(self, drop_carriers):
     """
-    Manually drop secors from eTraGo network, used for debugging
+    Manually drop secors from network.
+    Makes sure the network can be calculated without the dropped sectors.
 
     Parameters
     ----------
     drop_carriers : array
         List of sectors that will be dropped.
+        e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid',
+              'central_heat', 'rural_heat', 'central_heat_store',
+              'rural_heat_store', 'Li ion'] means everything but AC
 
     Returns
     -------
     None.
 
     """
+
+    if self.scenario.scn_name == "eGon2035":
+        if "CH4" in drop_carriers:
+            # create gas generators from links
+            # in order to not lose them when dropping non-electric carriers
+            gas_to_add = ["central_gas_CHP", "industrial_gas_CHP", "OCGT"]
+            gen = self.network.generators
+
+            for i in gas_to_add:
+                gen_empty = gen.drop(gen.index)
+                gen_empty.bus = self.network.links[
+                    self.network.links.carrier == i
+                ].bus1
+                gen_empty.p_nom = (
+                    self.network.links[self.network.links.carrier == i].p_nom
+                    * self.network.links[
+                        self.network.links.carrier == i
+                    ].efficiency
+                )
+                gen_empty.marginal_cost = (
+                    self.network.links[
+                        self.network.links.carrier == i
+                    ].marginal_cost
+                    + 35.851
+                )  # add fuel costs (source: NEP)
+                gen_empty.efficiency = 1
+                gen_empty.carrier = i
+                gen_empty.scn_name = "eGon2035"
+                gen_empty.p_nom_extendable = False
+                gen_empty.sign = 1
+                gen_empty.p_min_pu = 0
+                gen_empty.p_max_pu = 1
+                gen_empty.control = "PV"
+                gen_empty.fillna(0, inplace=True)
+                self.network.import_components_from_dataframe(
+                    gen_empty, "Generator"
+                )
 
     self.network.mremove(
         "Bus",
@@ -2308,6 +2413,8 @@ def drop_sectors(self, drop_carriers):
                 ~two_port.df.bus1.isin(self.network.buses.index)
             ].index,
         )
+
+    logger.info("The following sectors are dropped: " + str(drop_carriers))
 
 
 def update_busmap(self, new_busmap):

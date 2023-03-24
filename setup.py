@@ -57,9 +57,9 @@ setup(
         "scikit-learn",
         "setuptools >= 54.2.0",
         "shapely",
-        "sqlalchemy",
+        "sqlalchemy < 2",
         "tilemapbase == 0.4.5",
-        "tsam == 1.1.0",
+        "tsam",
     ],
     extras_require={
         "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],

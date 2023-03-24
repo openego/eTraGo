@@ -41,8 +41,27 @@ from etrago.tools.execute import (
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
-from etrago.tools.io import NetworkScenario, decommissioning, extension
-from etrago.tools.plot import plot_clusters, plot_grid
+from etrago.tools.io import (
+    NetworkScenario,
+    add_ch4_h2_correspondence,
+    decommissioning,
+    extension,
+)
+from etrago.tools.plot import (
+    bev_flexibility_potential,
+    demand_side_management,
+    flexibility_usage,
+    heat_stores,
+    hydrogen_stores,
+    plot_clusters,
+    plot_gas_generation,
+    plot_gas_summary,
+    plot_grid,
+    plot_h2_generation,
+    plot_h2_summary,
+    plot_heat_loads,
+    plot_heat_summary,
+)
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
@@ -131,6 +150,8 @@ class Etrago:
 
         self.busmap = {}
 
+        self.ch4_h2_mapping = {}
+
         if args is not None:
             self.args = args
 
@@ -196,7 +217,7 @@ class Etrago:
 
     decommissioning = decommissioning
 
-    plot_grid = plot_grid
+    add_ch4_h2_correspondence = add_ch4_h2_correspondence
 
     spatial_clustering = run_spatial_clustering
 
@@ -232,7 +253,31 @@ class Etrago:
 
     update_busmap = update_busmap
 
+    plot_grid = plot_grid
+
     plot_clusters = plot_clusters
+
+    plot_gas_generation = plot_gas_generation
+
+    plot_gas_summary = plot_gas_summary
+
+    plot_h2_generation = plot_h2_generation
+
+    plot_h2_summary = plot_h2_summary
+
+    plot_heat_loads = plot_heat_loads
+
+    plot_heat_summary = plot_heat_summary
+
+    plot_flexibility_usage = flexibility_usage
+
+    demand_side_management = demand_side_management
+
+    bev_flexibility_potential = bev_flexibility_potential
+
+    heat_stores = heat_stores
+
+    hydrogen_stores = hydrogen_stores
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
@@ -266,6 +311,8 @@ class Etrago:
 
         self.decommissioning()
 
+        self.add_ch4_h2_correspondence()
+
         logger.info("Imported network from db")
 
     def adjust_network(self):
@@ -281,7 +328,11 @@ class Etrago:
 
         self.geolocation_buses()
 
-        self.load_shedding()
+        if not (
+            self.args["network_clustering_ehv"]
+            | self.args["network_clustering"]["active"]
+        ):
+            self.load_shedding()
 
         self.adjust_CH4_gen_carriers()
 
