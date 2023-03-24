@@ -249,10 +249,18 @@ class Disaggregation:
             rows = getattr(partial_network, line_type)
 
             sane = rows.bus0.isin(partial_network.buses.index)
-            assert rows.loc[~sane, :].empty
+            assert rows.loc[~sane, :].empty, (
+                f"Not all `partial_network.{line_type}.bus0` entries are"
+                f" contained in `partial_network.buses.index`."
+                f" Spurious additional rows:\nf{rows.loc[~sane, :]}"
+            )
 
             sane = rows.bus1.isin(partial_network.buses.index)
-            assert rows.loc[~sane, :].empty
+            assert rows.loc[~sane, :].empty, (
+                f"Not all `partial_network.{line_type}.bus1` entries are"
+                f" contained in `partial_network.buses.index`."
+                f" Spurious additional rows:\nf{rows.loc[~sane, :]}"
+            )
 
         return partial_network, external_buses
 
