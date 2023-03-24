@@ -361,7 +361,7 @@ def iterate_lopf(
 
     if not args["lpfile"] is False:
         network.model.write(
-            lp_path, io_options={"symbolic_solver_labels": True}
+            lp_path
         )
 
     return network
