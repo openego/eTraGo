@@ -119,8 +119,12 @@ def preprocessing(etrago):
             ].index
         # get all generators and loads related to ch4_buses
         generators_ = pd.Series(
-            etrago.network.generators[etrago.network.generators.carrier!="load shedding"].index,
-            index=etrago.network.generators[etrago.network.generators.carrier!="load shedding"].bus,
+            etrago.network.generators[
+                etrago.network.generators.carrier != "load shedding"
+            ].index,
+            index=etrago.network.generators[
+                etrago.network.generators.carrier != "load shedding"
+            ].bus,
         )
         buses_CH4_gen = generators_.index.intersection(rel_links.keys())
         loads_ = pd.Series(
