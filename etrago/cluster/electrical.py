@@ -834,7 +834,7 @@ def weighting_for_scenario(network, save=None):
         "nuclear": 1,
     }
 
-    gen = network.generators[["bus", "carrier", "p_nom"]].copy()
+    gen = network.generators[network.generators.carrier!="load shedding"][["bus", "carrier", "p_nom"]].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
 
