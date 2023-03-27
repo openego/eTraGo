@@ -933,9 +933,12 @@ def calc_storage_expansion_per_bus(
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
         ).mul(6)
-        dist.iloc[
+        
+        battery_distribution.index = pd.MultiIndex.from_tuples([(idx, "battery") for idx in battery_distribution.index])
+        
+        dist.loc[
             dist.index.get_level_values("carrier") == "battery"
-        ] = battery_distribution.sort_index().values
+        ] = battery_distribution
     if "H2_overground" in carriers:
         h2_overground = network.stores[
             network.stores.carrier == "H2_overground"
@@ -946,9 +949,12 @@ def calc_storage_expansion_per_bus(
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
         )
-        dist.iloc[
+        
+        h2_over_distribution.index = pd.MultiIndex.from_tuples([(idx, "H2_overground") for idx in h2_over_distribution.index])
+        
+        dist.loc[
             dist.index.get_level_values("carrier") == "H2_overground"
-        ] = h2_over_distribution.sort_index().values
+        ] = h2_over_distribution
 
     if "H2_overground" in carriers:
         h2_underground = network.stores[
@@ -960,9 +966,12 @@ def calc_storage_expansion_per_bus(
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
         )
-        dist.iloc[
+        
+        h2_under_distribution.index = pd.MultiIndex.from_tuples([(idx, "H2_underground") for idx in h2_under_distribution.index])
+        
+        dist.loc[
             dist.index.get_level_values("carrier") == "H2_underground"
-        ] = h2_under_distribution.sort_index().values
+        ] = h2_under_distribution
 
     if "rural_heat_store" in carriers:
         rural_heat = network.stores[
@@ -974,10 +983,12 @@ def calc_storage_expansion_per_bus(
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
         )
+        
+        rural_heat_distribution.index = pd.MultiIndex.from_tuples([(idx, "rural_heat_store") for idx in rural_heat_distribution.index])
 
-        dist.iloc[
+        dist.loc[
             dist.index.get_level_values("carrier") == "rural_heat_store"
-        ] = rural_heat_distribution.sort_index().values
+        ] = rural_heat_distribution
     if "central_heat_store" in carriers:
         central_heat = network.stores[
             network.stores.carrier == "central_heat_store"
@@ -988,9 +999,12 @@ def calc_storage_expansion_per_bus(
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
         )
-        dist.iloc[
+        
+        central_heat_distribution.index = pd.MultiIndex.from_tuples([(idx, "central_heat_store") for idx in central_heat_distribution.index])
+        
+        dist.loc[
             dist.index.get_level_values("carrier") == "central_heat_store"
-        ] = central_heat_distribution.sort_index().values
+        ] = central_heat_distribution
 
     return dist
 
@@ -2646,14 +2660,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
-    if bus_colors in ["nodal_production_balance", "storage_expansion",
-                      "h2_battery_storage_expansion", "storage_distribution",
-                      "gen_dist",  "flexibility_usage", "h2_storage_expansion",
-                      "PowerToH2", 
-                      ]:
-        use_legend = True
-    else:
-        use_legend = False
+    bus_legend = False
 
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
@@ -2677,7 +2684,21 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
     elif bus_colors == "h2_battery_storage_expansion":
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network, carriers=["battery", "H2_overground", "H2_underground"])
-        bus_legend = "Storage expansion"
+        if (("battery" not in scaling_store_expansion.keys()) |
+            ("H2_overground" not in scaling_store_expansion.keys()) |
+            ("H2_underground" not in scaling_store_expansion.keys())):
+            raise Exception("""To plot h2_battery_storage_expansion, the argument scaling_store_expansion must be a dictionary like:
+                            {"H2_overground": 1,
+                             "H2_underground": 1,
+                             "battery": 1,}""")
+            
+        for store_carrier in ["battery", "H2_overground", "H2_underground"]:
+            bus_sizes[
+                bus_sizes.index.get_level_values("carrier").str.contains(
+                    store_carrier
+                )
+            ] *= scaling_store_expansion[store_carrier]
+        bus_legend = "Battery and H2 storage expansion"
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
         bus_scaling = bus_sizes
@@ -2783,12 +2804,15 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
         )
     
     # legends for bus sizes and colors
-    if use_legend:
+    if bus_legend:
         handles = []
         labels = []
         if scaling_store_expansion:
             if not isinstance(legend_entries, list):
-                raise Exception("When using scaling_store_expansion, the argument legend_entries must be a list of carrier of interest")
+                if bus_legend == "Storage expansion":
+                    legend_entries = list(scaling_store_expansion.keys())
+                if bus_legend == "Battery and H2 storage expansion":
+                    legend_entries = ["battery", "H2_overground", "H2_underground"]
             for i in legend_entries:
                 try:
                     max_value = bus_sizes[
