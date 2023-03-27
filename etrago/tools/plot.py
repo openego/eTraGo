@@ -2872,7 +2872,7 @@ flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
                     patch = mpatches.Patch(color=network.carriers.color[i], label=i)
                     handles.append(patch)
             else:
-                for i in network.carriers.color.index:
+                for i in bus_sizes.index.get_level_values("carrier").unique():
                     patch = mpatches.Patch(color=network.carriers.color[i], label=i)
                     handles.append(patch)
     
