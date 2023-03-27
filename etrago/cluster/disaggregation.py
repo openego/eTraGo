@@ -26,10 +26,11 @@ class Disaggregation:
         self.original_network = original_network
         self.clustered_network = clustered_network
         self.clustering = clustering
+        self.busmap = pd.Series(clustering.busmap)
 
         self.buses = pd.merge(
             original_network.buses,
-            clustering.busmap.to_frame(name="cluster"),
+            self.busmap.to_frame(name="cluster"),
             left_index=True,
             right_index=True,
         )
@@ -121,7 +122,7 @@ class Disaggregation:
             )
 
             def from_busmap(x):
-                return self.idx_prefix + self.clustering.busmap.loc[x]
+                return self.idx_prefix + self.busmap.loc[x]
 
             if not left_external_connectors.empty:
                 ca_option = pd.get_option("mode.chained_assignment")
@@ -270,7 +271,7 @@ class Disaggregation:
         :param scenario:
         :param solver: Solver that may be used to optimize partial networks
         """
-        clusters = set(self.clustering.busmap.values)
+        clusters = set(self.busmap.values)
         n = len(clusters)
         self.stats = {
             "clusters": pd.DataFrame(
@@ -424,7 +425,7 @@ class MiniSolverDisaggregation(Disaggregation):
         def extra_functionality(network, snapshots):
             f(network, snapshots)
             generators = self.original_network.generators.assign(
-                bus=lambda df: df.bus.map(self.clustering.busmap)
+                bus=lambda df: df.bus.map(self.busmap)
             )
 
             def construct_constraint(model, snapshot, carrier):
@@ -476,7 +477,7 @@ class MiniSolverDisaggregation(Disaggregation):
             ]:
                 generators = getattr(
                     self.original_network, bustype_pypsa
-                ).assign(bus=lambda df: df.bus.map(self.clustering.busmap))
+                ).assign(bus=lambda df: df.bus.map(self.busmap))
                 for suffix in suffixes:
 
                     def construct_constraint(model, snapshot):
