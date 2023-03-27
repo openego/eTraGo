@@ -21,12 +21,17 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
-from math import log10, sqrt
+from math import sqrt
 import logging
 import os
 
 from matplotlib import pyplot as plt
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
+from pypsa.plot import draw_map_cartopy
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -35,15 +40,10 @@ import tilemapbase
 
 cartopy_present = True
 try:
-    import cartopy
     import cartopy.crs as ccrs
-    import cartopy.mpl.geoaxes
-    import requests
 except ImportError:
     cartopy_present = False
-from pypsa.plot import draw_map_cartopy
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-import geopandas as gpd
+
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
                 'y': array of two floats, y axis boundaries (long)
                 'zoom' : resolution of osm
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(networkA)
             set_epsg_network(networkB)
@@ -347,7 +347,7 @@ def network_expansion_diff(
                 'zoom' : resolution of osm
 
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(networkA)
             set_epsg_network(networkB)
@@ -648,7 +648,7 @@ def plot_voltage(network, boundaries=[], osm=False):
     -------
     Plot
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         plot_osm(osm["x"], osm["y"], osm["zoom"])
@@ -759,6 +759,7 @@ def calc_dispatch_per_carrier(network, timesteps):
 
     def import_gen_from_links(network):
         from pypsa.networkclustering import aggregategenerators
+
         from etrago.cluster.spatial import strategies_generators
 
         """
@@ -1182,11 +1183,11 @@ def nodal_gen_dispatch(
                 'zoom' : resolution of osm
     """
 
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
-    elif (osm == False) and cartopy_present:
+    elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
@@ -1308,6 +1309,7 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
 
     def import_gen_from_links(network):
         from pypsa.networkclustering import aggregategenerators
+
         from etrago.cluster.spatial import strategies_generators
 
         """
@@ -1607,15 +1609,6 @@ def storage_soc_sorted(network, filename=None):
         & (network.storage_units.max_hours == 168)
     ]
 
-    cap_batt = (
-        network.storage_units.max_hours[sbatt]
-        * network.storage_units.p_nom_opt[sbatt]
-    ).sum()
-    cap_hydr = (
-        network.storage_units.max_hours[shydr]
-        * network.storage_units.p_nom_opt[shydr]
-    ).sum()
-
     fig, ax = plt.subplots(1, 1)
 
     if (
@@ -1759,13 +1752,13 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
-            l = network.links.index[
+            links_df = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
                 & (network.links.length == row["length"])
             ]
 
-            network.links.at[i, "linked_to"] = l.values[0]
+            network.links.at[i, "linked_to"] = links_df.values[0]
 
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
@@ -1978,26 +1971,26 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     """
     df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
-    l = self.network.links[
+    link = self.network.links[
         (self.network.links.carrier == "dsm")
         & (self.network.links.bus0.isin(buses))
     ]
     s = self.network.stores[
         (self.network.stores.carrier == "dsm")
-        & (self.network.stores.bus.isin(l.bus1.values))
+        & (self.network.stores.bus.isin(link.bus1.values))
     ]
 
     df["p_min"] = (
-        self.network.links_t.p_min_pu[l.index]
-        .mul(l.p_nom, axis=1)
+        self.network.links_t.p_min_pu[link.index]
+        .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
         .mean()
         .iloc[snapshots]
     )
     df["p_max"] = (
-        self.network.links_t.p_max_pu[l.index]
-        .mul(l.p_nom, axis=1)
+        self.network.links_t.p_max_pu[link.index]
+        .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
         .mean()
@@ -2019,7 +2012,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     if used:
         df["p"] = (
-            self.network.links_t.p0[l.index]
+            self.network.links_t.p0[link.index]
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
@@ -2288,7 +2281,8 @@ def flexibility_usage(
     snapshots : list, optional
         Considered snapshots, if empty all are considered. The default is [].
     buses : list, optional
-        Considered components at AC buses, if empty all are considered. The default is [].
+        Considered components at AC buses, if empty all are considered.
+        The default is [].
     pre_path : str, optional
         State of and where you want to store the figure. The default is None.
 
@@ -2301,9 +2295,6 @@ def flexibility_usage(
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
-
-    potential = pd.DataFrame(index=self.network.snapshots[snapshots])
-    used = pd.DataFrame(index=self.network.snapshots[snapshots])
 
     if not buses:
         buses = self.network.buses.index
@@ -2497,22 +2488,7 @@ def plot_grid(
             Set static line color or attribute to plot e.g. 'expansion_abs'
             Current options:
                 'line_loading': mean line loading in p.u. in selected timesteps
-                'v_nom': nominal voltage of linesflow = pd.Series(index=network.branches().index, dtype="float64")
-    flow.iloc[flow.index.get_level_values("component") == "Line"] = (
-        mul_weighting(network, network.lines_t.p0)
-        .loc[network.snapshots[timesteps]]
-        .sum()
-        / network.lines.s_nom
-        / rep_snapshots
-    ).values
-    flow.iloc[flow.index.get_level_values("component") == "Link"] = (
-        calc_dc_loading(network, timesteps) / rep_snapshots
-    ).values
-    flow = flow[(flow.index.get_level_values("component")=="Line")|
-          (flow.index.isin(link_widths[link_colors.index.isin(
-              network.links[network.links.carrier=="DC"].index)
-              ].index, level=1))]
-    flow = flow.apply(lambda x: x+5 if x > 0 else x-5)
+                'v_nom': nominal voltage of lines
                 'expansion_abs': absolute network expansion in MVA
                 'expansion_rel': network expansion in p.u. of existing capacity
                 'q_flow_max': maximal reactive flows
@@ -2521,12 +2497,14 @@ def plot_grid(
         bus_colors : str, optional
             Set static bus color or attribute to plot. The default is 'grey'.
             Current options:
-                'nodal_production_balance': net producer/consumer in selected timeteps
+                'nodal_production_balance': net producer/consumer in
+                selected timeteps
                 'storage_expansion': storage expansion per bus and technology
                 'storage_distribution': installed storage units per bus
                 'gen_dist': dispatch per carrier in selected timesteps
         timesteps : array, optional
-            Timesteps consideredd in time depended plots. The default is range(2).
+            Timesteps consideredd in time depended plots. The default
+            is range(2).
         osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
             If not False, osm is set as background
             with the following settings as dict:
@@ -2542,8 +2520,8 @@ def plot_grid(
         ext_min: float
             Choose minimum relative line extension shown in plot in p.u..
         ext_width: float or bool
-            Choose if line_width respects line extension. Turn off with 'False' or
-            set linear factor to decremise extension line_width.
+            Choose if line_width respects line extension. Turn off with
+            'False' or set linear factor to decremise extension line_width.
             The default is False.
 
         Returns
@@ -2562,16 +2540,17 @@ def plot_grid(
 
     # Set default values
     flow = None
+    title = ""
     line_widths = 2
     link_widths = 0
 
     # Plot osm map in background
-    if osm != False:
+    if osm is not False:
         if network.srid == 4326:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
 
-    elif (osm == False) and cartopy_present:
+    elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
@@ -2636,7 +2615,7 @@ def plot_grid(
             network, method="abs", ext_min=ext_min
         )
         plot_background_grid(all_network, ax)
-        if ext_width != False:
+        if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (line_colors / ext_width)
         else:
@@ -2653,7 +2632,7 @@ def plot_grid(
             network, method="rel", ext_min=ext_min
         )
         plot_background_grid(all_network, ax)
-        if ext_width != False:
+        if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = 0.5 + (link_colors / ext_width)
     elif line_colors == "q_flow_max":
@@ -2679,7 +2658,7 @@ def plot_grid(
             .sum()
         )
         line_colors = dlr_usage
-        if ext_width != False:
+        if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
 
@@ -2708,7 +2687,8 @@ def plot_grid(
     elif bus_colors == "storage_expansion":
         if not isinstance(scaling_store_expansion, dict):
             raise Exception(
-                """To plot storage_expansion, the argument scaling_store_expansion must be a dictionary like: 
+                """To plot storage_expansion, the argument\
+            scaling_store_expansion must be a dictionary like:
                             {"H2": 50,
                             "heat": 0.1,
                             "battery": 10}"""
@@ -2734,7 +2714,8 @@ def plot_grid(
             | ("H2_underground" not in scaling_store_expansion.keys())
         ):
             raise Exception(
-                """To plot h2_battery_storage_expansion, the argument scaling_store_expansion must be a dictionary like:
+                """To plot h2_battery_storage_expansion, the argument\
+            scaling_store_expansion must be a dictionary like:
                             {"H2_overground": 1,
                              "H2_underground": 1,
                              "battery": 1,}"""
@@ -2831,7 +2812,7 @@ def plot_grid(
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            # title=title,
+            title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
@@ -2848,7 +2829,7 @@ def plot_grid(
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            # title=title,
+            title=title,
             geomap=False,
             boundaries=[-2.5, 16, 46.8, 58],
         )
@@ -2874,7 +2855,7 @@ def plot_grid(
                             "carrier"
                         ).str.contains(i)
                     ].max()
-                except:
+                except KeyError:
                     max_value = bus_sizes.max()
                 handles.append(
                     make_legend_circles_for(
@@ -2884,8 +2865,9 @@ def plot_grid(
                     )[0]
                 )
                 labels.append(
-                    f"{round(max_value / bus_scaling / scaling_store_expansion[i]/1000, 0).astype(int)} GWh "
-                    + i
+                    f"""
+                    {round(max_value/bus_scaling/scaling_store_expansion[i]/
+                           1000, 0).astype(int)} {bus_unit} """ + i
                 )
         else:
             max_value = bus_sizes.max()
@@ -2979,10 +2961,8 @@ def plot_grid(
 
 set_epsg_network.counter = 0
 
-### the following functions are copied from pypsa-eur-sec ###
-### see here: https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
-from matplotlib.legend_handler import HandlerPatch
-from matplotlib.patches import Circle, Ellipse
+# the following functions are copied from pypsa-eur-sec. see:
+# https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
 
 
 def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
@@ -3191,7 +3171,8 @@ def plot_gas_generation(
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3256,10 +3237,12 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total gas generation
-        will then also be plotted to check for matching demand and generation.
+        If True all TS data will be shown as stacked area plot. Total gas
+        generation will then also be plotted to check for matching demand and
+        generation.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3410,7 +3393,8 @@ def plot_h2_generation(self, t_resolution="20H", save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3468,10 +3452,12 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total H2 generation
-        will then also be plotted to check for matching demand and generation.
+        If True all TS data will be shown as stacked area plot. Total H2
+        generation will then also be plotted to check for matching demand and
+        generation.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3480,7 +3466,6 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
     None.
 
     """
-    colors = coloring()
 
     rel_h2_links = ["H2_feedin", "H2_to_CH4", "H2_to_power"]
     rel_h2_loads = ["H2_for_industry", "H2_hgv_load"]
@@ -3593,7 +3578,8 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3642,10 +3628,12 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total heat demand
-        will then also be plotted to check for matching generation and demand.
+        If True all TS data will be shown as stacked area plot. Total heat
+        demand will then also be plotted to check for matching generation and
+        demand.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3717,7 +3705,7 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
         / 1e3
     )
 
-    if stacked == True:
+    if stacked:
         data = pd.DataFrame(-(data.sum(axis=1)))
         data = data.rename(columns={0: heat_gen_techs[0]})
 
