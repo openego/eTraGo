@@ -1018,7 +1018,9 @@ def delete_dispensable_ac_buses(etrago):
     b_trafo = pd.concat(
         [network.transformers.bus0, network.transformers.bus1]
     ).unique()
-    b_gen = network.generators.bus.unique()
+    b_gen = network.generators[
+        network.generators.carrier != "load shedding"
+    ].bus.unique()
     b_load = network.loads.bus.unique()
     b_store = network.stores[network.stores.e_nom > 0].bus.unique()
     b_store_unit = network.storage_units[

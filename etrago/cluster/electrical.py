@@ -419,9 +419,6 @@ def ehv_clustering(self):
         self.update_busmap(busmap)
         self.buses_by_country()
 
-        if not (self.args["network_clustering"]["active"]):
-            self.load_shedding()
-
         logger.info("Network clustered to EHV-grid")
 
 
@@ -837,7 +834,9 @@ def weighting_for_scenario(network, save=None):
         "nuclear": 1,
     }
 
-    gen = network.generators[["bus", "carrier", "p_nom"]].copy()
+    gen = network.generators[network.generators.carrier != "load shedding"][
+        ["bus", "carrier", "p_nom"]
+    ].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
 
