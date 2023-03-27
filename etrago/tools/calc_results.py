@@ -25,9 +25,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
-    import time
 
-    import numpy as np
     import pandas as pd
 
     logger = logging.getLogger(__name__)
@@ -386,7 +384,7 @@ def system_costs_germany(self):
                     .sum()
                     .sum()
                 )
-        if not c.name in [
+        if c.name not in [
             "Bus",
             "Load",
             "LineType",
@@ -629,6 +627,7 @@ def dc_export_per_country(self):
 
     return result
 
+
 def calc_etrago_results(self):
     """Function that calculates main results of grid optimization
     and adds them to Etrago object.
@@ -716,7 +715,6 @@ def calc_etrago_results(self):
     network = self.network
 
     if not network.storage_units[network.storage_units.p_nom_extendable].empty:
-
         self.results.value[
             "battery storage expansion"
         ] = _calc_storage_expansion(self).sum()
@@ -741,7 +739,6 @@ def calc_etrago_results(self):
     # links expansion
 
     if not network.links[network.links.p_nom_extendable].empty:
-
         links = _calc_sectorcoupling_link_expansion(self)
         self.results.value["fuel cell links expansion"] = links[0]
         self.results.value["electrolyzer links expansion"] = links[1]
@@ -753,7 +750,6 @@ def calc_etrago_results(self):
     # grid expansion
 
     if not network.lines[network.lines.s_nom_extendable].empty:
-
         self.results.value[
             "abs. electrical ac grid expansion"
         ] = _calc_network_expansion(self)[0].sum()

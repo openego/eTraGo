@@ -4,6 +4,7 @@ import nox
 
 cleaned = [
     "etrago/cluster/disaggregation.py",
+    "etrago/tools/calc_results.py",
     "etrago/tools/network.py",
     "etrago/tools/utilities.py",
     "noxfile.py",
