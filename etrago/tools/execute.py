@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -19,7 +19,7 @@
 
 # File description
 """
-execute.py defines optimization and simulation methods for Etrago object.
+execute.py defines optimization and simulation methods for the etrago object.
 """
 import os
 
@@ -45,23 +45,30 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = (
+    "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
+    "ClaraBuettner, CarlosEpia, AmeliaNadal"
+)
 
 
 def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
-
     """
     Update electrical parameters of active branch components
-    considering s_nom of previous iteration
+    considering s_nom of previous iteration.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     l_snom_pre: pandas.Series
-        s_nom of ac-lines in previous iteration
+        s_nom of ac-lines in previous iteration.
     t_snom_pre: pandas.Series
-        s_nom of transformers in previous iteration
+        s_nom of transformers in previous iteration.
+
+    Returns
+    -------
+    None.
+
     """
 
     network.lines.x[network.lines.s_nom_extendable] = (
@@ -103,22 +110,20 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
-def run_lopf(
-    etrago, extra_functionality, method, dispatch_disaggregation=False
-):
-    """Function that performs lopf with or without pyomo
-
+def run_lopf(etrago, extra_functionality, method):
+    """
+    Function that performs lopf with or without pyomo
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
-    extra_functionality: str
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
+    extra_functionality: dict
         Define extra constranits.
     method: dict
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
-        of iteration until the threshold of the objective function is reached
+        of iteration until the threshold of the objective function is reached.
 
     Returns
     -------
@@ -128,35 +133,70 @@ def run_lopf(
 
     x = time.time()
 
-    if dispatch_disaggregation:
+    if etrago.conduct_dispatch_disaggregation is not False:
+        # parameters defining the start and end per slices
+        no_slices = etrago.args["temporal_disaggregation"]["no_slices"]
+        skipped = etrago.network.snapshot_weightings.iloc[0].objective
+        transits = np.where(
+            etrago.network_tsa.snapshots.isin(
+                etrago.conduct_dispatch_disaggregation.index
+            )
+        )[0]
 
         if method["pyomo"]:
-            etrago.network_tsa.lopf(
-                etrago.network_tsa.snapshots,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                pyomo=True,
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
+            # repeat the optimization for all slices
+            for i in range(0, no_slices):
+                # keep information on the initial state of charge for the respectng slice
+                initial = transits[i - 1]
+                soc_initial = etrago.conduct_dispatch_disaggregation.loc[
+                    [etrago.network_tsa.snapshots[initial]]
+                ].transpose()
+                etrago.network_tsa.storage_units.state_of_charge_initial = (
+                    soc_initial
+                )
+                etrago.network_tsa.stores.e_initial = soc_initial
+                etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
+                # the state of charge at the end of each slice is set within
+                # split_dispatch_disaggregation_constraints in constraints.py
 
-            if etrago.network.results["Solver"][0]["Status"] != "ok":
-                raise Exception("LOPF not solved.")
+                # adapt start and end snapshot of respecting slice
+                start = transits[i - 1] + skipped
+                end = transits[i] + (skipped - 1)
+                if i == 0:
+                    start = 0
+                if i == no_slices - 1:
+                    end = len(etrago.network_tsa.snapshots)
+
+                etrago.network_tsa.lopf(
+                    etrago.network_tsa.snapshots[start : end + 1],
+                    solver_name=etrago.args["solver"],
+                    solver_options=etrago.args["solver_options"],
+                    pyomo=True,
+                    extra_functionality=extra_functionality,
+                    formulation=etrago.args["model_formulation"],
+                )
+
+                if etrago.network_tsa.results["Solver"][0]["Status"] != "ok":
+                    raise Exception("LOPF not solved.")
 
         else:
-            status, termination_condition = network_lopf(
-                etrago.network_tsa,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
-                extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
-            )
+            for i in range(0, no_slices):
+                status, termination_condition = network_lopf(
+                    etrago.network_tsa,
+                    etrago.network_tsa.snapshots[start : end + 1],
+                    solver_name=etrago.args["solver"],
+                    solver_options=etrago.args["solver_options"],
+                    extra_functionality=extra_functionality,
+                    formulation=etrago.args["model_formulation"],
+                )
 
-            if status != "ok":
-                raise Exception("LOPF not solved.")
+                if status != "ok":
+                    raise Exception("LOPF not solved.")
+
+        etrago.network_tsa.storage_units.state_of_charge_initial = 0
+        etrago.network_tsa.stores.e_initial = 0
 
     else:
-
         if method["pyomo"]:
             etrago.network.lopf(
                 etrago.network.snapshots,
@@ -192,32 +232,47 @@ def iterate_lopf(
     etrago,
     extra_functionality,
     method={"n_iter": 4, "pyomo": True},
-    dispatch_disaggregation=False,
 ):
-
     """
     Run optimization of lopf. If network extension is included, the specified
     number of iterations is calculated to consider reactance changes.
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
-    extra_functionality: str
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
+    extra_functionality: dict
         Define extra constranits.
     method: dict
         Choose 'n_iter' and integer for fixed number of iterations or
         'threshold' and derivation of objective in percent for variable number
-        of iteration until the threshold of the objective function is reached
+        of iteration until the threshold of the objective function is reached.
 
     """
 
     args = etrago.args
+    path = args["csv_export"]
+    lp_path = args["lpfile"]
 
-    if dispatch_disaggregation:
+    if (
+        args["temporal_disaggregation"]["active"] is True
+        and etrago.conduct_dispatch_disaggregation is False
+    ):
+        if not args["csv_export"] is False:
+            path = path + "/temporally_reduced"
+
+        if not args["lpfile"] is False:
+            lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
+
+    if etrago.conduct_dispatch_disaggregation is not False:
+        if not args["lpfile"] is False:
+            lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
 
         etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
         etrago.network_tsa.lines["s_nom_extendable"] = False
+
+        etrago.network_tsa.links["p_nom"] = etrago.network.links["p_nom_opt"]
+        etrago.network_tsa.links["p_nom_extendable"] = False
 
         etrago.network_tsa.transformers["s_nom"] = etrago.network.transformers[
             "s_nom_opt"
@@ -232,33 +287,21 @@ def iterate_lopf(
         etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
         etrago.network_tsa.stores["e_nom_extendable"] = False
 
-        etrago.network_tsa.links["p_nom"] = etrago.network.links["p_nom_opt"]
-        etrago.network_tsa.links["p_nom_extendable"] = False
+        etrago.network_tsa.storage_units.cyclic_state_of_charge = False
+        etrago.network_tsa.stores.e_cyclic = False
 
         args["snapshot_clustering"]["active"] = False
         args["skip_snapshots"] = False
         args["extendable"] = []
 
-        if args["csv_export"] != False:
-            args["csv_export"] = (
-                args["csv_export"] + "/dispatch_disaggregation"
-            )
-
-        if not args["lpfile"] is False:
-            args["lpfile"] = (
-                args["lpfile"][0:-3] + "_dispatch_disaggregation.lp"
-            )
-
         network = etrago.network_tsa
 
     else:
-
         network = etrago.network
 
     # if network is extendable, iterate lopf
     # to include changes of electrical parameters
     if network.lines.s_nom_extendable.any():
-
         # Initialise s_nom_pre (s_nom_opt of previous iteration)
         # to s_nom for first lopf:
         l_snom_pre = network.lines.s_nom.copy()
@@ -269,12 +312,11 @@ def iterate_lopf(
             n_iter = method["n_iter"]
 
             for i in range(1, (1 + n_iter)):
-
                 run_lopf(etrago, extra_functionality, method)
 
                 if args["csv_export"] != False:
-                    path = args["csv_export"] + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path)
+                    path_it = path + "/lopf_iteration_" + str(i)
+                    etrago.export_to_csv(path_it)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = update_electrical_parameters(
@@ -285,7 +327,6 @@ def iterate_lopf(
         # function is reached
 
         if "threshold" in method:
-
             run_lopf(etrago, extra_functionality, method)
 
             diff_obj = network.objective * method["threshold"] / 100
@@ -294,7 +335,6 @@ def iterate_lopf(
 
             # Stop after 100 iterations to aviod unending loop
             while i <= 100:
-
                 if i == 100:
                     print("Maximum number of iterations reached.")
                     break
@@ -309,32 +349,27 @@ def iterate_lopf(
                 i += 1
 
                 if args["csv_export"] != False:
-                    path = args["csv_export"] + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path)
+                    path_it = path + "/lopf_iteration_" + str(i)
+                    etrago.export_to_csv(path_it)
 
                 if abs(pre - network.objective) <= diff_obj:
                     print("Threshold reached after " + str(i) + " iterations.")
                     break
 
     else:
-        run_lopf(
-            etrago, extra_functionality, method, dispatch_disaggregation=True
-        )
-
-    if args["csv_export"] != False:
-        path = args["csv_export"]
-        etrago.export_to_csv(path)
+        run_lopf(etrago, extra_functionality, method)
 
     if not args["lpfile"] is False:
         network.model.write(
-            args["lpfile"], io_options={"symbolic_solver_labels": True}
+            lp_path
         )
 
     return network
 
 
 def lopf(self):
-    """Functions that runs lopf accordning to arguments
+    """
+    Functions that runs lopf according to arguments.
 
     Returns
     -------
@@ -344,34 +379,114 @@ def lopf(self):
 
     x = time.time()
 
+    self.conduct_dispatch_disaggregation = False
+
     iterate_lopf(
-        self, Constraints(self.args).functionality, method=self.args["method"]
+        self,
+        Constraints(
+            self.args, self.conduct_dispatch_disaggregation
+        ).functionality,
+        method=self.args["method"],
     )
 
     y = time.time()
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
+    if self.args["csv_export"] != False:
+        path = self.args["csv_export"]
+        if self.args["temporal_disaggregation"]["active"] is True:
+            path = path + "/temporally_reduced"
+        self.export_to_csv(path)
+
 
 def dispatch_disaggregation(self):
+    """
+    Function running the tempral disaggregation meaning the optimization
+    of dispatch in the temporally fully resolved network; therfore, the problem
+    is reduced to smaller subproblems by slicing the whole considered time span
+    while keeping inforation on the state of charge of storage units and stores
+    to ensure compatibility and to reproduce saisonality.
 
-    if self.args["dispatch_disaggregation"] == True:
+    Returns
+    -------
+    None.
 
+    """
+
+    if self.args["temporal_disaggregation"]["active"]:
         x = time.time()
+
+        if self.args["temporal_disaggregation"]["no_slices"]:
+            # split dispatch_disaggregation into subproblems
+            # keep some information on soc in beginning and end of slices
+            # to ensure compatibility and to reproduce saisonality
+
+            # define number of slices and corresponding slice length
+            no_slices = self.args["temporal_disaggregation"]["no_slices"]
+            slice_len = int(len(self.network.snapshots) / no_slices)
+            # transition snapshots defining start and end of slices
+            transits = self.network.snapshots[0::slice_len]
+            if len(transits) > 1:
+                transits = transits[1:]
+            if transits[-1] != self.network_tsa.snapshots[-1]:
+                transits = transits.insert(
+                    (len(transits)), self.network.snapshots[-1]
+                )
+            # for stores, exclude emob and dsm because of their special constraints
+            sto = self.network.stores[
+                (self.network.stores.carrier != "battery storage")
+                & (self.network.stores.carrier != "dsm")
+            ]
+
+            # save state of charge of storage units and stores at those transition snapshots
+            self.conduct_dispatch_disaggregation = pd.DataFrame(
+                columns=self.network.storage_units.index.append(sto.index),
+                index=transits,
+            )
+            for storage in self.network.storage_units.index:
+                self.conduct_dispatch_disaggregation[
+                    storage
+                ] = self.network.storage_units_t.state_of_charge[storage]
+            for store in sto.index:
+                self.conduct_dispatch_disaggregation[
+                    store
+                ] = self.network.stores_t.e[store]
+
+            extra_func = self.args["extra_functionality"]
+            self.args["extra_functionality"] = {}
+
+        load_shedding = self.args["load_shedding"]
+        if not load_shedding:
+            self.args["load_shedding"] = True
+            self.load_shedding(temporal_disaggregation=True)
 
         iterate_lopf(
             self,
-            Constraints(self.args).functionality,
+            Constraints(
+                self.args, self.conduct_dispatch_disaggregation
+            ).functionality,
             method=self.args["method"],
-            dispatch_disaggregation=True,
         )
 
+        # switch to temporally fully resolved network as standard network,
+        # temporally reduced network is stored in network_tsa
         network1 = self.network.copy()
         self.network = self.network_tsa.copy()
         self.network_tsa = network1.copy()
+        network1 = 0
+
+        # keep original settings
+
+        if self.args["temporal_disaggregation"]["no_slices"]:
+            self.args["extra_functionality"] = extra_func
+        self.args["load_shedding"] = load_shedding
 
         self.network.lines["s_nom_extendable"] = self.network_tsa.lines[
             "s_nom_extendable"
+        ]
+        self.network.links["p_nom_extendable"] = self.network_tsa.links[
+            "p_nom_extendable"
         ]
         self.network.transformers.s_nom_extendable = (
             self.network_tsa.transformers.s_nom_extendable
@@ -382,9 +497,15 @@ def dispatch_disaggregation(self):
         self.network.stores["e_nom_extendable"] = self.network_tsa.stores[
             "e_nom_extendable"
         ]
-        self.network.links["p_nom_extendable"] = self.network_tsa.links[
-            "p_nom_extendable"
-        ]
+        self.network.storage_units.cyclic_state_of_charge = (
+            self.network_tsa.storage_units.cyclic_state_of_charge
+        )
+        self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
+
+        if self.args["csv_export"] != False:
+            path = self.args["csv_export"]
+            self.export_to_csv(path)
+            self.export_to_csv(path + "/temporal_disaggregaton")
 
         y = time.time()
         z = (y - x) / 60
@@ -493,7 +614,8 @@ def import_gen_from_links(network):
 
 
 def run_pf_post_lopf(self):
-    """Functions that runs pf_post_lopf accordning to arguments
+    """
+    Function that runs pf_post_lopf according to arguments.
 
     Returns
     -------
@@ -502,16 +624,12 @@ def run_pf_post_lopf(self):
     """
 
     if self.args["pf_post_lopf"]["active"]:
-
         pf_post_lopf(self)
 
 
 def pf_post_lopf(etrago, calc_losses=False):
-
     """
     Function that prepares and runs non-linar load flow using PyPSA pf.
-
-
     If crossborder lines are DC-links, pf is only applied on german network.
     Crossborder flows are still considerd due to the active behavior of links.
     To return a network containing the whole grid, the optimised solution of the
@@ -519,11 +637,11 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago
-        Transmission grid object
+    etrago : etrago object
+        eTraGo containing all network information and a PyPSA network.
     add_foreign_lopf: boolean
         Choose if foreign results of lopf should be added to the network when
-        foreign lines are DC
+        foreign lines are DC.
     q_allocation: str
         Choose allocation of reactive power. Possible settings are listed in
         distribute_q function.
@@ -538,19 +656,19 @@ def pf_post_lopf(etrago, calc_losses=False):
     def drop_foreign_components(network):
         """
         Function that drops foreign components which are only connected via
-        DC-links and saves their optimization results in pandas.DataFrame
-
+        DC-links and saves their optimization results in pd.DataFrame.
 
         Parameters
         ----------
-        network : :class:`pypsa.Network
-            Overall container of PyPSA
+        network : pypsa.Network object
+            Container for all network components.
 
         Returns
         -------
         None.
 
         """
+
         # Create series for constant loads
         constant_loads = network.loads[network.loads.p_set != 0]["p_set"]
         for load in constant_loads.index:
@@ -643,7 +761,6 @@ def pf_post_lopf(etrago, calc_losses=False):
 
         return foreign_bus, foreign_comp, foreign_series
 
-
     x = time.time()
     network = etrago.network
     args = etrago.args
@@ -696,6 +813,11 @@ def pf_post_lopf(etrago, calc_losses=False):
     network.generators.control[
         network.generators.carrier == "load shedding"
     ] = "PQ"
+
+    # Assign storage units control strategy
+    network.storage_units.control[
+        network.storage_units.bus.isin(ac_bus.index)
+    ] = "PV"
 
     # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
@@ -775,24 +897,25 @@ def pf_post_lopf(etrago, calc_losses=False):
 
 
 def distribute_q(network, allocation="p_nom"):
-
-    """Function that distributes reactive power at bus to all installed
+    """
+    Function that distributes reactive power at bus to all installed
     generators and storages.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     allocation: str
         Choose key to distribute reactive power:
         'p_nom' to dirstribute via p_nom
-        'p' to distribute via p_set
+        'p' to distribute via p_set.
 
     Returns
     -------
-
+    None.
 
     """
+
     ac_bus = network.buses[network.buses.carrier == "AC"]
 
     gen_elec = network.generators[
@@ -909,19 +1032,19 @@ def distribute_q(network, allocation="p_nom"):
 
 
 def calc_line_losses(network, converged):
-    """Calculate losses per line with PF result data
+    """
+    Calculate losses per line with PF result data.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    converged : pandas.series
-        list of snapshots with their status (converged or not)
-    s0 : series
-        apparent power of line
-    i0 : series
-        current of line
+    network : pypsa.Network object
+        Container for all network components.
+    converged : pd.Series
+        List of snapshots with their status (converged or not).
+
+    Returns
     -------
+    None.
 
     """
     # Line losses
@@ -975,25 +1098,21 @@ def calc_line_losses(network, converged):
             f"Note: {(~converged).sum()} snapshot(s) was/were excluded "
             + "because the PF did not converge"
         )
-    return
 
 
 def set_slack(network):
-
     """
-    Function that chosses the bus with the maximum installed power as slack
+    Function that chosses the bus with the maximum installed power as slack.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-
-
+    network : pypsa.Network object
+        Container for all network components.
 
     """
 

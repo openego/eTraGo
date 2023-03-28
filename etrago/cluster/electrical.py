@@ -104,7 +104,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     busmap2 = {}
 
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
-    if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
+    if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
         buses_orig = network.buses.copy()
@@ -337,7 +337,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     network_c.determine_network_topology()
 
-    return (network_c.copy(), busmap)
+    return (network_c, busmap)
 
 
 def delete_ehv_buses_no_lines(network):
@@ -418,9 +418,6 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
-
-        if not (self.args["network_clustering"]["active"]):
-            self.load_shedding()
 
         logger.info("Network clustered to EHV-grid")
 
@@ -820,9 +817,12 @@ def weighting_for_scenario(network, save=None):
     fixed_capacity_fac = {
         # A value of 1 is given to power plants where its availability
         # does not depend on the weather
+        "industrial_gas_CHP": 1,
         "industrial_biomass_CHP": 1,
         "biomass": 1,
         "central_biomass_CHP": 1,
+        "central_gas_CHP": 1,
+        "OCGT": 1,
         "other_non_renewable": 1,
         "run_of_river": 0.50,
         "reservoir": 1,
@@ -834,7 +834,9 @@ def weighting_for_scenario(network, save=None):
         "nuclear": 1,
     }
 
-    gen = network.generators[["bus", "carrier", "p_nom"]].copy()
+    gen = network.generators[network.generators.carrier != "load shedding"][
+        ["bus", "carrier", "p_nom"]
+    ].copy()
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
 

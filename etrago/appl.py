@@ -68,7 +68,7 @@ args = {
         "FeasibilityTol": 1.0e-5,
         "method": 2,
         "crossover": 0,
-        "logFile": "solver_etragos.log",
+        "logFile": "solver_etrago.log",
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
@@ -134,22 +134,25 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
         "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
-        "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
+        "how": "daily",  # type of period - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
-        "n_segments": 5,
-    },  # number of segments - only relevant for segmentation
+        "n_segments": 5,  # number of segments - only relevant for segmentation
+    },
     "skip_snapshots": 5,  # False or number of snapshots to skip
-    "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
+    "temporal_disaggregation": {
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
+        "no_slices": 8,  # number of subproblems optimization is divided into
+    },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": False,  # meet the demand at value of loss load cost
+    "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",
@@ -410,9 +413,15 @@ def run_etrago(args, json_path):
         State if you only want to consider every n-th timestep
         to reduce temporal complexity.
 
-    dispatch_disaggregation : bool
+    temporal_disaggregation : dict
+    {'active': True, 'no_slices': 4},
         State if you to apply a second lopf considering dispatch only
         to disaggregate the dispatch to the whole temporal complexity.
+        Be aware that a load shedding will be applied in this optimization.
+        With "no_slices" the optimization problem will be calculated as a given
+        number of subproblems while using some information on the state of charge
+        of storage units and stores from the former optimization (at the moment
+        only possible with skip_snapshots; extra_functionalities disregarded)
 
     branch_capacity_factor : dict
         {'HV': 0.5, 'eHV' : 0.7},
@@ -489,7 +498,6 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
@@ -523,11 +531,3 @@ if __name__ == "__main__":
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
-    # plots
-    # make a line loading plot
-    # plot_line_loading(network)
-    # plot stacked sum of nominal power for each generator type and timestep
-    # plot_stacked_gen(network, resolution="MW")
-    # plot to show extendable storages
-    # storage_distribution(network)
-    # extension_overlay_network(network)
