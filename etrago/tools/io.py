@@ -50,9 +50,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves"
 
-from collections import OrderedDict
 from importlib import import_module
-import json
 import os
 
 import numpy as np
@@ -62,8 +60,6 @@ import pypsa
 if "READTHEDOCS" not in os.environ:
     import logging
 
-    from geoalchemy2.shape import to_shape
-    from sqlalchemy import and_, create_engine, func, or_
     from sqlalchemy.orm.exc import NoResultFound
     import saio
 
@@ -139,7 +135,9 @@ class NetworkScenario(ScenarioBase):
         r = "NetworkScenario: %s" % self.scn_name
 
         if not self.network:
-            r += "\nTo create a PyPSA network call <NetworkScenario>.build_network()."
+            r += """
+            \nTo create a PyPSA network call <NetworkScenario>.build_network().
+            """
 
         return r
 
@@ -344,7 +342,7 @@ class NetworkScenario(ScenarioBase):
 
     def build_network(self, network=None, *args, **kwargs):
         """Core method to construct PyPSA Network object."""
-        if network != None:
+        if network is not None:
             network = network
 
         else:
@@ -468,7 +466,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
 
     """
     # Update generator_ids when k_means clustering to get integer ids
-    if args["network_clustering_kmeans"] != False:
+    if args["network_clustering_kmeans"]:
         new_index = pd.DataFrame(index=network.generators.index)
         new_index["new"] = range(len(network.generators))
 
@@ -765,26 +763,35 @@ def run_sql_script(conn, scriptname="results_md2grid.sql"):
 def extension(self, **kwargs):
     """
     Function that adds an additional network to the existing network container.
-    The new network can include every PyPSA-component (e.g. buses, lines, links).
+    The new network can include every PyPSA-component (e.g. buses, lines,
+    links).
     To connect it to the existing network, transformers are needed.
 
-    All components and its timeseries of the additional scenario need to be inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
-    The scn_name in the tables have to be labled with 'extension_' + scn_name (e.g. 'extension_nep2035').
+    All components and its timeseries of the additional scenario need to be
+    inserted in the fitting 'model_draft.ego_grid_pf_hv_extension_' table.
+    The scn_name in the tables have to be labled with 'extension_' + scn_name
+    (e.g. 'extension_nep2035').
 
     Until now, the tables include three additional scenarios:
-    'nep2035_confirmed': all new lines and needed transformers planed in the 'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the Bundesnetzagentur (BNetzA)
+    'nep2035_confirmed': all new lines and needed transformers planed in the
+    'Netzentwicklungsplan 2035' (NEP2035) that have been confirmed by the
+    Bundesnetzagentur (BNetzA)
 
-    'nep2035_b2': all new lines and needed transformers planned in the NEP 2035 in the scenario 2035 B2
+    'nep2035_b2': all new lines and needed transformers planned in the NEP 2035
+    in the scenario 2035 B2
 
-    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming electrical-neighbours Belgium and Norway
-     Generation, loads and its timeseries in Belgium and Norway for scenario 'NEP 2035'
+    'BE_NO_NEP 2035': DC-lines and transformers to connect the upcomming
+    electrical-neighbours Belgium and Norway
+    Generation, loads and its timeseries in Belgium and Norway for scenario
+    'NEP 2035'
 
 
      Parameters
      -----
           network : The existing network container (e.g. scenario 'NEP 2035')
           session : session-data
-          overlay_scn_name : Name of the additional scenario (WITHOUT 'extension_')
+          overlay_scn_name : Name of the additional scenario
+          (WITHOUT 'extension_')
           start_snapshot, end_snapshot: Simulation time
 
     Returns
@@ -844,7 +851,7 @@ def decommissioning(self, **kwargs):
 
     """
     if self.args["scn_decommissioning"] is not None:
-        if self.args["gridversion"] == None:
+        if self.args["gridversion"] is None:
             ormclass = getattr(
                 import_module("egoio.db_tables.model_draft"),
                 "EgoGridPfHvExtensionLine",
@@ -878,7 +885,7 @@ def decommissioning(self, **kwargs):
                     self.network.lines.index == idx
                 ] = self.network.lines.s_nom_min
 
-        ### Drop decommissioning-lines from existing network
+        # Drop decommissioning-lines from existing network
         self.network.lines = self.network.lines[
             ~self.network.lines.index.isin(df_decommisionning.index)
         ]
@@ -912,7 +919,8 @@ def distance(x0, x1, y0, y1):
 
 def calc_nearest_point(bus1, network):
     """
-    Function that finds the geographical nearest point in a network from a given bus.
+    Function that finds the geographical nearest point in a network from a
+    given bus.
 
 
     Parameters
@@ -989,7 +997,9 @@ def add_ch4_h2_correspondence(self):
 
     """
 
-    sql = f"""SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;"""
+    sql = """
+    SELECT "bus_H2", "bus_CH4", scn_name FROM grid.egon_etrago_ch4_h2;
+    """
 
     table = pd.read_sql(sql, self.engine)
 
