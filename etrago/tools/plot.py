@@ -2674,11 +2674,11 @@ def plot_grid(
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
 
-    elif line_colors == "blue":
+    elif line_colors == "grey":
         title = ""
         label = ""
-        line_colors = "blue"
-        link_colors = "blue"
+        line_colors = "grey"
+        link_colors = "grey"
         plot_background_grid(network, ax)
         link_widths = 0
         line_widths = 0
