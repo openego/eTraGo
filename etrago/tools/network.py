@@ -285,7 +285,7 @@ class Etrago:
     get_clustering_data = get_clustering_data
 
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
-    
+
     manual_fixes_datamodel = manual_fixes_datamodel
 
     def dc_lines(self):
@@ -328,7 +328,7 @@ class Etrago:
         None.
 
         """
-        
+
         self.manual_fixes_datamodel()
 
         self.geolocation_buses()

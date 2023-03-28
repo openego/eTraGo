@@ -50,20 +50,22 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves"
 
-import pypsa
-from importlib import import_module
-import pandas as pd
 from collections import OrderedDict
+from importlib import import_module
 import json
 import os
+
 import numpy as np
+import pandas as pd
+import pypsa
 
 if "READTHEDOCS" not in os.environ:
-    from geoalchemy2.shape import to_shape
-    from sqlalchemy.orm.exc import NoResultFound
-    from sqlalchemy import and_, func, or_, create_engine
-    import saio
     import logging
+
+    from geoalchemy2.shape import to_shape
+    from sqlalchemy import and_, create_engine, func, or_
+    from sqlalchemy.orm.exc import NoResultFound
+    import saio
 
     logger = logging.getLogger(__name__)
 
@@ -84,7 +86,6 @@ class ScenarioBase:
     """
 
     def __init__(self, engine, session, version=None):
-
         global carr_ormclass
 
         saio.register_schema("grid", engine)
@@ -120,7 +121,6 @@ class NetworkScenario(ScenarioBase):
         temp_id=1,
         **kwargs,
     ):
-
         self.scn_name = scn_name
         self.start_snapshot = start_snapshot
         self.end_snapshot = end_snapshot
@@ -181,7 +181,6 @@ class NetworkScenario(ScenarioBase):
                 Index of snapshots or timesteps. """
 
     def id_to_source(self):
-
         ormclass = self._mapped["Source"]
         query = self.session.query(ormclass)
 
@@ -207,7 +206,6 @@ class NetworkScenario(ScenarioBase):
         from saio.grid import (
             egon_etrago_bus,
             egon_etrago_generator,
-            egon_etrago_load,
             egon_etrago_line,
             egon_etrago_link,
             egon_etrago_load,
@@ -263,7 +261,6 @@ class NetworkScenario(ScenarioBase):
         from saio.grid import (
             egon_etrago_bus_timeseries,
             egon_etrago_generator_timeseries,
-            egon_etrago_load_timeseries,
             egon_etrago_line_timeseries,
             egon_etrago_link_timeseries,
             egon_etrago_load_timeseries,
@@ -318,18 +315,22 @@ class NetworkScenario(ScenarioBase):
             df_all.set_index(index_col, inplace=True)
 
             df_all.index = df_all.index.astype(str)
-            
-            if not df_all.isnull().all().all():
 
+            if not df_all.isnull().all().all():
                 # Fill empty lists with default values from pypsa
                 if col in network.component_attrs[pypsa_name].index:
-
                     df_all.loc[df_all.anon_1.isnull(), "anon_1"] = df_all.loc[
-                        df_all.anon_1.isnull(), "anon_1"].apply(lambda x:
-                    
-                        [float(network.component_attrs[pypsa_name].default[col])
-                         ]*len(network.snapshots)
-                        )
+                        df_all.anon_1.isnull(), "anon_1"
+                    ].apply(
+                        lambda x: [
+                            float(
+                                network.component_attrs[pypsa_name].default[
+                                    col
+                                ]
+                            )
+                        ]
+                        * len(network.snapshots)
+                    )
 
                 df = df_all.anon_1.apply(pd.Series).transpose()
 
@@ -360,7 +361,6 @@ class NetworkScenario(ScenarioBase):
             "Storage",
             "Store",
         ]:
-
             pypsa_comp = "StorageUnit" if comp == "Storage" else comp
 
             if comp[-1] == "s":
@@ -404,17 +404,17 @@ def clear_results_db(session):
     from egoio.db_tables.model_draft import (
         EgoGridPfHvResultBus as BusResult,
         EgoGridPfHvResultBusT as BusTResult,
-        EgoGridPfHvResultStorage as StorageResult,
-        EgoGridPfHvResultStorageT as StorageTResult,
         EgoGridPfHvResultGenerator as GeneratorResult,
         EgoGridPfHvResultGeneratorT as GeneratorTResult,
         EgoGridPfHvResultLine as LineResult,
         EgoGridPfHvResultLineT as LineTResult,
         EgoGridPfHvResultLoad as LoadResult,
         EgoGridPfHvResultLoadT as LoadTResult,
+        EgoGridPfHvResultMeta as ResultMeta,
+        EgoGridPfHvResultStorage as StorageResult,
+        EgoGridPfHvResultStorageT as StorageTResult,
         EgoGridPfHvResultTransformer as TransformerResult,
         EgoGridPfHvResultTransformerT as TransformerTResult,
-        EgoGridPfHvResultMeta as ResultMeta,
     )
 
     print("Are you sure that you want to clear all results in the OEDB?")
@@ -489,17 +489,17 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         from egoio.db_tables.model_draft import (
             EgoGridPfHvResultBus as BusResult,
             EgoGridPfHvResultBusT as BusTResult,
-            EgoGridPfHvResultStorage as StorageResult,
-            EgoGridPfHvResultStorageT as StorageTResult,
             EgoGridPfHvResultGenerator as GeneratorResult,
             EgoGridPfHvResultGeneratorT as GeneratorTResult,
             EgoGridPfHvResultLine as LineResult,
             EgoGridPfHvResultLineT as LineTResult,
             EgoGridPfHvResultLoad as LoadResult,
             EgoGridPfHvResultLoadT as LoadTResult,
+            EgoGridPfHvResultMeta as ResultMeta,
+            EgoGridPfHvResultStorage as StorageResult,
+            EgoGridPfHvResultStorageT as StorageTResult,
             EgoGridPfHvResultTransformer as TransformerResult,
             EgoGridPfHvResultTransformerT as TransformerTResult,
-            EgoGridPfHvResultMeta as ResultMeta,
             EgoGridPfHvSource as Source,
         )
     else:
@@ -793,7 +793,6 @@ def extension(self, **kwargs):
 
     """
     if self.args["scn_extension"] is not None:
-
         if self.args["gridversion"] is None:
             ormcls_prefix = "EgoGridPfHvExtension"
         else:

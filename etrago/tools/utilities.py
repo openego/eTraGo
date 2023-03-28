@@ -2613,6 +2613,7 @@ def residual_load(network, sector="electricity"):
 
     return loads_per_bus - renewable_dispatch
 
+
 def manual_fixes_datamodel(etrago):
     """Apply temporal fixes to the data model until a new egon-data run is there
 
@@ -2628,11 +2629,11 @@ def manual_fixes_datamodel(etrago):
     """
     # Set line type
     etrago.network.lines.type = ""
-    
+
     # Set life time of storage_units, transformers and lines
     etrago.network.storage_units.lifetime = 27.5
     etrago.network.transformers.lifetime = 40
-    etrago.network.lines.lifetime = 40  
+    etrago.network.lines.lifetime = 40
 
     # Set efficiences of CHP
     etrago.network.links.loc[
@@ -2643,11 +2644,19 @@ def manual_fixes_datamodel(etrago):
     ] = 0.43
 
     # Enlarge gas boilers as backup heat supply
-    etrago.network.links.loc[etrago.network.links[
-    etrago.network.links.carrier.str.contains('gas_boiler')].index, 'p_nom'] *= 1000
+    etrago.network.links.loc[
+        etrago.network.links[
+            etrago.network.links.carrier.str.contains("gas_boiler")
+        ].index,
+        "p_nom",
+    ] *= 1000
 
     # Set p_max_pu for run of river and reservoir
-    etrago.network.generators.loc[etrago.network.generators[
-        etrago.network.generators.carrier.isin(["run_of_river", "reservoir"])].index, 'p_max_pu'] = 0.65
-
-  
+    etrago.network.generators.loc[
+        etrago.network.generators[
+            etrago.network.generators.carrier.isin(
+                ["run_of_river", "reservoir"]
+            )
+        ].index,
+        "p_max_pu",
+    ] = 0.65
