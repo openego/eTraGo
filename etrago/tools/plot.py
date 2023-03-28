@@ -1778,7 +1778,7 @@ def plot_grid(
         link_colors = network.links.v_nom
     elif line_colors == "expansion_abs":
         title = "Network expansion"
-        label = "network expansion in GVA"
+        label = "network expansion in MVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
@@ -1925,8 +1925,8 @@ def plot_grid(
         link_widths.loc[network.links.carrier != "DC"] = 0
 
     ll = network.plot(
-        line_colors=line_colors.mul(1e-3),
-        link_colors=link_colors.mul(1e-3),
+        line_colors=line_colors,
+        link_colors=link_colors,
         line_cmap=plt.cm.jet,
         link_cmap=plt.cm.jet,
         bus_sizes=bus_sizes,
@@ -1944,18 +1944,14 @@ def plot_grid(
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
         handles = make_legend_circles_for(
-             [bus_sizes.max(), bus_sizes.max(), bus_sizes.max()], scale=1, facecolor=["gray", "gray", "gray"]
+            [bus_sizes.min(), bus_sizes.max()], scale=1, facecolor="gray"
         )
         labels = [
-            f"{round(bus_sizes.max() / bus_scaling / 1000, 0)} GWh_el",
-            f"{round(bus_sizes.max() / bus_scaling / 1000, 0)} GWh_H2",
-            f"{round(bus_sizes.max() / bus_scaling / 100, 0)} GWh_th",
-            
-            
-            # ("{} " + bus_unit).format(s)
-            # for s in (
-            #     round(bus_sizes.max() / bus_scaling / 1000, 0),
-            # )
+            ("{} " + bus_unit).format(s)
+            for s in (
+                round(bus_sizes.min() / bus_scaling / 1000, 0),
+                round(bus_sizes.max() / bus_scaling / 1000, 0),
+            )
         ]
 
         l2 = ax.legend(
