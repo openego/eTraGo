@@ -984,7 +984,16 @@ def delete_dispensable_ac_buses(etrago):
             (network.storage_units.bus.isin(drop_buses))
         ].to_list()
         network.storage_units.drop(drop_storage_units, inplace=True)
-        return (network.buses, network.lines, network.storage_units)
+        drop_generators = network.generators.index[
+            (network.generators.bus.isin(drop_buses))
+        ].to_list()
+        network.generators.drop(drop_generators, inplace=True)
+        return (
+            network.buses,
+            network.lines,
+            network.storage_units,
+            network.generators,
+        )
 
     def count_lines(lines):
         buses_in_lines = lines[["bus0", "bus1"]].drop_duplicates()
@@ -1159,9 +1168,12 @@ def delete_dispensable_ac_buses(etrago):
         new_lines_df.loc[l_new.name] = l_new
 
     # Delete all the dispensable buses
-    (network.buses, network.lines, network.storage_units) = delete_buses(
-        ac_buses, network
-    )
+    (
+        network.buses,
+        network.lines,
+        network.storage_units,
+        network.generators,
+    ) = delete_buses(ac_buses, network)
 
     # exclude from the new lines the ones connected to deleted buses
     new_lines_df = new_lines_df[
@@ -1170,6 +1182,15 @@ def delete_dispensable_ac_buses(etrago):
     ]
 
     etrago.network.lines = pd.concat([etrago.network.lines, new_lines_df])
+
+    # Drop s_max_pu timeseries for deleted lines
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()[
+            etrago.network.lines_t.s_max_pu.columns.isin(
+                etrago.network.lines.index
+            )
+        ].transpose()
+    )
 
     return
 
