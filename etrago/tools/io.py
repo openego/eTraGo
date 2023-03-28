@@ -318,14 +318,18 @@ class NetworkScenario(ScenarioBase):
             df_all.set_index(index_col, inplace=True)
 
             df_all.index = df_all.index.astype(str)
-
+            
             if not df_all.isnull().all().all():
 
+                # Fill empty lists with default values from pypsa
                 if col in network.component_attrs[pypsa_name].index:
-                    df_all.fillna(
-                        network.component_attrs[pypsa_name].default[col],
-                        inplace=True,
-                    )
+
+                    df_all.loc[df_all.anon_1.isnull(), "anon_1"] = df_all.loc[
+                        df_all.anon_1.isnull(), "anon_1"].apply(lambda x:
+                    
+                        [float(network.component_attrs[pypsa_name].default[col])
+                         ]*len(network.snapshots)
+                        )
 
                 df = df_all.anon_1.apply(pd.Series).transpose()
 
