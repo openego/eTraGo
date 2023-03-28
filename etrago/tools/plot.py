@@ -2492,6 +2492,8 @@ def plot_grid(
                 'expansion_abs': absolute network expansion in MVA
                 'expansion_rel': network expansion in p.u. of existing capacity
                 'q_flow_max': maximal reactive flows
+                'dlr': energy above nominal capacity
+                'grey': plot all lines and DC linkd grey colored
         bus_sizes : float, optional
             Size of buses. The default is 0.001.
         bus_colors : str, optional
@@ -2499,9 +2501,13 @@ def plot_grid(
             Current options:
                 'nodal_production_balance': net producer/consumer in
                 selected timeteps
-                'storage_expansion': storage expansion per bus and technology
+                'storage_expansion': storage expansion per bus and technology.
+                'h2_battery_storage_expansion': storage expansion per bus and
+                technology for underground and overground H2 and batteries.
                 'storage_distribution': installed storage units per bus
                 'gen_dist': dispatch per carrier in selected timesteps
+                'PowerToH2': location and sizes of electrolizers
+                'flexibility_usage': use of DSM and BEV charger
         timesteps : array, optional
             Timesteps consideredd in time depended plots. The default
             is range(2).
@@ -2523,7 +2529,13 @@ def plot_grid(
             Choose if line_width respects line extension. Turn off with
             'False' or set linear factor to decremise extension line_width.
             The default is False.
-
+        legend_entries : list, optional
+            Set the legends for buses to be plotted. The default is 'all'.
+        scaling_store_expansion : dict, optional
+            Set scaling values to be used per technology for the plots
+            storage_expansion and h2_battery_storage_expansion. The default is
+            {"H2": 50, "heat": 0.1, "battery": 10}
+            
         Returns
         -------
         None.
