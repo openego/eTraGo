@@ -78,6 +78,7 @@ from etrago.tools.utilities import (
     get_args_setting,
     get_clustering_data,
     load_shedding,
+    manual_fixes_datamodel,
     set_branch_capacity,
     set_line_costs,
     set_q_foreign_loads,
@@ -284,6 +285,8 @@ class Etrago:
     get_clustering_data = get_clustering_data
 
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
+    
+    manual_fixes_datamodel = manual_fixes_datamodel
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -325,6 +328,8 @@ class Etrago:
         None.
 
         """
+        
+        self.manual_fixes_datamodel()
 
         self.geolocation_buses()
 
