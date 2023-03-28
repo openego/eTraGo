@@ -2615,7 +2615,8 @@ def residual_load(network, sector="electricity"):
 
 
 def manual_fixes_datamodel(etrago):
-    """Apply temporal fixes to the data model until a new egon-data run is there
+    """Apply temporal fixes to the data model until a new egon-data run
+    is there
 
     Parameters
     ----------
