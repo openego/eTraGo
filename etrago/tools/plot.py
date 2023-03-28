@@ -2700,13 +2700,12 @@ def plot_grid(
 
         plt.setp(l2.get_title(), fontsize="9")
 
-        if not scaling_store_expansion:
+        if ((not scaling_store_expansion) & (bus_legend != "PowerToH2")):
             handles = []
             if bus_legend == "Nodal production balance":
                 positive = mpatches.Patch(color="green", label="generation")
                 negative = mpatches.Patch(color="red", label="consumption")
                 handles = [positive, negative]
-
             elif legend_entries != "all":
                 for i in legend_entries:
                     patch = mpatches.Patch(
