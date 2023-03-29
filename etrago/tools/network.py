@@ -40,6 +40,8 @@ from etrago.tools.calc_results import (
     calc_etrago_results,
     dc_export,
     dc_export_per_country,
+    german_network,
+    system_costs_germany,
 )
 from etrago.tools.execute import (
     dispatch_disaggregation,
@@ -246,21 +248,25 @@ class Etrago:
 
     calc_results = calc_etrago_results
 
-    calc_ac_export = ac_export()
+    calc_ac_export = ac_export
 
-    calc_ac_export_per_country = ac_export_per_country()
+    calc_ac_export_per_country = ac_export_per_country
 
-    calc_dc_export = dc_export()
+    calc_dc_export = dc_export
 
-    calc_dc_export_per_country = dc_export_per_country()
+    calc_dc_export_per_country = dc_export_per_country
 
     export_to_csv = export_to_csv
 
     filter_links_by_carrier = filter_links_by_carrier
 
+    german_network = german_network
+
     set_line_costs = set_line_costs
 
     set_trafo_costs = set_trafo_costs
+
+    system_costs_germany = system_costs_germany
 
     drop_sectors = drop_sectors
 

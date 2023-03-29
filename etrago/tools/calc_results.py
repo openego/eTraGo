@@ -355,7 +355,7 @@ def system_costs_germany(self):
 
     """
 
-    network_de = self.german_network
+    network_de = self.german_network()
 
     marginal_cost = 0
     invest_cost = 0
