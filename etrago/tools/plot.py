@@ -2452,16 +2452,27 @@ def plot_grid(
         title = "Dynamic line rating"
         label = "MWh above nominal capacity"
         plot_background_grid(network, ax)
-        line_loading = network.lines_t.p0.mul(
-            1 / (network.lines.s_nom_opt * network.lines.s_max_pu)
+        # Extract branch_capacity_factors
+        bcf_hv = self.args["branch_capacity_factor"]["HV"]
+        bcf_ehv = self.args["branch_capacity_factor"]["eHV"]
+        # calc min capacity per line in the given period
+        network.lines.s_max_pu = network.lines_t.s_max_pu.min()
+        network.lines.s_max_pu[network.lines.s_max_pu < 0.7] = 0.5
+        network.lines.s_max_pu[(network.lines.s_max_pu > 0.5) &
+                                (network.lines.s_max_pu < 0.70)] = (bcf_hv + bcf_ehv)/2
+        network.lines.s_max_pu[network.lines.s_max_pu >= 0.70] = 0.70
+        line_loading = (network.lines_t.p0.mul(
+            1 / (network.lines.s_nom_opt * network.lines.s_max_pu)).abs()
         )
+        # keep only the capacity allowed by dlr
+        line_loading = line_loading - 1
         dlr_usage = (
-            line_loading[line_loading.abs() > 1]
+            line_loading[line_loading > 0]
             .fillna(0)
             .mul(network.snapshot_weightings.generators, axis=0)
-            .abs()
             .sum()
         )
+        dlr_usage = dlr_usage * network.lines.s_nom * network.lines.s_max_pu
         line_colors = dlr_usage
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
