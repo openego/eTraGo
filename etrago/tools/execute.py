@@ -164,7 +164,7 @@ def run_lopf(etrago, extra_functionality, method):
                 end = transits[i] + (skipped - 1)
                 if i == 0:
                     start = 0
-                elif i == no_slices - 1:
+                if i == no_slices - 1:
                     end = len(etrago.network_tsa.snapshots)
 
                 etrago.network_tsa.lopf(
@@ -361,7 +361,7 @@ def iterate_lopf(
 
     if not args["lpfile"] is False:
         network.model.write(
-            lp_path, io_options={"symbolic_solver_labels": True}
+            lp_path
         )
 
     return network
@@ -427,7 +427,8 @@ def dispatch_disaggregation(self):
             slice_len = int(len(self.network.snapshots) / no_slices)
             # transition snapshots defining start and end of slices
             transits = self.network.snapshots[0::slice_len]
-            transits = transits[1:]
+            if len(transits) > 1:
+                transits = transits[1:]
             if transits[-1] != self.network_tsa.snapshots[-1]:
                 transits = transits.insert(
                     (len(transits)), self.network.snapshots[-1]
@@ -822,6 +823,11 @@ def pf_post_lopf(etrago, calc_losses=False):
     network.generators.control[
         network.generators.carrier == "load shedding"
     ] = "PQ"
+
+    # Assign storage units control strategy
+    network.storage_units.control[
+        network.storage_units.bus.isin(ac_bus.index)
+    ] = "PV"
 
     # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())

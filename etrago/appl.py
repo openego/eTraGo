@@ -154,7 +154,7 @@ args = {
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": False,  # meet the demand at value of loss load cost
+    "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
