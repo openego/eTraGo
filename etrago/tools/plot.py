@@ -2649,7 +2649,7 @@ def plot_grid(
             geomap=False,
             boundaries=[-2.5, 16, 46.8, 58],
         )
-
+    l3 = None
     # legends for bus sizes and colors
     if bus_legend:
         handles = []
@@ -2769,8 +2769,11 @@ def plot_grid(
         plt.show()
     else:
         from matplotlib import pylab
-
-        pylab.savefig(filename, dpi=300, bbox_inches="tight")
+        if l3 == None:
+            pylab.savefig(filename, dpi=300, bbox_inches='tight')
+        else:
+            pylab.savefig(filename, dpi=300, bbox_inches='tight',
+                          bbox_extra_artists= [l3])
         plt.close()
 
 
