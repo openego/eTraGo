@@ -872,6 +872,11 @@ def weighting_for_scenario(network, save=None):
 
 def run_spatial_clustering(self):
     if self.args["network_clustering"]["active"]:
+        if self.args["disaggregation"] != None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
+
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
@@ -904,17 +909,13 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
-        self.clustering, busmap = postprocessing(
+        clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx
         )
+
         self.update_busmap(busmap)
 
-        if self.args["disaggregation"] != None:
-            self.disaggregated_network = self.network.copy()
-        else:
-            self.disaggregated_network = self.network.copy(with_time=False)
-
-        self.network = self.clustering.network
+        self.network = clustering.network
 
         self.buses_by_country()
 
