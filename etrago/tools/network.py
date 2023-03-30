@@ -128,8 +128,6 @@ class Etrago:
     ):
         self.tool_version = __version__
 
-        self.clustering = None
-
         self.results = pd.DataFrame()
 
         self.network = Network()
