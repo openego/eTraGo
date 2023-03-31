@@ -23,7 +23,6 @@ Plot.py defines functions necessary to plot results of eTraGo.
 """
 from math import sqrt
 import logging
-import os
 
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
@@ -48,9 +47,6 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
-
-if "READTHEDOCS" not in os.environ:
-    from geoalchemy2.shape import to_shape
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -2799,7 +2795,7 @@ def plot_grid(
     else:
         from matplotlib import pylab
 
-        if l3 == None:
+        if l3 is None:
             pylab.savefig(filename, dpi=300, bbox_inches="tight")
         else:
             pylab.savefig(
