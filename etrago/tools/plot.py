@@ -23,6 +23,7 @@ Plot.py defines functions necessary to plot results of eTraGo.
 """
 from math import sqrt
 import logging
+import os
 
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
@@ -37,7 +38,8 @@ import numpy as np
 import pandas as pd
 import tilemapbase
 
-from etrago.tools.execute import import_gen_from_links
+if "READTHEDOCS" not in os.environ:
+    from etrago.tools.execute import import_gen_from_links
 
 cartopy_present = True
 try:
