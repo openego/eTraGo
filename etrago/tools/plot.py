@@ -31,13 +31,14 @@ from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
 from shapely.geometry import LineString, Point
-from etrago.tools.execute import import_gen_from_links
 import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 import tilemapbase
+
+from etrago.tools.execute import import_gen_from_links
 
 cartopy_present = True
 try:
@@ -2277,63 +2278,63 @@ def plot_grid(
 ):
     """Function that plots etrago.network and results for lines and buses
 
-        Parameters
-        ----------
-        line_colors : str
-            Set static line color or attribute to plot e.g. 'expansion_abs'
-            Current options:
-                'line_loading': mean line loading in p.u. in selected timesteps
-                'v_nom': nominal voltage of lines
-                'expansion_abs': absolute network expansion in MVA
-                'expansion_rel': network expansion in p.u. of existing capacity
-                'q_flow_max': maximal reactive flows
-                'dlr': energy above nominal capacity
-                'grey': plot all lines and DC linkd grey colored
-        bus_sizes : float, optional
-            Size of buses. The default is 0.001.
-        bus_colors : str, optional
-            Set static bus color or attribute to plot. The default is 'grey'.
-            Current options:
-                'nodal_production_balance': net producer/consumer in
-                selected timeteps
-                'storage_expansion': storage expansion per bus and technology.
-                'h2_battery_storage_expansion': storage expansion per bus and
-                technology for underground and overground H2 and batteries.
-                'storage_distribution': installed storage units per bus
-                'gen_dist': dispatch per carrier in selected timesteps
-                'PowerToH2': location and sizes of electrolizers
-                'flexibility_usage': use of DSM and BEV charger
-        timesteps : array, optional
-            Timesteps consideredd in time depended plots. The default
-            is range(2).
-        osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
-            If not False, osm is set as background
-            with the following settings as dict:
-                    'x': array of two floats, x axis boundaries (lat)
-                    'y': array of two floats, y axis boundaries (long)
-                    'zoom' : resolution of osm. The default is False.
-        boundaries: array
-           Set fixed boundaries of heatmap axis. The default is None.
-        filename: str or None
-            Save figure in this direction. The default is None.
-        disaggregated : bool, optional
-            Choose if disaggregated network is shown. The default is False.
-        ext_min: float
-            Choose minimum relative line extension shown in plot in p.u..
-        ext_width: float or bool
-            Choose if line_width respects line extension. Turn off with
-            'False' or set linear factor to decremise extension line_width.
-            The default is False.
-        legend_entries : list, optional
-            Set the legends for buses to be plotted. The default is 'all'.
-        scaling_store_expansion : dict, optional
-            Set scaling values to be used per technology for the plots
-            storage_expansion and h2_battery_storage_expansion. The default is
-            {"H2": 50, "heat": 0.1, "battery": 10}
-            
-        Returns
-        -------
-        None.
+    Parameters
+    ----------
+    line_colors : str
+        Set static line color or attribute to plot e.g. 'expansion_abs'
+        Current options:
+            'line_loading': mean line loading in p.u. in selected timesteps
+            'v_nom': nominal voltage of lines
+            'expansion_abs': absolute network expansion in MVA
+            'expansion_rel': network expansion in p.u. of existing capacity
+            'q_flow_max': maximal reactive flows
+            'dlr': energy above nominal capacity
+            'grey': plot all lines and DC linkd grey colored
+    bus_sizes : float, optional
+        Size of buses. The default is 0.001.
+    bus_colors : str, optional
+        Set static bus color or attribute to plot. The default is 'grey'.
+        Current options:
+            'nodal_production_balance': net producer/consumer in
+            selected timeteps
+            'storage_expansion': storage expansion per bus and technology.
+            'h2_battery_storage_expansion': storage expansion per bus and
+            technology for underground and overground H2 and batteries.
+            'storage_distribution': installed storage units per bus
+            'gen_dist': dispatch per carrier in selected timesteps
+            'PowerToH2': location and sizes of electrolizers
+            'flexibility_usage': use of DSM and BEV charger
+    timesteps : array, optional
+        Timesteps consideredd in time depended plots. The default
+        is range(2).
+    osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
+        If not False, osm is set as background
+        with the following settings as dict:
+                'x': array of two floats, x axis boundaries (lat)
+                'y': array of two floats, y axis boundaries (long)
+                'zoom' : resolution of osm. The default is False.
+    boundaries: array
+       Set fixed boundaries of heatmap axis. The default is None.
+    filename: str or None
+        Save figure in this direction. The default is None.
+    disaggregated : bool, optional
+        Choose if disaggregated network is shown. The default is False.
+    ext_min: float
+        Choose minimum relative line extension shown in plot in p.u..
+    ext_width: float or bool
+        Choose if line_width respects line extension. Turn off with
+        'False' or set linear factor to decremise extension line_width.
+        The default is False.
+    legend_entries : list, optional
+        Set the legends for buses to be plotted. The default is 'all'.
+    scaling_store_expansion : dict, optional
+        Set scaling values to be used per technology for the plots
+        storage_expansion and h2_battery_storage_expansion. The default is
+        {"H2": 50, "heat": 0.1, "battery": 10}
+
+    Returns
+    -------
+    None.
 
     """
     # Choose network or disaggregated_network
@@ -2376,7 +2377,9 @@ def plot_grid(
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
         if ext_width is not False:
-            link_widths = link_colors.apply(lambda x: 10 + (x/ext_width) if x != 0 else 0)
+            link_widths = link_colors.apply(
+                lambda x: 10 + (x / ext_width) if x != 0 else 0
+            )
             line_widths = 10 + (line_colors / ext_width)
         else:
             link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
@@ -2394,7 +2397,10 @@ def plot_grid(
         ).values
 
         dc_loading = calc_dc_loading(network, timesteps) / rep_snapshots
-        dc_loading.index = pd.MultiIndex.from_tuples([("Link", name) for name in dc_loading.index], names = ["component", "name"])
+        dc_loading.index = pd.MultiIndex.from_tuples(
+            [("Link", name) for name in dc_loading.index],
+            names=["component", "name"],
+        )
         flow.loc["Link", :] = dc_loading
 
         flow = flow[
@@ -2428,7 +2434,9 @@ def plot_grid(
         plot_background_grid(all_network, ax)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = link_colors.apply(lambda x: 0.5 + x / ext_width if x != 0 else 0)
+            link_widths = link_colors.apply(
+                lambda x: 0.5 + x / ext_width if x != 0 else 0
+            )
         else:
             dc_link = network.links.index[network.links.carrier == "DC"]
             link_widths = pd.Series(0, index=network.links.index)
@@ -2445,7 +2453,9 @@ def plot_grid(
         plot_background_grid(all_network, ax)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = link_colors.apply(lambda x: 0.5 + x / ext_width if x != 0 else 0)
+            link_widths = link_colors.apply(
+                lambda x: 0.5 + x / ext_width if x != 0 else 0
+            )
         else:
             dc_link = network.links.index[network.links.carrier == "DC"]
             link_widths = pd.Series(0, index=network.links.index)
@@ -2470,12 +2480,13 @@ def plot_grid(
         # calc min capacity per line in the given period
         network.lines.s_max_pu = network.lines_t.s_max_pu.min()
         network.lines.s_max_pu[network.lines.s_max_pu < 0.7] = 0.5
-        network.lines.s_max_pu[(network.lines.s_max_pu > 0.5) &
-                                (network.lines.s_max_pu < 0.70)] = (bcf_hv + bcf_ehv)/2
+        network.lines.s_max_pu[
+            (network.lines.s_max_pu > 0.5) & (network.lines.s_max_pu < 0.70)
+        ] = (bcf_hv + bcf_ehv) / 2
         network.lines.s_max_pu[network.lines.s_max_pu >= 0.70] = 0.70
-        line_loading = (network.lines_t.p0.mul(
-            1 / (network.lines.s_nom_opt * network.lines.s_max_pu)).abs()
-        )
+        line_loading = network.lines_t.p0.mul(
+            1 / (network.lines.s_nom_opt * network.lines.s_max_pu)
+        ).abs()
         # keep only the capacity allowed by dlr
         line_loading = line_loading - 1
         dlr_usage = (
@@ -2695,7 +2706,8 @@ def plot_grid(
                 labels.append(
                     f"""
                     {round(max_value/bus_scaling/scaling_store_expansion[i]/
-                           1000, 0).astype(int)} {bus_unit} """ + i
+                           1000, 0).astype(int)} {bus_unit} """
+                    + i
                 )
         else:
             max_value = bus_sizes.max()
@@ -2729,7 +2741,7 @@ def plot_grid(
                 positive = mpatches.Patch(color="green", label="generation")
                 negative = mpatches.Patch(color="red", label="consumption")
                 handles = [positive, negative]
-                
+
             elif bus_legend == "PowerToH2":
                 pth = mpatches.Patch(color="cyan", label="PowerToH2")
                 handles = [pth]
@@ -2786,11 +2798,13 @@ def plot_grid(
         plt.show()
     else:
         from matplotlib import pylab
+
         if l3 == None:
-            pylab.savefig(filename, dpi=300, bbox_inches='tight')
+            pylab.savefig(filename, dpi=300, bbox_inches="tight")
         else:
-            pylab.savefig(filename, dpi=300, bbox_inches='tight',
-                          bbox_extra_artists= [l3])
+            pylab.savefig(
+                filename, dpi=300, bbox_inches="tight", bbox_extra_artists=[l3]
+            )
         plt.close()
 
 
