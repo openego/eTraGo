@@ -13,6 +13,7 @@ cleaned = [
     "etrago/tools/utilities.py",
     "noxfile.py",
     "setup.py",
+    "etrago/tools/plot.py",
 ]
 
 
