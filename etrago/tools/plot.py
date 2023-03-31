@@ -1575,14 +1575,16 @@ def calc_dc_loading(network, timesteps):
                 network.links.index == row["linked_to"]
             ].values[0],
         )
-
-    return (
+    dc_load = (
         mul_weighting(network, link_load)
         .loc[network.snapshots[timesteps]]
         .abs()
         .sum()[network.links.index]
         / p_nom_opt_max
     ).dropna()
+    dc_load.loc[network.links.carrier != "DC"] = 0
+
+    return dc_load
 
 
 def plotting_colors(network):
@@ -2373,9 +2375,12 @@ def plot_grid(
         ].sum()
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
-        link_widths = network.links.carrier
-        link_widths = link_widths.apply(lambda x: 10 if x == "DC" else 0)
-        line_widths = 10
+        if ext_width is not False:
+            link_widths = link_colors.apply(lambda x: 10 + (x/ext_width) if x != 0 else 0)
+            line_widths = 10 + (line_colors / ext_width)
+        else:
+            link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
+            line_widths = 10
         label = "line loading in p.u."
         plot_background_grid(network, ax)
         # Only active flow direction is displayed!
@@ -2387,9 +2392,10 @@ def plot_grid(
             / network.lines.s_nom
             / rep_snapshots
         ).values
-        flow.iloc[flow.index.get_level_values("component") == "Link"] = (
-            calc_dc_loading(network, timesteps) / rep_snapshots
-        ).values
+
+        dc_loading = calc_dc_loading(network, timesteps) / rep_snapshots
+        dc_loading.index = pd.MultiIndex.from_tuples([("Link", name) for name in dc_loading.index], names = ["component", "name"])
+        flow.loc["Link", :] = dc_loading
 
         flow = flow[
             (flow.index.get_level_values("component") == "Line")
@@ -2422,7 +2428,7 @@ def plot_grid(
         plot_background_grid(all_network, ax)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = 0.5 + (line_colors / ext_width)
+            link_widths = link_colors.apply(lambda x: 0.5 + x / ext_width if x != 0 else 0)
         else:
             dc_link = network.links.index[network.links.carrier == "DC"]
             link_widths = pd.Series(0, index=network.links.index)
@@ -2439,13 +2445,19 @@ def plot_grid(
         plot_background_grid(all_network, ax)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = 0.5 + (link_colors / ext_width)
+            link_widths = link_colors.apply(lambda x: 0.5 + x / ext_width if x != 0 else 0)
+        else:
+            dc_link = network.links.index[network.links.carrier == "DC"]
+            link_widths = pd.Series(0, index=network.links.index)
+            link_widths.loc[dc_link] = 2
     elif line_colors == "q_flow_max":
         title = "Maximum reactive power flows"
         label = "flow in pu"
         line_colors = abs(
             network.lines_t.q0.abs().max() / (network.lines.s_nom)
         )
+        if ext_width is not False:
+            line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
         plot_background_grid(network, ax)
     elif line_colors == "dlr":
