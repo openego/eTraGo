@@ -2782,6 +2782,7 @@ def plot_grid(
     if filename is None:
         if not isinstance(bus_sizes, (pd.Series, float)):
             logger.warning("Legend of bus sizes will change when zooming")
+        plt.tight_layout()
         plt.show()
     else:
         from matplotlib import pylab
