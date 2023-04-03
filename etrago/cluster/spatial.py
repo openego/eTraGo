@@ -169,19 +169,34 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     new_df : links aggregated based on bus0, bus1 and carrier
     new_pnl : links time series aggregated
     """
-    if carriers is None:
-        carriers = network.links.carrier.unique()
-
-    links_agg_b = network.links.carrier.isin(carriers)
-    links = network.links.loc[links_agg_b]
-    grouper = [links.bus0, links.bus1, links.carrier]
-
     def normed_or_uniform(x):
         return (
             x / x.sum()
             if x.sum(skipna=False) > 0
             else pd.Series(1.0 / len(x), x.index)
         )
+
+    def arrange_dc_bus0_bus1(network):
+        dc_links = network.links[network.links.carrier == "DC"].copy()
+        dc_links["n0"] = dc_links.apply(lambda x: x.bus0 if x.bus0 < x.bus1 else x.bus1, axis = 1)
+        dc_links["n1"] = dc_links.apply(lambda x: x.bus0 if x.bus0 > x.bus1 else x.bus1, axis = 1)
+        dc_links["bus0"] = dc_links["n0"]
+        dc_links["bus1"] = dc_links["n1"]
+        dc_links.drop(columns = ["n0","n1"], inplace=True)
+
+        network.links.drop(index=dc_links.index, inplace=True)
+        network.links = pd.concat([network.links, dc_links])
+
+        return network
+
+    network = arrange_dc_bus0_bus1(network)
+
+    if carriers is None:
+        carriers = network.links.carrier.unique()
+
+    links_agg_b = network.links.carrier.isin(carriers)
+    links = network.links.loc[links_agg_b]
+    grouper = [links.bus0, links.bus1, links.carrier]
 
     weighting = links.p_nom.groupby(grouper, axis=0).transform(
         normed_or_uniform
@@ -218,7 +233,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                 new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
             else:
                 new_pnl[attr] = network.links_t[attr]
-
+    
     new_pnl = pypsa.descriptors.Dict(new_pnl)
 
     return new_df, new_pnl
