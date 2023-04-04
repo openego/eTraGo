@@ -160,7 +160,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     with_time : bool
         says if the network object contains timedependent series.
     carriers : list of strings
-        Describe which typed of carriers should be aggregated. The default is None.
+        Describe which typed of carriers should be aggregated. The default
+        is None.
     strategies : dictionary
         custom strategies to perform the aggregation
 
@@ -169,6 +170,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     new_df : links aggregated based on bus0, bus1 and carrier
     new_pnl : links time series aggregated
     """
+
     def normed_or_uniform(x):
         return (
             x / x.sum()
@@ -178,11 +180,15 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     def arrange_dc_bus0_bus1(network):
         dc_links = network.links[network.links.carrier == "DC"].copy()
-        dc_links["n0"] = dc_links.apply(lambda x: x.bus0 if x.bus0 < x.bus1 else x.bus1, axis = 1)
-        dc_links["n1"] = dc_links.apply(lambda x: x.bus0 if x.bus0 > x.bus1 else x.bus1, axis = 1)
+        dc_links["n0"] = dc_links.apply(
+            lambda x: x.bus0 if x.bus0 < x.bus1 else x.bus1, axis=1
+        )
+        dc_links["n1"] = dc_links.apply(
+            lambda x: x.bus0 if x.bus0 > x.bus1 else x.bus1, axis=1
+        )
         dc_links["bus0"] = dc_links["n0"]
         dc_links["bus1"] = dc_links["n1"]
-        dc_links.drop(columns = ["n0","n1"], inplace=True)
+        dc_links.drop(columns=["n0", "n1"], inplace=True)
 
         network.links.drop(index=dc_links.index, inplace=True)
         network.links = pd.concat([network.links, dc_links])
@@ -233,7 +239,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                 new_pnl[attr].columns = new_pnl[attr].columns.map(cluster_id)
             else:
                 new_pnl[attr] = network.links_t[attr]
-    
+
     new_pnl = pypsa.descriptors.Dict(new_pnl)
 
     return new_df, new_pnl
@@ -256,7 +262,6 @@ def graph_from_edges(edges):
     M = nx.MultiGraph()
 
     for e in edges:
-
         n0, n1, weight, key = e
 
         M.add_edge(n0, n1, weight=weight, key=key)
@@ -288,7 +293,7 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i : i + n], g)
+        yield (nodes[i: i + n], g)
 
 
 def shortest_path(paths, graph):
@@ -499,7 +504,6 @@ def busmap_from_psql(etrago):
         filter_version = "testcase"
 
     def fetch():
-
         query = (
             etrago.session.query(
                 egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1
@@ -576,7 +580,6 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     kmean_settings = etrago.args["network_clustering"]
 
     with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
-        
         # remove stubs
         if kmean_settings["remove_stubs"]:
             network.determine_network_topology()
@@ -622,8 +625,8 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
 
 def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
-    """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
-      Creates a busmap assigning the nodes of a original network
+    """Function for combination of k-medoids Clustering and Dijkstra's
+      algorithm. Creates a busmap assigning the nodes of a original network
       to the nodes of a clustered network
       considering the electrical distances based on Dijkstra's shortest path.
       Parameters
@@ -665,8 +668,8 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     else:
         cpu_cores = int(cpu_cores)
 
-    # calculation of shortest path between original points and k-medoids centers
-    # using multiprocessing
+    # calculation of shortest path between original points and k-medoids
+    # centers using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
@@ -701,26 +704,25 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 def kmedoids_dijkstra_clustering(
     etrago, buses, connections, weight, n_clusters
 ):
-
     settings = etrago.args["network_clustering"]
 
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
-    # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
+    # to use threadpool_limits:
+    #https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
-    
         # remove stubs
         if settings["remove_stubs"]:
-            
             logger.info(
-            "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
-        )
+                """options remove_stubs and use_reduced_coordinates not
+                reasonable for k-medoids Dijkstra Clustering"""
+            )
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
         points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
-    
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -730,24 +732,24 @@ def kmedoids_dijkstra_clustering(
             random_state=settings["random_state"],
         )
         kmeans.fit(points)
-    
+
         busmap = pd.Series(
             data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
             index=buses_i,
             dtype=object,
         )
-    
+
         # identify medoids per cluster -> k-medoids clustering
-    
+
         distances = pd.DataFrame(
             data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
         distances = distances.apply(pd.to_numeric)
-    
+
         medoid_idx = distances.idxmin()
-    
+
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(
             buses,
