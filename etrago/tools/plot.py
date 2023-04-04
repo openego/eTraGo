@@ -1984,6 +1984,9 @@ def plot_grid(
             handles=handles, loc="upper left", ncol=2, bbox_to_anchor=(0, 0)
         )
         ax.add_artist(l3)
+    
+    print(min(line_colors.min(), link_colors.min()))
+    print(max(line_colors.max(), link_colors.max()))
 
     if type(line_colors) != str:
         print(111111)
