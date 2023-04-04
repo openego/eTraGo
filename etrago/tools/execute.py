@@ -360,9 +360,7 @@ def iterate_lopf(
         run_lopf(etrago, extra_functionality, method)
 
     if not args["lpfile"] is False:
-        network.model.write(
-            lp_path
-        )
+        network.model.write(lp_path)
 
     return network
 
@@ -436,7 +434,8 @@ def dispatch_disaggregation(self):
             # for stores, exclude emob and dsm because of their special constraints
             sto = self.network.stores[
                 ~self.network.stores.carrier.isin(
-                    ["battery_storage", "battery storage", "dsm"])
+                    ["battery_storage", "battery storage", "dsm"]
+                )
             ]
 
             # save state of charge of storage units and stores at those transition snapshots
