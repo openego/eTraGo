@@ -435,8 +435,8 @@ def dispatch_disaggregation(self):
                 )
             # for stores, exclude emob and dsm because of their special constraints
             sto = self.network.stores[
-                (self.network.stores.carrier != "battery storage")
-                & (self.network.stores.carrier != "dsm")
+                ~self.network.stores.carrier.isin(
+                    ["battery_storage", "battery storage", "dsm"])
             ]
 
             # save state of charge of storage units and stores at those transition snapshots
