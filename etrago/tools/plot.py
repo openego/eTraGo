@@ -2470,7 +2470,7 @@ def plot_grid(
         plot_background_grid(network, ax)
     elif line_colors == "dlr":
         title = "Dynamic line rating"
-        label = "MWh above nominal capacity"
+        label = "TWh above nominal capacity"
         plot_background_grid(network, ax)
         # Extract branch_capacity_factors
         bcf_hv = self.args["branch_capacity_factor"]["HV"]
@@ -2493,10 +2493,13 @@ def plot_grid(
             .mul(network.snapshot_weightings.generators, axis=0)
             .sum()
         )
-        dlr_usage = dlr_usage * network.lines.s_nom * network.lines.s_max_pu
+        dlr_usage = (
+            dlr_usage * network.lines.s_nom * network.lines.s_max_pu / 1000000
+        )
+        dlr_usage = dlr_usage.round(decimals=0)
         line_colors = dlr_usage
         if ext_width is not False:
-            line_widths = 0.5 + (line_colors / ext_width)
+            line_widths = 0.2 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
 
     elif line_colors == "grey":
