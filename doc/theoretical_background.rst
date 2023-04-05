@@ -13,11 +13,11 @@ eTraGo is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/
 Assumptions on Data
 ===================
 
-eTraGo fetches the input data from the `OpenEnergy Platform <https://openenergy-platform.org/>`_. The data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) and data on additional electrical flexibilities such as Dynamic Line Rating or Demand Side Management. More details on the data model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_.
+eTraGo fetches the input data from the `OpenEnergy Platform <https://openenergy-platform.org/>`_. The data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) plus data on flexibility potential deriving from those sectors e.g. Dynamic Line Rating, Demand Side Management and flexibility potentials arising from e-mobility. More details on the data model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_.
 
-At the moment, there are two scenarios available basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021. The base one is called eGon2035. To analyse the effect of flexibility options, there is an eGon2035_lowflex scenario available which depicts a lower penetration of flexibilities. More scenarios are being developed. The eGon100RE scenario is being implemented which is characterised by a 100% renewable generation. Analog to the scenario above, a eGon100RE_lowflex scenario is available.
+At the moment, there are two scenarios available basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021. The base one is called eGon2035. To analyse the effect of flexibility options, there is an eGon2035_lowflex scenario available which depicts a lower penetration of flexibilities. More scenarios are being developed. The eGon100RE scenario is being implemented which is characterised by a 100% renewable generation. Analog to the scenario above, a eGon100RE_lowflex scenario will be available.
 
-You can see the modelling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimized endogenously in capacity and dispatch.
+You can see the modeling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimised endogenously in capacity and dispatch.
 
 .. figure:: images/modelling_concept.png
    :align: center
@@ -28,10 +28,10 @@ Methods
 =======
 
 
-Optimization with PyPSA
+Optimisation with PyPSA
 -----------------------
 
-Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network. The power flow simulations and optimizations are performed with a linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimization, the overall system costs are considered.
+Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network. The optimisation is performed with a linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
 
 With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
 
@@ -39,7 +39,7 @@ With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow sim
 Complexity Reduction
 ---------------------
 
-The data model is characterised by a high spatial (abou 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimization problem, several methods can be applied.
+The data model is characterised by a high spatial (abou 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimisation problem, several methods can be applied.
 
 
 Reduction in spatial dimension:
@@ -72,9 +72,9 @@ By applying a 2-level-approach, a **temporal disaggregation** can be conducted. 
 Grid and Storage / Store expansion
 -----------------------------------
 
-The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimization problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimization. 
+The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimisation problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimisation. 
 
-As shown in the figure above, several options to store energy are part of the modelling concept. Extendable batteries (modelled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimization. Furthermore, two types of hydrogen stores (modelled as stores) are available. Overground stores are optimised in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimisation in terms of power and energy without upper limits. 
+As shown in the figure above, several options to store energy are part of the modeling concept. Extendable batteries (modeled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimisation. Furthermore, two types of hydrogen stores (modeled as stores) are available. Overground stores are optimised in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimisation in terms of power and energy without upper limits. 
 
 
 Miscellaneous Features
@@ -84,15 +84,15 @@ Several features were developed to enhance the functionality of eTraGo.
 
 To customize computation settings, ‘solver_options’ and ‘generator_noise’ should be adapted. The latter adds a reproducible small random noise to the marginal costs of each generator in order to prevent an optima plateau. The specific solver options depend on the applied solver (e.g. Gurobi, CPLEX or GLPK). 
 
-In ‚extendable‘ you can adapt the type of components you want to be optimized in capacity and set upper limits for gird expansion inside Germany and of lines to foreign countries.
+In ‚extendable‘ you can adapt the type of components you want to be optimised in capacity and set upper limits for gird expansion inside Germany and of lines to foreign countries.
 
 The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
 
 ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
 
-The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimizing storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
+The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
 
-With ‘foreign_lines‘ you can adapt the foreign lines to be modelled as DC-links (e.g. to avoid loop flows).
+With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
 
 
 References
