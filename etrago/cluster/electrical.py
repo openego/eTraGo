@@ -147,14 +147,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # eHV network
     busmap2 = {}
 
-<<<<<<< HEAD
-    # Map crossborder AC buses in case that they were not part of the 
-    # k-mean clustering
-    if not (etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
-=======
     # Map crossborder AC buses in case that they were not part of the k-mean clustering
     if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
->>>>>>> cb2d378071a6d314386a62194d10b9fe25a021bc
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
         buses_orig = network.buses.copy()
@@ -458,8 +452,7 @@ def ehv_clustering(self):
     Cluster the network based on Extra High Voltage (EHV) grid.
 
     If `network_clustering_ehv` argument is True, the function clusters the
-    network based on the EHV grid. If `network_clustering` argument is not 
-    active, it calls the `load_shedding` function to apply load shedding.
+    network based on the EHV grid.
 
     Parameters
     ----------
