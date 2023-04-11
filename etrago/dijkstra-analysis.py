@@ -450,8 +450,45 @@ def compare_sector_coupled(path_dijkstra, path_kmeans):
 compare_sector_coupled("/home/student/git/eTraGo/etrago/dijkstra-paper/calculations/eGon2035",
                        "/home/student/git/eTraGo/etrago/dijkstra-paper/calculations/eGon2035_kmeans")
     
-    
+def calculate_cross_transmission_cap(etrago_path, ddr_shape_path, save_path= False):
+    from etrago import Etrago
+    import geopandas as gpd
+    from shapely.geometry import Point, LineString
 
+    etrago = Etrago(csv_folder_name = etrago_path)
+
+    ddr = gpd.read_file(ddr_shape_path)
+
+    def generate_geom(network):
+        buses = network.buses
+        buses['x'] = buses['x'].apply(float)
+        buses['y'] = buses['y'].apply(float)
+        buses['geom'] = buses.apply(lambda x: Point(x.x, x.y), axis= 1)
+        buses = gpd.GeoDataFrame(buses, geometry= "geom", crs= 4326)
+
+        lines = network.lines
+        lines['geom'] = lines.apply(lambda x: LineString([buses.at[x.bus0, 'geom'],
+                                                          buses.at[x.bus1, 'geom']]),
+                                    axis= 1)
+        lines = gpd.GeoDataFrame(lines, geometry= "geom", crs= 4326)
+
+        return lines, buses
+
+    lines, buses = generate_geom(etrago.network)
+    buses["in_ddr"] = buses.intersects(ddr.unary_union)
+
+    lines["bus0_in_ddr"] = lines["bus0"].map(buses["in_ddr"])
+    lines["bus1_in_ddr"] = lines["bus1"].map(buses["in_ddr"])
+    lines["to_ddr"] = lines["bus0_in_ddr"] ^ lines["bus1_in_ddr"]
+
+    lines.plot()
+    if save_path != False:
+        lines.to_file(save_path, driver='GeoJSON')
+    
+    return lines[lines["to_ddr"] == True]["s_nom"].sum()
+
+calculate_cross_transmission_cap("/home/student/git/eTraGo/etrago/dijkstra-paper/calculations/eGon2035",
+                                 '/home/student/git/eTraGo/etrago/dijkstra-paper/gis/DDR.geojson')
 
 
             
