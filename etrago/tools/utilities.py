@@ -1150,18 +1150,6 @@ def delete_dispensable_ac_buses(etrago):
         l_new = agg_series_lines(lines_group, network)
         l_new["bus0"] = new_lines.at[l, "bus0"]
         l_new["bus1"] = new_lines.at[l, "bus1"]
-        l_new["geom"] = LineString(
-            [
-                (
-                    network.buses.at[l_new["bus0"], "x"],
-                    network.buses.at[l_new["bus0"], "y"],
-                ),
-                (
-                    network.buses.at[l_new["bus1"], "x"],
-                    network.buses.at[l_new["bus1"], "y"],
-                ),
-            ]
-        )
         new_lines_df["s_nom_extendable"] = new_lines_df[
             "s_nom_extendable"
         ].astype(bool)
