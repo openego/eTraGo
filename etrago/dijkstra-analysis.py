@@ -1,4 +1,3 @@
-
 import json
 import pypsa
 from etrago import Etrago
@@ -394,7 +393,62 @@ plt.ylabel('costs in billion Euro')
 plt.xlabel('number of nodes')
 plt.title('Investment Costs in Germany depending on Spatial Resolution')
     
+def compare_sector_coupled(path_dijkstra, path_kmeans):
+    from matplotlib import pyplot as plt
+    from matplotlib import pylab
+    from etrago import Etrago
 
+    ed = Etrago(csv_folder_name=path_dijkstra)
+    ek = Etrago(csv_folder_name=path_kmeans)
+
+    def plot_diff(df, file):
+        fig, ax = plt.subplots()
+        plt.xticks(rotation=90)
+        plt.tight_layout()
+        ax.bar(df.index, df["diff[%]"])
+        plt.ylabel("kmeans - dijkstra [%]")
+
+        filename = f"dijkstra-paper/{file}"
+        pylab.savefig(filename, dpi=300, bbox_inches="tight")
+
+        return
+
+
+    ed.calc_results()
+    ek.calc_results()
+
+    results = ed.results.rename(columns={"value":"dijkstra"})
+    results["kmeans"] = ek.results["value"]
+    results["diff"] = results["kmeans"] - results["dijkstra"]
+    results["diff[%]"] = (results["kmeans"] - results["dijkstra"])/results["kmeans"] * 100
+
+    # Group the costs
+    costs = results[results.index.str.contains("costs")]
+
+    # group expansion
+    expansion = results[results.index.str.contains("expansion")]
+    expansion = expansion[expansion.unit != "electrical grid expansion"]
+    expansion = expansion[expansion.index != "p.u."]
+    expansion.dropna(inplace=True)
+
+    plot_diff(costs, "cost_diff")
+    plot_diff(expansion, "expansion_diff")
+
+    # group investment costs
+    inv_cost = results[results.index.str.contains("investment costs")]
+    inv_cost = inv_cost[inv_cost.index != "annual investment costs"]
+    inv_cost = inv_cost[inv_cost.index != "annual electrical grid investment costs"]
+    inv_cost = inv_cost[inv_cost.index != "annual storage+store investment costs"]
+
+    fig, ax = plt.subplots()
+    plt.title("Absolute diff in investment costs")
+    ax.pie(inv_cost["diff"].abs(), labels=inv_cost.index)
+
+    filename = "dijkstra-paper/Absolute diff in investment costs"
+    pylab.savefig(filename, dpi=300, bbox_inches="tight")
+
+compare_sector_coupled("/home/student/git/eTraGo/etrago/dijkstra-paper/calculations/eGon2035",
+                       "/home/student/git/eTraGo/etrago/dijkstra-paper/calculations/eGon2035_kmeans")
     
     
 
