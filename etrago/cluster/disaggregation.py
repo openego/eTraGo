@@ -612,6 +612,14 @@ class UniformDisaggregation(Disaggregation):
                         if not bus.startswith(self.idx_prefix)
                     ]
                 ]
+                if bustype == "links":
+                    index = self.buses[
+                        self.buses.loc[:, "cluster"] == group[1]["value"]
+                    ].index.tolist()
+                    query = (
+                        f"(carrier == {group[0]['value']!r})"
+                        f" & (bus1 in {index})"
+                    )
                 pnb = pnb.query(query)
                 assert not pnb.empty, (
                     "Cluster has a bus for:"
