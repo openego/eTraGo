@@ -312,7 +312,7 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i: i + n], g)
+        yield (nodes[i : i + n], g)
 
 
 def shortest_path(paths, graph):
@@ -588,7 +588,6 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
     kmean_settings = etrago.args["network_clustering"]
 
     with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
-
         # remove stubs
         if kmean_settings["remove_stubs"]:
             network.determine_network_topology()
@@ -746,9 +745,8 @@ def kmedoids_dijkstra_clustering(
 
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
     # to use threadpool_limits:
-    #https://scikit-learn.org/stable/computing/parallelism.html
+    # https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
-    
         # remove stubs
         if settings["remove_stubs"]:
             logger.info(
