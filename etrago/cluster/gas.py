@@ -6,9 +6,6 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -16,11 +13,14 @@ if "READTHEDOCS" not in os.environ:
         busmap_by_kmeans,
     )
     from six import iteritems
+    import numpy as np
+    import pandas as pd
+    import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        sum_with_inf,
         group_links,
         kmedoids_dijkstra_clustering,
+        sum_with_inf,
     )
     from etrago.tools.utilities import *
 
@@ -56,6 +56,13 @@ def preprocessing(etrago):
         ch4_filter & (network_ch4.buses["country"] != "DE")
     ).sum()
 
+    network_ch4.links = network_ch4.links.loc[
+        network_ch4.links["bus0"].isin(network_ch4.buses.loc[ch4_filter].index)
+        & network_ch4.links["bus1"].isin(
+            network_ch4.buses.loc[ch4_filter].index
+        )
+    ]
+
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
@@ -75,10 +82,6 @@ def preprocessing(etrago):
     else:
         network_ch4.buses = network_ch4.buses.loc[ch4_filter]
         n_clusters = settings["n_clusters_gas"]
-    network_ch4.links = network_ch4.links.loc[
-        network_ch4.links["bus0"].isin(network_ch4.buses.index)
-        & network_ch4.links["bus1"].isin(network_ch4.buses.index)
-    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
@@ -119,8 +122,12 @@ def preprocessing(etrago):
             ].index
         # get all generators and loads related to ch4_buses
         generators_ = pd.Series(
-            etrago.network.generators.index,
-            index=etrago.network.generators.bus,
+            etrago.network.generators[
+                etrago.network.generators.carrier != "load shedding"
+            ].index,
+            index=etrago.network.generators[
+                etrago.network.generators.carrier != "load shedding"
+            ].bus,
         )
         buses_CH4_gen = generators_.index.intersection(rel_links.keys())
         loads_ = pd.Series(
@@ -779,76 +786,76 @@ def get_clustering_from_busmap(
 
 
 def run_spatial_clustering_gas(self):
-    settings = self.args["network_clustering"]
+    if "CH4" in self.network.buses.carrier.values:
+        settings = self.args["network_clustering"]
 
-    if settings["active"]:
-        self.network.generators.control = "PV"
-        method = settings["method_gas"]
-        logger.info(f"Start {method} clustering GAS")
+        if settings["active"]:
+            self.network.generators.control = "PV"
+            method = settings["method_gas"]
+            logger.info(f"Start {method} clustering GAS")
 
-        gas_network, weight, n_clusters = preprocessing(self)
+            gas_network, weight, n_clusters = preprocessing(self)
 
-        if method == "kmeans":
-            if settings["k_gas_busmap"]:
-                busmap = pd.read_csv(
-                    settings["k_gas_busmap"],
-                    index_col="bus_id",
-                    dtype=pd.StringDtype(),
-                ).squeeze()
-                medoid_idx = None
+            if method == "kmeans":
+                if settings["k_gas_busmap"]:
+                    busmap = pd.read_csv(
+                        settings["k_gas_busmap"],
+                        index_col="bus_id",
+                        dtype=pd.StringDtype(),
+                    ).squeeze()
+                    medoid_idx = None
+                else:
+                    busmap, medoid_idx = kmean_clustering_gas(
+                        self, gas_network, weight, n_clusters
+                    )
+
+            elif method == "kmedoids-dijkstra":
+                if settings["k_gas_busmap"]:
+                    busmap = pd.read_csv(
+                        settings["k_gas_busmap"],
+                        index_col="bus_id",
+                        dtype=pd.StringDtype(),
+                    )
+                    medoid_idx = pd.Series(
+                        busmap["medoid_idx"].unique(),
+                        index=busmap["cluster"].unique(),
+                        dtype=pd.StringDtype(),
+                    )
+                    busmap = busmap["cluster"]
+
+                else:
+                    busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                        self,
+                        gas_network.buses,
+                        gas_network.links,
+                        weight,
+                        n_clusters,
+                    )
+
             else:
-                busmap, medoid_idx = kmean_clustering_gas(
-                    self, gas_network, weight, n_clusters
+                msg = (
+                    'Please select "kmeans" or "kmedoids-dijkstra" as '
+                    "spatial clustering method for the gas network"
                 )
+                raise ValueError(msg)
+            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
-        elif method == "kmedoids-dijkstra":
-            if settings["k_gas_busmap"]:
-                busmap = pd.read_csv(
-                    settings["k_gas_busmap"],
-                    index_col="bus_id",
-                    dtype=pd.StringDtype(),
-                )
-                medoid_idx = pd.Series(
-                    busmap["medoid_idx"].unique(),
-                    index=busmap["cluster"].unique(),
-                    dtype=pd.StringDtype(),
-                )
-                busmap = busmap["cluster"]
+            self.update_busmap(busmap)
 
-            else:
-                busmap, medoid_idx = kmedoids_dijkstra_clustering(
-                    self,
-                    gas_network.buses,
-                    gas_network.links,
-                    weight,
-                    n_clusters,
+            logger.info(
+                "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                    len(
+                        self.network.buses.loc[
+                            (self.network.buses.carrier == "CH4")
+                            & (self.network.buses.country == "DE")
+                        ]
+                    ),
+                    len(
+                        self.network.buses.loc[
+                            (self.network.buses.carrier == "CH4")
+                            & (self.network.buses.country != "DE")
+                        ]
+                    ),
+                    method,
                 )
-
-        else:
-            msg = (
-                'Please select "kmeans" or "kmedoids-dijkstra" as '
-                "spatial clustering method for the gas network"
             )
-            raise ValueError(msg)
-        self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
-
-        self.update_busmap(busmap)
-        self.load_shedding()
-
-        logger.info(
-            "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
-                len(
-                    self.network.buses.loc[
-                        (self.network.buses.carrier == "CH4")
-                        & (self.network.buses.country == "DE")
-                    ]
-                ),
-                len(
-                    self.network.buses.loc[
-                        (self.network.buses.carrier == "CH4")
-                        & (self.network.buses.country != "DE")
-                    ]
-                ),
-                method,
-            )
-        )

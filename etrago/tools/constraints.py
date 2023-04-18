@@ -23,14 +23,14 @@ Constraints.py includes additional constraints for eTraGo-optimizations
 """
 import logging
 
-import numpy as np
-import pandas as pd
-import pyomo.environ as po
 from egoio.tools import db
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
 from pypsa.pf import get_switchable_as_dense as get_as_dense
+import numpy as np
+import pandas as pd
+import pyomo.environ as po
 
 logger = logging.getLogger(__name__)
 
@@ -272,6 +272,7 @@ def _min_renewable_share(self, network, snapshots):
         "wind_onshore",
         "run_of_river",
         "other_renewable",
+        "CH4_biogas",
         "central_biomass_CHP_heat",
         "solar_thermal_collector",
         "geo_thermal",
@@ -2549,12 +2550,16 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     None.
     """
     tsa_hour = sns[sns.isin(self.conduct_dispatch_disaggregation.index)]
+    if len(tsa_hour) > 1:
+        tsa_hour = tsa_hour[-1]
+    else:
+        tsa_hour = tsa_hour[0]
     n.model.soc_values = self.conduct_dispatch_disaggregation.loc[tsa_hour]
 
     sus = n.storage_units.index
     # for stores, exclude emob and dsm because of their special constraints
     sto = n.stores[
-        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+        ~n.stores.carrier.isin(["battery storage", "battery_storage", "dsm"])
     ].index
 
     def disaggregation_sus_soc(m, s, h):
@@ -2562,7 +2567,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
         Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
-        return m.state_of_charge[s, h] == m.soc_values[s].values[0]
+        return m.state_of_charge[s, h] == m.soc_values[s]
 
     n.model.split_dispatch_sus_soc = po.Constraint(
         sus, sns[-1:], rule=disaggregation_sus_soc
@@ -2573,7 +2578,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
         Sets soc at the end of the time slice in disptach_disaggregation
         to value calculated in temporally reduced lopf without slices.
         """
-        return m.store_e[s, h] == m.soc_values[s].values[0]
+        return m.store_e[s, h] == m.soc_values[s]
 
     n.model.split_dispatch_sto_soc = po.Constraint(
         sto, sns[-1:], rule=disaggregation_sto_soc
@@ -2604,13 +2609,13 @@ class Constraints:
         List of timesteps considered in the optimization
 
         """
-
-        if self.args["method"]["pyomo"]:
-            add_chp_constraints(network, snapshots)
-            add_ch4_constraints(self, network, snapshots)
-        else:
-            add_chp_constraints_nmp(network)
-            add_ch4_constraints_nmp(self, network, snapshots)
+        if "CH4" in network.buses.carrier.values:
+            if self.args["method"]["pyomo"]:
+                add_chp_constraints(network, snapshots)
+                add_ch4_constraints(self, network, snapshots)
+            else:
+                add_chp_constraints_nmp(network)
+                add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:

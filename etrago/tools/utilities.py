@@ -31,7 +31,7 @@ import os
 
 from egoio.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
-from shapely.geometry import LineString, Point
+from shapely.geometry import Point
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -422,7 +422,7 @@ def foreign_links(self):
         self.geolocation_buses()
 
 
-def set_q_national_loads(self, cos_phi=1):
+def set_q_national_loads(self, cos_phi):
     """
     Set q component of national loads based on the p component and cos_phi
 
@@ -445,41 +445,45 @@ def set_q_national_loads(self, cos_phi=1):
         (network.buses.country == "DE") & (network.buses.carrier == "AC")
     ]
 
-    network.loads_t["q_set"].loc[
+    # Calculate q national loads based on p and cos_phi
+    new_q_loads = network.loads_t["p_set"].loc[
         :,
         network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
-        ].astype(int),
-    ] = network.loads_t["p_set"].loc[
-        :,
-        network.loads.index[
-            network.loads.bus.astype(str).isin(national_buses.index)
+            (network.loads.bus.astype(str).isin(national_buses.index))
+            & (network.loads.carrier.astype(str) == "AC")
         ],
-    ] * math.tan(
-        math.acos(cos_phi)
+    ] * math.tan(math.acos(cos_phi))
+
+    # insert the calculated q in loads_t. Only loads without previous
+    # assignment are affected
+    network.loads_t.q_set = pd.merge(
+        network.loads_t.q_set,
+        new_q_loads,
+        how="inner",
+        right_index=True,
+        left_index=True,
+        suffixes=("", "delete_"),
     )
-    # To avoid a problem when the index of the load is the weather year,
-    # the column names were temporarily set to `int` and changed back to
-    # `str`.
-    network.loads_t["q_set"].columns = network.loads_t["q_set"].columns.astype(
-        str
+    network.loads_t.q_set.drop(
+        [i for i in network.loads_t.q_set.columns if "delete" in i],
+        axis=1,
+        inplace=True,
     )
 
 
-def set_q_foreign_loads(self, cos_phi=1):
+def set_q_foreign_loads(self, cos_phi):
     """Set reative power timeseries of loads in neighbouring countries
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    etrago : :class:`etrago.Etrago
+        Transmission grid object
     cos_phi: float
         Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None
 
     """
     network = self.network
@@ -775,10 +779,10 @@ def loading_minimization(network, snapshots):
         network.model.passive_branch_p_index, within=PositiveReals
     )
 
-    def cRule(model, c, l, t):
+    def cRule(model, c, l0, t):
         return (
-            model.number1[c, l, t] - model.number2[c, l, t]
-            == model.passive_branch_p[c, l, t]
+            model.number1[c, l0, t] - model.number2[c, l0, t]
+            == model.passive_branch_p[c, l0, t]
         )
 
     network.model.cRule = Constraint(
@@ -811,7 +815,7 @@ def _normed(s):
         return s / tot
 
 
-def agg_series_lines(l, network):
+def agg_series_lines(l0, network):
     attrs = network.components["Line"]["attrs"]
     columns = set(
         attrs.index[attrs.static & attrs.status.str.startswith("Input")]
@@ -838,27 +842,27 @@ def agg_series_lines(l, network):
         )
     }
 
-    Line = l["Line"].iloc[0]
+    Line = l0["Line"].iloc[0]
     data = dict(
-        r=l["r"].sum(),
-        x=l["x"].sum(),
-        g=1.0 / (1.0 / l["g"]).sum(),
-        b=1.0 / (1.0 / l["b"]).sum(),
-        terrain_factor=l["terrain_factor"].mean(),
-        s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
-        s_nom=l["s_nom"].iloc[0],
-        s_nom_min=l["s_nom_min"].max(),
-        s_nom_max=l["s_nom_max"].min(),
-        s_nom_extendable=l["s_nom_extendable"].any(),
-        num_parallel=l["num_parallel"].max(),
-        capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
-        length=l["length"].sum(),
-        v_ang_min=l["v_ang_min"].max(),
-        v_ang_max=l["v_ang_max"].min(),
+        r=l0["r"].sum(),
+        x=l0["x"].sum(),
+        g=1.0 / (1.0 / l0["g"]).sum(),
+        b=1.0 / (1.0 / l0["b"]).sum(),
+        terrain_factor=l0["terrain_factor"].mean(),
+        s_max_pu=(l0["s_max_pu"] * _normed(l0["s_nom"])).sum(),
+        s_nom=l0["s_nom"].iloc[0],
+        s_nom_min=l0["s_nom_min"].max(),
+        s_nom_max=l0["s_nom_max"].min(),
+        s_nom_extendable=l0["s_nom_extendable"].any(),
+        num_parallel=l0["num_parallel"].max(),
+        capital_cost=(_normed(l0["s_nom"]) * l0["capital_cost"]).sum(),
+        length=l0["length"].sum(),
+        v_ang_min=l0["v_ang_min"].max(),
+        v_ang_max=l0["v_ang_max"].min(),
     )
-    data.update((f, consense[f](l[f])) for f in columns.difference(data))
+    data.update((f, consense[f](l0[f])) for f in columns.difference(data))
     return pd.Series(
-        data, index=[f for f in l.columns if f in columns], name=Line
+        data, index=[f for f in l0.columns if f in columns], name=Line
     )
 
 
@@ -878,7 +882,7 @@ def group_parallel_lines(network):
 
     """
 
-    def agg_parallel_lines(l):
+    def agg_parallel_lines(l0):
         attrs = network.components["Line"]["attrs"]
         columns = set(
             attrs.index[attrs.static & attrs.status.str.startswith("Input")]
@@ -910,27 +914,27 @@ def group_parallel_lines(network):
         }
 
         data = dict(
-            Line=l["Line"].iloc[0],
-            r=1.0 / (1.0 / l["r"]).sum(),
-            x=1.0 / (1.0 / l["x"]).sum(),
-            g=l["g"].sum(),
-            b=l["b"].sum(),
-            terrain_factor=l["terrain_factor"].mean(),
-            s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
-            s_nom=l["s_nom"].sum(),
-            s_nom_min=l["s_nom_min"].sum(),
-            s_nom_max=l["s_nom_max"].sum(),
-            s_nom_extendable=l["s_nom_extendable"].any(),
-            num_parallel=l["num_parallel"].sum(),
-            capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
-            length=l["length"].mean(),
-            sub_network=consense["sub_network"](l["sub_network"]),
-            v_ang_min=l["v_ang_min"].max(),
-            v_ang_max=l["v_ang_max"].min(),
-            geom=l["geom"].iloc[0],
+            Line=l0["Line"].iloc[0],
+            r=1.0 / (1.0 / l0["r"]).sum(),
+            x=1.0 / (1.0 / l0["x"]).sum(),
+            g=l0["g"].sum(),
+            b=l0["b"].sum(),
+            terrain_factor=l0["terrain_factor"].mean(),
+            s_max_pu=(l0["s_max_pu"] * _normed(l0["s_nom"])).sum(),
+            s_nom=l0["s_nom"].sum(),
+            s_nom_min=l0["s_nom_min"].sum(),
+            s_nom_max=l0["s_nom_max"].sum(),
+            s_nom_extendable=l0["s_nom_extendable"].any(),
+            num_parallel=l0["num_parallel"].sum(),
+            capital_cost=(_normed(l0["s_nom"]) * l0["capital_cost"]).sum(),
+            length=l0["length"].mean(),
+            sub_network=consense["sub_network"](l0["sub_network"]),
+            v_ang_min=l0["v_ang_min"].max(),
+            v_ang_max=l0["v_ang_max"].min(),
+            geom=l0["geom"].iloc[0],
         )
-        data.update((f, consense[f](l[f])) for f in columns.difference(data))
-        return pd.Series(data, index=[f for f in l.columns if f in columns])
+        data.update((f, consense[f](l0[f])) for f in columns.difference(data))
+        return pd.Series(data, index=[f for f in l0.columns if f in columns])
 
     # Make bus0 always the greattest to identify repeated lines
     lines_2 = network.lines.copy()
@@ -962,6 +966,7 @@ def delete_dispensable_ac_buses(etrago):
     Parameters
     ----------
     etrago : etrago object
+
     Returns
     -------
     None.
@@ -980,7 +985,16 @@ def delete_dispensable_ac_buses(etrago):
             (network.storage_units.bus.isin(drop_buses))
         ].to_list()
         network.storage_units.drop(drop_storage_units, inplace=True)
-        return (network.buses, network.lines, network.storage_units)
+        drop_generators = network.generators.index[
+            (network.generators.bus.isin(drop_buses))
+        ].to_list()
+        network.generators.drop(drop_generators, inplace=True)
+        return (
+            network.buses,
+            network.lines,
+            network.storage_units,
+            network.generators,
+        )
 
     def count_lines(lines):
         buses_in_lines = lines[["bus0", "bus1"]].drop_duplicates()
@@ -1014,7 +1028,9 @@ def delete_dispensable_ac_buses(etrago):
     b_trafo = pd.concat(
         [network.transformers.bus0, network.transformers.bus1]
     ).unique()
-    b_gen = network.generators.bus.unique()
+    b_gen = network.generators[
+        network.generators.carrier != "load shedding"
+    ].bus.unique()
     b_load = network.loads.bus.unique()
     b_store = network.stores[network.stores.e_nom > 0].bus.unique()
     b_store_unit = network.storage_units[
@@ -1053,10 +1069,10 @@ def delete_dispensable_ac_buses(etrago):
 
     delete_bus = []
     for bus in ac_buses[ac_buses["n_lines"] == 2].index:
-        l = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
+        l0 = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
             "s_nom"
         ].unique()
-        if len(l) != 1:
+        if len(l0) != 1:
             delete_bus.append(bus)
     ac_buses.drop(delete_bus, inplace=True)
 
@@ -1126,36 +1142,27 @@ def delete_dispensable_ac_buses(etrago):
 
     new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
 
-    for l in new_lines.index:
+    for l0 in new_lines.index:
         lines_group = (
-            lines[lines.index.isin(new_lines.at[l, "lines"])]
+            lines[lines.index.isin(new_lines.at[l0, "lines"])]
             .copy()
             .reset_index()
         )
         l_new = agg_series_lines(lines_group, network)
-        l_new["bus0"] = new_lines.at[l, "bus0"]
-        l_new["bus1"] = new_lines.at[l, "bus1"]
-        l_new["geom"] = LineString(
-            [
-                (
-                    network.buses.at[l_new["bus0"], "x"],
-                    network.buses.at[l_new["bus0"], "y"],
-                ),
-                (
-                    network.buses.at[l_new["bus1"], "x"],
-                    network.buses.at[l_new["bus1"], "y"],
-                ),
-            ]
-        )
+        l_new["bus0"] = new_lines.at[l0, "bus0"]
+        l_new["bus1"] = new_lines.at[l0, "bus1"]
         new_lines_df["s_nom_extendable"] = new_lines_df[
             "s_nom_extendable"
         ].astype(bool)
         new_lines_df.loc[l_new.name] = l_new
 
     # Delete all the dispensable buses
-    (network.buses, network.lines, network.storage_units) = delete_buses(
-        ac_buses, network
-    )
+    (
+        network.buses,
+        network.lines,
+        network.storage_units,
+        network.generators,
+    ) = delete_buses(ac_buses, network)
 
     # exclude from the new lines the ones connected to deleted buses
     new_lines_df = new_lines_df[
@@ -1164,6 +1171,15 @@ def delete_dispensable_ac_buses(etrago):
     ]
 
     etrago.network.lines = pd.concat([etrago.network.lines, new_lines_df])
+
+    # Drop s_max_pu timeseries for deleted lines
+    etrago.network.lines_t.s_max_pu = (
+        etrago.network.lines_t.s_max_pu.transpose()[
+            etrago.network.lines_t.s_max_pu.columns.isin(
+                etrago.network.lines.index
+            )
+        ].transpose()
+    )
 
     return
 
@@ -2324,18 +2340,59 @@ def check_args(etrago):
 
 def drop_sectors(self, drop_carriers):
     """
-    Manually drop secors from eTraGo network, used for debugging
+    Manually drop secors from network.
+    Makes sure the network can be calculated without the dropped sectors.
 
     Parameters
     ----------
     drop_carriers : array
         List of sectors that will be dropped.
+        e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid',
+              'central_heat', 'rural_heat', 'central_heat_store',
+              'rural_heat_store', 'Li ion'] means everything but AC
 
     Returns
     -------
     None.
 
     """
+
+    if self.scenario.scn_name == "eGon2035":
+        if "CH4" in drop_carriers:
+            # create gas generators from links
+            # in order to not lose them when dropping non-electric carriers
+            gas_to_add = ["central_gas_CHP", "industrial_gas_CHP", "OCGT"]
+            gen = self.network.generators
+
+            for i in gas_to_add:
+                gen_empty = gen.drop(gen.index)
+                gen_empty.bus = self.network.links[
+                    self.network.links.carrier == i
+                ].bus1
+                gen_empty.p_nom = (
+                    self.network.links[self.network.links.carrier == i].p_nom
+                    * self.network.links[
+                        self.network.links.carrier == i
+                    ].efficiency
+                )
+                gen_empty.marginal_cost = (
+                    self.network.links[
+                        self.network.links.carrier == i
+                    ].marginal_cost
+                    + 35.851
+                )  # add fuel costs (source: NEP)
+                gen_empty.efficiency = 1
+                gen_empty.carrier = i
+                gen_empty.scn_name = "eGon2035"
+                gen_empty.p_nom_extendable = False
+                gen_empty.sign = 1
+                gen_empty.p_min_pu = 0
+                gen_empty.p_max_pu = 1
+                gen_empty.control = "PV"
+                gen_empty.fillna(0, inplace=True)
+                self.network.import_components_from_dataframe(
+                    gen_empty, "Generator"
+                )
 
     self.network.mremove(
         "Bus",
@@ -2368,6 +2425,8 @@ def drop_sectors(self, drop_carriers):
                 ~two_port.df.bus1.isin(self.network.buses.index)
             ].index,
         )
+
+    logger.info("The following sectors are dropped: " + str(drop_carriers))
 
 
 def update_busmap(self, new_busmap):
@@ -2542,3 +2601,52 @@ def residual_load(network, sector="electricity"):
     )
 
     return loads_per_bus - renewable_dispatch
+
+
+def manual_fixes_datamodel(etrago):
+    """Apply temporal fixes to the data model until a new egon-data run
+    is there
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+
+    Returns
+    -------
+    None.
+
+    """
+    # Set line type
+    etrago.network.lines.type = ""
+
+    # Set life time of storage_units, transformers and lines
+    etrago.network.storage_units.lifetime = 27.5
+    etrago.network.transformers.lifetime = 40
+    etrago.network.lines.lifetime = 40
+
+    # Set efficiences of CHP
+    etrago.network.links.loc[
+        etrago.network.links[
+            etrago.network.links.carrier.str.contains("CHP")
+        ].index,
+        "efficiency",
+    ] = 0.43
+
+    # Enlarge gas boilers as backup heat supply
+    etrago.network.links.loc[
+        etrago.network.links[
+            etrago.network.links.carrier.str.contains("gas_boiler")
+        ].index,
+        "p_nom",
+    ] *= 1000
+
+    # Set p_max_pu for run of river and reservoir
+    etrago.network.generators.loc[
+        etrago.network.generators[
+            etrago.network.generators.carrier.isin(
+                ["run_of_river", "reservoir"]
+            )
+        ].index,
+        "p_max_pu",
+    ] = 0.65

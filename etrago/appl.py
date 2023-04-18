@@ -147,12 +147,12 @@ args = {
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
-        "active": True,  # choose if temporally full complex dispatch optimization should be conducted
+        "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": False,  # meet the demand at value of loss load cost
+    "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",
@@ -456,41 +456,7 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    etrago.network.lines.type = ""
-    etrago.network.storage_units.lifetime = np.inf
-    etrago.network.transformers.lifetime = 40  # only temporal fix
-    etrago.network.lines.lifetime = 40  # only temporal fix until either the
-    # PyPSA network clustering function
-    # is changed (taking the mean) or our
-    # data model is altered, which will
-    # happen in the next data creation run
-
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()[
-            etrago.network.lines_t.s_max_pu.columns.isin(
-                etrago.network.lines.index
-            )
-        ].transpose()
-    )
-
-    # Set gas grid links bidirectional
-    etrago.network.links.loc[
-        etrago.network.links[etrago.network.links.carrier == "CH4"].index,
-        "p_min_pu",
-    ] = -1.0
-
-    # Set efficiences of CHP
-    etrago.network.links.loc[
-        etrago.network.links[
-            etrago.network.links.carrier.str.contains("CHP")
-        ].index,
-        "efficiency",
-    ] = 0.43
-
-    etrago.network.links_t.p_min_pu.fillna(0.0, inplace=True)
-    etrago.network.links_t.p_max_pu.fillna(1.0, inplace=True)
-    etrago.network.links_t.efficiency.fillna(1.0, inplace=True)
-
+    # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
     # ehv network clustering
