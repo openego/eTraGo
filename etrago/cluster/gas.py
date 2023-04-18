@@ -56,6 +56,13 @@ def preprocessing(etrago):
         ch4_filter & (network_ch4.buses["country"] != "DE")
     ).sum()
 
+    network_ch4.links = network_ch4.links.loc[
+        network_ch4.links["bus0"].isin(network_ch4.buses.loc[ch4_filter].index)
+        & network_ch4.links["bus1"].isin(
+            network_ch4.buses.loc[ch4_filter].index
+        )
+    ]
+
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
@@ -75,10 +82,6 @@ def preprocessing(etrago):
     else:
         network_ch4.buses = network_ch4.buses.loc[ch4_filter]
         n_clusters = settings["n_clusters_gas"]
-    network_ch4.links = network_ch4.links.loc[
-        network_ch4.links["bus0"].isin(network_ch4.buses.index)
-        & network_ch4.links["bus1"].isin(network_ch4.buses.index)
-    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
