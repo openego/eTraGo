@@ -583,18 +583,30 @@ class UniformDisaggregation(Disaggregation):
                     for key in bustypes[bustype]["group_by"]
                 ]
             )
+
             for group in groups:
+
                 clb = (
                     cl_buses[cl_buses.bus == cluster]
                     if "bus" in cl_buses.columns
                     else cl_buses[cl_buses.bus0 == cluster]
                 )
+
                 query = " & ".join(
                     ["({key} == {value!r})".format(**axis) for axis in group]
                 )
-                clb = clb.query(query)
+                if bustype == "links":
+                    clb = clb[
+                        (clb.carrier == group[0]["value"])
+                        & (clb.bus1 == self.busmap[group[1]["value"]])
+                        ]
+
+                else:
+                    clb = clb.query(query)
+
                 if len(clb) == 0:
                     continue
+
                 assert len(clb) == 1, (
                     f"Cluster {cluster} has {len(clb)} buses for {group=}."
                     "\nShould be exactly one."
