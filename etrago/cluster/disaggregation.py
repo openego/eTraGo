@@ -623,6 +623,14 @@ class UniformDisaggregation(Disaggregation):
                     ]
                 ]
                 pnb = pnb.query(query)
+
+                # In some cases, a district heating grid is connected to a substation 
+                # only via a resistive_heater and not by a heat_pump. 
+                # In the clusterted network, there is both. 
+                # In these cases, it is accepted that pnb is empty
+                if (group[0]["value"] == 'central_heat_pump') & pnb.empty:
+                    continue
+
                 assert not pnb.empty, (
                     "Cluster has a bus for:"
                     + "\n    ".join(
