@@ -621,7 +621,23 @@ class UniformDisaggregation(Disaggregation):
                         f" & (bus1 in {index})"
                     )
                 pnb = pnb.query(query)
-                assert not pnb.empty, (
+                assert not pnb.empty or (
+                    # In some cases, a district heating grid is connected to a
+                    # substation only via a resistive_heater but not e.g. by a
+                    # heat_pump or one of the other listed `carrier`s.
+                    # In the clustered network, there are both.
+                    # In these cases, the `pnb` can actually be empty.
+                    group[0]["value"]
+                    in [
+                        "central_gas_boiler",
+                        "central_heat_pump",
+                        "central_gas_CHP_heat",
+                        "central_gas_CHP",
+                        "CH4",
+                        "DC",
+                        "OCGT",
+                    ]
+                ), (
                     "Cluster has a bus for:"
                     + "\n    ".join(
                         ["{key}: {value!r}".format(**axis) for axis in group]
@@ -629,6 +645,8 @@ class UniformDisaggregation(Disaggregation):
                     + "\nbut no matching buses in its corresponding "
                     + "partial network."
                 )
+                if pnb.empty:
+                    continue
 
                 if not (
                     pnb.loc[:, extendable_flag].all()
