@@ -617,7 +617,7 @@ class UniformDisaggregation(Disaggregation):
                         i
                         for i, row in enumerate(pn_buses.itertuples())
                         for bus in [
-                            row.bus if hasattr(row, "bus") else row.bus1
+                            row.bus if hasattr(row, "bus") else row.bus0
                         ]
                         if not bus.startswith(self.idx_prefix)
                     ]
