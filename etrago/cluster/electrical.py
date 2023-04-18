@@ -132,6 +132,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
         "Li ion": "BEV charger",
+        "Li_ion": "BEV_charger",
         "rural_heat": "rural_heat_pump",
     }
 

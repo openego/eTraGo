@@ -190,6 +190,7 @@ def coloring():
         "battery": "blue",
         "pumped_hydro": "indigo",
         "BEV charger": "indigo",
+        "BEV_charger": "indigo",
     }
 
     return colors

@@ -31,7 +31,7 @@ import os
 
 from egoio.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
-from shapely.geometry import LineString, Point
+from shapely.geometry import Point
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -820,10 +820,10 @@ def loading_minimization(network, snapshots):
         network.model.passive_branch_p_index, within=PositiveReals
     )
 
-    def cRule(model, c, l, t):
+    def cRule(model, c, l0, t):
         return (
-            model.number1[c, l, t] - model.number2[c, l, t]
-            == model.passive_branch_p[c, l, t]
+            model.number1[c, l0, t] - model.number2[c, l0, t]
+            == model.passive_branch_p[c, l0, t]
         )
 
     network.model.cRule = Constraint(
@@ -897,16 +897,16 @@ def _normed(s):
         return s / tot
 
 
-def agg_series_lines(l, network):
+def agg_series_lines(l0, network):
     """
-    Given a pandas DataFrame `l` containing information about lines in a
-    network and a network object, aggregates the data in `l` for all its
+    Given a pandas DataFrame `l0` containing information about lines in a
+    network and a network object, aggregates the data in `l0` for all its
     attributes. Returns a pandas Series containing the aggregated data.
 
 
     Parameters
     ----------
-    l : pandas.DataFrame
+    l0: pandas.DataFrame
         contain information about lines in a network.
     network : :class:`pypsa.Network
         Overall container of PyPSA
@@ -944,27 +944,27 @@ def agg_series_lines(l, network):
         )
     }
 
-    Line = l["Line"].iloc[0]
+    Line = l0["Line"].iloc[0]
     data = dict(
-        r=l["r"].sum(),
-        x=l["x"].sum(),
-        g=1.0 / (1.0 / l["g"]).sum(),
-        b=1.0 / (1.0 / l["b"]).sum(),
-        terrain_factor=l["terrain_factor"].mean(),
-        s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
-        s_nom=l["s_nom"].iloc[0],
-        s_nom_min=l["s_nom_min"].max(),
-        s_nom_max=l["s_nom_max"].min(),
-        s_nom_extendable=l["s_nom_extendable"].any(),
-        num_parallel=l["num_parallel"].max(),
-        capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
-        length=l["length"].sum(),
-        v_ang_min=l["v_ang_min"].max(),
-        v_ang_max=l["v_ang_max"].min(),
+        r=l0["r"].sum(),
+        x=l0["x"].sum(),
+        g=1.0 / (1.0 / l0["g"]).sum(),
+        b=1.0 / (1.0 / l0["b"]).sum(),
+        terrain_factor=l0["terrain_factor"].mean(),
+        s_max_pu=(l0["s_max_pu"] * _normed(l0["s_nom"])).sum(),
+        s_nom=l0["s_nom"].iloc[0],
+        s_nom_min=l0["s_nom_min"].max(),
+        s_nom_max=l0["s_nom_max"].min(),
+        s_nom_extendable=l0["s_nom_extendable"].any(),
+        num_parallel=l0["num_parallel"].max(),
+        capital_cost=(_normed(l0["s_nom"]) * l0["capital_cost"]).sum(),
+        length=l0["length"].sum(),
+        v_ang_min=l0["v_ang_min"].max(),
+        v_ang_max=l0["v_ang_max"].min(),
     )
-    data.update((f, consense[f](l[f])) for f in columns.difference(data))
+    data.update((f, consense[f](l0[f])) for f in columns.difference(data))
     return pd.Series(
-        data, index=[f for f in l.columns if f in columns], name=Line
+        data, index=[f for f in l0.columns if f in columns], name=Line
     )
 
 
@@ -984,7 +984,7 @@ def group_parallel_lines(network):
 
     """
 
-    def agg_parallel_lines(l):
+    def agg_parallel_lines(l0):
         attrs = network.components["Line"]["attrs"]
         columns = set(
             attrs.index[attrs.static & attrs.status.str.startswith("Input")]
@@ -1016,27 +1016,27 @@ def group_parallel_lines(network):
         }
 
         data = dict(
-            Line=l["Line"].iloc[0],
-            r=1.0 / (1.0 / l["r"]).sum(),
-            x=1.0 / (1.0 / l["x"]).sum(),
-            g=l["g"].sum(),
-            b=l["b"].sum(),
-            terrain_factor=l["terrain_factor"].mean(),
-            s_max_pu=(l["s_max_pu"] * _normed(l["s_nom"])).sum(),
-            s_nom=l["s_nom"].sum(),
-            s_nom_min=l["s_nom_min"].sum(),
-            s_nom_max=l["s_nom_max"].sum(),
-            s_nom_extendable=l["s_nom_extendable"].any(),
-            num_parallel=l["num_parallel"].sum(),
-            capital_cost=(_normed(l["s_nom"]) * l["capital_cost"]).sum(),
-            length=l["length"].mean(),
-            sub_network=consense["sub_network"](l["sub_network"]),
-            v_ang_min=l["v_ang_min"].max(),
-            v_ang_max=l["v_ang_max"].min(),
-            geom=l["geom"].iloc[0],
+            Line=l0["Line"].iloc[0],
+            r=1.0 / (1.0 / l0["r"]).sum(),
+            x=1.0 / (1.0 / l0["x"]).sum(),
+            g=l0["g"].sum(),
+            b=l0["b"].sum(),
+            terrain_factor=l0["terrain_factor"].mean(),
+            s_max_pu=(l0["s_max_pu"] * _normed(l0["s_nom"])).sum(),
+            s_nom=l0["s_nom"].sum(),
+            s_nom_min=l0["s_nom_min"].sum(),
+            s_nom_max=l0["s_nom_max"].sum(),
+            s_nom_extendable=l0["s_nom_extendable"].any(),
+            num_parallel=l0["num_parallel"].sum(),
+            capital_cost=(_normed(l0["s_nom"]) * l0["capital_cost"]).sum(),
+            length=l0["length"].mean(),
+            sub_network=consense["sub_network"](l0["sub_network"]),
+            v_ang_min=l0["v_ang_min"].max(),
+            v_ang_max=l0["v_ang_max"].min(),
+            geom=l0["geom"].iloc[0],
         )
-        data.update((f, consense[f](l[f])) for f in columns.difference(data))
-        return pd.Series(data, index=[f for f in l.columns if f in columns])
+        data.update((f, consense[f](l0[f])) for f in columns.difference(data))
+        return pd.Series(data, index=[f for f in l0.columns if f in columns])
 
     # Make bus0 always the greattest to identify repeated lines
     lines_2 = network.lines.copy()
@@ -1171,10 +1171,10 @@ def delete_dispensable_ac_buses(etrago):
 
     delete_bus = []
     for bus in ac_buses[ac_buses["n_lines"] == 2].index:
-        l = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
+        l0 = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
             "s_nom"
         ].unique()
-        if len(l) != 1:
+        if len(l0) != 1:
             delete_bus.append(bus)
     ac_buses.drop(delete_bus, inplace=True)
 
@@ -1244,27 +1244,15 @@ def delete_dispensable_ac_buses(etrago):
 
     new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
 
-    for l in new_lines.index:
+    for l0 in new_lines.index:
         lines_group = (
-            lines[lines.index.isin(new_lines.at[l, "lines"])]
+            lines[lines.index.isin(new_lines.at[l0, "lines"])]
             .copy()
             .reset_index()
         )
         l_new = agg_series_lines(lines_group, network)
-        l_new["bus0"] = new_lines.at[l, "bus0"]
-        l_new["bus1"] = new_lines.at[l, "bus1"]
-        l_new["geom"] = LineString(
-            [
-                (
-                    network.buses.at[l_new["bus0"], "x"],
-                    network.buses.at[l_new["bus0"], "y"],
-                ),
-                (
-                    network.buses.at[l_new["bus1"], "x"],
-                    network.buses.at[l_new["bus1"], "y"],
-                ),
-            ]
-        )
+        l_new["bus0"] = new_lines.at[l0, "bus0"]
+        l_new["bus1"] = new_lines.at[l0, "bus1"]
         new_lines_df["s_nom_extendable"] = new_lines_df[
             "s_nom_extendable"
         ].astype(bool)
@@ -2747,3 +2735,52 @@ def residual_load(network, sector="electricity"):
     )
 
     return loads_per_bus - renewable_dispatch
+
+
+def manual_fixes_datamodel(etrago):
+    """Apply temporal fixes to the data model until a new egon-data run
+    is there
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+
+    Returns
+    -------
+    None.
+
+    """
+    # Set line type
+    etrago.network.lines.type = ""
+
+    # Set life time of storage_units, transformers and lines
+    etrago.network.storage_units.lifetime = 27.5
+    etrago.network.transformers.lifetime = 40
+    etrago.network.lines.lifetime = 40
+
+    # Set efficiences of CHP
+    etrago.network.links.loc[
+        etrago.network.links[
+            etrago.network.links.carrier.str.contains("CHP")
+        ].index,
+        "efficiency",
+    ] = 0.43
+
+    # Enlarge gas boilers as backup heat supply
+    etrago.network.links.loc[
+        etrago.network.links[
+            etrago.network.links.carrier.str.contains("gas_boiler")
+        ].index,
+        "p_nom",
+    ] *= 1000
+
+    # Set p_max_pu for run of river and reservoir
+    etrago.network.generators.loc[
+        etrago.network.generators[
+            etrago.network.generators.carrier.isin(
+                ["run_of_river", "reservoir"]
+            )
+        ].index,
+        "p_max_pu",
+    ] = 0.65
