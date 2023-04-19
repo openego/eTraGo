@@ -739,6 +739,9 @@ class UniformDisaggregation(Disaggregation):
                             for bus_id in filtered.index
                         }
                     )
+                    assert ((new_columns.sum(axis=1)-clt).sum() < 1), (
+                        "Sum of disaggregated time series does not match "
+                        "aggragted timeseries")
                     pn_t[s].loc[:, new_columns.columns] = new_columns
 
     def transfer_results(self, *args, **kwargs):
