@@ -574,11 +574,14 @@ class UniformDisaggregation(Disaggregation):
             pn_buses = getattr(partial_network, bustype)
             cl_buses = getattr(self.clustered_network, bustype)
 
+            if bustype == 'links':
+                cl_buses = cl_buses[cl_buses.bus0==cluster]
+
             groups = product(
                 *[
                     [
                         {"key": key, "value": value}
-                        for value in set(pn_buses.loc[:, key])
+                        for value in set(cl_buses.loc[:, key])
                     ]
                     for key in bustypes[bustype]["group_by"]
                 ]
@@ -595,15 +598,8 @@ class UniformDisaggregation(Disaggregation):
                 query = " & ".join(
                     ["({key} == {value!r})".format(**axis) for axis in group]
                 )
-                if bustype == "links":
-                    clb = clb[
-                        (clb.carrier == group[0]["value"])
-                        & (clb.bus1 == self.busmap[group[1]["value"]])
-                        ]
 
-                else:
-                    clb = clb.query(query)
-
+                clb = clb.query(query)
                 if len(clb) == 0:
                     continue
 
@@ -622,13 +618,23 @@ class UniformDisaggregation(Disaggregation):
                         if not bus.startswith(self.idx_prefix)
                     ]
                 ]
-                pnb = pnb.query(query)
+
+                if bustype == "links":
+                    pnb = pnb[
+                        (pnb.carrier == group[0]["value"])
+                        & (pnb.bus1.isin(self.busmap[self.busmap==group[1]["value"]].index))
+                        ]
+
+                else:
+                    pnb = pnb.query(query)
 
                 # In some cases, a district heating grid is connected to a substation 
                 # only via a resistive_heater and not by a heat_pump. 
                 # In the clusterted network, there is both. 
                 # In these cases, it is accepted that pnb is empty
-                if (group[0]["value"] == 'central_heat_pump') & pnb.empty:
+                if (group[0]["value"] in [
+                        'central_gas_boiler', 'central_heat_pump',
+                        'central_gas_CHP_heat', "central_gas_CHP", "CH4", "DC", "OCGT"]) & pnb.empty:
                     continue
 
                 assert not pnb.empty, (
