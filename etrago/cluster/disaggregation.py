@@ -26,11 +26,10 @@ class Disaggregation:
         self.original_network = original_network
         self.clustered_network = clustered_network
         self.clustering = clustering
-        self.busmap = pd.Series(clustering.busmap)
 
         self.buses = pd.merge(
             original_network.buses,
-            self.busmap.to_frame(name="cluster"),
+            self.clustering.busmap.to_frame(name="cluster"),
             left_index=True,
             right_index=True,
         )
@@ -122,7 +121,7 @@ class Disaggregation:
             )
 
             def from_busmap(x):
-                return self.idx_prefix + self.busmap.loc[x]
+                return self.idx_prefix + self.buses.loc[x, "cluster"]
 
             if not left_external_connectors.empty:
                 ca_option = pd.get_option("mode.chained_assignment")
@@ -271,7 +270,7 @@ class Disaggregation:
         :param scenario:
         :param solver: Solver that may be used to optimize partial networks
         """
-        clusters = set(self.busmap.values)
+        clusters = set(self.buses.loc[:, "cluster"].values)
         n = len(clusters)
         self.stats = {
             "clusters": pd.DataFrame(
@@ -425,7 +424,7 @@ class MiniSolverDisaggregation(Disaggregation):
         def extra_functionality(network, snapshots):
             f(network, snapshots)
             generators = self.original_network.generators.assign(
-                bus=lambda df: df.bus.map(self.busmap)
+                bus=lambda df: df.bus.map(self.buses.loc[:, "cluster"])
             )
 
             def construct_constraint(model, snapshot, carrier):
@@ -477,7 +476,9 @@ class MiniSolverDisaggregation(Disaggregation):
             ]:
                 generators = getattr(
                     self.original_network, bustype_pypsa
-                ).assign(bus=lambda df: df.bus.map(self.busmap))
+                ).assign(
+                    bus=lambda df: df.bus.map(self.buses.loc[:, "cluster"])
+                )
                 for suffix in suffixes:
 
                     def construct_constraint(model, snapshot):
