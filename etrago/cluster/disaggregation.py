@@ -585,7 +585,7 @@ class UniformDisaggregation(Disaggregation):
                 *[
                     [
                         {"key": key, "value": value}
-                        for value in set(pn_buses.loc[:, key])
+                        for value in set(cl_buses.loc[:, key])
                     ]
                     for key in bustypes[bustype]["group_by"]
                 ]
