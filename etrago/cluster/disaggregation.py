@@ -347,7 +347,7 @@ class Disaggregation:
                 )
         profile.disable()
         self.stats["check"] = time.time() - t
-        log.info("Checks computed in {self.stats['check']}")
+        log.info(f"Checks computed in {self.stats['check']}s.")
 
         profile.print_stats(sort="cumtime")
 
