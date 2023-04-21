@@ -577,8 +577,10 @@ class UniformDisaggregation(Disaggregation):
             pn_t = getattr(partial_network, bustype + "_t")
             cl_t = getattr(self.clustered_network, bustype + "_t")
             pn_buses = getattr(partial_network, bustype)
-            cl_buses = getattr(self.clustered_network, bustype)
-
+            cl_buses = getattr(self.clustered_network, bustype)[
+                lambda df: df.loc[:, "bus" if "bus" in df.columns else "bus0"]
+                == cluster
+            ]
             groups = product(
                 *[
                     [
@@ -589,15 +591,10 @@ class UniformDisaggregation(Disaggregation):
                 ]
             )
             for group in groups:
-                clb = (
-                    cl_buses[cl_buses.bus == cluster]
-                    if "bus" in cl_buses.columns
-                    else cl_buses[cl_buses.bus0 == cluster]
-                )
                 query = " & ".join(
                     ["({key} == {value!r})".format(**axis) for axis in group]
                 )
-                clb = clb.query(query)
+                clb = cl_buses.query(query)
                 if len(clb) == 0:
                     continue
                 assert len(clb) == 1, (
