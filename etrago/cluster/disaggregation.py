@@ -320,6 +320,7 @@ class Disaggregation:
         for bt, ts in (
             ("generators", {"p": fs, "q": fs}),
             ("storage_units", {"p": fs, "state_of_charge": fs, "q": fs}),
+            ("links", {"p0": fs, "p1": fs}),
         ):
             log.info(f"Attribute sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt)
