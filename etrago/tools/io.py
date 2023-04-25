@@ -48,7 +48,7 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, mariusves"
+__author__ = "ulfmueller, mariusves, pieterhexen, ClaraBuettner"
 
 from importlib import import_module
 import os

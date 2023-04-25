@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -57,7 +57,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
 
 
 def set_epsg_network(network):
@@ -117,6 +118,16 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 
 def coloring():
+    """
+    Return a dictionary with a color assign to each kind of carrier used in
+    etrago.network. This is used for plotting porpuses.
+
+    Returns
+    -------
+    colors : dict
+        Color for each kind of carrier.
+
+    """
 
     colors = {
         "load": "red",
@@ -218,6 +229,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
             set_epsg_network(networkA)
             set_epsg_network(networkB)
         plot_osm(osm["x"], osm["y"], osm["zoom"])
+
     # new colormap to make sure 0% difference has the same color in every plot
     def shiftedColorMap(
         cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"
@@ -411,6 +423,10 @@ def plot_residual_load(network):
     Parameters
     ----------
     network : PyPSA network containter
+
+    Returns
+    -------
+    Plot
     """
 
     renewables = network.generators[
@@ -581,7 +597,7 @@ def plot_gen_diff(
             pd.concat(
                 [
                     network.generators_t.p.mul(
-                        etwork.snapshot_weightings, axis=0
+                        network.snapshot_weightings, axis=0
                     )[
                         network.generators[
                             network.generators.control != "Slack"
@@ -915,6 +931,10 @@ def gen_dist_diff(
     filename : str
         Specify filename
         If not given, figure will be show directly
+
+    Returns
+    -------
+    None.
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -1028,6 +1048,10 @@ def nodal_gen_dispatch(
                 'x': array of two floats, x axis boundaries (lat)
                 'y': array of two floats, y axis boundaries (long)
                 'zoom' : resolution of osm
+
+    Returns
+    -------
+    None.
     """
 
     if osm != False:
@@ -1193,6 +1217,10 @@ def storage_p_soc(network, mean="1H", filename=None):
         Defines over how many snapshots the p and soc values will averaged.
     filename : path to folder
 
+    Returns
+    -------
+    None.
+
     """
 
     sbatt = network.storage_units.index[
@@ -1227,7 +1255,6 @@ def storage_p_soc(network, mean="1H", filename=None):
         network.storage_units.p_nom_opt[sbatt].sum() > 1
         and network.storage_units.p_nom_opt[shydr].sum() < 1
     ):
-
         (
             network.storage_units_t.p[sbatt].resample(mean).mean().sum(axis=1)
             / network.storage_units.p_nom_opt[sbatt].sum()
@@ -1326,6 +1353,10 @@ def storage_soc_sorted(network, filename=None):
         Holds topology of grid including results from powerflow analysis
 
     filename : path to folder
+
+    Returns
+    -------
+    None.
 
     """
     sbatt = network.storage_units.index[
@@ -1452,7 +1483,6 @@ def calc_ac_loading(network, timesteps):
     )
 
     if not network.lines_t.q0.empty:
-
         loading_lines = (
             loading_lines**2
             + mul_weighting(network, network.lines_t.q0)
@@ -1493,7 +1523,6 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
-
             l = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
@@ -1611,7 +1640,6 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
                 network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
 
     if method == "rel":
-
         extension_lines = (
             100
             * (network.lines.s_nom_opt - network.lines.s_nom_min)
@@ -1686,7 +1714,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1766,7 +1794,7 @@ def bev_flexibility_potential(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1873,7 +1901,7 @@ def heat_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1953,7 +1981,7 @@ def hydrogen_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -2053,7 +2081,6 @@ def flexibility_usage(
         )
 
     elif flexibility == "battery":
-
         df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
         su = self.network.storage_units[
@@ -2140,13 +2167,11 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     link_width = pd.Series(index=network.links.index, data=2)
 
     if len(carrier_links) > 0:
-
         link_width.loc[~network.links.carrier.isin(carrier_links)] = 0
 
     bus_sizes = pd.Series(index=network.buses.index, data=0.0005)
 
     if len(carrier_buses) > 0:
-
         bus_sizes.loc[~network.buses.carrier.isin(carrier_buses)] = 0
 
     link_colors = network.links.carrier.map(colors)
@@ -2566,8 +2591,6 @@ def plot_clusters(
     -------
     None.
     """
-    # TODO: Make this function available for other carriers
-    # Create geometries
     new_geom = self.network.buses[
         [
             "carrier",
@@ -3278,7 +3301,7 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
             data.resample(t_resolution).mean().plot(
                 ax=ax, label=i, legend=True
             )
-        
+
         heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
             ax=ax,
             legend=True,
