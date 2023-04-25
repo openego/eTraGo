@@ -12,8 +12,8 @@ the ‘appl.py’ is used as a simple user interface which can be edited with
 the preferred python-editor.
 Here parameters, calculation methods and scenario settings are set in a python
 dictionary called 'args'. 
-To run the desired calculation, it is crucial to understand these parameters, 
-since for particular cases some of them contradict the usage of others. 
+To run the desired calculation, it is crucial to understand these parameters. 
+In addition, some of them contradict the usage of others.
 You find the documentation of all defined parameters from the 'args' here:
 :func:`etrago.appl.run_etrago`.
 
