@@ -596,6 +596,7 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
     -------
 
     """
+    logger.debug("Shedding the load.")
     if self.args["load_shedding"]:
         if temporal_disaggregation:
             network = self.network_tsa

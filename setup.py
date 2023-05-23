@@ -51,6 +51,7 @@ setup(
         "egoio == 0.4.7",
         "geoalchemy2 >= 0.3.0",
         "geopandas",
+        "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
         # PyPSA uses a deprecated import that errors with Pyomo 6.4.3.

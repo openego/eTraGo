@@ -136,7 +136,8 @@ args = {
             },
         },
     },
-    "disaggregation": None,  # None, 'mini' or 'uniform'
+    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
+    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -482,7 +483,7 @@ def run_etrago(args, json_path):
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
-    # etrago.disaggregation()
+    etrago.disaggregation()
 
     # calculate central etrago results
     etrago.calc_results()
