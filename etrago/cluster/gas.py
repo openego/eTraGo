@@ -55,13 +55,12 @@ def preprocessing(etrago):
     num_neighboring_country = (
         ch4_filter & (network_ch4.buses["country"] != "DE")
     ).sum()
-
+    
     # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
         ]
-
         if settings["n_clusters_gas"] <= num_neighboring_country:
             msg = (
                 "The number of clusters for the gas sector ("

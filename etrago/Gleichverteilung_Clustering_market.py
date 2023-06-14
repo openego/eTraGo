@@ -61,12 +61,12 @@ args = {
         "pyomo": True,
     },  # set if pyomo is used for model building
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after a lopf simulation
+        "active": True,  # choose if perform a pf after a lopf simulation8
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 2170,
-    "end_snapshot": 2180,
+    "start_snapshot": 1,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -145,7 +145,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": False,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -446,8 +446,7 @@ def run_etrago(args, json_path):
     etrago.build_network_from_db()
     
     # Sektoren auf Strom begrenzen
-    ## es gab mal Probleme beim Dev mergen mit gas constraints von Amelia.. 
-    etrago.drop_sectors(['Li ion'])
+    #etrago.drop_sectors(['Li ion'])
     
     # etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'H2_grid', 'central_heat',
     #   'central_heat_store', 'Li ion', 'H2_ind_load', 'rural_heat', 'rural_heat_store'])
@@ -480,43 +479,45 @@ def run_etrago(args, json_path):
 
     # Netzwerkanpassungen
     etrago.adjust_network()
-
+    
     # ehv network clustering
     etrago.ehv_clustering()
-    
+   
     #Export des Netzwerkes, bitte eigenen Speicherpfad angeben
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/all_allsec')
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/all_allsec_Frühling')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/vorcluster')
     
     #Problematische nicht gekoppellte Gas Knoten und Verbindungenlöschen, mit neuen Datenmodell probieren und anschließend entfernen
-    # etrago.network.buses= etrago.network.buses.drop(['48044','48111'])
-    # etrago.network.links= etrago.network.links.drop(etrago.network.links.loc[((etrago.network.links.bus0 == '48044') | (etrago.network.links.bus1 == '48044') |  (etrago.network.links.bus1 == '48111') |  (etrago.network.links.bus0 == '48111'))].index)
-    # etrago.network.storage_units= etrago.network.storage_units.drop(etrago.network.storage_units.loc[((etrago.network.storage_units.bus == '48044')  |  (etrago.network.storage_units.bus == '48111'))].index)
-    # etrago.network.stores= etrago.network.stores.drop(etrago.network.stores.loc[((etrago.network.stores.bus == '48044')  |  (etrago.network.stores.bus == '48111'))].index)
-    # etrago.network.generators= etrago.network.generators.drop(etrago.network.generators.loc[((etrago.network.generators.bus == '48044')  |  (etrago.network.generators.bus == '48111'))].index)
-    # etrago.network.loads= etrago.network.loads.drop(etrago.network.loads.loc[((etrago.network.loads.bus == '48044')  | (etrago.network.loads.bus == '48111'))].index)
+    etrago.network.buses= etrago.network.buses.drop(['48046','48113'])
+    etrago.network.links= etrago.network.links.drop(etrago.network.links.loc[((etrago.network.links.bus0 == '48046') | (etrago.network.links.bus1 == '48046') |  (etrago.network.links.bus1 == '48113') |  (etrago.network.links.bus0 == '48113'))].index)
+    etrago.network.storage_units= etrago.network.storage_units.drop(etrago.network.storage_units.loc[((etrago.network.storage_units.bus == '48046')  |  (etrago.network.storage_units.bus == '48113'))].index)
+    etrago.network.stores= etrago.network.stores.drop(etrago.network.stores.loc[((etrago.network.stores.bus == '48046')  |  (etrago.network.stores.bus == '48113'))].index)
+    etrago.network.generators= etrago.network.generators.drop(etrago.network.generators.loc[((etrago.network.generators.bus == '48046')  |  (etrago.network.generators.bus == '48113'))].index)
+    etrago.network.loads= etrago.network.loads.drop(etrago.network.loads.loc[((etrago.network.loads.bus == '48046')  | (etrago.network.loads.bus == '48113'))].index)
+    
+    etrago.ch4_h2_mapping = etrago.ch4_h2_mapping.loc[~((etrago.ch4_h2_mapping.index == '48113') | (etrago.ch4_h2_mapping.index == '48046'))]
     
     # spatial clustering, erste Aggregation auf 300 In- und 14 Auslandsknoten / Ausgangsgröße für Netzberechnung
     etrago.spatial_clustering()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')   
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/erstesclusterelek')   
     
-    # from etrago import Etrago
-    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_strom')
-    
+   
+       
     etrago.spatial_clustering_gas()
     
     #Export des Netzwerkes, bitte eigenen Speicherpfad angeben
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec')
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_Frühling')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/erstesclusterbeide')
     
     # Zweite Aggregation auf 14 Auslandsknoten und 1 Inlandsknoten
     etrago.args["network_clustering"]["n_clusters_AC"] = 15
     
    
-    etrago.spatial_clustering() 
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec_strom')
+    etrago.spatial_clustering()
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/zweitesclusterelek')
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec_strom_Herbst')
     
-    # Eventueller reimport des Networks
-   
-    ch4_h2 = pd.read_csv('/home/student/eTraGo/git/eTraGo/etrago/kmeans_gasgrid_80_result.csv')
+    #ch4_h2 = pd.read_csv('/home/student/eTraGo/git/eTraGo/etrago/kmeans_gasgrid_80_result.csv')
     #ch4 = pd.read_csv('/home/student/eTraGo/git/eTraGo/etrago/kmeans_ch4_busmap_14_result.csv')
     # ch4_h2.set_index('bus1', inplace=True)
     # ch4_h2.index = ch4_h2.index.astype(str)
@@ -524,6 +525,10 @@ def run_etrago(args, json_path):
     # h2 = ch4_h2.loc[etrago.network.buses.carrier.str.contains('H2')]
     #ch4 = ch4.index.unique()
     #h2 = h2.index.unique()
+   
+    # from etrago import Etrago
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec_strom_Frühling')
+       
     liste = etrago.network.buses.loc[(etrago.network.buses.carrier == 'H2_grid')  | (etrago.network.buses.carrier == 'CH4')]
     liste = liste.loc[liste.duplicated(subset=['x','y'],keep=False)]
     etrago.ch4_h2_mapping= pd.DataFrame(None)
@@ -532,17 +537,11 @@ def run_etrago(args, json_path):
     etrago.ch4_h2_mapping.index.names =['CH4_bus']
     etrago.ch4_h2_mapping['0'] = etrago.ch4_h2_mapping['0'].astype(int)
     etrago.ch4_h2_mapping = etrago.ch4_h2_mapping.squeeze()
-    #conn = psycopg2.connect("dbname=test user=postgres")
-    
-    # from egoio.tools import db
-    
-    # conn = db.connection(section=etrago.args["db"])
-    
-    # with conn.connect().execution_options(autocommit=True) as con:
-    #     con.execute("DELETE FROM grid.egon_etrago_ch4_h2")
+   
     etrago.args["network_clustering"]["n_clusters_gas"] = 14  
     etrago.spatial_clustering_gas()
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec')
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/15_allsec_Frühling')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/zweitesclusterbeide')
     # Speicherwirkungsgrad und Verluste optimal, nur für Testzwecke
     # etrago.network.storage_units.efficiency_dispatch = 1   
     # etrago.network.storage_units.efficiency_store = 1
@@ -581,16 +580,19 @@ def run_etrago(args, json_path):
     lst_zone = lst_zone.tolist()
     
     # Network vor Optimerung exportieren mit allen Snapshots
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_allsec')
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_allsec_Frühling')
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/marketvorloadsheddundsnapcluster')
     
+    # from etrago import Etrago
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_every_snap_allsec')
     
     
     # Load Shedding einstellen, für schwer lösbare Konstellation nötig
-    etrago.args["load_shedding"] = False
+    etrago.args["load_shedding"] = True
     etrago.load_shedding()   
     
     # Speicherstand gleich Anfangsspeicherstand
-    etrago.network.storage_units.cyclic_state_of_charge= True
+    etrago.network.storage_units.cyclic_state_of_charge= False
     
     # snapshot clustering
     etrago.snapshot_clustering()
@@ -602,8 +604,10 @@ def run_etrago(args, json_path):
     etrago.lopf()
     
     # export Daten des optimierten Netzes
-    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_allsec')
-    
+    #etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_allsec_Frühling')
+   
+    # from etrago import Etrago
+    # etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_allsec_Herbst')
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
@@ -616,7 +620,7 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
-
+    etrago.export_to_csv('/home/student/Documents/Masterthesis/eTraGo_szenarien/Jahr/marketfinal')
     etrago.plot_grid(line_colors='expansion_abs')
     return etrago
 

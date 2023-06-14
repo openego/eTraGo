@@ -1084,7 +1084,8 @@ def nodal_gen_dispatch(
 
         elif networkB is None:
             dispatch = (
-                network.generators_t.p[gens.index]
+           	#network.generators_t.p[gens.index]
+                network.generators_t.p[gens.loc[gens.index.str.contains('ramp up')].index]
                 .mul(network.snapshot_weightings.generators, axis=0)
                 .sum()
                 .groupby([network.generators.bus, network.generators.carrier])
@@ -1120,7 +1121,8 @@ def nodal_gen_dispatch(
         data_key = mpatches.Patch(color=subcolors[key], label=key)
         patchList.append(data_key)
 
-    ax.legend(handles=patchList, loc="upper left")
+    ax.legend(handles=patchList, loc= 'lower center', bbox_to_anchor=(0.4, -0.33),
+          ncol=2)
     ax.autoscale()
 
     if filename is None:

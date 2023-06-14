@@ -60,8 +60,8 @@ args = {
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
-    "start_snapshot": 1,
-    "end_snapshot": 2,
+    "start_snapshot": 4170,
+    "end_snapshot": 4172,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -105,10 +105,10 @@ args = {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 314,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 23,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 80,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -145,7 +145,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,
     },  # number of segments - only relevant for segmentation
-    "skip_snapshots": 5,  # False or number of snapshots to skip
+    "skip_snapshots": False,  # False or number of snapshots to skip
     "dispatch_disaggregation": False,  # choose if full complex dispatch optimization should be conducted
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
@@ -502,7 +502,10 @@ def run_etrago(args, json_path):
     etrago.load_shedding()  
     # start linear optimal powerflow calculations
     etrago.lopf()
-
+    etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/appl_folie')
+    from etrago import Etrago
+    etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/appl_folie')
+    
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()
 
@@ -515,7 +518,7 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
-
+    
     return etrago
 
 
