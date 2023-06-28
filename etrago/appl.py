@@ -504,7 +504,7 @@ def run_etrago(args, json_path):
     etrago.lopf()
     etrago.export_to_csv('/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/appl_folie')
     from etrago import Etrago
-    etrago = Etrago(csv_folder_name='/home/student/eTraGo/git/eTraGo/etrago/eTraGo_szenarien/appl_folie')
+    etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Markt_voll/marketfinal')
     
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.dispatch_disaggregation()

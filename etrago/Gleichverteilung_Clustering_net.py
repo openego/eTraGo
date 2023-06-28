@@ -423,7 +423,7 @@ def run_etrago(args, json_path):
 
     #import network from database
     #etrago.build_network_from_db()
-    etrago.drop_sectors(['Li ion'])
+    #etrago.drop_sectors(['Li ion'])
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -436,6 +436,7 @@ def run_etrago(args, json_path):
     #import der Netze, Markt und Netz
     #from etrago import Etrago
     etrago = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/300_allsec_Herbst')
+    
     market = Etrago(csv_folder_name='/home/student/Documents/Masterthesis/eTraGo_szenarien/Ausgleichenergie/market_allsec_Herbst')
     
     
