@@ -698,6 +698,10 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
         distances = distances.apply(pd.to_numeric)
 
         medoid_idx = distances.idxmin()
+        if n_clusters > 5:
+            busmap_medoid = busmap.map(medoid_idx)
+            medoids_n = etrago.args["network_clustering"]["n_clusters_AC"]
+            busmap_medoid.to_csv(f'relocated_clus/busmap_medoid_{medoids_n}.csv')
         
         import datetime
         print(' ')
@@ -716,6 +720,13 @@ def kmedoids_dijkstra_clustering(etrago, buses, connections, weight, n_clusters)
 
         
         busmap.index.name = "bus_id"
+        
+        if n_clusters > 5:
+            medoid_idx_copy = medoid_idx.copy()
+            medoid_idx_copy.index = medoid_idx_copy.index.map(str)
+            busmap_dijkstra = busmap.map(medoid_idx_copy)
+            medoids_n = etrago.args["network_clustering"]["n_clusters_AC"]
+            busmap_dijkstra.to_csv(f'relocated_clus/busmap_dijkstra_{medoids_n}.csv')
 
     else:
         df = pd.read_csv(settings["k_busmap"])
