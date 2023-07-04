@@ -80,6 +80,10 @@ spatial_resolution = [20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500, 600]
 
 spatial_method = ['kmeans', 'kmedoids-dijkstra']
 
+#spatial_method = ['kmeans', 'kmedoids-dijkstra_x', 'kmedoids-dijkstra']
+
+#spatial_resolution = [20, 30, 40, 50, 200, 300]
+
 load_shedding = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 export = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 modularity = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
@@ -168,11 +172,11 @@ network_dc.plot(legend=True)
 
 storage_expansion.plot(legend=True)'''
 
-etrago = Etrago(csv_folder_name="Calcs/kmeans/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/300")
 
 etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.000001, ext_min=0.01, legend_entries=[], boundaries=[0, 20000])
 
-etrago = Etrago(csv_folder_name="Calcs/kmedoids-dijkstra/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/300")
 
 etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.000001, ext_min=0.01, legend_entries=[], boundaries=[0, 20000])
 
@@ -192,6 +196,10 @@ import matplotlib.pyplot as plt
 spatial_resolution = [50, 100, 150, 200, 250, 300, 400, 500, 600] #20
 
 spatial_method = ['kmeans', 'kmedoids-dijkstra']
+
+#spatial_method = ['kmeans', 'kmedoids-dijkstra_x']
+
+#spatial_resolution = [20, 30, 40, 50, 200, 300]
 
 # dataframe for system costs = marginal + investment costs
 costs1 = pd.DataFrame(columns=['marginal costs', 'battery investment costs', 'electrical grid investment costs'])# 'electrical grid investment costs in Germany', 'electrical grid investment costs in foreign countries'], index=spatial_resolution)
@@ -345,14 +353,14 @@ new_relsto.plot(linestyle='-', marker='x', ax = ax2)
 new_reldc.plot(linestyle='-', marker='x', ax = ax2)
 new_relac.plot(linestyle='-', marker='x', ax = ax2)
 
-ax.xticks(spatial_resolution)
+plt.xticks(spatial_resolution)
 
 ax.set_ylim([0,20])
 ax2.set_ylim([])
 
 ax.legend(loc='upper right')
 
-plt.ylabel('costs in billion Euro')
+plt.ylabel('costs in billion €')
 plt.xlabel('number of nodes')
 #plt.title('System Costs depending on Spatial Resolution')
 
@@ -364,7 +372,9 @@ plt.xlabel('number of nodes')
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-fig = plt.figure(figsize=(20,10))
+plt.rc('font', size=17)
+
+fig = plt.figure()
 ax = fig.add_subplot(111)
 
 index1 = spatial_resolution.copy()
@@ -393,10 +403,10 @@ for col in costs.columns:
     i = i+1
     
     #if hatch[i]:
-    ax.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustring: '+col) #, hatch=hatch[i]
+    ax.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col) #, hatch=hatch[i]
     ax.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
     #else:   
-        #plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustring: '+col)
+        #plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col)
         #plt.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
 
 #plt.xticks(spatial_resolution)
@@ -409,9 +419,9 @@ ax2 = ax.twinx()
 
 new_relsys.plot(linestyle='-', marker='x', ax = ax2, label='system costs')
 new_relmarg.plot(linestyle='-', marker='x', ax = ax2, label='marginal costs')
-new_relsto.plot(linestyle='-', marker='x', ax = ax2, label='battery investment costs')
-new_reldc.plot(linestyle='-', marker='x', ax = ax2, label='investment costs for foreign lines')
-new_relac.plot(linestyle='-', marker='x', ax = ax2, label='investment costs for grid expansion inside Germany')
+new_reldc.plot(linestyle='-', marker='x', ax = ax2, label='foreign grid expansion costs')
+new_relac.plot(linestyle='-', marker='x', ax = ax2, label='grid expansion costs inside Germany')
+new_relsto.plot(linestyle='-', marker='x', ax = ax2, label='battery expansion costs')
 
 ax.set_xticks(spatial_resolution)
 
@@ -423,8 +433,10 @@ ax2.legend(loc='upper right')
 
 ax.set_ylabel('costs in billion Euro')
 ax2.set_ylabel('difference in % (k-medoids Dijkstra - k-means)')
+ax.set_xlabel('number of nodes')
 
-plt.xlabel('number of nodes')
+
+#plt.xlabel('number of nodes')
 
 
 
@@ -659,9 +671,110 @@ capacities.plot(legend=True, xlabel='number of nodes', ylabel='Former Border Cap
 
 capacities.drop(['k-means optimized', 'k-medoids Dijkstra optimized'], axis=1).plot(legend=True, xlabel='number of nodes', ylabel='Former Border Capacity in MW')
 
+###############################################################################
 
+import pandas as pd
+
+# modularity
+
+mod = pd.read_csv("Dijkstra-Paper/plots/modularity.csv")
+mod.rename(columns={'Unnamed: 0':"number of nodes"}, inplace= True)
+mod.set_index("number of nodes", inplace = True)
+mod.drop(columns=["kmedoids-dijkstra_x"], inplace= True)
+
+mod.at[400, "k-means Clustering"] = 0.825
+mod.at[500, "k-means Clustering"] = 0.802
+mod.at[600, "k-means Clustering"] = 0.798
+
+mod.at[400, "k-medoids Dijkstra Clustering"] = 0.87
+mod.at[500, "k-medoids Dijkstra Clustering"] = 0.856
+mod.at[600, "k-medoids Dijkstra Clustering"] = 0.847
+
+mod.plot(ylabel="modularity")
+
+# optimization time 
+
+mod = pd.read_csv("Dijkstra-Paper/Calcs/calc-time.csv")
+mod['number of nodes'] = mod["spatial resolution"]
+mod.drop("spatial resolution", axis=1, inplace=True)
+mod.set_index("number of nodes", inplace = True)
+
+mod.plot(ylabel="optimization time in minutes")
+
+###############################################################################
+
+from etrago import Etrago
+import geopandas as gpd
+from shapely.geometry import Point, LineString
+
+ddr_shape_path='DDR.geojson'
+ddr = gpd.read_file(ddr_shape_path)
+
+# kmeans
+
+kmeans = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/300")
+
+generate_geom(kmeans.network)
+klines, kbuses = generate_geom(kmeans.network)
+
+
+kbuses["in_ddr"] = kbuses.intersects(ddr.unary_union)
+klines["bus0_in_ddr"] = klines["bus0"].map(kbuses["in_ddr"])
+klines["bus1_in_ddr"] = klines["bus1"].map(kbuses["in_ddr"])
+klines["to_ddr"] = klines["bus0_in_ddr"] ^ klines["bus1_in_ddr"]
+
+kde_buses = kmeans.network.buses[kmeans.network.buses.country=='DE']
+
+ksto = kmeans.network.storage_units[kmeans.network.storage_units.carrier=='battery']
+ksto = ksto[ksto.bus.isin(kde_buses.index)]
+
+ksto_ddr = ksto[ksto.bus.isin(kbuses[kbuses.in_ddr].index)]
+(ksto_ddr.p_nom_opt-ksto_ddr.p_nom_min).sum()
+
+ksto_brd = ksto[~ksto.bus.isin(kbuses[kbuses.in_ddr].index)]
+(ksto_brd.p_nom_opt-ksto_brd.p_nom_min).sum()
+
+klines_ddr = klines[klines.bus0_in_ddr & klines.bus1_in_ddr]
+klines_brd = klines[(klines.bus0_in_ddr==False) & (klines.bus1_in_ddr==False)]
+
+(klines_brd.s_nom_opt*klines_brd.length).sum()
+(klines_ddr.s_nom_opt*klines_ddr.length).sum()
+
+((klines_brd.s_nom_opt-klines_brd.s_nom_min)*klines_brd.length).sum()
+((klines_ddr.s_nom_opt-klines_ddr.s_nom_min)*klines_ddr.length).sum()
+
+(klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr].length).sum()
+((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr].length).sum()
+
+# dijkstra 
+
+dijkstra = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/300")
+
+dsto = dijkstra.network.storage_units[dijkstra.network.storage_units.carrier=='battery']
+dde_buses=dijkstra.network.buses[dijkstra.network.buses.country=='DE']
+dsto = dsto[dsto.bus.isin(dde_buses.index)]
+
+dlines, dbuses = generate_geom(dijkstra.network)
+
+dbuses["in_ddr"] = dbuses.intersects(ddr.unary_union)
+dlines["bus0_in_ddr"] = dlines["bus0"].map(dbuses["in_ddr"])
+dlines["bus1_in_ddr"] = dlines["bus1"].map(dbuses["in_ddr"])
+dlines["to_ddr"] = dlines["bus0_in_ddr"] ^ dlines["bus1_in_ddr"]
+
+dsto_brd = dsto[~dsto.bus.isin(dbuses[dbuses.in_ddr].index)]
+dsto_ddr = dsto[dsto.bus.isin(dbuses[dbuses.in_ddr].index)]
+
+(dsto_ddr.p_nom_opt-dsto_ddr.p_nom_min).sum()
+(dsto_brd.p_nom_opt-dsto_brd.p_nom_min).sum()
             
-        
-            
+dlines_ddr = dlines[dlines.bus0_in_ddr & dlines.bus1_in_ddr]
+dlines_brd = dlines[(dlines.bus0_in_ddr==False) & (dlines.bus1_in_ddr==False)]
+    
+(dlines_brd.s_nom_opt*dlines_brd.length).sum()
+(dlines_ddr.s_nom_opt*dlines_ddr.length).sum() 
 
+((dlines_brd.s_nom_opt-dlines_brd.s_nom_min)*dlines_brd.length).sum()
+((dlines_ddr.s_nom_opt-dlines_ddr.s_nom_min)*dlines_ddr.length).sum()
 
+((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr].length).sum()
+(dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr].length).sum()
