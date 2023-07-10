@@ -50,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "powerd-data-server",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -63,7 +63,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -74,7 +74,7 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035 or eGon100RE
+    "scn_name": "status2019",  # scenario: eGon2035 or eGon100RE
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -155,7 +155,7 @@ args = {
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": True,  # meet the demand at value of loss load cost
+    "load_shedding": False,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
@@ -455,10 +455,52 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-
+    
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-
+    breakpoint()
+    
+    # Generators
+    gen = etrago.network.generators
+    gen["country"] = gen.bus.map(etrago.network.buses.country)
+    import pandas as pd
+    ins_cap = pd.DataFrame()
+    for (country, carrier), df in gen.groupby(["country", "carrier"]):
+        ins_cap.at[country, carrier] = df.p_nom.sum()
+    #ins_cap.drop(columns=["load shedding"], inplace=True)
+    
+    # Loads
+    load = etrago.network.loads
+    load_t = etrago.network.loads_t.p_set
+    load["country"] = load.bus.map(etrago.network.buses.country)
+    load_country = pd.DataFrame()
+    for (country, carrier), df in load.groupby(["country", "carrier"]):
+        loads_id = df.index
+        load_country.at[country, carrier] = load_t[loads_id].sum().sum()
+        
+    # storage_units
+    sto = etrago.network.storage_units
+    sto["country"] = sto.bus.map(etrago.network.buses.country)
+    sto_country = pd.DataFrame()
+    for (country, carrier), df in sto.groupby(["country", "carrier"]):
+        sto_country.at[country, carrier] = df.p_nom.sum()
+        
+    # links
+    link = etrago.network.links
+    link_t = etrago.network.links_t
+    link_with_t = link.loc[link.index.isin(link_t["p_max_pu"].columns)]
+    
+    # buses
+    bus = etrago.network.buses
+    bus_country = pd.DataFrame()
+    for (country, carrier), df in bus.groupby(["country", "carrier"]):
+        bus_country.at[country, carrier] = len(df)
+        
+    # subnetworks
+    etrago.network.determine_network_topology()
+    sub_network = etrago.network.buses.loc[etrago.network.buses.carrier=="AC"]
+    sub_network = sub_network.loc[sub_network.country=="DE"]
+    sub_network.sub_network.value_counts()
     # ehv network clustering
     etrago.ehv_clustering()
 
