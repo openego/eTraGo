@@ -830,8 +830,10 @@ def calc_storage_expansion_per_bus(
         batteries = network.storage_units[
             network.storage_units.carrier == "battery"
         ]
+        #breakpoint()
         battery_distribution = (
-            network.storage_units.p_nom_opt[batteries.index]
+            (network.storage_units.p_nom_opt[batteries.index] -
+             network.storage_units.p_nom_min[batteries.index])
             .groupby(network.storage_units.bus)
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
