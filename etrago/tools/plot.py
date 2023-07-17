@@ -2432,18 +2432,21 @@ def plot_grid(
             network, method="abs", ext_min=ext_min
         )
         plot_background_grid(all_network, ax)
+
         if ext_width is not False:
-            line_widths = 0.5 + (line_colors / ext_width)
+            line_widths = (line_colors / ext_width)
             link_widths = link_colors.apply(
-                lambda x: 0.5 + x / ext_width if x != 0 else 0
+                lambda x: x / ext_width if x != 0 else 0
             )
         else:
             dc_link = network.links.index[network.links.carrier == "DC"]
             link_widths = pd.Series(0, index=network.links.index)
-            link_widths.loc[dc_link] = 2
+            link_widths.loc[dc_link] = 1.5
+            line_widths = line_colors.apply(lambda x: 1.5 if x != 0 else 0)
 
         link_colors = link_colors.mul(1e-3)
         line_colors = line_colors.mul(1e-3)
+        
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
