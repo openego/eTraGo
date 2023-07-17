@@ -345,7 +345,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-
+    breakpoint()
     busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap

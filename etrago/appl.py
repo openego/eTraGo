@@ -63,7 +63,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -458,51 +458,51 @@ def run_etrago(args, json_path):
     
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-    breakpoint()
+    #breakpoint()
     
-    # Generators
-    gen = etrago.network.generators
-    gen["country"] = gen.bus.map(etrago.network.buses.country)
-    import pandas as pd
-    ins_cap = pd.DataFrame()
-    for (country, carrier), df in gen.groupby(["country", "carrier"]):
-        ins_cap.at[country, carrier] = df.p_nom.sum()
-    #ins_cap.drop(columns=["load shedding"], inplace=True)
+    # # Generators
+    # gen = etrago.network.generators
+    # gen["country"] = gen.bus.map(etrago.network.buses.country)
+    # import pandas as pd
+    # ins_cap = pd.DataFrame()
+    # for (country, carrier), df in gen.groupby(["country", "carrier"]):
+    #     ins_cap.at[country, carrier] = df.p_nom.sum()
+    # #ins_cap.drop(columns=["load shedding"], inplace=True)
     
-    # Loads
-    load = etrago.network.loads
-    load_t = etrago.network.loads_t.p_set
-    load["country"] = load.bus.map(etrago.network.buses.country)
-    load_country = pd.DataFrame()
-    for (country, carrier), df in load.groupby(["country", "carrier"]):
-        loads_id = df.index
-        load_country.at[country, carrier] = load_t[loads_id].sum().sum()
+    # # Loads
+    # load = etrago.network.loads
+    # load_t = etrago.network.loads_t.p_set
+    # load["country"] = load.bus.map(etrago.network.buses.country)
+    # load_country = pd.DataFrame()
+    # for (country, carrier), df in load.groupby(["country", "carrier"]):
+    #     loads_id = df.index
+    #     load_country.at[country, carrier] = load_t[loads_id].sum().sum()
         
-    # storage_units
-    sto = etrago.network.storage_units
-    sto["country"] = sto.bus.map(etrago.network.buses.country)
-    sto_country = pd.DataFrame()
-    for (country, carrier), df in sto.groupby(["country", "carrier"]):
-        sto_country.at[country, carrier] = df.p_nom.sum()
+    # # storage_units
+    # sto = etrago.network.storage_units
+    # sto["country"] = sto.bus.map(etrago.network.buses.country)
+    # sto_country = pd.DataFrame()
+    # for (country, carrier), df in sto.groupby(["country", "carrier"]):
+    #     sto_country.at[country, carrier] = df.p_nom.sum()
         
-    # links
-    link = etrago.network.links
-    link_t = etrago.network.links_t
-    link_with_t = link.loc[link.index.isin(link_t["p_max_pu"].columns)]
+    # # links
+    # link = etrago.network.links
+    # link_t = etrago.network.links_t
+    # link_with_t = link.loc[link.index.isin(link_t["p_max_pu"].columns)]
     
-    # buses
-    bus = etrago.network.buses
-    bus_country = pd.DataFrame()
-    for (country, carrier), df in bus.groupby(["country", "carrier"]):
-        bus_country.at[country, carrier] = len(df)
+    # # buses
+    # bus = etrago.network.buses
+    # bus_country = pd.DataFrame()
+    # for (country, carrier), df in bus.groupby(["country", "carrier"]):
+    #     bus_country.at[country, carrier] = len(df)
         
-    # subnetworks
-    etrago.network.determine_network_topology()
-    sub_network = etrago.network.buses.loc[etrago.network.buses.carrier=="AC"]
-    sub_network = sub_network.loc[sub_network.country=="DE"]
-    sub_network.sub_network.value_counts()
-    # ehv network clustering
-    etrago.ehv_clustering()
+    # # subnetworks
+    # etrago.network.determine_network_topology()
+    # sub_network = etrago.network.buses.loc[etrago.network.buses.carrier=="AC"]
+    # sub_network = sub_network.loc[sub_network.country=="DE"]
+    # sub_network.sub_network.value_counts()
+    # # ehv network clustering
+    # etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
