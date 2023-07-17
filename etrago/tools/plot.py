@@ -2776,12 +2776,12 @@ def plot_grid(
         # Set fixed boundaries if selected in parameters
         if not boundaries:
             boundaries = [
-                min(line_colors.min(), link_colors.min()),
-                max(line_colors.max(), link_colors.max()),
+                min(round(line_colors.min(),1), round(link_colors.min(),1)),
+                max(round(line_colors.max()), round(link_colors.max())),
             ]
 
         # Create ticks for legend
-        v = np.linspace(boundaries[0], boundaries[1], 101)
+        v = [round(x,1) for x in np.linspace(boundaries[0], boundaries[1], 101)]
         for l_collection in ll:
             l_collection.set_clim(boundaries[0], boundaries[1])
 
