@@ -1285,6 +1285,12 @@ def read_max_gas_generation(self):
     """
     scn_name = self.args["scn_name"]
     arg_def = {
+        ##################### UPDATE VALUE FOR 2019 ###########################
+        "status2019": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
+        ##################### UPDATE VALUE FOR 2019 ###########################
         "eGon2035": {
             "CH4": 36000000,
             "biogas": 10000000,
@@ -1297,7 +1303,6 @@ def read_max_gas_generation(self):
             "biogas": 14450103
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
-
     engine = db.connection(section=self.args["db"])
     try:
         sql = f"""
@@ -1341,6 +1346,7 @@ def add_ch4_constraints(self, network, snapshots):
     gas_carrier = arg.keys()
 
     carrier_names = {
+        "status2019": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
