@@ -24,7 +24,7 @@ __author__ = (
 
 
 def read(*names, **kwargs):
-    with io.open(
+    with open(
         join(dirname(__file__), *names),
         encoding=kwargs.get("encoding", "utf8"),
     ) as fh:
@@ -68,6 +68,7 @@ setup(
         "tsam",
     ],
     extras_require={
+        "dev": ["black", "isort", "jupyterlab", "pre-commit", "pyupgrade"],
         "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
