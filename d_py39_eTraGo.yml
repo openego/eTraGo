@@ -1,0 +1,19 @@
+name: d_py39_eTraGo
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python >= 3.8, < 3.10
+  - pip
+  - conda-forge::contextily
+  - conda-forge::jupyterlab
+  - conda-forge::fiona
+  - conda-forge::pandas
+  - conda-forge::geopandas
+  - conda-forge::pyproj
+  - conda-forge::shapely
+  - conda-forge::rasterio
+  - conda-forge::geoalchemy2
+  - conda-forge::pypsa == 0.20.1
+  - pip:
+      - -e .[dev]

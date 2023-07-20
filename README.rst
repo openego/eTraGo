@@ -28,12 +28,12 @@ energy storages. Grid expansion measures are not part of this tool and will be
 instead part of 'eGo' https://github.com/openego/eGo
 
 .. warning::
-  From now on eTraGo depends on a sector coupled data-model. This is not published on 
+  From now on eTraGo depends on a sector coupled data-model. This is not published on
   the oedb yet, the data has to be created using
   `eGon-data <https://github.com/openego/eGon-data>`_.
   Not all functions and features are compatible to the sector coupled model yet.
-  
-  When you want to use eTraGo for optimizations, please use the latest release 0.8.0. 
+
+  When you want to use eTraGo for optimizations, please use the latest release 0.8.0.
 
 
 Installation
@@ -46,7 +46,7 @@ command in order to install eTraGo..
 
 .. code-block:: bash
 
-  $ pip3 install eTraGo
+  $ python -m pip install eTraGo
 
 Installation for Developers
 ===========================
@@ -58,32 +58,52 @@ Clone the source code from github:
    $ git clone https://github.com/openego/eTraGo
 
 You can checkout to the dev branch and create new feature branches.
-For the correct work-flow, please mind the 
+For the correct work-flow, please mind the
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
-Use the pip -e to install eTraGo directly from the cloned repository:
+Use the pip -e to install eTraGo directly from the cloned repository preferably into a
+virtual environment:
 
 .. code-block::
 
-   $ pip3 install -e /path/to/eTraGo/ 
+   $ python -m pip install -e /path/to/eTraGo/
+
+For development purposes make sure to also install the development dependencies by
+running:
+
+.. code-block::
+
+   $ python -m pip install -e /path/to/eTraGo/[dev]
+
+And setting up the pre-commit hooks:
+
+.. code-block::
+
+   $ pre-commit install
+
+If you prefer an anaconda environment feel free to use the supplied YML:
+
+.. code-block::
+
+   $ conda env create -f d_py39_eTraGo.yml
 
 When you want to draw geographical features in the background of network plots,
 please install cartopy:
 
 .. code-block::
 
-   $ pip3 install cartopy
+   $ python -m pip install cartopy
 
 If you run into problems when using cartopy, try to install shapely without binaries:
 
 .. code-block::
 
-   $ pip3 install shapely --no-binary shapely
+   $ python -m pip install shapely --no-binary shapely
 
 Using a virtual environment
 ===========================
 
-Before installing eTraGo, 
+Before installing eTraGo,
 you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
@@ -92,7 +112,7 @@ you create a virtual environment (where you like it) and activate it:
    $ source venv/bin/activate
    $ cd venv
 
-Inside your activated virtual environment you can 
+Inside your activated virtual environment you can
 install eTraGo with the pip command, as previously explained.
 
 
