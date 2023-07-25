@@ -1285,12 +1285,6 @@ def read_max_gas_generation(self):
     """
     scn_name = self.args["scn_name"]
     arg_def = {
-        ##################### UPDATE VALUE FOR 2019 ###########################
-        "status2019": {
-            "CH4": 36000000,
-            "biogas": 10000000,
-        },  # [MWh] Netzentwicklungsplan Gas 2020–2030
-        ##################### UPDATE VALUE FOR 2019 ###########################
         "eGon2035": {
             "CH4": 36000000,
             "biogas": 10000000,
@@ -1346,7 +1340,6 @@ def add_ch4_constraints(self, network, snapshots):
     gas_carrier = arg.keys()
 
     carrier_names = {
-        "status2019": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
@@ -2744,10 +2737,12 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["pyomo"]:
                 add_chp_constraints(network, snapshots)
-                add_ch4_constraints(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints(self, network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                add_ch4_constraints_nmp(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
