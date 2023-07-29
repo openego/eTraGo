@@ -223,6 +223,8 @@ relac_expansion =  pd.DataFrame(index=spatial_resolution, columns=spatial_method
 base_relac = etrago.results.loc['annual ac grid investment costs'].value
 
 new_relac = pd.Series(index=spatial_resolution)
+new_ac = pd.Series(index=spatial_resolution)
+ac_mean = pd.Series(index=spatial_resolution)
 new_reldc = pd.Series(index=spatial_resolution)
 new_relsto = pd.Series(index=spatial_resolution)
 new_relmarg = pd.Series(index=spatial_resolution)
@@ -289,6 +291,8 @@ for i in range (0, len(spatial_method)):
                 
                 base_ac = base.results.loc['annual ac grid investment costs'].value
                 new_relac.loc[idx] = ((etrago.results.loc['annual ac grid investment costs'].value / base_ac)*100) -100
+                new_ac.loc[idx] = etrago.results.loc['annual ac grid investment costs'].value
+                ac_mean.loc[idx] = base_ac 
                 
                 base_dc = base.results.loc['annual dc grid investment costs'].value
                 new_reldc.loc[idx] = ((etrago.results.loc['annual dc grid investment costs'].value / base_dc)*100) -100
@@ -302,6 +306,28 @@ for i in range (0, len(spatial_method)):
                 base_sys = base.results.loc['annual system costs'].value
                 new_relsys.loc[idx] = ((etrago.results.loc['annual system costs'].value / base_sys)*100) -100
                 
+                
+                '''
+                base = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/"+str(idx))
+                base.calc_results()
+                
+                base_ac = base.results.loc['annual ac grid investment costs'].value
+                new_relac.loc[idx] = (etrago.results.loc['annual ac grid investment costs'].value - base_ac) / etrago.results.loc['annual ac grid investment costs'].value
+                
+                base_dc = base.results.loc['annual dc grid investment costs'].value
+                new_reldc.loc[idx] = (etrago.results.loc['annual dc grid investment costs'].value - base_dc) / etrago.results.loc['annual dc grid investment costs'].value
+                
+                base_sto = base.results.loc['annual storage+store investment costs'].value
+                new_relsto.loc[idx] = (etrago.results.loc['annual storage+store investment costs'].value - base_sto) / etrago.results.loc['annual storage+store investment costs'].value
+                
+                base_marg = base.results.loc['annual marginal costs'].value
+                new_relmarg.loc[idx] = (etrago.results.loc['annual marginal costs'].value - base_marg) / etrago.results.loc['annual marginal costs'].value
+                base_sys = base.results.loc['annual system costs'].value
+                new_relsys.loc[idx] = (etrago.results.loc['annual system costs'].value - base_sys) / etrago.results.loc['annual system costs'].value'''
+                
+                
+                
+                
 # new_relac.plot()
 #relac_expansion.plot(legend=True)
 #reldc_expansion.plot(legend=True)
@@ -314,7 +340,9 @@ for i in range (0, len(spatial_method)):
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-fig = plt.figure(figsize=(20,10))
+plt.rc('font', size=25)
+
+fig = plt.figure(figsize=(30,15))
 ax = fig.add_subplot(111)
 
 index11 = spatial_resolution.copy()
@@ -355,7 +383,7 @@ new_relac.plot(linestyle='-', marker='x', ax = ax2)
 
 plt.xticks(spatial_resolution)
 
-ax.set_ylim([0,20])
+ax.set_ylim([0,40])
 ax2.set_ylim([])
 
 ax.legend(loc='upper right')
@@ -372,9 +400,9 @@ plt.xlabel('number of nodes')
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-plt.rc('font', size=17)
+plt.rc('font', size=25)
 
-fig = plt.figure()
+fig = plt.figure()#figsize=(30,20))
 ax = fig.add_subplot(111)
 
 index1 = spatial_resolution.copy()
@@ -395,7 +423,7 @@ color2 = ['lightsalmon', 'tomato', 'maroon']
 
 #hatch = [False, False, False, "/"]
 
-for col in costs.columns:
+for col in costs1.columns:
     
     if i >= 0:
         bottom1 = bottom1 + costs1[costs1.columns[i]].values
@@ -420,13 +448,13 @@ ax2 = ax.twinx()
 new_relsys.plot(linestyle='-', marker='x', ax = ax2, label='system costs')
 new_relmarg.plot(linestyle='-', marker='x', ax = ax2, label='marginal costs')
 new_reldc.plot(linestyle='-', marker='x', ax = ax2, label='foreign grid expansion costs')
-new_relac.plot(linestyle='-', marker='x', ax = ax2, label='grid expansion costs inside Germany')
+new_relac.plot(linestyle='-', marker='x', ax = ax2, label='inner-German grid expansion costs')
 new_relsto.plot(linestyle='-', marker='x', ax = ax2, label='battery expansion costs')
 
 ax.set_xticks(spatial_resolution)
 
-ax.set_ylim([0,35])
-ax2.set_ylim([-10, 300])
+ax.set_ylim([0,40])
+ax2.set_ylim([-10, 400])
 
 ax.legend(loc='upper left')
 ax2.legend(loc='upper right')
