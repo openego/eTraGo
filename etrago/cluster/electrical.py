@@ -120,13 +120,21 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # network2 is supposed to contain all the not electrical or gas buses 
     # and links
     network2 = network.copy(with_time=False)
+    
+    if "distribution_grid" in etrago.network.buses.carrier.unique():
+        carrier_list = [
+            "CH4", "H2_grid","rural_heat_store", 
+            "central_heat", "central_heat_store","rural_heat", 
+            "Li_ion", "AC"
+            ]
+    else:
+        carrier_list = [
+            "CH4", "H2_grid","rural_heat_store", 
+            "central_heat", "central_heat_store", "AC"
+            ]
+
     network2.buses = network2.buses[
-        (network2.buses["carrier"] != "AC")
-        & (network2.buses["carrier"] != "CH4")
-        & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "rural_heat_store")
-        & (network2.buses["carrier"] != "central_heat")
-        & (network2.buses["carrier"] != "central_heat_store")
+        ~network2.buses["carrier"].isin(carrier_list)
     ]
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
@@ -134,6 +142,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         "Li ion": "BEV charger",
         "Li_ion": "BEV_charger",
         "rural_heat": "rural_heat_pump",
+        "distribution_grid": "distribution_grid",
     }
 
     # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
@@ -141,7 +150,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         columns=["cluster", "carrier", "new_bus"]
     ).set_index("new_bus")
 
-    max_bus = max([int(item) for item in network.buses.index.to_list()])
+    max_bus = network.buses.index.str.extract('(\d+)').astype(int).max()[0]
 
     no_elec_conex = []
     # busmap2 maps all the no electrical buses to the new buses based on the
@@ -173,15 +182,17 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             )
             > 0
         ):
-            df = network2.links[
+            link_to_ac = network2.links[
                 (network2.links["bus1"] == bus_ne)
                 & (network2.links["carrier"] == map_carrier[carry])
             ].copy()
-            df["elec"] = df["bus0"].isin(busmap.keys())
-            df = df[df["elec"] == True]
-            if len(df) > 0:
-                bus_hv = df["bus0"][0]
+            link_to_ac["elec"] = link_to_ac["bus0"].isin(busmap.keys())
+            link_to_ac = link_to_ac[link_to_ac["elec"] == True]
+            if len(link_to_ac) > 0:
+                bus_hv = link_to_ac["bus0"][0]
 
+        # If no corresponing AC bus was found, add the bus to list 
+        # of buses without connection
         if bus_hv == -1:
             busmap2[bus_ne] = str(bus_ne)
             no_elec_conex.append(bus_ne)
@@ -213,19 +224,39 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
             connection to the electric network: {no_elec_conex}"""
         )
 
-    # rural_heat_store buses are clustered based on the AC buses connected to
-    # their corresponding rural_heat buses
-    links_rural_store = etrago.network.links[
-        etrago.network.links.carrier == "rural_heat_store_charger"
-    ].copy()
-
     busmap3 = {}
-    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
-    for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
-        cluster_bus = df.bus1.iat[0]
-        for rural_store_bus in df.bus1:
-            busmap3[rural_store_bus] = cluster_bus
+    if "distribution_grid" in etrago.network.buses.carrier.unique():
+    # rural_heat and BEV buses are clustered based on the AC buses connected to
+    # their corresponding distribution grid buses    
+        for carrier in ["rural_heat_pump", "BEV_charger"]:
+            links_from_dg_buses = etrago.network.links[
+                etrago.network.links.carrier==carrier
+            ].copy()
+            
+            #import pdb; pdb.set_trace()
+            links_from_dg_buses["to_ac"] = links_from_dg_buses["bus0"].map(busmap2)
+            for bus, df in links_from_dg_buses.groupby("to_ac"):
+                cluster_bus = df.bus1.iat[0]
+                for new_bus in df.bus1:
+                    busmap3[new_bus] = cluster_bus
+    
+    heat_store_links = etrago.network.links[
+            etrago.network.links.carrier.isin([
+                "rural_heat_store_charger"])
+        ].copy()
 
+    busmap4 = {}
+    if "distribution_grid" in etrago.network.buses.carrier.unique():
+        base_busmap = busmap3
+    else:
+        base_busmap=busmap2
+        
+    heat_store_links["to_ac"] = heat_store_links["bus0"].map(base_busmap)
+    for bus, df in heat_store_links.groupby("to_ac"):
+        cluster_bus = df.bus1.iat[0]
+        for new_bus in df.bus1:
+            busmap4[new_bus] = cluster_bus
+            
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
         (network.buses["carrier"] == "H2_grid")
@@ -235,7 +266,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     ].index:
         busmap2[gas_bus] = gas_bus
 
-    busmap = {**busmap, **busmap2, **busmap3}
+    busmap = {**busmap, **busmap2, **busmap3, **busmap4}
 
     # The new buses based on the eHV network for not electrical buses are
     # created
@@ -881,6 +912,8 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
+    
+    #import pdb; pdb.set_trace()
 
     clustering = get_clustering_from_busmap(
         network,
