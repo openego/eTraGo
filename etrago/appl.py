@@ -56,14 +56,15 @@ args = {
         "type": "lopf",  # type of optimization, currently only 'lopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
+        "distribution_grids": True,
     },
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after lopf
+        "active": False,  # choose if perform a pf after lopf
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 744,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -107,7 +108,7 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -137,7 +138,7 @@ args = {
         },
     },
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
-    "disaggregation": "uniform",  # None, 'mini' or 'uniform'
+    "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -451,11 +452,192 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
+    
+    if args["method"]["distribution_grids"]:
+        import saio
+        from saio.grid import (
+            egon_mv_grid_district
+        )
+        old_network = etrago.network.copy()
+        ac_nodes_germany = etrago.network.buses[
+            (etrago.network.buses.carrier=='AC')
+            & (etrago.network.buses.country=='DE')].index
+        
+        # import mv grid districts
+        mv_grids = saio.as_pandas(
+            query = etrago.session.query(egon_mv_grid_district.bus_id),
+            )
+        
+        # Create distribution grid (DG) nodes
+        etrago.network.madd(
+            "Bus",
+            names = mv_grids.bus_id.astype(str) + "_distribution_grid",
+            carrier = "distribution_grid",
+            country = "DE"
+            )
+        
+        # Create link between transmission an distribution grid
+        etrago.network.madd(
+            "Link",
+            names = mv_grids.bus_id.astype(str) + "_distribution_grid",
+            carrier = "distribution_grid",
+            bus0 = mv_grids.bus_id.astype(str).values,
+            bus1 = (mv_grids.bus_id.astype(str) + "_distribution_grid").values,
+            p_nom_min = 500,
+            p_nom_extendable = True,
+            capital_cost = 100
+            )
+        
+        # Import power plants table
+        saio.register_schema("supply", etrago.engine)
+        from saio.supply import (egon_power_plants, egon_chp_plants)
+        power_plants = saio.as_pandas(
+            query = etrago.session.query(egon_power_plants),
+            )
+        power_plants = power_plants[
+            (power_plants.scenario == "eGon2035") &
+            (power_plants.carrier != "gas")]
+        
+        # Drop power plants in Germany   
+        
+        etrago.network.mremove(
+            "Generator", 
+            etrago.network.generators[
+                (etrago.network.generators.bus.isin(ac_nodes_germany))
+                & (etrago.network.generators.carrier.isin(
+                    power_plants.carrier.unique()
+                    ))].index)
+        
+        # Import generators in transmission grid
+        tg_generators = power_plants[
+            power_plants.voltage_level<4].groupby(
+                ["bus_id", "carrier"]).el_capacity.sum().reset_index()
+        etrago.network.madd(
+            "Generator",
+            names=(
+                tg_generators.bus_id.astype(str)
+                + "_" + tg_generators.carrier).values,
+            bus = tg_generators.bus_id.astype(str).values,
+            carrier = tg_generators.carrier.values,
+            p_nom = tg_generators.el_capacity,
+            marginal_cost = old_network.generators.groupby("carrier").marginal_cost.mean().loc[
+                tg_generators.carrier
+                ].values        
+            )
+        
+        # Import generators in distribution grid
+        dg_generators = power_plants[
+            power_plants.voltage_level>=4].groupby(
+                ["bus_id", "carrier"]).el_capacity.sum().reset_index()
+        etrago.network.madd(
+            "Generator",
+            names=(
+                "distribution_grid_"+ dg_generators.bus_id.astype(str)
+                + "_" + dg_generators.carrier).values,
+            bus = (dg_generators.bus_id.astype(str) + "_distribution_grid").values,
+            carrier = dg_generators.carrier.values,
+            p_nom = dg_generators.el_capacity,
+            marginal_cost = old_network.generators.groupby("carrier").marginal_cost.mean().loc[
+                dg_generators.carrier
+                ].values        
+            )
+        # Add solar rooftop, that is not in the power plants tables
+        solar_rooftop = old_network.generators[
+            (old_network.generators.carrier == "solar_rooftop")
+            & (old_network.generators.bus.isin(ac_nodes_germany))]
+        
+        etrago.network.madd(
+            "Generator",
+            names=(
+                "distribution_grid_"+ solar_rooftop.bus + "_solar_rooftop").values,
+            bus = (solar_rooftop.bus.astype(str) + "_distribution_grid").values,
+            carrier = solar_rooftop.carrier.values,
+            p_nom = solar_rooftop.p_nom,
+            marginal_cost = old_network.generators.groupby("carrier").marginal_cost.mean().loc[
+                "solar_rooftop"
+                ]
+            )
+        
+        ## Generation timeseries
+        # Store timeseries per carrier and bus
+        p_max_pu_ts = {}    
+        for c in ["solar", "wind_onshore", "wind_offshore", "solar_rooftop"]:
+            p_max_pu_ts[c] =  old_network.generators_t.p_max_pu[
+                old_network.generators[old_network.generators.carrier==c].index]
+            p_max_pu_ts[c].rename(old_network.generators.bus, axis= "columns", inplace=True)
+            
+            dg_generators_carrier = dg_generators[dg_generators.carrier==c]
+            etrago.network.generators_t.p_max_pu.loc[:,
+                "distribution_grid_"+ dg_generators_carrier.bus_id.astype(str)
+                + "_" + dg_generators_carrier.carrier] = p_max_pu_ts[c][
+                    dg_generators_carrier.bus_id.astype(str).values].values
+                    
+            tg_generators_carrier = tg_generators[tg_generators.carrier==c]
+            etrago.network.generators_t.p_max_pu.loc[:,
+                tg_generators_carrier.bus_id.astype(str)
+                + "_" + tg_generators_carrier.carrier] = p_max_pu_ts[c][
+                    tg_generators_carrier.bus_id.astype(str).values].values
+    
+        
+        ## Split demands
+        # First draft: 80% DG, 20% TG
+        etrago.network.madd(
+            "Load",
+            names = mv_grids.bus_id.astype(str) + "_distribution_grid",
+            bus = (mv_grids.bus_id.astype(str) + "_distribution_grid").values
+            )
+        
+        loads_per_bus = etrago.network.loads_t.p_set.copy()
+        loads_per_bus.rename(etrago.network.loads.bus, axis= "columns", inplace=True)
+        
+        # Add AC loads in distribution grids
+        etrago.network.loads_t.p_set.loc[:,
+            mv_grids[
+                mv_grids.bus_id.astype(str).isin(loads_per_bus.columns)
+                ].bus_id.astype(str) + "_distribution_grid"] = (
+                loads_per_bus[mv_grids[
+                    mv_grids.bus_id.astype(str).isin(loads_per_bus.columns)
+                    ].bus_id.astype(str)]
+                ).mul(0.8).values
+        
+        # Reduce AC loads in transmission grid
+        etrago.network.loads_t.p_set[
+            etrago.network.loads[etrago.network.loads
+                                 .bus.isin(ac_nodes_germany)].index] *= 0.2
+    
+    
+        ## Connect rural heat and BEV chargerto distribution grids
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="rural_heat_pump", "bus0"] = etrago.network.links.loc[
+        etrago.network.links.carrier=="rural_heat_pump", "bus0"] + "_distribution_grid"
+                
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="BEV_charger", "bus0"] = etrago.network.links.loc[
+        etrago.network.links.carrier=="BEV_charger", "bus0"] + "_distribution_grid"
 
+        # Add PV home storage units to distribution grid
+        battery_storages = etrago.network.storage_units[
+            (etrago.network.storage_units.carrier=='battery')
+            & (etrago.network.storage_units.bus.isin(ac_nodes_germany))]
+        etrago.network.madd(
+            "StorageUnit",
+            names = (battery_storages[
+                battery_storages.bus.isin(mv_grids.astype(str))
+                ].bus + "_home_storage").values,
+            bus = (battery_storages[
+                battery_storages.bus.isin(mv_grids.astype(str))
+                ].bus + "_distribution_grid").values,
+            p_nom = battery_storages.p_nom_min,
+            p_nom_extendable = False,
+            max_hours = 2,
+            carrier = "home_battery"
+            )
+        etrago.network.storage_units.loc[battery_storages.index, "p_nom_min"] = 0
+    
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
