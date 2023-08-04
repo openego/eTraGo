@@ -612,13 +612,10 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
         network.add("Carrier", "load")
         start = (
             network.generators.index.to_series()
-            .str.rsplit(" ")
-            .str[0]
-            .astype(int)
-            .sort_values()
+            .str.extract('(\d+)').astype(int)
             .max()
             + 1
-        )
+        )[0]
 
         if start != start:
             start = 0
