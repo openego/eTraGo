@@ -34,6 +34,7 @@ if "READTHEDOCS" not in os.environ:
         get_clustering_from_busmap,
     )
     from six import iteritems
+    import geopandas as gpd
     import numpy as np
     import pandas as pd
     import pypsa.io as io
@@ -47,6 +48,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_one_ports,
     )
     from etrago.tools.utilities import *
+    from shapely.geometry import Point
 
     logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ __author__ = (
 
 def _leading(busmap, df):
     """
-    Returns a function that computes the leading bus_id for a given mapped 
+    Returns a function that computes the leading bus_id for a given mapped
     list of buses.
 
     Parameters
@@ -95,7 +97,7 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
     """
-    Adjusts the non-electric network based on the electrical network 
+    Adjusts the non-electric network based on the electrical network
     (esp. eHV network), adds the gas buses to the busmap, and creates the
     new buses for the non-electric network.
 
@@ -117,7 +119,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         Maps old bus_ids to new bus_ids including all sectors.
     """
     network = etrago.network
-    # network2 is supposed to contain all the not electrical or gas buses 
+    # network2 is supposed to contain all the not electrical or gas buses
     # and links
     network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
@@ -386,9 +388,9 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
 def delete_ehv_buses_no_lines(network):
     """
-    When there are AC buses totally isolated, this function deletes them in 
+    When there are AC buses totally isolated, this function deletes them in
     order to make possible the creation of busmaps based on electrical
-    connections and other purposes. Additionally, it throws a warning to 
+    connections and other purposes. Additionally, it throws a warning to
     inform the user in case that any correction should be done.
 
     Parameters
@@ -504,6 +506,46 @@ def select_elec_network(etrago):
     """
     elec_network = etrago.network.copy()
     settings = etrago.args["network_clustering"]
+
+    # Exclude buses in the area that should not be clustered
+    if settings["exclusion_area"]:
+        con = etrago.engine
+        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+
+        de_areas = gpd.read_postgis(query, con, geom_col="geometry")
+        de_areas = de_areas[de_areas["gen"].isin(settings["exclusion_area"])]
+
+        try:
+            buses_area = gpd.GeoDataFrame(
+                etrago.network.buses, geometry="geom", crs=4326
+            )
+        except:
+            buses_area = etrago.network.buses[
+                [
+                    "x",
+                    "y",
+                ]
+            ]
+            buses_area["geom"] = buses_area.apply(
+                lambda x: Point(x["x"], x["y"]), axis=1
+            )
+            buses_area = gpd.GeoDataFrame(
+                buses_area, geometry="geom", crs=4326
+            )
+
+        buses_area = gpd.clip(buses_area, de_areas)
+        elec_network.buses = elec_network.buses[
+            ~elec_network.buses.index.isin(buses_area.index)
+        ]
+
+        busmap_area = pd.Series(
+            buses_area.index.rename("bus_area"),
+            index=buses_area.index.rename("bus"),
+        )
+    else:
+        busmap_area = pd.DataFrame()
+
+    # Exclude foreign buses when it is set to don't include them in the clustering
     if settings["cluster_foreign_AC"]:
         elec_network.buses = elec_network.buses[
             elec_network.buses.carrier == "AC"
@@ -582,7 +624,7 @@ def select_elec_network(etrago):
             ),
         ]
 
-    return elec_network, n_clusters
+    return elec_network, n_clusters, busmap_area
 
 
 def unify_foreign_buses(etrago):
@@ -764,14 +806,14 @@ def preprocessing(etrago):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters = select_elec_network(etrago)
+    network_elec, n_clusters, busmap_area = select_elec_network(etrago)
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
 
-        # The Dijkstra clustering works using the shortest electrical path 
+        # The Dijkstra clustering works using the shortest electrical path
         # between buses. In some cases, a bus has just DC connections, which
-        # are considered links. Therefore it is necessary to include 
+        # are considered links. Therefore it is necessary to include
         # temporarily the DC links into the lines table.
         dc = network.links[network.links.carrier == "DC"]
         str1 = "DC_"
@@ -795,10 +837,12 @@ def preprocessing(etrago):
     else:
         weight = weighting_for_scenario(network=network_elec, save=False)
 
-    return network_elec, weight, n_clusters, busmap_foreign
+    return network_elec, weight, n_clusters, busmap_foreign, busmap_area
 
 
-def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
+def postprocessing(
+    etrago, busmap, busmap_foreign, medoid_idx=None, busmap_area={}
+):
     """
     Postprocessing function for network clustering.
 
@@ -830,6 +874,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
         busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
+        busmap_elec = busmap_elec.join(busmap_area, how="outer")
         busmap_elec = busmap_elec.join(
             pd.Series(
                 medoid_idx.index.values.astype(str),
@@ -865,6 +910,11 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         medoid_idx = pd.Series(
             medoid_idx.index.values.astype(str), medoid_idx.values.astype(int)
         )
+
+    # add the not clustered buses to the busmap
+    if settings["exclusion_area"]:
+        for bus in busmap_area.index:
+            busmap[bus] = busmap_area[bus]
 
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method
@@ -936,7 +986,6 @@ def weighting_for_scenario(network, save=None):
     """
 
     def calc_availability_factor(gen):
-
         """
         Calculate the availability factor for a given generator.
 
@@ -952,10 +1001,10 @@ def weighting_for_scenario(network, save=None):
 
         Notes
         -----
-        Availability factor is defined as the ratio of the average power 
-        output of the generator over the maximum power output capacity of 
+        Availability factor is defined as the ratio of the average power
+        output of the generator over the maximum power output capacity of
         the generator. If the generator is time-dependent, its average power
-        output is calculated using the `network.generators_t` DataFrame. 
+        output is calculated using the `network.generators_t` DataFrame.
         Otherwise, its availability factor is obtained from the
         `fixed_capacity_fac` dictionary, which contains pre-defined factors
         for fixed capacity generators. If the generator's availability factor
@@ -1055,7 +1104,13 @@ def run_spatial_clustering(self):
     if self.args["network_clustering"]["active"]:
         self.network.generators.control = "PV"
 
-        elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
+        (
+            elec_network,
+            weight,
+            n_clusters,
+            busmap_foreign,
+            busmap_area,
+        ) = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
             if self.args["network_clustering"]["k_elec_busmap"] == False:
@@ -1086,7 +1141,7 @@ def run_spatial_clustering(self):
                 medoid_idx = pd.Series(dtype=str)
 
         self.clustering, busmap = postprocessing(
-            self, busmap, busmap_foreign, medoid_idx
+            self, busmap, busmap_foreign, medoid_idx, busmap_area
         )
         self.update_busmap(busmap)
 

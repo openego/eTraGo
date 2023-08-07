@@ -109,6 +109,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "exclusion_area": ["Cuxhaven", "Bremerhaven", "Wesermarsch", "Osterholz", "Bremen"], # path to shapefile or list of nust names of not cluster area
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -464,6 +465,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
