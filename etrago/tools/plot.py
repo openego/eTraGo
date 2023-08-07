@@ -2134,7 +2134,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
+def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
     """
     Parameters
     ----------
@@ -2152,7 +2152,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     None.
 
     """
-
+    network = etrago.network
     colors = coloring()
     line_colors = "lightblue"
 

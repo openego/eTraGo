@@ -54,6 +54,7 @@ from etrago.tools.plot import (
     heat_stores,
     hydrogen_stores,
     plot_clusters,
+    plot_carrier,
     plot_gas_generation,
     plot_gas_summary,
     plot_grid,
@@ -267,6 +268,8 @@ class Etrago:
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters
+    
+    plot_carrier = plot_carrier
 
     plot_gas_generation = plot_gas_generation
 
