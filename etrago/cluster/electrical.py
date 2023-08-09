@@ -34,7 +34,6 @@ if "READTHEDOCS" not in os.environ:
         get_clustering_from_busmap,
     )
     from six import iteritems
-    import geopandas as gpd
     import numpy as np
     import pandas as pd
     import pypsa.io as io
@@ -46,9 +45,9 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         strategies_generators,
         strategies_one_ports,
+        find_buses_area
     )
     from etrago.tools.utilities import *
-    from shapely.geometry import Point
 
     logger = logging.getLogger(__name__)
 
@@ -508,42 +507,9 @@ def select_elec_network(etrago):
     settings = etrago.args["network_clustering"]
 
     # Exclude buses in the area that should not be clustered
-    if settings["exclusion_area"]:
-        con = etrago.engine
-        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
-
-        de_areas = gpd.read_postgis(query, con, geom_col="geometry")
-        de_areas = de_areas[de_areas["gen"].isin(settings["exclusion_area"])]
-
-        try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
-        except:
-            buses_area = etrago.network.buses[
-                [
-                    "x",
-                    "y",
-                ]
-            ]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
-
-        buses_area = gpd.clip(buses_area, de_areas)
-        elec_network.buses = elec_network.buses[
-            ~elec_network.buses.index.isin(buses_area.index)
-        ]
-
-        busmap_area = pd.Series(
-            buses_area.index.rename("bus_area"),
-            index=buses_area.index.rename("bus"),
-        )
-    else:
-        busmap_area = pd.DataFrame()
+    busmap_area = find_buses_area(etrago, "AC")
+    elec_network.buses = elec_network.buses[
+        ~elec_network.buses.index.isin(busmap_area.index)]
 
     # Exclude foreign buses when it is set to don't include them in the clustering
     if settings["cluster_foreign_AC"]:
