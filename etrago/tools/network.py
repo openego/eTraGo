@@ -195,6 +195,12 @@ class Etrago:
 
             self.get_clustering_data(csv_folder_name)
 
+            conn = db.connection(section=self.args["db"])
+            self.engine = conn
+
+            session = sessionmaker(bind=conn)
+            self.session = session()
+
         else:
             logger.error("Set args or csv_folder_name")
 
