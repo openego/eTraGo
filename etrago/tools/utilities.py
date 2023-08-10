@@ -2336,8 +2336,13 @@ def check_args(etrago):
 
     """
 
-    names = ["eGon2035", "eGon100RE", "eGon2035_lowflex", "eGon100RE_lowflex",
-             "status2019"]
+    names = [
+        "eGon2035",
+        "eGon100RE",
+        "eGon2035_lowflex",
+        "eGon100RE_lowflex",
+        "status2019",
+    ]
 
     assert (
         etrago.args["scn_name"] in names
