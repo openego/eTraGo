@@ -128,8 +128,8 @@ args = {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {
-                "base": ["CH4", "AC"],
-                "strategy": "simultaneous",
+                "base": ["AC"],
+                "strategy": "consecutive",
             },
         },
     },
