@@ -35,9 +35,9 @@ from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import calc_etrago_results
-from etrago.tools.execute import (
+from etrago.execute import (
     dispatch_disaggregation,
-    lopf,
+    optimize,
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
@@ -240,7 +240,7 @@ class Etrago:
 
     snapshot_clustering = snapshot_clustering
 
-    lopf = lopf
+    optimize = optimize
 
     dispatch_disaggregation = dispatch_disaggregation
 
