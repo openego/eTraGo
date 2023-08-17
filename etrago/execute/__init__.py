@@ -398,6 +398,31 @@ def lopf(self):
         self.export_to_csv(path)
 
 
+def optimize(self):
+    """Run optimization of dispatch and grid and storage expansion based on arguments
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    if self.args["method"]["type"] == "lopf":
+
+        self.lopf()
+
+    elif self.args["method"]["type"] == "market_grid": # besseren Namen finden
+
+        self.market_optimization()
+
+        self.market_results_to_grid()
+
+        self.grid_optimization()
+
+    else:
+        print("Method not defined")
+    
+
 def dispatch_disaggregation(self):
     """
     Function running the tempral disaggregation meaning the optimization
