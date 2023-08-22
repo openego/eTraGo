@@ -1297,7 +1297,6 @@ def read_max_gas_generation(self):
             "biogas": 14450103
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
-
     engine = db.connection(section=self.args["db"])
     try:
         sql = f"""
@@ -2738,10 +2737,12 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["pyomo"]:
                 add_chp_constraints(network, snapshots)
-                add_ch4_constraints(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints(self, network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                add_ch4_constraints_nmp(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
