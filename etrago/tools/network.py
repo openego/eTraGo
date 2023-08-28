@@ -32,6 +32,15 @@ import pandas as pd
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
+)
+
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import calc_etrago_results
@@ -239,6 +248,14 @@ class Etrago:
     ehv_clustering = ehv_clustering
 
     snapshot_clustering = snapshot_clustering
+
+    add_redispatch_generators = add_redispatch_generators
+
+    build_market_model = build_market_model
+
+    grid_optimization = grid_optimization
+
+    market_optimization = market_optimization
 
     optimize = optimize
 
