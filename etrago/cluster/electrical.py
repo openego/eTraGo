@@ -881,7 +881,6 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
-
     clustering = get_clustering_from_busmap(
         network,
         busmap,

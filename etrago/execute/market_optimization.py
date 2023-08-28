@@ -29,6 +29,15 @@ if "READTHEDOCS" not in os.environ:
 
     import numpy as np
     import pandas as pd
+    
+    from etrago.cluster.electrical import preprocessing    
+    from etrago.cluster.spatial import (
+        strategies_one_ports,
+        strategies_generators,)
+    
+    from pypsa.networkclustering import get_clustering_from_busmap
+
+
 
 
     logger = logging.getLogger(__name__)
@@ -47,9 +56,10 @@ __author__ = (
 
 def market_optimization(self):
     
-    build_market_model()
+    logger.info("Start building market model")
+    build_market_model(self)
     
-    self.market_model.lopf(
+    self.network.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             pyomo=True,
@@ -59,7 +69,7 @@ def market_optimization(self):
         )
     
     
-def build_market_model():
+def build_market_model(self):
     """Builds market model based on imported network from eTraGo
     
     
@@ -73,9 +83,47 @@ def build_market_model():
     None.
 
     """
-    # Not useful, just for demonstration
-    self.market_model = self.network.copy()
     
+    # use existing preprocessing to get only the electricity system
+        
+    net, weight, n_clusters, busmap_foreign = preprocessing(self)
+    
+    df = pd.DataFrame({'country': net.buses.country.unique(), 
+                       'marketzone': net.buses.country.unique()}, 
+                      columns = ["country", "marketzone"])
+        
+    df.loc[(df.country == 'DE')| (df.country == 'LU'), 'marketzone'] = 'DE/LU' 
+    
+    df['cluster'] = df.groupby(df.marketzone).grouper.group_info[0]
+    
+    
+    for i in net.buses.country.unique():
+    
+        net.buses.loc[net.buses.country== i , 'cluster'] = df.loc[df.country == i, 'cluster'].values[0]
+        
+    
+    busmap = pd.Series(net.buses.cluster.astype(int).astype(str), net.buses.index)
+    
+    aggregate_one_ports = net.one_port_components.copy()
+    aggregate_one_ports.discard("Generator")
+    
+    net.generators.control = "PV"
+    
+    #net.lines.sub_network.fillna('', inplace=True)
+    
+    
+    clustering = get_clustering_from_busmap(
+        net,
+        busmap,
+        aggregate_generators_weighted=False,
+        one_port_strategies=strategies_one_ports(),
+        generator_strategies=strategies_generators(),
+        aggregate_one_ports=aggregate_one_ports,
+        line_length_factor=1,
+    )
+    net = clustering.network
+    self.network = net
+
     
 
 def extra_functionality():
