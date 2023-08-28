@@ -59,7 +59,7 @@ def market_optimization(self):
     logger.info("Start building market model")
     build_market_model(self)
     
-    self.network.lopf(
+    self.market_model.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             pyomo=True,
@@ -122,7 +122,7 @@ def build_market_model(self):
         line_length_factor=1,
     )
     net = clustering.network
-    self.network = net
+    self.market_model = clustering.network
 
     
 
