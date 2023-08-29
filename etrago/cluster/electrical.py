@@ -703,44 +703,48 @@ def preprocessing(etrago):
     network.lines.loc[lines_v_nom_b, "v_nom"] = 380.0
 
     trafo_index = network.transformers.index
-    transformer_voltages = pd.concat(
-        [
-            network.transformers.bus0.map(network.buses.v_nom),
-            network.transformers.bus1.map(network.buses.v_nom),
-        ],
-        axis=1,
-    )
 
-    network.import_components_from_dataframe(
-        network.transformers.loc[
-            :,
+    if not trafo_index.empty:
+        transformer_voltages = pd.concat(
             [
-                "bus0",
-                "bus1",
-                "x",
-                "s_nom",
-                "capital_cost",
-                "sub_network",
-                "s_max_pu",
-                "lifetime",
+                network.transformers.bus0.map(network.buses.v_nom),
+                network.transformers.bus1.map(network.buses.v_nom),
             ],
-        ]
-        .assign(
-            x=network.transformers.x
-            * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-            length=1,
+            axis=1,
         )
-        .set_index("T" + trafo_index),
-        "Line",
-    )
-    network.lines.carrier = "AC"
-
-    network.transformers.drop(trafo_index, inplace=True)
-
-    for attr in network.transformers_t:
-        network.transformers_t[attr] = network.transformers_t[attr].reindex(
-            columns=[]
+    
+        network.import_components_from_dataframe(
+            network.transformers.loc[
+                :,
+                [
+                    "bus0",
+                    "bus1",
+                    "x",
+                    "s_nom",
+                    "capital_cost",
+                    "sub_network",
+                    "s_max_pu",
+                    "lifetime",
+                ],
+            ]
+            .assign(
+                x=network.transformers.x
+                * (380.0 / transformer_voltages.max(axis=1)) ** 2,
+                length=1,
+            )
+            .set_index("T" + trafo_index),
+            "Line",
         )
+        network.lines.carrier = "AC"
+    
+        network.transformers.drop(trafo_index, inplace=True)
+    
+        for attr in network.transformers_t:
+            network.transformers_t[attr] = network.transformers_t[attr].reindex(
+                columns=[]
+            )
+    elif trafo_index.empty:
+        logging.info('Your network does not have any transformer')
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 

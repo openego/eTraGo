@@ -58,7 +58,7 @@ def market_optimization(self):
     
     logger.info("Start building market model")
     build_market_model(self)
-    
+    logger.info("Start solving market model")
     self.market_model.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
@@ -109,9 +109,8 @@ def build_market_model(self):
     
     net.generators.control = "PV"
     
-    #net.lines.sub_network.fillna('', inplace=True)
-    
-    
+    logger.info("Start market zone specifc clustering")
+   
     clustering = get_clustering_from_busmap(
         net,
         busmap,
@@ -122,7 +121,23 @@ def build_market_model(self):
         line_length_factor=1,
     )
     net = clustering.network
-    self.market_model = clustering.network
+    links_col = net.links.columns
+    ac = net.lines[net.lines.carrier == "AC"]
+    str1 = "transshipment_"
+    ac.index = f"{str1}" + ac.index
+    transshipment_links = pd.concat([net.links, ac])
+    transshipment_links = transshipment_links[links_col]
+    net.links = transshipment_links.copy()
+    net.links.loc[net.links.carrier == 'AC', 'carrier'] = "DC"
+    net.lines.drop(net.lines.loc[net.lines.carrier == 'AC'].index, inplace=True)
+    net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
+
+
+    self.market_model = net
+
+    # todo: re-apply gas clustering
+
+    
 
     
 
