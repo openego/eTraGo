@@ -88,7 +88,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.7
+   $ virtualenv venv --clear -p python3.8
    $ source venv/bin/activate
    $ cd venv
 

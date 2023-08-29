@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems
 
@@ -18,16 +18,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" This module contains functions for calculating representative days/weeks
-based on a pyPSA network object. It is designed to be used for the `lopf`
-method. Essentially the tsam package
-( https://github.com/FZJ-IEK3-VSA/tsam ), which is developed by
-Leander Kotzur is used.
-
-Remaining questions/tasks:
-
-- Does it makes sense to cluster normed values?
-- Include scaling method for yearly sums
+""" This module contains functions for reducing the complexity of a PyPSA network in temporal dimension by
+a) downsampling to every n-th snapshot
+b) clustering to typical periods (eg days, weeks)
+c) clustering to segments of variable length
+Essentially used is the tsam package
+( https://github.com/FZJ-IEK3-VSA/tsam ) developed by Leander Kotzur et al.
 """
 
 import pandas as pd
@@ -43,11 +39,24 @@ __copyright__ = (
     "Centre for Sustainable Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "Simon Hilpert"
+__author__ = "ClaraBuettner, ulfmueller, KathiEsterl, simnh, wheitkoetter, BartelsJ, AmeliaNadal"
 
 
 def snapshot_clustering(self):
-    """ """
+    """
+    Function to call the snapshot clustering function with the respecting method and settings.
+
+    Raises
+    ------
+    ValueError
+        When calling a non-available function.
+
+    Returns
+    -------
+    None.
+
+    """
+
     if self.args["snapshot_clustering"]["active"] == True:
         # save second network for optional dispatch disaggregation
         if self.args["temporal_disaggregation"]["active"] == True:
@@ -88,36 +97,41 @@ def tsam_cluster(
     segm_hoursperperiod=24,
 ):
     """
+    Conducts the clustering of the snapshots for temporal aggregation with the respecting method.
+
     Parameters
     ----------
-    df : pd.DataFrame
-        DataFrame with timeseries to cluster
-    typical_periods: Number of typical Periods (or clusters)
-    how: {'daily', 'weekly'}
-    extremePeriodMethod: {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, default: 'None'
-        Method how to integrate extreme Periods into to the typical period profiles.
-        'None': No integration at all.
-        'append': append typical Periods to cluster centers
-        'new_cluster_center': add the extreme period as additional cluster
-            center. It is checked then for all Periods if they fit better
-            to the this new center or their original cluster center.
-        'replace_cluster_center': replaces the cluster center of the
-            cluster where the extreme period belongs to with the periodly
-            profile of the extreme period. (Worst case system design)
-    segmentation: Is given by the run-function, can be True or False
-    segment_no: Only used when segmentation is true, the number of segments
-    segm_hoursperperiod: Only used when segmentation is true, defines the length of a cluster period
+    timeseries_df : pd.DataFrame
+        Dataframe wit timeseries to cluster.
+    typical_periods : int, optional
+        Number of clusters for typical_periods. The default is 10.
+    how : {'daily', 'weekly', 'monthly'}, optional
+        Definition of period for typical_periods. The default is 'daily'.
+    extremePeriodMethod : {'None','append','new_cluster_center',
+                           'replace_cluster_center'}, optional
+        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+    segmentation : boolean, optional
+        Argument to activate segmenation method. The default is False.
+    segment_no : int, optional
+        Number of segments for segmentation. The default is 10.
+    segm_hoursperperiod : int, optional
+        Only for segmentation, ensures to cluster to segments considering all snapshots. The default is 24.
 
     Returns
     -------
-    df_cluster
-    cluster_weights
-    dates
-    hours
-    df_i_h
+    df_cluster : pd.DataFrame
+        Information on cluster after clustering to typical periods.
+    cluster_weights : dict
+        Weightings per cluster after clustering to typical periods.
+    dates : DatetimeIndex
+        Dates of clusters after clustering to typical periods.
+    hours : int
+        Hours per typical period.
+    df_i_h : pd.DataFrame
+        Information on cluster after clustering to typical periods.
     timeseries : pd.DataFrame
-                Clustered timeseries, only used if segmentation is True
+        Information on segments after segmentation.
+
     """
 
     if how == "daily":
@@ -138,6 +152,7 @@ def tsam_cluster(
 
     if segmentation:
         hoursPerPeriod = segm_hoursperperiod
+        hours = 1
     else:
         hoursPerPeriod = hours
 
@@ -300,6 +315,30 @@ def tsam_cluster(
 def segmentation_extreme_periods(
     timeseries_df, timeseries, extremePeriodMethod
 ):
+    """
+    Function to consider extreme snapshots while using segmentation.
+
+    Parameters
+    ----------
+    timeseries_df : pd.DataFrame
+        Dataframe wit timeseries to cluster.
+    timeseries : pd.DataFrame
+        Information on segments after segmentation.
+    extremePeriodMethod : {'None','append','new_cluster_center',
+                           'replace_cluster_center'}, optional
+        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+
+    Raises
+    ------
+    ValueError
+        When calling wrong method to consider extreme values.
+
+    Returns
+    -------
+    timeseries : pd.DataFrame
+        Information on segments including extreme snapshots after segmentation.
+    """
+
     # find maximum / minimum value in residual load
     maxi = timeseries_df["residual_load"].idxmax()
     mini = timeseries_df["residual_load"].idxmin()
@@ -560,7 +599,30 @@ def run(
     segmented_to=False,
     extreme_periods="None",
 ):
-    """ """
+    """
+    Function to call the respecting snapshot clustering function and export the result to a csv-file.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    n_clusters : int, optional
+        Number of clusters for typical_periods. The default is None.
+    how : {'daily', 'weekly', 'monthly'}, optional
+        Definition of period for typical_periods. The default is 'daily'.
+    segmented_to : int, optional
+        Number of segments for segmentation. The default is False.
+    extremePeriodMethod : {'None','append','new_cluster_center',
+                           'replace_cluster_center'}, optional
+        Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
+
+    Returns
+    -------
+    network : pypsa.Network object
+        Container for all network components.
+
+    """
+
     if segmented_to is not False:
         segment_no = segmented_to
         segmentation = True
@@ -591,7 +653,10 @@ def run(
     )
 
     if segmentation != False:
-        timeseries.to_csv(
+        pd.DataFrame(
+            timeseries.reset_index(),
+            columns=["dates", "SegmentNo", "SegmentDuration"],
+        ).set_index("SegmentNo").to_csv(
             "timeseries_segmentation=" + str(segment_no) + ".csv"
         )
     else:
@@ -621,8 +686,21 @@ def run(
     return network
 
 
-def prepare_pypsa_timeseries(network, normed=False):
-    """ """
+def prepare_pypsa_timeseries(network):
+    """
+    Prepares timeseries and residual load timeseries for clustering.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+
+    Returns
+    -------
+    df : pd.DataFrame
+        Timeseries to be considered when clustering.
+
+    """
 
     loads = network.loads_t.p_set.copy()
     loads.columns = "L" + loads.columns
@@ -642,23 +720,32 @@ def prepare_pypsa_timeseries(network, normed=False):
 def update_data_frames(
     network, cluster_weights, dates, hours, timeseries, segmentation
 ):
-    """Updates the snapshots, snapshots weights and the dataframes based on
+    """
+    Updates the snapshots, snapshot weightings and the dataframes based on
     the original data in the network and the medoids created by clustering
     these original data.
 
     Parameters
-    -----------
-    network : pyPSA network object
-    cluster_weights: dictionary
-    dates: Datetimeindex
-
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    cluster_weights : dict
+        Weightings per cluster after clustering to typical periods.
+    dates : DatetimeIndex
+        Dates of clusters after clustering to typical periods.
+    hours : int
+        Hours per typical period.
+    timeseries : pd.DataFrame
+        Information on segments after segmentation.
+    segmentation : boolean
+        Checks if segmentation of clustering to typical periods has been used.
 
     Returns
     -------
-    network
+    network : pypsa.Network object
+        Container for all network components.
 
     """
-
     if segmentation:
         network.snapshots = timeseries.index.get_level_values(0)
         network.snapshot_weightings["objective"] = pd.Series(
@@ -703,6 +790,15 @@ def update_data_frames(
 
 
 def skip_snapshots(self):
+    """
+    Conducts the downsapling to every n-th snapshot.
+
+    Returns
+    -------
+    None.
+
+    """
+
     # save second network for optional dispatch disaggregation
     if (
         self.args["temporal_disaggregation"]["active"] == True
@@ -740,22 +836,3 @@ def skip_snapshots(self):
             self.network.snapshot_weightings.loc[
                 self.network.snapshot_weightings.index[-1]
             ]["generators"] = last_weight
-
-
-####################################
-def manipulate_storage_invest(network, costs=None, wacc=0.05, lifetime=15):
-    # default: 4500 € / MW, high 300 €/MW
-    crf = (1 / wacc) - (wacc / ((1 + wacc) ** lifetime))
-    network.storage_units.capital_cost = costs / crf
-
-
-def write_lpfile(network=None, path=None):
-    network.model.write(path, io_options={"symbolic_solver_labels": True})
-
-
-def fix_storage_capacity(network, resultspath, n_clusters):  # "network" added
-    path = resultspath.strip("daily")
-    values = pd.read_csv(path + "storage_capacity.csv")[n_clusters].values
-    network.storage_units.p_nom_max = values
-    network.storage_units.p_nom_min = values
-    resultspath = "compare-" + resultspath

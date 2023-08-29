@@ -14,7 +14,12 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = (
     "ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, "
     "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, "
-    "mariusves"
+    "mariusves",
+    "CarlosEpia",
+    "KathiEsterl",
+    "pieterhexen",
+    "fwitte",
+    "AmeliaNadal",
 )
 
 
@@ -46,6 +51,7 @@ setup(
         "egoio == 0.4.7",
         "geoalchemy2 >= 0.3.0",
         "geopandas",
+        "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
         # PyPSA uses a deprecated import that errors with Pyomo 6.4.3.

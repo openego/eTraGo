@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -57,7 +57,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
 
 
 def set_epsg_network(network):
@@ -117,6 +118,17 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 
 def coloring():
+    """
+    Return a dictionary with a color assign to each kind of carrier used in
+    etrago.network. This is used for plotting porpuses.
+
+    Returns
+    -------
+    colors : dict
+        Color for each kind of carrier.
+
+    """
+
     colors = {
         "load": "red",
         "DC": "blue",
@@ -415,6 +427,10 @@ def plot_residual_load(network):
     Parameters
     ----------
     network : PyPSA network containter
+
+    Returns
+    -------
+    Plot
     """
 
     renewables = network.generators[
@@ -966,6 +982,10 @@ def gen_dist_diff(
     filename : str
         Specify filename
         If not given, figure will be show directly
+
+    Returns
+    -------
+    None.
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -1079,6 +1099,10 @@ def nodal_gen_dispatch(
                 'x': array of two floats, x axis boundaries (lat)
                 'y': array of two floats, y axis boundaries (long)
                 'zoom' : resolution of osm
+
+    Returns
+    -------
+    None.
     """
 
     if osm is not False:
@@ -1258,6 +1282,10 @@ def storage_p_soc(network, mean="1H", filename=None):
         Defines over how many snapshots the p and soc values will averaged.
     filename : path to folder
 
+    Returns
+    -------
+    None.
+
     """
 
     sbatt = network.storage_units.index[
@@ -1390,6 +1418,10 @@ def storage_soc_sorted(network, filename=None):
         Holds topology of grid including results from powerflow analysis
 
     filename : path to folder
+
+    Returns
+    -------
+    None.
 
     """
     sbatt = network.storage_units.index[
@@ -1546,6 +1578,7 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
+
             links_df = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
@@ -1761,7 +1794,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1841,7 +1874,7 @@ def bev_flexibility_potential(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1948,7 +1981,7 @@ def heat_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -2028,7 +2061,7 @@ def hydrogen_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -2893,8 +2926,6 @@ def plot_clusters(
     -------
     None.
     """
-    # TODO: Make this function available for other carriers
-    # Create geometries
     new_geom = self.network.buses[
         [
             "carrier",

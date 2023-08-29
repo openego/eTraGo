@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023 Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -53,12 +53,31 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "s3pp, wolfbunke, ulfmueller, lukasol"
+__author__ = (
+    "MGlauer, MarlonSchlemminger, mariusves, BartelsJ, gnn, lukasoldi, "
+    "ulfmueller, lukasol, ClaraBuettner, CarlosEpia, KathiEsterl, "
+    "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
+)
 
 # TODO: Workaround because of agg
 
 
 def _make_consense_links(x):
+    """
+    Ensure that all elements in the input Series `x` are identical, or that
+    they are all NaN.
+
+    Parameters
+    ----------
+    x : pandas.Series
+        A Series containing the values to be checked for consensus.
+
+    Returns
+    -------
+    object
+        The value of the first element in the Series `x`.
+    """
+
     v = x.iat[0]
     assert (
         x == v
@@ -160,7 +179,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     with_time : bool
         says if the network object contains timedependent series.
     carriers : list of strings
-        Describe which typed of carriers should be aggregated. The default is None.
+        Describe which type of carriers should be aggregated. The default is
+        None.
     strategies : dictionary
         custom strategies to perform the aggregation
 
@@ -169,12 +189,6 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     new_df : links aggregated based on bus0, bus1 and carrier
     new_pnl : links time series aggregated
     """
-    if carriers is None:
-        carriers = network.links.carrier.unique()
-
-    links_agg_b = network.links.carrier.isin(carriers)
-    links = network.links.loc[links_agg_b]
-    grouper = [links.bus0, links.bus1, links.carrier]
 
     def normed_or_uniform(x):
         return (
@@ -182,6 +196,32 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
             if x.sum(skipna=False) > 0
             else pd.Series(1.0 / len(x), x.index)
         )
+
+    def arrange_dc_bus0_bus1(network):
+        dc_links = network.links[network.links.carrier == "DC"].copy()
+        dc_links["n0"] = dc_links.apply(
+            lambda x: x.bus0 if x.bus0 < x.bus1 else x.bus1, axis=1
+        )
+        dc_links["n1"] = dc_links.apply(
+            lambda x: x.bus0 if x.bus0 > x.bus1 else x.bus1, axis=1
+        )
+        dc_links["bus0"] = dc_links["n0"]
+        dc_links["bus1"] = dc_links["n1"]
+        dc_links.drop(columns=["n0", "n1"], inplace=True)
+
+        network.links.drop(index=dc_links.index, inplace=True)
+        network.links = pd.concat([network.links, dc_links])
+
+        return network
+
+    network = arrange_dc_bus0_bus1(network)
+
+    if carriers is None:
+        carriers = network.links.carrier.unique()
+
+    links_agg_b = network.links.carrier.isin(carriers)
+    links = network.links.loc[links_agg_b]
+    grouper = [links.bus0, links.bus1, links.carrier]
 
     weighting = links.p_nom.groupby(grouper, axis=0).transform(
         normed_or_uniform
@@ -225,7 +265,8 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
 
 def graph_from_edges(edges):
-    """Constructs an undirected multigraph from a list containing data on
+    """
+    Constructs an undirected multigraph from a list containing data on
     weighted edges.
 
     Parameters
@@ -241,7 +282,6 @@ def graph_from_edges(edges):
     M = nx.MultiGraph()
 
     for e in edges:
-
         n0, n1, weight, key = e
 
         M.add_edge(n0, n1, weight=weight, key=key)
@@ -252,16 +292,15 @@ def graph_from_edges(edges):
 def gen(nodes, n, graph):
     # TODO There could be a more convenient way of doing this. This generators
     # single purpose is to prepare data for multiprocessing's starmap function.
-    """Generator for applying multiprocessing.
+    """
+    Generator for applying multiprocessing.
 
     Parameters
     ----------
     nodes : list
         List of nodes in the system.
-
     n : int
         Number of desired multiprocessing units.
-
     graph : :class:`networkx.classes.multigraph.MultiGraph
         Graph representation of an electrical grid.
 
@@ -277,13 +316,13 @@ def gen(nodes, n, graph):
 
 
 def shortest_path(paths, graph):
-    """Finds the minimum path lengths between node pairs defined in paths.
+    """
+    Finds the minimum path lengths between node pairs defined in paths.
 
     Parameters
     ----------
     paths : list
         List of pairs containing a source and a target node
-
     graph : :class:`networkx.classes.multigraph.MultiGraph
         Graph representation of an electrical grid.
 
@@ -316,7 +355,8 @@ def shortest_path(paths, graph):
 
 
 def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
-    """Creates a busmap for the EHV-Clustering between voltage levels based
+    """
+    Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
     database with the name `ego_grid_pf_hv_busmap` and the attributes scn_name
@@ -327,21 +367,16 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     Parameters
     ----------
-    network : pypsa.Network object
+    network : pypsa.Network
         Container for all network components.
-
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
-
     scn_name : str
         Name of the scenario.
-
     fromlvl : list
         List of voltage-levels to cluster.
-
     tolvl : list
         List of voltage-levels to remain.
-
     cpu_cores : int
         Number of CPU-cores.
 
@@ -448,18 +483,17 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
 
 def busmap_from_psql(etrago):
-    """Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
+    """
+    Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
     <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
     name. If this busmap does not exist, it is created with default values.
 
     Parameters
     ----------
-    network : pypsa.Network object
+    network : pypsa.Network
         Container for all network components.
-
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
-
     scn_name : str
         Name of the scenario.
 
@@ -484,7 +518,6 @@ def busmap_from_psql(etrago):
         filter_version = "testcase"
 
     def fetch():
-
         query = (
             etrago.session.query(
                 egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1
@@ -520,48 +553,41 @@ def busmap_from_psql(etrago):
 
 
 def kmean_clustering(etrago, selected_network, weight, n_clusters):
-    """Main function of the k-mean clustering approach. Maps an original
+    """
+    Main function of the k-mean clustering approach. Maps an original
     network to a new one with adjustable number of nodes and new coordinates.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : pypsa.Network
         Container for all network components.
-
     n_clusters : int
         Desired number of clusters.
-
     load_cluster : boolean
         Loads cluster coordinates from a former calculation.
-
     line_length_factor : float
         Factor to multiply the crow-flies distance between new buses in order
         to get new line lengths.
-
     remove_stubs: boolean
         Removes stubs and stubby trees (i.e. sequentially reducing dead-ends).
-
     use_reduced_coordinates: boolean
         If True, do not average cluster coordinates, but take from busmap.
-
     bus_weight_tocsv : str
         Creates a bus weighting based on conventional generation and load
         and save it to a csv file.
-
     bus_weight_fromcsv : str
         Loads a bus weighting from a csv file to apply it to the clustering
         algorithm.
 
     Returns
     -------
-    network : pypsa.Network object
+    network : pypsa.Network
         Container for all network components.
     """
     network = etrago.network
     kmean_settings = etrago.args["network_clustering"]
 
     with threadpool_limits(limits=kmean_settings["CPU_cores"], user_api=None):
-        
         # remove stubs
         if kmean_settings["remove_stubs"]:
             network.determine_network_topology()
@@ -607,25 +633,27 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
 
 
 def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
-    """Function for combination of k-medoids Clustering and Dijkstra's algorithm.
-      Creates a busmap assigning the nodes of a original network
-      to the nodes of a clustered network
-      considering the electrical distances based on Dijkstra's shortest path.
-      Parameters
-    centers
-         ----------
-      network : pypsa.Network object
-          Container for all network components.
+    """
+    Function for combination of k-medoids Clustering and Dijkstra's algorithm.
+    Creates a busmap assigning the nodes of a original network to the nodes of
+    a clustered network considering the electrical distances based on
+    Dijkstra's shortest path.
 
-      medoid_idx : pd.Series
-          Indices of k-medoids
-      busmap_kmedoid: pd.Series
-          Busmap based on k-medoids clustering
-      cpu_cores: string
-          numbers of cores used during multiprocessing
-      Returns
-      -------
-      busmap (format: with labels)
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+    medoid_idx : pandas.Series
+        Indices of k-medoids
+    busmap_kmedoid: pandas.Series
+        Busmap based on k-medoids clustering
+    cpu_cores: string
+        numbers of cores used during multiprocessing
+
+    Returns
+    -------
+    busmap : pandas.Series
+        Mapping from bus ids to medoids ids
     """
 
     # original data
@@ -650,8 +678,8 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     else:
         cpu_cores = int(cpu_cores)
 
-    # calculation of shortest path between original points and k-medoids centers
-    # using multiprocessing
+    # calculation of shortest path between original points and k-medoids
+    # centers using multiprocessing
     p = mp.Pool(cpu_cores)
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
@@ -686,26 +714,52 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
 def kmedoids_dijkstra_clustering(
     etrago, buses, connections, weight, n_clusters
 ):
+    """
+    Applies a k-medoids clustering on the given network and calls the function to conduct a Dijkstra's
+    algorithm afterwards for the consideration of the network's topology in the spatial clustering.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    buses : pandas.DataFrame
+        DataFrame with information about the buses of the network.
+    connections : pandas.DataFrame
+        DataFrame with information about the connections of the network
+        (links or lines).
+    weight : pandas.Series
+        Series with the weight for each bus.
+    n_clusters : int
+        The number of clusters to create.
+
+    Returns
+    -------
+    Tuple containing:
+    busmap : pandas.Series
+        Series containing the mapping of buses to their resp. medoids
+    medoid_idx : pandas.Series
+        Series containing the medoid indeces
+    """
 
     settings = etrago.args["network_clustering"]
 
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
-    # to use threadpool_limits: https://scikit-learn.org/stable/computing/parallelism.html
+    # to use threadpool_limits:
+    # https://scikit-learn.org/stable/computing/parallelism.html
     with threadpool_limits(limits=settings["CPU_cores"], user_api=None):
-    
         # remove stubs
         if settings["remove_stubs"]:
-            
             logger.info(
-            "options remove_stubs and use_reduced_coordinates not reasonable for k-medoids Dijkstra Clustering"
-        )
+                """options remove_stubs and use_reduced_coordinates not
+                reasonable for k-medoids Dijkstra Clustering"""
+            )
 
         bus_weightings = pd.Series(weight)
         buses_i = buses.index
         points = buses.loc[buses_i, ["x", "y"]].values.repeat(
             bus_weightings.reindex(buses_i).astype(int), axis=0
         )
-    
+
         kmeans = KMeans(
             init="k-means++",
             n_clusters=n_clusters,
@@ -715,24 +769,24 @@ def kmedoids_dijkstra_clustering(
             random_state=settings["random_state"],
         )
         kmeans.fit(points)
-    
+
         busmap = pd.Series(
             data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
             index=buses_i,
             dtype=object,
         )
-    
+
         # identify medoids per cluster -> k-medoids clustering
-    
+
         distances = pd.DataFrame(
             data=kmeans.transform(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
         distances = distances.apply(pd.to_numeric)
-    
+
         medoid_idx = distances.idxmin()
-    
+
         # dijkstra's algorithm
         busmap = dijkstras_algorithm(
             buses,

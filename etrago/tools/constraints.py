@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -41,7 +41,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = """ulfmueller, s3pp, wolfbunke, mariusves, lukasol, AmeliaNadal,
+CarlosEpia, ClaraBuettner, KathiEsterl"""
 
 
 def _get_crossborder_components(network, cntr="all"):
@@ -1296,7 +1297,6 @@ def read_max_gas_generation(self):
             "biogas": 14450103
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
-
     engine = db.connection(section=self.args["db"])
     try:
         sql = f"""
@@ -1491,7 +1491,21 @@ def add_ch4_constraints_nmp(self, network, snapshots):
 
 
 def snapshot_clustering_daily_bounds(self, network, snapshots):
-    # This will bound the storage level to 0.5 max_level every 24th hour.
+    """
+    Bound the storage level to 0.5 max_level every 24th hour.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps that will be constrained
+
+    Returns
+    -------
+    None
+
+    """
     sus = network.storage_units
     # take every first hour of the clustered days
     network.model.period_starts = network.snapshot_weightings.index[0::24]
@@ -1516,6 +1530,22 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
 
 
 def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
+    """
+    Bound the storage level to 0.5 max_level every 24th hour.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps that will be constrained
+
+    Returns
+    -------
+    None
+
+    """
+
     c = "StorageUnit"
 
     period_starts = snapshots[0::24]
@@ -1568,6 +1598,31 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
 def snapshot_clustering_seasonal_storage(
     self, network, snapshots, simplified=False
 ):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
+
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+    simplified : bool, optional
+        A flag indicating whether to use a simplified version of the model that
+        does not include intra-temporal constraints and variables.
+
+    Returns
+    -------
+    None
+    """
+
     sus = network.storage_units
     sto = network.stores
 
@@ -2363,6 +2418,28 @@ def snapshot_clustering_seasonal_storage(
 
 
 def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
+
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+
+    Returns
+    -------
+    None
+    """
+
     # TODO: updaten mit stores (Sektorkopplung)
 
     network.model.del_component("state_of_charge_all")
@@ -2446,6 +2523,31 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
 
 
 def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
+
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    n : :class:`pypsa.Network
+        Overall container of PyPSA
+    sns : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+    simplified : bool, optional
+        A flag indicating whether to use a simplified version of the model that
+        does not include intra-temporal constraints and variables.
+
+    Returns
+    -------
+    None
+    """
+
     # TODO: so noch nicht korrekt...
     # TODO: updaten mit stores (Sektorkopplung)
     # TODO: simplified ergänzen
@@ -2523,6 +2625,28 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
 
 def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
+    """
+    Depicts intertemporal dependencies of storage units and stores when using
+    snapshot clustering to typical periods for temporal complexity reduction.
+
+    According to:
+        L. Kotzur et al: 'Time series aggregation for energy
+        system design:
+        Modeling seasonal storage', 2018
+
+    Parameters
+    ----------
+    n : :class:`pypsa.Network
+        Overall container of PyPSA
+    sns : list
+        A list of datetime objects representing the timestamps of the snapshots
+        to be clustered.
+
+    Returns
+    -------
+    None
+    """
+
     print("TODO")
 
     # TODO: implementieren
@@ -2559,7 +2683,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     sus = n.storage_units.index
     # for stores, exclude emob and dsm because of their special constraints
     sto = n.stores[
-        (n.stores.carrier != "battery storage") & (n.stores.carrier != "dsm")
+        ~n.stores.carrier.isin(["battery storage", "battery_storage", "dsm"])
     ].index
 
     def disaggregation_sus_soc(m, s, h):
@@ -2586,6 +2710,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
 
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
+
     print("TODO")
 
     # TODO: implementieren
@@ -2612,10 +2737,12 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["pyomo"]:
                 add_chp_constraints(network, snapshots)
-                add_ch4_constraints(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints(self, network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
-                add_ch4_constraints_nmp(self, network, snapshots)
+                if self.args["scn_name"] != "status2019":
+                    add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
             try:
