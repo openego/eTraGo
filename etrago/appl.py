@@ -459,6 +459,19 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[
+            ~etrago.network.links.bus0.isin(etrago.network.buses.index)
+        ].index,
+    )
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[
+            ~etrago.network.links.bus1.isin(etrago.network.buses.index)
+        ].index,
+    )
+
     # ehv network clustering
     etrago.ehv_clustering()
 
