@@ -107,8 +107,8 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
-        "cluster_foreign_AC": True,  # take foreign AC buses into account, True or False
+        "n_clusters_AC": 100,  # total number of resulting AC nodes (DE+foreign)
+        "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False

@@ -1087,6 +1087,7 @@ def run_spatial_clustering(self):
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
+        
 
         self.clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx

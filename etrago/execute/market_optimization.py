@@ -30,7 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import numpy as np
     import pandas as pd
     
-    from etrago.cluster.electrical import preprocessing    
+    from etrago.cluster.electrical import (preprocessing, postprocessing,)    
     from etrago.cluster.spatial import (
         strategies_one_ports,
         strategies_generators,)
@@ -64,10 +64,9 @@ def market_optimization(self):
             solver_options=self.args["solver_options"],
             pyomo=True,
             extra_functionality=extra_functionality(),
-            formulation=self.args["model_formulation"],
-        
+            formulation=self.args["model_formulation"],        
         )
-    
+    self.market_model.model.write('/home/ulf/file2.lp')
     
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
@@ -103,39 +102,44 @@ def build_market_model(self):
         
     
     busmap = pd.Series(net.buses.cluster.astype(int).astype(str), net.buses.index)
-    
-    aggregate_one_ports = net.one_port_components.copy()
-    aggregate_one_ports.discard("Generator")
-    
-    net.generators.control = "PV"
-    
+    medoid_idx = pd.Series(dtype=str)
+
     logger.info("Start market zone specifc clustering")
-   
-    clustering = get_clustering_from_busmap(
-        net,
-        busmap,
-        aggregate_generators_weighted=False,
-        one_port_strategies=strategies_one_ports(),
-        generator_strategies=strategies_generators(),
-        aggregate_one_ports=aggregate_one_ports,
-        line_length_factor=1,
+    
+    self.clustering, busmap = postprocessing(
+        self, busmap, busmap_foreign, medoid_idx
     )
-    net = clustering.network
-    links_col = net.links.columns
+    
+    self.update_busmap(busmap)
+
+    
+    net = self.clustering.network
+    #links_col = net.links.columns
     ac = net.lines[net.lines.carrier == "AC"]
     str1 = "transshipment_"
     ac.index = f"{str1}" + ac.index
-    transshipment_links = pd.concat([net.links, ac])
-    transshipment_links = transshipment_links[links_col]
-    net.links = transshipment_links.copy()
-    net.links.loc[net.links.carrier == 'AC', 'carrier'] = "DC"
+    net.import_components_from_dataframe(
+        ac.loc[:, ["bus0", "bus1", "capital_cost", "length"]]
+        .assign(p_nom=ac.s_nom)
+        .assign(p_nom_min=ac.s_nom_min)
+        .assign(p_nom_max=ac.s_nom_max)
+        .assign(p_nom_extendable=ac.s_nom_extendable)
+        .assign(p_max_pu=ac.s_max_pu)
+        .assign(p_min_pu=-1)
+        .assign(carrier="DC")
+        .set_index(ac.index),
+        "Link",
+    )    
     net.lines.drop(net.lines.loc[net.lines.carrier == 'AC'].index, inplace=True)
-    net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
+    #net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
-
+    # delete following unconnected CH4 buses. why are they there?
+    net.buses.drop(net.buses[net.buses.index == '37870'].index, inplace=True)
+    net.buses.drop(net.buses[net.buses.index == '37865'].index, inplace=True)
+    
+    self.buses_by_country()
+    self.geolocation_buses()
     self.market_model = net
-
-    # todo: re-apply gas clustering
 
     
 
