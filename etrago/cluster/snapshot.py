@@ -107,8 +107,7 @@ def tsam_cluster(
         Number of clusters for typical_periods. The default is 10.
     how : {'daily', 'weekly', 'monthly'}, optional
         Definition of period for typical_periods. The default is 'daily'.
-    extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
+    extremePeriodMethod : {'None','append','new_cluster_center', 'replace_cluster_center'}, optional
         Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
     segmentation : boolean, optional
         Argument to activate segmenation method. The default is False.
@@ -324,8 +323,7 @@ def segmentation_extreme_periods(
         Dataframe wit timeseries to cluster.
     timeseries : pd.DataFrame
         Information on segments after segmentation.
-    extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
+    extremePeriodMethod : {'None','append','new_cluster_center', 'replace_cluster_center'}, optional
         Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
 
     Raises
@@ -612,8 +610,7 @@ def run(
         Definition of period for typical_periods. The default is 'daily'.
     segmented_to : int, optional
         Number of segments for segmentation. The default is False.
-    extremePeriodMethod : {'None','append','new_cluster_center',
-                           'replace_cluster_center'}, optional
+    extremePeriodMethod : {'None','append','new_cluster_center', 'replace_cluster_center'}, optional
         Method to consider extreme snapshots in reduced timeseries. The default is 'None'.
 
     Returns

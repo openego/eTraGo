@@ -19,7 +19,7 @@ eTraGo
 Optimization of flexibility options for transmission grids based on PyPSA
 
 A speciality in this context is that transmission grids are described by the
-380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the
+380, 220 and 110 kV in Germany. Conventionally, the 110kV grid is part of the
 distribution grid. The integration of the transmission and 'upper' distribution
 grid is part of eTraGo.
 
@@ -36,7 +36,6 @@ eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
   Not all functions and features are compatible to the sector coupled model yet.
   
   When you want to use eTraGo for optimizations, please use the latest release 0.8.0. 
-
 
 Installation
 ============

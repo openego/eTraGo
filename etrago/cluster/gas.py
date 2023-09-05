@@ -311,11 +311,10 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     Returns
     -------
-    Tuple containing:
-        network_gasgrid_c : pypsa.Network
-            A pypsa.Network containing the clustered network.
-        busmap : pd.Series
-            A Pandas Series mapping each bus to its corresponding cluster ID.
+    network_gasgrid_c : pypsa.Network
+        A pypsa.Network containing the clustered network.
+    busmap : pd.Series
+        A Pandas Series mapping each bus to its corresponding cluster ID.
     """
     settings = etrago.args["network_clustering"]
 
@@ -932,11 +931,12 @@ def run_spatial_clustering_gas(self):
     buses and links, and then performs postprocessing to finalize the changes.
 
     Returns
-        None
+    --------
+    None
 
     Raises
-        ValueError: If the selected method is not "kmeans" or
-        "kmedoids-dijkstra".
+    -------
+    ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
 
     """
     if "CH4" in self.network.buses.carrier.values:

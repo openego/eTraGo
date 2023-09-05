@@ -1,5 +1,5 @@
 Release 0.8.0 (April 8, 2021)
-++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++
 eTraGo has now a more object-oriented programming design.
 
 Added features

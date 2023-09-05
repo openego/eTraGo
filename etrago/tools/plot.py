@@ -220,9 +220,11 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
+
     """
     if osm != False:
         if set_epsg_network.counter == 0:
@@ -239,21 +241,26 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
         data with a negative min and positive max and you want the
         middle of the colormap's dynamic range to be at zero
 
-        Input
-        -----
-          cmap : The matplotlib colormap to be altered
-          start : Offset from lowest point in the colormap's range.
-              Defaults to 0.0 (no lower ofset). Should be between
-              0.0 and `midpoint`.
-          midpoint : The new center of the colormap. Defaults to
-              0.5 (no shift). Should be between 0.0 and 1.0. In
-              general, this should be  1 - vmax/(vmax + abs(vmin))
-              For example if your data range from -15.0 to +5.0 and
-              you want the center of the colormap at 0.0, `midpoint`
-              should be set to  1 - 5/(5 + 15)) or 0.75
-          stop : Offset from highets point in the colormap's range.
-              Defaults to 1.0 (no upper ofset). Should be between
-              `midpoint` and 1.0.
+        Parameters
+        -----------
+        cmap :
+            The matplotlib colormap to be altered
+        start :
+            Offset from lowest point in the colormap's range.
+            Defaults to 0.0 (no lower ofset). Should be between
+            0.0 and `midpoint`.
+        midpoint :
+            The new center of the colormap. Defaults to
+            0.5 (no shift). Should be between 0.0 and 1.0. In
+            general, this should be  1 - vmax/(vmax + abs(vmin))
+            For example if your data range from -15.0 to +5.0 and
+            you want the center of the colormap at 0.0, `midpoint`
+            should be set to  1 - 5/(5 + 15)) or 0.75
+        stop :
+            Offset from highets point in the colormap's range.
+            Defaults to 1.0 (no upper ofset). Should be between
+            `midpoint` and 1.0.
+
         """
         cdict = {"red": [], "green": [], "blue": [], "alpha": []}
 
@@ -350,9 +357,10 @@ def network_expansion_diff(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     """
     if osm != False:
@@ -579,13 +587,12 @@ def plot_gen_diff(
     """
     Plot difference in generation between two networks grouped by carrier type
 
-
     Parameters
     ----------
     networkA : PyPSA network container with switches
     networkB : PyPSA network container without switches
-    leave_out_carriers : list of carriers to leave out (default to all small
-    carriers)
+    leave_out_carriers :
+        list of carriers to leave out (default to all small carriers)
 
     Returns
     -------
@@ -644,7 +651,6 @@ def plot_voltage(network, boundaries=[], osm=False):
     """
     Plot voltage at buses as hexbin
 
-
     Parameters
     ----------
     network : PyPSA network container
@@ -652,9 +658,10 @@ def plot_voltage(network, boundaries=[], osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     Returns
     -------
@@ -694,7 +701,6 @@ def curtailment(network, carrier="solar", filename=None):
     """
     Plot curtailment of selected carrier
 
-
     Parameters
     ----------
     network : PyPSA network container
@@ -703,7 +709,6 @@ def curtailment(network, carrier="solar", filename=None):
         Plot curtailemt of this carrier
     filename: str or None
         Save figure in this direction
-
 
     Returns
     -------
@@ -1045,9 +1050,10 @@ def nodal_gen_dispatch(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     Returns
     -------
@@ -1351,7 +1357,6 @@ def storage_soc_sorted(network, filename=None):
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
-
     filename : path to folder
 
     Returns
@@ -1497,7 +1502,6 @@ def calc_ac_loading(network, timesteps):
 
 def calc_dc_loading(network, timesteps):
     """Calculates loading of DC-lines
-
 
     Parameters
     ----------
@@ -2227,35 +2231,39 @@ def plot_grid(
 ):
     """Function that plots etrago.network and results for lines and buses
 
-
-
     Parameters
     ----------
     line_colors : str
         Set static line color or attribute to plot e.g. 'expansion_abs'
         Current options:
-            'line_loading': mean line loading in p.u. in selected timesteps
-            'v_nom': nominal voltage of lines
-            'expansion_abs': absolute network expansion in MVA
-            'expansion_rel': network expansion in p.u. of existing capacity
-            'q_flow_max': maximal reactive flows
+
+        * 'line_loading': mean line loading in p.u. in selected timesteps
+        * 'v_nom': nominal voltage of lines
+        * 'expansion_abs': absolute network expansion in MVA
+        * 'expansion_rel': network expansion in p.u. of existing capacity
+        * 'q_flow_max': maximal reactive flows
+
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
     bus_colors : str, optional
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
-            'nodal_production_balance': net producer/consumer in selected timeteps
-            'storage_expansion': storage expansion per bus and technology
-            'storage_distribution': installed storage units per bus
-            'gen_dist': dispatch per carrier in selected timesteps
+
+        * 'nodal_production_balance': net producer/consumer in selected timeteps
+        * 'storage_expansion': storage expansion per bus and technology
+        * 'storage_distribution': installed storage units per bus
+        * 'gen_dist': dispatch per carrier in selected timesteps
+
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default is range(2).
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm. The default is False.
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm. The default is False.
+
     boundaries: array
        Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
@@ -2587,6 +2595,7 @@ def plot_clusters(
     gas_pipelines : bool, optional
         The default is False. Define if the original gas pipelines are
         plotted or not.
+
     Returns
     -------
     None.

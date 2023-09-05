@@ -166,92 +166,79 @@ args = {
 def run_etrago(args, json_path):
     """Function to conduct optimization considering the following arguments.
 
-     Parameters
-     ----------
-
-     db : str
-         ``'oedb'``,
-         Name of Database session setting stored in *config.ini* of *.egoio*
-
-     gridversion : NoneType or str
-         ``'v0.4.6'``,
-         Name of the data version number of oedb: state ``'None'`` for
-         model_draft (sand-box) or an explicit version number
-         (e.g. 'v0.4.6') for the grid schema.
-
-     method : dict
-         {'type': 'lopf', 'n_iter': 4, 'pyomo': True},
-         Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
-         have to be performed. Choose either 'n_init' and a fixed number of
-         iterations or 'thershold' and a threashold of the objective function as
-         abort criteria.
-         Set 'pyomo' to False for big optimization problems, currently only
-         possible when solver is 'gurobi'.
-
-     pf_post_lopf : dict
-         {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
-         Option to run a non-linear power flow (pf) directly after the
-         linear optimal power flow (and thus the dispatch) has finished.
-         If foreign lines are modeled as DC-links (see foreign_lines), results
-         of the lopf can be added by setting 'add_foreign_lopf'.
-         Reactive power can be distributed either by 'p_nom' or 'p'.
-
-     start_snapshot : int
-         1,
-         Start hour of the scenario year to be calculated.
-
-     end_snapshot : int
-         2,
-         End hour of the scenario year to be calculated.
-         If snapshot clusterung is used, the selected snapshots should cover
-         the number of periods / segments.
-
-     solver : str
-         'glpk',
-         Choose your preferred solver. Current options: 'glpk' (open-source),
-         'cplex' or 'gurobi'.
-
-     solver_options : dict
-         Choose settings of solver to improve simulation time and result.
-         Options are described in documentation of chosen solver.
-
-     model_formulation : str
-         'kirchoff',
-         Choose formulation of pyomo-model.
-         Current options: angles, cycles, kirchhoff, ptdf
-
+    Parameters
+    ----------
+    db : str
+        Name of Database session setting stored in *config.ini* of *.egoio*, e.g.
+        ``'oedb'``.
+    gridversion : NoneType or str
+        Name of the data version number of oedb: state ``'None'`` for
+        model_draft (sand-box) or an explicit version number
+        (e.g. 'v0.4.6') for the grid schema.
+    method : dict
+        {'type': 'lopf', 'n_iter': 4, 'pyomo': True},
+        Choose 'lopf' for 'type'. In case of extendable lines, several lopfs
+        have to be performed. Choose either 'n_init' and a fixed number of
+        iterations or 'thershold' and a threashold of the objective function as
+        abort criteria.
+        Set 'pyomo' to False for big optimization problems, currently only
+        possible when solver is 'gurobi'.
+    pf_post_lopf : dict
+        {'active': True, 'add_foreign_lopf': True, 'q_allocation': 'p_nom'},
+        Option to run a non-linear power flow (pf) directly after the
+        linear optimal power flow (and thus the dispatch) has finished.
+        If foreign lines are modeled as DC-links (see foreign_lines), results
+        of the lopf can be added by setting 'add_foreign_lopf'.
+        Reactive power can be distributed either by 'p_nom' or 'p'.
+    start_snapshot : int
+        1,
+        Start hour of the scenario year to be calculated.
+    end_snapshot : int
+        2,
+        End hour of the scenario year to be calculated.
+        If snapshot clusterung is used, the selected snapshots should cover
+        the number of periods / segments.
+    solver : str
+        'glpk',
+        Choose your preferred solver. Current options: 'glpk' (open-source),
+        'cplex' or 'gurobi'.
+    solver_options : dict
+        Choose settings of solver to improve simulation time and result.
+        Options are described in documentation of chosen solver.
+    model_formulation : str
+        'kirchoff',
+        Choose formulation of pyomo-model.
+        Current options: angles, cycles, kirchhoff, ptdf
     scn_name : str
          'eGon2035',
          Choose your scenario. Currently, there are two different
          scenarios: 'eGon2035', 'eGon100RE'.
-
     scn_extension : NoneType or str
-        None,
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
         extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension_'.
-        Currently there are three overlay networks:
-            'nep2035_confirmed' includes all planed new lines confirmed by the
-            Bundesnetzagentur
-            'nep2035_b2' includes all new lines planned by the
-            Netzentwicklungsplan 2025 in scenario 2035 B2
-            'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-            adds BE and NO as electrical neighbours
+        with the prefix 'extension\_'.
+        Currently, there are three overlay networks:
+            * 'nep2035_confirmed' includes all planed new lines confirmed by the
+              Bundesnetzagentur
+            * 'nep2035_b2' includes all new lines planned by the
+              Netzentwicklungsplan 2025 in scenario 2035 B2
+            * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
+              adds BE and NO as electrical neighbours
 
-     scn_decommissioning : NoneType or str
-        None,
+    scn_decommissioning : NoneType or str
         Choose an extra scenario which includes lines you want to decommise
         from the existing network. Data of the decommissioning scenarios are
         located in extension-tables
         (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-        'decommissioning_'.
+        'decommissioning\_'.
         Currently, there are two decommissioning_scenarios which are linked to
         extension-scenarios:
-            'nep2035_confirmed' includes all lines that will be replaced in
-            confirmed projects
-            'nep2035_b2' includes all lines that will be replaced in
-            NEP-scenario 2035 B2
+
+        * 'nep2035_confirmed' includes all lines that will be replaced in
+          confirmed projects
+        * 'nep2035_b2' includes all lines that will be replaced in
+          NEP-scenario 2035 B2
 
     lpfile : bool or str
         False,
@@ -279,18 +266,21 @@ def run_etrago(args, json_path):
         The list 'extendable_components' defines a set of components to optimize.
         Settings can be added in /tools/extendable.py.
         The most important possibilities:
-            'as_in_db': leaves everything as it is defined in the data coming
-                        from the database
-            'network': set all lines, links and transformers in electrical
-                            grid extendable
-            'german_network': set lines and transformers in German electrical
-                            grid extendable
-            'foreign_network': set foreign lines and transformers in electrical
-                            grid extendable
-            'transformers': set all transformers extendable
-            'storages' / 'stores': allow to install extendable storages
-                        (unlimited in size) at each grid node in order to meet
-                        the flexibility demand.
+
+        * 'as_in_db'
+            leaves everything as it is defined in the data coming from the database
+        * 'network'
+            set all lines, links and transformers in electrical grid extendable
+        * 'german_network'
+            set lines and transformers in German electrical grid extendable
+        * 'foreign_network'
+            set foreign lines and transformers in electrical grid extendable
+        * 'transformers'
+            set all transformers extendable
+        * 'storages' / 'stores'
+            allow to install extendable storages (unlimited in size) at each grid node
+            in order to meet the flexibility demand.
+
         Upper bounds for electrical grid expansion can be defined for lines in
         Germany relative to the existing capacity using 'grid_max_D'.
         Alternatively, absolute maximum capacities between two electrical buses
@@ -303,35 +293,35 @@ def run_etrago(args, json_path):
         of each generator in order to prevent an optima plateau. To reproduce
         a noise, choose the same integer (seed number).
 
-    extra_functionality : dict
-        None,
+    extra_functionality : dict or None
         Choose extra functionalities and their parameters.
         Settings can be added in /tools/constraints.py.
         Current options are:
-            'max_line_ext': float
-                Maximal share of network extension in p.u.
-            'min_renewable_share': float
-                Minimal share of renewable generation in p.u.
-            'cross_border_flow': array of two floats
-                Limit AC cross-border-flows between Germany and its neigbouring
-                countries, set values in MWh for all snapshots, e.g. [-x, y]
-                (with x Import, y Export, positiv: export from Germany)
-            'cross_border_flows_per_country': dict of cntr and array of floats
-                Limit AC cross-border-flows between Germany and its neigbouring
-                countries, set values in in MWh for each country, e.g. [-x, y]
-                (with x Import, y Export, positiv: export from Germany)
-            'capacity_factor': dict of arrays
-                Limit overall energy production for each carrier,
-                set upper/lower limit in p.u.
-            'capacity_factor_per_gen': dict of arrays
-                Limit overall energy production for each generator by carrier,
-                set upper/lower limit in p.u.
-            'capacity_factor_per_cntr': dict of dict of arrays
-                Limit overall energy production country-wise for each carrier,
-                set upper/lower limit in p.u.
-            'capacity_factor_per_gen_cntr': dict of dict of arrays
-                Limit overall energy production country-wise for each generator
-                by carrier, set upper/lower limit in p.u.
+
+        * 'max_line_ext': float
+            Maximal share of network extension in p.u.
+        * 'min_renewable_share': float
+            Minimal share of renewable generation in p.u.
+        * 'cross_border_flow': array of two floats
+            Limit AC cross-border-flows between Germany and its neigbouring
+            countries, set values in MWh for all snapshots, e.g. [-x, y]
+            (with x Import, y Export, positiv: export from Germany)
+        * 'cross_border_flows_per_country': dict of cntr and array of floats
+            Limit AC cross-border-flows between Germany and its neigbouring
+            countries, set values in in MWh for each country, e.g. [-x, y]
+            (with x Import, y Export, positiv: export from Germany)
+        * 'capacity_factor': dict of arrays
+            Limit overall energy production for each carrier,
+            set upper/lower limit in p.u.
+        * 'capacity_factor_per_gen': dict of arrays
+            Limit overall energy production for each generator by carrier,
+            set upper/lower limit in p.u.
+        * 'capacity_factor_per_cntr': dict of dict of arrays
+            Limit overall energy production country-wise for each carrier,
+            set upper/lower limit in p.u.
+        * 'capacity_factor_per_gen_cntr': dict of dict of arrays
+            Limit overall energy production country-wise for each generator
+            by carrier, set upper/lower limit in p.u.
 
     network_clustering_ehv : bool
         False,
@@ -371,7 +361,7 @@ def run_etrago(args, json_path):
         from busmap; both only within the k-means Clustering.
         The other options affect the clustering algorithm in both methods and should only be
         changed carefully, documentation and possible settings are described
-        in sklearn-package (sklearn/cluster/k_means_.py).
+        in sklearn-package (sklearn/cluster/kmeans.py).
 
     sector_coupled_clustering : dict
         {'active': True, 'carrier_data': {
@@ -413,7 +403,7 @@ def run_etrago(args, json_path):
         to reduce temporal complexity.
 
     temporal_disaggregation : dict
-    {'active': False, 'no_slices': 4},
+        {'active': False, 'no_slices': 4},
         State if you to apply a second lopf considering dispatch only
         to disaggregate the dispatch to the whole temporal complexity.
         Be aware that a load shedding will be applied in this optimization.
@@ -437,8 +427,8 @@ def run_etrago(args, json_path):
     foreign_lines : dict
         {'carrier':'AC', 'capacity': 'osmTGmod}'
         Choose transmission technology and capacity of foreign lines:
-            'carrier': 'AC' or 'DC'
-            'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
+        * 'carrier': 'AC' or 'DC'
+        * 'capacity': 'osmTGmod', 'ntc_acer' or 'thermal_acer'
 
     comments : str
         None
