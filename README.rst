@@ -27,6 +27,8 @@ The focus of optimization are flexibility options with a special focus on
 energy storages. Grid expansion measures are not part of this tool and will be
 instead part of 'eGo' https://github.com/openego/eGo
 
+eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
+
 .. warning::
   From now on eTraGo depends on a sector coupled data-model. This is not published on 
   the oedb yet, the data has to be created using
