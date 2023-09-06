@@ -107,8 +107,7 @@ def build_market_model(self):
     logger.info("Start market zone specifc clustering")
     
     self.clustering, busmap = postprocessing(
-        self, busmap, busmap_foreign, medoid_idx
-    )
+        self, busmap, busmap_foreign, medoid_idx, aggregate_generators_carriers=[])
     
     self.update_busmap(busmap)
 

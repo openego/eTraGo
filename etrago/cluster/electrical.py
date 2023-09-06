@@ -802,7 +802,7 @@ def preprocessing(etrago):
     return network_elec, weight, n_clusters, busmap_foreign
 
 
-def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
+def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None, aggregate_generators_carriers=None):
     """
     Postprocessing function for network clustering.
 
@@ -889,6 +889,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         network,
         busmap,
         aggregate_generators_weighted=True,
+        aggregate_generators_carriers=aggregate_generators_carriers,
         one_port_strategies=strategies_one_ports(),
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
