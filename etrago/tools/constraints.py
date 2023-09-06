@@ -21,9 +21,9 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
+import os
 import logging
 
-from egoio.tools import db
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
@@ -31,6 +31,9 @@ from pypsa.pf import get_switchable_as_dense as get_as_dense
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
+
+if "READTHEDOCS" not in os.environ:
+    from egoio.tools import db
 
 logger = logging.getLogger(__name__)
 

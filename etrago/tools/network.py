@@ -22,12 +22,15 @@
 Define class Etrago
 """
 
+import os
 import logging
 
-from egoio.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
+
+if "READTHEDOCS" not in os.environ:
+    from egoio.tools import db
 
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
