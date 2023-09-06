@@ -26,7 +26,6 @@ import logging
 import os
 
 from matplotlib import pyplot as plt
-from pyproj import Proj, transform
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -48,6 +47,7 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape
     import geopandas as gpd
+    from pyproj import Proj, transform
     from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
 __copyright__ = (
