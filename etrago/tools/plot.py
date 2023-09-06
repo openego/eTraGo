@@ -30,7 +30,6 @@ import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
-import tilemapbase
 
 cartopy_present = True
 try:
@@ -49,6 +48,7 @@ if "READTHEDOCS" not in os.environ:
     import geopandas as gpd
     from pyproj import Proj, transform
     from shapely.geometry import LineString, MultiPoint, Point, Polygon
+    import tilemapbase
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
