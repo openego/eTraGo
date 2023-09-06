@@ -25,10 +25,6 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
-    import time
-
-    import numpy as np
-    import pandas as pd
 
     logger = logging.getLogger(__name__)
 
@@ -56,6 +52,9 @@ def grid_optimization(self):
 
 def add_redispatch_generators(self):
     """Add components and parameters to model redispatch with costs
+
+    This function currently assumes that the market_model includes all
+    generators and links for the spatial resolution of the grid optimization
 
     Returns
     -------
@@ -90,57 +89,71 @@ def add_redispatch_generators(self):
         self.network.links.carrier.isin(["OCGT"])
     ].index
 
-    # Fix generator dispatch from market simulation
+    # Fix generator dispatch from market simulation:
+    ## Set p_max_pu of generators using results from (disaggregated) market model
     self.network.generators_t.p_max_pu.loc[
         :, gens_redispatch
-    ] = self.network.generators_t.p[gens_redispatch].mul(
-        1 / self.network.generators.p_nom[gens_redispatch]
+    ] = self.market_model.generators_t.p[gens_redispatch].mul(
+        1 / self.market_model.generators.p_nom[gens_redispatch]
     )
 
+    ## Set p_min_pu of generators using results from (disaggregated) market model
     self.network.generators_t.p_min_pu.loc[
         :, gens_redispatch
-    ] = self.network.generators_t.p[gens_redispatch].mul(
-        1 / self.network.generators.p_nom[gens_redispatch]
+    ] = self.market_model.generators_t.p[gens_redispatch].mul(
+        1 / self.market_model.generators.p_nom[gens_redispatch]
     )
 
-    # Fix link dispatch from market simulation
+    # Fix link dispatch (gas turbines) from market simulation
+    ## Set p_max_pu of links using results from (disaggregated) market model
     self.network.links_t.p_max_pu.loc[
         :, links_redispatch
-    ] = self.network.links_t.p0[links_redispatch].mul(
-        1 / self.network.links.p_nom[links_redispatch]
+    ] = self.market_model.links_t.p0[links_redispatch].mul(
+        1 / self.market_model.links.p_nom[links_redispatch]
     )
 
+    ## Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[
         :, gens_redispatch
-    ] = self.network.links_t.p0[links_redispatch].mul(
-        1 / self.network.links.p_nom[links_redispatch]
+    ] = self.market_model.links_t.p0[links_redispatch].mul(
+        1 / self.market_model.links.p_nom[links_redispatch]
     )
 
     # Calculate costs for redispatch
-    market_price_per_bus = self.network.buses_t.marginal_price
+    ## Extract prices per market zone from market model results
+    market_price_per_bus = self.market_model.buses_t.marginal_price
 
-    self.network.generators.loc[gens_redispatch, "marginal_cost"]
-
+    # Set market price for each disaggregated generator according to the bus
     market_price_per_generator = market_price_per_bus.loc[
-        :, self.network.generators.loc[gens_redispatch, "bus"]
+        :, self.market_model.generators.loc[gens_redispatch, "bus"]
     ].median()
     market_price_per_generator.index = gens_redispatch
 
+    # Costs for ramp_up generators are first set the marginal_cost for each
+    # generator
     ramp_up_costs = self.network.generators.loc[
         gens_redispatch, "marginal_cost"
     ]
 
+    # In case the market price is higher than the marginal_cost (e.g. for renewables)
+    # ram up costs are set to the market price. This way, every generator gets at
+    # least the costs at the market. In case the marginal cost are higher, e.g.
+    # Because of fuel costs, the real marginal price is payed for redispatch
     ramp_up_costs[
         market_price_per_generator
         > self.network.generators.loc[gens_redispatch, "marginal_cost"]
     ] = market_price_per_generator
 
+    # Costs for ramp down generators consist of the market price
+    # which is still payed for the generation. Fuel costs can be saved,
+    # therefore the ramp down costs are reduced by the marginal costs
     ramp_down_costs = (
         market_price_per_generator
         - self.network.generators.loc[gens_redispatch, "marginal_cost"]
     )
 
-    # Add ramp up generators
+    # Add ramp up generators to the network for the grid optimization
+    # Marginal cost are incread by a management fee of 4 EUR/MWh
     self.network.madd(
         "Generator",
         gens_redispatch + " ramp_up",
@@ -150,18 +163,22 @@ def add_redispatch_generators(self):
         carrier=self.network.generators.loc[gens_redispatch, "carrier"].values,
     )
 
+    # Set maximum feed-in limit for ramp up generators based on feed-in of
+    # (disaggregated) generators from the market optimization and potential
+    # feedin time series
     self.network.generators_t.p_max_pu.loc[:, gens_redispatch + " ramp_up"] = (
         (
             self.network.generators_t.p_max_pu.loc[:, gens_redispatch].mul(
                 self.network.generators.loc[gens_redispatch, "p_nom"]
             )
-            - (self.network.generators_t.p.loc[:, gens_redispatch])
+            - (self.market_model.generators_t.p.loc[:, gens_redispatch])
         )
         .clip(lower=0.0)
         .values
     )
 
-    # Add ramp up links
+    # Add ramp up links to the network for the grid optimization
+    # Marginal cost are incread by a management fee of 4 EUR/MWh
     self.network.madd(
         "Link",
         links_redispatch + " ramp_up",
@@ -175,6 +192,8 @@ def add_redispatch_generators(self):
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
     )
 
+    # Set maximum feed-in limit for ramp up links based on feed-in of
+    # (disaggregated) links from the market optimization
     self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_up"] = (
         (
             self.network.links.loc[links_redispatch, "p_nom"]
@@ -184,7 +203,9 @@ def add_redispatch_generators(self):
         .values
     )
 
-    # Add ramp down generators
+    # Add ramp down generators to the network for the grid optimization
+    # Marginal cost are incread by a management fee of 4 EUR/MWh, since the
+    # feedin is negative, the costs are multiplyed by (-1)
     self.network.madd(
         "Generator",
         gens_redispatch + " ramp_down",
@@ -194,15 +215,21 @@ def add_redispatch_generators(self):
         carrier=self.network.generators.loc[gens_redispatch, "carrier"].values,
     )
 
+    # Ramp down generators can not feed-in addtional energy
     self.network.generators_t.p_max_pu.loc[
         :, gens_redispatch + " ramp_down"
     ] = 0
 
+    # Ramp down can be at maximum as high as the feed-in of the
+    # (disaggregated) generators in the market model
     self.network.generators_t.p_min_pu.loc[
         :, gens_redispatch + " ramp_down"
-    ] = (-(self.network.generators_t.p.loc[:, gens_redispatch])).values
+    ] = (-(self.market_model.generators_t.p.loc[:, gens_redispatch])).values
 
-    # Add ramp down links
+    # Add ramp down links to the network for the grid optimization
+    # Marginal cost are currently only the management fee of 4 EUR/MWh,
+    # other costs are somehow complicated due to the gas node and fuel costs
+    # this is still an open ToDO.
     self.network.madd(
         "Link",
         links_redispatch + " ramp_down",
@@ -213,10 +240,13 @@ def add_redispatch_generators(self):
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
     )
 
+    # Ramp down links can not feed-in addtional energy
     self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_down"] = 0
 
+    # Ramp down can be at maximum as high as the feed-in of the
+    # (disaggregated) links in the market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch + " ramp_down"] = (
-        -(self.network.links_t.p0.loc[:, links_redispatch])
+        -(self.market_model.links_t.p0.loc[:, links_redispatch])
     ).values
 
 
