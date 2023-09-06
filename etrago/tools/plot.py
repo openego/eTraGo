@@ -42,13 +42,13 @@ try:
 except ImportError:
     cartopy_present = False
 from pypsa.plot import draw_map_cartopy
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape
+    import geopandas as gpd
+    from shapely.geometry import LineString, MultiPoint, Point, Polygon
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
