@@ -384,19 +384,33 @@ def run_etrago(args, json_path):
         the same clusters of CH4 and AC.
 
     snapshot_clustering : dict
-        {'active': False, 'method':'typical_periods', 'extreme_periods': None, 'how': 'daily',
-         'storage_constraints': 'soc_constraints', 'n_clusters': 5, 'n_segments': 5},
         State if you want to apply a temporal clustering and run the optimization
         only on a subset of snapshot periods.
-        You can choose between a method clustering to typical periods, e.g. days or weeks
-        or a method clustering to segments of adjacent hours.
-        With ``'extreme_periods'`` you define the consideration of timesteps with
-        extreme residual load while temporal aggregation.
-        With ``'how'``, ``'storage_constraints'`` and ``'n_clusters'`` you choose
-        the length of the periods, constraints considering the storages and the number
-        of clusters for the usage of the method typical_periods.
-        With ``'n_segments'`` you choose the number of segments for the usage of
-        the method segmentation.
+        The provided dictionary can have the following entries:
+
+        * "active" : bool
+            Choose, if clustering is activated or not. If True, it is activated.
+            Default: None.
+        * "method" : str
+            Method to apply. Possible options are "typical_periods" and "segmentation".
+            Default: "segmentation".
+        * "extreme_periods" : None or str
+            Method used to consider extreme snapshots (time steps with extreme residual
+            load) in reduced timeseries.
+            Possible options are None, "append", "new_cluster_center", and
+            "replace_cluster_center". The default is None, in which case extreme periods
+            are not considered.
+        * "how" : str
+            Definition of period in case `method` is set to "typical_periods".
+            Possible options are "daily", "weekly", and "monthly". Default: "daily".
+        * "storage_constraints" : str
+            Defines additional constraints for storage units in case `method` is set to
+            "typical_periods". Possible options are "daily_bounds", "soc_constraints"
+            and "soc_constraints_simplified". Default: "soc_constraints".
+        * "n_clusters" : int
+            Number of clusters in case `method` is set to "typical_periods". Default: 5.
+        * "n_segments" : int
+            Number of segments in case `method` is set to "segmentation". Default: 5.
 
     skip_snapshots : bool or int
         State if you only want to consider every n-th timestep
