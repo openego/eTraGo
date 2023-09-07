@@ -2624,12 +2624,7 @@ def adjust_CH4_gen_carriers(self):
             FROM scenario.egon_scenario_parameters
             WHERE name = '{self.args["scn_name"]}';"""
             df = pd.read_sql(sql, engine)
-            # TODO: There might be a bug in here raising a `KeyError`.
-            #       If you encounter it, that means you have live data
-            #       to test against. Please do a `git blame` on these
-            #       lines and follow the hints in the commit message to
-            #       fix the bug.
-            marginal_cost = df["marginal_cost"]
+            marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.ProgrammingError:
             marginal_cost = marginal_cost_def
 
