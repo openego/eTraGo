@@ -39,8 +39,11 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
 
 def grid_optimization(self):
+    
+    logger.info("Start building grid optimization model")
     add_redispatch_generators(self)
-
+    
+    logger.info("Start solving grid optimization model")
     self.network.lopf(
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
@@ -197,7 +200,7 @@ def add_redispatch_generators(self):
     self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_up"] = (
         (
             self.network.links.loc[links_redispatch, "p_nom"]
-            - (self.network.links_t.p0.loc[:, links_redispatch])
+            - (self.market_model.links_t.p0.loc[:, links_redispatch])
         )
         .clip(lower=0.0)
         .values
@@ -218,7 +221,7 @@ def add_redispatch_generators(self):
     # Ramp down generators can not feed-in addtional energy
     self.network.generators_t.p_max_pu.loc[
         :, gens_redispatch + " ramp_down"
-    ] = 0
+    ] = 0.0
 
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) generators in the market model
@@ -241,7 +244,7 @@ def add_redispatch_generators(self):
     )
 
     # Ramp down links can not feed-in addtional energy
-    self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_down"] = 0
+    self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_down"] = 0.0
 
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) links in the market model
@@ -249,6 +252,8 @@ def add_redispatch_generators(self):
         -(self.market_model.links_t.p0.loc[:, links_redispatch])
     ).values
 
+    # just for the current status2019 scenario a quick fix for buses which do not have a connection
+    self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
 
 def extra_functionality():
     return None

@@ -66,7 +66,7 @@ def market_optimization(self):
             extra_functionality=extra_functionality(),
             formulation=self.args["model_formulation"],        
         )
-    self.market_model.model.write('/home/ulf/file2.lp')
+    #self.market_model.model.write('/home/ulf/file2.lp')
     
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
@@ -107,10 +107,11 @@ def build_market_model(self):
     logger.info("Start market zone specifc clustering")
     
     self.clustering, busmap = postprocessing(
-        self, busmap, busmap_foreign, medoid_idx, aggregate_generators_carriers=[])
+        self, busmap, busmap_foreign, medoid_idx, 
+        aggregate_generators_carriers=[], aggregate_links=False)
     
     self.update_busmap(busmap)
-
+ 
     
     net = self.clustering.network
     #links_col = net.links.columns
@@ -133,13 +134,12 @@ def build_market_model(self):
     #net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
     # delete following unconnected CH4 buses. why are they there?
-    net.buses.drop(net.buses[net.buses.index == '37870'].index, inplace=True)
-    net.buses.drop(net.buses[net.buses.index == '37865'].index, inplace=True)
-    
-    self.buses_by_country()
-    self.geolocation_buses()
-    self.market_model = net
+    net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
 
+    self.market_model = net
+    
+    # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
+    
     
 
     

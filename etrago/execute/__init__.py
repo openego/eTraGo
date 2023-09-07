@@ -417,7 +417,7 @@ def optimize(self):
 
         #self.market_results_to_grid()
 
-        #self.grid_optimization()
+        self.grid_optimization()
 
     else:
         print("Method not defined")

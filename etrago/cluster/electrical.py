@@ -802,7 +802,9 @@ def preprocessing(etrago):
     return network_elec, weight, n_clusters, busmap_foreign
 
 
-def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None, aggregate_generators_carriers=None):
+def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None, 
+                   aggregate_generators_carriers=None,
+                   aggregate_links=True):
     """
     Postprocessing function for network clustering.
 
@@ -911,9 +913,9 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None, aggregate_ge
                     "y"
                 ].loc[medoid]
 
-    clustering.network.links, clustering.network.links_t = group_links(
-        clustering.network
-    )
+    if aggregate_links == True:
+        clustering.network.links, clustering.network.links_t = group_links(
+        clustering.network)
 
     return (clustering, busmap)
 
