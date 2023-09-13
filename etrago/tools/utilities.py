@@ -740,7 +740,7 @@ def export_to_csv(self, path):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
