@@ -237,6 +237,9 @@ def run_etrago(args, json_path):
             "logFile": "solver_etrago.log",
             "threads": 4,
         }
+
+        Make sure to reset or adapt these settings when using another solver! Otherwise,
+        you may run into errors.
     model_formulation : str
         Choose formulation of pyomo-model.
         Current options are: "angles", "cycles", "kirchhoff", "ptdf".
