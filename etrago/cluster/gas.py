@@ -344,8 +344,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-    
-    if 'H2' in etrago.network.buses.carrier.unique():
+
+    if "H2" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap

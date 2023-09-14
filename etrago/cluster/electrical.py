@@ -69,7 +69,7 @@ __author__ = (
 
 def _leading(busmap, df):
     """
-    Returns a function that computes the leading bus_id for a given mapped 
+    Returns a function that computes the leading bus_id for a given mapped
     list of buses.
 
     Parameters
@@ -95,7 +95,7 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
     """
-    Adjusts the non-electric network based on the electrical network 
+    Adjusts the non-electric network based on the electrical network
     (esp. eHV network), adds the gas buses to the busmap, and creates the
     new buses for the non-electric network.
 
@@ -117,7 +117,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     """
     network = etrago.network
-    # network2 is supposed to contain all the not electrical or gas buses 
+    # network2 is supposed to contain all the not electrical or gas buses
     # and links
     network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
@@ -386,9 +386,9 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
 def delete_ehv_buses_no_lines(network):
     """
-    When there are AC buses totally isolated, this function deletes them in 
+    When there are AC buses totally isolated, this function deletes them in
     order to make possible the creation of busmaps based on electrical
-    connections and other purposes. Additionally, it throws a warning to 
+    connections and other purposes. Additionally, it throws a warning to
     inform the user in case that any correction should be done.
 
     Parameters
@@ -769,9 +769,9 @@ def preprocessing(etrago):
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
 
-        # The Dijkstra clustering works using the shortest electrical path 
+        # The Dijkstra clustering works using the shortest electrical path
         # between buses. In some cases, a bus has just DC connections, which
-        # are considered links. Therefore it is necessary to include 
+        # are considered links. Therefore it is necessary to include
         # temporarily the DC links into the lines table.
         dc = network.links[network.links.carrier == "DC"]
         str1 = "DC_"
@@ -936,7 +936,6 @@ def weighting_for_scenario(network, save=None):
     """
 
     def calc_availability_factor(gen):
-
         """
         Calculate the availability factor for a given generator.
 
@@ -952,10 +951,10 @@ def weighting_for_scenario(network, save=None):
 
         Notes
         -----
-        Availability factor is defined as the ratio of the average power 
-        output of the generator over the maximum power output capacity of 
+        Availability factor is defined as the ratio of the average power
+        output of the generator over the maximum power output capacity of
         the generator. If the generator is time-dependent, its average power
-        output is calculated using the `network.generators_t` DataFrame. 
+        output is calculated using the `network.generators_t` DataFrame.
         Otherwise, its availability factor is obtained from the
         `fixed_capacity_fac` dictionary, which contains pre-defined factors
         for fixed capacity generators. If the generator's availability factor

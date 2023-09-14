@@ -2721,7 +2721,6 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
 
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
-
     print("TODO")
 
     # TODO: implementieren
