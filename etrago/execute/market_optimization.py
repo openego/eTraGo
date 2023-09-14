@@ -134,7 +134,7 @@ def build_market_model(self):
     #net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
     # delete following unconnected CH4 buses. why are they there?
-    net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
+    #net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
 
     self.market_model = net
     

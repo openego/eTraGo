@@ -42,6 +42,8 @@ def grid_optimization(self):
     
     logger.info("Start building grid optimization model")
     add_redispatch_generators(self)
+    self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
+    self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
     
     logger.info("Start solving grid optimization model")
     self.network.lopf(
@@ -51,6 +53,7 @@ def grid_optimization(self):
         extra_functionality=extra_functionality(),
         formulation=self.args["model_formulation"],
     )
+    self.export_to_csv(self.args["csv_export"])
 
 
 def add_redispatch_generators(self):
@@ -253,7 +256,7 @@ def add_redispatch_generators(self):
     ).values
 
     # just for the current status2019 scenario a quick fix for buses which do not have a connection
-    self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
+    #self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
 
 def extra_functionality():
     return None
