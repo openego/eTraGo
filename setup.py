@@ -68,7 +68,12 @@ setup(
         "tsam",
     ],
     extras_require={
-        "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],
+        "docs": [
+            "nbsphinx",
+            "numpydoc",
+            "sphinx >= 1.4",
+            "sphinx_rtd_theme",
+        ],
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
     },

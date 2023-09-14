@@ -21,9 +21,9 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
+import os
 import logging
 
-from egoio.tools import db
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
@@ -31,6 +31,9 @@ from pypsa.pf import get_switchable_as_dense as get_as_dense
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
+
+if "READTHEDOCS" not in os.environ:
+    from egoio.tools import db
 
 logger = logging.getLogger(__name__)
 
@@ -311,11 +314,14 @@ def _cross_border_flow(self, network, snapshots):
     Extra_functionality that limits overall AC crossborder flows from/to Germany.
     Add key 'cross_border_flow' and array with minimal and maximal import/export
     Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
+
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
+
     Returns
     -------
     None.
@@ -398,11 +404,14 @@ def _cross_border_flow_nmp(self, network, snapshots):
     Extra_functionality that limits overall crossborder flows from/to Germany.
     Add key 'cross_border_flow' and array with minimal and maximal import/export
     Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
+
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
+
     Returns
     -------
     None.
@@ -464,11 +473,14 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
     define dictionary of country keys and desired limitations of im/exports in MWh
     Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
+
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
+
     Returns
     -------
     None.
@@ -550,11 +562,14 @@ def _cross_border_flow_per_country(self, network, snapshots):
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
     define dictionary of country keys and desired limitations of im/exports in MWh
     Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
+
+    Parameters
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
+
     Returns
     -------
     None.
@@ -712,7 +727,6 @@ def _capacity_factor(self, network, snapshots):
     a dictonary as a fraction of generation potential.
     Example: 'capacity_factor': {'run_of_river': [0, 0.5], 'solar': [0.1, 1]}
 
-
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -764,7 +778,6 @@ def _capacity_factor_nmp(self, network, snapshots):
     Add key 'capacity_factor' to args.extra_functionality and set limits in
     a dictonary as a fraction of generation potential.
     Example: 'capacity_factor': {'run_of_river': [0, 0.5], 'solar': [0.1, 1]}
-
 
     Parameters
     ----------
@@ -954,7 +967,6 @@ def _capacity_factor_per_gen(self, network, snapshots):
     Example:
     'capacity_factor_per_gen': {'run_of_river': [0, 0.5], 'solar': [0.1, 1]}
 
-
     Parameters
     ----------
     network : :class:`pypsa.Network
@@ -1022,7 +1034,6 @@ def _capacity_factor_per_gen_nmp(self, network, snapshots):
     limits in a dictonary as a fraction of generation potential.
     Example:
     'capacity_factor_per_gen': {'run_of_river': [0, 0.5], 'solar': [0.1, 1]}
-
 
     Parameters
     ----------
@@ -1323,7 +1334,7 @@ def add_ch4_constraints(self, network, snapshots):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
@@ -1412,7 +1423,7 @@ def add_ch4_constraints_nmp(self, network, snapshots):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
@@ -1496,7 +1507,7 @@ def snapshot_clustering_daily_bounds(self, network, snapshots):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps that will be constrained
@@ -1535,7 +1546,7 @@ def snapshot_clustering_daily_bounds_nmp(self, network, snapshots):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps that will be constrained
@@ -1609,7 +1620,7 @@ def snapshot_clustering_seasonal_storage(
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : list
         A list of datetime objects representing the timestamps of the snapshots
@@ -2429,7 +2440,7 @@ def snapshot_clustering_seasonal_storage_hourly(self, network, snapshots):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : list
         A list of datetime objects representing the timestamps of the snapshots
@@ -2534,7 +2545,7 @@ def snapshot_clustering_seasonal_storage_nmp(self, n, sns, simplified=False):
 
     Parameters
     ----------
-    n : :class:`pypsa.Network
+    n : :class:`pypsa.Network`
         Overall container of PyPSA
     sns : list
         A list of datetime objects representing the timestamps of the snapshots
@@ -2636,7 +2647,7 @@ def snapshot_clustering_seasonal_storage_hourly_nmp(self, n, sns):
 
     Parameters
     ----------
-    n : :class:`pypsa.Network
+    n : :class:`pypsa.Network`
         Overall container of PyPSA
     sns : list
         A list of datetime objects representing the timestamps of the snapshots
@@ -2664,7 +2675,7 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     snapshots : pandas.DatetimeIndex
         List of timesteps considered in the optimization
@@ -2728,10 +2739,10 @@ class Constraints:
 
         Parameters
         ----------
-        network : :class:`pypsa.Network
+        network : :class:`pypsa.Network`
             Overall container of PyPSA
         snapshots : pandas.DatetimeIndex
-        List of timesteps considered in the optimization
+            List of timesteps considered in the optimization
 
         """
         if "CH4" in network.buses.carrier.values:
