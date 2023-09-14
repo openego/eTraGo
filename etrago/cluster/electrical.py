@@ -147,7 +147,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # eHV network
     busmap2 = {}
 
-    # Map crossborder AC buses in case that they were not part of the k-mean clustering
+    # Map crossborder AC buses in case that they were not part of the k-mean
+    # clustering
     if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
@@ -749,7 +750,7 @@ def preprocessing(etrago):
 
                 ----------------------- WARNING ---------------------------
                 THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
-                    {network.buses[network.buses.country.isna()].index.to_list()}.
+                {network.buses[network.buses.country.isna()].index.to_list()}.
                 THEY WILL BE ASSIGNED TO GERMANY, BUT IT IS POTENTIALLY A
                 SIGN OF A PROBLEM IN THE DATASET.
                 ----------------------- WARNING ---------------------------
