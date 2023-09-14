@@ -37,8 +37,8 @@ import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
     from egoio.tools import db
-    import geopandas as gpd
     from shapely.geometry import Point
+    import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
