@@ -24,11 +24,11 @@ calc_results.py defines methods to calculate results of eTraGo
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import time
     import logging
+    import time
 
-    import pandas as pd
     import numpy as np
+    import pandas as pd
 
     logger = logging.getLogger(__name__)
 

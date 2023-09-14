@@ -26,8 +26,9 @@ Essentially used is the tsam package
 ( https://github.com/FZJ-IEK3-VSA/tsam ) developed by Leander Kotzur et al.
 """
 
-import pandas as pd
 import os
+
+import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
     import pyomo.environ as po

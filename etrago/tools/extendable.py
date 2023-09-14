@@ -21,16 +21,14 @@
 """
 Extendable.py defines function to set PyPSA components extendable.
 """
-from etrago.tools.utilities import convert_capital_costs, find_snapshots
-
-from etrago.cluster.snapshot import snapshot_clustering
+from math import sqrt
+import time
 
 import numpy as np
 import pandas as pd
 
-import time
-from math import sqrt
-
+from etrago.cluster.snapshot import snapshot_clustering
+from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
