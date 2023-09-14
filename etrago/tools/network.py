@@ -22,8 +22,8 @@
 Define class Etrago
 """
 
-import os
 import logging
+import os
 
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
