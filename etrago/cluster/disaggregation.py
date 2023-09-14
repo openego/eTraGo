@@ -66,8 +66,8 @@ class Disaggregation:
         :param cluster: Index of the cluster to disaggregate
         :return: Tuple of (partial_network, external_buses) where
             `partial_network` is the result of the partial decomposition
-            and `external_buses` represent clusters adjacent to `cluster` that may
-            be influenced by calculations done on the partial network.
+            and `external_buses` represent clusters adjacent to `cluster` that
+            may be influenced by calculations done on the partial network.
         """
 
         # Create an empty network
