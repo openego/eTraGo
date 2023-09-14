@@ -4,7 +4,15 @@ from pprint import pformat
 import nox
 
 cleaned = [
+   "etrago/appl.py",
+    "etrago/cluster/electrical.py",
     "etrago/cluster/disaggregation.py",
+    "etrago/cluster/gas.py",
+    "etrago/cluster/snapshot.py",
+    "etrago/cluster/spatial.py",
+    "etrago/tools/extendable.py",
+    "etrago/tools/execute.py",
+    "etrago/tools/io.py",
     "etrago/tools/network.py",
     "etrago/tools/utilities.py",
     "noxfile.py",
