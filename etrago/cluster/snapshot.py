@@ -650,7 +650,10 @@ def run(
     )
 
     if segmentation != False:
-        timeseries.to_csv(
+        pd.DataFrame(
+            timeseries.reset_index(),
+            columns=["dates", "SegmentNo", "SegmentDuration"],
+        ).set_index("SegmentNo").to_csv(
             "timeseries_segmentation=" + str(segment_no) + ".csv"
         )
     else:
@@ -695,7 +698,7 @@ def prepare_pypsa_timeseries(network):
         Timeseries to be considered when clustering.
 
     """
-    
+
     loads = network.loads_t.p_set.copy()
     loads.columns = "L" + loads.columns
 
@@ -792,7 +795,7 @@ def skip_snapshots(self):
     None.
 
     """
-    
+
     # save second network for optional dispatch disaggregation
     if (
         self.args["temporal_disaggregation"]["active"] == True
@@ -803,7 +806,6 @@ def skip_snapshots(self):
     n_skip = self.args["skip_snapshots"]
 
     if n_skip:
-
         last_weight = (
             int(
                 (
@@ -831,4 +833,3 @@ def skip_snapshots(self):
             self.network.snapshot_weightings.loc[
                 self.network.snapshot_weightings.index[-1]
             ]["generators"] = last_weight
-

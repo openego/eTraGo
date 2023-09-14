@@ -52,3 +52,7 @@ jobs:
         run: "python -m nox -s build"
         env:
           PLATFORM: ${{ matrix.os.image }}
+      - name: "Install the package"
+        run: "python -m nox -s install"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
