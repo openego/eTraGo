@@ -57,7 +57,7 @@ setup(
         # Fix upper version limits for pyomo and pandas
         # Related to problems with old pypsa version
         "pandas < 2",
-        "pyomo>6.4, <6.6",
+        "pyomo>6.4, <6.6, !=6.4.3",
         "pypsa == 0.20.1",
         "rtree",
         "saio",
