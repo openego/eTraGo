@@ -41,8 +41,14 @@ if "READTHEDOCS" not in os.environ:
     import networkx as nx
     import numpy as np
     import pandas as pd
+    import pypsa
 
-    from etrago.tools.utilities import *
+    from etrago.tools.utilities import (
+        buses_grid_linked,
+        buses_of_vlvl,
+        connected_grid_lines,
+        connected_transformer,
+        )
 
     logger = logging.getLogger(__name__)
 
@@ -92,7 +98,7 @@ def nan_links(x):
 
 
 def ext_storage(x):
-    v = any(x[x == True])
+    v = any(x[x is True])
     return v
 
 
@@ -314,7 +320,7 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i : i + n], g)
+        yield (nodes[i: i + n], g)
 
 
 def shortest_path(paths, graph):
@@ -341,7 +347,7 @@ def shortest_path(paths, graph):
 
     df_isna = df.isnull()
     for s, t in paths:
-        while df_isna.loc[(s, t), "path_length"] == True:
+        while df_isna.loc[(s, t), "path_length"]:
             try:
                 s_to_other = nx.single_source_dijkstra_path_length(graph, s)
                 for t in idx.levels[1]:
@@ -506,7 +512,7 @@ def busmap_from_psql(etrago):
     """
     scn_name = (
         etrago.args["scn_name"]
-        if etrago.args["scn_extension"] == None
+        if etrago.args["scn_extension"] is None
         else etrago.args["scn_name"]
         + "_ext_"
         + "_".join(etrago.args["scn_extension"])
@@ -717,8 +723,9 @@ def kmedoids_dijkstra_clustering(
     etrago, buses, connections, weight, n_clusters
 ):
     """
-    Applies a k-medoids clustering on the given network and calls the function to conduct a Dijkstra's
-    algorithm afterwards for the consideration of the network's topology in the spatial clustering.
+    Applies a k-medoids clustering on the given network and calls the function
+    to conduct a Dijkstra's algorithm afterwards for the consideration of the
+    network's topology in the spatial clustering.
 
     Parameters
     ----------
