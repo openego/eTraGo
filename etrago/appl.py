@@ -80,7 +80,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_100b_3t_2035",  # save results as csv: False or /path/tofolder
+    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_50b_5t_2035_redispatch",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -90,9 +90,9 @@ args = {
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
             "grid_max_abs_D": {  # absolute capacity per voltage level
-                "380": {"i": 1020, "wires": 4, "circuits": 4},
-                "220": {"i": 1020, "wires": 4, "circuits": 4},
-                "110": {"i": 1020, "wires": 4, "circuits": 2},
+                "380": {"i": 1020, "wires": 4, "circuits": 8},
+                "220": {"i": 1020, "wires": 4, "circuits": 8},
+                "110": {"i": 1020, "wires": 4, "circuits": 4},
                 "dc": 0,
             },
             # border crossing lines
@@ -106,10 +106,10 @@ args = {
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
     "network_clustering": {
         "active": True,  # choose if clustering is activated
-        "method": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "method_gas": "kmeans",  # choose clustering method: kmeans or kmedoids-dijkstra
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
@@ -148,7 +148,7 @@ args = {
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
-    "skip_snapshots": 3,  # False or number of snapshots to skip
+    "skip_snapshots": 5,  # False or number of snapshots to skip
     "temporal_disaggregation": {
         "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into

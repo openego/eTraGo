@@ -79,6 +79,7 @@ from etrago.tools.utilities import (
     convert_capital_costs,
     crossborder_capacity,
     delete_dispensable_ac_buses,
+    delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
     filter_links_by_carrier,
@@ -308,6 +309,8 @@ class Etrago:
     hydrogen_stores = hydrogen_stores
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
+    
+    delete_irrelevant_oneports = delete_irrelevant_oneports
 
     get_clustering_data = get_clustering_data
 
@@ -395,6 +398,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+        
+        self.delete_irrelevant_oneports()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

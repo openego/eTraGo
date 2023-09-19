@@ -42,8 +42,8 @@ def grid_optimization(self):
     
     logger.info("Start building grid optimization model")
     add_redispatch_generators(self)
-    self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
-    self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
+    #self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
+    #self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
     
     logger.info("Start solving grid optimization model")
     self.network.lopf(
@@ -225,7 +225,6 @@ def add_redispatch_generators(self):
     self.network.generators_t.p_max_pu.loc[
         :, gens_redispatch + " ramp_down"
     ] = 0.0
-
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) generators in the market model
     self.network.generators_t.p_min_pu.loc[
