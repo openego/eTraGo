@@ -171,7 +171,7 @@ class NetworkScenario(ScenarioBase):
             )
         )
 
-        self.timeindex = timeindex[self.start_snapshot - 1 : self.end_snapshot]
+        self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
 
     def id_to_source(self):
         ormclass = self._mapped["Source"]
@@ -290,7 +290,7 @@ class NetworkScenario(ScenarioBase):
                     vars()[f"egon_etrago_{name.lower()}_timeseries"], index_col
                 ),
                 getattr(vars()[f"egon_etrago_{name.lower()}_timeseries"], col)[
-                    self.start_snapshot : self.end_snapshot
+                    self.start_snapshot:self.end_snapshot
                 ],
             ).filter(
                 vars()[f"egon_etrago_{name.lower()}_timeseries"].scn_name
@@ -501,7 +501,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
     print("Uploading results to db...")
     # get last result id and get new one
     last_res_id = session.query(max(ResultMeta.result_id)).scalar()
-    if last_res_id == None:
+    if last_res_id is None:
         new_res_id = 1
     else:
         new_res_id = last_res_id + 1
