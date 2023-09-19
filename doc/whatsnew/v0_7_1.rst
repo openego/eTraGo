@@ -1,5 +1,5 @@
 Release 0.7.1 (October 25, 2018)
-++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++
 A minor release adding new options for additional constraints, modelling assumptions and plotting.
 
 Added features

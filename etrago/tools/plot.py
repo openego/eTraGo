@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -26,12 +26,10 @@ import logging
 import os
 
 from matplotlib import pyplot as plt
-from pyproj import Proj, transform
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
-import tilemapbase
 
 cartopy_present = True
 try:
@@ -42,13 +40,15 @@ try:
 except ImportError:
     cartopy_present = False
 from pypsa.plot import draw_map_cartopy
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape
+    import geopandas as gpd
+    from pyproj import Proj, transform
+    from shapely.geometry import LineString, MultiPoint, Point, Polygon
+    import tilemapbase
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -57,7 +57,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, MarlonSchlemminger, mariusves, lukasol"
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
+CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
 
 
 def set_epsg_network(network):
@@ -117,6 +118,17 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 
 def coloring():
+    """
+    Return a dictionary with a color assign to each kind of carrier used in
+    etrago.network. This is used for plotting porpuses.
+
+    Returns
+    -------
+    colors : dict
+        Color for each kind of carrier.
+
+    """
+
     colors = {
         "load": "red",
         "DC": "blue",
@@ -180,6 +192,7 @@ def coloring():
         "battery": "blue",
         "pumped_hydro": "indigo",
         "BEV charger": "indigo",
+        "BEV_charger": "indigo",
     }
 
     return colors
@@ -209,9 +222,11 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
+
     """
     if osm != False:
         if set_epsg_network.counter == 0:
@@ -228,21 +243,26 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
         data with a negative min and positive max and you want the
         middle of the colormap's dynamic range to be at zero
 
-        Input
-        -----
-          cmap : The matplotlib colormap to be altered
-          start : Offset from lowest point in the colormap's range.
-              Defaults to 0.0 (no lower ofset). Should be between
-              0.0 and `midpoint`.
-          midpoint : The new center of the colormap. Defaults to
-              0.5 (no shift). Should be between 0.0 and 1.0. In
-              general, this should be  1 - vmax/(vmax + abs(vmin))
-              For example if your data range from -15.0 to +5.0 and
-              you want the center of the colormap at 0.0, `midpoint`
-              should be set to  1 - 5/(5 + 15)) or 0.75
-          stop : Offset from highets point in the colormap's range.
-              Defaults to 1.0 (no upper ofset). Should be between
-              `midpoint` and 1.0.
+        Parameters
+        -----------
+        cmap :
+            The matplotlib colormap to be altered
+        start :
+            Offset from lowest point in the colormap's range.
+            Defaults to 0.0 (no lower ofset). Should be between
+            0.0 and `midpoint`.
+        midpoint :
+            The new center of the colormap. Defaults to
+            0.5 (no shift). Should be between 0.0 and 1.0. In
+            general, this should be  1 - vmax/(vmax + abs(vmin))
+            For example if your data range from -15.0 to +5.0 and
+            you want the center of the colormap at 0.0, `midpoint`
+            should be set to  1 - 5/(5 + 15)) or 0.75
+        stop :
+            Offset from highets point in the colormap's range.
+            Defaults to 1.0 (no upper ofset). Should be between
+            `midpoint` and 1.0.
+
         """
         cdict = {"red": [], "green": [], "blue": [], "alpha": []}
 
@@ -339,9 +359,10 @@ def network_expansion_diff(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     """
     if osm != False:
@@ -412,6 +433,10 @@ def plot_residual_load(network):
     Parameters
     ----------
     network : PyPSA network containter
+
+    Returns
+    -------
+    Plot
     """
 
     renewables = network.generators[
@@ -564,13 +589,12 @@ def plot_gen_diff(
     """
     Plot difference in generation between two networks grouped by carrier type
 
-
     Parameters
     ----------
     networkA : PyPSA network container with switches
     networkB : PyPSA network container without switches
-    leave_out_carriers : list of carriers to leave out (default to all small
-    carriers)
+    leave_out_carriers :
+        list of carriers to leave out (default to all small carriers)
 
     Returns
     -------
@@ -582,7 +606,7 @@ def plot_gen_diff(
             pd.concat(
                 [
                     network.generators_t.p.mul(
-                        etwork.snapshot_weightings, axis=0
+                        network.snapshot_weightings, axis=0
                     )[
                         network.generators[
                             network.generators.control != "Slack"
@@ -629,7 +653,6 @@ def plot_voltage(network, boundaries=[], osm=False):
     """
     Plot voltage at buses as hexbin
 
-
     Parameters
     ----------
     network : PyPSA network container
@@ -637,9 +660,10 @@ def plot_voltage(network, boundaries=[], osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     Returns
     -------
@@ -916,6 +940,10 @@ def gen_dist_diff(
     filename : str
         Specify filename
         If not given, figure will be show directly
+
+    Returns
+    -------
+    None.
     """
     if techs is None:
         techs = networkA.generators.carrier.unique()
@@ -1026,17 +1054,27 @@ def nodal_gen_dispatch(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
+
+    Returns
+    -------
+    None.
     """
 
     if osm != False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+    elif (osm == False) and cartopy_present:
+        fig, ax = plt.subplots(
+            subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
+        )
+
     else:
-        fig, ax = plt.subplots(1, 1)
+        fig, ax = plt.subplots(figsize=(5, 5))
 
     if techs:
         gens = network.generators[network.generators.carrier.isin(techs)]
@@ -1099,10 +1137,9 @@ def nodal_gen_dispatch(
         }
         dispatch = dispatch.abs()
         subcolors = {"negative": "red", "positive": "green"}
-    import cartopy.crs as ccrs
 
-    fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
     network.plot(
+        geomap=(cartopy_present | osm),
         bus_sizes=dispatch * scaling,
         bus_colors=colors,
         line_widths=0.2,
@@ -1189,6 +1226,10 @@ def storage_p_soc(network, mean="1H", filename=None):
     mean : str
         Defines over how many snapshots the p and soc values will averaged.
     filename : path to folder
+
+    Returns
+    -------
+    None.
 
     """
 
@@ -1322,6 +1363,10 @@ def storage_soc_sorted(network, filename=None):
         Holds topology of grid including results from powerflow analysis
 
     filename : path to folder
+
+    Returns
+    -------
+    None.
 
     """
     sbatt = network.storage_units.index[
@@ -1639,30 +1684,28 @@ def plot_background_grid(network, ax):
     None.
 
     """
-
-    network.plot(
-        ax=ax,
-        line_colors="grey",
-        link_colors="grey",
-        bus_sizes=0,
-        line_widths=0.5,
-        link_widths=0.3,  # 0.55,
-        geomap=True,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
-
-    network.plot(
-        ax=ax,
-        line_colors="grey",
-        link_colors="grey",
-        bus_sizes=0,
-        line_widths=0.5,
-        link_widths=0.3,  # 0.55,
-        geomap=True,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
+    if cartopy_present:
+        network.plot(
+            ax=ax,
+            line_colors="grey",
+            link_colors="grey",
+            bus_sizes=0,
+            line_widths=0.5,
+            link_widths=0.3,  # 0.55,
+            geomap=True,
+            projection=ccrs.PlateCarree(),
+            color_geomap=True,
+        )
+    else:
+        network.plot(
+            ax=ax,
+            line_colors="grey",
+            link_colors="grey",
+            bus_sizes=0,
+            line_widths=0.5,
+            link_widths=0.3,  # 0.55,
+            geomap=False,
+        )
 
 
 def demand_side_management(self, buses, snapshots, agg="5h", used=False):
@@ -1681,7 +1724,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1761,7 +1804,7 @@ def bev_flexibility_potential(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1868,7 +1911,7 @@ def heat_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -1948,7 +1991,7 @@ def hydrogen_stores(
 
     Returns
     -------
-    potential : pandas.DataFrame
+    df : pandas.DataFrame
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
@@ -2101,9 +2144,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(
-    network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True
-):
+def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     """
     Parameters
     ----------
@@ -2126,7 +2167,7 @@ def plot_carrier(
     line_colors = "lightblue"
 
     # Set background
-    if cartopy == True:
+    if cartopy_present:
         plt.rcParams["figure.autolayout"] = True
         fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
         draw_map_cartopy(ax, color_geomap=True)
@@ -2155,7 +2196,7 @@ def plot_carrier(
     title = ""
 
     network.plot(
-        geomap=True,
+        geomap=cartopy_present,
         bus_sizes=bus_sizes,
         link_widths=link_width,
         line_widths=line_widths,
@@ -2196,35 +2237,39 @@ def plot_grid(
 ):
     """Function that plots etrago.network and results for lines and buses
 
-
-
     Parameters
     ----------
     line_colors : str
         Set static line color or attribute to plot e.g. 'expansion_abs'
         Current options:
-            'line_loading': mean line loading in p.u. in selected timesteps
-            'v_nom': nominal voltage of lines
-            'expansion_abs': absolute network expansion in MVA
-            'expansion_rel': network expansion in p.u. of existing capacity
-            'q_flow_max': maximal reactive flows
+
+        * 'line_loading': mean line loading in p.u. in selected timesteps
+        * 'v_nom': nominal voltage of lines
+        * 'expansion_abs': absolute network expansion in MVA
+        * 'expansion_rel': network expansion in p.u. of existing capacity
+        * 'q_flow_max': maximal reactive flows
+
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
     bus_colors : str, optional
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
-            'nodal_production_balance': net producer/consumer in selected timeteps
-            'storage_expansion': storage expansion per bus and technology
-            'storage_distribution': installed storage units per bus
-            'gen_dist': dispatch per carrier in selected timesteps
+
+        * 'nodal_production_balance': net producer/consumer in selected timeteps
+        * 'storage_expansion': storage expansion per bus and technology
+        * 'storage_distribution': installed storage units per bus
+        * 'gen_dist': dispatch per carrier in selected timesteps
+
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default is range(2).
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm. The default is False.
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm. The default is False.
+
     boundaries: array
        Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
@@ -2263,10 +2308,13 @@ def plot_grid(
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
 
-    else:
+    elif (osm == False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
+
+    else:
+        fig, ax = plt.subplots(figsize=(5, 5))
 
     # Set line colors
     if line_colors == "line_loading":
@@ -2374,21 +2422,36 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    ll = network.plot(
-        line_colors=line_colors,
-        link_colors=link_colors,
-        line_cmap=plt.cm.jet,
-        link_cmap=plt.cm.jet,
-        bus_sizes=bus_sizes,
-        bus_colors=bus_colors,
-        line_widths=line_widths,
-        link_widths=0,  # link_widths,
-        flow=flow,
-        title=title,
-        geomap=False,
-        projection=ccrs.PlateCarree(),
-        color_geomap=True,
-    )
+    if cartopy_present:
+        ll = network.plot(
+            line_colors=line_colors,
+            link_colors=link_colors,
+            line_cmap=plt.cm.jet,
+            link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths,
+            link_widths=0,  # link_widths,
+            flow=flow,
+            title=title,
+            geomap=False,
+            projection=ccrs.PlateCarree(),
+            color_geomap=True,
+        )
+    else:
+        ll = network.plot(
+            line_colors=line_colors,
+            link_colors=link_colors,
+            line_cmap=plt.cm.jet,
+            link_cmap=plt.cm.jet,
+            bus_sizes=bus_sizes,
+            bus_colors=bus_colors,
+            line_widths=line_widths,
+            link_widths=0,  # link_widths,
+            flow=flow,
+            title=title,
+            geomap=False,
+        )
 
     # legends for bus sizes and colors
     if type(bus_sizes) != float:
@@ -2518,7 +2581,6 @@ def plot_clusters(
     self,
     carrier="AC",
     save_path=False,
-    cartopy=True,
     transmission_lines=False,
     gas_pipelines=False,
 ):
@@ -2539,12 +2601,11 @@ def plot_clusters(
     gas_pipelines : bool, optional
         The default is False. Define if the original gas pipelines are
         plotted or not.
+
     Returns
     -------
     None.
     """
-    # TODO: Make this function available for other carriers
-    # Create geometries
     new_geom = self.network.buses[
         [
             "carrier",
@@ -2572,7 +2633,7 @@ def plot_clusters(
     )
 
     # Set background
-    if cartopy == True:
+    if cartopy_present:
         plt.rcParams["figure.autolayout"] = True
         fig, ax = plt.subplots(subplot_kw={"projection": ccrs.PlateCarree()})
         draw_map_cartopy(ax, color_geomap=True)

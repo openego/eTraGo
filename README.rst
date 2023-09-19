@@ -19,13 +19,15 @@ eTraGo
 Optimization of flexibility options for transmission grids based on PyPSA
 
 A speciality in this context is that transmission grids are described by the
-380, 220 and 110 kV in Germany. Conventionally the 110kV grid is part of the
+380, 220 and 110 kV in Germany. Conventionally, the 110kV grid is part of the
 distribution grid. The integration of the transmission and 'upper' distribution
 grid is part of eTraGo.
 
 The focus of optimization are flexibility options with a special focus on
 energy storages. Grid expansion measures are not part of this tool and will be
 instead part of 'eGo' https://github.com/openego/eGo
+
+eTraGo is documented on `readthedocs <https://etrago.readthedocs.io>`_.
 
 .. warning::
   From now on eTraGo depends on a sector coupled data-model. This is not published on 
@@ -34,7 +36,6 @@ instead part of 'eGo' https://github.com/openego/eGo
   Not all functions and features are compatible to the sector coupled model yet.
   
   When you want to use eTraGo for optimizations, please use the latest release 0.8.0. 
-
 
 Installation
 ============
@@ -88,7 +89,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.7
+   $ virtualenv venv --clear -p python3.8
    $ source venv/bin/activate
    $ cd venv
 

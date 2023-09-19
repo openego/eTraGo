@@ -51,6 +51,7 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
+    "network_clustering_ehv": false,
     "network_clustering": {
         "active": true,
         "method": "kmedoids-dijkstra",
@@ -58,15 +59,16 @@
         "cluster_foreign_AC": false,
         "n_clusters_gas": 30,
         "cluster_foreign_gas": false,
-        "k_busmap": false,
-        "kmeans_gas_busmap": false,
-        "line_length_factor": 1,
-        "remove_stubs": false,
-        "use_reduced_coordinates": false,
+        "k_elec_busmap": false,
+        "k_gas_busmap": false,
         "bus_weight_tocsv": null,
         "bus_weight_fromcsv": null,
         "gas_weight_tocsv": null,
         "gas_weight_fromcsv": null,
+        "line_length_factor": 1,
+        "remove_stubs": false,
+        "use_reduced_coordinates": false,
+	"random_state":42,
         "n_init": 10,
         "max_iter": 100,
         "tol": 1e-06
@@ -74,39 +76,28 @@
     "sector_coupled_clustering": {
         "active": true,
         "carrier_data": {
-            "H2_ind_load": {
-                "base": [
-                    "H2_grid"
-                ],
-                "strategy": "consecutive"
-            },
             "central_heat": {
                 "base": [
                     "CH4",
                     "AC"
                 ],
-                "strategy": "consecutive"
+                "strategy": "simultaneous"
             },
-            "rural_heat": {
-                "base": [
-                    "CH4",
-                    "AC"
-                ],
-                "strategy": "consecutive"
-            }
-        }
     },
-    "network_clustering_ehv": false,
-    "disaggregation": "uniform",
+    "disaggregation": null,
     "snapshot_clustering": {
         "active": false,
-        "method": "typical_periods",
+        "method": "segmentation",
         "how": "daily",
-        "storage_constraints": "",
+        "storage_constraints": "soc_constraints",
         "n_clusters": 5,
         "n_segments": 5
     },
-    "skip_snapshots": 3,
+    "skip_snapshots": 5,
+    "temporal_disaggregation": {
+    	"active": true,
+    	"no_slices": 8,
+    },
     "branch_capacity_factor": {
         "HV": 0.5,
         "eHV": 0.7

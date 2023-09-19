@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -23,11 +23,14 @@ Define class Etrago
 """
 
 import logging
+import os
 
-from egoio.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
+
+if "READTHEDOCS" not in os.environ:
+    from egoio.tools import db
 
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
@@ -86,6 +89,7 @@ from etrago.tools.utilities import (
     get_args_setting,
     get_clustering_data,
     load_shedding,
+    manual_fixes_datamodel,
     set_branch_capacity,
     set_line_costs,
     set_q_foreign_loads,
@@ -97,16 +101,26 @@ from etrago.tools.utilities import (
 
 logger = logging.getLogger(__name__)
 
+__copyright__ = (
+    "Flensburg University of Applied Sciences, "
+    "Europa-Universität Flensburg, "
+    "Centre for Sustainable Energy Systems, "
+    "DLR-Institute for Networked Energy Systems"
+)
+__license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
+__author__ = """AmeliaNadal, CarlosEpia, ClaraBuettner, KathiEsterl, gnn,
+ fwitte, ulfmueller, pieterhexen"""
+
 
 class Etrago:
     """
-    Object containing pypsa.Network including the transmission grid,
-    input parameters and optimization results.
+    Object containing pypsa.Network including the transmission grid, not
+    electric sectors, input parameters and optimization results.
 
     Parameters
     ----------
     args : dict
-        Dictionary including all inpu parameters.
+        Dictionary including all input parameters.
     csv_folder_name : string
         Name of folder from which to import CSVs of network data.
     name : string, default ""
@@ -305,6 +319,8 @@ class Etrago:
 
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
+    manual_fixes_datamodel = manual_fixes_datamodel
+
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
 
@@ -331,7 +347,8 @@ class Etrago:
 
         self.decommissioning()
 
-        self.add_ch4_h2_correspondence()
+        if "H2" in self.network.buses.carrier:
+            self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 
@@ -345,6 +362,8 @@ class Etrago:
         None.
 
         """
+
+        self.manual_fixes_datamodel()
 
         self.geolocation_buses()
 
