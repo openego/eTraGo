@@ -500,7 +500,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
 
     print("Uploading results to db...")
     # get last result id and get new one
-    last_res_id = session.query(func.max(ResultMeta.result_id)).scalar()
+    last_res_id = session.query(max(ResultMeta.result_id)).scalar()
     if last_res_id == None:
         new_res_id = 1
     else:
@@ -539,7 +539,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.generators.carrier[gen] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.generators.carrier[gen]
             session.add(new_source)
@@ -564,7 +564,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.storage_units.carrier[stor] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.storage_units.carrier[stor]
             session.add(new_source)
