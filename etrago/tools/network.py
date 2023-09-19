@@ -58,7 +58,6 @@ from etrago.tools.io import (
 from etrago.tools.plot import (
     bev_flexibility_potential,
     demand_side_management,
-    flexibility_duration_curve,
     flexibility_usage,
     heat_stores,
     hydrogen_stores,
@@ -289,8 +288,6 @@ class Etrago:
     plot_heat_loads = plot_heat_loads
 
     plot_heat_summary = plot_heat_summary
-
-    plot_flexibility_duration_curve = flexibility_duration_curve
 
     plot_flexibility_usage = flexibility_usage
 

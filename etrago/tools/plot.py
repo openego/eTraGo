@@ -124,6 +124,7 @@ def coloring():
         "power_to_H2": "cyan",
         "H2_overground": "cyan",
         "H2_underground": "cyan",
+        "H2": "cyan",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -144,6 +145,7 @@ def coloring():
         "H2_to_CH4": "seagreen",
         "central_heat_store_charger": "firebrick",
         "central_heat_store": "firebrick",
+        "heat": "firebrick",
         "rural_heat_store_charger": "salmon",
         "rural_heat_store": "salmon",
         "central_heat_store_discharger": "firebrick",
@@ -3335,14 +3337,15 @@ def shifted_energy(self, carrier, buses):
     shifted = supply - demand
     return shifted
 
-
-def flexibility_duration_curve(self, buses, filename=None):
+def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
     """Plot duration curves of flexibility options
 
     Parameters
     ----------
-    buses : list
-        List of considered bus indices
+    etrago : Etrago
+        Object including network with flexibility options
+    etrago_lowflex : Etrago
+        Object including network with less flexibility options
     filename : str, optional
         Name of file to save plot. The default is None.
 
@@ -3351,51 +3354,67 @@ def flexibility_duration_curve(self, buses, filename=None):
     None.
 
     """
+    colors = coloring()
+
+    value = 'p'
+    
+    df = pd.DataFrame()
+    
+    dsm_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('dsm')]
+    df['dsm_positive'] = etrago.network.stores_t[value][dsm_stores.index].clip(lower=0).sum(axis=1)
+    df['dsm_negative'] = etrago.network.stores_t[value][dsm_stores.index].clip(upper=0).sum(axis=1)
+
+    emob_static = etrago_lowflex.network.loads[
+        etrago_lowflex.network.loads.carrier=='land transport EV']
+    
+    emob_static_t = etrago_lowflex.network.loads_t.p_set[emob_static.index]
+    
+    emob_static_t = emob_static_t.loc[:, emob_static.index]
+    
+    emob_static_t.columns = emob_static.bus.values
+    
+    emob_flex = etrago.network.links[etrago.network.links.carrier.str.contains('BEV')]
+    
+    emob_flex_t = etrago.network.links_t.p0[emob_flex.index]
+    
+    emob_flex_t = emob_flex_t.loc[:, emob_flex.index]
+    
+    emob_flex_t.columns = emob_flex.bus0.values
+
+    emob_flex_t - emob_static_t
+    df['BEV charger_positive'] = (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
+    df['BEV charger_negative'] = (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+
+    heat_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('heat')]
+    df['heat_positive'] = etrago.network.stores_t[value][heat_stores.index].clip(lower=0).sum(axis=1)
+    df['heat_negative'] = etrago.network.stores_t[value][heat_stores.index].clip(upper=0).sum(axis=1)
+
+    h2_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('H2')]
+    df['H2_positive'] = etrago.network.stores_t[value][h2_stores.index].clip(lower=0).sum(axis=1)
+    df['H2_negative'] = etrago.network.stores_t[value][h2_stores.index].clip(upper=0).sum(axis=1)
+
     fig, ax = plt.subplots(figsize=(15, 8))
-    df = pd.DataFrame(index=range(len(self.network.snapshots)))
+    for c in df.columns:
+        result = pd.Series(dtype=float)
+        color = colors[c.split('_')[0]]
+        for p in range(0,100):             
+             result[
+                 p*df[c].abs().max()
+                 *np.sign(df[c].sum())/100] = (
+                     df[c][df[c].abs()>p*0.01*df[c].abs().max()].size / df[c].size) *100
+             
+        data_to_plot = pd.DataFrame(index = result.values, data = result.index*1e-3)
+        data_to_plot.columns = [c.split('_')[0]]
+        data_to_plot.plot(ax=ax, color = color, linewidth=3.0)
+    plt.axhline(y = 0.0, color = 'grey', linestyle = 'dotted')
+    ax.set_xlim(0, 80)
+    ax.set_xlabel("time in %")
+    ax.set_ylabel("flexibility usage in GW")
 
-    df["dsm"] = (
-        self.demand_side_management(
-            buses=buses,
-            snapshots=range(len(self.network.snapshots)),
-            used=True,
-        )
-        .e.sort_values()
-        .reset_index()
-        .e
-    )
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
 
-    df["mobility"] = (
-        (
-            self.bev_flexibility_potential(
-                buses=buses,
-                snapshots=range(len(self.network.snapshots)),
-                used=True,
-            ).e
-            - self.bev_flexibility_potential(
-                buses=buses,
-                snapshots=range(len(self.network.snapshots)),
-                used=True,
-            )[["e_max", "e_min"]].mean(axis=1)
-        )
-        .sort_values()
-        .reset_index()[0]
-    )
-    df["mobility"]
-    df["heat"] = (
-        shifted_energy(self, "heat", buses).sort_values().reset_index()[0]
-    )
-
-    df["hydrogen_stores"] = (
-        shifted_energy(self, "H2", buses).sort_values().reset_index()[0]
-    )
-
-    df.mul(1e-3).plot(ax=ax)
-    ax.set_ylabel("Usage in GWh")
-    plt.axhline(y=0.0, color="grey", linestyle="dotted")
-
-    if filename is None:
-        plt.show()
-    else:
-        matplotlib.pylab.savefig(filename, dpi=400, bbox_inches="tight")
+    if filename:
+        fig.savefig(filename, dpi=600)
         plt.close()
