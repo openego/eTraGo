@@ -206,7 +206,7 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(self):
+def buses_by_country(network, con):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
@@ -241,7 +241,6 @@ def buses_by_country(self):
 
     # read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
     path = gpd.datasets.get_path("naturalearth_lowres")
@@ -252,7 +251,7 @@ def buses_by_country(self):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
-    geobuses = self.network.buses.copy()
+    geobuses = network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point([x["x"], x["y"]]), axis=1
     )
@@ -264,7 +263,7 @@ def buses_by_country(self):
 
     for country in countries:
         geobuses["country"][
-            self.network.buses.index.isin(
+            network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -277,7 +276,7 @@ def buses_by_country(self):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    self.network.buses = geobuses.drop(columns="geom")
+    network.buses = geobuses.drop(columns="geom")
 
     return
 

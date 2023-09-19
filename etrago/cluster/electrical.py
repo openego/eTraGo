@@ -46,7 +46,9 @@ if "READTHEDOCS" not in os.environ:
         strategies_generators,
         strategies_one_ports,
     )
-    from etrago.tools.utilities import *
+    from etrago.tools.utilities import (
+        buses_by_country,
+        )
 
     logger = logging.getLogger(__name__)
 
@@ -479,7 +481,7 @@ def ehv_clustering(self):
         )
 
         self.update_busmap(busmap)
-        self.buses_by_country()
+        buses_by_country(network= self.network, con=self.engine)
 
         logger.info("Network clustered to EHV-grid")
 
@@ -1103,8 +1105,8 @@ def run_spatial_clustering(self):
 
         self.network = self.clustering.network
 
-        self.buses_by_country()
-
+        buses_by_country(network= self.network, con=self.engine)
+        breakpoint()
         self.geolocation_buses()
 
         self.network.generators.control[

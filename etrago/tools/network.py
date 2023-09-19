@@ -74,7 +74,6 @@ from etrago.tools.plot import (
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
-    buses_by_country,
     check_args,
     convert_capital_costs,
     crossborder_capacity,
@@ -276,8 +275,6 @@ class Etrago:
     set_trafo_costs = set_trafo_costs
 
     drop_sectors = drop_sectors
-
-    buses_by_country = buses_by_country
 
     update_busmap = update_busmap
 
