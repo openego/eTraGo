@@ -169,7 +169,7 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* of *.egoio*, 
+        Name of Database session setting stored in *config.ini* of *.egoio*,
         e.g. ``'oedb'``.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
@@ -183,14 +183,14 @@ def run_etrago(args, json_path):
             Type of optimization, currently only "lopf". Default: "lopf".
         * "n_iter" : int
             In case of extendable lines, several LOPFs have to be performed.
-            You can either set "n_iter" and specify a fixed number of 
+            You can either set "n_iter" and specify a fixed number of
             iterations or set "threshold" and specify a threshold of the
             objective function as abort criteria of the iterative optimization.
             Default: 4.
         * "threshold" : int
             In case of extendable lines, several LOPFs have to be performed.
-            You can either set "n_iter" and specify a fixed number of 
-            iterations or set "threshold" and specify a threshold of the 
+            You can either set "n_iter" and specify a fixed number of
+            iterations or set "threshold" and specify a threshold of the
             objective function as abort criteria of the iterative optimization.
             Per default, "n_iter" of 4 is set.
         * "pyomo" : bool
