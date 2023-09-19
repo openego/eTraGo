@@ -136,7 +136,6 @@ args = {
             },
         },
     },
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": "uniform",  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {

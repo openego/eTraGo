@@ -32,6 +32,9 @@ import pandas as pd
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.execute import dispatch_disaggregation, optimize, run_pf_post_lopf
 from etrago.execute.grid_optimization import (
     add_redispatch_generators,
     grid_optimization,
@@ -40,15 +43,7 @@ from etrago.execute.market_optimization import (
     build_market_model,
     market_optimization,
 )
-
-from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import calc_etrago_results
-from etrago.execute import (
-    dispatch_disaggregation,
-    optimize,
-    run_pf_post_lopf,
-)
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
     NetworkScenario,
@@ -74,7 +69,6 @@ from etrago.tools.plot import (
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
-    buses_by_country,
     check_args,
     convert_capital_costs,
     crossborder_capacity,
@@ -277,8 +271,6 @@ class Etrago:
     set_trafo_costs = set_trafo_costs
 
     drop_sectors = drop_sectors
-
-    buses_by_country = buses_by_country
 
     update_busmap = update_busmap
 

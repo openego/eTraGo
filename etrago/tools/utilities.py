@@ -145,11 +145,17 @@ def geolocation_buses(self):
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago`
+    self : :class:`etrago.Etrago`
        Transmission grid object
+       or
+       :class:'pypsa.components.Network'
 
     """
-    network = self.network
+
+    if not isinstance(self, pypsa.components.Network):
+        network = self.network
+    else:
+        network = self
 
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
@@ -203,18 +209,19 @@ def geolocation_buses(self):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
-    return network
+    return
 
 
-def buses_by_country(self):
+def buses_by_country(network, con):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
 
     Parameters
     ----------
-    self : Etrago object
+    self : :class:'pypsa.components.Network'
         Overall container of PyPSA
+    con : connexion to db
 
     Returns
     -------
@@ -241,7 +248,6 @@ def buses_by_country(self):
 
     # read Germany borders from egon-data
     query = "SELECT * FROM boundaries.vg250_lan"
-    con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
     path = gpd.datasets.get_path("naturalearth_lowres")
@@ -252,7 +258,7 @@ def buses_by_country(self):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
-    geobuses = self.network.buses.copy()
+    geobuses = network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point([x["x"], x["y"]]), axis=1
     )
@@ -264,7 +270,7 @@ def buses_by_country(self):
 
     for country in countries:
         geobuses["country"][
-            self.network.buses.index.isin(
+            network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -277,7 +283,7 @@ def buses_by_country(self):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    self.network.buses = geobuses.drop(columns="geom")
+    network.buses = geobuses.drop(columns="geom")
 
     return
 

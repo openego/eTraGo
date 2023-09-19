@@ -27,15 +27,16 @@ if "READTHEDOCS" not in os.environ:
     import logging
     import time
 
+    from pypsa.networkclustering import get_clustering_from_busmap
     import numpy as np
     import pandas as pd
-    
-    from etrago.cluster.electrical import (preprocessing, postprocessing,)    
+
+    from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.cluster.spatial import (
+        strategies_generators,
         strategies_one_ports,
-        strategies_generators,)
-    
-    from pypsa.networkclustering import get_clustering_from_busmap
+    )
+    from etrago.tools.utilities import buses_by_country, geolocation_buses
 
 
 
@@ -137,11 +138,10 @@ def build_market_model(self):
     #net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
 
     self.market_model = net
-    
-    # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
-    
-    
 
+    buses_by_country(network= self.market_model, con=self.engine)
+
+    geolocation_buses(self.market_model)
     
 
 def extra_functionality():
