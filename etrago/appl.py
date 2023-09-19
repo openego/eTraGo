@@ -143,7 +143,7 @@ args = {
         "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
-        "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
+        "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
