@@ -875,10 +875,6 @@ def decommissioning(self, **kwargs):
                 row["scn_name"]
                 == "extension_" + self.args["scn_decommissioning"]
             ):
-                v_nom_dec = df_decommisionning["v_nom"][
-                    (df_decommisionning.project == row["project"])
-                    & (df_decommisionning.project_id == row["project_id"])
-                ]
 
                 self.network.lines.s_nom_min[
                     self.network.lines.index == idx
