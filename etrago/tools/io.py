@@ -196,7 +196,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus,
             egon_etrago_generator,
             egon_etrago_line,
@@ -251,7 +251,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus_timeseries,
             egon_etrago_generator_timeseries,
             egon_etrago_line_timeseries,
