@@ -505,7 +505,7 @@ def ac_export_per_country(self):
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany
+        Electricity export (if negative: import) from Germany in TWh
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
@@ -585,7 +585,7 @@ def dc_export_per_country(self):
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany
+        Electricity export (if negative: import) from Germany in TWh
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
