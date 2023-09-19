@@ -48,7 +48,7 @@ if "READTHEDOCS" not in os.environ:
         buses_of_vlvl,
         connected_grid_lines,
         connected_transformer,
-        )
+    )
 
     logger = logging.getLogger(__name__)
 
@@ -320,7 +320,7 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i: i + n], g)
+        yield (nodes[i : i + n], g)
 
 
 def shortest_path(paths, graph):
