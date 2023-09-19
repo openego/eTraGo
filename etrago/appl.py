@@ -29,7 +29,6 @@ import datetime
 import os
 import os.path
 
-import numpy as np
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
