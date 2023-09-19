@@ -48,6 +48,7 @@ if "READTHEDOCS" not in os.environ:
     )
     from etrago.tools.utilities import (
         buses_by_country,
+        geolocation_buses
         )
 
     logger = logging.getLogger(__name__)
@@ -1106,7 +1107,7 @@ def run_spatial_clustering(self):
         self.network = self.clustering.network
 
         buses_by_country(network= self.network, con=self.engine)
-        breakpoint()
+
         self.geolocation_buses()
 
         self.network.generators.control[

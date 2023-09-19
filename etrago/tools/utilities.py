@@ -145,11 +145,17 @@ def geolocation_buses(self):
 
     Parameters
     ----------
-    etrago : :class:`etrago.Etrago`
+    self : :class:`etrago.Etrago`
        Transmission grid object
+       or
+       :class:'pypsa.components.Network'
 
     """
-    network = self.network
+
+    if not isinstance(self, pypsa.components.Network):
+        network = self.network
+    else:
+        network = self
 
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
@@ -203,7 +209,7 @@ def geolocation_buses(self):
         c_bus1 = network.buses.loc[network.links.loc[link, "bus1"], "country"]
         network.links.loc[link, "country"] = "{}{}".format(c_bus0, c_bus1)
 
-    return network
+    return
 
 
 def buses_by_country(network, con):
