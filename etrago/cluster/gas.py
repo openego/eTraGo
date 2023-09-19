@@ -24,6 +24,8 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
+    import logging
+
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -31,7 +33,6 @@ if "READTHEDOCS" not in os.environ:
         busmap_by_kmeans,
     )
     from six import iteritems
-    import logging
     import numpy as np
     import pandas as pd
     import pypsa.io as io
