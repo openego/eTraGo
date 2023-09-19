@@ -967,7 +967,7 @@ def weighting_for_scenario(network, save=None):
         else:
             try:
                 cf = fixed_capacity_fac[gen["carrier"]]
-            except:
+            except KeyError:
                 print(gen)
                 cf = 1
         return cf
