@@ -171,7 +171,7 @@ class NetworkScenario(ScenarioBase):
             )
         )
 
-        self.timeindex = timeindex[self.start_snapshot - 1: self.end_snapshot]
+        self.timeindex = timeindex[self.start_snapshot - 1 : self.end_snapshot]
 
     def id_to_source(self):
         ormclass = self._mapped["Source"]
@@ -290,7 +290,7 @@ class NetworkScenario(ScenarioBase):
                     vars()[f"egon_etrago_{name.lower()}_timeseries"], index_col
                 ),
                 getattr(vars()[f"egon_etrago_{name.lower()}_timeseries"], col)[
-                    self.start_snapshot:self.end_snapshot
+                    self.start_snapshot : self.end_snapshot
                 ],
             ).filter(
                 vars()[f"egon_etrago_{name.lower()}_timeseries"].scn_name
@@ -875,7 +875,6 @@ def decommissioning(self, **kwargs):
                 row["scn_name"]
                 == "extension_" + self.args["scn_decommissioning"]
             ):
-
                 self.network.lines.s_nom_min[
                     self.network.lines.index == idx
                 ] = self.network.lines.s_nom_min
