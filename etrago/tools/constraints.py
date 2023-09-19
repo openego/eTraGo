@@ -1656,7 +1656,7 @@ def snapshot_clustering_seasonal_storage(
     # create set for inter-temp constraints and variables
     network.model.candidates = po.Set(initialize=candidates, ordered=True)
 
-    if simplified == False:
+    if not simplified:
         # create intra soc variable for each storage/store and each hour
         network.model.state_of_charge_intra = po.Var(
             sus.index, network.snapshots
