@@ -27,19 +27,16 @@ if "READTHEDOCS" not in os.environ:
     import logging
     import time
 
+    from pypsa.networkclustering import get_clustering_from_busmap
     import numpy as np
     import pandas as pd
-    
-    from etrago.cluster.electrical import (preprocessing, postprocessing,)    
+
+    from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.cluster.spatial import (
+        strategies_generators,
         strategies_one_ports,
-        strategies_generators,)
-    from etrago.tools.utilities import (
-        buses_by_country,
-        geolocation_buses
-        )
-    
-    from pypsa.networkclustering import get_clustering_from_busmap
+    )
+    from etrago.tools.utilities import buses_by_country, geolocation_buses
 
 
 
