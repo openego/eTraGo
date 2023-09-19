@@ -101,7 +101,8 @@ def preprocessing(etrago):
         )
     ]
 
-    # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
+    # select buses dependent on whether they should be clustered in
+    # (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
@@ -997,7 +998,8 @@ def run_spatial_clustering_gas(self):
             self.update_busmap(busmap)
 
             logger.info(
-                "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                """GAS Network clustered to {} DE-buses and {} foreign buses 
+                with {} algorithm.""".format(
                     len(
                         self.network.buses.loc[
                             (self.network.buses.carrier == "CH4")
