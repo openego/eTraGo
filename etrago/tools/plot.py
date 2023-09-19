@@ -117,7 +117,6 @@ def plot_osm(x, y, zoom, alpha=0.4):
 
 
 def coloring():
-
     colors = {
         "load": "red",
         "DC": "blue",
@@ -219,6 +218,7 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
             set_epsg_network(networkA)
             set_epsg_network(networkB)
         plot_osm(osm["x"], osm["y"], osm["zoom"])
+
     # new colormap to make sure 0% difference has the same color in every plot
     def shiftedColorMap(
         cmap, start=0, midpoint=0.5, stop=1.0, name="shiftedcmap"
@@ -1224,7 +1224,6 @@ def storage_p_soc(network, mean="1H", filename=None):
         network.storage_units.p_nom_opt[sbatt].sum() > 1
         and network.storage_units.p_nom_opt[shydr].sum() < 1
     ):
-
         (
             network.storage_units_t.p[sbatt].resample(mean).mean().sum(axis=1)
             / network.storage_units.p_nom_opt[sbatt].sum()
@@ -1449,7 +1448,6 @@ def calc_ac_loading(network, timesteps):
     )
 
     if not network.lines_t.q0.empty:
-
         loading_lines = (
             loading_lines**2
             + mul_weighting(network, network.lines_t.q0)
@@ -1490,7 +1488,6 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
-
             l = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
@@ -1608,7 +1605,6 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
                 network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
 
     if method == "rel":
-
         extension_lines = (
             100
             * (network.lines.s_nom_opt - network.lines.s_nom_min)
@@ -1667,6 +1663,7 @@ def plot_background_grid(network, ax):
         projection=ccrs.PlateCarree(),
         color_geomap=True,
     )
+
 
 def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     """Calculate shifting potential of demand side management
@@ -2051,7 +2048,6 @@ def flexibility_usage(
         )
 
     elif flexibility == "battery":
-        
         df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
         su = self.network.storage_units[
@@ -2105,7 +2101,9 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True):
+def plot_carrier(
+    network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=True
+):
     """
     Parameters
     ----------
@@ -2138,13 +2136,11 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"], cartopy=Tr
     link_width = pd.Series(index=network.links.index, data=2)
 
     if len(carrier_links) > 0:
-
         link_width.loc[~network.links.carrier.isin(carrier_links)] = 0
 
     bus_sizes = pd.Series(index=network.buses.index, data=0.0005)
 
     if len(carrier_buses) > 0:
-
         bus_sizes.loc[~network.buses.carrier.isin(carrier_buses)] = 0
 
     link_colors = network.links.carrier.map(colors)
@@ -3259,7 +3255,7 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
             data.resample(t_resolution).mean().plot(
                 ax=ax, label=i, legend=True
             )
-        
+
         heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
             ax=ax,
             legend=True,
@@ -3278,6 +3274,7 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
+
 
 def shifted_energy(self, carrier, buses):
     """Calulate shifted energy for a specific carrier
@@ -3337,6 +3334,7 @@ def shifted_energy(self, carrier, buses):
     shifted = supply - demand
     return shifted
 
+
 def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
     """Plot duration curves of flexibility options
 
@@ -3356,57 +3354,96 @@ def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
     """
     colors = coloring()
 
-    value = 'p'
-    
+    value = "p"
+
     df = pd.DataFrame()
-    
-    dsm_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('dsm')]
-    df['dsm_positive'] = etrago.network.stores_t[value][dsm_stores.index].clip(lower=0).sum(axis=1)
-    df['dsm_negative'] = etrago.network.stores_t[value][dsm_stores.index].clip(upper=0).sum(axis=1)
+
+    dsm_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("dsm")
+    ]
+    df["dsm_positive"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["dsm_negative"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
 
     emob_static = etrago_lowflex.network.loads[
-        etrago_lowflex.network.loads.carrier=='land transport EV']
-    
+        etrago_lowflex.network.loads.carrier == "land transport EV"
+    ]
+
     emob_static_t = etrago_lowflex.network.loads_t.p_set[emob_static.index]
-    
+
     emob_static_t = emob_static_t.loc[:, emob_static.index]
-    
+
     emob_static_t.columns = emob_static.bus.values
-    
-    emob_flex = etrago.network.links[etrago.network.links.carrier.str.contains('BEV')]
-    
+
+    emob_flex = etrago.network.links[
+        etrago.network.links.carrier.str.contains("BEV")
+    ]
+
     emob_flex_t = etrago.network.links_t.p0[emob_flex.index]
-    
+
     emob_flex_t = emob_flex_t.loc[:, emob_flex.index]
-    
+
     emob_flex_t.columns = emob_flex.bus0.values
 
     emob_flex_t - emob_static_t
-    df['BEV charger_positive'] = (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
-    df['BEV charger_negative'] = (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+    df["BEV charger_positive"] = (
+        (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
+    )
+    df["BEV charger_negative"] = (
+        (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+    )
 
-    heat_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('heat')]
-    df['heat_positive'] = etrago.network.stores_t[value][heat_stores.index].clip(lower=0).sum(axis=1)
-    df['heat_negative'] = etrago.network.stores_t[value][heat_stores.index].clip(upper=0).sum(axis=1)
+    heat_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("heat")
+    ]
+    df["heat_positive"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["heat_negative"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
 
-    h2_stores =  etrago.network.stores[etrago.network.stores.carrier.str.contains('H2')]
-    df['H2_positive'] = etrago.network.stores_t[value][h2_stores.index].clip(lower=0).sum(axis=1)
-    df['H2_negative'] = etrago.network.stores_t[value][h2_stores.index].clip(upper=0).sum(axis=1)
+    h2_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("H2")
+    ]
+    df["H2_positive"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["H2_negative"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
 
     fig, ax = plt.subplots(figsize=(15, 8))
     for c in df.columns:
         result = pd.Series(dtype=float)
-        color = colors[c.split('_')[0]]
-        for p in range(0,100):             
-             result[
-                 p*df[c].abs().max()
-                 *np.sign(df[c].sum())/100] = (
-                     df[c][df[c].abs()>p*0.01*df[c].abs().max()].size / df[c].size) *100
-             
-        data_to_plot = pd.DataFrame(index = result.values, data = result.index*1e-3)
-        data_to_plot.columns = [c.split('_')[0]]
-        data_to_plot.plot(ax=ax, color = color, linewidth=3.0)
-    plt.axhline(y = 0.0, color = 'grey', linestyle = 'dotted')
+        color = colors[c.split("_")[0]]
+        for p in range(0, 100):
+            result[p * df[c].abs().max() * np.sign(df[c].sum()) / 100] = (
+                df[c][df[c].abs() > p * 0.01 * df[c].abs().max()].size
+                / df[c].size
+            ) * 100
+
+        data_to_plot = pd.DataFrame(
+            index=result.values, data=result.index * 1e-3
+        )
+        data_to_plot.columns = [c.split("_")[0]]
+        data_to_plot.plot(ax=ax, color=color, linewidth=3.0)
+    plt.axhline(y=0.0, color="grey", linestyle="dotted")
     ax.set_xlim(0, 80)
     ax.set_xlabel("time in %")
     ax.set_ylabel("flexibility usage in GW")
