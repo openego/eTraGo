@@ -25,9 +25,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
-    import time
 
-    import numpy as np
     import pandas as pd
 
     logger = logging.getLogger(__name__)
