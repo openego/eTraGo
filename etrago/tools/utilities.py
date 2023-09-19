@@ -219,8 +219,9 @@ def buses_by_country(network, con):
 
     Parameters
     ----------
-    self : Etrago object
+    self : :class:'pypsa.components.Network'
         Overall container of PyPSA
+    con : connexion to db
 
     Returns
     -------
