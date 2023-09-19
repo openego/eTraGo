@@ -1963,7 +1963,7 @@ def snapshot_clustering_seasonal_storage(
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
-            hrs = 24  # 0 ###
+            hrs = 24
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
@@ -1978,7 +1978,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
 
@@ -2005,7 +2005,7 @@ def snapshot_clustering_seasonal_storage(
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
-            hrs = 24  # 0 ###
+            hrs = 24
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
@@ -2028,7 +2028,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
         )
 
@@ -2046,7 +2046,7 @@ def snapshot_clustering_seasonal_storage(
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
         else:
-            hrs = 24  # 0
+            hrs = 24
 
         return (
             m.state_of_charge_intra_min[
@@ -2055,7 +2055,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
 
@@ -2065,7 +2065,7 @@ def snapshot_clustering_seasonal_storage(
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
         else:
-            hrs = 24  # 0
+            hrs = 24
 
         if "DSM" in s:
             if self.args["snapshot_clustering"]["how"] == "weekly":
@@ -2109,7 +2109,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
         )
 
@@ -2188,7 +2188,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
@@ -2241,7 +2241,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
         )
 
@@ -2265,7 +2265,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
@@ -2331,7 +2331,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
         )
 
