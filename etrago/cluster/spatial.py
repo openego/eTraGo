@@ -188,8 +188,10 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
 
     Returns
     -------
-    new_df : links aggregated based on bus0, bus1 and carrier
-    new_pnl : links time series aggregated
+    new_df :
+        links aggregated based on bus0, bus1 and carrier
+    new_pnl :
+        links time series aggregated
     """
 
     def normed_or_uniform(x):
@@ -278,7 +280,7 @@ def graph_from_edges(edges):
 
     Returns
     -------
-    M : :class:`networkx.classes.multigraph.MultiGraph
+    M : :class:`networkx.classes.multigraph.MultiGraph`
     """
 
     M = nx.MultiGraph()
@@ -303,7 +305,7 @@ def gen(nodes, n, graph):
         List of nodes in the system.
     n : int
         Number of desired multiprocessing units.
-    graph : :class:`networkx.classes.multigraph.MultiGraph
+    graph : :class:`networkx.classes.multigraph.MultiGraph`
         Graph representation of an electrical grid.
 
     Returns
@@ -325,7 +327,7 @@ def shortest_path(paths, graph):
     ----------
     paths : list
         List of pairs containing a source and a target node
-    graph : :class:`networkx.classes.multigraph.MultiGraph
+    graph : :class:`networkx.classes.multigraph.MultiGraph`
         Graph representation of an electrical grid.
 
     Returns

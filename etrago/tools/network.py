@@ -23,11 +23,14 @@ Define class Etrago
 """
 
 import logging
+import os
 
-from egoio.tools import db
 from pypsa.components import Network
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
+
+if "READTHEDOCS" not in os.environ:
+    from egoio.tools import db
 
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
@@ -333,7 +336,8 @@ class Etrago:
 
         self.decommissioning()
 
-        self.add_ch4_h2_correspondence()
+        if "H2" in self.network.buses.carrier:
+            self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
 

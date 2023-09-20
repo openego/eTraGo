@@ -1,8 +1,11 @@
-.. make doc-string generated documentation appear here
+API
+====
 
 .. toctree::
    :maxdepth: 7
    :glob:
    :titlesonly:
 
-   API <api/modules>
+   api/etrago.cluster
+   api/etrago.tools
+   api/appl.rst

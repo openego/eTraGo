@@ -113,9 +113,9 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     -------
     network : pypsa.Network
         Container for all network components of the clustered network.
-
     busmap : dict
         Maps old bus_ids to new bus_ids including all sectors.
+
     """
     network = etrago.network
     # network2 is supposed to contain all the not electrical or gas buses

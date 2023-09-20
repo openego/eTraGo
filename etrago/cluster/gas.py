@@ -318,11 +318,10 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame
 
     Returns
     -------
-    Tuple containing:
-        network_gasgrid_c : pypsa.Network
-            A pypsa.Network containing the clustered network.
-        busmap : pd.Series
-            A Pandas Series mapping each bus to its corresponding cluster ID.
+    network_gasgrid_c : pypsa.Network
+        A pypsa.Network containing the clustered network.
+    busmap : pd.Series
+        A Pandas Series mapping each bus to its corresponding cluster ID.
     """
     settings = etrago.args["network_clustering"]
 
@@ -352,12 +351,14 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-    breakpoint()
+
+    #breakpoint()
     ###########################################################################
     #include busmap_area to busmap
     ###########################################################################
-    
-    busmap = get_h2_clusters(etrago, busmap)
+
+    if 'H2' in etrago.network.buses.carrier.unique():
+        busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
@@ -943,11 +944,12 @@ def run_spatial_clustering_gas(self):
     buses and links, and then performs postprocessing to finalize the changes.
 
     Returns
-        None
+    --------
+    None
 
     Raises
-        ValueError: If the selected method is not "kmeans" or
-        "kmedoids-dijkstra".
+    -------
+    ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
 
     """
     if "CH4" in self.network.buses.carrier.values:
