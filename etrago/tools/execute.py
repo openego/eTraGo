@@ -810,7 +810,7 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     # if foreign lines are DC, execute pf only on sub_network in Germany
     if (args["foreign_lines"]["carrier"] == "DC") or (
-        (args["scn_extension"] is None)
+        (args["scn_extension"] is not None)
         and ("BE_NO_NEP 2035" in args["scn_extension"])
     ):
         foreign_bus, foreign_comp, foreign_series = drop_foreign_components(
@@ -883,7 +883,7 @@ def pf_post_lopf(etrago, calc_losses=False):
     if (
         (args["foreign_lines"]["carrier"] == "DC")
         or (
-            (args["scn_extension"] is None)
+            (args["scn_extension"] is not None)
             and ("BE_NO_NEP 2035" in args["scn_extension"])
         )
     ) and etrago.args["pf_post_lopf"]["add_foreign_lopf"]:

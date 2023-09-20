@@ -98,7 +98,7 @@ def nan_links(x):
 
 
 def ext_storage(x):
-    v = any(x[x is True])
+    v = any(x[x])
     return v
 
 
