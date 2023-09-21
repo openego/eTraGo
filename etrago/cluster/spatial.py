@@ -802,6 +802,7 @@ def kmedoids_dijkstra_clustering(
 
     return busmap, medoid_idx
 
+
 def find_buses_area(etrago, carrier):
     """
     Find buses of a specified carrier in a defined area. Usually used to
@@ -810,24 +811,27 @@ def find_buses_area(etrago, carrier):
     settings = etrago.args["network_clustering"]
 
     if settings["exclusion_area"]:
-        con = etrago.engine
-        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+        if isinstance(settings["exclusion_area"], list):
+            con = etrago.engine
+            query = "SELECT gen, geometry FROM boundaries.vg250_krs"
 
-        de_areas = gpd.read_postgis(query, con, geom_col="geometry")
-        de_areas = de_areas[de_areas["gen"].isin(settings["exclusion_area"])]
+            de_areas = gpd.read_postgis(query, con, geom_col="geometry")
+            de_areas = de_areas[
+                de_areas["gen"].isin(settings["exclusion_area"])
+            ]
+        elif isinstance(settings["exclusion_area"], str):
+            de_areas = gpd.read_file(settings["exclusion_area"])
+        else:
+            raise Exception(
+                "not supported format supplied to the 'exclusion_area' argument"
+            )
 
         try:
             buses_area = gpd.GeoDataFrame(
                 etrago.network.buses, geometry="geom", crs=4326
             )
         except:
-            buses_area = etrago.network.buses[
-                [
-                    "x",
-                    "y",
-                    "carrier"
-                ]
-            ]
+            buses_area = etrago.network.buses[["x", "y", "carrier"]]
             buses_area["geom"] = buses_area.apply(
                 lambda x: Point(x["x"], x["y"]), axis=1
             )
