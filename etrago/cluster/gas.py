@@ -36,10 +36,10 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
 
     from etrago.cluster.spatial import (
+        find_buses_area,
         group_links,
         kmedoids_dijkstra_clustering,
         sum_with_inf,
-        find_buses_area,
     )
     from etrago.tools.utilities import *
 

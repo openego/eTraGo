@@ -40,12 +40,12 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         busmap_from_psql,
+        find_buses_area,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
         strategies_generators,
         strategies_one_ports,
-        find_buses_area
     )
     from etrago.tools.utilities import *
 
