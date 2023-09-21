@@ -39,7 +39,7 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmedoids_dijkstra_clustering,
         sum_with_inf,
-        find_buses_area
+        find_buses_area,
     )
     from etrago.tools.utilities import *
 
@@ -127,7 +127,8 @@ def preprocessing(etrago):
     # Exclude buses in the area that should not be clustered
     busmap_area = find_buses_area(etrago, "CH4")
     network_ch4.buses = network_ch4.buses[
-        ~network_ch4.buses.index.isin(busmap_area.index)]
+        ~network_ch4.buses.index.isin(busmap_area.index)
+    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
@@ -300,7 +301,9 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
-def gas_postprocessing(etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame()):
+def gas_postprocessing(
+    etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame()
+):
     """
     Performs the postprocessing for the gas grid clustering based on the
     provided busmap
@@ -352,12 +355,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame
                 + "_result.csv"
             )
 
-    #breakpoint()
+    # breakpoint()
     ###########################################################################
-    #include busmap_area to busmap
+    # include busmap_area to busmap
     ###########################################################################
 
-    if 'H2' in etrago.network.buses.carrier.unique():
+    if "H2" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
@@ -1004,7 +1007,9 @@ def run_spatial_clustering_gas(self):
                     "spatial clustering method for the gas network"
                 )
                 raise ValueError(msg)
-            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx, busmap_area)
+            self.network, busmap = gas_postprocessing(
+                self, busmap, medoid_idx, busmap_area
+            )
 
             self.update_busmap(busmap)
 

@@ -109,7 +109,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "exclusion_area": False, # False, path to shapefile or list of nuts names of not cluster area
+        "exclusion_area": False,  # False, path to shapefile or list of nuts names of not cluster area
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False

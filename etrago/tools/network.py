@@ -277,7 +277,7 @@ class Etrago:
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters
-    
+
     plot_carrier = plot_carrier
 
     plot_gas_generation = plot_gas_generation
