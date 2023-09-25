@@ -25,6 +25,7 @@ from math import log10, sqrt
 import logging
 import os
 
+from etrago.tools.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -855,10 +856,11 @@ def calc_storage_expansion_per_bus(
         batteries = network.storage_units[
             network.storage_units.carrier == "battery"
         ]
-        #breakpoint()
         battery_distribution = (
-            (network.storage_units.p_nom_opt[batteries.index] -
-             network.storage_units.p_nom_min[batteries.index])
+            (
+                network.storage_units.p_nom_opt[batteries.index]
+                - network.storage_units.p_nom_min[batteries.index]
+            )
             .groupby(network.storage_units.bus)
             .sum()
             .reindex(network.buses.index, fill_value=0.0)
@@ -1589,7 +1591,6 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
-
             links_df = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
@@ -2483,7 +2484,7 @@ def plot_grid(
         plot_background_grid(all_network, ax)
 
         if ext_width is not False:
-            line_widths = (line_colors / ext_width)
+            line_widths = line_colors / ext_width
             link_widths = link_colors.apply(
                 lambda x: x / ext_width if x != 0 else 0
             )
@@ -2495,7 +2496,7 @@ def plot_grid(
 
         link_colors = link_colors.mul(1e-3)
         line_colors = line_colors.mul(1e-3)
-        
+
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
@@ -2539,6 +2540,7 @@ def plot_grid(
         line_loading = network.lines_t.p0.mul(
             1 / (network.lines.s_nom_opt * network.lines.s_max_pu)
         ).abs()
+        line_loading = line_loading.iloc[timesteps, :]
         # keep only the capacity allowed by dlr
         line_loading = line_loading - 1
         dlr_usage = (
@@ -2825,12 +2827,14 @@ def plot_grid(
         # Set fixed boundaries if selected in parameters
         if not boundaries:
             boundaries = [
-                min(round(line_colors.min(),1), round(link_colors.min(),1)),
+                min(round(line_colors.min(), 1), round(link_colors.min(), 1)),
                 max(round(line_colors.max()), round(link_colors.max())),
             ]
 
         # Create ticks for legend
-        v = [round(x,1) for x in np.linspace(boundaries[0], boundaries[1], 101)]
+        v = [
+            round(x, 1) for x in np.linspace(boundaries[0], boundaries[1], 101)
+        ]
         for l_collection in ll:
             l_collection.set_clim(boundaries[0], boundaries[1])
 
