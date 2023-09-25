@@ -46,12 +46,8 @@ def grid_optimization(self):
     #self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
     
     logger.info("Start solving grid optimization model")
-    self.network.lopf(
-        solver_name=self.args["solver"],
-        solver_options=self.args["solver_options"],
-        pyomo=True,
+    self.iterate_lopf(
         extra_functionality=extra_functionality(),
-        formulation=self.args["model_formulation"],
     )
     self.export_to_csv(self.args["csv_export"])
 
