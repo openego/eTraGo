@@ -46,8 +46,10 @@ from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import calc_etrago_results
 from etrago.execute import (
     dispatch_disaggregation,
+    iterate_lopf,
     optimize,
     run_pf_post_lopf,
+    run_lopf,
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -257,6 +259,10 @@ class Etrago:
     grid_optimization = grid_optimization
 
     market_optimization = market_optimization
+
+    iterate_lopf = iterate_lopf
+
+    run_lopf = run_lopf
 
     optimize = optimize
 

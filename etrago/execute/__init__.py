@@ -110,7 +110,7 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
-def run_lopf(etrago, extra_functionality, method):
+def run_lopf(self, extra_functionality):
     """
     Function that performs lopf with or without pyomo
 
@@ -133,29 +133,29 @@ def run_lopf(etrago, extra_functionality, method):
 
     x = time.time()
 
-    if etrago.conduct_dispatch_disaggregation is not False:
+    if self.conduct_dispatch_disaggregation is not False:
         # parameters defining the start and end per slices
-        no_slices = etrago.args["temporal_disaggregation"]["no_slices"]
-        skipped = etrago.network.snapshot_weightings.iloc[0].objective
+        no_slices = self.args["temporal_disaggregation"]["no_slices"]
+        skipped = self.network.snapshot_weightings.iloc[0].objective
         transits = np.where(
-            etrago.network_tsa.snapshots.isin(
-                etrago.conduct_dispatch_disaggregation.index
+            self.network_tsa.snapshots.isin(
+                self.conduct_dispatch_disaggregation.index
             )
         )[0]
 
-        if method["pyomo"]:
+        if self.args["method"]["pyomo"]:
             # repeat the optimization for all slices
             for i in range(0, no_slices):
                 # keep information on the initial state of charge for the respectng slice
                 initial = transits[i - 1]
-                soc_initial = etrago.conduct_dispatch_disaggregation.loc[
-                    [etrago.network_tsa.snapshots[initial]]
+                soc_initial = self.conduct_dispatch_disaggregation.loc[
+                    [self.network_tsa.snapshots[initial]]
                 ].transpose()
-                etrago.network_tsa.storage_units.state_of_charge_initial = (
+                self.network_tsa.storage_units.state_of_charge_initial = (
                     soc_initial
                 )
-                etrago.network_tsa.stores.e_initial = soc_initial
-                etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
+                self.network_tsa.stores.e_initial = soc_initial
+                self.network_tsa.stores.e_initial.fillna(0, inplace=True)
                 # the state of charge at the end of each slice is set within
                 # split_dispatch_disaggregation_constraints in constraints.py
 
@@ -165,58 +165,58 @@ def run_lopf(etrago, extra_functionality, method):
                 if i == 0:
                     start = 0
                 if i == no_slices - 1:
-                    end = len(etrago.network_tsa.snapshots)
+                    end = len(self.network_tsa.snapshots)
 
-                etrago.network_tsa.lopf(
-                    etrago.network_tsa.snapshots[start : end + 1],
-                    solver_name=etrago.args["solver"],
-                    solver_options=etrago.args["solver_options"],
+                self.network_tsa.lopf(
+                    self.network_tsa.snapshots[start : end + 1],
+                    solver_name=self.args["solver"],
+                    solver_options=self.args["solver_options"],
                     pyomo=True,
                     extra_functionality=extra_functionality,
-                    formulation=etrago.args["model_formulation"],
+                    formulation=self.args["model_formulation"],
                 )
 
-                if etrago.network_tsa.results["Solver"][0]["Status"] != "ok":
+                if self.network_tsa.results["Solver"][0]["Status"] != "ok":
                     raise Exception("LOPF not solved.")
 
         else:
             for i in range(0, no_slices):
                 status, termination_condition = network_lopf(
-                    etrago.network_tsa,
-                    etrago.network_tsa.snapshots[start : end + 1],
-                    solver_name=etrago.args["solver"],
-                    solver_options=etrago.args["solver_options"],
+                    self.network_tsa,
+                    self.network_tsa.snapshots[start : end + 1],
+                    solver_name=self.args["solver"],
+                    solver_options=self.args["solver_options"],
                     extra_functionality=extra_functionality,
-                    formulation=etrago.args["model_formulation"],
+                    formulation=self.args["model_formulation"],
                 )
 
                 if status != "ok":
                     raise Exception("LOPF not solved.")
 
-        etrago.network_tsa.storage_units.state_of_charge_initial = 0
-        etrago.network_tsa.stores.e_initial = 0
+        self.network_tsa.storage_units.state_of_charge_initial = 0
+        self.network_tsa.stores.e_initial = 0
 
     else:
-        if method["pyomo"]:
-            etrago.network.lopf(
-                etrago.network.snapshots,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
+        if self.args["method"]["pyomo"]:
+            self.network.lopf(
+                self.network.snapshots,
+                solver_name=self.args["solver"],
+                solver_options=self.args["solver_options"],
                 pyomo=True,
                 extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
+                formulation=self.args["model_formulation"],
             )
 
-            if etrago.network.results["Solver"][0]["Status"] != "ok":
+            if self.network.results["Solver"][0]["Status"] != "ok":
                 raise Exception("LOPF not solved.")
 
         else:
             status, termination_condition = network_lopf(
-                etrago.network,
-                solver_name=etrago.args["solver"],
-                solver_options=etrago.args["solver_options"],
+                self.network,
+                solver_name=self.args["solver"],
+                solver_options=self.args["solver_options"],
                 extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
+                formulation=self.args["model_formulation"],
             )
 
             if status != "ok":
@@ -229,9 +229,8 @@ def run_lopf(etrago, extra_functionality, method):
 
 
 def iterate_lopf(
-    etrago,
+    self,
     extra_functionality,
-    method={"n_iter": 4, "pyomo": True},
 ):
     """
     Run optimization of lopf. If network extension is included, the specified
@@ -239,7 +238,7 @@ def iterate_lopf(
 
     Parameters
     ----------
-    etrago : etrago object
+    self : etrago object
         eTraGo containing all network information and a PyPSA network.
     extra_functionality: dict
         Define extra constranits.
@@ -250,13 +249,13 @@ def iterate_lopf(
 
     """
 
-    args = etrago.args
+    args = self.args
     path = args["csv_export"]
     lp_path = args["lpfile"]
 
     if (
         args["temporal_disaggregation"]["active"] is True
-        and etrago.conduct_dispatch_disaggregation is False
+        and self.conduct_dispatch_disaggregation is False
     ):
         if not args["csv_export"] is False:
             path = path + "/temporally_reduced"
@@ -264,40 +263,40 @@ def iterate_lopf(
         if not args["lpfile"] is False:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
-    if etrago.conduct_dispatch_disaggregation is not False:
+    if self.conduct_dispatch_disaggregation is not False:
         if not args["lpfile"] is False:
             lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
 
-        etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
-        etrago.network_tsa.lines["s_nom_extendable"] = False
+        self.network_tsa.lines["s_nom"] = self.network.lines["s_nom_opt"]
+        self.network_tsa.lines["s_nom_extendable"] = False
 
-        etrago.network_tsa.links["p_nom"] = etrago.network.links["p_nom_opt"]
-        etrago.network_tsa.links["p_nom_extendable"] = False
+        self.network_tsa.links["p_nom"] = self.network.links["p_nom_opt"]
+        self.network_tsa.links["p_nom_extendable"] = False
 
-        etrago.network_tsa.transformers["s_nom"] = etrago.network.transformers[
+        self.network_tsa.transformers["s_nom"] = self.network.transformers[
             "s_nom_opt"
         ]
-        etrago.network_tsa.transformers.s_nom_extendable = False
+        self.network_tsa.transformers.s_nom_extendable = False
 
-        etrago.network_tsa.storage_units[
+        self.network_tsa.storage_units[
             "p_nom"
-        ] = etrago.network.storage_units["p_nom_opt"]
-        etrago.network_tsa.storage_units["p_nom_extendable"] = False
+        ] = self.network.storage_units["p_nom_opt"]
+        self.network_tsa.storage_units["p_nom_extendable"] = False
 
-        etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
-        etrago.network_tsa.stores["e_nom_extendable"] = False
+        self.network_tsa.stores["e_nom"] = self.network.stores["e_nom_opt"]
+        self.network_tsa.stores["e_nom_extendable"] = False
 
-        etrago.network_tsa.storage_units.cyclic_state_of_charge = False
-        etrago.network_tsa.stores.e_cyclic = False
+        self.network_tsa.storage_units.cyclic_state_of_charge = False
+        self.network_tsa.stores.e_cyclic = False
 
         args["snapshot_clustering"]["active"] = False
         args["skip_snapshots"] = False
         args["extendable"] = []
 
-        network = etrago.network_tsa
+        network = self.network_tsa
 
     else:
-        network = etrago.network
+        network = self.network
 
     # if network is extendable, iterate lopf
     # to include changes of electrical parameters
@@ -308,15 +307,15 @@ def iterate_lopf(
         t_snom_pre = network.transformers.s_nom.copy()
 
         # calculate fixed number of iterations
-        if "n_iter" in method:
-            n_iter = method["n_iter"]
+        if "n_iter" in self.args["method"]:
+            n_iter = self.args["method"]["n_iter"]
 
             for i in range(1, (1 + n_iter)):
-                run_lopf(etrago, extra_functionality, method)
+                self.run_lopf(extra_functionality)
 
                 if args["csv_export"] != False:
                     path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                    self.export_to_csv(path_it)
 
                 if i < n_iter:
                     l_snom_pre, t_snom_pre = update_electrical_parameters(
@@ -326,10 +325,12 @@ def iterate_lopf(
         # Calculate variable number of iterations until threshold of objective
         # function is reached
 
-        if "threshold" in method:
-            run_lopf(etrago, extra_functionality, method)
+        if "threshold" in self.args["method"]:
+            self.run_lopf(extra_functionality)
 
-            diff_obj = network.objective * method["threshold"] / 100
+            diff_obj = (
+                network.objective * self.args["method"]["threshold"] / 100
+                )
 
             i = 1
 
@@ -344,20 +345,20 @@ def iterate_lopf(
                 )
                 pre = network.objective
 
-                run_lopf(etrago, extra_functionality, method)
+                self.run_lopf(extra_functionality)
 
                 i += 1
 
                 if args["csv_export"] != False:
                     path_it = path + "/lopf_iteration_" + str(i)
-                    etrago.export_to_csv(path_it)
+                    self.export_to_csv(path_it)
 
                 if abs(pre - network.objective) <= diff_obj:
                     print("Threshold reached after " + str(i) + " iterations.")
                     break
 
     else:
-        run_lopf(etrago, extra_functionality, method)
+        self.run_lopf(extra_functionality)
 
     if not args["lpfile"] is False:
         network.model.write(lp_path)
