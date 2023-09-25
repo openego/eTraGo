@@ -30,14 +30,13 @@ from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
-    from egoio.tools import db
+    from etrago.tools import db
 
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.tools import db
 from etrago.tools.calc_results import calc_etrago_results
 from etrago.tools.execute import (
     dispatch_disaggregation,
