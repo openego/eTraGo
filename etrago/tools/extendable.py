@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2016-2018  Flensburg University of Applied Sciences,
+# Copyright 2016-2023  Flensburg University of Applied Sciences,
 # Europa-Universität Flensburg,
 # Centre for Sustainable Energy Systems,
 # DLR-Institute for Networked Energy Systems
@@ -19,7 +19,7 @@
 
 # File description
 """
-Extendable.py defines function to set PyPSA-components extendable.
+Extendable.py defines function to set PyPSA components extendable.
 """
 from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
@@ -39,7 +39,7 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
+__author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, ClaraBuettner, KathiEsterl, CarlosEpia"
 
 
 def extendable(
@@ -54,30 +54,26 @@ def extendable(
     grid_max_foreign=4,
     grid_max_abs_foreign=None,
 ):
-
     """
-    Function that sets selected components extendable
-
-    'network' for all lines, links and transformers
-    'german_network' for all lines, links and transformers located in Germany
-    'foreign_network' for all foreign lines, links and transformers
-    'transformers' for all transformers
-    'storages' for extendable storages
-    'overlay_network' for lines, links and trafos in extension scenerio(s)
+    Function that sets selected components extendable.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
-    args  : dict
-        Arguments set in appl.py
-
+    grid_max_D : int, optional
+        Upper bounds for electrical grid expansion relative to existing capacity. The default is None.
+    grid_max_abs_D : dict, optional
+        Absolute upper bounds for electrical grid expansion in Germany.
+    grid_max_foreign : int, optional
+        Upper bounds for expansion of electrical foreign lines relative to the existing capacity. The default is 4.
+    grid_max_abs_foreign : dict, optional
+        Absolute upper bounds for expansion of foreign electrical grid. The default is None.
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    None.
+
     """
+
     network = self.network
     extendable_settings = self.args["extendable"]
 
@@ -99,11 +95,15 @@ def extendable(
             network.transformers.s_nom_max = float("inf")
 
         if not network.links.empty:
-            network.links.loc[network.links.carrier == "DC", "p_nom_extendable"] = True
+            network.links.loc[
+                network.links.carrier == "DC", "p_nom_extendable"
+            ] = True
             network.links.loc[
                 network.links.carrier == "DC", "p_nom_min"
             ] = network.links.p_nom
-            network.links.loc[network.links.carrier == "DC", "p_nom_max"] = float("inf")
+            network.links.loc[
+                network.links.carrier == "DC", "p_nom_max"
+            ] = float("inf")
 
     if "german_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country == "DE"]
@@ -157,15 +157,18 @@ def extendable(
     if "foreign_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country != "DE"]
         network.lines.loc[
-            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
+            network.lines.bus0.isin(buses.index)
+            | network.lines.bus1.isin(buses.index),
             "s_nom_extendable",
         ] = True
         network.lines.loc[
-            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
+            network.lines.bus0.isin(buses.index)
+            | network.lines.bus1.isin(buses.index),
             "s_nom_min",
         ] = network.lines.s_nom
         network.lines.loc[
-            network.lines.bus0.isin(buses.index) | network.lines.bus1.isin(buses.index),
+            network.lines.bus0.isin(buses.index)
+            | network.lines.bus1.isin(buses.index),
             "s_nom_max",
         ] = float("inf")
 
@@ -272,14 +275,14 @@ def extendable(
         ):
             for c in ext_stores:
                 network.stores.loc[
-                    (network.stores.carrier == c) & (network.stores.capital_cost == 0),
+                    (network.stores.carrier == c)
+                    & (network.stores.capital_cost == 0),
                     "capital_cost",
                 ] = network.stores.loc[
                     (network.stores.carrier == c), "capital_cost"
                 ].max()
 
     if "foreign_storage" in extendable_settings["extendable_components"]:
-
         foreign_battery = network.storage_units[
             (
                 network.storage_units.bus.isin(
@@ -304,9 +307,9 @@ def extendable(
             foreign_battery, "p_nom_max"
         ] = network.storage_units.loc[foreign_battery, "p_nom"]
 
-        network.storage_units.loc[foreign_battery, "p_nom"] = network.storage_units.loc[
-            foreign_battery, "p_nom_min"
-        ]
+        network.storage_units.loc[
+            foreign_battery, "p_nom"
+        ] = network.storage_units.loc[foreign_battery, "p_nom_min"]
 
         network.storage_units.loc[
             foreign_battery, "capital_cost"
@@ -330,7 +333,8 @@ def extendable(
                 == ("extension_" + self.args["scn_extension"][i]),
                 "s_nom_max",
             ] = network.lines.s_nom[
-                network.lines.scn_name == ("extension_" + self.args["scn_extension"][i])
+                network.lines.scn_name
+                == ("extension_" + self.args["scn_extension"][i])
             ]
 
             network.links.loc[
@@ -449,10 +453,28 @@ def extendable(
             grid_max_foreign * network.transformers.s_nom
         )
 
-    return network
-
 
 def snommax(i=1020, u=380, wires=4, circuits=4):
+    """
+    Function to calculate limitation for capacity expansion.
+
+    Parameters
+    ----------
+    i : int, optional
+        Current. The default is 1020.
+    u : int, optional
+        Voltage level. The default is 380.
+    wires : int, optional
+        Number of wires per line. The default is 4.
+    circuits : int, optional
+        Number of circuits. The default is 4.
+
+    Returns
+    -------
+    s_nom_max : float
+        Limitation for capacity expansion.
+
+    """
     s_nom_max = (i * u * sqrt(3) * wires * circuits) / 1000
     return s_nom_max
 
@@ -467,6 +489,23 @@ def line_max_abs(
         "dc": 0,
     },
 ):
+    """
+    Function to calculate limitation for capacity expansion of lines in network.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    buses : pypsa.Network buses
+        Considered buses in network.
+    line_max_abs : dict, optional
+        Line parameters considered to calculate maximum capacity.
+
+    Returns
+    -------
+    None.
+
+    """
     # calculate the cables of the route between two buses
     cables = network.lines.groupby(["bus0", "bus1"]).cables.sum()
     cables2 = network.lines.groupby(["bus1", "bus0"]).cables.sum()
@@ -547,6 +586,21 @@ def line_max_abs(
 
 
 def transformer_max_abs(network, buses):
+    """
+    Function to calculate limitation for capacity expansion of transformers in network.
+
+    Parameters
+    ----------
+    network : pypsa.Network object
+        Container for all network components.
+    buses : pypsa.Network buses
+        Considered buses in network.
+
+    Returns
+    -------
+    None.
+
+    """
 
     # To determine the maximum extendable capacity of a transformer, the sum of
     # the maximum capacities of the lines connected to it is calculated for each
@@ -571,8 +625,12 @@ def transformer_max_abs(network, buses):
 
     trafo_smax_0 = network.transformers.bus0.map(smax_bus["s_nom_max_bus"])
     trafo_smax_1 = network.transformers.bus1.map(smax_bus["s_nom_max_bus"])
-    trafo_pmax_0 = network.transformers.bus0.map(pmax_links_bus["p_nom_max_bus"]) / 2
-    trafo_pmax_1 = network.transformers.bus1.map(pmax_links_bus["p_nom_max_bus"]) / 2
+    trafo_pmax_0 = (
+        network.transformers.bus0.map(pmax_links_bus["p_nom_max_bus"]) / 2
+    )
+    trafo_pmax_1 = (
+        network.transformers.bus1.map(pmax_links_bus["p_nom_max_bus"]) / 2
+    )
     trafo_smax = pd.concat(
         [trafo_smax_0, trafo_smax_1, trafo_pmax_0, trafo_pmax_1], axis=1
     )
@@ -596,17 +654,16 @@ def transformer_max_abs(network, buses):
 
 
 def extension_preselection(etrago, method, days=3):
-
     """
     Function that preselects lines which are extendend in snapshots leading to
     overloading to reduce nubmer of extension variables.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     args  : dict
-        Arguments set in appl.py
+        Arguments set in appl.py.
     method: str
         Choose method of selection:
         'extreme_situations' for remarkable timsteps
@@ -617,8 +674,8 @@ def extension_preselection(etrago, method, days=3):
 
     Returns
     -------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
     """
     network = etrago.network
     args = etrago.args
@@ -650,19 +707,27 @@ def extension_preselection(etrago, method, days=3):
     network.transformers.loc[:, "s_nom_max"] = np.inf
 
     network = convert_capital_costs(network, 1, 1)
-    extended_lines = network.lines.index[network.lines.s_nom_opt > network.lines.s_nom]
-    extended_links = network.links.index[network.links.p_nom_opt > network.links.p_nom]
+    extended_lines = network.lines.index[
+        network.lines.s_nom_opt > network.lines.s_nom
+    ]
+    extended_links = network.links.index[
+        network.links.p_nom_opt > network.links.p_nom
+    ]
 
     x = time.time()
     for i in range(int(snapshots.value_counts().sum())):
         if i > 0:
             network.lopf(snapshots[i], solver_name=args["solver"])
             extended_lines = extended_lines.append(
-                network.lines.index[network.lines.s_nom_opt > network.lines.s_nom]
+                network.lines.index[
+                    network.lines.s_nom_opt > network.lines.s_nom
+                ]
             )
             extended_lines = extended_lines.drop_duplicates()
             extended_links = extended_links.append(
-                network.links.index[network.links.p_nom_opt > network.links.p_nom]
+                network.links.index[
+                    network.links.p_nom_opt > network.links.p_nom
+                ]
             )
             extended_links = extended_links.drop_duplicates()
 
@@ -671,13 +736,17 @@ def extension_preselection(etrago, method, days=3):
     network.lines.loc[
         ~network.lines.index.isin(extended_lines), "s_nom_extendable"
     ] = False
-    network.lines.loc[network.lines.s_nom_extendable, "s_nom_min"] = network.lines.s_nom
+    network.lines.loc[
+        network.lines.s_nom_extendable, "s_nom_min"
+    ] = network.lines.s_nom
     network.lines.loc[network.lines.s_nom_extendable, "s_nom_max"] = np.inf
 
     network.links.loc[
         ~network.links.index.isin(extended_links), "p_nom_extendable"
     ] = False
-    network.links.loc[network.links.p_nom_extendable, "p_nom_min"] = network.links.p_nom
+    network.links.loc[
+        network.links.p_nom_extendable, "p_nom_min"
+    ] = network.links.p_nom
     network.links.loc[network.links.p_nom_extendable, "p_nom_max"] = np.inf
 
     network.snapshot_weightings = weighting
@@ -694,13 +763,12 @@ def extension_preselection(etrago, method, days=3):
 
 
 def print_expansion_costs(network):
-    """Function that prints network and storage investment costs
-
+    """Function that prints network and storage investment costs.
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-        Overall container of PyPSA
+    network : pypsa.Network object
+        Container for all network components.
 
     Returns
     -------
@@ -714,11 +782,16 @@ def print_expansion_costs(network):
     ext_trafos = network.transformers[network.transformers.s_nom_extendable]
 
     if not ext_storage.empty:
-        storage_costs = (ext_storage.p_nom_opt * ext_storage.capital_cost).sum()
+        storage_costs = (
+            ext_storage.p_nom_opt * ext_storage.capital_cost
+        ).sum()
 
     if not ext_lines.empty:
         network_costs = (
-            ((ext_lines.s_nom_opt - ext_lines.s_nom) * ext_lines.capital_cost).sum()
+            (
+                (ext_lines.s_nom_opt - ext_lines.s_nom)
+                * ext_lines.capital_cost
+            ).sum()
             + (ext_links.p_nom_opt - ext_links.p_nom) * ext_links.capital_cost
         ).sum()
 
@@ -726,7 +799,8 @@ def print_expansion_costs(network):
         network_costs = (
             network_costs
             + (
-                (ext_trafos.s_nom_opt - ext_trafos.s_nom) * ext_trafos.capital_cost
+                (ext_trafos.s_nom_opt - ext_trafos.s_nom)
+                * ext_trafos.capital_cost
             ).sum()
         )
 

@@ -14,7 +14,12 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = (
     "ulfmueller, wolfbunke, BartelsJ, ClaraBuettner, gnn, "
     "simnh, lukasol, s3pp, MGlauer, kimvk, MarlonSchlemminger, "
-    "mariusves"
+    "mariusves",
+    "CarlosEpia",
+    "KathiEsterl",
+    "pieterhexen",
+    "fwitte",
+    "AmeliaNadal",
 )
 
 
@@ -46,11 +51,13 @@ setup(
         "geoalchemy2 >= 0.3.0",
         "geopandas",
         "keyring",
+        "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
-        # PyPSA uses a deprecated import that errors with Pyomo 6.4.3.
-        # Upstream has a fix but it's not yet released.
-        "pyomo != 6.4.3",
+        # Fix upper version limits for pyomo and pandas
+        # Related to problems with old pypsa version
+        "pandas < 2",
+        "pyomo>6.4, <6.6, !=6.4.3",
         "pypsa == 0.20.1",
         "rtree",
         "saio",
@@ -59,10 +66,15 @@ setup(
         "shapely",
         "sqlalchemy < 2",
         "tilemapbase == 0.4.5",
-        "tsam == 1.1.0",
+        "tsam",
     ],
     extras_require={
-        "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],
+        "docs": [
+            "nbsphinx",
+            "numpydoc",
+            "sphinx >= 1.4",
+            "sphinx_rtd_theme",
+        ],
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
     },
