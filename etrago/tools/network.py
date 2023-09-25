@@ -72,6 +72,7 @@ from etrago.tools.plot import (
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
+    shifted_energy,
 )
 from etrago.tools.utilities import (
     add_missing_components,
@@ -320,6 +321,8 @@ class Etrago:
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     manual_fixes_datamodel = manual_fixes_datamodel
+
+    shifted_energy = shifted_energy
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
