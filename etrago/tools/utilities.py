@@ -36,9 +36,10 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from egoio.tools import db
     from shapely.geometry import Point
     import geopandas as gpd
+
+    from etrago.tools import db
 
 logger = logging.getLogger(__name__)
 
