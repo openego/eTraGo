@@ -196,7 +196,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus,
             egon_etrago_generator,
             egon_etrago_line,
@@ -251,7 +251,7 @@ class NetworkScenario(ScenarioBase):
         pd.DataFrame
             Component data.
         """
-        from saio.grid import (
+        from saio.grid import (  # noqa: F401
             egon_etrago_bus_timeseries,
             egon_etrago_generator_timeseries,
             egon_etrago_line_timeseries,
@@ -500,8 +500,8 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
 
     print("Uploading results to db...")
     # get last result id and get new one
-    last_res_id = session.query(func.max(ResultMeta.result_id)).scalar()
-    if last_res_id == None:
+    last_res_id = session.query(max(ResultMeta.result_id)).scalar()
+    if last_res_id is None:
         new_res_id = 1
     else:
         new_res_id = last_res_id + 1
@@ -539,7 +539,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.generators.carrier[gen] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.generators.carrier[gen]
             session.add(new_source)
@@ -564,7 +564,7 @@ def results_to_oedb(session, network, args, grid="hv", safe_results=False):
         if network.storage_units.carrier[stor] not in sources.name.values:
             new_source = Source()
             new_source.source_id = (
-                session.query(func.max(Source.source_id)).scalar() + 1
+                session.query(max(Source.source_id)).scalar() + 1
             )
             new_source.name = network.storage_units.carrier[stor]
             session.add(new_source)
@@ -875,11 +875,6 @@ def decommissioning(self, **kwargs):
                 row["scn_name"]
                 == "extension_" + self.args["scn_decommissioning"]
             ):
-                v_nom_dec = df_decommisionning["v_nom"][
-                    (df_decommisionning.project == row["project"])
-                    & (df_decommisionning.project_id == row["project_id"])
-                ]
-
                 self.network.lines.s_nom_min[
                     self.network.lines.index == idx
                 ] = self.network.lines.s_nom_min

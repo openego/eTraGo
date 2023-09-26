@@ -29,7 +29,6 @@ import datetime
 import os
 import os.path
 
-import numpy as np
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -144,7 +143,7 @@ args = {
         "extreme_periods": None,  # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
-        "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
+        "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
     "skip_snapshots": 5,  # False or number of snapshots to skip
@@ -169,8 +168,8 @@ def run_etrago(args, json_path):
     Parameters
     ----------
     db : str
-        Name of Database session setting stored in *config.ini* of *.egoio*, e.g.
-        ``'oedb'``.
+        Name of Database session setting stored in *config.ini* of *.egoio*,
+        e.g. ``'oedb'``.
     gridversion : None or str
         Name of the data version number of oedb: state ``'None'`` for
         model_draft (sand-box) or an explicit version number
@@ -183,51 +182,51 @@ def run_etrago(args, json_path):
             Type of optimization, currently only "lopf". Default: "lopf".
         * "n_iter" : int
             In case of extendable lines, several LOPFs have to be performed.
-            You can either set "n_iter" and specify a fixed number of iterations
-            or set "threshold" and specify a threshold of the objective function as
-            abort criteria of the iterative optimization.
+            You can either set "n_iter" and specify a fixed number of
+            iterations or set "threshold" and specify a threshold of the
+            objective function as abort criteria of the iterative optimization.
             Default: 4.
         * "threshold" : int
             In case of extendable lines, several LOPFs have to be performed.
-            You can either set "n_iter" and specify a fixed number of iterations
-            or set "threshold" and specify a threshold of the objective function as
-            abort criteria of the iterative optimization. Per default, "n_iter" of 4
-            is set.
+            You can either set "n_iter" and specify a fixed number of
+            iterations or set "threshold" and specify a threshold of the
+            objective function as abort criteria of the iterative optimization.
+            Per default, "n_iter" of 4 is set.
         * "pyomo" : bool
             Set to True, if pyomo is used for model building.
             Set to False for big optimization problems - currently only
             possible when solver is "gurobi".
 
     pf_post_lopf : dict
-        Settings for option to run a non-linear power flow (PF) directly after the
-        linear optimal power flow (LOPF), and thus the dispatch optimisation, has
-        finished.
+        Settings for option to run a non-linear power flow (PF) directly after
+        the linear optimal power flow (LOPF), and thus the dispatch
+        optimisation, has finished.
         The provided dictionary can have the following entries:
 
         * "active" : bool
             If True, a PF is performed after the LOPF. Default: True.
         * "add_foreign_lopf" : bool
-            If foreign lines are modeled as DC-links (see parameter `foreign_lines`),
-            results of the LOPF can be added by setting "add_foreign_lopf" to True.
-            Default: True.
+            If foreign lines are modeled as DC-links (see parameter
+            `foreign_lines`), results of the LOPF can be added by setting
+            "add_foreign_lopf" to True. Default: True.
         * "q_allocation" : bool
-            Allocate reactive power to all generators at the same bus either by "p_nom"
-            or "p".
+            Allocate reactive power to all generators at the same bus either
+            by "p_nom" or "p".
             Default: "p_nom".
 
     start_snapshot : int
         Start hour of the scenario year to be calculated. Default: 1.
     end_snapshot : int
-        End hour of the scenario year to be calculated. If snapshot clustering is used
-        (see parameter `snapshot_clustering`), the selected snapshots should cover
-        the number of periods / segments. Default: 2.
+        End hour of the scenario year to be calculated. If snapshot clustering
+        is used (see parameter `snapshot_clustering`), the selected snapshots
+        should cover the number of periods / segments. Default: 2.
     solver : str
         Choose your preferred solver. Current options: "glpk" (open-source),
         "cplex" or "gurobi". Default: "gurobi".
     solver_options : dict
         Choose settings of solver to improve simulation time and result.
-        Options are described in documentation of chosen solver. Per default, the
-        following dictionary is set:
+        Options are described in documentation of chosen solver. Per default,
+        the following dictionary is set:
 
         {
             "BarConvTol": 1.0e-5,
@@ -238,13 +237,13 @@ def run_etrago(args, json_path):
             "threads": 4,
         }
 
-        Make sure to reset or adapt these settings when using another solver! Otherwise,
-        you may run into errors.
+        Make sure to reset or adapt these settings when using another solver!
+        Otherwise, you may run into errors.
     model_formulation : str
         Choose formulation of pyomo-model.
         Current options are: "angles", "cycles", "kirchhoff", "ptdf".
-        "angels" works best for small networks, while "kirchhoff" works best for larger
-        networks.
+        "angels" works best for small networks, while "kirchhoff" works best
+        for larger networks.
         Default: "kirchhoff".
     scn_name : str
          Choose your scenario. Currently, there are two different
@@ -291,8 +290,8 @@ def run_etrago(args, json_path):
         False or '/path/tofolder'. Default: False.
 
     extendable : dict
-        Choose components you want to optimize and set upper bounds for grid expansion.
-        The provided dictionary can have the following entries:
+        Choose components you want to optimize and set upper bounds for grid
+        expansion. The provided dictionary can have the following entries:
 
         * "extendable_components" : list(str)
             The list defines a set of components to optimize.
@@ -300,18 +299,21 @@ def run_etrago(args, json_path):
             The most important possibilities:
 
             * 'as_in_db'
-                leaves everything as it is defined in the data coming from the database
+                leaves everything as it is defined in the data coming from the
+                database
             * 'network'
-                set all lines, links and transformers in electrical grid extendable
+                set all lines, links and transformers in electrical grid
+                extendable
             * 'german_network'
                 set lines and transformers in German electrical grid extendable
             * 'foreign_network'
-                set foreign lines and transformers in electrical grid extendable
+                set foreign lines and transformers in electrical grid
+                extendable
             * 'transformers'
                 set all transformers extendable
             * 'storages' / 'stores'
-                allow to install extendable storages (unlimited in size) at each grid
-                node in order to meet the flexibility demand
+                allow to install extendable storages (unlimited in size) at
+                each grid node in order to meet the flexibility demand
 
             Default: "as_in_db".
 
@@ -319,15 +321,16 @@ def run_etrago(args, json_path):
             Dictionary can have the following entries:
 
             * 'grid_max_D'
-                Upper bounds for electrical grid expansion can be defined for lines in
-                Germany relative to the existing capacity. Alternatively,
-                'grid_max_abs_D' can be used. Per default, this is set to None and
-                'grid_max_abs_D' is set.
+                Upper bounds for electrical grid expansion can be defined for
+                lines in Germany relative to the existing capacity.
+                Alternatively, 'grid_max_abs_D' can be used. Per default, this
+                is set to None and 'grid_max_abs_D' is set.
 
             * 'grid_max_abs_D'
-                Upper bounds for electrical grid expansion can be defined for lines in
-                Germany as absolute maximum capacities between two electrical buses
-                per voltage level. Per default the following dictionary is set:
+                Upper bounds for electrical grid expansion can be defined for
+                lines in Germany as absolute maximum capacities between two
+                electrical buses per voltage level. Per default the following
+                dictionary is set:
 
                 {
                     "380": {"i": 1020, "wires": 4, "circuits": 4},
@@ -336,13 +339,14 @@ def run_etrago(args, json_path):
                     "dc": 0,
                 }
             * 'grid_max_foreign'
-                Upper bounds for border-crossing electrical lines can be defined
-                relative to the existing capacity. Alternatively, 'grid_max_abs_foreign'
-                can be set.
+                Upper bounds for border-crossing electrical lines can be
+                defined relative to the existing capacity. Alternatively,
+                'grid_max_abs_foreign' can be set.
                 Default: 4.
             * 'grid_max_abs_foreign'
-                Upper bounds for border-crossing electrical lines can be defined equally
-                to 'grid_max_abs_D' as absolute capacity per voltage level.
+                Upper bounds for border-crossing electrical lines can be
+                defined equally to 'grid_max_abs_D' as absolute capacity per
+                voltage level.
                 Default: None.
 
     generator_noise : bool or int
@@ -385,8 +389,8 @@ def run_etrago(args, json_path):
         substation, taking into account the shortest distance on power lines.
         Default: False.
     network_clustering : dict
-        Choose if you want to apply a clustering of all network buses and specify
-        settings.
+        Choose if you want to apply a clustering of all network buses and
+        specify settings.
         The provided dictionary can have the following entries:
 
         * "active" : bool
@@ -394,75 +398,81 @@ def run_etrago(args, json_path):
             and the gas buses are clustered down to``'n_clusters_gas'``.
             Default: True.
         * "method" : str
-            Method used for AC clustering. You can choose between two clustering
-            methods:
+            Method used for AC clustering. You can choose between two
+            clustering methods:
             * "kmeans": considers geographical locations of buses
-            * "kmedoids-dijkstra":  considers electrical distances between buses
+            * "kmedoids-dijkstra":  considers electrical distances between
+            buses
 
             Default: "kmedoids-dijkstra".
         * "n_clusters_AC" : int
-            Defines total number of resulting AC nodes including DE and foreign nodes
-            if `cluster_foreign_AC` is set to True, otherwise only DE nodes.
+            Defines total number of resulting AC nodes including DE and foreign
+            nodes if `cluster_foreign_AC` is set to True, otherwise only DE
+            nodes.
             Default: 30.
         * "cluster_foreign_AC" : bool
             If set to False, the AC buses outside Germany are not clustered
-            and the buses inside Germany are clustered to complete ``'n_clusters_AC'``.
-            If set to True, foreign AC buses are clustered as well and included
-            in number of clusters specified through ``'n_clusters_AC'``.
+            and the buses inside Germany are clustered to complete
+            ``'n_clusters_AC'``. If set to True, foreign AC buses are clustered
+            as well and included in number of clusters specified through
+            ``'n_clusters_AC'``.
             Default: False.
         * "method_gas" : str
-            Method used for gas clustering. You can choose between two clustering
-            methods:
+            Method used for gas clustering. You can choose between two
+            clustering methods:
             * "kmeans": considers geographical locations of buses
-            * "kmedoids-dijkstra":  considers 'electrical' distances between buses
+            * "kmedoids-dijkstra":  considers 'electrical' distances between
+            buses
 
             Default: "kmedoids-dijkstra".
         * "n_clusters_gas" : int
-            Defines total number of resulting CH4 nodes including DE and foreign nodes
-            if `cluster_foreign_gas` is set to True, otherwise only DE nodes.
+            Defines total number of resulting CH4 nodes including DE and
+            foreign nodes if `cluster_foreign_gas` is set to True, otherwise
+            only DE nodes.
             Default: 17.
         * "cluster_foreign_gas" : bool
             If set to False, the gas buses outside Germany are not clustered
-            and the buses inside Germany are clustered to complete ``'n_clusters_gas'``.
-            If set to True, foreign gas buses are clustered as well and included
-            in number of clusters specified through ``'n_clusters_gas'``.
+            and the buses inside Germany are clustered to complete
+            ``'n_clusters_gas'``. If set to True, foreign gas buses are
+            clustered as well and included in number of clusters specified
+            through ``'n_clusters_gas'``.
             Default: False.
         * "k_elec_busmap" : bool or str
-            With this option you can load cluster coordinates from a previous AC
-            clustering run. Options are False, in which case no previous busmap is
-            loaded, and path/to/busmap.csv in which case the busmap is loaded from the
-            specified file. Please note, that when a path is provided, the set number
-            of clusters will be ignored.
+            With this option you can load cluster coordinates from a previous
+            AC clustering run. Options are False, in which case no previous
+            busmap is loaded, and path/to/busmap.csv in which case the busmap
+            is loaded from the specified file. Please note, that when a path is
+            provided, the set number of clusters will be ignored.
             Default: False.
         * "k_gas_busmap" : bool or str
-            With this option you can load cluster coordinates from a previous gas
-            clustering run. Options are False, in which case no previous busmap is
-            loaded, and path/to/busmap.csv in which case the busmap is loaded from the
-            specified file. Please note, that when a path is provided, the set number
-            of clusters will be ignored.
+            With this option you can load cluster coordinates from a previous
+            gas clustering run. Options are False, in which case no previous
+            busmap is loaded, and path/to/busmap.csv in which case the busmap
+            is loaded from the specified file. Please note, that when a path is
+            provided, the set number of clusters will be ignored.
             Default: False.
         * "bus_weight_fromcsv" : None or str
-            In general, the weighting of AC buses takes place considering generation and
-            load at each node. With this option, you can load an own weighting for
-            the AC buses by providing a path to a csv file. If None, weighting is
-            conducted as described above.
+            In general, the weighting of AC buses takes place considering
+            generation and load at each node. With this option, you can load an
+            own weighting for the AC buses by providing a path to a csv file.
+            If None, weighting is conducted as described above.
             Default: None.
         * "bus_weight_tocsv" : None or str
-            Specifies whether to store the weighting of AC buses to csv or not. If
-            None, it is not stored. Otherwise, it is stored to the provided
+            Specifies whether to store the weighting of AC buses to csv or not.
+            If None, it is not stored. Otherwise, it is stored to the provided
             path/to/bus_weight.csv.
             Default: None.
         * "gas_weight_fromcsv" : None or str
-            In general, the weighting of CH4 nodes takes place considering generation
-            and load at each node, as well as non-transport capacities at each node.
-            With this option, you can load an own weighting for the CH4 buses by
-            providing a path to a csv file. If None, weighting is conducted as
-            described above.
+            In general, the weighting of CH4 nodes takes place considering
+            generation and load at each node, as well as non-transport
+            capacities at each node. With this option, you can load an own
+            weighting for the CH4 buses by providing a path to a csv file. If
+            None, weighting is conducted as described above.
             Default: None.
         * "gas_weight_tocsv" : None or str
-            Specifies whether to store the weighting of gas buses to csv or not. If
-            None, it is not stored. Otherwise, it is stored to the provided
-            path/to/gas_bus_weight.csv.
+            Specifies whether to store the weighting of gas buses to csv or
+            not. If None, it is not stored. Otherwise, it is stored to the
+            provided path/to/gas_bus_weight.csv.
             Default: None.
         * "line_length_factor" : float
             Defines the factor to multiply the crow-flies distance
@@ -480,59 +490,62 @@ def run_etrago(args, json_path):
         * "random_state" : int
             Random state for replicability of clustering results. Default: 42.
         * "n_init" : int
-            Affects clustering algorithm, only change when necessary! Documentation
-            and possible settings are described in sklearn-package
-            (sklearn/cluster/kmeans.py).
+            Affects clustering algorithm, only change when necessary!
+            Documentation and possible settings are described in
+            sklearn-package (sklearn/cluster/kmeans.py).
             Default: 10.
         * "max_iter" : int
-            Affects clustering algorithm, only change when necessary! Documentation
-            and possible settings are described in sklearn-package
-            (sklearn/cluster/kmeans.py).
+            Affects clustering algorithm, only change when necessary!
+            Documentation and possible settings are described in
+            sklearn-package (sklearn/cluster/kmeans.py).
             Default: 100.
         * "tol" : float
-            Affects clustering algorithm, only change when necessary! Documentation
-            and possible settings are described in sklearn-package
-            (sklearn/cluster/kmeans.py).
+            Affects clustering algorithm, only change when necessary!
+            Documentation and possible settings are described in
+            sklearn-package (sklearn/cluster/kmeans.py).
             Default: 1e-6.
         * "CPU_cores" : int or str
-            Number of cores used in clustering. Specify a concrete number or "max" to
-            use all cores available.
+            Number of cores used in clustering. Specify a concrete number or
+            "max" to use all cores available.
             Default: 4.
 
     sector_coupled_clustering : dict
-        Choose if you want to apply a clustering of sector coupled carriers, such
-        as central_heat, and specify settings.
+        Choose if you want to apply a clustering of sector coupled carriers,
+        such as central_heat, and specify settings.
         The provided dictionary can have the following entries:
 
         * "active" : bool
-            State if you want to apply clustering of sector coupled carriers, such
-            as central_heat.
+            State if you want to apply clustering of sector coupled carriers,
+            such as central_heat.
             Default: True.
         * "carrier_data" : dict[str, dict]
-            Keys of the dictionary specify carriers affected by sector coupling, e.g.
-            "central_heat". The corresponding dictionaries specify, how the carrier
-            should be clustered. This dictionary must contain the following entries:
+            Keys of the dictionary specify carriers affected by sector
+            coupling, e.g. "central_heat". The corresponding dictionaries
+            specify, how the carrier should be clustered. This dictionary must
+            contain the following entries:
 
             * "base" : list(str)
-                The approach bases on already clustered buses (AC and CH4) and builds
-                clusters around the topology of those buses. With this option, you can
-                specify the carriers to use as base. See `strategy` for more
-                information.
+                The approach bases on already clustered buses (AC and CH4) and
+                builds clusters around the topology of those buses. With this
+                option, you can specify the carriers to use as base. See
+                `strategy` for more information.
             * "strategy" :  str
                 Strategy to use in the clustering. Possible options are:
 
                 * "consecutive"
-                    This strategy clusters around the buses of the first carrier in the
-                    `'base'`` list. The links to other buses are preserved. All buses,
-                    that have no connection to the first carrier will then be clustered
-                    around the buses of the second carrier in the list.
+                    This strategy clusters around the buses of the first
+                    carrier in the `'base'`` list. The links to other buses are
+                    preserved. All buses, that have no connection to the first
+                    carrier will then be clustered around the buses of the
+                    second carrier in the list.
                 * "simultaneous"
-                    This strategy looks for links connecting the buses of the carriers
-                    in the ``'base'`` list and aggregates buses in case they have the
-                    same set of links connected. For example, a heat bus connected to
-                    CH4 via gas boiler and to AC via heat pump will only form a cluster
-                    with other buses, if these have the same links to
-                    the same clusters of CH4 and AC.
+                    This strategy looks for links connecting the buses of the
+                    carriers in the ``'base'`` list and aggregates buses in
+                    case they have the same set of links connected. For
+                    example, a heat bus connected to CH4 via gas boiler and to
+                    AC via heat pump will only form a cluster with other buses,
+                    if these have the same links to the same clusters of CH4
+                    and AC.
 
             Per default, the following dictionary is set:
             {
@@ -547,61 +560,68 @@ def run_etrago(args, json_path):
         method you want to use for the spatial disaggregation. Only possible
         option is currently "uniform".
     snapshot_clustering : dict
-        State if you want to apply a temporal clustering and run the optimization
-        only on a subset of snapshot periods, and specify settings.
-        The provided dictionary can have the following entries:
+        State if you want to apply a temporal clustering and run the
+        optimization only on a subset of snapshot periods, and specify
+        settings. The provided dictionary can have the following entries:
 
         * "active" : bool
-            Choose, if clustering is activated or not. If True, it is activated.
+            Choose, if clustering is activated or not. If True, it is
+            activated.
             Default: False.
         * "method" : str
-            Method to apply. Possible options are "typical_periods" and "segmentation".
+            Method to apply. Possible options are "typical_periods" and
+            "segmentation".
             Default: "segmentation".
         * "extreme_periods" : None or str
-            Method used to consider extreme snapshots (time steps with extreme residual
-            load) in reduced timeseries.
+            Method used to consider extreme snapshots (time steps with extreme
+            residual load) in reduced timeseries.
             Possible options are None, "append", "new_cluster_center", and
-            "replace_cluster_center". The default is None, in which case extreme periods
-            are not considered.
+            "replace_cluster_center". The default is None, in which case
+            extreme periods are not considered.
         * "how" : str
             Definition of period in case `method` is set to "typical_periods".
-            Possible options are "daily", "weekly", and "monthly". Default: "daily".
+            Possible options are "daily", "weekly", and "monthly".
+            Default: "daily".
         * "storage_constraints" : str
-            Defines additional constraints for storage units in case `method` is set to
-            "typical_periods". Possible options are "daily_bounds", "soc_constraints"
-            and "soc_constraints_simplified". Default: "soc_constraints".
+            Defines additional constraints for storage units in case `method`
+            is set to "typical_periods". Possible options are "daily_bounds",
+            "soc_constraints" and "soc_constraints_simplified".
+            Default: "soc_constraints".
         * "n_clusters" : int
-            Number of clusters in case `method` is set to "typical_periods". Default: 5.
+            Number of clusters in case `method` is set to "typical_periods".
+            Default: 5.
         * "n_segments" : int
-            Number of segments in case `method` is set to "segmentation". Default: 5.
+            Number of segments in case `method` is set to "segmentation".
+            Default: 5.
 
     skip_snapshots : bool or int
         State None, if you want to use all time steps, or provide a number,
         if you only want to consider every n-th timestep to reduce
         temporal complexity. Default: 5.
     temporal_disaggregation : dict
-        State if you want to apply a second LOPF considering dispatch only (no capacity
-        optimization) to disaggregate the dispatch to the whole temporal complexity.
-        Be aware that a load shedding will be applied in this optimization.
-        The provided dictionary must have the following entries:
+        State if you want to apply a second LOPF considering dispatch only
+        (no capacity optimization) to disaggregate the dispatch to the whole
+        temporal complexity. Be aware that a load shedding will be applied in
+        this optimization. The provided dictionary must have the following
+        entries:
 
         * "active" : bool
-            Choose, if temporal disaggregation is activated or not. If True, it is
-            activated.
+            Choose, if temporal disaggregation is activated or not. If True,
+            it is activated.
             Default: False.
         * "no_slices" : int
-            With "no_slices" the optimization problem will be calculated as a given
-            number of sub-problems while using some information on the state of charge
-            of storage units and stores from the former optimization (at the moment
-            only possible with skip_snapshots and extra_functionalities are
-            disregarded).
+            With "no_slices" the optimization problem will be calculated as a
+            given number of sub-problems while using some information on the
+            state of charge of storage units and stores from the former
+            optimization (at the moment only possible with skip_snapshots and
+            extra_functionalities are disregarded).
             Default: 8.
 
     branch_capacity_factor : dict[str, float]
         Add a factor here if you want to globally change line capacities
-        (e.g. to "consider" an (n-1) criterion or for debugging purposes). The factor
-        specifies the p.u. branch rating, e.g. 0.5 to allow half the line capacity.
-        Per default, it is set to {'HV': 0.5, 'eHV' : 0.7}.
+        (e.g. to "consider" an (n-1) criterion or for debugging purposes).
+        The factor specifies the p.u. branch rating, e.g. 0.5 to allow half the
+        line capacity. Per default, it is set to {'HV': 0.5, 'eHV' : 0.7}.
     load_shedding : bool
         State here if you want to make use of the load shedding function which
         is helpful when debugging: a very expensive generator is set to each
@@ -673,8 +693,12 @@ if __name__ == "__main__":
     etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
-    # etrago.plot_grid(line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
+    # etrago.plot_grid(
+    # line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
     # network and storage
-    # etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.0001)
+    # etrago.plot_grid(
+    # line_colors='expansion_abs',
+    # bus_colors='storage_expansion',
+    # bus_sizes=0.0001)
     # flexibility usage
     # etrago.flexibility_usage('DSM')
