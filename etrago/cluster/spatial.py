@@ -342,6 +342,12 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     transformer = connected_transformer(etrago.network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
 
+    dc = etrago.network.links[etrago.network.links.carrier == "DC"]
+    dc.index = "DC_" + dc.index
+    lines_plus_dc = pd.concat([lines, dc])
+    lines_plus_dc = lines_plus_dc[etrago.network.lines.columns]
+    lines_plus_dc["carrier"] = "AC"
+
     # temporary end points, later replaced by bus1 pendant
     t_buses = transformer[mask].bus0
 
@@ -349,7 +355,10 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     ppaths = list(product(s_buses, t_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()]
+    edges = [
+        (row.bus0, row.bus1, row.length, ix) for ix, row in lines_plus_dc.iterrows()
+    ]
+
     M = graph_from_edges(edges)
 
     # applying multiprocessing
