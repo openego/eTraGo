@@ -105,6 +105,8 @@ def buses_grid_linked(network, voltage_level):
     mask = (
         network.buses.index.isin(network.lines.bus0)
         | (network.buses.index.isin(network.lines.bus1))
+        | (network.buses.index.isin(network.links.loc[network.links.carrier=="DC", "bus0"]))
+        | (network.buses.index.isin(network.links.loc[network.links.carrier=="DC", "bus1"]))
     ) & (network.buses.v_nom.isin(voltage_level))
 
     df = network.buses[mask]
