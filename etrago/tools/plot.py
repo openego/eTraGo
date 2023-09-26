@@ -2680,6 +2680,8 @@ def plot_grid(
             .sum()
             .p_nom_opt
         )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
@@ -2727,6 +2729,7 @@ def plot_grid(
             boundaries=[-2.5, 16, 46.8, 58],
         )
     l3 = None
+
     # legends for bus sizes and colors
     if bus_legend:
         handles = []
@@ -2764,7 +2767,10 @@ def plot_grid(
                     + i
                 )
         else:
-            max_value = bus_sizes.max()
+            if len(bus_sizes) > 0:
+                max_value = bus_sizes.max()
+            else:
+                max_value = 0
             labels.append(f"{round(max_value / bus_scaling /1000, 0)} GWh ")
             handles.append(
                 make_legend_circles_for(
