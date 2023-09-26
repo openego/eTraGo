@@ -43,6 +43,7 @@ __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 def _calc_storage_expansion(self):
     """Function that calulates storage expansion in MW
 
+
     Returns
     -------
     float
@@ -233,6 +234,398 @@ def calc_marginal_cost(self):
     )
     marginal_cost = gen + link + stor
     return marginal_cost
+
+
+def german_network(self):
+    """Cut out all network components in Germany
+
+    Returns
+    -------
+    new_network : pypsa.Network
+        Network with all components in Germany
+
+    """
+    keep_cntr = ["DE"]
+    new_idx = self.network.buses[
+        self.network.buses.country.isin(keep_cntr)
+    ].index
+
+    new_network = self.network.copy()
+
+    # drop components of other countries
+    new_network.mremove(
+        "Bus", new_network.buses[~new_network.buses.index.isin(new_idx)].index
+    )
+
+    new_network.mremove(
+        "Line",
+        new_network.lines[
+            ~new_network.lines.index.isin(
+                new_network.lines[
+                    (
+                        new_network.lines.bus0.isin(new_idx)
+                        & new_network.lines.bus1.isin(new_idx)
+                    )
+                ].index
+            )
+        ].index,
+    )
+    new_network.mremove(
+        "Link",
+        new_network.links[
+            ~new_network.links.index.isin(
+                new_network.links[
+                    (
+                        new_network.links.bus0.isin(new_idx)
+                        & new_network.links.bus1.isin(new_idx)
+                    )
+                ].index
+            )
+        ].index,
+    )
+
+    new_network.mremove(
+        "Transformer",
+        new_network.transformers[
+            ~new_network.transformers.index.isin(
+                new_network.transformers[
+                    (
+                        new_network.transformers.bus0.isin(new_idx)
+                        & new_network.transformers.bus1.isin(new_idx)
+                    )
+                ].index
+            )
+        ].index,
+    )
+
+    new_network.mremove(
+        "Generator",
+        new_network.generators[
+            ~new_network.generators.index.isin(
+                new_network.generators[
+                    new_network.generators.bus.isin(new_idx)
+                ].index
+            )
+        ].index,
+    )
+
+    new_network.mremove(
+        "Load",
+        new_network.loads[
+            ~new_network.loads.index.isin(
+                new_network.loads[new_network.loads.bus.isin(new_idx)].index
+            )
+        ].index,
+    )
+
+    new_network.mremove(
+        "Store",
+        new_network.stores[
+            ~new_network.stores.index.isin(
+                new_network.stores[new_network.stores.bus.isin(new_idx)].index
+            )
+        ].index,
+    )
+
+    new_network.mremove(
+        "StorageUnit",
+        new_network.storage_units[
+            ~new_network.storage_units.index.isin(
+                new_network.storage_units[
+                    new_network.storage_units.bus.isin(new_idx)
+                ].index
+            )
+        ].index,
+    )
+
+    return new_network
+
+
+def system_costs_germany(self):
+    """Calculte system costs for Germany
+
+    Returns
+    -------
+    marginal_cost : float
+        Marginal costs for dispatch in Germany
+    invest_cost : float
+        Annualized investment costs for components in Germany
+    import_costs : float
+        Costs for energy imported to Germany minus costs for exports
+
+    """
+
+    network_de = self.german_network()
+
+    marginal_cost = 0
+    invest_cost = 0
+
+    for c in network_de.iterate_components():
+        if c.name in ["Store"]:
+            value = "e"
+        elif c.name in ["Line", "Transformer"]:
+            value = "s"
+        else:
+            value = "p"
+        if c.name in network_de.one_port_components:
+            if "marginal_cost" in c.df.columns:
+                marginal_cost += (
+                    c.pnl.p.mul(c.df.marginal_cost)
+                    .mul(network_de.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+
+        else:
+            if "marginal_cost" in c.df.columns:
+                marginal_cost += (
+                    c.pnl.p0.mul(c.df.marginal_cost)
+                    .mul(network_de.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+        if c.name not in [
+            "Bus",
+            "Load",
+            "LineType",
+            "TransformerType",
+            "Carrier",
+        ]:
+            invest_cost += (
+                (
+                    c.df[c.df[f"{value}_nom_extendable"]][f"{value}_nom_opt"]
+                    - c.df[c.df[f"{value}_nom_extendable"]][f"{value}_nom_min"]
+                )
+                * c.df[c.df[f"{value}_nom_extendable"]]["capital_cost"]
+            ).sum()
+
+    # import and its costs
+    links_export = self.network.links[
+        (
+            self.network.links.bus0.isin(network_de.buses.index.values)
+            & ~(self.network.links.bus1.isin(network_de.buses.index.values))
+        )
+    ]
+
+    export_positive = (
+        self.network.links_t.p0[links_export.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    export_negative = (
+        self.network.links_t.p0[links_export.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    links_import = self.network.links[
+        (
+            self.network.links.bus1.isin(network_de.buses.index.values)
+            & ~(self.network.links.bus0.isin(network_de.buses.index.values))
+        )
+    ]
+
+    import_positive = (
+        self.network.links_t.p0[links_import.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    import_negative = (
+        self.network.links_t.p0[links_import.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    import_costs = (
+        export_negative + import_positive - export_positive - import_negative
+    )
+
+    return marginal_cost, invest_cost, import_costs
+
+
+def ac_export(self):
+    """Calculate electricity exports and imports over AC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+    exp = self.network.lines[
+        (self.network.lines.bus0.isin(de_buses.index))
+        & (self.network.lines.bus1.isin(for_buses.index))
+    ]
+    imp = self.network.lines[
+        (self.network.lines.bus1.isin(de_buses.index))
+        & (self.network.lines.bus0.isin(for_buses.index))
+    ]
+
+    return (
+        self.network.lines_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+        + self.network.lines_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+    )
+
+
+def ac_export_per_country(self):
+    """Calculate electricity exports and imports over AC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany in TWh
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = self.network.lines[
+            (self.network.lines.bus0.isin(de_buses.index))
+            & (
+                self.network.lines.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = self.network.lines[
+            (self.network.lines.bus1.isin(de_buses.index))
+            & (
+                self.network.lines.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            self.network.lines_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+            + self.network.lines_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
+
+
+def dc_export(self):
+    """Calculate electricity exports and imports over DC lines
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+    exp = self.network.links[
+        (self.network.links.carrier == "DC")
+        & (self.network.links.bus0.isin(de_buses.index))
+        & (self.network.links.bus1.isin(for_buses.index))
+    ]
+    imp = self.network.links[
+        (self.network.links.carrier == "DC")
+        & (self.network.links.bus1.isin(de_buses.index))
+        & (self.network.links.bus0.isin(for_buses.index))
+    ]
+    return (
+        self.network.links_t.p0[exp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+        + self.network.links_t.p1[imp.index]
+        .sum(axis=1)
+        .mul(self.network.snapshot_weightings.generators)
+        .sum()
+    )
+
+
+def dc_export_per_country(self):
+    """Calculate electricity exports and imports over DC lines per country
+
+    Returns
+    -------
+    float
+        Electricity export (if negative: import) from Germany in TWh
+
+    """
+    de_buses = self.network.buses[self.network.buses.country == "DE"]
+
+    for_buses = self.network.buses[self.network.buses.country != "DE"]
+
+    result = pd.Series(index=for_buses.country.unique())
+
+    for c in for_buses.country.unique():
+        exp = self.network.links[
+            (self.network.links.carrier == "DC")
+            & (self.network.links.bus0.isin(de_buses.index))
+            & (
+                self.network.links.bus1.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+        imp = self.network.links[
+            (self.network.links.carrier == "DC")
+            & (self.network.links.bus1.isin(de_buses.index))
+            & (
+                self.network.links.bus0.isin(
+                    for_buses[for_buses.country == c].index
+                )
+            )
+        ]
+
+        result[c] = (
+            self.network.links_t.p0[exp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+            + self.network.links_t.p1[imp.index]
+            .sum(axis=1)
+            .mul(self.network.snapshot_weightings.generators)
+            .sum()
+        ) * 1e-6
+
+    return result
 
 
 def calc_etrago_results(self):

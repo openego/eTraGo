@@ -9,6 +9,7 @@ cleaned = [
     "etrago/cluster/gas.py",
     "etrago/cluster/snapshot.py",
     "etrago/cluster/spatial.py",
+    "etrago/tools/calc_results.py",
     "etrago/tools/execute.py",
     "etrago/tools/extendable.py",
     "etrago/tools/io.py",
