@@ -1673,7 +1673,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
 
     Returns
     -------
-    network_c : :class:`pypsa.Network
+    network : :class:`pypsa.Network
         Whole network including not extended lines
     extension_lines : pandas.Series
         AC-line expansion
@@ -2335,7 +2335,7 @@ def plot_grid(
         * 'expansion_rel': network expansion in p.u. of existing capacity
         * 'q_flow_max': maximal reactive flows
         * 'dlr': energy above nominal capacity
-        * 'grey': plot all lines and DC linkd grey colored
+        * 'grey': plot all lines and DC links grey colored
 
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
@@ -2527,16 +2527,12 @@ def plot_grid(
         title = "Dynamic line rating"
         label = "TWh above nominal capacity"
         plot_background_grid(network, ax)
-        # Extract branch_capacity_factors
-        bcf_hv = self.args["branch_capacity_factor"]["HV"]
-        bcf_ehv = self.args["branch_capacity_factor"]["eHV"]
-        # calc min capacity per line in the given period
+
+        # calc min capacity per line in the given period: Since lines with
+        # different original voltage level could be aggregated during the
+        # clustering, the security factors can be values in between the values
+        # provided in the args for branch_capacity_factor.
         network.lines.s_max_pu = network.lines_t.s_max_pu.min()
-        network.lines.s_max_pu[network.lines.s_max_pu < 0.7] = 0.5
-        network.lines.s_max_pu[
-            (network.lines.s_max_pu > 0.5) & (network.lines.s_max_pu < 0.70)
-        ] = (bcf_hv + bcf_ehv) / 2
-        network.lines.s_max_pu[network.lines.s_max_pu >= 0.70] = 0.70
         line_loading = network.lines_t.p0.mul(
             1 / (network.lines.s_nom_opt * network.lines.s_max_pu)
         ).abs()
