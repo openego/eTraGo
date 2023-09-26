@@ -135,6 +135,8 @@ def build_market_model(self):
 
     # delete following unconnected CH4 buses. why are they there?
     #net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
+    
+    net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
 
     self.market_model = net
     
