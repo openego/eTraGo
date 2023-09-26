@@ -37,7 +37,15 @@ from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.tools.calc_results import calc_etrago_results
+from etrago.tools.calc_results import (
+    ac_export,
+    ac_export_per_country,
+    calc_etrago_results,
+    dc_export,
+    dc_export_per_country,
+    german_network,
+    system_costs_germany,
+)
 from etrago.tools.execute import (
     dispatch_disaggregation,
     lopf,
@@ -64,6 +72,7 @@ from etrago.tools.plot import (
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
+    shifted_energy,
 )
 from etrago.tools.utilities import (
     add_missing_components,
@@ -253,13 +262,25 @@ class Etrago:
 
     calc_results = calc_etrago_results
 
+    calc_ac_export = ac_export
+
+    calc_ac_export_per_country = ac_export_per_country
+
+    calc_dc_export = dc_export
+
+    calc_dc_export_per_country = dc_export_per_country
+
     export_to_csv = export_to_csv
 
     filter_links_by_carrier = filter_links_by_carrier
 
+    german_network = german_network
+
     set_line_costs = set_line_costs
 
     set_trafo_costs = set_trafo_costs
+
+    system_costs_germany = system_costs_germany
 
     drop_sectors = drop_sectors
 
@@ -300,6 +321,8 @@ class Etrago:
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
 
     manual_fixes_datamodel = manual_fixes_datamodel
+
+    shifted_energy = shifted_energy
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)

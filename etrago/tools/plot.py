@@ -135,6 +135,7 @@ def coloring():
         "power_to_H2": "cyan",
         "H2_overground": "cyan",
         "H2_underground": "cyan",
+        "H2": "cyan",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -155,6 +156,7 @@ def coloring():
         "H2_to_CH4": "seagreen",
         "central_heat_store_charger": "firebrick",
         "central_heat_store": "firebrick",
+        "heat": "firebrick",
         "rural_heat_store_charger": "salmon",
         "rural_heat_store": "salmon",
         "central_heat_store_discharger": "firebrick",
@@ -701,6 +703,7 @@ def curtailment(network, carrier="solar", filename=None):
     """
     Plot curtailment of selected carrier
 
+
     Parameters
     ----------
     network : PyPSA network container
@@ -709,6 +712,7 @@ def curtailment(network, carrier="solar", filename=None):
         Plot curtailemt of this carrier
     filename: str or None
         Save figure in this direction
+
 
     Returns
     -------
@@ -1357,6 +1361,7 @@ def storage_soc_sorted(network, filename=None):
     ----------
     network : PyPSA network container
         Holds topology of grid including results from powerflow analysis
+
     filename : path to folder
 
     Returns
@@ -1502,6 +1507,7 @@ def calc_ac_loading(network, timesteps):
 
 def calc_dc_loading(network, timesteps):
     """Calculates loading of DC-lines
+
 
     Parameters
     ----------
@@ -3329,3 +3335,184 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
+
+
+def shifted_energy(self, carrier, buses):
+    """Calulate shifted energy for a specific carrier
+
+    Parameters
+    ----------
+    carrier : str
+        Name of energy carrier
+    buses : list
+        List of considered bus indices
+
+    Returns
+    -------
+    shifted : pandas.Series
+        Shifted energy per time step
+
+    """
+
+    buses = self.network.links[
+        self.network.links.bus0.isin(
+            self.network.buses[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.index.isin(buses))
+            ].index
+        )
+        & self.network.links.bus1.isin(
+            self.network.buses[
+                self.network.buses.carrier.str.contains(carrier)
+            ].index
+        )
+    ].bus1.unique()
+
+    supply = self.network.links_t.p1[
+        self.network.links[
+            (self.network.links.bus1.isin(buses))
+            & ~(self.network.links.carrier.str.contains("charger"))
+        ].index
+    ].mul(-1).sum(axis=1) + (
+        self.network.generators_t.p[
+            self.network.generators[
+                self.network.generators.bus.isin(buses)
+            ].index
+        ].sum(axis=1)
+    )
+
+    demand = self.network.loads_t.p[
+        self.network.loads[self.network.loads.bus.isin(buses)].index
+    ].sum(axis=1) + (
+        self.network.links_t.p0[
+            self.network.links[
+                (self.network.links.bus0.isin(buses))
+                & ~(self.network.links.carrier.str.contains("charger"))
+            ].index
+        ].sum(axis=1)
+    )
+
+    shifted = supply - demand
+    return shifted
+
+
+def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
+    """Plot duration curves of flexibility options
+
+    Parameters
+    ----------
+    etrago : Etrago
+        Object including network with flexibility options
+    etrago_lowflex : Etrago
+        Object including network with less flexibility options
+    filename : str, optional
+        Name of file to save plot. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    colors = coloring()
+
+    value = "p"
+
+    df = pd.DataFrame()
+
+    dsm_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("dsm")
+    ]
+    df["dsm_positive"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["dsm_negative"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    emob_static = etrago_lowflex.network.loads[
+        etrago_lowflex.network.loads.carrier == "land transport EV"
+    ]
+
+    emob_static_t = etrago_lowflex.network.loads_t.p_set[emob_static.index]
+
+    emob_static_t = emob_static_t.loc[:, emob_static.index]
+
+    emob_static_t.columns = emob_static.bus.values
+
+    emob_flex = etrago.network.links[
+        etrago.network.links.carrier.str.contains("BEV")
+    ]
+
+    emob_flex_t = etrago.network.links_t.p0[emob_flex.index]
+
+    emob_flex_t = emob_flex_t.loc[:, emob_flex.index]
+
+    emob_flex_t.columns = emob_flex.bus0.values
+
+    emob_flex_t - emob_static_t
+    df["BEV charger_positive"] = (
+        (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
+    )
+    df["BEV charger_negative"] = (
+        (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+    )
+
+    heat_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("heat")
+    ]
+    df["heat_positive"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["heat_negative"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    h2_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("H2")
+    ]
+    df["H2_positive"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["H2_negative"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    fig, ax = plt.subplots(figsize=(15, 8))
+    for c in df.columns:
+        result = pd.Series(dtype=float)
+        color = colors[c.split("_")[0]]
+        for p in range(0, 100):
+            result[p * df[c].abs().max() * np.sign(df[c].sum()) / 100] = (
+                df[c][df[c].abs() > p * 0.01 * df[c].abs().max()].size
+                / df[c].size
+            ) * 100
+
+        data_to_plot = pd.DataFrame(
+            index=result.values, data=result.index * 1e-3
+        )
+        data_to_plot.columns = [c.split("_")[0]]
+        data_to_plot.plot(ax=ax, color=color, linewidth=3.0)
+    plt.axhline(y=0.0, color="grey", linestyle="dotted")
+    ax.set_xlim(0, 80)
+    ax.set_xlabel("time in %")
+    ax.set_ylabel("flexibility usage in GW")
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
+    if filename:
+        fig.savefig(filename, dpi=600)
+        plt.close()
