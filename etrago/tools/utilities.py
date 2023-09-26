@@ -392,10 +392,8 @@ def foreign_links(self):
         ]
 
         foreign_links = network.links[
-            (
-                network.links.bus0.astype(str).isin(foreign_buses.index)
-                | network.links.bus1.astype(str).isin(foreign_buses.index)
-            )
+            (network.links.bus0.astype(str).isin(foreign_buses.index)
+            | network.links.bus1.astype(str).isin(foreign_buses.index))
             & (network.links.carrier == "DC")
         ]
 
@@ -421,7 +419,6 @@ def foreign_links(self):
         network.lines = network.lines.drop(foreign_lines.index)
 
         self.geolocation_buses()
-
 
 def set_q_national_loads(self, cos_phi=1):
     """
@@ -1674,13 +1671,9 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
         Dictionary of json file
     """
 
-    if jsonpath is not None:
+    if jsonpath:
         with open(jsonpath) as f:
-            if "args" in locals():
-                self.args = merge_dicts(self.args, json.load(f))
-            else:
-                self.args = json.load(f)
-
+            self.args = json.load(f)
 
 def merge_dicts(dict1, dict2):
     """Return a new dictionary by merging two dictionaries recursively."""
@@ -2100,13 +2093,32 @@ def set_branch_capacity(etrago):
         network.buses.v_nom
     )
 
-    network.lines.s_max_pu[network.lines.v_nom == 110] = args[
-        "branch_capacity_factor"
-    ]["HV"]
+    # If any line has a time dependend s_max_pu, use the time dependend
+    # factor for all lines, to avoid problems in the clustering
+    if not network.lines_t.s_max_pu.empty:
+        # Set time dependend s_max_pu for lines without dynamic line rating to 1.0
+        network.lines_t.s_max_pu[
+            network.lines[
+                ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
+            ].index
+        ] = 1.0
 
-    network.lines.s_max_pu[network.lines.v_nom > 110] = args[
-        "branch_capacity_factor"
-    ]["eHV"]
+        # Multiply time dependend s_max_pu with static branch capacitiy fator
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom == 110].index
+        ] *= args["branch_capacity_factor"]["HV"]
+
+        network.lines_t.s_max_pu[
+            network.lines[network.lines.v_nom > 110].index
+        ] *= args["branch_capacity_factor"]["eHV"]
+    else:
+        network.lines.s_max_pu[network.lines.v_nom == 110] = args[
+            "branch_capacity_factor"
+        ]["HV"]
+
+        network.lines.s_max_pu[network.lines.v_nom > 110] = args[
+            "branch_capacity_factor"
+        ]["eHV"]
 
     network.transformers.s_max_pu[network.transformers.v_nom0 == 110] = args[
         "branch_capacity_factor"
@@ -2115,6 +2127,7 @@ def set_branch_capacity(etrago):
     network.transformers.s_max_pu[network.transformers.v_nom0 > 110] = args[
         "branch_capacity_factor"
     ]["eHV"]
+
 
 
 def check_args(etrago):
@@ -2132,12 +2145,7 @@ def check_args(etrago):
 
     """
 
-    names = [
-        "eGon2035",
-        "eGon100RE",
-        "eGon2035_lowflex",
-        "eGon2035_mediumflex",
-    ]
+    names = ["eGon2035", "eGon100RE", "eGon2035_lowflex", "eGon2035_mediumflex"]
     assert (
         etrago.args["scn_name"] in names
     ), f"'scn_name' has to be in {names} but is {etrago.args['scn_name']}."
@@ -2395,10 +2403,8 @@ def adjust_CH4_gen_carriers(self):
         self.network.generators.loc[
             self.network.generators[
                 (self.network.generators.carrier == "CH4")
-                & (
-                    self.network.generators.marginal_cost
-                    != marginal_cost["biogas"]
-                )
+
+                & (self.network.generators.marginal_cost != marginal_cost["biogas"])
                 & (
                     self.network.generators.bus.astype(str).isin(
                         self.network.buses.index[

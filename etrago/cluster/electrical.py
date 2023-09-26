@@ -780,6 +780,7 @@ def weighting_for_scenario(network, save=None):
 
     return weight
 
+
 def run_spatial_clustering(self):
 
     if self.args["network_clustering"]["active"]:
