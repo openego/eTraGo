@@ -1721,7 +1721,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         extension_links = pd.DataFrame(
             data=network_c.links, index=network_c.links.index
         )
-        extension_links[extension_links.carrier != "DC"] = 0
+
         extension_links = (
             100
             * (network_c.links.p_nom_opt - network_c.links.p_nom_min)
@@ -1735,7 +1735,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         extension_links = pd.DataFrame(
             data=network_c.links, index=network_c.links.index
         )
-        extension_links[extension_links.carrier != "DC"] = 0
+
         extension_links = network_c.links.p_nom_opt - network_c.links.p_nom_min
 
     extension_lines = pd.Series(
@@ -2513,6 +2513,7 @@ def plot_grid(
             dc_link = network.links.index[network.links.carrier == "DC"]
             link_widths = pd.Series(0, index=network.links.index)
             link_widths.loc[dc_link] = 2
+            line_widths = line_colors.apply(lambda x: 1.5 if x != 0 else 0)
     elif line_colors == "q_flow_max":
         title = "Maximum reactive power flows"
         label = "flow in pu"
