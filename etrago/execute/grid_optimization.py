@@ -246,6 +246,9 @@ def add_redispatch_generators(self):
         -(self.market_model.links_t.p0.loc[:, links_redispatch])
     ).values
 
+    # Check if the network contains any problems
+    self.network.consistency_check()
+
     # just for the current status2019 scenario a quick fix for buses which do not have a connection
     #self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
 
