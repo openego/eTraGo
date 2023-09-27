@@ -112,7 +112,7 @@ def add_redispatch_generators(self):
 
     ## Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[
-        :, gens_redispatch
+        :, links_redispatch
     ] = self.market_model.links_t.p0[links_redispatch].mul(
         1 / self.market_model.links.p_nom[links_redispatch]
     )
