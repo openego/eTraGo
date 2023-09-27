@@ -48,6 +48,7 @@ from etrago.execute import (
     dispatch_disaggregation,
     optimize,
     run_pf_post_lopf,
+    lopf,
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -257,6 +258,8 @@ class Etrago:
     grid_optimization = grid_optimization
 
     market_optimization = market_optimization
+
+    lopf = lopf
 
     optimize = optimize
 
