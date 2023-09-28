@@ -551,9 +551,7 @@ def import_gen_from_links(network):
     gas_to_add_orig = gas_to_add.copy()
     gas_to_add.set_index("Generator", drop=True, inplace=True)
     gas_to_add = gas_to_add[
-        gas_to_add.columns[
-            gas_to_add.columns.isin(network.generators.columns)
-        ]
+        gas_to_add.columns[gas_to_add.columns.isin(network.generators.columns)]
     ]
 
     network.import_components_from_dataframe(gas_to_add, "Generator")
@@ -608,9 +606,7 @@ def import_gen_from_links(network):
 
         for attr, data in df_t.items():
             if not data.empty:
-                network.import_series_from_dataframe(
-                    data, "Generator", attr
-                )
+                network.import_series_from_dataframe(data, "Generator", attr)
 
     return
 
