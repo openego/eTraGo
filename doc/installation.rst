@@ -63,9 +63,8 @@ environments.
 
 Setup database connection
 =========================
-The package `ego.io <https://github.com/openego/ego.io>`_ will be installed
-automatically when eTraGo is installed. The ``egoio``
-gives you python SQL-Alchemy representations of
+The eTraGo module `db <https://github.com/openego/eTraGo/blob/dev/etrago/tools/db.py>`_ 
+gives you a python SQL-Alchemy representations of
 the `OpenEnergy-Database(oedb) <https://openenergy-platform.org/dataedit/>`_ 
 and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_, which is a SQL-Alchemy binding
@@ -82,7 +81,7 @@ the oedialect enter the following connection parameter. For <username> and
 <token> you have to take your credentials which you obtained by registering
 at `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
 
-Your API access / login data will be saved in the folder ``.egoio`` in the file
+Your API access / login data will be saved in the folder ``.etrago_database`` in the file
 ``config.ini``. Consequently, in the config.ini you can also change 
 your connection parameters or add new ones.
 In the following you can see how the config.ini looks like when you use the
