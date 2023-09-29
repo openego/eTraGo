@@ -25,7 +25,6 @@ from math import log10, sqrt
 import logging
 import os
 
-from etrago.tools.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -34,6 +33,8 @@ import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+
+from etrago.tools.execute import import_gen_from_links
 
 cartopy_present = True
 try:
