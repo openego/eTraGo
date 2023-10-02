@@ -761,12 +761,23 @@ class UniformDisaggregation(Disaggregation):
 
     def transfer_results(self, *args, **kwargs):
         kwargs["bustypes"] = ["generators", "links", "storage_units", "stores"]
-        kwargs["series"] = {
-            "generators": {"p"},
-            "links": {"p0", "p1"},
-            "storage_units": {"p", "state_of_charge"},
-            "stores": {"e", "p"},
-        }
+
+        # Only disaggregate reactive power (q) if a pf_post_lopf was performed
+        # and there is data in resulting q time series
+        if self.original_network.generators_t.q.empty:
+            kwargs["series"] = {
+                "generators": {"p"},
+                "links": {"p0", "p1"},
+                "storage_units": {"p", "state_of_charge"},
+                "stores": {"e", "p"},
+            }
+        else:
+            kwargs["series"] = {
+                "generators": {"p", "q"},
+                "links": {"p0", "p1"},
+                "storage_units": {"p", "q", "state_of_charge"},
+                "stores": {"e", "p"},
+            }
         return super().transfer_results(*args, **kwargs)
 
 
