@@ -324,7 +324,9 @@ class Disaggregation:
         ):
             log.info(f"Attribute sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt)
+            cnb = cnb[cnb.carrier!="DC"]
             onb = getattr(self.original_network, bt)
+            onb = onb[onb.carrier!="DC"]
             log.info(
                 "{:>{}}: {}".format(
                     "p_nom_opt",
