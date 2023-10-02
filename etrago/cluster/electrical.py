@@ -1053,6 +1053,12 @@ def run_spatial_clustering(self):
     None
     """
     if self.args["network_clustering"]["active"]:
+
+        if self.args["disaggregation"] is not None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
+
         self.network.generators.control = "PV"
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
@@ -1089,11 +1095,6 @@ def run_spatial_clustering(self):
             self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
-
-        if self.args["disaggregation"] is not None:
-            self.disaggregated_network = self.network.copy()
-        else:
-            self.disaggregated_network = self.network.copy(with_time=False)
 
         self.network = self.clustering.network
 
