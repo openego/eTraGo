@@ -14,9 +14,7 @@ from etrago.tools.utilities import residual_load
 
 
 class Disaggregation:
-    def __init__(
-        self, original_network, clustered_network, busmap, skip=()
-    ):
+    def __init__(self, original_network, clustered_network, busmap, skip=()):
         """
         :param original_network: Initial (unclustered) network structure
         :param clustered_network: Clustered network used for the optimization
@@ -280,6 +278,7 @@ class Disaggregation:
         }
         profile = cProfile.Profile()
         profile = noops
+
         for i, cluster in enumerate(sorted(clusters)):
             log.info(f"Decompose {cluster=} ({i + 1}/{n})")
             profile.enable()
@@ -287,6 +286,7 @@ class Disaggregation:
             partial_network, externals = self.construct_partial_network(
                 cluster, scenario
             )
+
             profile.disable()
             self.stats["clusters"].loc[cluster, "decompose"] = time.time() - t
             log.info(
@@ -324,9 +324,9 @@ class Disaggregation:
         ):
             log.info(f"Attribute sums, {bt}, clustered - disaggregated:")
             cnb = getattr(self.clustered_network, bt)
-            cnb = cnb[cnb.carrier!="DC"]
+            cnb = cnb[cnb.carrier != "DC"]
             onb = getattr(self.original_network, bt)
-            onb = onb[onb.carrier!="DC"]
+            onb = onb[onb.carrier != "DC"]
             log.info(
                 "{:>{}}: {}".format(
                     "p_nom_opt",
@@ -624,6 +624,7 @@ class UniformDisaggregation(Disaggregation):
                         f" & (bus1 in {index})"
                     )
                 pnb = pnb.query(query)
+
                 assert not pnb.empty or (
                     # In some cases, a district heating grid is connected to a
                     # substation only via a resistive_heater but not e.g. by a
@@ -684,6 +685,7 @@ class UniformDisaggregation(Disaggregation):
                         " it has on the buses of it's partial network."
                     )
 
+                print(clb.iloc[0].carrier)
                 if clb.iloc[0].at[extendable_flag]:
                     # That means, `p_nom` got computed via optimization and we
                     # have to distribute it into the subnetwork first.
@@ -753,6 +755,10 @@ class UniformDisaggregation(Disaggregation):
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
                     epsilon = 1e-5
+                    if delta > epsilon:
+                        import pdb
+
+                        pdb.set_trace()
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
                         f" aggregated timeseries: {delta=} > {epsilon=}."

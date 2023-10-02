@@ -1053,7 +1053,6 @@ def run_spatial_clustering(self):
     None
     """
     if self.args["network_clustering"]["active"]:
-
         if self.args["disaggregation"] is not None:
             self.disaggregated_network = self.network.copy()
         else:
@@ -1091,12 +1090,12 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
-        self.clustering, busmap = postprocessing(
+        clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
 
-        self.network = self.clustering.network
+        self.network = clustering.network
 
         self.buses_by_country()
 
