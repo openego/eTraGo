@@ -15,7 +15,7 @@ from etrago.tools.utilities import residual_load
 
 class Disaggregation:
     def __init__(
-        self, original_network, clustered_network, clustering, skip=()
+        self, original_network, clustered_network, busmap, skip=()
     ):
         """
         :param original_network: Initial (unclustered) network structure
@@ -25,11 +25,11 @@ class Disaggregation:
         """
         self.original_network = original_network
         self.clustered_network = clustered_network
-        self.clustering = clustering
+        self.busmap = busmap
 
         self.buses = pd.merge(
             original_network.buses,
-            self.clustering.busmap.to_frame(name="cluster"),
+            busmap.to_frame(name="cluster"),
             left_index=True,
             right_index=True,
         )
@@ -808,14 +808,14 @@ def run_disaggregation(self):
                 disaggregation = MiniSolverDisaggregation(
                     self.disaggregated_network,
                     self.network,
-                    self.clustering,
+                    self.busmap,
                     skip=skip,
                 )
             elif disagg == "uniform":
                 disaggregation = UniformDisaggregation(
                     original_network=self.disaggregated_network,
                     clustered_network=self.network,
-                    clustering=self.clustering,
+                    busmap=pd.Series(self.busmap["busmap"]),
                     skip=skip,
                 )
 
