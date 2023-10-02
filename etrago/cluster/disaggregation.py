@@ -799,7 +799,7 @@ def update_constraints(network, externals):
 
 def run_disaggregation(self):
     log.debug("Running disaggregation.")
-    if self.clustering:
+    if self.args["network_clustering"]["active"]:
         disagg = self.args.get("disaggregation")
         skip = () if self.args["pf_post_lopf"]["active"] else ("q",)
         t = time.time()
