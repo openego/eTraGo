@@ -649,6 +649,13 @@ class UniformDisaggregation(Disaggregation):
                 if pnb.empty:
                     continue
 
+                # Exclude DC links from the disaggregation because it does not
+                # make sense to disaggregated them uniformly.
+                # A new power flow calculation in the high resolution would
+                # be required.
+                if pnb.carrier.iloc[0] == "DC":
+                    continue
+
                 if not (
                     pnb.loc[:, extendable_flag].all()
                     or not pnb.loc[:, extendable_flag].any()
