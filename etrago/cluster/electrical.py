@@ -320,6 +320,8 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     # Dealing with links
     links = network.links.copy()
     dc_links = links[links["carrier"] == "DC"]
+    # Discard links connected to buses under 220 kV
+    dc_links = dc_links[dc_links.bus0.isin(buses.index)]
     links = links[links["carrier"] != "DC"]
 
     new_links = (
