@@ -46,7 +46,6 @@ if "READTHEDOCS" not in os.environ:
         strategies_generators,
         strategies_one_ports,
     )
-    from etrago.tools.utilities import *
 
     logger = logging.getLogger(__name__)
 
@@ -69,7 +68,7 @@ __author__ = (
 
 def _leading(busmap, df):
     """
-    Returns a function that computes the leading bus_id for a given mapped 
+    Returns a function that computes the leading bus_id for a given mapped
     list of buses.
 
     Parameters
@@ -95,7 +94,7 @@ def _leading(busmap, df):
 
 def adjust_no_electric_network(etrago, busmap, cluster_met):
     """
-    Adjusts the non-electric network based on the electrical network 
+    Adjusts the non-electric network based on the electrical network
     (esp. eHV network), adds the gas buses to the busmap, and creates the
     new buses for the non-electric network.
 
@@ -117,7 +116,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
     """
     network = etrago.network
-    # network2 is supposed to contain all the not electrical or gas buses 
+    # network2 is supposed to contain all the not electrical or gas buses
     # and links
     network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
@@ -148,7 +147,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     # eHV network
     busmap2 = {}
 
-    # Map crossborder AC buses in case that they were not part of the k-mean clustering
+    # Map crossborder AC buses in case that they were not part of the k-mean
+    # clustering
     if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
         cluster_met in ["kmeans", "kmedoids-dijkstra"]
     ):
@@ -178,7 +178,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
                 & (network2.links["carrier"] == map_carrier[carry])
             ].copy()
             df["elec"] = df["bus0"].isin(busmap.keys())
-            df = df[df["elec"] == True]
+
+            df = df[df["elec"]]
             if len(df) > 0:
                 bus_hv = df["bus0"][0]
 
@@ -388,9 +389,9 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
 def delete_ehv_buses_no_lines(network):
     """
-    When there are AC buses totally isolated, this function deletes them in 
+    When there are AC buses totally isolated, this function deletes them in
     order to make possible the creation of busmaps based on electrical
-    connections and other purposes. Additionally, it throws a warning to 
+    connections and other purposes. Additionally, it throws a warning to
     inform the user in case that any correction should be done.
 
     Parameters
@@ -413,10 +414,10 @@ def delete_ehv_buses_no_lines(network):
     buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
 
     delete_buses = buses_ac[
-        (buses_ac["with_line"] == False)
-        & (buses_ac["with_load"] == False)
-        & (buses_ac["with_link"] == False)
-        & (buses_ac["with_gen"] == False)
+        (buses_ac["with_line"] is False)
+        & (buses_ac["with_load"] is False)
+        & (buses_ac["with_link"] is False)
+        & (buses_ac["with_gen"] is False)
     ].index
 
     if len(delete_buses):
@@ -752,7 +753,7 @@ def preprocessing(etrago):
 
                 ----------------------- WARNING ---------------------------
                 THE FOLLOWING BUSES HAVE NOT COUNTRY DATA:
-                    {network.buses[network.buses.country.isna()].index.to_list()}.
+                {network.buses[network.buses.country.isna()].index.to_list()}.
                 THEY WILL BE ASSIGNED TO GERMANY, BUT IT IS POTENTIALLY A
                 SIGN OF A PROBLEM IN THE DATASET.
                 ----------------------- WARNING ---------------------------
@@ -771,9 +772,9 @@ def preprocessing(etrago):
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
 
-        # The Dijkstra clustering works using the shortest electrical path 
+        # The Dijkstra clustering works using the shortest electrical path
         # between buses. In some cases, a bus has just DC connections, which
-        # are considered links. Therefore it is necessary to include 
+        # are considered links. Therefore it is necessary to include
         # temporarily the DC links into the lines table.
         dc = network.links[network.links.carrier == "DC"]
         str1 = "DC_"
@@ -827,7 +828,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
 
-    if settings["k_elec_busmap"] == False:
+    if not settings["k_elec_busmap"]:
         busmap.name = "cluster"
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
@@ -873,7 +874,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     )
 
     # merge busmap for foreign buses with the German buses
-    if settings["cluster_foreign_AC"] == False:
+    if not settings["cluster_foreign_AC"]:
         for bus in busmap_foreign.index:
             busmap[bus] = busmap_foreign[bus]
             if bus == busmap_foreign[bus]:
@@ -938,7 +939,6 @@ def weighting_for_scenario(network, save=None):
     """
 
     def calc_availability_factor(gen):
-
         """
         Calculate the availability factor for a given generator.
 
@@ -954,10 +954,10 @@ def weighting_for_scenario(network, save=None):
 
         Notes
         -----
-        Availability factor is defined as the ratio of the average power 
-        output of the generator over the maximum power output capacity of 
+        Availability factor is defined as the ratio of the average power
+        output of the generator over the maximum power output capacity of
         the generator. If the generator is time-dependent, its average power
-        output is calculated using the `network.generators_t` DataFrame. 
+        output is calculated using the `network.generators_t` DataFrame.
         Otherwise, its availability factor is obtained from the
         `fixed_capacity_fac` dictionary, which contains pre-defined factors
         for fixed capacity generators. If the generator's availability factor
@@ -970,7 +970,7 @@ def weighting_for_scenario(network, save=None):
         else:
             try:
                 cf = fixed_capacity_fac[gen["carrier"]]
-            except:
+            except KeyError:
                 print(gen)
                 cf = 1
         return cf
@@ -1060,7 +1060,7 @@ def run_spatial_clustering(self):
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
-            if self.args["network_clustering"]["k_elec_busmap"] == False:
+            if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-means Clustering")
 
                 busmap = kmean_clustering(
@@ -1072,7 +1072,7 @@ def run_spatial_clustering(self):
                 medoid_idx = pd.Series(dtype=str)
 
         elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
-            if self.args["network_clustering"]["k_elec_busmap"] == False:
+            if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-medoids Dijkstra Clustering")
 
                 busmap, medoid_idx = kmedoids_dijkstra_clustering(
@@ -1092,7 +1092,7 @@ def run_spatial_clustering(self):
         )
         self.update_busmap(busmap)
 
-        if self.args["disaggregation"] != None:
+        if self.args["disaggregation"] is not None:
             self.disaggregated_network = self.network.copy()
         else:
             self.disaggregated_network = self.network.copy(with_time=False)

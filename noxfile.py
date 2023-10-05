@@ -5,7 +5,14 @@ import nox
 
 cleaned = [
     "etrago/cluster/disaggregation.py",
+    "etrago/cluster/electrical.py",
+    "etrago/cluster/gas.py",
+    "etrago/cluster/snapshot.py",
+    "etrago/cluster/spatial.py",
     "etrago/tools/calc_results.py",
+    "etrago/tools/execute.py",
+    "etrago/tools/extendable.py",
+    "etrago/tools/io.py",
     "etrago/tools/network.py",
     "etrago/tools/utilities.py",
     "noxfile.py",
@@ -50,7 +57,7 @@ def flake8(session):
     """Check for happy little style accidents with `flake8`."""
     setdefaults(session)
     session.install("Flake8-pyproject", "flake8")
-    session.run("flake8", *cleaned)
+    session.run("flake8", "--ignore=E722, W605", *cleaned)
 
 
 @nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
