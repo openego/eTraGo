@@ -356,7 +356,8 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
 
     # graph creation
     edges = [
-        (row.bus0, row.bus1, row.length, ix) for ix, row in lines_plus_dc.iterrows()
+        (row.bus0, row.bus1, row.length, ix)
+        for ix, row in lines_plus_dc.iterrows()
     ]
 
     M = graph_from_edges(edges)
@@ -474,24 +475,26 @@ def busmap_from_psql(etrago):
 
     busmap = fetch()
 
-    # TODO: Or better try/except/finally
-    if not busmap:
-        print("Busmap does not exist and will be created.\n")
-
-        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
-        if cpu_cores == 'max':
-            cpu_cores = mp.cpu_count()
-        else:
-            cpu_cores = int(cpu_cores)
-
-        busmap_by_shortest_path(
-            etrago,
-            scn_name,
-            fromlvl=[110],
-            tolvl=[220, 380, 400, 450],
-            cpu_cores=cpu_cores,
+    if busmap:
+        print(
+            "Existing busmap will be deleted and a new one will be calculated.\n"
         )
-        busmap = fetch()
+        etrago.engine.execute("""DELETE FROM grid.egon_etrago_hv_busmap""")
+
+    cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
+    if cpu_cores == "max":
+        cpu_cores = mp.cpu_count()
+    else:
+        cpu_cores = int(cpu_cores)
+
+    busmap_by_shortest_path(
+        etrago,
+        scn_name,
+        fromlvl=[110],
+        tolvl=[220, 380, 400, 450],
+        cpu_cores=cpu_cores,
+    )
+    busmap = fetch()
 
     return busmap
 
