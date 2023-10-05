@@ -103,6 +103,7 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
+    "delete_dispensable_ac_buses": False, # bool. Find and delete unnecesary buses
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -379,6 +380,11 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
+    delete_dispensable_ac_buses: bool
+        Choose if unnecessary buses should be identified and deleted from the
+        grid. This buses have no load or generation attached. Additionally,
+        they are just connected to two other buses.
+        Default: False.
     network_clustering_ehv : bool
         Choose if you want to cluster the full HV/EHV dataset down to only the
         EHV buses. In that case, all HV buses are assigned to their closest EHV

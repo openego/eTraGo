@@ -541,7 +541,7 @@ def busmap_from_psql(etrago):
 
     if busmap:
         print(
-            "Existing busmap will be deleted and a new one will be calculated.\n"
+            "Existing busmap will be deleted and a new one will be calculated."
         )
         etrago.engine.execute("""DELETE FROM grid.egon_etrago_hv_busmap""")
 
