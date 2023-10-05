@@ -103,7 +103,7 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": False, # bool. Find and delete unnecesary buses
+    "delete_dispensable_ac_buses": False, # bool. Find and delete unnecessary buses
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
     "network_clustering": {
         "active": True,  # choose if clustering is activated
