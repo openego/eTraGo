@@ -30,8 +30,8 @@ if "READTHEDOCS" not in os.environ:
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
-    from pypsa.networkclustering import (
-        _flatten_multiindex,
+    from pypsa.clustering.spatial import (
+        flatten_multiindex,
         busmap_by_kmeans,
         busmap_by_stubs,
         get_clustering_from_busmap,
@@ -237,7 +237,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     strategies = strategies_links()
     strategies.update(cus_strateg)
     new_df = links.groupby(grouper, axis=0).agg(strategies)
-    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
     )
@@ -257,7 +257,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                         weighting.loc[df_agg.columns], axis=1
                     )
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
                 new_pnl[attr] = pd.concat(
