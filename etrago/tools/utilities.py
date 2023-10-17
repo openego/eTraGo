@@ -1878,7 +1878,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]) | (
+    if (self.args["network_clustering_ehv"]["active"]) | (
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")

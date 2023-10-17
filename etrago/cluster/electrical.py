@@ -290,11 +290,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         etrago, busmap, cluster_met="ehv"
     )
 
-    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-        "ehv_elecgrid_busmap_result.csv",
-        index=False,
-    )
-
     buses = aggregatebuses(
         network,
         busmap,
@@ -381,7 +376,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
 
     network_c.links, network_c.links_t = group_links(network_c)
-
     network_c.determine_network_topology()
 
     return (network_c, busmap)
@@ -414,10 +408,10 @@ def delete_ehv_buses_no_lines(network):
     buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
 
     delete_buses = buses_ac[
-        (buses_ac["with_line"] is False)
-        & (buses_ac["with_load"] is False)
-        & (buses_ac["with_link"] is False)
-        & (buses_ac["with_gen"] is False)
+        (buses_ac["with_line"] == False)
+        & (buses_ac["with_load"] == False)
+        & (buses_ac["with_link"] == False)
+        & (buses_ac["with_gen"] == False)
     ].index
 
     if len(delete_buses):
@@ -455,8 +449,8 @@ def ehv_clustering(self):
     """
     Cluster the network based on Extra High Voltage (EHV) grid.
 
-    If `network_clustering_ehv` argument is True, the function clusters the
-    network based on the EHV grid.
+    If 'active' in the `network_clustering_ehv` argument is True, the function
+    clusters the network based on the EHV grid.
 
     Parameters
     ----------
@@ -468,7 +462,7 @@ def ehv_clustering(self):
     None
     """
 
-    if self.args["network_clustering_ehv"]:
+    if self.args["network_clustering_ehv"]["active"]:
         logger.info("Start ehv clustering")
 
         self.network.generators.control = "PV"

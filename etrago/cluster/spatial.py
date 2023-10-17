@@ -362,7 +362,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
+def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     """
     Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
@@ -379,8 +379,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
         Container for all network components.
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
-    scn_name : str
-        Name of the scenario.
     fromlvl : list
         List of voltage-levels to cluster.
     tolvl : list
@@ -392,8 +390,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     -------
     None
     """
-
-    # cpu_cores = mp.cpu_count()
 
     # data preperation
     s_buses = buses_grid_linked(etrago.network, fromlvl)
@@ -476,25 +472,11 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
     df.drop_duplicates(inplace=True)
 
-    # prepare data for export
-
-    df["scn_name"] = scn_name
-    df["version"] = etrago.args["gridversion"]
-
-    if not df.version.any():
-        df.version = "testcase"
-
     df.rename(columns={"source": "bus0", "target": "bus1"}, inplace=True)
-    df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
-    df.to_sql(
-        "egon_etrago_hv_busmap",
-        con=etrago.engine,
-        schema="grid",
-        if_exists="append",
-    )
+    busmap = pd.Series(df.bus1.values, index=df.bus0).to_dict()
 
-    return
+    return busmap
 
 
 def busmap_from_psql(etrago):
@@ -517,54 +499,26 @@ def busmap_from_psql(etrago):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-    scn_name = (
-        etrago.args["scn_name"]
-        if etrago.args["scn_extension"] is None
-        else etrago.args["scn_name"]
-        + "_ext_"
-        + "_".join(etrago.args["scn_extension"])
-    )
 
-    from saio.grid import egon_etrago_hv_busmap
+    if etrago.args["network_clustering_ehv"]["busmap"] is False:
+        cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
+        if cpu_cores == "max":
+            cpu_cores = mp.cpu_count()
+        else:
+            cpu_cores = int(cpu_cores)
 
-    filter_version = etrago.args["gridversion"]
-
-    if not filter_version:
-        filter_version = "testcase"
-
-    def fetch():
-        query = (
-            etrago.session.query(
-                egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1
-            )
-            .filter(egon_etrago_hv_busmap.scn_name == scn_name)
-            .filter(egon_etrago_hv_busmap.version == filter_version)
+        busmap = busmap_by_shortest_path(
+            etrago,
+            fromlvl=[110],
+            tolvl=[220, 380, 400, 450],
+            cpu_cores=cpu_cores,
         )
-
-        return dict(query.all())
-
-    busmap = fetch()
-
-    if busmap:
-        print(
-            "Existing busmap will be deleted and a new one will be calculated."
+        pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+            "ehv_elecgrid_busmap_result.csv",
+            index=False,
         )
-        etrago.engine.execute("""DELETE FROM grid.egon_etrago_hv_busmap""")
-
-    cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
-    if cpu_cores == "max":
-        cpu_cores = mp.cpu_count()
     else:
-        cpu_cores = int(cpu_cores)
-
-    busmap_by_shortest_path(
-        etrago,
-        scn_name,
-        fromlvl=[110],
-        tolvl=[220, 380, 400, 450],
-        cpu_cores=cpu_cores,
-    )
-    busmap = fetch()
+        busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
 
     return busmap
 
