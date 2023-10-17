@@ -1711,7 +1711,7 @@ def get_clustering_data(self, path):
         Name of folder from which to import CSVs of network data.
     """
 
-    if (self.args["network_clustering_ehv"]) | (
+    if (self.args["network_clustering_ehv"]["active"]) | (
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")

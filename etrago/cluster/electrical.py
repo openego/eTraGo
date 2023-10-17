@@ -238,9 +238,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     network, busmap = adjust_no_electric_network(etrago, busmap, cluster_met="ehv")
 
-    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-    "ehv_elecgrid_busmap_result.csv", index=False,)
-
     buses = aggregatebuses(
         network,
         busmap,
@@ -324,7 +321,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
 
     network_c.links, network_c.links_t = group_links(network_c)
-
     network_c.determine_network_topology()
 
     return (network_c.copy(), busmap)
@@ -353,10 +349,12 @@ def delete_ehv_buses_no_lines(network):
     buses_ac["with_link"] = buses_ac.index.isin(buses_in_links)
     buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
 
-    delete_buses = buses_ac[(buses_ac["with_line"] == False) &
-                            (buses_ac["with_load"] == False) &
-                            (buses_ac["with_link"] == False) &
-                            (buses_ac["with_gen"] == False)].index
+    delete_buses = buses_ac[
+        (buses_ac["with_line"] == False)
+        & (buses_ac["with_load"] == False)
+        & (buses_ac["with_link"] == False)
+        & (buses_ac["with_gen"] == False)
+    ].index
 
     if len(delete_buses):
         logger.info(f"""
@@ -386,9 +384,23 @@ def delete_ehv_buses_no_lines(network):
 
 
 def ehv_clustering(self):
+    """
+    Cluster the network based on Extra High Voltage (EHV) grid.
 
-    if self.args["network_clustering_ehv"]:
+    If 'active' in the `network_clustering_ehv` argument is True, the function
+    clusters the network based on the EHV grid.
 
+    Parameters
+    ----------
+    self: Etrago object pointer
+        The object pointer for an Etrago object.
+
+    Returns
+    -------
+    None
+    """
+
+    if self.args["network_clustering_ehv"]["active"]:
         logger.info("Start ehv clustering")
 
         self.network.generators.control = "PV"
