@@ -408,10 +408,10 @@ def delete_ehv_buses_no_lines(network):
     buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
 
     delete_buses = buses_ac[
-        (buses_ac["with_line"] == False)
-        & (buses_ac["with_load"] == False)
-        & (buses_ac["with_link"] == False)
-        & (buses_ac["with_gen"] == False)
+        (~buses_ac["with_line"])
+        & (~buses_ac["with_load"])
+        & (~buses_ac["with_link"])
+        & (~buses_ac["with_gen"])
     ].index
 
     if len(delete_buses):
