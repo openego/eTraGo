@@ -132,13 +132,17 @@ def build_market_model(self):
     )    
     net.lines.drop(net.lines.loc[net.lines.carrier == 'AC'].index, inplace=True)
     #net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
-
-    # delete following unconnected CH4 buses. why are they there?
-    #net.buses.drop(net.buses[net.buses.index.isin(['37865', '37870'])].index, inplace=True)
     
     net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
 
     self.market_model = net
+    
+
+    # quick and dirty csv export of market model results
+    path = self.args["csv_export"]
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+    self.market_model.export_to_csv_folder(path + "/market")
     
     # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
     
