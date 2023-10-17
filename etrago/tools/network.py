@@ -55,7 +55,7 @@ from etrago.tools.calc_results import (
     german_network,
     system_costs_germany,
 )
-from etrago.tools.execute import (
+from etrago.execute import (
     dispatch_disaggregation,
     optimize,
     lopf,
