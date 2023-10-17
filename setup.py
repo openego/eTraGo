@@ -48,15 +48,16 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "egoio == 0.4.7",
         "geoalchemy2 >= 0.3.0",
         "geopandas",
+        "keyring",
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
-        # PyPSA uses a deprecated import that errors with Pyomo 6.4.3.
-        # Upstream has a fix but it's not yet released.
-        "pyomo != 6.4.3",
+        # Fix upper version limits for pyomo and pandas
+        # Related to problems with old pypsa version
+        "pandas < 2",
+        "pyomo>6.4, <6.6, !=6.4.3",
         "pypsa == 0.20.1",
         "rtree",
         "saio",
@@ -64,11 +65,17 @@ setup(
         "setuptools >= 54.2.0",
         "shapely",
         "sqlalchemy < 2",
+        "tables < 3.9",
         "tilemapbase == 0.4.5",
         "tsam",
     ],
     extras_require={
-        "docs": ["sphinx >= 1.4", "sphinx_rtd_theme"],
+        "docs": [
+            "nbsphinx",
+            "numpydoc",
+            "sphinx >= 1.4",
+            "sphinx_rtd_theme",
+        ],
         "gurobipy": ["gurobipy"],
         "cartopy": ["cartopy", "requests"],
     },

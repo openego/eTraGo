@@ -78,7 +78,7 @@ As shown in the figure above, several options to store energy are part of the mo
 
 
 Miscellaneous Features
---------
+----------------------
 
 Several features were developed to enhance the functionality of eTraGo. 
 

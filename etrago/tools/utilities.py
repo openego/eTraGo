@@ -29,14 +29,17 @@ import logging
 import math
 import os
 
-from egoio.tools import db
 from pyomo.environ import Constraint, PositiveReals, Var
-from shapely.geometry import Point
-import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
 import sqlalchemy.exc
+
+if "READTHEDOCS" not in os.environ:
+    from shapely.geometry import Point
+    import geopandas as gpd
+
+    from etrago.tools import db
 
 logger = logging.getLogger(__name__)
 
@@ -449,15 +452,15 @@ def set_q_national_loads(self, cos_phi):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
-    Overall container of PyPSA
+    network : :class:`pypsa.Network`
+        Overall container of PyPSA
     cos_phi : float
-    Choose ration of active and reactive power of foreign loads
+        Choose ration of active and reactive power of foreign loads
 
     Returns
     -------
-    network : :class:`pypsa.Network
-    Overall container of PyPSA
+    network : :class:`pypsa.Network`
+        Overall container of PyPSA
 
     """
     network = self.network
@@ -592,6 +595,7 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
         Marginal costs for load shedding
     p_nom : int
         Installed capacity of load shedding generator
+
     Returns
     -------
 
@@ -738,13 +742,14 @@ def export_to_csv(self, path):
 
     Parameters
     ----------
-    network : :class:`pypsa.Network
+    network : :class:`pypsa.Network`
         Overall container of PyPSA
     args: dict
         Contains calculation settings of appl.py
     path: str or False or None
         Choose path for csv-files. Specify `""`, `False` or `None` to
         not do anything.
+
     Returns
     -------
     None
@@ -852,7 +857,6 @@ def _make_consense(component, attr):
         specify the name of the component being clustered.
     attr : str
         specify the name of the attribute of the commponent being considered.
-
 
     Returns
     -------
@@ -1318,20 +1322,24 @@ def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    args: dict containing settings from appl.py
-    cost110 : capital costs per km for 110kV lines and cables
-                default: 230€/MVA/km, source: costs for extra circuit in
-                dena Verteilnetzstudie, p. 146)
-    cost220 : capital costs per km for 220kV lines and cables
-                default: 280€/MVA/km, source: costs for extra circuit in
-                NEP 2025, capactity from most used 220 kV lines in model
-    cost380 : capital costs per km for 380kV lines and cables
-                default: 85€/MVA/km, source: costs for extra circuit in
-                NEP 2025, capactity from most used 380 kV lines in NEP
-    costDC : capital costs per km for DC-lines
-                default: 375€/MVA/km, source: costs for DC transmission line
-                in NEP 2035
-    -------
+    args: dict
+        containing settings from appl.py
+    cost110 :
+        capital costs per km for 110kV lines and cables
+        default: 230€/MVA/km, source: costs for extra circuit in
+        dena Verteilnetzstudie, p. 146)
+    cost220 :
+        capital costs per km for 220kV lines and cables
+        default: 280€/MVA/km, source: costs for extra circuit in
+        NEP 2025, capactity from most used 220 kV lines in model
+    cost380 :
+        capital costs per km for 380kV lines and cables
+        default: 85€/MVA/km, source: costs for extra circuit in
+        NEP 2025, capactity from most used 380 kV lines in NEP
+    costDC :
+        capital costs per km for DC-lines
+        default: 375€/MVA/km, source: costs for DC transmission line
+        in NEP 2035
 
     """
 
@@ -1370,13 +1378,16 @@ def set_trafo_costs(
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    cost110_220 : capital costs for 110/220kV transformer
-                    default: 7500€/MVA, source: costs for extra trafo in
-                    dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
-    cost110_380 : capital costs for 110/380kV transformer
-                default: 17333€/MVA, source: NEP 2025
-    cost220_380 : capital costs for 220/380kV transformer
-                default: 14166€/MVA, source: NEP 2025
+    cost110_220 :
+        capital costs for 110/220kV transformer
+        default: 7500€/MVA, source: costs for extra trafo in
+        dena Verteilnetzstudie, p. 146; S of trafo used in osmTGmod
+    cost110_380 :
+        capital costs for 110/380kV transformer
+        default: 17333€/MVA, source: NEP 2025
+    cost220_380 :
+        capital costs for 220/380kV transformer
+        default: 14166€/MVA, source: NEP 2025
 
     """
 
@@ -1410,10 +1421,6 @@ def set_trafo_costs(
 
 
 def add_missing_components(self):
-    # Munich
-    # TODO: Manually adds lines between hard-coded buses. Has to be
-    #       changed for the next dataversion and should be moved to data
-    #       processing
     """
     Add a missing transformer at Heizkraftwerk Nord in Munich and a missing
     transformer in Stuttgart.
@@ -1429,6 +1436,11 @@ def add_missing_components(self):
         Overall container of PyPSA
 
     """
+
+    # Munich
+    # TODO: Manually adds lines between hard-coded buses. Has to be
+    #       changed for the next dataversion and should be moved to data
+    #       processing
 
     """
     "https://www.swm.de/privatkunden/unternehmen/energieerzeugung"
@@ -1659,7 +1671,6 @@ def convert_capital_costs(self):
     ----------
     etrago : :class:`etrago.Etrago
         Transmission grid object
-    -------
 
     """
 
@@ -1872,9 +1883,11 @@ def get_clustering_data(self, path):
     ----------
     path : str
         Name of folder from which to import CSVs of network data.
+
     Returns
-    None
     -------
+    None
+
     """
 
     if (self.args["network_clustering_ehv"]) | (
@@ -1926,10 +1939,8 @@ def set_random_noise(self, sigma=0.01):
     ----------
     etrago : :class:`etrago.Etrago
         Transmission grid object
-
     seed: int
         seed number, needed to reproduce results
-
     sigma: float
         Default: 0.01
         standard deviation, small values reduce impact on dispatch
@@ -1985,7 +1996,6 @@ def set_line_country_tags(network):
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-
 
     """
 
@@ -2514,8 +2524,8 @@ def drop_sectors(self, drop_carriers):
     drop_carriers : array
         List of sectors that will be dropped.
         e.g. ['dsm', 'CH4', 'H2_saltcavern', 'H2_grid',
-              'central_heat', 'rural_heat', 'central_heat_store',
-              'rural_heat_store', 'Li ion'] means everything but AC
+        'central_heat', 'rural_heat', 'central_heat_store',
+        'rural_heat_store', 'Li ion'] means everything but AC
 
     Returns
     -------
@@ -2598,10 +2608,12 @@ def drop_sectors(self, drop_carriers):
 def update_busmap(self, new_busmap):
     """
     Update busmap after any clustering process
+
     Parameters
     ----------
     new_busmap : dictionary
         busmap used to clusted the network.
+
     Returns
     -------
     None.
@@ -2648,12 +2660,7 @@ def adjust_CH4_gen_carriers(self):
             FROM scenario.egon_scenario_parameters
             WHERE name = '{self.args["scn_name"]}';"""
             df = pd.read_sql(sql, engine)
-            # TODO: There might be a bug in here raising a `KeyError`.
-            #       If you encounter it, that means you have live data
-            #       to test against. Please do a `git blame` on these
-            #       lines and follow the hints in the commit message to
-            #       fix the bug.
-            marginal_cost = df["marginal_cost"]
+            marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.ProgrammingError:
             marginal_cost = marginal_cost_def
 

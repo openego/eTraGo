@@ -25,30 +25,31 @@ from math import log10, sqrt
 import logging
 import os
 
+from etrago.tools.execute import import_gen_from_links
 from matplotlib import pyplot as plt
+from matplotlib.legend_handler import HandlerPatch
+from matplotlib.patches import Circle, Ellipse
 from pyproj import Proj, transform
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
-import tilemapbase
 
 cartopy_present = True
 try:
-    import cartopy
     import cartopy.crs as ccrs
-    import cartopy.mpl.geoaxes
-    import requests
 except ImportError:
     cartopy_present = False
 from pypsa.plot import draw_map_cartopy
-from shapely.geometry import LineString, MultiPoint, Point, Polygon
-import geopandas as gpd
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape
+    from pyproj import Proj, transform
+    from shapely.geometry import LineString, MultiPoint, Point, Polygon
+    import geopandas as gpd
+    import tilemapbase
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -135,6 +136,7 @@ def coloring():
         "power_to_H2": "cyan",
         "H2_overground": "cyan",
         "H2_underground": "cyan",
+        "H2": "cyan",
         "dsm-cts": "dodgerblue",
         "dsm-ind-osm": "dodgerblue",
         "dsm-ind-sites": "dodgerblue",
@@ -143,6 +145,8 @@ def coloring():
         "central_resistive_heater": "blueviolet",
         "rural_heat_pump": "violet",
         "CH4": "yellow",
+        "CH4_biogas": "yellow",
+        "CH4_NG": "yellow",
         "CH4_to_H2": "yellowgreen",
         "industrial_gas_CHP": "olive",
         "rural_gas_boiler": "sandybrown",
@@ -155,6 +159,7 @@ def coloring():
         "H2_to_CH4": "seagreen",
         "central_heat_store_charger": "firebrick",
         "central_heat_store": "firebrick",
+        "heat": "firebrick",
         "rural_heat_store_charger": "salmon",
         "rural_heat_store": "salmon",
         "central_heat_store_discharger": "firebrick",
@@ -164,6 +169,7 @@ def coloring():
         "H2_grid": "green",
         "H2_saltcavern": "darkgreen",
         "central_heat_store": "firebrick",
+        "heat": "firebrick",
         "rural_heat_store": "salmon",
         "AC": "blue",
         "nuclear": "palegreen",
@@ -191,6 +197,7 @@ def coloring():
         "pumped_hydro": "indigo",
         "BEV charger": "indigo",
         "BEV_charger": "indigo",
+        "others": "dimgrey",
     }
 
     return colors
@@ -220,11 +227,13 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
+
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(networkA)
             set_epsg_network(networkB)
@@ -239,21 +248,26 @@ def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
         data with a negative min and positive max and you want the
         middle of the colormap's dynamic range to be at zero
 
-        Input
-        -----
-          cmap : The matplotlib colormap to be altered
-          start : Offset from lowest point in the colormap's range.
-              Defaults to 0.0 (no lower ofset). Should be between
-              0.0 and `midpoint`.
-          midpoint : The new center of the colormap. Defaults to
-              0.5 (no shift). Should be between 0.0 and 1.0. In
-              general, this should be  1 - vmax/(vmax + abs(vmin))
-              For example if your data range from -15.0 to +5.0 and
-              you want the center of the colormap at 0.0, `midpoint`
-              should be set to  1 - 5/(5 + 15)) or 0.75
-          stop : Offset from highets point in the colormap's range.
-              Defaults to 1.0 (no upper ofset). Should be between
-              `midpoint` and 1.0.
+        Parameters
+        -----------
+        cmap :
+            The matplotlib colormap to be altered
+        start :
+            Offset from lowest point in the colormap's range.
+            Defaults to 0.0 (no lower ofset). Should be between
+            0.0 and `midpoint`.
+        midpoint :
+            The new center of the colormap. Defaults to
+            0.5 (no shift). Should be between 0.0 and 1.0. In
+            general, this should be  1 - vmax/(vmax + abs(vmin))
+            For example if your data range from -15.0 to +5.0 and
+            you want the center of the colormap at 0.0, `midpoint`
+            should be set to  1 - 5/(5 + 15)) or 0.75
+        stop :
+            Offset from highets point in the colormap's range.
+            Defaults to 1.0 (no upper ofset). Should be between
+            `midpoint` and 1.0.
+
         """
         cdict = {"red": [], "green": [], "blue": [], "alpha": []}
 
@@ -350,12 +364,13 @@ def network_expansion_diff(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(networkA)
             set_epsg_network(networkB)
@@ -579,13 +594,12 @@ def plot_gen_diff(
     """
     Plot difference in generation between two networks grouped by carrier type
 
-
     Parameters
     ----------
     networkA : PyPSA network container with switches
     networkB : PyPSA network container without switches
-    leave_out_carriers : list of carriers to leave out (default to all small
-    carriers)
+    leave_out_carriers :
+        list of carriers to leave out (default to all small carriers)
 
     Returns
     -------
@@ -644,7 +658,6 @@ def plot_voltage(network, boundaries=[], osm=False):
     """
     Plot voltage at buses as hexbin
 
-
     Parameters
     ----------
     network : PyPSA network container
@@ -652,15 +665,16 @@ def plot_voltage(network, boundaries=[], osm=False):
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     Returns
     -------
     Plot
     """
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         plot_osm(osm["x"], osm["y"], osm["zoom"])
@@ -769,6 +783,16 @@ def calc_dispatch_per_carrier(network, timesteps):
 
     """
 
+    import_gen_from_links(network)
+
+    ac_buses = network.buses[network.buses.carrier == "AC"].index
+    network.generators = network.generators[
+        network.generators.bus.isin(ac_buses)
+    ]
+    network.generators_t.p = network.generators_t.p.loc[
+        :, network.generators_t.p.columns.isin(network.generators.index)
+    ]
+
     index = [
         (network.generators.bus[idx], network.generators.carrier[idx])
         for idx in network.generators.index
@@ -797,7 +821,16 @@ def calc_dispatch_per_carrier(network, timesteps):
     return dist
 
 
-def calc_storage_expansion_per_bus(network):
+def calc_storage_expansion_per_bus(
+    network,
+    carriers=[
+        "battery",
+        "H2_overground",
+        "H2_underground",
+        "rural_heat_store",
+        "central_heat_store",
+    ],
+):
     """Function that calculates storage expansion per bus and technology
 
     Parameters
@@ -811,60 +844,10 @@ def calc_storage_expansion_per_bus(network):
         storage expansion per bus and technology
 
     """
-
-    batteries = network.storage_units[
-        network.storage_units.carrier == "battery"
-    ]
-    h2_overground = network.stores[network.stores.carrier == "H2_overground"]
-    h2_underground = network.stores[network.stores.carrier == "H2_underground"]
-    rural_heat = network.stores[network.stores.carrier == "rural_heat_store"]
-    central_heat = network.stores[
-        network.stores.carrier == "central_heat_store"
-    ]
-    # hydrogen = network.storage_units[network.storage_units.carrier ==
-    #                                  'extendable_hydrogen_storage']
-    battery_distribution = (
-        network.storage_units.p_nom_opt[batteries.index]
-        .groupby(network.storage_units.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_over_distribution = (
-        network.stores.e_nom_opt[h2_overground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    h2_under_distribution = (
-        network.stores.e_nom_opt[h2_underground.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    rural_heat_distribution = (
-        network.stores.e_nom_opt[rural_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    central_heat_distribution = (
-        network.stores.e_nom_opt[central_heat.index]
-        .groupby(network.stores.bus)
-        .sum()
-        .reindex(network.buses.index, fill_value=0.0)
-    )
-    # hydrogen_distribution =\
-    #     network.storage_units.p_nom_opt[hydrogen.index].groupby(
-    #         network.storage_units.bus).sum().reindex(
-    #             network.buses.index, fill_value=0.)
     index = [(idx, "battery") for idx in network.buses.index]
-    for c in [
-        "H2_overground",
-        "H2_underground",
-        "rural_heat_store",
-        "central_heat_store",
-    ]:
-        index.extend([(idx, c) for idx in network.buses.index])
+    for c in carriers:
+        if c != "battery":
+            index.extend([(idx, c) for idx in network.buses.index])
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
@@ -872,25 +855,107 @@ def calc_storage_expansion_per_bus(network):
         dtype=float,
     )
 
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "battery"
-    ] = battery_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_overground"
-    ] = h2_over_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "H2_underground"
-    ] = h2_under_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "rural_heat_store"
-    ] = rural_heat_distribution.sort_index().values
-    dist.iloc[
-        dist.index.get_level_values("carrier") == "central_heat_store"
-    ] = central_heat_distribution.sort_index().values
-    # dist.iloc[dist.index.get_level_values('carrier') == 'hydrogen_storage'] = \
-    #         hydrogen_distribution.sort_index().values
-    # network.carriers.color['hydrogen_storage'] = 'orange'
-    # network.carriers.color['battery_storage'] = 'blue'
+    if "battery" in carriers:
+        batteries = network.storage_units[
+            network.storage_units.carrier == "battery"
+        ]
+        battery_distribution = (
+            (
+                network.storage_units.p_nom_opt[batteries.index]
+                - network.storage_units.p_nom_min[batteries.index]
+            )
+            .groupby(network.storage_units.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        ).mul(6)
+
+        battery_distribution.index = pd.MultiIndex.from_tuples(
+            [(idx, "battery") for idx in battery_distribution.index]
+        )
+
+        dist.loc[
+            dist.index.get_level_values("carrier") == "battery"
+        ] = battery_distribution
+    if "H2_overground" in carriers:
+        h2_overground = network.stores[
+            network.stores.carrier == "H2_overground"
+        ]
+        h2_over_distribution = (
+            network.stores.e_nom_opt[h2_overground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        h2_over_distribution.index = pd.MultiIndex.from_tuples(
+            [(idx, "H2_overground") for idx in h2_over_distribution.index]
+        )
+
+        dist.loc[
+            dist.index.get_level_values("carrier") == "H2_overground"
+        ] = h2_over_distribution
+
+    if "H2_overground" in carriers:
+        h2_underground = network.stores[
+            network.stores.carrier == "H2_underground"
+        ]
+        h2_under_distribution = (
+            network.stores.e_nom_opt[h2_underground.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        h2_under_distribution.index = pd.MultiIndex.from_tuples(
+            [(idx, "H2_underground") for idx in h2_under_distribution.index]
+        )
+
+        dist.loc[
+            dist.index.get_level_values("carrier") == "H2_underground"
+        ] = h2_under_distribution
+
+    if "rural_heat_store" in carriers:
+        rural_heat = network.stores[
+            network.stores.carrier == "rural_heat_store"
+        ]
+        rural_heat_distribution = (
+            network.stores.e_nom_opt[rural_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        rural_heat_distribution.index = pd.MultiIndex.from_tuples(
+            [
+                (idx, "rural_heat_store")
+                for idx in rural_heat_distribution.index
+            ]
+        )
+
+        dist.loc[
+            dist.index.get_level_values("carrier") == "rural_heat_store"
+        ] = rural_heat_distribution
+    if "central_heat_store" in carriers:
+        central_heat = network.stores[
+            network.stores.carrier == "central_heat_store"
+        ]
+        central_heat_distribution = (
+            network.stores.e_nom_opt[central_heat.index]
+            .groupby(network.stores.bus)
+            .sum()
+            .reindex(network.buses.index, fill_value=0.0)
+        )
+
+        central_heat_distribution.index = pd.MultiIndex.from_tuples(
+            [
+                (idx, "central_heat_store")
+                for idx in central_heat_distribution.index
+            ]
+        )
+
+        dist.loc[
+            dist.index.get_level_values("carrier") == "central_heat_store"
+        ] = central_heat_distribution
 
     return dist
 
@@ -1045,20 +1110,21 @@ def nodal_gen_dispatch(
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm
 
     Returns
     -------
     None.
     """
 
-    if osm != False:
+    if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
-    elif (osm == False) and cartopy_present:
+    elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
@@ -1178,6 +1244,16 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
 
     """
 
+    import_gen_from_links(network)
+
+    ac_buses = network.buses[network.buses.carrier == "AC"].index
+    network.generators = network.generators[
+        network.generators.bus.isin(ac_buses)
+    ]
+    network.generators_t.p = network.generators_t.p.loc[
+        :, network.generators_t.p.columns.isin(network.generators.index)
+    ]
+
     gen = (
         mul_weighting(network, network.generators_t.p)
         .groupby(network.generators.bus, axis=1)
@@ -1201,7 +1277,11 @@ def nodal_production_balance(network, timesteps, scaling=0.00001):
     )
 
     bus_sizes = residual_load.abs() * scaling
+    bus_sizes = pd.Series(data=bus_sizes, index=network.buses.index).fillna(0)
 
+    bus_colors = pd.Series(data=bus_colors, index=network.buses.index).fillna(
+        "grey"
+    )
     return bus_sizes, bus_colors
 
 
@@ -1370,15 +1450,6 @@ def storage_soc_sorted(network, filename=None):
         & (network.storage_units.max_hours == 168)
     ]
 
-    cap_batt = (
-        network.storage_units.max_hours[sbatt]
-        * network.storage_units.p_nom_opt[sbatt]
-    ).sum()
-    cap_hydr = (
-        network.storage_units.max_hours[shydr]
-        * network.storage_units.p_nom_opt[shydr]
-    ).sum()
-
     fig, ax = plt.subplots(1, 1)
 
     if (
@@ -1455,7 +1526,7 @@ def mul_weighting(network, timeseries):
          timeseries considering snapshot_weightings
 
     """
-    return timeseries.mul(network.snapshot_weightings, axis=0)
+    return timeseries.mul(network.snapshot_weightings.generators, axis=0)
 
 
 def calc_ac_loading(network, timesteps):
@@ -1472,7 +1543,7 @@ def calc_ac_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        ACC line loading in MVA
+        AC line loading in MVA
 
     """
 
@@ -1523,13 +1594,13 @@ def calc_dc_loading(network, timesteps):
                 & (network.links.length == row["length"])
             ]
         ).empty:
-            l = network.links.index[
+            links_df = network.links.index[
                 (network.links.bus0 == row["bus1"])
                 & (network.links.bus1 == row["bus0"])
                 & (network.links.length == row["length"])
             ]
 
-            network.links.at[i, "linked_to"] = l.values[0]
+            network.links.at[i, "linked_to"] = links_df.values[0]
 
     network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
@@ -1553,14 +1624,16 @@ def calc_dc_loading(network, timesteps):
                 network.links.index == row["linked_to"]
             ].values[0],
         )
-
-    return (
+    dc_load = (
         mul_weighting(network, link_load)
         .loc[network.snapshots[timesteps]]
         .abs()
         .sum()[network.links.index]
         / p_nom_opt_max
     ).dropna()
+    dc_load.loc[network.links.carrier != "DC"] = 0
+
+    return dc_load
 
 
 def plotting_colors(network):
@@ -1603,7 +1676,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
 
     Returns
     -------
-    all_network : :class:`pypsa.Network
+    network : :class:`pypsa.Network
         Whole network including not extended lines
     extension_lines : pandas.Series
         AC-line expansion
@@ -1611,52 +1684,70 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
         DC-line expansion
 
     """
-    all_network = network.copy()
 
-    network.lines = network.lines[
-        network.lines.s_nom_extendable
+    network_c = network.copy()
+
+    network_c.lines = network_c.lines[
+        network_c.lines.s_nom_extendable
         & (
-            (network.lines.s_nom_opt - network.lines.s_nom_min)
-            / network.lines.s_nom
+            (network_c.lines.s_nom_opt - network_c.lines.s_nom_min)
+            / network_c.lines.s_nom
             >= ext_min
         )
     ]
-    network.links = network.links[
-        network.links.p_nom_extendable
+    network_c.links = network_c.links[
+        network_c.links.p_nom_extendable
+        & (network_c.links.carrier == "DC")
         & (
-            (network.links.p_nom_opt - network.links.p_nom_min)
-            / network.links.p_nom
+            (network_c.links.p_nom_opt - network_c.links.p_nom_min)
+            / network_c.links.p_nom
             >= ext_min
         )
     ]
 
-    for i, row in network.links.iterrows():
-        linked = network.links[
-            (row["bus1"] == network.links.bus0)
-            & (row["bus0"] == network.links.bus1)
+    for i, row in network_c.links.iterrows():
+        linked = network_c.links[
+            (row["bus1"] == network_c.links.bus0)
+            & (row["bus0"] == network_c.links.bus1)
         ]
         if not linked.empty:
             if row["p_nom_opt"] < linked.p_nom_opt.values[0]:
-                network.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
+                network_c.links.p_nom_opt[i] = linked.p_nom_opt.values[0]
 
     if method == "rel":
         extension_lines = (
             100
-            * (network.lines.s_nom_opt - network.lines.s_nom_min)
-            / network.lines.s_nom
+            * (network_c.lines.s_nom_opt - network_c.lines.s_nom_min)
+            / network_c.lines.s_nom
+        )
+
+        extension_links = pd.DataFrame(
+            data=network_c.links, index=network_c.links.index
         )
 
         extension_links = (
             100
-            * (network.links.p_nom_opt - network.links.p_nom_min)
-            / (network.links.p_nom)
+            * (network_c.links.p_nom_opt - network_c.links.p_nom_min)
+            / (network_c.links.p_nom)
         )
+        extension_links = extension_links.fillna(0)
+
     if method == "abs":
-        extension_lines = network.lines.s_nom_opt - network.lines.s_nom_min
+        extension_lines = network_c.lines.s_nom_opt - network_c.lines.s_nom_min
 
-        extension_links = network.links.p_nom_opt - network.links.p_nom_min
+        extension_links = pd.DataFrame(
+            data=network_c.links, index=network_c.links.index
+        )
 
-    return all_network, extension_lines, extension_links
+        extension_links = network_c.links.p_nom_opt - network_c.links.p_nom_min
+
+    extension_lines = pd.Series(
+        data=extension_lines, index=network.lines.index
+    ).fillna(0)
+    extension_links = pd.Series(
+        data=extension_links, index=network.links.index
+    ).fillna(0)
+    return network, extension_lines, extension_links
 
 
 def plot_background_grid(network, ax):
@@ -1674,6 +1765,9 @@ def plot_background_grid(network, ax):
     None.
 
     """
+    link_widths = pd.Series(index=network.links.index, data=0)
+    link_widths.loc[network.links.carrier == "DC"] = 0.3
+
     if cartopy_present:
         network.plot(
             ax=ax,
@@ -1681,10 +1775,11 @@ def plot_background_grid(network, ax):
             link_colors="grey",
             bus_sizes=0,
             line_widths=0.5,
-            link_widths=0.3,  # 0.55,
+            link_widths=link_widths,
             geomap=True,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
+            boundaries=[-2.5, 16, 46.8, 58],
         )
     else:
         network.plot(
@@ -1693,7 +1788,7 @@ def plot_background_grid(network, ax):
             link_colors="grey",
             bus_sizes=0,
             line_widths=0.5,
-            link_widths=0.3,  # 0.55,
+            link_widths=link_widths,
             geomap=False,
         )
 
@@ -1720,26 +1815,26 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     """
     df = pd.DataFrame(index=self.network.snapshots[snapshots])
 
-    l = self.network.links[
+    link = self.network.links[
         (self.network.links.carrier == "dsm")
         & (self.network.links.bus0.isin(buses))
     ]
     s = self.network.stores[
         (self.network.stores.carrier == "dsm")
-        & (self.network.stores.bus.isin(l.bus1.values))
+        & (self.network.stores.bus.isin(link.bus1.values))
     ]
 
     df["p_min"] = (
-        self.network.links_t.p_min_pu[l.index]
-        .mul(l.p_nom, axis=1)
+        self.network.links_t.p_min_pu[link.index]
+        .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
         .mean()
         .iloc[snapshots]
     )
     df["p_max"] = (
-        self.network.links_t.p_max_pu[l.index]
-        .mul(l.p_nom, axis=1)
+        self.network.links_t.p_max_pu[link.index]
+        .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
         .mean()
@@ -1761,7 +1856,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     if used:
         df["p"] = (
-            self.network.links_t.p0[l.index]
+            self.network.links_t.p0[link.index]
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
@@ -2030,7 +2125,8 @@ def flexibility_usage(
     snapshots : list, optional
         Considered snapshots, if empty all are considered. The default is [].
     buses : list, optional
-        Considered components at AC buses, if empty all are considered. The default is [].
+        Considered components at AC buses, if empty all are considered.
+        The default is [].
     pre_path : str, optional
         State of and where you want to store the figure. The default is None.
 
@@ -2043,9 +2139,6 @@ def flexibility_usage(
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
-
-    potential = pd.DataFrame(index=self.network.snapshots[snapshots])
-    used = pd.DataFrame(index=self.network.snapshots[snapshots])
 
     if not buses:
         buses = self.network.buses.index
@@ -2224,38 +2317,55 @@ def plot_grid(
     disaggregated=False,
     ext_min=0.1,
     ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
 ):
     """Function that plots etrago.network and results for lines and buses
-
-
 
     Parameters
     ----------
     line_colors : str
         Set static line color or attribute to plot e.g. 'expansion_abs'
         Current options:
-            'line_loading': mean line loading in p.u. in selected timesteps
-            'v_nom': nominal voltage of lines
-            'expansion_abs': absolute network expansion in MVA
-            'expansion_rel': network expansion in p.u. of existing capacity
-            'q_flow_max': maximal reactive flows
+
+        * 'line_loading': mean line loading in p.u. in selected timesteps
+        * 'v_nom': nominal voltage of lines
+        * 'expansion_abs': absolute network expansion in MVA
+        * 'expansion_rel': network expansion in p.u. of existing capacity
+        * 'q_flow_max': maximal reactive flows
+        * 'dlr': energy above nominal capacity
+        * 'grey': plot all lines and DC links grey colored
+
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
     bus_colors : str, optional
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
-            'nodal_production_balance': net producer/consumer in selected timeteps
-            'storage_expansion': storage expansion per bus and technology
-            'storage_distribution': installed storage units per bus
-            'gen_dist': dispatch per carrier in selected timesteps
+
+        * 'nodal_production_balance': net producer/consumer in selected timeteps
+        * 'storage_expansion': storage expansion per bus and technology
+        * 'storage_distribution': installed storage units per bus
+        * 'h2_battery_storage_expansion': storage expansion per bus and
+           technology for underground and overground H2 and batteries.
+        * 'gen_dist': dispatch per carrier in selected timesteps
+        * 'PowerToH2': location and sizes of electrolizers
+        * 'flexibility_usage': use of DSM and BEV charger
+
     timesteps : array, optional
-        Timesteps consideredd in time depended plots. The default is range(2).
+        Timesteps consideredd in time depended plots. The default
+        is range(2).
     osm : bool or dict, e.g. {'x': [1,20], 'y': [47, 56], 'zoom' : 6}
         If not False, osm is set as background
         with the following settings as dict:
-                'x': array of two floats, x axis boundaries (lat)
-                'y': array of two floats, y axis boundaries (long)
-                'zoom' : resolution of osm. The default is False.
+
+        * 'x': array of two floats, x axis boundaries (lat)
+        * 'y': array of two floats, y axis boundaries (long)
+        * 'zoom' : resolution of osm. The default is False.
+
     boundaries: array
        Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
@@ -2265,9 +2375,15 @@ def plot_grid(
     ext_min: float
         Choose minimum relative line extension shown in plot in p.u..
     ext_width: float or bool
-        Choose if line_width respects line extension. Turn off with 'False' or
-        set linear factor to decremise extension line_width.
+        Choose if line_width respects line extension. Turn off with
+        'False' or set linear factor to decremise extension line_width.
         The default is False.
+    legend_entries : list, optional
+        Set the legends for buses to be plotted. The default is 'all'.
+    scaling_store_expansion : dict, optional
+        Set scaling values to be used per technology for the plots
+        storage_expansion and h2_battery_storage_expansion. The default is
+        {"H2": 50, "heat": 0.1, "battery": 10}
 
     Returns
     -------
@@ -2285,16 +2401,17 @@ def plot_grid(
 
     # Set default values
     flow = None
+    title = ""
     line_widths = 2
     link_widths = 0
 
     # Plot osm map in background
-    if osm != False:
+    if osm is not False:
         if network.srid == 4326:
             set_epsg_network(network)
         fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
 
-    elif (osm == False) and cartopy_present:
+    elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
         )
@@ -2302,22 +2419,28 @@ def plot_grid(
     else:
         fig, ax = plt.subplots(figsize=(5, 5))
 
+    fig.set_tight_layout(True)
+
     # Set line colors
     if line_colors == "line_loading":
-        title = (
-            "Mean loading from "
-            + str(network.snapshots[timesteps[0]])
-            + " to "
-            + str(network.snapshots[timesteps[-1]])
-        )
-        rep_snapshots = network.snapshot_weightings[
+        title = "Mean line loading"
+        rep_snapshots = network.snapshot_weightings["objective"][
             network.snapshots[timesteps]
         ].sum()
         line_colors = calc_ac_loading(network, timesteps).abs() / rep_snapshots
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
+        if ext_width is not False:
+            link_widths = link_colors.apply(
+                lambda x: 10 + (x / ext_width) if x != 0 else 0
+            )
+            line_widths = 10 + (line_colors / ext_width)
+        else:
+            link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
+            line_widths = 10
         label = "line loading in p.u."
+        plot_background_grid(network, ax)
         # Only active flow direction is displayed!
-        flow = pd.Series(index=network.branches().index, dtype="float64")
+        flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
             mul_weighting(network, network.lines_t.p0)
             .loc[network.snapshots[timesteps]]
@@ -2325,24 +2448,58 @@ def plot_grid(
             / network.lines.s_nom
             / rep_snapshots
         ).values
-        flow.iloc[flow.index.get_level_values("component") == "Link"] = (
-            calc_dc_loading(network, timesteps) / rep_snapshots
-        ).values
+
+        dc_loading = calc_dc_loading(network, timesteps) / rep_snapshots
+        dc_loading.index = pd.MultiIndex.from_tuples(
+            [("Link", name) for name in dc_loading.index],
+            names=["component", "name"],
+        )
+        flow.loc["Link", :] = dc_loading
+
+        flow = flow[
+            (flow.index.get_level_values("component") == "Line")
+            | (
+                flow.index.isin(
+                    link_widths[
+                        link_widths.index.isin(
+                            network.links[network.links.carrier == "DC"].index
+                        )
+                    ].index,
+                    level=1,
+                )
+            )
+        ]
+        flow[flow < 0] = -1
+        flow[flow > 0] = 1
+
     elif line_colors == "v_nom":
         title = "Voltage levels"
         label = "v_nom in kV"
         line_colors = network.lines.v_nom
-        link_colors = network.links.v_nom
+        link_colors = pd.Series(data=0, index=network.links.index)
+        plot_background_grid(network, ax)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
-        label = "network expansion in MW"
+        label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
         plot_background_grid(all_network, ax)
-        if ext_width != False:
-            line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = 0.5 + (link_colors / ext_width)
+
+        if ext_width is not False:
+            line_widths = line_colors / ext_width
+            link_widths = link_colors.apply(
+                lambda x: x / ext_width if x != 0 else 0
+            )
+        else:
+            dc_link = network.links.index[network.links.carrier == "DC"]
+            link_widths = pd.Series(0, index=network.links.index)
+            link_widths.loc[dc_link] = 1.5
+            line_widths = line_colors.apply(lambda x: 1.5 if x != 0 else 0)
+
+        link_colors = link_colors.mul(1e-3)
+        line_colors = line_colors.mul(1e-3)
+
     elif line_colors == "expansion_rel":
         title = "Network expansion"
         label = "network expansion in %"
@@ -2350,20 +2507,71 @@ def plot_grid(
             network, method="rel", ext_min=ext_min
         )
         plot_background_grid(all_network, ax)
-        if ext_width != False:
+        if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
-            link_widths = 0.5 + (link_colors / ext_width)
+            link_widths = link_colors.apply(
+                lambda x: 0.5 + x / ext_width if x != 0 else 0
+            )
+        else:
+            dc_link = network.links.index[network.links.carrier == "DC"]
+            link_widths = pd.Series(0, index=network.links.index)
+            link_widths.loc[dc_link] = 2
+            line_widths = line_colors.apply(lambda x: 1.5 if x != 0 else 0)
     elif line_colors == "q_flow_max":
-        title = "Maximmal reactive power flows"
-        label = "flow in Mvar"
+        title = "Maximum reactive power flows"
+        label = "flow in pu"
         line_colors = abs(
             network.lines_t.q0.abs().max() / (network.lines.s_nom)
         )
+        if ext_width is not False:
+            line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
+        plot_background_grid(network, ax)
+    elif line_colors == "dlr":
+        title = "Dynamic line rating"
+        label = "TWh above nominal capacity"
+        plot_background_grid(network, ax)
+
+        # calc min capacity per line in the given period: Since lines with
+        # different original voltage level could be aggregated during the
+        # clustering, the security factors can be values in between the values
+        # provided in the args for branch_capacity_factor.
+        network.lines.s_max_pu = network.lines_t.s_max_pu.min()
+        line_loading = network.lines_t.p0.mul(
+            1 / (network.lines.s_nom_opt * network.lines.s_max_pu)
+        ).abs()
+        line_loading = line_loading.iloc[timesteps, :]
+        # keep only the capacity allowed by dlr
+        line_loading = line_loading - 1
+        dlr_usage = (
+            line_loading[line_loading > 0]
+            .fillna(0)
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .sum()
+        )
+        dlr_usage = (
+            dlr_usage * network.lines.s_nom * network.lines.s_max_pu / 1000000
+        )
+        dlr_usage = dlr_usage.round(decimals=0)
+        line_colors = dlr_usage
+        if ext_width is not False:
+            line_widths = 0.2 + (line_colors / ext_width)
+        link_colors = pd.Series(data=0, index=network.links.index)
+
+    elif line_colors == "grey":
+        title = ""
+        label = ""
+        line_colors = "grey"
+        link_colors = "grey"
+        plot_background_grid(network, ax)
+        link_widths = 0
+        line_widths = 0
+
     else:
         logger.warning("line_color {} undefined".format(line_colors))
 
     # Set bus colors
+    bus_legend = False
 
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
@@ -2373,9 +2581,49 @@ def plot_grid(
         bus_legend = "Nodal production balance"
         bus_unit = "TWh"
     elif bus_colors == "storage_expansion":
+        if not isinstance(scaling_store_expansion, dict):
+            raise Exception(
+                """To plot storage_expansion, the argument\
+            scaling_store_expansion must be a dictionary like:
+                            {"H2": 50,
+                            "heat": 0.1,
+                            "battery": 10}"""
+            )
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        for store_carrier in ["H2", "heat", "battery"]:
+            bus_sizes[
+                bus_sizes.index.get_level_values("carrier").str.contains(
+                    store_carrier
+                )
+            ] *= scaling_store_expansion[store_carrier]
         bus_legend = "Storage expansion"
+        bus_unit = "GW"
+    elif bus_colors == "h2_battery_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(
+            network, carriers=["battery", "H2_overground", "H2_underground"]
+        )
+        if (
+            ("battery" not in scaling_store_expansion.keys())
+            | ("H2_overground" not in scaling_store_expansion.keys())
+            | ("H2_underground" not in scaling_store_expansion.keys())
+        ):
+            raise Exception(
+                """To plot h2_battery_storage_expansion, the argument\
+            scaling_store_expansion must be a dictionary like:
+                            {"H2_overground": 1,
+                             "H2_underground": 1,
+                             "battery": 1,}"""
+            )
+
+        for store_carrier in ["battery", "H2_overground", "H2_underground"]:
+            bus_sizes[
+                bus_sizes.index.get_level_values("carrier").str.contains(
+                    store_carrier
+                )
+            ] *= scaling_store_expansion[store_carrier]
+        bus_legend = "Battery and H2 storage expansion"
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
         bus_scaling = bus_sizes
@@ -2390,6 +2638,40 @@ def plot_grid(
         bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
         bus_legend = "Dispatch"
         bus_unit = "TW"
+    elif bus_colors == "flexibility_usage":
+        bus_scaling = bus_sizes
+        flex_links = network.links[
+            network.links.carrier.isin(
+                [
+                    "dsm",
+                    "BEV charger",
+                ]
+            )
+        ]
+        flex_links["p0_sum"] = (
+            network.links_t.p0[flex_links.index]
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .abs()
+            .sum()
+        )
+        flex_links["p1_sum"] = (
+            network.links_t.p1[flex_links.index]
+            .mul(network.snapshot_weightings.generators, axis=0)
+            .sum()
+        )
+        bus_sizes = (
+            bus_scaling * flex_links.groupby(["bus0", "carrier"]).p0_sum.sum()
+        )
+        bus_unit = "TWh"
+        bus_legend = "flexibility_usage"
+    elif bus_colors == "h2_storage_expansion":
+        bus_scaling = bus_sizes
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        bus_sizes = bus_sizes.reset_index()
+        bus_sizes = bus_sizes[bus_sizes.carrier.str.contains("H2")]
+        bus_sizes.set_index(["bus", "carrier"], inplace=True)
+        bus_legend = "Storage expansion"
+        bus_unit = "GW"
     elif (
         bus_colors == "PowerToH2"
     ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
@@ -2401,10 +2683,19 @@ def plot_grid(
             .sum()
             .p_nom_opt
         )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
-
+    elif bus_colors == "grey":
+        bus_scaling = bus_sizes
+        bus_sizes = pd.Series(
+            data=network.buses.carrier, index=network.buses.index
+        )
+        bus_sizes[bus_sizes != "AC"] = 0
+        bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
+        bus_scaling = bus_sizes
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
@@ -2417,12 +2708,13 @@ def plot_grid(
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
             line_widths=line_widths,
-            link_widths=0,  # link_widths,
+            link_widths=link_widths,
             flow=flow,
             title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
+            boundaries=[-2.5, 16, 46.8, 58],
         )
     else:
         ll = network.plot(
@@ -2433,24 +2725,63 @@ def plot_grid(
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
             line_widths=line_widths,
-            link_widths=0,  # link_widths,
+            link_widths=link_widths,
             flow=flow,
             title=title,
             geomap=False,
+            boundaries=[-2.5, 16, 46.8, 58],
         )
+    l3 = None
 
     # legends for bus sizes and colors
-    if type(bus_sizes) != float:
-        handles = make_legend_circles_for(
-            [bus_sizes.min(), bus_sizes.max()], scale=1, facecolor="gray"
-        )
-        labels = [
-            ("{} " + bus_unit).format(s)
-            for s in (
-                round(bus_sizes.min() / bus_scaling / 1000, 0),
-                round(bus_sizes.max() / bus_scaling / 1000, 0),
+    if bus_legend:
+        handles = []
+        labels = []
+        if scaling_store_expansion:
+            if not isinstance(legend_entries, list):
+                if bus_legend == "Storage expansion":
+                    legend_entries = list(scaling_store_expansion.keys())
+                if bus_legend == "Battery and H2 storage expansion":
+                    legend_entries = [
+                        "battery",
+                        "H2_overground",
+                        "H2_underground",
+                    ]
+            for i in legend_entries:
+                try:
+                    max_value = bus_sizes[
+                        bus_sizes.index.get_level_values(
+                            "carrier"
+                        ).str.contains(i)
+                    ].max()
+                except KeyError:
+                    max_value = bus_sizes.max()
+                handles.append(
+                    make_legend_circles_for(
+                        [max_value],
+                        scale=1,
+                        facecolor=network.carriers.color[i],
+                    )[0]
+                )
+                labels.append(
+                    f"""
+                    {round(max_value/bus_scaling/scaling_store_expansion[i]/
+                           1000, 0).astype(int)} {bus_unit} """
+                    + i
+                )
+        else:
+            if len(bus_sizes) > 0:
+                max_value = bus_sizes.max()
+            else:
+                max_value = 0
+            labels.append(f"{round(max_value / bus_scaling /1000, 0)} GWh ")
+            handles.append(
+                make_legend_circles_for(
+                    [max_value],
+                    scale=1,
+                    facecolor="grey",
+                )[0]
             )
-        ]
 
         l2 = ax.legend(
             handles,
@@ -2461,61 +2792,91 @@ def plot_grid(
             framealpha=1.0,
             title=bus_legend,
             handler_map=make_handler_map_to_scale_circles_as_in(ax),
+            prop={"size": 8},
         )
         ax.add_artist(l2)
 
-        handles = []
-        if bus_legend == "Nodal production balance":
-            positive = mpatches.Patch(color="green", label="generation")
-            negative = mpatches.Patch(color="red", label="consumption")
-            handles = [positive, negative]
-        else:
-            for i in network.carriers.color.index:
-                patch = mpatches.Patch(
-                    color=network.carriers.color[i], label=i
-                )
-                handles.append(patch)
+        plt.setp(l2.get_title(), fontsize="9")
 
-        l3 = plt.legend(
-            handles=handles, loc="upper left", ncol=3, bbox_to_anchor=(-0.1, 0)
-        )
-        ax.add_artist(l3)
+        if not scaling_store_expansion:
+            handles = []
+            if bus_legend == "Nodal production balance":
+                positive = mpatches.Patch(color="green", label="generation")
+                negative = mpatches.Patch(color="red", label="consumption")
+                handles = [positive, negative]
 
-    # Set fixed boundaries if selected in parameters
-    if not boundaries:
-        boundaries = [
-            min(line_colors.min(), link_colors.min()),
-            max(line_colors.max(), link_colors.max()),
+            elif bus_legend == "PowerToH2":
+                pth = mpatches.Patch(color="cyan", label="PowerToH2")
+                handles = [pth]
+            elif legend_entries != "all":
+                for i in legend_entries:
+                    patch = mpatches.Patch(
+                        color=network.carriers.color[i], label=i
+                    )
+                    handles.append(patch)
+            else:
+                for i in bus_sizes.index.get_level_values("carrier").unique():
+                    patch = mpatches.Patch(
+                        color=network.carriers.color[i], label=i
+                    )
+                    handles.append(patch)
+
+            l3 = plt.legend(
+                handles=handles,
+                loc="upper left",
+                ncol=2,
+                bbox_to_anchor=(0, 0),
+            )
+            ax.add_artist(l3)
+
+    if type(line_colors) != str:
+        # Set fixed boundaries if selected in parameters
+        if not boundaries:
+            boundaries = [
+                min(round(line_colors.min(), 1), round(link_colors.min(), 1)),
+                max(round(line_colors.max()), round(link_colors.max())),
+            ]
+
+        # Create ticks for legend
+        v = [
+            round(x, 1) for x in np.linspace(boundaries[0], boundaries[1], 101)
         ]
+        for l_collection in ll:
+            l_collection.set_clim(boundaries[0], boundaries[1])
 
-    # Create ticks for legend
-    v = np.linspace(boundaries[0], boundaries[1], 101)
-
-    # colorbar for line heatmap
-    cb = plt.colorbar(
-        ll[1], boundaries=v, ticks=v[0:101:10], fraction=0.046, pad=0.04
-    )
-    # Set legend label
-    cb.set_label(label)
+        # colorbar for line heatmap
+        cb = plt.colorbar(
+            ll[1],
+            values=v,
+            ticks=v[0:101:10],
+            fraction=0.028,
+            pad=0.04,
+        )
+        # Set legend label
+        cb.set_label(label)
 
     # Show plot or save to file
     if filename is None:
-        if type(bus_sizes) != float:
+        if not isinstance(bus_sizes, (pd.Series, float)):
             logger.warning("Legend of bus sizes will change when zooming")
+        plt.tight_layout()
         plt.show()
     else:
         from matplotlib import pylab
 
-        pylab.savefig(filename, dpi=300, bbox_inches="tight")
+        if l3 is None:
+            pylab.savefig(filename, dpi=300, bbox_inches="tight")
+        else:
+            pylab.savefig(
+                filename, dpi=300, bbox_inches="tight", bbox_extra_artists=[l3]
+            )
         plt.close()
 
 
 set_epsg_network.counter = 0
 
-### the following functions are copied from pypsa-eur-sec ###
-### see here: https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
-from matplotlib.legend_handler import HandlerPatch
-from matplotlib.patches import Circle, Ellipse
+# the following functions are copied from pypsa-eur-sec. see:
+# https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
 
 
 def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
@@ -2587,6 +2948,7 @@ def plot_clusters(
     gas_pipelines : bool, optional
         The default is False. Define if the original gas pipelines are
         plotted or not.
+
     Returns
     -------
     None.
@@ -2722,7 +3084,8 @@ def plot_gas_generation(
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -2787,10 +3150,12 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total gas generation
-        will then also be plotted to check for matching demand and generation.
+        If True all TS data will be shown as stacked area plot. Total gas
+        generation will then also be plotted to check for matching demand and
+        generation.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -2941,7 +3306,8 @@ def plot_h2_generation(self, t_resolution="20H", save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -2999,10 +3365,12 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total H2 generation
-        will then also be plotted to check for matching demand and generation.
+        If True all TS data will be shown as stacked area plot. Total H2
+        generation will then also be plotted to check for matching demand and
+        generation.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3011,7 +3379,6 @@ def plot_h2_summary(self, t_resolution="20H", stacked=True, save_path=False):
     None.
 
     """
-    colors = coloring()
 
     rel_h2_links = ["H2_feedin", "H2_to_CH4", "H2_to_power"]
     rel_h2_loads = ["H2_for_industry", "H2_hgv_load"]
@@ -3124,7 +3491,8 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3173,10 +3541,12 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
     self : :class:`Etrago
         Overall container of Etrago
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother line plots
+        sets the resampling rate of timeseries data to allow for smoother
+        line plots
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total heat demand
-        will then also be plotted to check for matching generation and demand.
+        If True all TS data will be shown as stacked area plot. Total heat
+        demand will then also be plotted to check for matching generation and
+        demand.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
 
@@ -3248,7 +3618,7 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
         / 1e3
     )
 
-    if stacked == True:
+    if stacked:
         data = pd.DataFrame(-(data.sum(axis=1)))
         data = data.rename(columns={0: heat_gen_techs[0]})
 
@@ -3320,3 +3690,184 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
 
     if save_path:
         plt.savefig(save_path, dpi=300)
+
+
+def shifted_energy(self, carrier, buses):
+    """Calulate shifted energy for a specific carrier
+
+    Parameters
+    ----------
+    carrier : str
+        Name of energy carrier
+    buses : list
+        List of considered bus indices
+
+    Returns
+    -------
+    shifted : pandas.Series
+        Shifted energy per time step
+
+    """
+
+    buses = self.network.links[
+        self.network.links.bus0.isin(
+            self.network.buses[
+                (self.network.buses.carrier == "AC")
+                & (self.network.buses.index.isin(buses))
+            ].index
+        )
+        & self.network.links.bus1.isin(
+            self.network.buses[
+                self.network.buses.carrier.str.contains(carrier)
+            ].index
+        )
+    ].bus1.unique()
+
+    supply = self.network.links_t.p1[
+        self.network.links[
+            (self.network.links.bus1.isin(buses))
+            & ~(self.network.links.carrier.str.contains("charger"))
+        ].index
+    ].mul(-1).sum(axis=1) + (
+        self.network.generators_t.p[
+            self.network.generators[
+                self.network.generators.bus.isin(buses)
+            ].index
+        ].sum(axis=1)
+    )
+
+    demand = self.network.loads_t.p[
+        self.network.loads[self.network.loads.bus.isin(buses)].index
+    ].sum(axis=1) + (
+        self.network.links_t.p0[
+            self.network.links[
+                (self.network.links.bus0.isin(buses))
+                & ~(self.network.links.carrier.str.contains("charger"))
+            ].index
+        ].sum(axis=1)
+    )
+
+    shifted = supply - demand
+    return shifted
+
+
+def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
+    """Plot duration curves of flexibility options
+
+    Parameters
+    ----------
+    etrago : Etrago
+        Object including network with flexibility options
+    etrago_lowflex : Etrago
+        Object including network with less flexibility options
+    filename : str, optional
+        Name of file to save plot. The default is None.
+
+    Returns
+    -------
+    None.
+
+    """
+    colors = coloring()
+
+    value = "p"
+
+    df = pd.DataFrame()
+
+    dsm_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("dsm")
+    ]
+    df["dsm_positive"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["dsm_negative"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    emob_static = etrago_lowflex.network.loads[
+        etrago_lowflex.network.loads.carrier == "land transport EV"
+    ]
+
+    emob_static_t = etrago_lowflex.network.loads_t.p_set[emob_static.index]
+
+    emob_static_t = emob_static_t.loc[:, emob_static.index]
+
+    emob_static_t.columns = emob_static.bus.values
+
+    emob_flex = etrago.network.links[
+        etrago.network.links.carrier.str.contains("BEV")
+    ]
+
+    emob_flex_t = etrago.network.links_t.p0[emob_flex.index]
+
+    emob_flex_t = emob_flex_t.loc[:, emob_flex.index]
+
+    emob_flex_t.columns = emob_flex.bus0.values
+
+    emob_flex_t - emob_static_t
+    df["BEV charger_positive"] = (
+        (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
+    )
+    df["BEV charger_negative"] = (
+        (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+    )
+
+    heat_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("heat")
+    ]
+    df["heat_positive"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["heat_negative"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    h2_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("H2")
+    ]
+    df["H2_positive"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["H2_negative"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    fig, ax = plt.subplots(figsize=(15, 8))
+    for c in df.columns:
+        result = pd.Series(dtype=float)
+        color = colors[c.split("_")[0]]
+        for p in range(0, 100):
+            result[p * df[c].abs().max() * np.sign(df[c].sum()) / 100] = (
+                df[c][df[c].abs() > p * 0.01 * df[c].abs().max()].size
+                / df[c].size
+            ) * 100
+
+        data_to_plot = pd.DataFrame(
+            index=result.values, data=result.index * 1e-3
+        )
+        data_to_plot.columns = [c.split("_")[0]]
+        data_to_plot.plot(ax=ax, color=color, linewidth=3.0)
+    plt.axhline(y=0.0, color="grey", linestyle="dotted")
+    ax.set_xlim(0, 80)
+    ax.set_xlabel("time in %")
+    ax.set_ylabel("flexibility usage in GW")
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
+    if filename:
+        fig.savefig(filename, dpi=600)
+        plt.close()

@@ -24,6 +24,8 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
+    import logging
+
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -40,7 +42,8 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         sum_with_inf,
     )
-    from etrago.tools.utilities import *
+
+logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -101,7 +104,8 @@ def preprocessing(etrago):
         )
     ]
 
-    # select buses dependent on whether they should be clustered in (only DE or DE+foreign)
+    # select buses dependent on whether they should be clustered in
+    # (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
@@ -311,11 +315,10 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     Returns
     -------
-    Tuple containing:
-        network_gasgrid_c : pypsa.Network
-            A pypsa.Network containing the clustered network.
-        busmap : pd.Series
-            A Pandas Series mapping each bus to its corresponding cluster ID.
+    network_gasgrid_c : pypsa.Network
+        A pypsa.Network containing the clustered network.
+    busmap : pd.Series
+        A Pandas Series mapping each bus to its corresponding cluster ID.
     """
     settings = etrago.args["network_clustering"]
 
@@ -345,8 +348,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
-    
-    if 'H2' in etrago.network.buses.carrier.unique():
+
+    if "H2" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
@@ -933,11 +936,12 @@ def run_spatial_clustering_gas(self):
     buses and links, and then performs postprocessing to finalize the changes.
 
     Returns
-        None
+    --------
+    None
 
     Raises
-        ValueError: If the selected method is not "kmeans" or
-        "kmedoids-dijkstra".
+    -------
+    ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
 
     """
     if "CH4" in self.network.buses.carrier.values:
@@ -997,7 +1001,8 @@ def run_spatial_clustering_gas(self):
             self.update_busmap(busmap)
 
             logger.info(
-                "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                """GAS Network clustered to {} DE-buses and {} foreign buses
+                 with {} algorithm.""".format(
                     len(
                         self.network.buses.loc[
                             (self.network.buses.carrier == "CH4")

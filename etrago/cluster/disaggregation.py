@@ -67,9 +67,9 @@ class Disaggregation:
 
         :param cluster: Index of the cluster to disaggregate
         :return: Tuple of (partial_network, external_buses) where
-        `partial_network` is the result of the partial decomposition
-        and `external_buses` represent clusters adjacent to `cluster` that may
-        be influenced by calculations done on the partial network.
+            `partial_network` is the result of the partial decomposition
+            and `external_buses` represent clusters adjacent to `cluster` that
+            may be influenced by calculations done on the partial network.
         """
 
         # Create an empty network
@@ -233,16 +233,15 @@ class Disaggregation:
             #       series accordingly, but there must be bug somewhere because
             #       using it, the time series in the clusters and sums of the
             #       time series after disaggregation don't match up.
-            """
-            series = getattr(self.original_network, bustype + '_t')
-            partial_series = type(series)()
-            for s in series:
-                partial_series[s] = series[s].loc[
-                        :,
-                        getattr(partial_network, bustype)
-                        .index.intersection(series[s].columns)]
-            setattr(partial_network, bustype + '_t', partial_series)
-            """
+
+            # series = getattr(self.original_network, bustype + '_t')
+            # partial_series = type(series)()
+            # for s in series:
+            #     partial_series[s] = series[s].loc[
+            #             :,
+            #             getattr(partial_network, bustype)
+            #             .index.intersection(series[s].columns)]
+            # setattr(partial_network, bustype + '_t', partial_series)
 
         # Just a simple sanity check
         # TODO: Remove when sure that disaggregation will not go insane anymore
@@ -267,6 +266,7 @@ class Disaggregation:
         """
         Decompose each cluster into separate units and try to optimize them
         separately
+
         :param scenario:
         :param solver: Solver that may be used to optimize partial networks
         """
