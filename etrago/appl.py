@@ -50,11 +50,11 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "local2035",  # database session
+    "db": "local2019",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "market_grid",  # type of optimization, currently only 'lopf'
-        "n_iter": 2,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
     },
     "pf_post_lopf": {
@@ -63,7 +63,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 24,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -74,13 +74,13 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_50b_5t_2035_redispatch",  # save results as csv: False or /path/tofolder
+    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_100b_24h_2019",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -100,14 +100,14 @@ args = {
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
-    "generator_noise": 1234567,  # apply generator noise, False or seed number
+    "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 50,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 51,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
@@ -471,6 +471,9 @@ def run_etrago(args, json_path):
             ~etrago.network.links.bus1.isin(etrago.network.buses.index)
         ].index,
     )
+    etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
+    
+
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -486,6 +489,10 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
+    
+    etrago.network.storage_units.cyclic_state_of_charge = True
+    etrago.network.stores.e_cyclic = True
+    
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
