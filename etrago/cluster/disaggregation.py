@@ -729,7 +729,12 @@ class UniformDisaggregation(Disaggregation):
                 for s in bustypes[bustype]["series"]:
                     if s in self.skip:
                         continue
+
                     filtered = pnb.loc[filters.get(s, slice(None))]
+
+                    if filtered.empty:
+                        continue
+
                     clt = cl_t[s].loc[:, clb.index[0]]
                     weight = reduce(
                         multiply,
