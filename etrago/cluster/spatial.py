@@ -515,8 +515,9 @@ def busmap_ehv_clustering(etrago):
         )
     else:
         busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
-        busmap = pd.Series(busmap.bus1.apply(str).values,
-                           index=busmap.bus0.apply(str)).to_dict()
+        busmap = pd.Series(
+            busmap.bus1.apply(str).values, index=busmap.bus0.apply(str)
+        ).to_dict()
 
     return busmap
 
