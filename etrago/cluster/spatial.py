@@ -414,21 +414,16 @@ def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     return busmap
 
 
-def busmap_from_psql(etrago):
-    """Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
-    <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
-    name. If this busmap does not exist, it is created with default values.
+def busmap_ehv_clustering(etrago):
+    """
+    Generates a busmap that can be used to cluster an electrical network to
+    only extra high voltage buses. If a path to a busmap in a csv file is
+    passed in the arguments, it loads the csv file and returns it.
 
     Parameters
     ----------
-    network : pypsa.Network object
-        Container for all network components.
-
-    session : sqlalchemy.orm.session.Session object
-        Establishes interactions with the database.
-
-    scn_name : str
-        Name of the scenario.
+    etrago : Etrago
+        An instance of the Etrago class
 
     Returns
     -------
