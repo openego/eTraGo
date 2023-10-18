@@ -39,7 +39,7 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        busmap_from_psql,
+        busmap_ehv_clustering,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
@@ -469,7 +469,7 @@ def ehv_clustering(self):
 
         delete_ehv_buses_no_lines(self.network)
 
-        busmap = busmap_from_psql(self)
+        busmap = busmap_ehv_clustering(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
             self, busmap, with_time=True
