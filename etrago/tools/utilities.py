@@ -635,6 +635,7 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
                     p_nom=p_nom,
                     carrier="load shedding",
                     bus=network.buses.index,
+                    control="PQ",
                 ),
                 index=index,
             ),
