@@ -760,10 +760,7 @@ class UniformDisaggregation(Disaggregation):
                     )
                     delta = abs((new_columns.sum(axis=1) - clt).sum())
                     epsilon = 1e-5
-                    if delta > epsilon:
-                        import pdb
 
-                        pdb.set_trace()
                     assert delta < epsilon, (
                         "Sum of disaggregated time series does not match"
                         f" aggregated timeseries: {delta=} > {epsilon=}."
