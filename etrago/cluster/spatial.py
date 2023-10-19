@@ -109,6 +109,18 @@ def sum_with_inf(x):
         return x.sum()
 
 
+def strategies_buses():
+    return {
+        "geom": nan_links,
+    }
+
+
+def strategies_lines():
+    return {
+        "geom": nan_links,
+    }
+
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -129,6 +141,8 @@ def strategies_one_ports():
             "e_nom_min": np.sum,
             "e_nom_max": sum_with_inf,
             "e_initial": np.sum,
+            "e_min_pu": np.mean,
+            "e_max_pu": np.mean,
         },
     }
 
@@ -171,6 +185,11 @@ def strategies_links():
         "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
+        "min_up_time": np.mean,
+        "min_down_time": np.mean,
+        "up_time_before": np.mean,
+        "down_time_before": np.mean,
+        "committable": np.all,
     }
 
 
