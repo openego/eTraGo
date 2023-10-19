@@ -251,6 +251,11 @@ def add_redispatch_generators(self):
 
     # just for the current status2019 scenario a quick fix for buses which do not have a connection
     #self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
+    
+    # TEMPORAL
+    self.network.generators.loc[self.network.generators.index.str.contains('run_of_river'), 'p_max_pu'] = 0.65
+    self.network.generators.loc[self.network.generators.index.str.contains('reservoir'), 'p_max_pu'] = 0.65
+    
 
 def extra_functionality():
     return None
