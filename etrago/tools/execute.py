@@ -527,7 +527,7 @@ def import_gen_from_links(network):
             network.links_t[df].drop(
                 columns=discard_gen.values, inplace=True, errors="ignore"
             )
-
+    # Select links that should be represented as generators
     gas_to_add = network.links[
         network.links.carrier.isin(
             [
@@ -539,74 +539,36 @@ def import_gen_from_links(network):
         )
     ].copy()
 
-    # Drop generators from the links table
-    network.links.drop(gas_to_add.index, inplace=True)
-
+    # Rename bus1 column to bus
     gas_to_add.rename(columns={"bus1": "bus"}, inplace=True)
 
-    # Create generators' names like in network.generators
-    gas_to_add["Generator"] = (
-        gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
+    # Aggregate new generators per bus and carrier
+    df = pd.DataFrame()
+    df["p_nom"] = gas_to_add.groupby(["bus", "carrier"]).p_nom.sum()
+    df["p_nom_opt"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_opt.sum()
+    df["marginal_cost"] = gas_to_add.groupby(
+        ["bus", "carrier"]
+    ).marginal_cost.mean()
+    df["efficiency"] = gas_to_add.groupby(["bus", "carrier"]).efficiency.mean()
+    df["control"] = "PV"
+    df.reset_index(inplace=True)
+    df.index = df.bus + " " + df.carrier
+
+    # Aggregate disptach time series for new generators
+    gas_to_add["bus1_carrier"] = gas_to_add.bus + " " + gas_to_add.carrier
+    df_t = (
+        network.links_t.p1[gas_to_add.index]
+        .groupby(gas_to_add.bus1_carrier, axis=1)
+        .sum()
+        * -1
     )
-    gas_to_add_orig = gas_to_add.copy()
-    gas_to_add.set_index("Generator", drop=True, inplace=True)
-    gas_to_add = gas_to_add[
-        gas_to_add.columns[gas_to_add.columns.isin(network.generators.columns)]
-    ]
 
-    network.import_components_from_dataframe(gas_to_add, "Generator")
+    # Insert aggregated generators their dispatch time series
+    network.madd("Generator", df.index, **df)
+    network.import_series_from_dataframe(df_t, "Generator", "p")
 
-    # Dealing with generators_t
-    columns_new = network.links_t.p1.columns[
-        network.links_t.p1.columns.isin(gas_to_add_orig.index)
-    ]
-
-    new_gen_t = network.links_t.p1[columns_new] * -1
-    new_gen_t.rename(columns=gas_to_add_orig["Generator"], inplace=True)
-    network.generators_t.p = network.generators_t.p.join(new_gen_t)
-
-    # Drop generators from the links_t table
-    for df in network.links_t:
-        if not network.links_t[df].empty:
-            network.links_t[df].drop(
-                columns=gas_to_add_orig.index,
-                inplace=True,
-                errors="ignore",
-            )
-
-    # Group generators per bus if needed
-    if not (
-        network.generators.groupby(["bus", "carrier"]).p_nom.count() == 1
-    ).all():
-        network.generators["weight"] = network.generators.p_nom
-        df, df_t = aggregategenerators(
-            network,
-            busmap=pd.Series(
-                index=network.buses.index, data=network.buses.index
-            ),
-            custom_strategies=strategies_generators(),
-        )
-
-        # Keep control arguments from generators
-        control = network.generators.groupby(
-            ["bus", "carrier"]
-        ).control.first()
-        control.index = (
-            control.index.get_level_values(0)
-            + " "
-            + control.index.get_level_values(1)
-        )
-        df.control = control
-
-        # Drop non-aggregated generators
-        network.mremove("Generator", network.generators.index)
-
-        # Insert aggregated generators and time series
-        network.import_components_from_dataframe(df, "Generator")
-
-        for attr, data in df_t.items():
-            if not data.empty:
-                network.import_series_from_dataframe(data, "Generator", attr)
+    # Drop links now modelled as generator
+    network.mremove("Link", gas_to_add.index)
 
     return
 
