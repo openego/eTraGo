@@ -866,6 +866,7 @@ def get_clustering_from_busmap(
         A new gas grid pypsa.Network object with aggregated components based
         on the bus mapping.
     """
+
     network_gasgrid_c = Network()
 
     # Aggregate buses
@@ -936,6 +937,7 @@ def get_clustering_from_busmap(
                 io.import_series_from_dataframe(
                     network_gasgrid_c, df, "Link", attr
                 )
+
     return network_gasgrid_c
 
 
