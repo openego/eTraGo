@@ -183,7 +183,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
             df = df[df["elec"]]
             if len(df) > 0:
-                bus_hv = df["bus0"][0]
+                bus_hv = df.loc[:, "bus0"].iloc[0]
 
         if bus_hv == -1:
             busmap2[bus_ne] = str(bus_ne)
