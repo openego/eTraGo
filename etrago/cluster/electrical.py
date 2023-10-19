@@ -43,7 +43,9 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
+        strategies_buses,
         strategies_generators,
+        strategies_lines,
         strategies_one_ports,
     )
 
@@ -891,6 +893,8 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=settings["line_length_factor"],
+        bus_strategies=strategies_buses(),
+        line_strategies=strategies_lines(),
     )
 
     if method == "kmedoids-dijkstra":
