@@ -918,7 +918,9 @@ def get_clustering_from_busmap(
 
     # import the links and the respective time series with the bus0 and bus1
     # values updated from the busmap
-    io.import_components_from_dataframe(network_gasgrid_c, new_links, "Link")
+    io.import_components_from_dataframe(
+        network_gasgrid_c, new_links.loc[:, ~new_links.isna().all()], "Link"
+    )
 
     if with_time:
         for attr, df in network.links_t.items():
