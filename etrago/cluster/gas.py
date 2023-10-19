@@ -83,10 +83,15 @@ def preprocessing(etrago):
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
 
-    buses_ch4 = etrago.network.buses
-    links_ch4 = etrago.network.links
+    buses_ch4 = etrago.network.buses.copy()
+    links_ch4 = etrago.network.links.copy()
+
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
-    io.import_components_from_dataframe(network_ch4, links_ch4, "Link")
+    network_ch4.madd(
+        "Link", links_ch4.index, **links_ch4.loc[:, ~links_ch4.isna().any()]
+    )
+
+    network_ch4.buses["country"] = buses_ch4.country
 
     # Cluster ch4 buses
     settings = etrago.args["network_clustering"]
