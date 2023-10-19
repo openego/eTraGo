@@ -255,6 +255,9 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     )
     strategies = strategies_links()
     strategies.update(cus_strateg)
+    strategies.pop("topo")
+    strategies.pop("geom")
+
     new_df = links.groupby(grouper, axis=0).agg(strategies)
     new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
