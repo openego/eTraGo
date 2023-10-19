@@ -26,7 +26,7 @@ import os
 if "READTHEDOCS" not in os.environ:
     import logging
 
-    from pypsa import Network
+    from pypsa.components import Network
     from pypsa.clustering.spatial import (
         aggregatebuses,
         aggregateoneport,
