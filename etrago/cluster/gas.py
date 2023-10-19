@@ -26,12 +26,12 @@ import os
 if "READTHEDOCS" not in os.environ:
     import logging
 
-    from pypsa.components import Network
     from pypsa.clustering.spatial import (
         aggregatebuses,
         aggregateoneport,
         busmap_by_kmeans,
     )
+    from pypsa.components import Network
     from six import iteritems
     import numpy as np
     import pandas as pd
