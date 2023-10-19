@@ -62,7 +62,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -79,7 +79,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test",  # save results as csv: False or /path/tofolder
+    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test_8760_51",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -106,10 +106,10 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 51,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 12,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -687,7 +687,6 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     
     etrago.network.storage_units.cyclic_state_of_charge = True
-    etrago.network.stores.e_cyclic = True
     
     etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
     
