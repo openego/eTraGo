@@ -54,7 +54,7 @@ setup(
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
-        "pypsa == 0.25.1",
+        "pypsa == 0.25.2",
         "rtree",
         "saio",
         "scikit-learn",
