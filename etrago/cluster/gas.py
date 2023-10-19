@@ -486,6 +486,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
         network_gasgrid_c, etrago.network.carriers, "Carrier"
     )
 
+    network_gasgrid_c.consistency_check()
     network_gasgrid_c.determine_network_topology()
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
