@@ -649,6 +649,14 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
@@ -658,6 +666,32 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+    import pandas as pd
+
+    etrago.network.links.min_up_time.fillna(0, inplace=True)
+    etrago.network.links.min_down_time.fillna(0, inplace=True)
+    etrago.network.links.up_time_before.fillna(0, inplace=True)
+    etrago.network.links.down_time_before.fillna(0, inplace=True)
+    etrago.network.loads_t.p = pd.DataFrame(index=etrago.network.snapshots)
+    etrago.network.loads_t.q = pd.DataFrame(index=etrago.network.snapshots)
+    etrago.network.stores_t.p = pd.DataFrame(index=etrago.network.snapshots)
+    etrago.network.storage_units_t.p = pd.DataFrame(
+        index=etrago.network.snapshots
+    )
+    etrago.network.stores_t.e = pd.DataFrame(index=etrago.network.snapshots)
+    etrago.network.stores_t.q = pd.DataFrame(index=etrago.network.snapshots)
+    etrago.network.stores_t.mu_lower = pd.DataFrame(
+        index=etrago.network.snapshots
+    )
+    etrago.network.stores_t.mu_upper = pd.DataFrame(
+        index=etrago.network.snapshots
+    )
+    etrago.network.stores_t.mu_energy_balance = pd.DataFrame(
+        index=etrago.network.snapshots
+    )
+    etrago.network.storage_units_t.q = pd.DataFrame(
+        index=etrago.network.snapshots
+    )
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
