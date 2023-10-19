@@ -733,7 +733,7 @@ def preprocessing(etrago):
             x=network.transformers.x
             * (380.0 / transformer_voltages.max(axis=1)) ** 2,
             length=1,
-            v_nom = 380.,
+            v_nom=380.0,
         )
         .set_index("T" + trafo_index),
         "Line",
