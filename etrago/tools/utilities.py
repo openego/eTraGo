@@ -1059,7 +1059,8 @@ def group_parallel_lines(network):
         .reset_index()
         .set_index("Line", drop=True)
     )
-    network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
+    
+    #network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
 
     return
 
