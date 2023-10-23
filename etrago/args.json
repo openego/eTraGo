@@ -51,13 +51,18 @@
     },
     "generator_noise": 789456,
     "extra_functionality": {},
-    "network_clustering_ehv": false,
+    "delete_dispensable_ac_buses": true,
+    "network_clustering_ehv": {
+        "active": false,
+        "busmap": false,
+    },
     "network_clustering": {
         "active": true,
         "method": "kmedoids-dijkstra",
         "n_clusters_AC": 30,
         "cluster_foreign_AC": false,
-        "n_clusters_gas": 30,
+        "method_gas": "kmedoids-dijkstra",
+        "n_clusters_gas": 17,
         "cluster_foreign_gas": false,
         "k_elec_busmap": false,
         "k_gas_busmap": false,
@@ -68,10 +73,11 @@
         "line_length_factor": 1,
         "remove_stubs": false,
         "use_reduced_coordinates": false,
-	"random_state":42,
+        "random_state": 42,
         "n_init": 10,
         "max_iter": 100,
-        "tol": 1e-06
+        "tol": 1e-6,
+        "CPU_cores": 4,
     },
     "sector_coupled_clustering": {
         "active": true,
@@ -88,10 +94,11 @@
     "snapshot_clustering": {
         "active": false,
         "method": "segmentation",
+        "extreme_periods": null,
         "how": "daily",
         "storage_constraints": "soc_constraints",
         "n_clusters": 5,
-        "n_segments": 5
+        "n_segments": 5,
     },
     "skip_snapshots": 5,
     "temporal_disaggregation": {

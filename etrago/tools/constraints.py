@@ -33,7 +33,7 @@ import pandas as pd
 import pyomo.environ as po
 
 if "READTHEDOCS" not in os.environ:
-    from egoio.tools import db
+    from etrago.tools import db
 
 logger = logging.getLogger(__name__)
 
@@ -311,8 +311,9 @@ def _min_renewable_share(self, network, snapshots):
 
 def _cross_border_flow(self, network, snapshots):
     """
-    Extra_functionality that limits overall AC crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Extra_functionality that limits overall AC crossborder flows from/to
+    Germany. Add key 'cross_border_flow' and array with minimal and maximal
+    import/export
     Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
 
     Parameters
@@ -402,7 +403,8 @@ def _cross_border_flow(self, network, snapshots):
 def _cross_border_flow_nmp(self, network, snapshots):
     """
     Extra_functionality that limits overall crossborder flows from/to Germany.
-    Add key 'cross_border_flow' and array with minimal and maximal import/export
+    Add key 'cross_border_flow' and array with minimal and maximal
+    import/export
     Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
 
     Parameters
@@ -471,7 +473,8 @@ def _cross_border_flow_per_country_nmp(self, network, snapshots):
     Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports in MWh
+    define dictionary of country keys and desired limitations of im/exports
+    in MWh
     Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
 
     Parameters
@@ -560,7 +563,8 @@ def _cross_border_flow_per_country(self, network, snapshots):
     Extra_functionality that limits AC crossborder flows for each given
     foreign country from/to Germany.
     Add key 'cross_border_flow_per_country' to args.extra_functionality and
-    define dictionary of country keys and desired limitations of im/exports in MWh
+    define dictionary of country keys and desired limitations of im/exports
+    in MWh
     Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
 
     Parameters
@@ -1652,7 +1656,7 @@ def snapshot_clustering_seasonal_storage(
     # create set for inter-temp constraints and variables
     network.model.candidates = po.Set(initialize=candidates, ordered=True)
 
-    if simplified == False:
+    if not simplified:
         # create intra soc variable for each storage/store and each hour
         network.model.state_of_charge_intra = po.Var(
             sus.index, network.snapshots
@@ -1959,7 +1963,7 @@ def snapshot_clustering_seasonal_storage(
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
-            hrs = 24  # 0 ###
+            hrs = 24
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
@@ -1974,7 +1978,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
 
@@ -2001,7 +2005,7 @@ def snapshot_clustering_seasonal_storage(
             delta_t = h - period_start
             intra_hour = first_hour + delta_t
         else:
-            hrs = 24  # 0 ###
+            hrs = 24
             date = str(
                 network.snapshots[
                     network.snapshots.dayofyear - 1
@@ -2024,7 +2028,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
         )
 
@@ -2042,7 +2046,7 @@ def snapshot_clustering_seasonal_storage(
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
         else:
-            hrs = 24  # 0
+            hrs = 24
 
         return (
             m.state_of_charge_intra_min[
@@ -2051,7 +2055,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             >= 0
         )
 
@@ -2061,7 +2065,7 @@ def snapshot_clustering_seasonal_storage(
         elif self.args["snapshot_clustering"]["how"] == "monthly":
             hrs = 720
         else:
-            hrs = 24  # 0
+            hrs = 24
 
         if "DSM" in s:
             if self.args["snapshot_clustering"]["how"] == "weekly":
@@ -2105,7 +2109,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             >= low
         )
 
@@ -2184,7 +2188,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
@@ -2237,7 +2241,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
         )
 
@@ -2261,7 +2265,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.storage_units.at[s, "standing_loss"]) ** hrs
             <= p_nom * network.storage_units.at[s, "max_hours"]
         )
 
@@ -2327,7 +2331,7 @@ def snapshot_clustering_seasonal_storage(
             + m.state_of_charge_inter_store[
                 s, network.cluster_ts["Candidate_day"][h]
             ]
-            * (1 - network.stores.at[s, "standing_loss"]) ** hrs  ###
+            * (1 - network.stores.at[s, "standing_loss"]) ** hrs
             <= e_nom
         )
 
@@ -2667,7 +2671,8 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
     """
     Add constraints for state of charge of storage units and stores
     when separating the optimization into smaller subproblems
-    while conducting thedispatch_disaggregation in temporally fully resolved network
+    while conducting thedispatch_disaggregation in temporally fully resolved
+    network
 
     The state of charge at the end of each slice is set to the value
     calculated in the optimization with the temporally reduced network
@@ -2721,7 +2726,6 @@ def split_dispatch_disaggregation_constraints(self, n, sns):
 
 
 def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
-
     print("TODO")
 
     # TODO: implementieren
@@ -2826,7 +2830,8 @@ class Constraints:
             ):
                 if self.args["snapshot_clustering"]["how"] == "hourly":
                     logger.info(
-                        "soc_constraints_simplified not possible while hourly clustering -> changed to soc_constraints"
+                        """soc_constraints_simplified not possible while hourly
+                        clustering -> changed to soc_constraints"""
                     )
 
                     if self.args["method"]["pyomo"]:
@@ -2849,8 +2854,10 @@ class Constraints:
 
             else:
                 logger.error(
-                    "If you want to use constraints considering the storage behaviour, snapshot clustering constraints must be in"
-                    + " [daily_bounds, soc_constraints, soc_constraints_simplified]"
+                    """If you want to use constraints considering the storage
+                    behaviour, snapshot clustering constraints must be in
+                    [daily_bounds, soc_constraints,
+                     soc_constraints_simplified]"""
                 )
 
         if self.conduct_dispatch_disaggregation is not False:
@@ -2867,8 +2874,9 @@ class Constraints:
 def add_chp_constraints_nmp(n):
     """
     Limits the dispatch of combined heat and power links based on
-    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
-    in a cost-optimised, highly renewable European energy system, 2018
+    T.Brown et. al : Synergies of sector coupling and transmission
+    reinforcement in a cost-optimised, highly renewable European energy system,
+    2018
 
     Parameters
     ----------
@@ -2948,8 +2956,9 @@ def add_chp_constraints_nmp(n):
 def add_chp_constraints(network, snapshots):
     """
     Limits the dispatch of combined heat and power links based on
-    T.Brown et. al : Synergies of sector coupling and transmission reinforcement
-    in a cost-optimised, highly renewable European energy system, 2018
+    T.Brown et. al : Synergies of sector coupling and transmission
+    reinforcement in a cost-optimised, highly renewable European energy system,
+    2018
 
     Parameters
     ----------

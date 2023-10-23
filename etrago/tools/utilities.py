@@ -36,9 +36,10 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from egoio.tools import db
     from shapely.geometry import Point
     import geopandas as gpd
+
+    from etrago.tools import db
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +127,16 @@ def buses_grid_linked(network, voltage_level):
     mask = (
         network.buses.index.isin(network.lines.bus0)
         | (network.buses.index.isin(network.lines.bus1))
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus0"]
+            )
+        )
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus1"]
+            )
+        )
     ) & (network.buses.v_nom.isin(voltage_level))
 
     df = network.buses[mask]
@@ -1078,6 +1089,8 @@ def delete_dispensable_ac_buses(etrago):
     None.
 
     """
+    if etrago.args["delete_dispensable_ac_buses"] is False:
+        return
 
     def delete_buses(delete_buses, network):
         drop_buses = delete_buses.index.to_list()
@@ -1865,7 +1878,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]) | (
+    if (self.args["network_clustering_ehv"]["active"]) | (
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")

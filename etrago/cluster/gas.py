@@ -24,6 +24,8 @@ spatially for applications within the tool eTraGo."""
 import os
 
 if "READTHEDOCS" not in os.environ:
+    import logging
+
     from pypsa import Network
     from pypsa.networkclustering import (
         aggregatebuses,
@@ -41,7 +43,8 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         sum_with_inf,
     )
-    from etrago.tools.utilities import *
+
+logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -1014,7 +1017,8 @@ def run_spatial_clustering_gas(self):
             self.update_busmap(busmap)
 
             logger.info(
-                "GAS Network clustered to {} DE-buses and {} foreign buses with {} algorithm.".format(
+                """GAS Network clustered to {} DE-buses and {} foreign buses
+                 with {} algorithm.""".format(
                     len(
                         self.network.buses.loc[
                             (self.network.buses.carrier == "CH4")

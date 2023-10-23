@@ -48,9 +48,9 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
-        "egoio == 0.4.7",
         "geoalchemy2 >= 0.3.0",
         "geopandas",
+        "keyring",
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
@@ -65,6 +65,7 @@ setup(
         "setuptools >= 54.2.0",
         "shapely",
         "sqlalchemy < 2",
+        "tables < 3.9",
         "tilemapbase == 0.4.5",
         "tsam",
     ],
