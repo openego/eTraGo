@@ -47,6 +47,10 @@ if "READTHEDOCS" not in os.environ:
         strategies_one_ports,
     )
 
+    from etrago.tools.utilities import (
+        set_control_strategies,
+    )
+
     logger = logging.getLogger(__name__)
 
 __copyright__ = (
@@ -351,7 +355,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
                 io.import_series_from_dataframe(network_c, df, "Link", attr)
 
     # dealing with generators
-    network.generators.control = "PV"
     network.generators["weight"] = 1
 
     new_df, new_pnl = aggregategenerators(
@@ -468,8 +471,6 @@ def ehv_clustering(self):
 
     if self.args["network_clustering_ehv"]:
         logger.info("Start ehv clustering")
-
-        self.network.generators.control = "PV"
 
         delete_ehv_buses_no_lines(self.network)
 
@@ -676,13 +677,6 @@ def preprocessing(etrago):
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
-
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control = "PV"
-    network.storage_units.control[
-        network.storage_units.carrier == "extendable_storage"
-    ] = "PV"
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -1058,8 +1052,6 @@ def run_spatial_clustering(self):
         else:
             self.disaggregated_network = self.network.copy(with_time=False)
 
-        self.network.generators.control = "PV"
-
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
@@ -1101,9 +1093,11 @@ def run_spatial_clustering(self):
 
         self.geolocation_buses()
 
-        self.network.generators.control[
-            self.network.generators.control == ""
-        ] = "PV"
+        # The control parameter is overwritten in pypsa's clustering.
+        # The function network.determine_network_topology is called,
+        # which sets slack bus(es).
+        set_control_strategies(self.network)
+
         logger.info(
             "Network clustered to {} buses with ".format(
                 self.args["network_clustering"]["n_clusters_AC"]

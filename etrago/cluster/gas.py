@@ -43,6 +43,8 @@ if "READTHEDOCS" not in os.environ:
         sum_with_inf,
     )
 
+    from etrago.tools.utilities import set_control_strategies
+
 logger = logging.getLogger(__name__)
 
 __copyright__ = (
@@ -948,7 +950,6 @@ def run_spatial_clustering_gas(self):
         settings = self.args["network_clustering"]
 
         if settings["active"]:
-            self.network.generators.control = "PV"
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
@@ -999,6 +1000,11 @@ def run_spatial_clustering_gas(self):
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
             self.update_busmap(busmap)
+
+            # The control parameter is overwritten in pypsa's clustering.
+            # The function network.determine_network_topology is called,
+            # which sets slack bus(es).
+            set_control_strategies(self.network)
 
             logger.info(
                 """GAS Network clustered to {} DE-buses and {} foreign buses

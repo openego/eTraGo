@@ -531,7 +531,6 @@ def set_q_foreign_loads(self, cos_phi):
     ].values * math.tan(
         math.acos(cos_phi)
     )
-    network.generators.control[network.generators.control == "PQ"] = "PV"
 
     # To avoid a problem when the index of the load is the weather year,
     # the column names were temporarily set to `int` and changed back to
@@ -641,6 +640,41 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
             ),
             "Generator",
         )
+
+
+def set_control_strategies(network):
+    """Sets control strategies for AC generators and storage units
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
+    # Assign generators control strategy
+    network.generators.loc[:, "control"] = "PV"
+
+    network.generators.loc[
+        network.generators.carrier.isin(
+            [
+                "load shedding",
+                "CH4",
+                "CH4_biogas",
+                "CH4_NG",
+                "central_biomass_CHP_heat",
+                "geo_thermal",
+                "solar_thermal_collector",
+            ]
+        ),
+        "control",
+    ] = "PQ"
+
+    # Assign storage units control strategy
+    network.storage_units.loc[:, "control"] = "PV"
 
 
 def data_manipulation_sh(network):
