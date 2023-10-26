@@ -46,10 +46,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_generators,
         strategies_one_ports,
     )
-
-    from etrago.tools.utilities import (
-        set_control_strategies,
-    )
+    from etrago.tools.utilities import set_control_strategies
 
     logger = logging.getLogger(__name__)
 
