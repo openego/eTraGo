@@ -39,7 +39,7 @@ With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow sim
 Complexity Reduction
 ---------------------
 
-The data model is characterised by a high spatial (abou 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimisation problem, several methods can be applied.
+The data model is characterised by a high spatial (about 8,000 electrical and 600 gas nodes) and temporal resolution (8,760 timesteps). To reduce the complexity of the resulting optimisation problem, several methods can be applied.
 
 
 Reduction in spatial dimension:

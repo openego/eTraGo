@@ -92,6 +92,7 @@ from etrago.tools.utilities import (
     load_shedding,
     manual_fixes_datamodel,
     set_branch_capacity,
+    set_control_strategies,
     set_line_costs,
     set_q_foreign_loads,
     set_q_national_loads,
@@ -404,6 +405,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        set_control_strategies(self.network)
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
