@@ -102,7 +102,11 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
+    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "network_clustering_ehv": {
+        "active": False,  # choose if clustering of HV buses to EHV buses is activated
+        "busmap": False, # False or path to stored busmap
+    },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
@@ -383,11 +387,28 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    network_clustering_ehv : bool
+    delete_dispensable_ac_buses: bool
+        Choose if electrical buses that are only connecting two lines should be
+        removed. These buses have no other components attached to them. The
+        connected lines are merged. This reduces the spatial complexity without
+        losing any accuracy.
+        Default: True.
+    network_clustering_ehv : dict
+        Choose if you want to apply an extra high voltage clustering to the
+        electrical network.
+        The provided dictionary can have the following entries:
+
+        * "active" : bool
         Choose if you want to cluster the full HV/EHV dataset down to only the
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         substation, taking into account the shortest distance on power lines.
         Default: False.
+        * "busmap" : str
+        Choose if an stored busmap can be used to make the process quicker, or
+        a new busmap must be calculated. False or path to the busmap in csv
+        format should be given.
+        Default: False
+
     network_clustering : dict
         Choose if you want to apply a clustering of all network buses and
         specify settings.
