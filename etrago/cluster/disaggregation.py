@@ -685,7 +685,6 @@ class UniformDisaggregation(Disaggregation):
                         " it has on the buses of it's partial network."
                     )
 
-                print(clb.iloc[0].carrier)
                 if clb.iloc[0].at[extendable_flag]:
                     # That means, `p_nom` got computed via optimization and we
                     # have to distribute it into the subnetwork first.
