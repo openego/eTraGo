@@ -634,6 +634,7 @@ def unify_foreign_buses(etrago):
             axis=1,
         )
         n_clusters = (foreign_buses_load.country == country).sum()
+
         if n_clusters < len(df):
             (
                 busmap_country,
