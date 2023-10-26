@@ -358,11 +358,6 @@ def gas_postprocessing(
                 + "_result.csv"
             )
 
-    # breakpoint()
-    ###########################################################################
-    # include busmap_area to busmap
-    ###########################################################################
-
     if "H2" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
 
