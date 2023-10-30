@@ -255,11 +255,11 @@ class Etrago:
 
     lopf = lopf
 
-    dispatch_disaggregation = dispatch_disaggregation
+    temporal_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
 
-    disaggregation = run_disaggregation
+    spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
 
