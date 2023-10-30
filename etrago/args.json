@@ -99,12 +99,12 @@
         "how": "daily",
         "storage_constraints": "soc_constraints",
         "n_clusters": 5,
-        "n_segments": 5,
+        "n_segments": 5
     },
     "skip_snapshots": 5,
     "temporal_disaggregation": {
-    	"active": true,
-    	"no_slices": 8,
+    	"active": false,
+    	"no_slices": 8
     },
     "branch_capacity_factor": {
         "HV": 0.5,
