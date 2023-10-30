@@ -139,7 +139,7 @@ args = {
             },
         },
     },
-    "disaggregation": None,  # None or 'uniform'
+    "spatial_disaggregation": None,  # None or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
