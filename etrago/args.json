@@ -54,7 +54,7 @@
     "delete_dispensable_ac_buses": true,
     "network_clustering_ehv": {
         "active": false,
-        "busmap": false,
+        "busmap": false
     },
     "network_clustering": {
         "active": true,
@@ -77,7 +77,7 @@
         "n_init": 10,
         "max_iter": 100,
         "tol": 1e-6,
-        "CPU_cores": 4,
+        "CPU_cores": 4
     },
     "sector_coupled_clustering": {
         "active": true,
