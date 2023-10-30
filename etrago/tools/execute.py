@@ -873,7 +873,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
-        if args["disaggregation"]:
+        if args["spatial_disaggregation"]:
             etrago.disaggregated_network.export_to_csv_folder(
                 path + "/disaggregated_network"
             )
