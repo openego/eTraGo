@@ -2320,11 +2320,7 @@ def plot_grid(
     ext_min=0.1,
     ext_width=False,
     legend_entries="all",
-    scaling_store_expansion={
-        "H2": 50,
-        "heat": 0.1,
-        "battery": 10,
-    },
+    scaling_store_expansion=False,
     geographical_boundaries=[-2.5, 16, 46.8, 58],
 ):
     """Function that plots etrago.network and results for lines and buses
@@ -2386,6 +2382,7 @@ def plot_grid(
     scaling_store_expansion : dict, optional
         Set scaling values to be used per technology for the plots
         storage_expansion and h2_battery_storage_expansion. The default is
+        False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
     geographical_boundaries : list, optional
         Set georaphical boundaries for the plots The default is
