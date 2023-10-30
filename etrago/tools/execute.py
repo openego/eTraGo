@@ -393,7 +393,7 @@ def lopf(self):
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
-    if not self.args["csv_export"]:
+    if self.args["csv_export"]:
         path = self.args["csv_export"]
         if self.args["temporal_disaggregation"]["active"] is True:
             path = path + "/temporally_reduced"
