@@ -127,6 +127,16 @@ def buses_grid_linked(network, voltage_level):
     mask = (
         network.buses.index.isin(network.lines.bus0)
         | (network.buses.index.isin(network.lines.bus1))
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus0"]
+            )
+        )
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus1"]
+            )
+        )
     ) & (network.buses.v_nom.isin(voltage_level))
 
     df = network.buses[mask]
@@ -531,7 +541,6 @@ def set_q_foreign_loads(self, cos_phi):
     ].values * math.tan(
         math.acos(cos_phi)
     )
-    network.generators.control[network.generators.control == "PQ"] = "PV"
 
     # To avoid a problem when the index of the load is the weather year,
     # the column names were temporarily set to `int` and changed back to
@@ -635,11 +644,47 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
                     p_nom=p_nom,
                     carrier="load shedding",
                     bus=network.buses.index,
+                    control="PQ",
                 ),
                 index=index,
             ),
             "Generator",
         )
+
+
+def set_control_strategies(network):
+    """Sets control strategies for AC generators and storage units
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
+    # Assign generators control strategy
+    network.generators.loc[:, "control"] = "PV"
+
+    network.generators.loc[
+        network.generators.carrier.isin(
+            [
+                "load shedding",
+                "CH4",
+                "CH4_biogas",
+                "CH4_NG",
+                "central_biomass_CHP_heat",
+                "geo_thermal",
+                "solar_thermal_collector",
+            ]
+        ),
+        "control",
+    ] = "PQ"
+
+    # Assign storage units control strategy
+    network.storage_units.loc[:, "control"] = "PV"
 
 
 def data_manipulation_sh(network):
@@ -1079,6 +1124,8 @@ def delete_dispensable_ac_buses(etrago):
     None.
 
     """
+    if etrago.args["delete_dispensable_ac_buses"] is False:
+        return
 
     def delete_buses(delete_buses, network):
         drop_buses = delete_buses.index.to_list()
@@ -1866,7 +1913,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]) | (
+    if (self.args["network_clustering_ehv"]["active"]) | (
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")

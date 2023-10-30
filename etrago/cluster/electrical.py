@@ -39,13 +39,14 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        busmap_from_psql,
+        busmap_ehv_clustering,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
         strategies_generators,
         strategies_one_ports,
     )
+    from etrago.tools.utilities import set_control_strategies
 
     logger = logging.getLogger(__name__)
 
@@ -115,6 +116,27 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         Maps old bus_ids to new bus_ids including all sectors.
 
     """
+
+    def find_de_closest(network, bus_ne):
+        ac_ehv = network.buses[
+            (network.buses.v_nom > 110)
+            & (network.buses.carrier == "AC")
+            & (network.buses.country == "DE")
+        ]
+
+        bus_ne_x = network.buses.loc[bus_ne, "x"]
+        bus_ne_y = network.buses.loc[bus_ne, "y"]
+
+        ac_ehv["dist"] = ac_ehv.apply(
+            lambda x: ((x.x - bus_ne_x) ** 2 + (x.y - bus_ne_y) ** 2)
+            ** (1 / 2),
+            axis=1,
+        )
+
+        new_ehv_bus = ac_ehv.dist.idxmin()
+
+        return new_ehv_bus
+
     network = etrago.network
     # network2 is supposed to contain all the not electrical or gas buses
     # and links
@@ -135,16 +157,9 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         "rural_heat": "rural_heat_pump",
     }
 
-    # no_elec_to_cluster maps the no electrical buses to the eHV/kmean bus
-    no_elec_to_cluster = pd.DataFrame(
-        columns=["cluster", "carrier", "new_bus"]
-    ).set_index("new_bus")
-
-    max_bus = max([int(item) for item in network.buses.index.to_list()])
-
     no_elec_conex = []
-    # busmap2 maps all the no electrical buses to the new buses based on the
-    # eHV network
+    # busmap2 defines how the no electrical buses directly connected to AC
+    # are going to be clustered
     busmap2 = {}
 
     # Map crossborder AC buses in case that they were not part of the k-mean
@@ -160,53 +175,37 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         for bus_out in ac_buses_out.index:
             busmap2[bus_out] = bus_out
 
+    foreign_hv = network.buses[
+        (network.buses.country != "DE")
+        & (network.buses.carrier == "AC")
+        & (network.buses.v_nom > 110)
+    ].index
+    busmap3 = pd.DataFrame(columns=["elec_bus", "carrier", "cluster"])
     for bus_ne in network2.buses.index:
-        bus_hv = -1
         carry = network2.buses.loc[bus_ne, "carrier"]
-
-        if (
-            len(
-                network2.links[
-                    (network2.links["bus1"] == bus_ne)
-                    & (network2.links["carrier"] == map_carrier[carry])
-                ]
-            )
-            > 0
-        ):
+        busmap3.at[bus_ne, "carrier"] = carry
+        try:
             df = network2.links[
                 (network2.links["bus1"] == bus_ne)
                 & (network2.links["carrier"] == map_carrier[carry])
             ].copy()
             df["elec"] = df["bus0"].isin(busmap.keys())
-
-            df = df[df["elec"]]
-            if len(df) > 0:
-                bus_hv = df["bus0"][0]
-
-        if bus_hv == -1:
-            busmap2[bus_ne] = str(bus_ne)
+            bus_hv = df[df["elec"]]["bus0"][0]
+            bus_ehv = busmap[bus_hv]
+            if bus_ehv not in foreign_hv:
+                busmap3.at[bus_ne, "elec_bus"] = bus_ehv
+            else:
+                busmap3.at[bus_ne, "elec_bus"] = find_de_closest(
+                    network, bus_ne
+                )
+        except:
             no_elec_conex.append(bus_ne)
-            continue
+            busmap3.at[bus_ne, "elec_bus"] = bus_ne
 
-        if (
-            (no_elec_to_cluster.cluster == busmap[bus_hv])
-            & (no_elec_to_cluster.carrier == carry)
-        ).any():
-            bus_cluster = no_elec_to_cluster[
-                (no_elec_to_cluster.cluster == busmap[bus_hv])
-                & (no_elec_to_cluster.carrier == carry)
-            ].index[0]
-        else:
-            bus_cluster = str(max_bus + 1)
-            max_bus = max_bus + 1
-            new = pd.DataFrame(
-                {"cluster": busmap[bus_hv], "carrier": carry},
-                index=[bus_cluster],
-            )
+    for a, df in busmap3.groupby(["elec_bus", "carrier"]):
+        busmap3.loc[df.index, "cluster"] = df.index[0]
 
-            no_elec_to_cluster = pd.concat([no_elec_to_cluster, new])
-
-        busmap2[bus_ne] = bus_cluster
+    busmap3 = busmap3["cluster"].to_dict()
 
     if no_elec_conex:
         logger.info(
@@ -215,17 +214,17 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
         )
 
     # rural_heat_store buses are clustered based on the AC buses connected to
-    # their corresponding rural_heat buses
+    # their corresponding rural_heat buses. Results saved in busmap4
     links_rural_store = etrago.network.links[
         etrago.network.links.carrier == "rural_heat_store_charger"
     ].copy()
 
-    busmap3 = {}
-    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap2)
+    busmap4 = {}
+    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap3)
     for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
         cluster_bus = df.bus1.iat[0]
         for rural_store_bus in df.bus1:
-            busmap3[rural_store_bus] = cluster_bus
+            busmap4[rural_store_bus] = cluster_bus
 
     # Add the gas buses to the busmap and map them to themself
     for gas_bus in network.buses[
@@ -236,28 +235,8 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
     ].index:
         busmap2[gas_bus] = gas_bus
 
-    busmap = {**busmap, **busmap2, **busmap3}
+    busmap = {**busmap, **busmap2, **busmap3, **busmap4}
 
-    # The new buses based on the eHV network for not electrical buses are
-    # created
-    if cluster_met in ["kmeans", "kmedoids-dijkstra"]:
-        network.madd(
-            "Bus",
-            names=no_elec_to_cluster.index,
-            carrier=no_elec_to_cluster.carrier,
-        )
-
-    else:
-        network.madd(
-            "Bus",
-            names=no_elec_to_cluster.index,
-            carrier=no_elec_to_cluster.carrier.values,
-            x=network.buses.loc[no_elec_to_cluster.cluster.values, "x"].values,
-            y=network.buses.loc[no_elec_to_cluster.cluster.values, "y"].values,
-            country=network.buses.loc[
-                no_elec_to_cluster.cluster.values, "country"
-            ].values,
-        )
     return network, busmap
 
 
@@ -290,11 +269,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         etrago, busmap, cluster_met="ehv"
     )
 
-    pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-        "ehv_elecgrid_busmap_result.csv",
-        index=False,
-    )
-
     buses = aggregatebuses(
         network,
         busmap,
@@ -321,6 +295,8 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     # Dealing with links
     links = network.links.copy()
     dc_links = links[links["carrier"] == "DC"]
+    # Discard links connected to buses under 220 kV
+    dc_links = dc_links[dc_links.bus0.isin(buses.index)]
     links = links[links["carrier"] != "DC"]
 
     new_links = (
@@ -351,7 +327,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
                 io.import_series_from_dataframe(network_c, df, "Link", attr)
 
     # dealing with generators
-    network.generators.control = "PV"
     network.generators["weight"] = 1
 
     new_df, new_pnl = aggregategenerators(
@@ -379,7 +354,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             io.import_series_from_dataframe(network_c, df, one_port, attr)
 
     network_c.links, network_c.links_t = group_links(network_c)
-
     network_c.determine_network_topology()
 
     return (network_c, busmap)
@@ -412,10 +386,10 @@ def delete_ehv_buses_no_lines(network):
     buses_ac["with_gen"] = buses_ac.index.isin(network.generators.bus)
 
     delete_buses = buses_ac[
-        (buses_ac["with_line"] is False)
-        & (buses_ac["with_load"] is False)
-        & (buses_ac["with_link"] is False)
-        & (buses_ac["with_gen"] is False)
+        (~buses_ac["with_line"])
+        & (~buses_ac["with_load"])
+        & (~buses_ac["with_link"])
+        & (~buses_ac["with_gen"])
     ].index
 
     if len(delete_buses):
@@ -453,8 +427,8 @@ def ehv_clustering(self):
     """
     Cluster the network based on Extra High Voltage (EHV) grid.
 
-    If `network_clustering_ehv` argument is True, the function clusters the
-    network based on the EHV grid.
+    If 'active' in the `network_clustering_ehv` argument is True, the function
+    clusters the network based on the EHV grid.
 
     Parameters
     ----------
@@ -466,14 +440,12 @@ def ehv_clustering(self):
     None
     """
 
-    if self.args["network_clustering_ehv"]:
+    if self.args["network_clustering_ehv"]["active"]:
         logger.info("Start ehv clustering")
-
-        self.network.generators.control = "PV"
 
         delete_ehv_buses_no_lines(self.network)
 
-        busmap = busmap_from_psql(self)
+        busmap = busmap_ehv_clustering(self)
 
         self.network, busmap = cluster_on_extra_high_voltage(
             self, busmap, with_time=True
@@ -633,6 +605,7 @@ def unify_foreign_buses(etrago):
             axis=1,
         )
         n_clusters = (foreign_buses_load.country == country).sum()
+
         if n_clusters < len(df):
             (
                 busmap_country,
@@ -676,13 +649,6 @@ def preprocessing(etrago):
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
-
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control = "PV"
-    network.storage_units.control[
-        network.storage_units.carrier == "extendable_storage"
-    ] = "PV"
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -969,7 +935,6 @@ def weighting_for_scenario(network, save=None):
             try:
                 cf = fixed_capacity_fac[gen["carrier"]]
             except KeyError:
-                print(gen)
                 cf = 1
         return cf
 
@@ -1053,7 +1018,10 @@ def run_spatial_clustering(self):
     None
     """
     if self.args["network_clustering"]["active"]:
-        self.network.generators.control = "PV"
+        if self.args["disaggregation"] is not None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
 
         elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
 
@@ -1085,25 +1053,22 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
-        self.clustering, busmap = postprocessing(
+        clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
 
-        if self.args["disaggregation"] is not None:
-            self.disaggregated_network = self.network.copy()
-        else:
-            self.disaggregated_network = self.network.copy(with_time=False)
-
-        self.network = self.clustering.network
+        self.network = clustering.network
 
         self.buses_by_country()
 
         self.geolocation_buses()
 
-        self.network.generators.control[
-            self.network.generators.control == ""
-        ] = "PV"
+        # The control parameter is overwritten in pypsa's clustering.
+        # The function network.determine_network_topology is called,
+        # which sets slack bus(es).
+        set_control_strategies(self.network)
+
         logger.info(
             "Network clustered to {} buses with ".format(
                 self.args["network_clustering"]["n_clusters_AC"]
