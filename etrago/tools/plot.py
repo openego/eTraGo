@@ -2591,7 +2591,7 @@ def plot_grid(
             )
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
-        for store_carrier in ["H2", "heat", "battery"]:
+        for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(
                     store_carrier
