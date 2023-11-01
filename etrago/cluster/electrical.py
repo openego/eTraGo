@@ -486,7 +486,7 @@ def select_elec_network(etrago):
         ~elec_network.buses.index.isin(busmap_area.index)
     ]
 
-    # Exclude foreign buses when it is set to don't include them in the clustering
+    # Exclude foreign buses when it is set to don't include them in clustering
     if settings["cluster_foreign_AC"]:
         elec_network.buses = elec_network.buses[
             elec_network.buses.carrier == "AC"

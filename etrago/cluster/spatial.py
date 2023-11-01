@@ -792,7 +792,7 @@ def find_buses_area(etrago, carrier):
             de_areas = gpd.read_file(settings["exclusion_area"])
         else:
             raise Exception(
-                "not supported format supplied to the 'exclusion_area' argument"
+                "not supported format supplied to 'exclusion_area' argument"
             )
 
         try:
