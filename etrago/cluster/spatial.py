@@ -812,6 +812,6 @@ def find_buses_area(etrago, carrier):
         buses_area = buses_area[buses_area.carrier == carrier]
 
     else:
-        busmap_area = pd.DataFrame()
+        buses_area = pd.DataFrame()
 
     return buses_area.index
