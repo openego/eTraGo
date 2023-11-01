@@ -1750,7 +1750,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
     return network, extension_lines, extension_links
 
 
-def plot_background_grid(network, ax):
+def plot_background_grid(network, ax, geographical_boundaries):
     """Plots grid topology in background of other network.plot
 
     Parameters
@@ -1759,6 +1759,8 @@ def plot_background_grid(network, ax):
         Overall container of PyPSA
     ax : matplotlib.axes._subplots.AxesSubplot
         axes of plot
+    geographical_boundaries : list
+        Set georaphical boundaries for the plots
 
     Returns
     -------
@@ -1779,7 +1781,7 @@ def plot_background_grid(network, ax):
             geomap=True,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     else:
         network.plot(
@@ -2318,11 +2320,8 @@ def plot_grid(
     ext_min=0.1,
     ext_width=False,
     legend_entries="all",
-    scaling_store_expansion={
-        "H2": 50,
-        "heat": 0.1,
-        "battery": 10,
-    },
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58],
 ):
     """Function that plots etrago.network and results for lines and buses
 
@@ -2383,7 +2382,11 @@ def plot_grid(
     scaling_store_expansion : dict, optional
         Set scaling values to be used per technology for the plots
         storage_expansion and h2_battery_storage_expansion. The default is
+        False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
+    geographical_boundaries : list, optional
+        Set georaphical boundaries for the plots The default is
+        [-2.5, 16, 46.8, 58]
 
     Returns
     -------
@@ -2438,7 +2441,7 @@ def plot_grid(
             link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
             line_widths = 10
         label = "line loading in p.u."
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries)
         # Only active flow direction is displayed!
         flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
@@ -2477,14 +2480,14 @@ def plot_grid(
         label = "v_nom in kV"
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
         label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries)
 
         if ext_width is not False:
             line_widths = line_colors / ext_width
@@ -2506,7 +2509,7 @@ def plot_grid(
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="rel", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = link_colors.apply(
@@ -2526,11 +2529,11 @@ def plot_grid(
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries)
     elif line_colors == "dlr":
         title = "Dynamic line rating"
         label = "TWh above nominal capacity"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries)
 
         # calc min capacity per line in the given period: Since lines with
         # different original voltage level could be aggregated during the
@@ -2563,7 +2566,7 @@ def plot_grid(
         label = ""
         line_colors = "grey"
         link_colors = "grey"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries)
         link_widths = 0
         line_widths = 0
 
@@ -2591,7 +2594,7 @@ def plot_grid(
             )
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
-        for store_carrier in ["H2", "heat", "battery"]:
+        for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(
                     store_carrier
@@ -2714,7 +2717,7 @@ def plot_grid(
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     else:
         ll = network.plot(
@@ -2729,7 +2732,7 @@ def plot_grid(
             flow=flow,
             title=title,
             geomap=False,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     l3 = None
 
