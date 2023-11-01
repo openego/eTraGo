@@ -62,7 +62,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 168,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -79,7 +79,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test_8760_51",  # save results as csv: False or /path/tofolder
+    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test_168_51",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -653,22 +653,40 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    etrago.network.mremove(
-        "Link",
-        etrago.network.links[
-            ~etrago.network.links.bus0.isin(etrago.network.buses.index)
-        ].index,
-    )
-    etrago.network.mremove(
-        "Link",
-        etrago.network.links[
-            ~etrago.network.links.bus1.isin(etrago.network.buses.index)
-        ].index,
-    )
-    etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
-    
-    # delete following unconnected CH4 buses. why are they there?
-    etrago.network.buses.drop(etrago.network.buses[etrago.network.buses.index.isin(['37865', '37870'])].index, inplace=True)
+    if etrago.args["scn_name"] == "status2019": 
+
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus0.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus1.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
+        
+        # delete following unconnected CH4 buses. why are they there?
+        etrago.network.buses.drop(etrago.network.buses[etrago.network.buses.index.isin(['37865', '37870'])].index, inplace=True)
+        
+        etrago.network.links.loc[etrago.network.links.carrier.isin(
+            ["central_gas_chp",
+             "industrial_gas_CHP"]
+            ), "p_nom"] *= 1e-3
+        etrago.network.generators.loc[etrago.network.generators.carrier.isin(
+            ["central_lignite_CHP",
+             "industrial_lignite_CHP",
+             "central_oil_CHP",
+             "industrial_coal_CHP",
+             "central_coal_CHP",
+             "industrial_oil_CHP"
+             "central_others_CHP"
+             ]
+            ), "p_nom"] *= 1e-3
+
     
 
     # ehv network clustering
