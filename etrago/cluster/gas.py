@@ -131,7 +131,7 @@ def preprocessing(etrago):
     # Exclude buses in the area that should not be clustered
     busmap_area = find_buses_area(etrago, "CH4")
     network_ch4.buses = network_ch4.buses[
-        ~network_ch4.buses.index.isin(busmap_area.index)
+        ~network_ch4.buses.index.isin(busmap_area)
     ]
 
     def weighting_for_scenario(ch4_buses, save=None):
