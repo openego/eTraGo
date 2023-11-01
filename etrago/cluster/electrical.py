@@ -461,8 +461,8 @@ def ehv_clustering(self):
 
 def select_elec_network(etrago):
     """
-    Selects the electric network based on the clustering settings specified
-    in the Etrago object.
+    Creates networks to be used on the clustering based on settings specified
+    in the args.
 
     Parameters
     ----------
@@ -476,42 +476,77 @@ def select_elec_network(etrago):
             Contains the electric network
         n_clusters : int
             number of clusters used in the clustering process.
+        area_network : pypsa.Network
+            Contains the electric network in the area of interest defined in
+            network_clustering - exclusion_area.
     """
-    elec_network = etrago.network.copy()
     settings = etrago.args["network_clustering"]
 
-    # Exclude buses in the area that should not be clustered
-    busmap_area = find_buses_area(etrago, "AC")
-    elec_network.buses = elec_network.buses[
-        ~elec_network.buses.index.isin(busmap_area.index)
-    ]
+    # Find buses in the area that should not be clustered
+    buses_area = find_buses_area(etrago, "AC")
+
+    elec_network_buses = etrago.network.buses[
+        (~etrago.network.buses.index.isin(buses_area))
+        & (etrago.network.buses.carrier == "AC")
+    ].index
 
     # Exclude foreign buses when it is set to don't include them in clustering
     if settings["cluster_foreign_AC"]:
-        elec_network.buses = elec_network.buses[
-            elec_network.buses.carrier == "AC"
-        ]
-        elec_network.links = elec_network.links[
-            (elec_network.links.carrier == "AC")
-            | (elec_network.links.carrier == "DC")
-        ]
         n_clusters = settings["n_clusters_AC"]
     else:
-        AC_filter = elec_network.buses.carrier.values == "AC"
-
-        foreign_buses = elec_network.buses[
-            (elec_network.buses.country != "DE")
-            & (elec_network.buses.carrier == "AC")
+        foreign_buses = etrago.network.buses[
+            (etrago.network.buses.country != "DE")
+            & (etrago.network.buses.carrier == "AC")
         ]
 
         num_neighboring_country = len(
-            foreign_buses[foreign_buses.index.isin(elec_network.loads.bus)]
+            foreign_buses[foreign_buses.index.isin(etrago.network.loads.bus)]
         )
 
-        elec_network.buses = elec_network.buses[
-            AC_filter & (elec_network.buses.country.values == "DE")
+        elec_network_buses = elec_network_buses[
+            ~elec_network_buses.isin(foreign_buses.index)
         ]
         n_clusters = settings["n_clusters_AC"] - num_neighboring_country
+
+    elec_network = network_based_on_buses(etrago.network, elec_network_buses)
+    area_network = network_based_on_buses(etrago.network, buses_area)
+
+    return elec_network, n_clusters, area_network
+
+
+def network_based_on_buses(network, buses):
+    """
+    Extract all the elements in a network related to the supplied list of
+    buses and return it like a new network.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Original network that contains the buses of interest and other buses.
+    buses : Pandas.Series
+        Series that contains the name of all the buses that the new network
+        will contain.
+
+    Returns
+    -------
+    elec_network : pypsa.Network
+        network containing only electrical elements attached to the supplied
+        list of buses.
+
+    """
+    elec_network = network.copy()
+    elec_network.buses = elec_network.buses[
+        elec_network.buses.index.isin(buses)
+    ]
+    # Dealing with links
+    elec_network.links = elec_network.links[
+        (
+            (elec_network.links.carrier == "AC")
+            | (elec_network.links.carrier == "DC")
+        )
+        & (elec_network.links.bus0.isin(elec_network.buses.index))
+        & (elec_network.links.bus1.isin(elec_network.buses.index))
+    ]
 
     # Dealing with generators
     elec_network.generators = elec_network.generators[
@@ -564,8 +599,7 @@ def select_elec_network(etrago):
                 elec_network.stores.index
             ),
         ]
-
-    return elec_network, n_clusters, busmap_area
+    return elec_network
 
 
 def unify_foreign_buses(etrago):

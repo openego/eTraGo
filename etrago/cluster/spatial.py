@@ -810,11 +810,8 @@ def find_buses_area(etrago, carrier):
 
         buses_area = gpd.clip(buses_area, de_areas)
         buses_area = buses_area[buses_area.carrier == carrier]
-        busmap_area = pd.Series(
-            buses_area.index.rename("bus_area"),
-            index=buses_area.index.rename("bus"),
-        )
+
     else:
         busmap_area = pd.DataFrame()
 
-    return busmap_area
+    return buses_area.index
