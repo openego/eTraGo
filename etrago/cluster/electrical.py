@@ -47,6 +47,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_generators,
         strategies_one_ports,
     )
+    from etrago.tools.utilities import set_control_strategies
 
     logger = logging.getLogger(__name__)
 
@@ -328,7 +329,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
                 io.import_series_from_dataframe(network_c, df, "Link", attr)
 
     # dealing with generators
-    network.generators.control = "PV"
     network.generators["weight"] = 1
 
     new_df, new_pnl = aggregategenerators(
@@ -444,8 +444,6 @@ def ehv_clustering(self):
 
     if self.args["network_clustering_ehv"]["active"]:
         logger.info("Start ehv clustering")
-
-        self.network.generators.control = "PV"
 
         delete_ehv_buses_no_lines(self.network)
 
@@ -617,6 +615,7 @@ def unify_foreign_buses(etrago):
             axis=1,
         )
         n_clusters = (foreign_buses_load.country == country).sum()
+
         if n_clusters < len(df):
             (
                 busmap_country,
@@ -660,13 +659,6 @@ def preprocessing(etrago):
 
     network = etrago.network
     settings = etrago.args["network_clustering"]
-
-    # prepare k-mean
-    # k-means clustering (first try)
-    network.generators.control = "PV"
-    network.storage_units.control[
-        network.storage_units.carrier == "extendable_storage"
-    ] = "PV"
 
     # problem our lines have no v_nom. this is implicitly defined by the
     # connected buses:
@@ -961,7 +953,6 @@ def weighting_for_scenario(network, save=None):
             try:
                 cf = fixed_capacity_fac[gen["carrier"]]
             except KeyError:
-                print(gen)
                 cf = 1
         return cf
 
@@ -1045,7 +1036,10 @@ def run_spatial_clustering(self):
     None
     """
     if self.args["network_clustering"]["active"]:
-        self.network.generators.control = "PV"
+        if self.args["disaggregation"] is not None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
 
         (
             elec_network,
@@ -1083,25 +1077,22 @@ def run_spatial_clustering(self):
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
 
-        self.clustering, busmap = postprocessing(
+        clustering, busmap = postprocessing(
             self, busmap, busmap_foreign, medoid_idx, busmap_area
         )
         self.update_busmap(busmap)
 
-        if self.args["disaggregation"] is not None:
-            self.disaggregated_network = self.network.copy()
-        else:
-            self.disaggregated_network = self.network.copy(with_time=False)
-
-        self.network = self.clustering.network
+        self.network = clustering.network
 
         self.buses_by_country()
 
         self.geolocation_buses()
 
-        self.network.generators.control[
-            self.network.generators.control == ""
-        ] = "PV"
+        # The control parameter is overwritten in pypsa's clustering.
+        # The function network.determine_network_topology is called,
+        # which sets slack bus(es).
+        set_control_strategies(self.network)
+
         logger.info(
             "Network clustered to {} buses with ".format(
                 self.args["network_clustering"]["n_clusters_AC"]

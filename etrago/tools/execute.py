@@ -259,14 +259,14 @@ def iterate_lopf(
         args["temporal_disaggregation"]["active"] is True
         and etrago.conduct_dispatch_disaggregation is False
     ):
-        if not args["csv_export"] is False:
+        if args["csv_export"]:
             path = path + "/temporally_reduced"
 
-        if not args["lpfile"] is False:
+        if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
     if etrago.conduct_dispatch_disaggregation is not False:
-        if not args["lpfile"] is False:
+        if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
 
         etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
@@ -315,7 +315,7 @@ def iterate_lopf(
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
 
-                if not args["csv_export"]:
+                if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)
                     etrago.export_to_csv(path_it)
 
@@ -349,7 +349,7 @@ def iterate_lopf(
 
                 i += 1
 
-                if not args["csv_export"]:
+                if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)
                     etrago.export_to_csv(path_it)
 
@@ -359,8 +359,9 @@ def iterate_lopf(
 
     else:
         run_lopf(etrago, extra_functionality, method)
+        etrago.export_to_csv(path)
 
-    if not args["lpfile"] is False:
+    if args["lpfile"]:
         network.model.write(lp_path)
 
     return network
@@ -803,20 +804,6 @@ def pf_post_lopf(etrago, calc_losses=False):
             network
         )
 
-    # Assign generators control strategy
-    ac_bus = network.buses[network.buses.carrier == "AC"]
-    network.generators.control[
-        network.generators.bus.isin(ac_bus.index)
-    ] = "PV"
-    network.generators.control[
-        network.generators.carrier == "load shedding"
-    ] = "PQ"
-
-    # Assign storage units control strategy
-    network.storage_units.control[
-        network.storage_units.bus.isin(ac_bus.index)
-    ] = "PV"
-
     # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
 
@@ -881,7 +868,7 @@ def pf_post_lopf(etrago, calc_losses=False):
                     foreign_series[comp][attr], comp, attr
                 )
 
-    if not args["csv_export"]:
+    if args["csv_export"]:
         path = args["csv_export"] + "/pf_post_lopf"
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
