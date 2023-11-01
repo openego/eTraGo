@@ -775,7 +775,7 @@ def preprocessing(etrago):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters, busmap_area = select_elec_network(etrago)
+    network_elec, n_clusters, network_area = select_elec_network(etrago)
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
@@ -805,8 +805,16 @@ def preprocessing(etrago):
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(network=network_elec, save=False)
+        weight_area = weighting_for_scenario(network=network_area, save=False)
 
-    return network_elec, weight, n_clusters, busmap_foreign, busmap_area
+    return (
+        network_elec,
+        weight,
+        n_clusters,
+        busmap_foreign,
+        network_area,
+        weight_area,
+    )
 
 
 def postprocessing(
@@ -1080,7 +1088,8 @@ def run_spatial_clustering(self):
             weight,
             n_clusters,
             busmap_foreign,
-            busmap_area,
+            network_area,
+            weight_area,
         ) = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
