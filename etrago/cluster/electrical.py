@@ -1108,13 +1108,32 @@ def run_spatial_clustering(self):
             if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-medoids Dijkstra Clustering")
 
-                busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                busmap_elec, medoid_idx_elec = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,
                     elec_network.lines,
                     weight,
                     n_clusters,
                 )
+
+                busmap_area, medoid_idx_area = kmedoids_dijkstra_clustering(
+                    self,
+                    network_area.buses,
+                    network_area.lines,
+                    weight_area,
+                    self.args["network_clustering"]["cluster_exclusion_area"],
+                )
+
+                medoid_idx_area.index = (
+                    medoid_idx_area.index.astype(int)
+                    + busmap_elec.apply(int).max()
+                    + 1
+                )
+                busmap_area = (
+                    busmap_area.astype(int) + busmap_elec.apply(int).max() + 1
+                ).apply(str)
+                busmap = pd.concat([busmap_elec, busmap_area])
+                medoid_idx = pd.concat([medoid_idx_elec, medoid_idx_area])
 
             else:
                 busmap = pd.Series(dtype=str)
