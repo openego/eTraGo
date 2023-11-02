@@ -817,9 +817,7 @@ def preprocessing(etrago):
     )
 
 
-def postprocessing(
-    etrago, busmap, busmap_foreign, medoid_idx=None, busmap_area={}
-):
+def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     """
     Postprocessing function for network clustering.
 
@@ -851,7 +849,6 @@ def postprocessing(
         busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
         busmap_elec.index.name = "bus"
         busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
-        busmap_elec = busmap_elec.join(busmap_area, how="outer")
         busmap_elec = busmap_elec.join(
             pd.Series(
                 medoid_idx.index.values.astype(str),
@@ -887,11 +884,6 @@ def postprocessing(
         medoid_idx = pd.Series(
             medoid_idx.index.values.astype(str), medoid_idx.values.astype(int)
         )
-
-    # add the not clustered buses to the busmap
-    if settings["exclusion_area"]:
-        for bus in busmap_area.index:
-            busmap[bus] = busmap_area[bus]
 
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method
@@ -1096,9 +1088,19 @@ def run_spatial_clustering(self):
             if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-means Clustering")
 
-                busmap = kmean_clustering(
+                busmap_elec = kmean_clustering(
                     self, elec_network, weight, n_clusters
                 )
+                busmap_area = kmean_clustering(
+                    self,
+                    network_area,
+                    weight_area,
+                    self.args["network_clustering"]["cluster_exclusion_area"],
+                )
+                busmap_area = (
+                    busmap_area.astype(int) + busmap_elec.apply(int).max() + 1
+                ).apply(str)
+                busmap = pd.concat([busmap_elec, busmap_area])
                 medoid_idx = pd.Series(dtype=str)
             else:
                 busmap = pd.Series(dtype=str)
@@ -1140,7 +1142,7 @@ def run_spatial_clustering(self):
                 medoid_idx = pd.Series(dtype=str)
 
         clustering, busmap = postprocessing(
-            self, busmap, busmap_foreign, medoid_idx, busmap_area
+            self, busmap, busmap_foreign, medoid_idx
         )
         self.update_busmap(busmap)
 
