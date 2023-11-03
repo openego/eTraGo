@@ -66,6 +66,12 @@ def market_optimization(self):
             extra_functionality=extra_functionality(),
             formulation=self.args["model_formulation"],        
         )
+    
+    # quick and dirty csv export of market model results
+    path = self.args["csv_export"]
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+    self.market_model.export_to_csv_folder(path + "/market")
     #self.market_model.model.write('/home/ulf/file2.lp')
     
 def build_market_model(self):
@@ -136,13 +142,6 @@ def build_market_model(self):
     net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
 
     self.market_model = net
-    
-
-    # quick and dirty csv export of market model results
-    path = self.args["csv_export"]
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-    self.market_model.export_to_csv_folder(path + "/market")
     
     # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
     
