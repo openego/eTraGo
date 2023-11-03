@@ -41,12 +41,52 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 def grid_optimization(self):
     
     logger.info("Start building grid optimization model")
+    fix_chp_generation(self)
     add_redispatch_generators(self)
     #self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
     #self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
     logger.info("Start solving grid optimization model")
     self.lopf()
 
+def fix_chp_generation(self):
+
+    # Select generator and link components that are fixed after
+    # the market optimization.
+    gens_fixed = self.network.generators[
+        self.network.generators.carrier.str.endswith("_CHP")].index
+
+    links_fixed = self.network.links[
+        self.network.links.carrier.str.endswith("_CHP")].index
+
+    # Fix generator dispatch from market simulation:
+    ## Set p_max_pu of generators using results from (disaggregated) market model
+    self.network.generators_t.p_max_pu.loc[
+        :, gens_fixed
+    ] = self.market_model.generators_t.p[gens_fixed].mul(
+        1 / self.market_model.generators.p_nom[gens_fixed]
+    )
+
+    ## Set p_min_pu of generators using results from (disaggregated) market model
+    self.network.generators_t.p_min_pu.loc[
+        :, gens_fixed
+    ] = self.market_model.generators_t.p[gens_fixed].mul(
+        1 / self.market_model.generators.p_nom[gens_fixed]
+    )
+
+    # Fix link dispatch (gas turbines) from market simulation
+    ## Set p_max_pu of links using results from (disaggregated) market model
+    self.network.links_t.p_max_pu.loc[
+        :, links_fixed
+    ] = self.market_model.links_t.p0[links_fixed].mul(
+        1 / self.market_model.links.p_nom[links_fixed]
+    )
+
+    ## Set p_min_pu of links using results from (disaggregated) market model
+    self.network.links_t.p_min_pu.loc[
+        :, links_fixed
+    ] = self.market_model.links_t.p0[links_fixed].mul(
+        1 / self.market_model.links.p_nom[links_fixed]
+    )
 
 def add_redispatch_generators(self):
     """Add components and parameters to model redispatch with costs
@@ -76,8 +116,6 @@ def add_redispatch_generators(self):
                 "wind_offshore",
                 "wind_onshore",
                 "solar_rooftop",
-                "central_biomass_CHP",
-                "industrial_biomass_CHP",
                 "biomass",
             ]
         )
