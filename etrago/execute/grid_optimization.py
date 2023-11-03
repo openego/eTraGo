@@ -117,6 +117,7 @@ def add_redispatch_generators(self):
                 "wind_onshore",
                 "solar_rooftop",
                 "biomass",
+                "OCGT",
             ]
         )
     ].index
