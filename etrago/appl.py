@@ -113,6 +113,7 @@ args = {
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "exclusion_area": False,  # False, path to shapefile or list of nuts names of not cluster area
+        "cluster_exclusion_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -446,6 +447,11 @@ def run_etrago(args, json_path):
             area.The areas can be provided in two ways: list of
             nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
             with a path to a shape file.
+            Default: False.
+        * "cluster_exclusion_area": False, int
+            Number of buses to cluster all the electrical buses in the
+            exclusion area. Method provided in the arg "method" is used.
+            Default: False.
         * "method_gas" : str
             Method used for gas clustering. You can choose between two
             clustering methods:
