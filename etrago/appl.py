@@ -112,8 +112,8 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "exclusion_area": False,  # False, path to shapefile or list of nuts names of not cluster area
-        "cluster_exclusion_area": False, # False or number of buses.
+        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
+        "cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -440,7 +440,7 @@ def run_etrago(args, json_path):
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
             Default: False.
-        * "exclusion_area": False, list, string
+        * "interest_area": False, list, string
             Area of especial interest that will be not clustered. It is by
             default set to false. When an exclusion area is provided, the given
             value for n_clusters_AC will mean the total of AC buses outside the
@@ -448,7 +448,7 @@ def run_etrago(args, json_path):
             nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
             with a path to a shape file.
             Default: False.
-        * "cluster_exclusion_area": False, int
+        * "cluster_interest_area": False, int
             Number of buses to cluster all the electrical buses in the
             exclusion area. Method provided in the arg "method" is used.
             Default: False.

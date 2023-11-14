@@ -478,7 +478,7 @@ def select_elec_network(etrago):
             number of clusters used in the clustering process.
         area_network : pypsa.Network
             Contains the electric network in the area of interest defined in
-            network_clustering - exclusion_area.
+            network_clustering - interest_area.
     """
     settings = etrago.args["network_clustering"]
 
@@ -1054,6 +1054,49 @@ def weighting_for_scenario(network, save=None):
     return weight
 
 
+def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
+    args = etrago.args["network_clustering"]
+
+    if not args["interest_area"]:
+        return busmap, medoid_idx
+    if not args["cluster_interest_area"]:
+        for bus in network_area.buses.index:
+            busmap[bus] = bus
+        return busmap, medoid_idx
+    else:
+        if args["method"] == "kmeans":
+            busmap_area = kmean_clustering(
+                etrago,
+                network_area,
+                weight_area,
+                args["cluster_interest_area"],
+            )
+            busmap_area = (
+                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+
+        if args["method"] == "kmedoids-dijkstra":
+            busmap_area, medoid_idx_area = kmedoids_dijkstra_clustering(
+                etrago,
+                network_area.buses,
+                network_area.lines,
+                weight_area,
+                args["cluster_interest_area"],
+            )
+
+            medoid_idx_area.index = (
+                medoid_idx_area.index.astype(int) + busmap.apply(int).max() + 1
+            )
+            busmap_area = (
+                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+            medoid_idx = pd.concat([medoid_idx, medoid_idx_area])
+
+        busmap = pd.concat([busmap, busmap_area])
+
+        return busmap, medoid_idx
+
+
 def run_spatial_clustering(self):
     """
     Main method for running spatial clustering on the electrical network.
@@ -1091,17 +1134,11 @@ def run_spatial_clustering(self):
                 busmap_elec = kmean_clustering(
                     self, elec_network, weight, n_clusters
                 )
-                busmap_area = kmean_clustering(
-                    self,
-                    network_area,
-                    weight_area,
-                    self.args["network_clustering"]["cluster_exclusion_area"],
-                )
-                busmap_area = (
-                    busmap_area.astype(int) + busmap_elec.apply(int).max() + 1
-                ).apply(str)
-                busmap = pd.concat([busmap_elec, busmap_area])
                 medoid_idx = pd.Series(dtype=str)
+                busmap, medoid_idx = include_busmap_area(
+                    self, busmap_elec, medoid_idx, network_area, weight_area
+                )
+
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
@@ -1110,7 +1147,7 @@ def run_spatial_clustering(self):
             if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-medoids Dijkstra Clustering")
 
-                busmap_elec, medoid_idx_elec = kmedoids_dijkstra_clustering(
+                busmap_elec, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,
                     elec_network.lines,
@@ -1118,24 +1155,9 @@ def run_spatial_clustering(self):
                     n_clusters,
                 )
 
-                busmap_area, medoid_idx_area = kmedoids_dijkstra_clustering(
-                    self,
-                    network_area.buses,
-                    network_area.lines,
-                    weight_area,
-                    self.args["network_clustering"]["cluster_exclusion_area"],
+                busmap, medoid_idx = include_busmap_area(
+                    self, busmap_elec, medoid_idx, network_area, weight_area
                 )
-
-                medoid_idx_area.index = (
-                    medoid_idx_area.index.astype(int)
-                    + busmap_elec.apply(int).max()
-                    + 1
-                )
-                busmap_area = (
-                    busmap_area.astype(int) + busmap_elec.apply(int).max() + 1
-                ).apply(str)
-                busmap = pd.concat([busmap_elec, busmap_area])
-                medoid_idx = pd.concat([medoid_idx_elec, medoid_idx_area])
 
             else:
                 busmap = pd.Series(dtype=str)

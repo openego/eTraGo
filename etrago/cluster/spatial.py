@@ -779,20 +779,20 @@ def find_buses_area(etrago, carrier):
     """
     settings = etrago.args["network_clustering"]
 
-    if settings["exclusion_area"]:
-        if isinstance(settings["exclusion_area"], list):
+    if settings["interest_area"]:
+        if isinstance(settings["interest_area"], list):
             con = etrago.engine
             query = "SELECT gen, geometry FROM boundaries.vg250_krs"
 
             de_areas = gpd.read_postgis(query, con, geom_col="geometry")
             de_areas = de_areas[
-                de_areas["gen"].isin(settings["exclusion_area"])
+                de_areas["gen"].isin(settings["interest_area"])
             ]
-        elif isinstance(settings["exclusion_area"], str):
-            de_areas = gpd.read_file(settings["exclusion_area"])
+        elif isinstance(settings["interest_area"], str):
+            de_areas = gpd.read_file(settings["interest_area"])
         else:
             raise Exception(
-                "not supported format supplied to 'exclusion_area' argument"
+                "not supported format supplied to 'interest_area' argument"
             )
 
         try:
