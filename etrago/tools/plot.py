@@ -1587,12 +1587,8 @@ def calc_dc_loading(network, timesteps):
     """
     dc_links = network.links.loc[network.links.carrier == "DC", :]
 
-    # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[
-        network.links.index[  # (network.links.linked_to == "0")
-            # &
-            (network.links.carrier == "DC")
-        ]
+        network.links.index[network.links.carrier == "DC"]
     ]
 
     dc_load = pd.Series(index=network.links.index, data=0.0)
