@@ -25,7 +25,6 @@ from math import log10, sqrt
 import logging
 import os
 
-from etrago.tools.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -34,6 +33,8 @@ import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+
+from etrago.tools.execute import import_gen_from_links
 
 cartopy_present = True
 try:
@@ -1584,54 +1585,28 @@ def calc_dc_loading(network, timesteps):
         DC line loading in MW
 
     """
-    # Aviod covering of bidirectional links
-    network.links["linked_to"] = 0
-    for i, row in network.links.iterrows():
-        if not (
-            network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
-        ).empty:
-            links_df = network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
+    dc_links = network.links.loc[network.links.carrier == "DC", :]
 
-            network.links.at[i, "linked_to"] = links_df.values[0]
-
-    network.links.linked_to = network.links.linked_to.astype(str)
     # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[
-        network.links.index[network.links.linked_to == "0"]
+        network.links.index[  # (network.links.linked_to == "0")
+            # &
+            (network.links.carrier == "DC")
+        ]
     ]
 
-    p_nom_opt_max = network.links.p_nom_opt[network.links.linked_to == "0"]
-
-    # Set p_nom_max and line_loading for bidirectional links
-    for i, row in network.links[network.links.linked_to != "0"].iterrows():
-        load = pd.DataFrame(
-            index=network.links_t.p0.index, columns=["to", "from"]
+    dc_load = pd.Series(index=network.links.index, data=0.0)
+    dc_load.loc[dc_links.index] = (
+        (
+            mul_weighting(network, link_load)
+            .loc[network.snapshots[timesteps]]
+            .abs()
+            .sum()[dc_links.index]
+            / dc_links.p_nom_opt
         )
-        load["to"] = network.links_t.p0[row["linked_to"]]
-        load["from"] = network.links_t.p0[i]
-        link_load[i] = load.abs().max(axis=1)
-        p_nom_opt_max[i] = max(
-            row.p_nom_opt,
-            network.links.p_nom_opt[
-                network.links.index == row["linked_to"]
-            ].values[0],
-        )
-    dc_load = (
-        mul_weighting(network, link_load)
-        .loc[network.snapshots[timesteps]]
-        .abs()
-        .sum()[network.links.index]
-        / p_nom_opt_max
-    ).dropna()
-    dc_load.loc[network.links.carrier != "DC"] = 0
+        .fillna(0)
+        .values
+    )
 
     return dc_load
 
