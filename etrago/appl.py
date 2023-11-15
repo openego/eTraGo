@@ -73,13 +73,13 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test_168_51",  # save results as csv: False or /path/tofolder
+    "csv_export": "test",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -109,7 +109,7 @@ args = {
         "n_clusters_AC": 51,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 12,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -153,7 +153,7 @@ args = {
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": False,  # meet the demand at value of loss load cost
+    "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
@@ -653,8 +653,7 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    if etrago.args["scn_name"] == "status2019": 
-
+    if etrago.args["scn_name"] == "status2019":
         etrago.network.mremove(
             "Link",
             etrago.network.links[
@@ -667,27 +666,45 @@ def run_etrago(args, json_path):
                 ~etrago.network.links.bus1.isin(etrago.network.buses.index)
             ].index,
         )
-        etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
-        
-        # delete following unconnected CH4 buses. why are they there?
-        etrago.network.buses.drop(etrago.network.buses[etrago.network.buses.index.isin(['37865', '37870'])].index, inplace=True)
-        
-        etrago.network.links.loc[etrago.network.links.carrier.isin(
-            ["central_gas_chp",
-             "industrial_gas_CHP"]
-            ), "p_nom"] *= 1e-3
-        etrago.network.generators.loc[etrago.network.generators.carrier.isin(
-            ["central_lignite_CHP",
-             "industrial_lignite_CHP",
-             "central_oil_CHP",
-             "industrial_coal_CHP",
-             "central_coal_CHP",
-             "industrial_oil_CHP"
-             "central_others_CHP"
-             ]
-            ), "p_nom"] *= 1e-3
+        etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
 
-    
+        # delete following unconnected CH4 buses. why are they there?
+        etrago.network.buses.drop(
+            etrago.network.buses[
+                etrago.network.buses.index.isin(["37865", "37870"])
+            ].index,
+            inplace=True,
+        )
+
+        etrago.network.links.loc[
+            etrago.network.links.carrier.isin(
+                ["central_gas_chp", "industrial_gas_CHP"]
+            ),
+            "p_nom",
+        ] *= 1e-3
+        etrago.network.generators.loc[
+            etrago.network.generators.carrier.isin(
+                [
+                    "central_lignite_CHP",
+                    "industrial_lignite_CHP",
+                    "central_oil_CHP",
+                    "industrial_coal_CHP",
+                    "central_coal_CHP",
+                    "industrial_oil_CHP" "central_others_CHP",
+                ]
+            ),
+            "p_nom",
+        ] *= 1e-3
+
+    fix_electrolysis_expansion = True
+
+    if fix_electrolysis_expansion:
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "power_to_H2", "p_nom_extendable"
+        ] = False
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "power_to_H2", "p_nom"
+        ] = (5 * 1e3)
 
     # ehv network clustering
     etrago.ehv_clustering()
