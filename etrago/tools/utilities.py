@@ -2846,3 +2846,8 @@ def manual_fixes_datamodel(etrago):
         ].index,
         "p_max_pu",
     ] = 0.65
+
+    # Set costs for CO2 from DAC for needed for methanation
+    etrago.network.links.loc[
+        etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
+    ] = 25
