@@ -2688,6 +2688,22 @@ def plot_grid(
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
+    elif (
+        bus_colors == "H2_to_CH4"
+    ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
+        bus_scaling = bus_sizes
+        bus_sizes = (
+            bus_scaling
+            * network.links[(network.links.carrier == "H2_to_CH4")]
+            .groupby("bus0")
+            .sum()
+            .p_nom_opt
+        )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
+        bus_colors = coloring()["power_to_H2"]
+        bus_legend = "H2_to_CH4"
+        bus_unit = "TW"
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
         bus_sizes = pd.Series(
@@ -2788,11 +2804,12 @@ def plot_grid(
             labels,
             loc="upper left",
             bbox_to_anchor=(0.01, 1.01),
-            labelspacing=1.0,
+            labelspacing=0.5,
             framealpha=1.0,
             title=bus_legend,
+            handletextpad=0,
             handler_map=make_handler_map_to_scale_circles_as_in(ax),
-            prop={"size": 8},
+            #    prop={"size": 8},
         )
         ax.add_artist(l2)
 
@@ -3749,6 +3766,143 @@ def shifted_energy(self, carrier, buses):
 
     shifted = supply - demand
     return shifted
+
+
+def electrolysis_dispatch(etrago, method="sum", filename=None):
+    if method == "sum":
+        to_plot = (
+            etrago.network.links_t.p0[
+                etrago.network.links[
+                    etrago.network.links.carrier == "power_to_H2"
+                ].index
+            ]
+            .sum()
+            .groupby(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier == "power_to_H2", "bus0"
+                ]
+            )
+            .sum()
+            .mul(1e-3)
+        )
+        title = "annual electricity consumed by electrolysis in GWh"
+    elif method == "max":
+        to_plot = (
+            etrago.network.links_t.p0[
+                etrago.network.links[
+                    etrago.network.links.carrier == "power_to_H2"
+                ].index
+            ]
+            .sum()
+            .groupby(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier == "power_to_H2", "bus0"
+                ]
+            )
+            .max()
+        )
+        title = "maxiumum electricity consumed by electrolysis in MW"
+
+    elif method == "flh":
+        to_plot = (
+            etrago.network.links_t.p0[
+                etrago.network.links[
+                    etrago.network.links.carrier == "power_to_H2"
+                ].index
+            ]
+            .sum()
+            .groupby(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier == "power_to_H2", "bus0"
+                ]
+            )
+            .sum()
+            / etrago.network.links_t.p0[
+                etrago.network.links[
+                    etrago.network.links.carrier == "power_to_H2"
+                ].index
+            ]
+            .sum()
+            .groupby(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier == "power_to_H2", "bus0"
+                ]
+            )
+            .max()
+        )
+        title = "full-load hours eq. of electricity\n consumed by electrolysis in h"
+
+    bus_series = pd.Series(
+        index=etrago.network.buses[etrago.network.buses.carrier == "AC"].index,
+        data=0.0,
+    )
+
+    bus_series[to_plot.index.values] = to_plot.values
+
+    map_buses = etrago.busmap["orig_network"].buses[
+        [
+            "carrier",
+            "x",
+            "y",
+            "country",
+        ]
+    ]
+    map_buses = map_buses[
+        (map_buses["carrier"] == "AC") & (map_buses["country"] == "DE")
+    ]
+    map_buses["geom"] = map_buses.apply(
+        lambda x: Point(x["x"], x["y"]), axis=1
+    )
+    map_buses["cluster"] = map_buses.index.map(etrago.busmap["busmap"])
+
+    map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
+
+    # Currently does not work because the busmap seems to not fit to
+    # the mv grids
+    if False:
+        mv_grids = gpd.read_postgis(
+            """
+            SELECT bus_id, geom FROM 
+            grid.egon_mv_grid_district
+            
+            """,
+            etrago.engine,
+        )
+        mv_grids.bus_id = mv_grids.bus_id.astype(str)
+
+        mv_grids.set_index("bus_id", inplace=True)
+        map_buses["geom_mv"] = mv_grids.loc[
+            map_buses[map_buses.index.isin(mv_grids.index)].index
+        ]
+
+        geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
+
+        for i in geoms.index:
+            geoms[i] = map_buses[map_buses.cluster == i].geom_mv.unary_union
+
+    else:
+        geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
+
+        for i in geoms.index:
+            geoms[i] = map_buses[
+                map_buses.cluster == i
+            ].geom.unary_union.convex_hull
+
+    fig, ax = plt.subplots(1, 1)
+    electrolysis_areas = gpd.GeoDataFrame(bus_series, geometry=geoms)
+
+    plot = electrolysis_areas.plot(
+        column=0, cmap=plt.cm.jet, legend=True, ax=ax
+    )
+
+    plt.xticks([], [])
+    plt.yticks([], [])
+
+    plot.set_title(title)
+
+    if filename:
+        fig.savefig(filename, dpi=600)
+        plt.close()
 
 
 def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
