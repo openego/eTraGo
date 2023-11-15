@@ -87,6 +87,11 @@ def extendable(
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
 
+    if "H2_feedin" not in extendable_settings["extendable_components"]:
+        network.mremove(
+            "Link", network.links[network.links.carrier == "H2_feedin"].index
+        )
+
     if "network" in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
         network.lines.s_nom_min = network.lines.s_nom
