@@ -515,19 +515,21 @@ def dispatch_disaggregation(self):
         logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
-def import_gen_from_links(network):
+def import_gen_from_links(network, drop_small_capacities=True):
     """
     create gas generators from links in order to not lose them when
     dropping non-electric carriers
     """
-    # Discard all generators < 1kW
-    discard_gen = network.links[network.links["p_nom"] <= 0.001].index
-    network.links.drop(discard_gen, inplace=True)
-    for df in network.links_t:
-        if not network.links_t[df].empty:
-            network.links_t[df].drop(
-                columns=discard_gen.values, inplace=True, errors="ignore"
-            )
+
+    if drop_small_capacities:
+        # Discard all generators < 1kW
+        discard_gen = network.links[network.links["p_nom"] <= 0.001].index
+        network.links.drop(discard_gen, inplace=True)
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(
+                    columns=discard_gen.values, inplace=True, errors="ignore"
+                )
 
     gas_to_add = network.links[
         network.links.carrier.isin(
@@ -769,8 +771,10 @@ def pf_post_lopf(etrago, calc_losses=False):
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
 
-    if args["disaggregation"]:
-        import_gen_from_links(etrago.disaggregated_network)
+    if args["spatial_disaggregation"]:
+        import_gen_from_links(
+            etrago.disaggregated_network, drop_small_capacities=False
+        )
 
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
@@ -873,7 +877,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
-        if args["disaggregation"]:
+        if args["spatial_disaggregation"]:
             etrago.disaggregated_network.export_to_csv_folder(
                 path + "/disaggregated_network"
             )
