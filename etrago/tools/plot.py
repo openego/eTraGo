@@ -1743,7 +1743,7 @@ def plot_background_grid(network, ax, geographical_boundaries, osm):
     """
     link_widths = pd.Series(index=network.links.index, data=0)
     link_widths.loc[network.links.carrier == "DC"] = 0.3
-    
+
     if osm is not False:
         network.plot(
             ax=ax,
@@ -2687,7 +2687,7 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    if (cartopy_present & (osm is False)):
+    if cartopy_present & (osm is False):
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
