@@ -1721,7 +1721,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
     return network, extension_lines, extension_links
 
 
-def plot_background_grid(network, ax, geographical_boundaries):
+def plot_background_grid(network, ax, geographical_boundaries, osm):
     """Plots grid topology in background of other network.plot
 
     Parameters
@@ -1732,6 +1732,9 @@ def plot_background_grid(network, ax, geographical_boundaries):
         axes of plot
     geographical_boundaries : list
         Set georaphical boundaries for the plots
+    osm : False or dict.
+        False if not osm background map is required or dictionary with
+        x, y and zoom information.
 
     Returns
     -------
@@ -1740,21 +1743,8 @@ def plot_background_grid(network, ax, geographical_boundaries):
     """
     link_widths = pd.Series(index=network.links.index, data=0)
     link_widths.loc[network.links.carrier == "DC"] = 0.3
-
-    if cartopy_present:
-        network.plot(
-            ax=ax,
-            line_colors="grey",
-            link_colors="grey",
-            bus_sizes=0,
-            line_widths=0.5,
-            link_widths=link_widths,
-            geomap=True,
-            projection=ccrs.PlateCarree(),
-            color_geomap=True,
-            boundaries=geographical_boundaries,
-        )
-    else:
+    
+    if osm is not False:
         network.plot(
             ax=ax,
             line_colors="grey",
@@ -1764,6 +1754,30 @@ def plot_background_grid(network, ax, geographical_boundaries):
             link_widths=link_widths,
             geomap=False,
         )
+    else:
+        if cartopy_present:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=True,
+                projection=ccrs.PlateCarree(),
+                color_geomap=True,
+                boundaries=geographical_boundaries,
+            )
+        else:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=False,
+            )
 
 
 def demand_side_management(self, buses, snapshots, agg="5h", used=False):
@@ -2412,7 +2426,7 @@ def plot_grid(
             link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
             line_widths = 10
         label = "line loading in p.u."
-        plot_background_grid(network, ax, geographical_boundaries)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         # Only active flow direction is displayed!
         flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
@@ -2451,14 +2465,14 @@ def plot_grid(
         label = "v_nom in kV"
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax, geographical_boundaries)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
         label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax, geographical_boundaries)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
 
         if ext_width is not False:
             line_widths = line_colors / ext_width
@@ -2480,7 +2494,7 @@ def plot_grid(
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="rel", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax, geographical_boundaries)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = link_colors.apply(
@@ -2500,11 +2514,11 @@ def plot_grid(
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax, geographical_boundaries)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "dlr":
         title = "Dynamic line rating"
         label = "TWh above nominal capacity"
-        plot_background_grid(network, ax, geographical_boundaries)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
 
         # calc min capacity per line in the given period: Since lines with
         # different original voltage level could be aggregated during the
@@ -2537,7 +2551,7 @@ def plot_grid(
         label = ""
         line_colors = "grey"
         link_colors = "grey"
-        plot_background_grid(network, ax, geographical_boundaries)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         link_widths = 0
         line_widths = 0
 
@@ -2673,7 +2687,7 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    if cartopy_present:
+    if (cartopy_present & (osm is False)):
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
@@ -2703,7 +2717,6 @@ def plot_grid(
             flow=flow,
             title=title,
             geomap=False,
-            boundaries=geographical_boundaries,
         )
     l3 = None
 
