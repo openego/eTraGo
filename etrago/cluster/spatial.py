@@ -25,7 +25,6 @@ import os
 if "READTHEDOCS" not in os.environ:
     from itertools import product
     from math import ceil
-    from pickle import dump
     import logging
     import multiprocessing as mp
 
