@@ -116,7 +116,7 @@ def plot_osm(x, y, zoom, alpha=0.4):
     )
     plotter.plot(ax, alpha=alpha)
     # ax.plot(x, y, "ro-")
-    return fig, ax
+    return fig, ax, extent.xrange, extent.yrange
 
 
 def coloring():
@@ -1124,7 +1124,7 @@ def nodal_gen_dispatch(
     if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
@@ -1753,6 +1753,7 @@ def plot_background_grid(network, ax, geographical_boundaries, osm):
             line_widths=0.5,
             link_widths=link_widths,
             geomap=False,
+            boundaries=geographical_boundaries,
         )
     else:
         if cartopy_present:
@@ -2370,8 +2371,8 @@ def plot_grid(
         False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
     geographical_boundaries : list, optional
-        Set georaphical boundaries for the plots The default is
-        [-2.5, 16, 46.8, 58]
+        Set georaphical boundaries for the plots. This parameter is overwritten
+        when osm is used. The default is [-2.5, 16, 46.8, 58]
 
     Returns
     -------
@@ -2397,7 +2398,8 @@ def plot_grid(
     if osm is not False:
         if network.srid == 4326:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        geographical_boundaries = [xrange[0], xrange[1], yrange[0], yrange[1]]
 
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
@@ -2717,6 +2719,7 @@ def plot_grid(
             flow=flow,
             title=title,
             geomap=False,
+            boundaries=geographical_boundaries,
         )
     l3 = None
 
