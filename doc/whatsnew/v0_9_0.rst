@@ -1,0 +1,28 @@
+Release 0.9.0 (November 21, 2023)
+++++++++++++++++++++++++++++
+
+Added features
+--------------
+
+* eTraGo is now compatible with Python 3.8
+* eTraGo can now import and optimize networks that include other energy sectors such as gas, heating and mobility
+* Various flexibility options from different energy sectors can be considered in the optimization:
+- Weather dependent capacity of transmission lines (Dynamic Line Rating)
+- Demand Side Management
+- Flexible charging of electric vehicles
+- Heat and hydrogen stores
+- Power2Hydrogen, Hydrogen2Power
+- Methanation and Steam Methane Reforming
+* eTraGo arguments can now be partially provided and updated
+* eTraGo can now import datamodels from databases without using the ego.io
+* Existing clustering methods were adapted to be able to reduce the complexity of not electrical sectors
+* Improvement of the ehv clustering (much faster now)
+* A new clustering method named "k-medoids Dijkstra Clustering" (can be called by "kmedoids-dijkstra") was implemented. This method considers the electrical distance between the buses in the network. It is also available for the methane grid.
+* It is possible to select if foreign buses are considered or not during the clustering process.
+* The number of CPUs used to perform the clustering can be provided by the user. 
+* Some more options are available to conduct a reduction in temporal dimension: 
+- segmentation: clustering of adjacent hours to segments of variable length
+- clustering to typical periods extended to cluster on weeks and months
+* A temporal disaggregation is available through a 2-level-approach including a dispatch optimization on the temporally fullcomplex model. To limit the RAM usage, you can optionally divide the optimisation problem into a chosen number of slices.
+* New plotting functions to visualize the optimization results from all the included energy sectors were implemented
+* Functions to analyze results were updated to consider new sectors

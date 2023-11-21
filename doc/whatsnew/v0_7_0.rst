@@ -1,9 +1,9 @@
 Release 0.7.0 (September 6, 2018)
-++++++++++++++++++++++++++++
+++++++++++++++++++++++++++++++++++
 eTraGo is able to produce feasible non-linear power flows based on optimization results and allows the disaggregation of clustered results to original spatial complexities. 
 
 Added features
---------------
+---------------
 
 * The pf_post_lopf function was improved. Due to changes in the data set now the non-linear power flow (pf) creates feasible solutions. If network optimization is turned on, a second lopf which regards the updated reactances and optimizes only dispatch is performed before the pf is executed.
 * The disaggregation method was included. When using a network clustering method to reduce the spatial complexity of the given network, a disaggregation method can be used afterwards to distribute the nodal results (generation and storage timeseries) to the original complexity. The method 'disaggregation': 'uniform' can be used as an interface functionality for distribution grid planning tools like eDisGo. 

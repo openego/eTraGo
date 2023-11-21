@@ -20,7 +20,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.7
+   $ virtualenv venv --clear -p python3.8
    $ source venv/bin/activate
    $ cd venv
 
@@ -30,7 +30,7 @@ install eTraGo with the pip command, as previously explained.
 Linux and Ubuntu
 ================
 
-The Package eTraGo is tested with Ubuntu 16.04, 18.04 and 20.04 inside the virtual
+The Package eTraGo is tested with Ubuntu 16.04, 18.04, 20.04 and 22.04 inside the virtual
 environments of `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
 The installation is shown above.
 
@@ -40,14 +40,15 @@ Windows or Mac OSX users
 ========================
 
 For Windows and/or Mac OSX user we highly recommend to install and use Anaconda
-for you Python3 installation. First install anaconda including python 3.5 or
+for your Python3 installation. First install Conda including python 3.8 or
 higher version from https://www.anaconda.com/download/ and open an anaconda
 prompt as administrator and run:
 
 .. code-block:: bash
 
   $ conda config --add channels conda-forge
-  $ conda install shapely
+  $ conda create -n etrago_env python=3.8
+  $ conda activate etrago_env
   $ pip install eTraGo
 
   
@@ -62,9 +63,8 @@ environments.
 
 Setup database connection
 =========================
-The package `ego.io <https://github.com/openego/ego.io>`_ will be installed
-automatically when eTraGo is installed. The ``egoio``
-gives you python SQL-Alchemy representations of
+The eTraGo module `db <https://github.com/openego/eTraGo/blob/dev/etrago/tools/db.py>`_ 
+gives you a python SQL-Alchemy representations of
 the `OpenEnergy-Database(oedb) <https://openenergy-platform.org/dataedit/>`_ 
 and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_, which is a SQL-Alchemy binding
@@ -73,7 +73,7 @@ Python package for the REST-API used by the OpenEnergy Platform (OEP).
 In order to connect eTraGo via the oedialect with the oedb you
 have to create an account at
 `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_. 
-You can name the `'db' <https://github.com/openego/eTraGo/blob/42a8629e966c866af2d228d49fb7234a6cc38cfe/etrago/appl.py#L105>`_
+You can name the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
 argument of the 'args' of the :func:`etrago.appl.etrago`
 as you wish. Once the :func:`etrago.appl.etrago` is executed you will be asked 
 to enter how you want to connect to which database. If you want to use 
@@ -81,7 +81,7 @@ the oedialect enter the following connection parameter. For <username> and
 <token> you have to take your credentials which you obtained by registering
 at `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
 
-Your API access / login data will be saved in the folder ``.egoio`` in the file
+Your API access / login data will be saved in the folder ``.etrago_database`` in the file
 ``config.ini``. Consequently, in the config.ini you can also change 
 your connection parameters or add new ones.
 In the following you can see how the config.ini looks like when you use the
@@ -89,7 +89,7 @@ oedialect, a local postgresql database or the old psycopg2 developer connection.
 
 Once you have created a connection (which is saved in the config.ini) you do not have
 to enter the connection parameter again. The software will take the connection parameter
-which corresponds to the entry at the `'db' <https://github.com/openego/eTraGo/blob/42a8629e966c866af2d228d49fb7234a6cc38cfe/etrago/appl.py#L105>`_ argument.
+which corresponds to the entry at the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_ argument.
 
 
 oedialect connection

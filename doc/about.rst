@@ -15,15 +15,17 @@ energy storage and grid expansion measures.
 
 
 
-The open_eGo project
+Research projects
 ====================
-This software project is part of the research project
+This software project was initially developed in the research project
 `open_eGo <https://openegoproject.wordpress.com>`_.
+It is constantly further developed in different reserach projects, 
+e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_. 
 
 
 The OpenEnergy Platform
 =======================
-Within this project we developed the OpenEnergy Platform which this software
+Within the open_eGo project we developed the OpenEnergy Platform which this software
 is using in order to get and store the in- and output data. Before you start to
 calculate a registration on the platform is needed. For more information see
 `openenergy-platform <https://openenergy-platform.org/>`_ and login.
@@ -39,12 +41,12 @@ this platform.
 
 
 
-Model overview
-==============
+Tool overview
+=============
 
 
 
-.. figure:: images/eTraGo_model.png
+.. figure:: images/ego_tools.svg
    :align: center
    :scale: 75%
 
@@ -63,24 +65,17 @@ eGo
 The python package eGo is a toolbox and application which connects the tool eTraGo
 (optimization of flexibility options at transmission grid level)
 and eDisGo (optimization of distribution grids). All those python
-packages are part of the research project 
+packages were initially developed in the research project 
 `open_eGo <https://openegoproject.wordpress.com>`_. 
 `Learn more here <http://openego.readthedocs.io/>`_.
 
 
-Dataprocessing
-==============
+Data model creation
+===================
+For the eGon project the python-tool `eGon-data <https://github.com/openego/eGon-data>`_ was implemented, which creates input data  for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses. 
 
-For the open_eGo project several python packages are developed which are feeded 
-by the input data of the data processing. The Dataprocessing is writen in 
-SQL and Python. `Learn more here <https://data-processing.readthedocs.io/>`_.
-
-ego.io
-======
-
-The ego.io serves as a SQLAlchemy Interface to the OpenEnergy database (oedb). The 
-oedb table ORM objects are defined here and small helpers for io tasks are contained.
-`Learn more here <https://github.com/openego/ego.io>`_.
+eGon-data is a further development of the `Data processing <https://github.com/openego/data_processing>`_ developed in the former research project `open_eGo <https://openegoproject.wordpress.com/>`_. It aims for an extensions of the data models as well as for a better replicability and manageability of the data preparation and processing. 
+The resulting data set serves as an input for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses.  
 
 
 Dingo
@@ -97,7 +92,7 @@ medium and low voltage power distribution grids based on open
 LICENSE
 =======
 
-© Copyright 2015-2018
+© Copyright 2015-2023
 Flensburg University of Applied Sciences,
 Europa-Universität Flensburg,
 Centre for Sustainable Energy Systems and
