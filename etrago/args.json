@@ -91,7 +91,7 @@
             }
     }
     },
-    "disaggregation": null,
+    "spatial_disaggregation": null,
     "snapshot_clustering": {
         "active": false,
         "method": "segmentation",
