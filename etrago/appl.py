@@ -687,32 +687,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    import pandas as pd
 
-    etrago.network.links.min_up_time.fillna(0, inplace=True)
-    etrago.network.links.min_down_time.fillna(0, inplace=True)
-    etrago.network.links.up_time_before.fillna(0, inplace=True)
-    etrago.network.links.down_time_before.fillna(0, inplace=True)
-    etrago.network.loads_t.p = pd.DataFrame(index=etrago.network.snapshots)
-    etrago.network.loads_t.q = pd.DataFrame(index=etrago.network.snapshots)
-    etrago.network.stores_t.p = pd.DataFrame(index=etrago.network.snapshots)
-    etrago.network.storage_units_t.p = pd.DataFrame(
-        index=etrago.network.snapshots
-    )
-    etrago.network.stores_t.e = pd.DataFrame(index=etrago.network.snapshots)
-    etrago.network.stores_t.q = pd.DataFrame(index=etrago.network.snapshots)
-    etrago.network.stores_t.mu_lower = pd.DataFrame(
-        index=etrago.network.snapshots
-    )
-    etrago.network.stores_t.mu_upper = pd.DataFrame(
-        index=etrago.network.snapshots
-    )
-    etrago.network.stores_t.mu_energy_balance = pd.DataFrame(
-        index=etrago.network.snapshots
-    )
-    etrago.network.storage_units_t.q = pd.DataFrame(
-        index=etrago.network.snapshots
-    )
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
