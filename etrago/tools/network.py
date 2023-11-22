@@ -64,6 +64,7 @@ from etrago.tools.plot import (
     flexibility_usage,
     heat_stores,
     hydrogen_stores,
+    plot_carrier,
     plot_clusters,
     plot_gas_generation,
     plot_gas_summary,
@@ -92,6 +93,7 @@ from etrago.tools.utilities import (
     load_shedding,
     manual_fixes_datamodel,
     set_branch_capacity,
+    set_control_strategies,
     set_line_costs,
     set_q_foreign_loads,
     set_q_national_loads,
@@ -254,11 +256,11 @@ class Etrago:
 
     lopf = lopf
 
-    dispatch_disaggregation = dispatch_disaggregation
+    temporal_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
 
-    disaggregation = run_disaggregation
+    spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
 
@@ -291,6 +293,8 @@ class Etrago:
     plot_grid = plot_grid
 
     plot_clusters = plot_clusters
+
+    plot_carrier = plot_carrier
 
     plot_gas_generation = plot_gas_generation
 
@@ -404,6 +408,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        set_control_strategies(self.network)
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

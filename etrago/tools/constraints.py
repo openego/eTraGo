@@ -2929,7 +2929,7 @@ def add_chp_constraints_nmp(n):
             for e_chp in elec_chp
         )
 
-        lhs = linexpr((1, lhs_1), (1, lhs_2))
+        lhs = linexpr((1, lhs_1), (-1, lhs_2))
 
         define_constraints(
             n, lhs, "<=", 0, "chplink_" + str(i), "backpressure"

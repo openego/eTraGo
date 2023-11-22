@@ -42,7 +42,7 @@ setup(
         )
     ),
     long_description_content_type="text/x-rst",
-    version="0.8.0",
+    version="0.9.0",
     url="https://github.com/openego/eTraGo",
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
@@ -61,6 +61,7 @@ setup(
         "setuptools >= 54.2.0",
         "shapely",
         "sqlalchemy < 2",
+        "tables < 3.9",
         "tilemapbase == 0.4.5",
         "tsam",
     ],

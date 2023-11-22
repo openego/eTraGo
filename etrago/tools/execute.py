@@ -257,14 +257,14 @@ def iterate_lopf(
         args["temporal_disaggregation"]["active"] is True
         and etrago.conduct_dispatch_disaggregation is False
     ):
-        if not args["csv_export"] is False:
+        if args["csv_export"]:
             path = path + "/temporally_reduced"
 
-        if not args["lpfile"] is False:
+        if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_temporally_reduced.lp"
 
     if etrago.conduct_dispatch_disaggregation is not False:
-        if not args["lpfile"] is False:
+        if args["lpfile"]:
             lp_path = lp_path[0:-3] + "_dispatch_disaggregation.lp"
 
         etrago.network_tsa.lines["s_nom"] = etrago.network.lines["s_nom_opt"]
@@ -313,7 +313,7 @@ def iterate_lopf(
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
 
-                if not args["csv_export"]:
+                if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)
                     etrago.export_to_csv(path_it)
 
@@ -347,7 +347,7 @@ def iterate_lopf(
 
                 i += 1
 
-                if not args["csv_export"]:
+                if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)
                     etrago.export_to_csv(path_it)
 
@@ -357,8 +357,9 @@ def iterate_lopf(
 
     else:
         run_lopf(etrago, extra_functionality, method)
+        etrago.export_to_csv(path)
 
-    if not args["lpfile"] is False:
+    if args["lpfile"]:
         network.model.write(lp_path)
 
     return network
@@ -390,7 +391,7 @@ def lopf(self):
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
-    if not self.args["csv_export"]:
+    if self.args["csv_export"]:
         path = self.args["csv_export"]
         if self.args["temporal_disaggregation"]["active"] is True:
             path = path + "/temporally_reduced"
@@ -512,19 +513,21 @@ def dispatch_disaggregation(self):
         logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
-def import_gen_from_links(network):
+def import_gen_from_links(network, drop_small_capacities=True):
     """
     create gas generators from links in order to not lose them when
     dropping non-electric carriers
     """
-    # Discard all generators < 1kW
-    discard_gen = network.links[network.links["p_nom"] <= 0.001].index
-    network.links.drop(discard_gen, inplace=True)
-    for df in network.links_t:
-        if not network.links_t[df].empty:
-            network.links_t[df].drop(
-                columns=discard_gen.values, inplace=True, errors="ignore"
-            )
+
+    if drop_small_capacities:
+        # Discard all generators < 1kW
+        discard_gen = network.links[network.links["p_nom"] <= 0.001].index
+        network.links.drop(discard_gen, inplace=True)
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(
+                    columns=discard_gen.values, inplace=True, errors="ignore"
+                )
     # Select links that should be represented as generators
     gas_to_add = network.links[
         network.links.carrier.isin(
@@ -728,8 +731,10 @@ def pf_post_lopf(etrago, calc_losses=False):
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
 
-    if args["disaggregation"]:
-        import_gen_from_links(etrago.disaggregated_network)
+    if args["spatial_disaggregation"]:
+        import_gen_from_links(
+            etrago.disaggregated_network, drop_small_capacities=False
+        )
 
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
@@ -841,12 +846,12 @@ def pf_post_lopf(etrago, calc_losses=False):
                     foreign_series[comp][attr], comp, attr
                 )
 
-    if not args["csv_export"]:
+    if args["csv_export"]:
         path = args["csv_export"] + "/pf_post_lopf"
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
-        if args["disaggregation"]:
+        if args["spatial_disaggregation"]:
             etrago.disaggregated_network.export_to_csv_folder(
                 path + "/disaggregated_network"
             )
