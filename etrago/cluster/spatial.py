@@ -30,9 +30,9 @@ if "READTHEDOCS" not in os.environ:
 
     from networkx import NetworkXNoPath
     from pypsa.clustering.spatial import (
-        flatten_multiindex,
         busmap_by_kmeans,
         busmap_by_stubs,
+        flatten_multiindex,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
