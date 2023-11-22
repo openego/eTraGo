@@ -184,10 +184,6 @@ def strategies_links():
         "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
-        "min_up_time": np.mean,
-        "min_down_time": np.mean,
-        "up_time_before": np.mean,
-        "down_time_before": np.mean,
         "committable": np.all,
     }
 
