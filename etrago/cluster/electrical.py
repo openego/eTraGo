@@ -1077,6 +1077,32 @@ def run_spatial_clustering(self):
         # which sets slack bus(es).
         set_control_strategies(self.network)
 
+        # Drop nan values after clustering
+        self.network.links.min_up_time.fillna(0, inplace=True)
+        self.network.links.min_down_time.fillna(0, inplace=True)
+        self.network.links.up_time_before.fillna(0, inplace=True)
+        self.network.links.down_time_before.fillna(0, inplace=True)
+        self.network.loads_t.p = pd.DataFrame(index=self.network.snapshots)
+        self.network.loads_t.q = pd.DataFrame(index=self.network.snapshots)
+        self.network.stores_t.p = pd.DataFrame(index=self.network.snapshots)
+        self.network.storage_units_t.p = pd.DataFrame(
+            index=self.network.snapshots
+        )
+        self.network.stores_t.e = pd.DataFrame(index=self.network.snapshots)
+        self.network.stores_t.q = pd.DataFrame(index=self.network.snapshots)
+        self.network.stores_t.mu_lower = pd.DataFrame(
+            index=self.network.snapshots
+        )
+        self.network.stores_t.mu_upper = pd.DataFrame(
+            index=self.network.snapshots
+        )
+        self.network.stores_t.mu_energy_balance = pd.DataFrame(
+            index=self.network.snapshots
+        )
+        self.network.storage_units_t.q = pd.DataFrame(
+            index=self.network.snapshots
+        )
+
         logger.info(
             "Network clustered to {} buses with ".format(
                 self.args["network_clustering"]["n_clusters_AC"]
