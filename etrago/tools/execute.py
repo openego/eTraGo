@@ -553,20 +553,29 @@ def import_gen_from_links(network, drop_small_capacities=True):
     df["efficiency"] = gas_to_add.groupby(["bus", "carrier"]).efficiency.mean()
     df["control"] = "PV"
     df.reset_index(inplace=True)
+
     df.index = df.bus + " " + df.carrier
 
     # Aggregate disptach time series for new generators
     gas_to_add["bus1_carrier"] = gas_to_add.bus + " " + gas_to_add.carrier
-    df_t = (
-        network.links_t.p1[gas_to_add.index]
-        .groupby(gas_to_add.bus1_carrier, axis=1)
-        .sum()
-        * -1
-    )
+
+    if not network.links_t.p1.empty:
+        df_t = (
+            network.links_t.p1[gas_to_add.index]
+            .groupby(gas_to_add.bus1_carrier, axis=1)
+            .sum()
+            * -1
+        )
 
     # Insert aggregated generators their dispatch time series
     network.madd("Generator", df.index, **df)
-    network.import_series_from_dataframe(df_t, "Generator", "p")
+    if not network.links_t.p1.empty:
+        network.import_series_from_dataframe(df_t, "Generator", "p")
+        network.import_series_from_dataframe(
+            pd.DataFrame(index=df_t.index, columns=df_t.columns, data=1.0),
+            "Generator",
+            "status",
+        )
 
     # Drop links now modelled as generator
     network.mremove("Link", gas_to_add.index)
@@ -677,7 +686,10 @@ def pf_post_lopf(etrago, calc_losses=False):
         for comp in sorted(foreign_series):
             attr = sorted(foreign_series[comp])
             for a in attr:
-                if not foreign_series[comp][a].empty:
+                if (
+                    not foreign_series[comp][a].empty
+                    and not (foreign_series[comp][a] == 0.0).all().all()
+                ):
                     if a != "p_max_pu":
                         if a in ["q_set", "e_max_pu", "e_min_pu"]:
                             g_in_q_set = foreign_comp[comp][
