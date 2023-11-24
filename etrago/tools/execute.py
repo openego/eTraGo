@@ -423,6 +423,7 @@ def dispatch_disaggregation(self):
             # define number of slices and corresponding slice length
             no_slices = self.args["temporal_disaggregation"]["no_slices"]
             slice_len = int(len(self.network.snapshots) / no_slices)
+
             # transition snapshots defining start and end of slices
             transits = self.network.snapshots[0::slice_len]
             if len(transits) > 1:
