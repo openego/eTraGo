@@ -29,7 +29,6 @@ if "READTHEDOCS" not in os.environ:
     from pypsa import Network
     from pypsa.clustering.spatial import (
         aggregatebuses,
-        aggregategenerators,
         aggregateoneport,
         get_clustering_from_busmap,
     )
