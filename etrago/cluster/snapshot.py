@@ -664,7 +664,7 @@ def run(
         segm_hoursperperiod=network.snapshots.size,
     )
 
-    if not segmentation:
+    if segmentation:
         pd.DataFrame(
             timeseries.reset_index(),
             columns=["dates", "SegmentNo", "SegmentDuration"],

@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "local2019",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "market_grid",  # type of optimization, currently only 'lopf'
@@ -73,13 +73,13 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "/home/ulf/Documents/PoWErD/AP2etrago_results/consecutive_test_168_51",  # save results as csv: False or /path/tofolder
+    "csv_export": "results",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -89,9 +89,9 @@ args = {
             # lines in Germany
             "grid_max_D": None,  # relative to existing capacity
             "grid_max_abs_D": {  # absolute capacity per voltage level
-                "380": {"i": 1020, "wires": 4, "circuits": 8},
-                "220": {"i": 1020, "wires": 4, "circuits": 8},
-                "110": {"i": 1020, "wires": 4, "circuits": 4},
+                "380": {"i": 1020, "wires": 4, "circuits": 4},
+                "220": {"i": 1020, "wires": 4, "circuits": 4},
+                "110": {"i": 1020, "wires": 4, "circuits": 2},
                 "dc": 0,
             },
             # border crossing lines
@@ -102,14 +102,18 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses
+    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "network_clustering_ehv": {
+        "active": False,  # choose if clustering of HV buses to EHV buses is activated
+        "busmap": False, # False or path to stored busmap
+    },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 51,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 12,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -121,10 +125,10 @@ args = {
         "remove_stubs": False,  # remove stubs bevore kmeans clustering
         "use_reduced_coordinates": False,  # If True, do not average cluster coordinates
         "random_state": 42,  # random state for replicability of clustering results
-        "n_init": 4,  # affects clustering algorithm, only change when neccesary
-        "max_iter": 20,  # affects clustering algorithm, only change when neccesary
+        "n_init": 10,  # affects clustering algorithm, only change when neccesary
+        "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 2,  # number of cores used during clustering, "max" for all cores available.
+        "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -135,7 +139,7 @@ args = {
             },
         },
     },
-    "disaggregation": None,  # None or 'uniform'
+    "spatial_disaggregation": None,  # None or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -153,7 +157,7 @@ args = {
     },
     # Simplifications:
     "branch_capacity_factor": {"HV": 0.5, "eHV": 0.7},  # p.u. branch derating
-    "load_shedding": False,  # meet the demand at value of loss load cost
+    "load_shedding": True,  # meet the demand at value of loss load cost
     "foreign_lines": {
         "carrier": "AC",  # 'DC' for modeling foreign lines as links
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
@@ -383,11 +387,28 @@ def run_etrago(args, json_path):
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
 
-    network_clustering_ehv : bool
+    delete_dispensable_ac_buses: bool
+        Choose if electrical buses that are only connecting two lines should be
+        removed. These buses have no other components attached to them. The
+        connected lines are merged. This reduces the spatial complexity without
+        losing any accuracy.
+        Default: True.
+    network_clustering_ehv : dict
+        Choose if you want to apply an extra high voltage clustering to the
+        electrical network.
+        The provided dictionary can have the following entries:
+
+        * "active" : bool
         Choose if you want to cluster the full HV/EHV dataset down to only the
         EHV buses. In that case, all HV buses are assigned to their closest EHV
         substation, taking into account the shortest distance on power lines.
         Default: False.
+        * "busmap" : str
+        Choose if an stored busmap can be used to make the process quicker, or
+        a new busmap must be calculated. False or path to the busmap in csv
+        format should be given.
+        Default: False
+
     network_clustering : dict
         Choose if you want to apply a clustering of all network buses and
         specify settings.
@@ -649,6 +670,14 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
@@ -694,6 +723,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
@@ -711,17 +741,17 @@ def run_etrago(args, json_path):
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    #etrago.dispatch_disaggregation()
+    etrago.temporal_disaggregation()
 
     # start power flow based on lopf results
-    #etrago.pf_post_lopf()
+    etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
-    #etrago.disaggregation()
+    etrago.spatial_disaggregation()
 
     # calculate central etrago results
-    #etrago.calc_results()
+    etrago.calc_results()
 
     return etrago
 

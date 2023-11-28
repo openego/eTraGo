@@ -28,12 +28,10 @@ if "READTHEDOCS" not in os.environ:
     import time
 
     from pypsa.linopf import network_lopf
-    from pypsa.networkclustering import aggregategenerators
     from pypsa.pf import sub_network_pf
     import numpy as np
     import pandas as pd
 
-    from etrago.cluster.spatial import strategies_generators
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -393,7 +391,7 @@ def lopf(self):
     z = (y - x) / 60
     logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
-    if not self.args["csv_export"]:
+    if self.args["csv_export"]:
         path = self.args["csv_export"]
         if self.args["temporal_disaggregation"]["active"] is True:
             path = path + "/temporally_reduced"
@@ -450,6 +448,7 @@ def dispatch_disaggregation(self):
             # define number of slices and corresponding slice length
             no_slices = self.args["temporal_disaggregation"]["no_slices"]
             slice_len = int(len(self.network.snapshots) / no_slices)
+
             # transition snapshots defining start and end of slices
             transits = self.network.snapshots[0::slice_len]
             if len(transits) > 1:
@@ -540,20 +539,22 @@ def dispatch_disaggregation(self):
         logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
-def import_gen_from_links(network):
+def import_gen_from_links(network, drop_small_capacities=True):
     """
     create gas generators from links in order to not lose them when
     dropping non-electric carriers
     """
-    # Discard all generators < 1kW
-    discard_gen = network.links[network.links["p_nom"] <= 0.001].index
-    network.links.drop(discard_gen, inplace=True)
-    for df in network.links_t:
-        if not network.links_t[df].empty:
-            network.links_t[df].drop(
-                columns=discard_gen.values, inplace=True, errors="ignore"
-            )
 
+    if drop_small_capacities:
+        # Discard all generators < 1kW
+        discard_gen = network.links[network.links["p_nom"] <= 0.001].index
+        network.links.drop(discard_gen, inplace=True)
+        for df in network.links_t:
+            if not network.links_t[df].empty:
+                network.links_t[df].drop(
+                    columns=discard_gen.values, inplace=True, errors="ignore"
+                )
+    # Select links that should be represented as generators
     gas_to_add = network.links[
         network.links.carrier.isin(
             [
@@ -565,74 +566,45 @@ def import_gen_from_links(network):
         )
     ].copy()
 
-    # Drop generators from the links table
-    network.links.drop(gas_to_add.index, inplace=True)
-
+    # Rename bus1 column to bus
     gas_to_add.rename(columns={"bus1": "bus"}, inplace=True)
 
-    # Create generators' names like in network.generators
-    gas_to_add["Generator"] = (
-        gas_to_add["bus"] + " " + gas_to_add.index + gas_to_add["carrier"]
-    )
-    gas_to_add_orig = gas_to_add.copy()
-    gas_to_add.set_index("Generator", drop=True, inplace=True)
-    gas_to_add = gas_to_add[
-        gas_to_add.columns[gas_to_add.columns.isin(network.generators.columns)]
-    ]
+    # Aggregate new generators per bus and carrier
+    df = pd.DataFrame()
+    df["p_nom"] = gas_to_add.groupby(["bus", "carrier"]).p_nom.sum()
+    df["p_nom_opt"] = gas_to_add.groupby(["bus", "carrier"]).p_nom_opt.sum()
+    df["marginal_cost"] = gas_to_add.groupby(
+        ["bus", "carrier"]
+    ).marginal_cost.mean()
+    df["efficiency"] = gas_to_add.groupby(["bus", "carrier"]).efficiency.mean()
+    df["control"] = "PV"
+    df.reset_index(inplace=True)
 
-    network.import_components_from_dataframe(gas_to_add, "Generator")
+    df.index = df.bus + " " + df.carrier
 
-    # Dealing with generators_t
-    columns_new = network.links_t.p1.columns[
-        network.links_t.p1.columns.isin(gas_to_add_orig.index)
-    ]
+    # Aggregate disptach time series for new generators
+    gas_to_add["bus1_carrier"] = gas_to_add.bus + " " + gas_to_add.carrier
 
-    new_gen_t = network.links_t.p1[columns_new] * -1
-    new_gen_t.rename(columns=gas_to_add_orig["Generator"], inplace=True)
-    network.generators_t.p = network.generators_t.p.join(new_gen_t)
-
-    # Drop generators from the links_t table
-    for df in network.links_t:
-        if not network.links_t[df].empty:
-            network.links_t[df].drop(
-                columns=gas_to_add_orig.index,
-                inplace=True,
-                errors="ignore",
-            )
-
-    # Group generators per bus if needed
-    if not (
-        network.generators.groupby(["bus", "carrier"]).p_nom.count() == 1
-    ).all():
-        network.generators["weight"] = network.generators.p_nom
-        df, df_t = aggregategenerators(
-            network,
-            busmap=pd.Series(
-                index=network.buses.index, data=network.buses.index
-            ),
-            custom_strategies=strategies_generators(),
+    if not network.links_t.p1.empty:
+        df_t = (
+            network.links_t.p1[gas_to_add.index]
+            .groupby(gas_to_add.bus1_carrier, axis=1)
+            .sum()
+            * -1
         )
 
-        # Keep control arguments from generators
-        control = network.generators.groupby(
-            ["bus", "carrier"]
-        ).control.first()
-        control.index = (
-            control.index.get_level_values(0)
-            + " "
-            + control.index.get_level_values(1)
+    # Insert aggregated generators their dispatch time series
+    network.madd("Generator", df.index, **df)
+    if not network.links_t.p1.empty:
+        network.import_series_from_dataframe(df_t, "Generator", "p")
+        network.import_series_from_dataframe(
+            pd.DataFrame(index=df_t.index, columns=df_t.columns, data=1.0),
+            "Generator",
+            "status",
         )
-        df.control = control
 
-        # Drop non-aggregated generators
-        network.mremove("Generator", network.generators.index)
-
-        # Insert aggregated generators and time series
-        network.import_components_from_dataframe(df, "Generator")
-
-        for attr, data in df_t.items():
-            if not data.empty:
-                network.import_series_from_dataframe(data, "Generator", attr)
+    # Drop links now modelled as generator
+    network.mremove("Link", gas_to_add.index)
 
     return
 
@@ -740,7 +712,10 @@ def pf_post_lopf(etrago, calc_losses=False):
         for comp in sorted(foreign_series):
             attr = sorted(foreign_series[comp])
             for a in attr:
-                if not foreign_series[comp][a].empty:
+                if (
+                    not foreign_series[comp][a].empty
+                    and not (foreign_series[comp][a] == 0.0).all().all()
+                ):
                     if a != "p_max_pu":
                         if a in ["q_set", "e_max_pu", "e_min_pu"]:
                             g_in_q_set = foreign_comp[comp][
@@ -794,8 +769,10 @@ def pf_post_lopf(etrago, calc_losses=False):
     # generators modeled as links are imported to the generators table
     import_gen_from_links(network)
 
-    if args["disaggregation"]:
-        import_gen_from_links(etrago.disaggregated_network)
+    if args["spatial_disaggregation"]:
+        import_gen_from_links(
+            etrago.disaggregated_network, drop_small_capacities=False
+        )
 
     # For the PF, set the P to be the optimised P
     network.generators_t.p_set = network.generators_t.p_set.reindex(
@@ -912,7 +889,7 @@ def pf_post_lopf(etrago, calc_losses=False):
         etrago.export_to_csv(path)
         pf_solve.to_csv(os.path.join(path, "pf_solution.csv"), index=True)
 
-        if args["disaggregation"]:
+        if args["spatial_disaggregation"]:
             etrago.disaggregated_network.export_to_csv_folder(
                 path + "/disaggregated_network"
             )

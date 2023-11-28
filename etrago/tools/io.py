@@ -223,7 +223,7 @@ class NetworkScenario(ScenarioBase):
                 vars()[f"egon_etrago_{name.lower()}"].version == self.version
             )
 
-        df = saio.as_pandas(query, crs=4326).set_index(index)
+        df = saio.as_pandas(query, crs=4326, geometry=None).set_index(index)
 
         if name == "Transformer":
             df.tap_side = 0
