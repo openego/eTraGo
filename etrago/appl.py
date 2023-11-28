@@ -254,22 +254,17 @@ def run_etrago(args, json_path):
     scn_name : str
          Choose your scenario. Currently, there are two different
          scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or str
-        This option does currently not work!
+    scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
-        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension\_'.
-        There are three overlay networks:
+        extension-tables (e.g. grid.egon_etrago_extension_line)
+        There are two overlay networks:
 
-        * 'nep2035_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur
-        * 'nep2035_b2' includes all new lines planned by the
-          Netzentwicklungsplan 2025 in scenario 2035 B2
-        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-          adds BE and NO as electrical neighbours
-
+        * 'nep2021_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur included in the NEP version 2021
+        * 'nep2021_c2035' includes all new lines planned by the
+          Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
     scn_decommissioning : NoneType or str
         This option does currently not work!

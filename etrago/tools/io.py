@@ -112,12 +112,14 @@ class NetworkScenario(ScenarioBase):
         start_snapshot=1,
         end_snapshot=20,
         temp_id=1,
+        scenario_extension=False,
         **kwargs,
     ):
         self.scn_name = scn_name
         self.start_snapshot = start_snapshot
         self.end_snapshot = end_snapshot
         self.temp_id = temp_id
+        self.scenario_extension = scenario_extension
 
         super().__init__(engine, session, **kwargs)
 
@@ -206,6 +208,14 @@ class NetworkScenario(ScenarioBase):
             egon_etrago_store,
             egon_etrago_transformer,
         )
+
+        if self.scenario_extension:
+            from saio.grid import (  # noqa: F401
+                egon_etrago_extension_bus as egon_etrago_bus,
+                egon_etrago_extension_line as egon_etrago_line,
+                egon_etrago_extension_link as egon_etrago_link,
+                egon_etrago_extension_transformer as egon_etrago_transformer,
+            )
 
         index = f"{name.lower()}_id"
 
@@ -798,22 +808,17 @@ def extension(self, **kwargs):
 
     """
     if self.args["scn_extension"] is not None:
-        if self.args["gridversion"] is None:
-            ormcls_prefix = "EgoGridPfHvExtension"
-        else:
-            ormcls_prefix = "EgoPfHvExtension"
-
         for i in range(len(self.args["scn_extension"])):
             scn_extension = self.args["scn_extension"][i]
             # Adding overlay-network to existing network
             scenario = NetworkScenario(
+                self.engine,
                 self.session,
                 version=self.args["gridversion"],
-                prefix=ormcls_prefix,
-                method=kwargs.get("method", "lopf"),
                 start_snapshot=self.args["start_snapshot"],
                 end_snapshot=self.args["end_snapshot"],
-                scn_name="extension_" + scn_extension,
+                scn_name=scn_extension,
+                scenario_extension=True,
             )
 
             self.network = scenario.build_network(self.network)
