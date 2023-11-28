@@ -35,7 +35,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_one_ports,
         strategies_generators,)
     
-    from pypsa.networkclustering import get_clustering_from_busmap
+    from pypsa.clustering.spatial import get_clustering_from_busmap
 
 
 
@@ -56,7 +56,7 @@ __author__ = (
 
 def market_optimization(self):
     
-    logger.info("Start building market model")
+    logger.info("Start building pre market model")
     build_market_model(self)
     logger.info("Start solving pre market model")
     self.pre_market_model.lopf(
@@ -66,9 +66,10 @@ def market_optimization(self):
             extra_functionality=extra_functionality(),
             formulation=self.args["model_formulation"],        
         )
-    
+   
+    logger.info("Preparing short-term UC market model")
+    build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
-
     self.market_model.optimize.optimize_with_rolling_horizon(
         snapshots=None, horizon=168, overlap=144, solver_name=self.args["solver"])
 

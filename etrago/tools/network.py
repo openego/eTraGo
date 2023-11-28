@@ -274,6 +274,8 @@ class Etrago:
     market_optimization = market_optimization
 
     lopf = lopf
+    
+    optimize = optimize
 
     temporal_disaggregation = dispatch_disaggregation
 
