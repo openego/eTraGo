@@ -935,41 +935,12 @@ def weighting_for_scenario(network, save=None):
         cannot be found in the dictionary, it is assumed to be 1.
 
         """
-
-        if gen["carrier"] in time_dependent:
+        if gen.name in network.generators_t.p_max_pu.columns:
             cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
         else:
-            try:
-                cf = fixed_capacity_fac[gen["carrier"]]
-            except KeyError:
-                cf = 1
-        return cf
+            cf = network.generators.loc[gen.name, "p_max_pu"]
 
-    time_dependent = [
-        "solar_rooftop",
-        "solar",
-        "wind_onshore",
-        "wind_offshore",
-    ]
-    fixed_capacity_fac = {
-        # A value of 1 is given to power plants where its availability
-        # does not depend on the weather
-        "industrial_gas_CHP": 1,
-        "industrial_biomass_CHP": 1,
-        "biomass": 1,
-        "central_biomass_CHP": 1,
-        "central_gas_CHP": 1,
-        "OCGT": 1,
-        "other_non_renewable": 1,
-        "run_of_river": 0.50,
-        "reservoir": 1,
-        "gas": 1,
-        "oil": 1,
-        "others": 1,
-        "coal": 1,
-        "lignite": 1,
-        "nuclear": 1,
-    }
+        return cf
 
     gen = network.generators[network.generators.carrier != "load shedding"][
         ["bus", "carrier", "p_nom"]
