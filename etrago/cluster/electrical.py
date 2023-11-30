@@ -335,9 +335,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     for one_port in network.one_port_components.copy():
         if one_port == "Generator":
             custom_strategies = strategies_generators()
-            import pdb
 
-            pdb.set_trace()
         else:
             custom_strategies = strategies_one_ports().get(one_port, {})
         new_df, new_pnl = aggregateoneport(
