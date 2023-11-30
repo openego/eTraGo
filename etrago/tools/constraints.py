@@ -1820,8 +1820,7 @@ def snapshot_clustering_seasonal_storage(
         L. Kotzur et al: 'Time series aggregation for energy system design:
         Modeling seasonal storage', 2018, equation no. 19
         """
-
-        if i == network.model.candidates[-1]:
+        if i == network.model.candidates.at(-1):
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:
@@ -1849,7 +1848,7 @@ def snapshot_clustering_seasonal_storage(
         return expr
 
     def inter_store_soc_rule(m, s, i):
-        if i == network.model.candidates[-1]:
+        if i == network.model.candidates.at(-1):
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:
