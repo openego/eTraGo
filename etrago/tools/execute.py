@@ -428,7 +428,7 @@ def dispatch_disaggregation(self):
             transits = self.network.snapshots[0::slice_len]
             if len(transits) > 1:
                 transits = transits[1:]
-            if transits[-1] != self.network_tsa.snapshots[-1]:
+            if transits[-1] != self.network.snapshots[-1]:
                 transits = transits.insert(
                     (len(transits)), self.network.snapshots[-1]
                 )
