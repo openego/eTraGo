@@ -199,6 +199,14 @@ def coloring():
         "BEV charger": "indigo",
         "BEV_charger": "indigo",
         "others": "dimgrey",
+        "central_coal_CHP": "darkorange",
+        "central_lignite_CHP": "darkorange",
+        "central_oil_CHP": "darkorange",
+        "central_others_CHP": "darkorange",
+        "industrial_coal_CHP": "darkorange",
+        "industrial_lignite_CHP": "darkorange",
+        "industrial_oil_CHP": "darkorange",
+        "industrial_others_CHP": "darkorange",
     }
 
     return colors
