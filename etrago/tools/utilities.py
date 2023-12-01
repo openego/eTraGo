@@ -1104,7 +1104,8 @@ def group_parallel_lines(network):
         .reset_index()
         .set_index("Line", drop=True)
     )
-    network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
+
+    # network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
 
     return
 
@@ -2857,3 +2858,35 @@ def manual_fixes_datamodel(etrago):
     etrago.network.links.loc[
         etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
     ] = 25
+
+    # Set r value if missing
+    if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
+        logger.info(
+            f"""
+            There are {len(
+                etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
+                )} lines without a resistance (r) in the data model.
+            The resistance of these lines will be automatically set to 0.0001.
+            """
+        )
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+
+    if not etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ].empty:
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
+                etrago.network.transformers.r == 0, "r"]
+                )} trafos without a resistance (r) in the data model.
+            The resistance of these trafos will be automatically set to 0.0001.
+            """
+        )
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    # Set vnom of transformers
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values

@@ -29,10 +29,10 @@ if "READTHEDOCS" not in os.environ:
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
-    from pypsa.networkclustering import (
-        _flatten_multiindex,
+    from pypsa.clustering.spatial import (
         busmap_by_kmeans,
         busmap_by_stubs,
+        flatten_multiindex,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
@@ -108,6 +108,18 @@ def sum_with_inf(x):
         return x.sum()
 
 
+def strategies_buses():
+    return {
+        "geom": nan_links,
+    }
+
+
+def strategies_lines():
+    return {
+        "geom": nan_links,
+    }
+
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -128,6 +140,8 @@ def strategies_one_ports():
             "e_nom_min": np.sum,
             "e_nom_max": sum_with_inf,
             "e_initial": np.sum,
+            "e_min_pu": np.mean,
+            "e_max_pu": np.mean,
         },
     }
 
@@ -170,6 +184,11 @@ def strategies_links():
         "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
+        "min_up_time": np.mean,
+        "min_down_time": np.mean,
+        "up_time_before": np.mean,
+        "down_time_before": np.mean,
+        "committable": np.all,
     }
 
 
@@ -235,8 +254,11 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     )
     strategies = strategies_links()
     strategies.update(cus_strateg)
+    strategies.pop("topo")
+    strategies.pop("geom")
+
     new_df = links.groupby(grouper, axis=0).agg(strategies)
-    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
     )
@@ -256,7 +278,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                         weighting.loc[df_agg.columns], axis=1
                     )
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
                 new_pnl[attr] = pd.concat(

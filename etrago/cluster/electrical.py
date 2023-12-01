@@ -27,9 +27,8 @@ if "READTHEDOCS" not in os.environ:
     import logging
 
     from pypsa import Network
-    from pypsa.networkclustering import (
+    from pypsa.clustering.spatial import (
         aggregatebuses,
-        aggregategenerators,
         aggregateoneport,
         get_clustering_from_busmap,
     )
@@ -43,7 +42,9 @@ if "READTHEDOCS" not in os.environ:
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
+        strategies_buses,
         strategies_generators,
+        strategies_lines,
         strategies_one_ports,
     )
     from etrago.tools.utilities import set_control_strategies
@@ -275,6 +276,8 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
         {
             "x": _leading(busmap, network.buses),
             "y": _leading(busmap, network.buses),
+            "geom": lambda x: np.nan,
+            "country": lambda x: "",
         },
     )
 
@@ -327,27 +330,20 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
                 io.import_series_from_dataframe(network_c, df, "Link", attr)
 
     # dealing with generators
-    network.generators["weight"] = 1
+    # network.generators["weight"] = 1
 
-    new_df, new_pnl = aggregategenerators(
-        network, busmap, with_time, custom_strategies=strategies_generators()
-    )
-    io.import_components_from_dataframe(network_c, new_df, "Generator")
-    for attr, df in iteritems(new_pnl):
-        io.import_series_from_dataframe(network_c, df, "Generator", attr)
+    for one_port in network.one_port_components.copy():
+        if one_port == "Generator":
+            custom_strategies = strategies_generators()
 
-    # dealing with all other components
-    aggregate_one_ports = network.one_port_components.copy()
-    aggregate_one_ports.discard("Generator")
-
-    for one_port in aggregate_one_ports:
-        one_port_strategies = strategies_one_ports()
+        else:
+            custom_strategies = strategies_one_ports().get(one_port, {})
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
             component=one_port,
             with_time=with_time,
-            custom_strategies=one_port_strategies.get(one_port, {}),
+            custom_strategies=custom_strategies,
         )
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
@@ -453,6 +449,13 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
+
+        # Drop nan values in timeseries after clustering
+        for c in self.network.iterate_components():
+            for pnl in c.attrs[
+                (c.attrs.status == "Output") & (c.attrs.varying)
+            ].index:
+                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
 
         logger.info("Network clustered to EHV-grid")
 
@@ -684,6 +687,7 @@ def preprocessing(etrago):
             [
                 "bus0",
                 "bus1",
+                "r",
                 "x",
                 "s_nom",
                 "capital_cost",
@@ -696,6 +700,7 @@ def preprocessing(etrago):
             x=network.transformers.x
             * (380.0 / transformer_voltages.max(axis=1)) ** 2,
             length=1,
+            v_nom=380.0,
         )
         .set_index("T" + trafo_index),
         "Line",
@@ -857,7 +862,21 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
         line_length_factor=settings["line_length_factor"],
+        bus_strategies=strategies_buses(),
+        line_strategies=strategies_lines(),
     )
+
+    # Drop nan values after clustering
+    clustering.network.links.min_up_time.fillna(0, inplace=True)
+    clustering.network.links.min_down_time.fillna(0, inplace=True)
+    clustering.network.links.up_time_before.fillna(0, inplace=True)
+    clustering.network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in clustering.network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=clustering.network.snapshots)
 
     if method == "kmedoids-dijkstra":
         for i in clustering.network.buses[
@@ -928,41 +947,12 @@ def weighting_for_scenario(network, save=None):
         cannot be found in the dictionary, it is assumed to be 1.
 
         """
-
-        if gen["carrier"] in time_dependent:
+        if gen.name in network.generators_t.p_max_pu.columns:
             cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
         else:
-            try:
-                cf = fixed_capacity_fac[gen["carrier"]]
-            except KeyError:
-                cf = 1
-        return cf
+            cf = network.generators.loc[gen.name, "p_max_pu"]
 
-    time_dependent = [
-        "solar_rooftop",
-        "solar",
-        "wind_onshore",
-        "wind_offshore",
-    ]
-    fixed_capacity_fac = {
-        # A value of 1 is given to power plants where its availability
-        # does not depend on the weather
-        "industrial_gas_CHP": 1,
-        "industrial_biomass_CHP": 1,
-        "biomass": 1,
-        "central_biomass_CHP": 1,
-        "central_gas_CHP": 1,
-        "OCGT": 1,
-        "other_non_renewable": 1,
-        "run_of_river": 0.50,
-        "reservoir": 1,
-        "gas": 1,
-        "oil": 1,
-        "others": 1,
-        "coal": 1,
-        "lignite": 1,
-        "nuclear": 1,
-    }
+        return cf
 
     gen = network.generators[network.generators.carrier != "load shedding"][
         ["bus", "carrier", "p_nom"]
