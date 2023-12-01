@@ -872,6 +872,18 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None,
         line_strategies=strategies_lines(),
     )
 
+    # Drop nan values after clustering
+    clustering.network.links.min_up_time.fillna(0, inplace=True)
+    clustering.network.links.min_down_time.fillna(0, inplace=True)
+    clustering.network.links.up_time_before.fillna(0, inplace=True)
+    clustering.network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in clustering.network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=clustering.network.snapshots)
+
     if method == "kmedoids-dijkstra":
         for i in clustering.network.buses[
             clustering.network.buses.carrier == "AC"
@@ -1052,18 +1064,6 @@ def run_spatial_clustering(self):
         # The function network.determine_network_topology is called,
         # which sets slack bus(es).
         set_control_strategies(self.network)
-
-        # Drop nan values after clustering
-        self.network.links.min_up_time.fillna(0, inplace=True)
-        self.network.links.min_down_time.fillna(0, inplace=True)
-        self.network.links.up_time_before.fillna(0, inplace=True)
-        self.network.links.down_time_before.fillna(0, inplace=True)
-        # Drop nan values in timeseries after clustering
-        for c in self.network.iterate_components():
-            for pnl in c.attrs[
-                (c.attrs.status == "Output") & (c.attrs.varying)
-            ].index:
-                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
 
         logger.info(
             "Network clustered to {} buses with ".format(

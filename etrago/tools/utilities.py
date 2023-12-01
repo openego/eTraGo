@@ -2884,7 +2884,28 @@ def manual_fixes_datamodel(etrago):
     ] = 25
 
     # Set r value if missing
+    if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
+        logger.info(
+            f"""
+            There are {len(
+                etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
+                )} lines without a resistance (r) in the data model.
+            The resistance of these lines will be automatically set to 0.0001.
+            """
+        )
+
     etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+
+    if not etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ].empty:
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
+                etrago.network.transformers.r == 0, "r"]
+                )} trafos without a resistance (r) in the data model.
+            The resistance of these trafos will be automatically set to 0.0001.
+            """
+        )
     etrago.network.transformers.loc[
         etrago.network.transformers.r == 0, "r"
     ] = 0.0001
