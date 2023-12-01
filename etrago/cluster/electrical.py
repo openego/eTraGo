@@ -39,6 +39,7 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
+        drop_nan_values,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
@@ -451,11 +452,7 @@ def ehv_clustering(self):
         self.buses_by_country()
 
         # Drop nan values in timeseries after clustering
-        for c in self.network.iterate_components():
-            for pnl in c.attrs[
-                (c.attrs.status == "Output") & (c.attrs.varying)
-            ].index:
-                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
+        drop_nan_values(self.network)
 
         logger.info("Network clustered to EHV-grid")
 
@@ -873,16 +870,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None,
     )
 
     # Drop nan values after clustering
-    clustering.network.links.min_up_time.fillna(0, inplace=True)
-    clustering.network.links.min_down_time.fillna(0, inplace=True)
-    clustering.network.links.up_time_before.fillna(0, inplace=True)
-    clustering.network.links.down_time_before.fillna(0, inplace=True)
-    # Drop nan values in timeseries after clustering
-    for c in clustering.network.iterate_components():
-        for pnl in c.attrs[
-            (c.attrs.status == "Output") & (c.attrs.varying)
-        ].index:
-            c.pnl[pnl] = pd.DataFrame(index=clustering.network.snapshots)
+    drop_nan_values(clustering.network)
 
     if method == "kmedoids-dijkstra":
         for i in clustering.network.buses[
