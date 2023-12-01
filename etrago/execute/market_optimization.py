@@ -176,7 +176,7 @@ def build_shortterm_market_model(self):
     import pypsa
     
     unit_commitment = pd.read_csv("/home/ulf/github/pypsa-eur/data/unit_commitment.csv", index_col=0) #TODO integragte pypsa-eur data cleanly or differently
-    committable_attrs = m.carrier.isin(unit_commitment).to_frame("committable")
+    committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame("committable")
     
     for attr in unit_commitment.index:
         default = pypsa.components.component_attrs["Generator"].default[attr]
