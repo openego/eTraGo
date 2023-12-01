@@ -670,14 +670,6 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
-    etrago.network.transformers.loc[
-        etrago.network.transformers.r == 0, "r"
-    ] = 0.0001
-
-    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
-        etrago.network.transformers.bus0.values, "v_nom"
-    ].values
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
