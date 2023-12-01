@@ -775,7 +775,7 @@ def curtailment(network, carrier="solar", filename=None):
         plt.close()
 
 
-def calc_dispatch_per_carrier(network, timesteps):
+def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
     """Function that calculates dispatch per carrier in given timesteps
 
     Parameters
@@ -784,6 +784,10 @@ def calc_dispatch_per_carrier(network, timesteps):
         Holds topology of grid including results from powerflow analysis
     timesteps : array
         Timesteps considered in dispatch calculation
+    dispatch_type: str
+        This parameter can receive 3 different options: total, ramp_up and
+        ramp_down. The default is total, which plots the total energy supplied
+        by carrier by the given timesteps.
 
     Returns
     -------
@@ -791,6 +795,34 @@ def calc_dispatch_per_carrier(network, timesteps):
         dispatch per carrier
 
     """
+    # up_time_before and down_time_before are irrelevant for this plot but
+    # create problems when grouping, therefore they are set to 0.
+    if ("up_time_before" in (network.generators.columns)) | (
+        "down_time_before" in (network.generators.columns)
+    ):
+        network.generators["up_time_before"] = 0
+        network.generators["down_time_before"] = 0
+
+    # If ramp_up or ramp_down are passed to the argument dispath_type, all the
+    # not relevant generators and their time series are discarted.
+    if dispatch_type in ("ramp_up", "ramp_down"):
+        if dispatch_type == "ramp_up":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_up")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_up")
+            ].index
+        if dispatch_type == "ramp_down":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_down")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_down")
+            ].index
+        network.mremove("Generator", discard_gen)
+        network.mremove("Link", discard_gen_l)
+        network.generators_t.p = network.generators_t.p * -1
 
     import_gen_from_links(network)
 
@@ -2345,6 +2377,8 @@ def plot_grid(
         * 'h2_battery_storage_expansion': storage expansion per bus and
            technology for underground and overground H2 and batteries.
         * 'gen_dist': dispatch per carrier in selected timesteps
+        * 'ramp_up': re-dispatch up per carrier in selected timesteps
+        * 'ramp_down': re-dispatch down per carrier in selected timesteps
         * 'PowerToH2': location and sizes of electrolizers
         * 'flexibility_usage': use of DSM and BEV charger
 
@@ -2631,9 +2665,11 @@ def plot_grid(
         )
         bus_legend = "Storage distribution"
         bus_unit = "TW"
-    elif bus_colors == "gen_dist":
+    elif bus_colors in ("gen_dist", "ramp_up", "ramp_down"):
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
+        bus_sizes = bus_scaling * calc_dispatch_per_carrier(
+            network, timesteps, bus_colors
+        )
         bus_legend = "Dispatch"
         bus_unit = "TW"
     elif bus_colors == "flexibility_usage":
