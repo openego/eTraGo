@@ -2882,3 +2882,14 @@ def manual_fixes_datamodel(etrago):
     etrago.network.links.loc[
         etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
     ] = 25
+
+    # Set r value if missing
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    # Set vnom of transformers
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values

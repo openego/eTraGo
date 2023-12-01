@@ -335,9 +335,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     for one_port in network.one_port_components.copy():
         if one_port == "Generator":
             custom_strategies = strategies_generators()
-            import pdb
 
-            pdb.set_trace()
         else:
             custom_strategies = strategies_one_ports().get(one_port, {})
         new_df, new_pnl = aggregateoneport(
@@ -451,6 +449,13 @@ def ehv_clustering(self):
 
         self.update_busmap(busmap)
         self.buses_by_country()
+
+        # Drop nan values in timeseries after clustering
+        for c in self.network.iterate_components():
+            for pnl in c.attrs[
+                (c.attrs.status == "Output") & (c.attrs.varying)
+            ].index:
+                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
 
         logger.info("Network clustered to EHV-grid")
 
@@ -936,41 +941,12 @@ def weighting_for_scenario(network, save=None):
         cannot be found in the dictionary, it is assumed to be 1.
 
         """
-
-        if gen["carrier"] in time_dependent:
+        if gen.name in network.generators_t.p_max_pu.columns:
             cf = network.generators_t["p_max_pu"].loc[:, gen.name].mean()
         else:
-            try:
-                cf = fixed_capacity_fac[gen["carrier"]]
-            except KeyError:
-                cf = 1
-        return cf
+            cf = network.generators.loc[gen.name, "p_max_pu"]
 
-    time_dependent = [
-        "solar_rooftop",
-        "solar",
-        "wind_onshore",
-        "wind_offshore",
-    ]
-    fixed_capacity_fac = {
-        # A value of 1 is given to power plants where its availability
-        # does not depend on the weather
-        "industrial_gas_CHP": 1,
-        "industrial_biomass_CHP": 1,
-        "biomass": 1,
-        "central_biomass_CHP": 1,
-        "central_gas_CHP": 1,
-        "OCGT": 1,
-        "other_non_renewable": 1,
-        "run_of_river": 0.50,
-        "reservoir": 1,
-        "gas": 1,
-        "oil": 1,
-        "others": 1,
-        "coal": 1,
-        "lignite": 1,
-        "nuclear": 1,
-    }
+        return cf
 
     gen = network.generators[network.generators.carrier != "load shedding"][
         ["bus", "carrier", "p_nom"]
@@ -1082,26 +1058,12 @@ def run_spatial_clustering(self):
         self.network.links.min_down_time.fillna(0, inplace=True)
         self.network.links.up_time_before.fillna(0, inplace=True)
         self.network.links.down_time_before.fillna(0, inplace=True)
-        self.network.loads_t.p = pd.DataFrame(index=self.network.snapshots)
-        self.network.loads_t.q = pd.DataFrame(index=self.network.snapshots)
-        self.network.stores_t.p = pd.DataFrame(index=self.network.snapshots)
-        self.network.storage_units_t.p = pd.DataFrame(
-            index=self.network.snapshots
-        )
-        self.network.stores_t.e = pd.DataFrame(index=self.network.snapshots)
-        self.network.stores_t.q = pd.DataFrame(index=self.network.snapshots)
-        self.network.stores_t.mu_lower = pd.DataFrame(
-            index=self.network.snapshots
-        )
-        self.network.stores_t.mu_upper = pd.DataFrame(
-            index=self.network.snapshots
-        )
-        self.network.stores_t.mu_energy_balance = pd.DataFrame(
-            index=self.network.snapshots
-        )
-        self.network.storage_units_t.q = pd.DataFrame(
-            index=self.network.snapshots
-        )
+        # Drop nan values in timeseries after clustering
+        for c in self.network.iterate_components():
+            for pnl in c.attrs[
+                (c.attrs.status == "Output") & (c.attrs.varying)
+            ].index:
+                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
 
         logger.info(
             "Network clustered to {} buses with ".format(
