@@ -216,7 +216,7 @@ inv2_DE = inv1_DE.copy()
 # to plot some relative costs 
 # related to the result of the 500 nodes k-medoids Dijkstra clustered network
 
-etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/kmedoids-dijkstra/500")
 etrago.calc_results()
 
 relac_expansion =  pd.DataFrame(index=spatial_resolution, columns=spatial_method)
@@ -259,7 +259,7 @@ for i in range (0, len(spatial_method)):
         
             idx = spatial_resolution[j]
     
-            etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/"+col+"/"+str(idx))
+            etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/"+col+"/"+str(idx))
             
             etrago.calc_results()
             
@@ -286,7 +286,7 @@ for i in range (0, len(spatial_method)):
             
             if col=='kmedoids-dijkstra':
 
-                base = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/"+str(idx))
+                base = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/kmeans/"+str(idx))
                 base.calc_results()
                 
                 base_ac = base.results.loc['annual ac grid investment costs'].value
@@ -384,7 +384,7 @@ new_relac.plot(linestyle='-', marker='x', ax = ax2)
 plt.xticks(spatial_resolution)
 
 ax.set_ylim([0,40])
-ax2.set_ylim([])
+ax2.set_ylim([0,400])
 
 ax.legend(loc='upper right')
 
@@ -400,7 +400,7 @@ plt.xlabel('number of nodes')
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-plt.rc('font', size=25)
+plt.rc('font', size=18)
 
 fig = plt.figure()#figsize=(30,20))
 ax = fig.add_subplot(111)
@@ -446,7 +446,7 @@ for col in costs1.columns:
 ax2 = ax.twinx()
 
 new_relsys.plot(linestyle='-', marker='x', ax = ax2, label='system costs')
-new_relmarg.plot(linestyle='-', marker='x', ax = ax2, label='marginal costs')
+new_relmarg.plot(linestyle='-', marker='x', ax = ax2, label='operational costs')
 new_reldc.plot(linestyle='-', marker='x', ax = ax2, label='foreign grid expansion costs')
 new_relac.plot(linestyle='-', marker='x', ax = ax2, label='inner-German grid expansion costs')
 new_relsto.plot(linestyle='-', marker='x', ax = ax2, label='battery expansion costs')
