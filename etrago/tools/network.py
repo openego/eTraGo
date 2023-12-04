@@ -199,7 +199,7 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["disaggregation"] is not None:
+            if self.args["spatial_disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
