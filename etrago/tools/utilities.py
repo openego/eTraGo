@@ -127,6 +127,16 @@ def buses_grid_linked(network, voltage_level):
     mask = (
         network.buses.index.isin(network.lines.bus0)
         | (network.buses.index.isin(network.lines.bus1))
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus0"]
+            )
+        )
+        | (
+            network.buses.index.isin(
+                network.links.loc[network.links.carrier == "DC", "bus1"]
+            )
+        )
     ) & (network.buses.v_nom.isin(voltage_level))
 
     df = network.buses[mask]
@@ -531,7 +541,6 @@ def set_q_foreign_loads(self, cos_phi):
     ].values * math.tan(
         math.acos(cos_phi)
     )
-    network.generators.control[network.generators.control == "PQ"] = "PV"
 
     # To avoid a problem when the index of the load is the weather year,
     # the column names were temporarily set to `int` and changed back to
@@ -635,11 +644,47 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
                     p_nom=p_nom,
                     carrier="load shedding",
                     bus=network.buses.index,
+                    control="PQ",
                 ),
                 index=index,
             ),
             "Generator",
         )
+
+
+def set_control_strategies(network):
+    """Sets control strategies for AC generators and storage units
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None.
+
+    """
+    # Assign generators control strategy
+    network.generators.loc[:, "control"] = "PV"
+
+    network.generators.loc[
+        network.generators.carrier.isin(
+            [
+                "load shedding",
+                "CH4",
+                "CH4_biogas",
+                "CH4_NG",
+                "central_biomass_CHP_heat",
+                "geo_thermal",
+                "solar_thermal_collector",
+            ]
+        ),
+        "control",
+    ] = "PQ"
+
+    # Assign storage units control strategy
+    network.storage_units.loc[:, "control"] = "PV"
 
 
 def data_manipulation_sh(network):
@@ -1059,7 +1104,8 @@ def group_parallel_lines(network):
         .reset_index()
         .set_index("Line", drop=True)
     )
-    network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
+
+    # network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
 
     return
 
@@ -1079,6 +1125,8 @@ def delete_dispensable_ac_buses(etrago):
     None.
 
     """
+    if etrago.args["delete_dispensable_ac_buses"] is False:
+        return
 
     def delete_buses(delete_buses, network):
         drop_buses = delete_buses.index.to_list()
@@ -1890,7 +1938,7 @@ def get_clustering_data(self, path):
 
     """
 
-    if (self.args["network_clustering_ehv"]) | (
+    if (self.args["network_clustering_ehv"]["active"]) | (
         self.args["network_clustering"]["active"]
     ):
         path_clus = os.path.join(path, "clustering")
@@ -2398,8 +2446,14 @@ def check_args(etrago):
         ), "gridversion does not exist"
 
     if etrago.args["snapshot_clustering"]["active"]:
+        # Assert that skip_snapshots and snapshot_clustering are not combined
+        # more information: https://github.com/openego/eTraGo/issues/691
+        assert etrago.args["skip_snapshots"] is False, (
+            "eTraGo does not support combining snapshot_clustering and"
+            " skip_snapshots. Please update your settings and choose either"
+            " snapshot_clustering or skip_snapshots."
+        )
         # typical periods
-
         if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
             # typical days
 
@@ -2823,3 +2877,40 @@ def manual_fixes_datamodel(etrago):
         ].index,
         "p_max_pu",
     ] = 0.65
+
+    # Set costs for CO2 from DAC for needed for methanation
+    etrago.network.links.loc[
+        etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
+    ] = 25
+
+    # Set r value if missing
+    if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
+        logger.info(
+            f"""
+            There are {len(
+                etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
+                )} lines without a resistance (r) in the data model.
+            The resistance of these lines will be automatically set to 0.0001.
+            """
+        )
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+
+    if not etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ].empty:
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
+                etrago.network.transformers.r == 0, "r"]
+                )} trafos without a resistance (r) in the data model.
+            The resistance of these trafos will be automatically set to 0.0001.
+            """
+        )
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    # Set vnom of transformers
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values

@@ -60,7 +60,7 @@ def flake8(session):
     session.run("flake8", "--ignore=E722, W605", *cleaned)
 
 
-@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=["3", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
     setdefaults(session)
@@ -69,7 +69,7 @@ def build(session):
     session.run("twine", "check", "dist/eTraGo*")
 
 
-@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
     setdefaults(session)

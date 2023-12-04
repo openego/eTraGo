@@ -115,7 +115,7 @@ def plot_osm(x, y, zoom, alpha=0.4):
     )
     plotter.plot(ax, alpha=alpha)
     # ax.plot(x, y, "ro-")
-    return fig, ax
+    return fig, ax, extent.xrange, extent.yrange
 
 
 def coloring():
@@ -198,6 +198,14 @@ def coloring():
         "BEV charger": "indigo",
         "BEV_charger": "indigo",
         "others": "dimgrey",
+        "central_coal_CHP": "darkorange",
+        "central_lignite_CHP": "darkorange",
+        "central_oil_CHP": "darkorange",
+        "central_others_CHP": "darkorange",
+        "industrial_coal_CHP": "darkorange",
+        "industrial_lignite_CHP": "darkorange",
+        "industrial_oil_CHP": "darkorange",
+        "industrial_others_CHP": "darkorange",
     }
 
     return colors
@@ -766,7 +774,7 @@ def curtailment(network, carrier="solar", filename=None):
         plt.close()
 
 
-def calc_dispatch_per_carrier(network, timesteps):
+def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
     """Function that calculates dispatch per carrier in given timesteps
 
     Parameters
@@ -775,6 +783,10 @@ def calc_dispatch_per_carrier(network, timesteps):
         Holds topology of grid including results from powerflow analysis
     timesteps : array
         Timesteps considered in dispatch calculation
+    dispatch_type: str
+        This parameter can receive 3 different options: total, ramp_up and
+        ramp_down. The default is total, which plots the total energy supplied
+        by carrier by the given timesteps.
 
     Returns
     -------
@@ -782,6 +794,34 @@ def calc_dispatch_per_carrier(network, timesteps):
         dispatch per carrier
 
     """
+    # up_time_before and down_time_before are irrelevant for this plot but
+    # create problems when grouping, therefore they are set to 0.
+    if ("up_time_before" in (network.generators.columns)) | (
+        "down_time_before" in (network.generators.columns)
+    ):
+        network.generators["up_time_before"] = 0
+        network.generators["down_time_before"] = 0
+
+    # If ramp_up or ramp_down are passed to the argument dispath_type, all the
+    # not relevant generators and their time series are discarted.
+    if dispatch_type in ("ramp_up", "ramp_down"):
+        if dispatch_type == "ramp_up":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_up")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_up")
+            ].index
+        if dispatch_type == "ramp_down":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_down")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_down")
+            ].index
+        network.mremove("Generator", discard_gen)
+        network.mremove("Link", discard_gen_l)
+        network.generators_t.p = network.generators_t.p * -1
 
     import_gen_from_links(network)
 
@@ -1123,7 +1163,7 @@ def nodal_gen_dispatch(
     if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
@@ -1584,54 +1624,24 @@ def calc_dc_loading(network, timesteps):
         DC line loading in MW
 
     """
-    # Aviod covering of bidirectional links
-    network.links["linked_to"] = 0
-    for i, row in network.links.iterrows():
-        if not (
-            network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
-        ).empty:
-            links_df = network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
+    dc_links = network.links.loc[network.links.carrier == "DC", :]
 
-            network.links.at[i, "linked_to"] = links_df.values[0]
-
-    network.links.linked_to = network.links.linked_to.astype(str)
-    # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[
-        network.links.index[network.links.linked_to == "0"]
+        network.links.index[network.links.carrier == "DC"]
     ]
 
-    p_nom_opt_max = network.links.p_nom_opt[network.links.linked_to == "0"]
-
-    # Set p_nom_max and line_loading for bidirectional links
-    for i, row in network.links[network.links.linked_to != "0"].iterrows():
-        load = pd.DataFrame(
-            index=network.links_t.p0.index, columns=["to", "from"]
+    dc_load = pd.Series(index=network.links.index, data=0.0)
+    dc_load.loc[dc_links.index] = (
+        (
+            mul_weighting(network, link_load)
+            .loc[network.snapshots[timesteps]]
+            .abs()
+            .sum()[dc_links.index]
+            / dc_links.p_nom_opt
         )
-        load["to"] = network.links_t.p0[row["linked_to"]]
-        load["from"] = network.links_t.p0[i]
-        link_load[i] = load.abs().max(axis=1)
-        p_nom_opt_max[i] = max(
-            row.p_nom_opt,
-            network.links.p_nom_opt[
-                network.links.index == row["linked_to"]
-            ].values[0],
-        )
-    dc_load = (
-        mul_weighting(network, link_load)
-        .loc[network.snapshots[timesteps]]
-        .abs()
-        .sum()[network.links.index]
-        / p_nom_opt_max
-    ).dropna()
-    dc_load.loc[network.links.carrier != "DC"] = 0
+        .fillna(0)
+        .values
+    )
 
     return dc_load
 
@@ -1750,7 +1760,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
     return network, extension_lines, extension_links
 
 
-def plot_background_grid(network, ax):
+def plot_background_grid(network, ax, geographical_boundaries, osm):
     """Plots grid topology in background of other network.plot
 
     Parameters
@@ -1759,6 +1769,11 @@ def plot_background_grid(network, ax):
         Overall container of PyPSA
     ax : matplotlib.axes._subplots.AxesSubplot
         axes of plot
+    geographical_boundaries : list
+        Set georaphical boundaries for the plots
+    osm : False or dict.
+        False if not osm background map is required or dictionary with
+        x, y and zoom information.
 
     Returns
     -------
@@ -1768,20 +1783,7 @@ def plot_background_grid(network, ax):
     link_widths = pd.Series(index=network.links.index, data=0)
     link_widths.loc[network.links.carrier == "DC"] = 0.3
 
-    if cartopy_present:
-        network.plot(
-            ax=ax,
-            line_colors="grey",
-            link_colors="grey",
-            bus_sizes=0,
-            line_widths=0.5,
-            link_widths=link_widths,
-            geomap=True,
-            projection=ccrs.PlateCarree(),
-            color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
-        )
-    else:
+    if osm is not False:
         network.plot(
             ax=ax,
             line_colors="grey",
@@ -1790,7 +1792,32 @@ def plot_background_grid(network, ax):
             line_widths=0.5,
             link_widths=link_widths,
             geomap=False,
+            boundaries=geographical_boundaries,
         )
+    else:
+        if cartopy_present:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=True,
+                projection=ccrs.PlateCarree(),
+                color_geomap=True,
+                boundaries=geographical_boundaries,
+            )
+        else:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=False,
+            )
 
 
 def demand_side_management(self, buses, snapshots, agg="5h", used=False):
@@ -2227,7 +2254,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
+def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
     """
     Parameters
     ----------
@@ -2245,7 +2272,7 @@ def plot_carrier(network, carrier_links=["AC"], carrier_buses=["AC"]):
     None.
 
     """
-
+    network = etrago.network
     colors = coloring()
     line_colors = "lightblue"
 
@@ -2318,11 +2345,8 @@ def plot_grid(
     ext_min=0.1,
     ext_width=False,
     legend_entries="all",
-    scaling_store_expansion={
-        "H2": 50,
-        "heat": 0.1,
-        "battery": 10,
-    },
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58],
 ):
     """Function that plots etrago.network and results for lines and buses
 
@@ -2352,6 +2376,8 @@ def plot_grid(
         * 'h2_battery_storage_expansion': storage expansion per bus and
            technology for underground and overground H2 and batteries.
         * 'gen_dist': dispatch per carrier in selected timesteps
+        * 'ramp_up': re-dispatch up per carrier in selected timesteps
+        * 'ramp_down': re-dispatch down per carrier in selected timesteps
         * 'PowerToH2': location and sizes of electrolizers
         * 'flexibility_usage': use of DSM and BEV charger
 
@@ -2383,7 +2409,11 @@ def plot_grid(
     scaling_store_expansion : dict, optional
         Set scaling values to be used per technology for the plots
         storage_expansion and h2_battery_storage_expansion. The default is
+        False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
+    geographical_boundaries : list, optional
+        Set georaphical boundaries for the plots. This parameter is overwritten
+        when osm is used. The default is [-2.5, 16, 46.8, 58]
 
     Returns
     -------
@@ -2409,7 +2439,8 @@ def plot_grid(
     if osm is not False:
         if network.srid == 4326:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        geographical_boundaries = [xrange[0], xrange[1], yrange[0], yrange[1]]
 
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
@@ -2438,7 +2469,7 @@ def plot_grid(
             link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
             line_widths = 10
         label = "line loading in p.u."
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         # Only active flow direction is displayed!
         flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
@@ -2477,14 +2508,14 @@ def plot_grid(
         label = "v_nom in kV"
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
         label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
 
         if ext_width is not False:
             line_widths = line_colors / ext_width
@@ -2506,7 +2537,7 @@ def plot_grid(
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="rel", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = link_colors.apply(
@@ -2526,11 +2557,11 @@ def plot_grid(
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "dlr":
         title = "Dynamic line rating"
         label = "TWh above nominal capacity"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
 
         # calc min capacity per line in the given period: Since lines with
         # different original voltage level could be aggregated during the
@@ -2563,7 +2594,7 @@ def plot_grid(
         label = ""
         line_colors = "grey"
         link_colors = "grey"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         link_widths = 0
         line_widths = 0
 
@@ -2591,7 +2622,7 @@ def plot_grid(
             )
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
-        for store_carrier in ["H2", "heat", "battery"]:
+        for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(
                     store_carrier
@@ -2633,9 +2664,11 @@ def plot_grid(
         )
         bus_legend = "Storage distribution"
         bus_unit = "TW"
-    elif bus_colors == "gen_dist":
+    elif bus_colors in ("gen_dist", "ramp_up", "ramp_down"):
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
+        bus_sizes = bus_scaling * calc_dispatch_per_carrier(
+            network, timesteps, bus_colors
+        )
         bus_legend = "Dispatch"
         bus_unit = "TW"
     elif bus_colors == "flexibility_usage":
@@ -2715,7 +2748,7 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    if cartopy_present:
+    if cartopy_present & (osm is False):
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
@@ -2730,7 +2763,7 @@ def plot_grid(
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     else:
         ll = network.plot(
@@ -2745,7 +2778,7 @@ def plot_grid(
             flow=flow,
             title=title,
             geomap=False,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     l3 = None
 

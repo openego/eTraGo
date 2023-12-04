@@ -21,13 +21,15 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
-import os
 import logging
+import os
 
 from pyomo.environ import Constraint
-from pypsa.descriptors import expand_series
+from pypsa.descriptors import (
+    expand_series,
+    get_switchable_as_dense as get_as_dense,
+)
 from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
-from pypsa.pf import get_switchable_as_dense as get_as_dense
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
@@ -1818,8 +1820,7 @@ def snapshot_clustering_seasonal_storage(
         L. Kotzur et al: 'Time series aggregation for energy system design:
         Modeling seasonal storage', 2018, equation no. 19
         """
-
-        if i == network.model.candidates[-1]:
+        if i == network.model.candidates.at(-1):
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:
@@ -1847,7 +1848,7 @@ def snapshot_clustering_seasonal_storage(
         return expr
 
     def inter_store_soc_rule(m, s, i):
-        if i == network.model.candidates[-1]:
+        if i == network.model.candidates.at(-1):
             last_hour = network.cluster["last_hour_RepresentativeDay"][i]
             expr = po.Constraint.Skip
         else:

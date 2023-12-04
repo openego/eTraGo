@@ -78,14 +78,6 @@ eGon-data is a further development of the `Data processing <https://github.com/o
 The resulting data set serves as an input for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses.  
 
 
-ego.io
-======
-
-The ego.io serves as a SQLAlchemy Interface to the OpenEnergy database (oedb). The 
-oedb table ORM objects are defined here and small helpers for io tasks are contained.
-`Learn more here <https://github.com/openego/ego.io>`_.
-
-
 Dingo
 =====
 

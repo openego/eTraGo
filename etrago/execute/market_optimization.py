@@ -35,7 +35,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_one_ports,
         strategies_generators,)
     
-    from pypsa.networkclustering import get_clustering_from_busmap
+    from pypsa.clustering.spatial import get_clustering_from_busmap
 
 
 
@@ -56,16 +56,23 @@ __author__ = (
 
 def market_optimization(self):
     
-    logger.info("Start building market model")
+    logger.info("Start building pre market model")
     build_market_model(self)
-    logger.info("Start solving market model")
-    self.market_model.lopf(
+    logger.info("Start solving pre market model")
+    self.pre_market_model.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             pyomo=True,
             extra_functionality=extra_functionality(),
             formulation=self.args["model_formulation"],        
         )
+   
+    logger.info("Preparing short-term UC market model")
+    build_shortterm_market_model(self)
+    logger.info("Start solving short-term UC market model")
+    self.market_model.optimize.optimize_with_rolling_horizon(
+        snapshots=None, horizon=168, overlap=144, solver_name=self.args["solver"])
+
     
     # quick and dirty csv export of market model results
     path = self.args["csv_export"]
@@ -141,10 +148,45 @@ def build_market_model(self):
     
     net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
 
-    self.market_model = net
+    self.pre_market_model = net
     
     # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
     
+
+def build_shortterm_market_model(self):
+    
+    m = self.pre_market_model
+    
+    m.storage_units.p_nom_extendable=False
+    m.stores.e_nom_extendable=False
+    m.links.p_nom_extendable=False
+    m.lines.s_nom_extendable=False
+    
+    m.storage_units.p_nom = m.storage_units.p_nom_opt
+    m.stores.e_nom = m.stores.e_nom_opt
+    m.links.p_nom = m.links.p_nom_opt
+    m.lines.s_nom = m.lines.s_nom_opt
+    
+    #ToDo maybe ?!
+    # somoehow setting seasonal storage (phs, h2 or finding a dynamic definition with respect to the results i.e. the storage behavior)
+    # filling level (or similar) for the short-term rolling complicated market problem
+    
+    # set UC constraints
+    
+    import pypsa
+    
+    unit_commitment = pd.read_csv("/home/ulf/github/pypsa-eur/data/unit_commitment.csv", index_col=0) #TODO integragte pypsa-eur data cleanly or differently
+    committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame("committable")
+    
+    for attr in unit_commitment.index:
+        default = pypsa.components.component_attrs["Generator"].default[attr]
+        committable_attrs[attr] = m.generators.carrier.map(unit_commitment.loc[attr]).fillna(
+            default
+        )
+    #Todo: also adress link carriers i.e. OCGT
+    
+    
+    self.market_model = m
     
 
     
