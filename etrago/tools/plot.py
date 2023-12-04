@@ -3890,9 +3890,7 @@ def electrolysis_dispatch(etrago, method="sum", filename=None):
 
     map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
 
-    # Currently does not work because the busmap seems to not fit to
-    # the mv grids
-    if False:
+    if True:
         mv_grids = gpd.read_postgis(
             """
             SELECT bus_id, geom FROM 
@@ -3900,18 +3898,14 @@ def electrolysis_dispatch(etrago, method="sum", filename=None):
             
             """,
             etrago.engine,
-        )
-        mv_grids.bus_id = mv_grids.bus_id.astype(str)
+        ).to_crs(4326)
 
-        mv_grids.set_index("bus_id", inplace=True)
-        map_buses["geom_mv"] = mv_grids.loc[
-            map_buses[map_buses.index.isin(mv_grids.index)].index
-        ]
+        join = gpd.sjoin(mv_grids, map_buses)
 
         geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
 
-        for i in geoms.index:
-            geoms[i] = map_buses[map_buses.cluster == i].geom_mv.unary_union
+        for i in join.cluster.unique():
+            geoms[i] = join[join.cluster == i].geom.unary_union
 
     else:
         geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
