@@ -1042,6 +1042,11 @@ def run_spatial_clustering(self):
         )
         self.update_busmap(busmap)
 
+        if self.args["spatial_disaggregation"] is not None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
+
         self.network = clustering.network
 
         self.buses_by_country()
