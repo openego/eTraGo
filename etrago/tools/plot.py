@@ -3863,25 +3863,53 @@ def electrolysis_dispatch(etrago, method="sum", threshold_mw = 10, filename=None
                 etrago.network.links.loc[
                     etrago.network.links.carrier == "power_to_H2", "bus0"
                 ],
-                axis=1
+                axis=1,
             )
-            .sum().max()))
-    
+            .sum()
+            .max()
+        )
+
+        title = "flh equivalents"
+
     elif method == "n_hours":
-        to_plot =( (
-            etrago.network.links_t.p0[
-                etrago.network.links[
-                    etrago.network.links.carrier == "power_to_H2"
-                ].index
-            ]
-            .groupby(
-                etrago.network.links.loc[
-                    etrago.network.links.carrier == "power_to_H2", "bus0"
-                ],
-                axis=1
-            )
-            .sum()>threshold_mw).sum()).mul(5)
-        
+        to_plot = (
+            (
+                etrago.network.links_t.p0[
+                    etrago.network.links[
+                        etrago.network.links.carrier == "power_to_H2"
+                    ].index
+                ]
+                .groupby(
+                    etrago.network.links.loc[
+                        etrago.network.links.carrier == "power_to_H2", "bus0"
+                    ],
+                    axis=1,
+                )
+                .sum()
+                > threshold_mw
+            ).sum()
+        ).mul(5)
+
+        title = f"number of hours when electrolysis consumed more than {threshold_mw} MW"
+
+    elif method == "flh_threshold":
+        to_plot = (
+            (
+                etrago.network.links_t.p0[
+                    etrago.network.links[
+                        etrago.network.links.carrier == "power_to_H2"
+                    ].index
+                ]
+                .groupby(
+                    etrago.network.links.loc[
+                        etrago.network.links.carrier == "power_to_H2", "bus0"
+                    ],
+                    axis=1,
+                )
+                .sum()
+            ).sum()
+        ).mul(5) / threshold_mw
+
         title = f"number of hours when electrolysis consumed more than {threshold_mw} MW"
 
     bus_series = pd.Series(
