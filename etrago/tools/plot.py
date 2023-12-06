@@ -3801,7 +3801,9 @@ def shifted_energy(self, carrier, buses):
     return shifted
 
 
-def electrolysis_dispatch(etrago, method="sum", threshold_mw = 10, filename=None, boundaries=None):
+def electrolysis_dispatch(
+    etrago, method="sum", threshold_mw=10, filename=None, boundaries=None
+):
     if method == "sum":
         to_plot = (
             etrago.network.links_t.p0[
@@ -3837,7 +3839,7 @@ def electrolysis_dispatch(etrago, method="sum", threshold_mw = 10, filename=None
         title = "maxiumum electricity consumed by electrolysis in MW"
 
     elif method == "flh":
-        to_plot =( (
+        to_plot = (
             etrago.network.links_t.p0[
                 etrago.network.links[
                     etrago.network.links.carrier == "power_to_H2"
@@ -3848,11 +3850,11 @@ def electrolysis_dispatch(etrago, method="sum", threshold_mw = 10, filename=None
                 etrago.network.links.loc[
                     etrago.network.links.carrier == "power_to_H2", "bus0"
                 ],
-                axis=1
+                axis=1,
             )
-            .sum().sum())
-        
-        /(
+            .sum()
+            .sum()
+        ) / (
             etrago.network.links_t.p0[
                 etrago.network.links[
                     etrago.network.links.carrier == "power_to_H2"
@@ -3968,13 +3970,16 @@ def electrolysis_dispatch(etrago, method="sum", threshold_mw = 10, filename=None
     if not boundaries:
         boundaries = [electrolysis_areas[0].min(), electrolysis_areas[0].max()]
     plot = electrolysis_areas.plot(
-        column=0, cmap=plt.cm.jet, legend=True, ax=ax,
-        vmin=boundaries[0], vmax=boundaries[1]
+        column=0,
+        cmap=plt.cm.jet,
+        legend=True,
+        ax=ax,
+        vmin=boundaries[0],
+        vmax=boundaries[1],
     )
 
     plt.xticks([], [])
     plt.yticks([], [])
-    
 
     plot.set_title(title)
 
