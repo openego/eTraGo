@@ -62,7 +62,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -79,7 +79,7 @@ args = {
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
-    "csv_export": "results",  # save results as csv: False or /path/tofolder
+    "csv_export": "results_2000mw",  # save results as csv: False or /path/tofolder
     # Settings:
     "extendable": {
         "extendable_components": [
@@ -110,7 +110,7 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 300,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
@@ -166,7 +166,7 @@ args = {
 }
 
 
-def run_etrago(args, json_path):
+def run_etrago(args, json_path, electrolysis_mw=10):
     """Function to conduct optimization considering the following arguments.
 
     Parameters
@@ -708,15 +708,6 @@ def run_etrago(args, json_path):
              ]
             ), "p_nom"] *= 1e-3
 
-    fix_electrolysis_expansion = True
-
-    if fix_electrolysis_expansion:
-        etrago.network.links.loc[
-            etrago.network.links.carrier == "power_to_H2", "p_nom_extendable"
-        ] = False
-        etrago.network.links.loc[
-            etrago.network.links.carrier == "power_to_H2", "p_nom"
-        ] = (5 * 1e3)
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -725,6 +716,16 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
 
     etrago.spatial_clustering_gas()
+
+    fix_electrolysis_expansion = True
+
+    if fix_electrolysis_expansion:
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "power_to_H2", "p_nom_extendable"
+        ] = False
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "power_to_H2", "p_nom"
+        ] = (electrolysis_mw)
 
     # snapshot clustering
     etrago.snapshot_clustering()
@@ -758,10 +759,20 @@ def run_etrago(args, json_path):
 
 if __name__ == "__main__":
     # execute etrago function
-    print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
-    print(datetime.datetime.now())
-    etrago.session.close()
+    for mw in [10, 20, 30, 50, 100, 250, 500, 1000, 2000, 3000, 1000000]:
+        print(f"Starting calculation with {mw} MW electrolyis")
+        print(datetime.datetime.now())
+        args["csv_export"] = f"results_electrolysis_dispatch_300ac_{mw}mw"
+        etrago = run_etrago(args, json_path=None,electrolysis_mw = mw)
+        from etrago.tools.plot import electrolysis_dispatch
+        electrolysis_dispatch(
+            etrago,
+            method="flh_threshold",
+            threshold_mw = mw,
+            filename = etrago.args["csv_export"]+f"/flh_electrolysis_{mw}.png"
+            )
+        print(datetime.datetime.now())
+        etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
     # etrago.plot_grid(
