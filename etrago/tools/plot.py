@@ -3891,7 +3891,6 @@ def electrolysis_dispatch(
                 > threshold_mw
             ).sum()
         ).mul(5)
-
         title = f"number of hours when electrolysis consumed more than {threshold_mw} MW"
 
     elif method == "flh_threshold":
@@ -3912,7 +3911,7 @@ def electrolysis_dispatch(
             ).sum()
         ).mul(5) / threshold_mw
 
-        title = f"number of hours when electrolysis consumed more than {threshold_mw} MW"
+        title = f"full load hours for {threshold_mw} MW_el elecrolysis"
 
     bus_series = pd.Series(
         index=etrago.network.buses[etrago.network.buses.carrier == "AC"].index,
@@ -3951,6 +3950,8 @@ def electrolysis_dispatch(
 
         join = gpd.sjoin(mv_grids, map_buses)
 
+        join = join.to_crs(3035)
+
         geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
 
         for i in join.cluster.unique():
@@ -3974,6 +3975,7 @@ def electrolysis_dispatch(
         cmap=plt.cm.jet,
         legend=True,
         ax=ax,
+        #  edgecolor="black",
         vmin=boundaries[0],
         vmax=boundaries[1],
     )
