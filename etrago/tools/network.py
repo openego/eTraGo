@@ -354,7 +354,7 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2" in self.network.buses.carrier:
+        if "H2_grid" in self.network.buses.carrier.unique():
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
