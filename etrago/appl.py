@@ -49,10 +49,10 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "local2035",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, currently only 'lopf'
+        "type": "lopf",  # type of optimization, currently only 'lopf'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
     },
