@@ -149,6 +149,35 @@ def _max_line_ext(self, network, snapshots):
     network.model.max_line_ext = Constraint(rule=_rule)
 
 
+def _min_electrolysis_ext(self, network, snapshots):
+    """
+    Extra-functionality that sets a minimum electrolysis capacity.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None
+
+    """
+
+    electrolysis = network.links[network.links.carrier == "power_to_H2"]
+    electrolysis_index = electrolysis.index
+
+    def _rule(m):
+
+        electrolysis_opt = sum(m.link_p_nom[index] for index in electrolysis_index)
+
+        return electrolysis_opt >= self.args["extra_functionality"]["min_electrolysis_ext"]
+
+    network.model.min_electrolysis_ext = Constraint(rule=_rule)
+
+
 def _max_line_ext_nmp(self, network, snapshots):
     """
     Extra-functionality that limits overall line expansion to a multiple
