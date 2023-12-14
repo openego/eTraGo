@@ -146,7 +146,7 @@ def calc_investment_cost(self):
 
         if not ext_trafos.empty:
             network_costs[0] = network_costs[0]+((
-                ext_trafos.s_nom_opt-ext_trafos.s_nom
+                ext_trafos.s_nom_opt-ext_trafos.s_nom_min
                 )*ext_trafos.capital_cost).sum()
 
         if not ext_dc_lines.empty:
