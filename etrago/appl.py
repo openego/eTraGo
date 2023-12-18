@@ -718,7 +718,7 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
 
     etrago.spatial_clustering_gas()
 
-    fix_electrolysis_expansion = True
+    fix_electrolysis_expansion = False
 
     if fix_electrolysis_expansion:
         etrago.network.links.loc[
