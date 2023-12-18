@@ -3802,7 +3802,8 @@ def shifted_energy(self, carrier, buses):
 
 
 def electrolysis_dispatch(
-    etrago, method="sum", threshold_mw=10, filename=None, boundaries=None
+    etrago, method="sum", threshold_mw=10, filename=None, boundaries=None,
+    flh=4000, etrago_2 = None
 ):
     if method == "sum":
         to_plot = (
@@ -3892,8 +3893,69 @@ def electrolysis_dispatch(
             ).sum()
         ).mul(5)
         title = f"number of hours when electrolysis consumed more than {threshold_mw} MW"
-
+    elif method == "max_capacity":
+            to_plot = (
+                (
+                    etrago.network.links.p_nom_max.clip(upper=1000000000)[
+                        etrago.network.links[
+                            etrago.network.links.carrier == "power_to_H2"
+                        ].index
+                    ]
+                    .groupby(
+                        etrago.network.links.loc[
+                            etrago.network.links.carrier == "power_to_H2", "bus0"
+                        ],
+                    )
+                ).sum()
+            )
+            title = ""
+    elif method == "optimized_capacity":
+        if not etrago_2:
+            to_plot = (
+                (
+                    etrago.network.links.p_nom_opt[
+                        etrago.network.links[
+                            etrago.network.links.carrier == "power_to_H2"
+                        ].index
+                    ]
+                    .groupby(
+                        etrago.network.links.loc[
+                            etrago.network.links.carrier == "power_to_H2", "bus0"
+                        ],
+                    )
+                ).sum()
+            )
+        else: 
+            to_plot = (
+                (
+                    etrago.network.links.p_nom_opt[
+                        etrago.network.links[
+                            etrago.network.links.carrier == "power_to_H2"
+                        ].index
+                    ]
+                    .groupby(
+                        etrago.network.links.loc[
+                            etrago.network.links.carrier == "power_to_H2", "bus0"
+                        ],
+                    )
+                ).sum() - 
+                (
+                    etrago_2.network.links.p_nom_opt[
+                        etrago_2.network.links[
+                            etrago_2.network.links.carrier == "power_to_H2"
+                        ].index
+                    ]
+                    .groupby(
+                        etrago_2.network.links.loc[
+                            etrago_2.network.links.carrier == "power_to_H2", "bus0"
+                        ],
+                    )
+                ).sum()
+                
+            )
+        title = f"optimized capacity in mw"
     elif method == "flh_threshold":
+        
         to_plot = (
             (
                 etrago.network.links_t.p0[
@@ -3911,10 +3973,120 @@ def electrolysis_dispatch(
             ).sum()
         ).mul(5) / threshold_mw
 
-        title = f"full load hours for {threshold_mw} MW_el elecrolysis"
+        title = f"full load hours for {threshold_mw} MW_el electrolysis"
+        
+    elif method == "installed_capacity_assumed_flh":
+
+        df = ((
+                        etrago.network.links_t.p0[
+                            etrago.network.links[
+                                etrago.network.links.carrier == "power_to_H2"
+                            ].index
+                        ]
+                        .groupby(
+                            etrago.network.links.loc[
+                                etrago.network.links.carrier == "power_to_H2", "bus0"
+                            ],
+                            axis=1,
+                        )
+                        .sum()
+                    ).sum()
+                ).mul(5)
+        to_plot = pd.Series(
+            index=df.index, data=0)
+        for mw in range(10, 10000, 10):
+            flh_for_mw = ((
+                            etrago.network.links_t.p0[
+                                etrago.network.links[
+                                    etrago.network.links.carrier == "power_to_H2"
+                                ].index
+                            ]
+                            .groupby(
+                                etrago.network.links.loc[
+                                    etrago.network.links.carrier == "power_to_H2", "bus0"
+                                ],
+                                axis=1,
+                            )
+                            .sum().clip(upper=mw)
+                        ).sum()
+                    ).mul(5)
+            to_plot[flh_for_mw>mw*flh] = mw
+        # to_plot = ((
+        #                 etrago.network.links_t.p0[
+        #                     etrago.network.links[
+        #                         etrago.network.links.carrier == "power_to_H2"
+        #                     ].index
+        #                 ]
+        #                 .groupby(
+        #                     etrago.network.links.loc[
+        #                         etrago.network.links.carrier == "power_to_H2", "bus0"
+        #                     ],
+        #                     axis=1,
+        #                 )
+        #                 .sum()
+        #             ).sum()
+        #         ).mul(5).div(flh)
+
+        title = f"installed capacity assuming {flh} full load hours"
+    elif method == "real_flh":
+
+
+
+        to_plot = ((
+                        etrago.network.links_t.p0[
+                            etrago.network.links[
+                                etrago.network.links.carrier == "power_to_H2"
+                            ].index
+                        ]
+                        .groupby(
+                            etrago.network.links.loc[
+                                etrago.network.links.carrier == "power_to_H2", "bus0"
+                            ],
+                            axis=1,
+                        )
+                        .sum().clip(upper=threshold_mw)
+                    ).sum()
+                ).mul(5) / threshold_mw
+
+        # to_plot = ((
+        #                 etrago.network.links_t.p0[
+        #                     etrago.network.links[
+        #                         etrago.network.links.carrier == "power_to_H2"
+        #                     ].index
+        #                 ]
+        #                 .groupby(
+        #                     etrago.network.links.loc[
+        #                         etrago.network.links.carrier == "power_to_H2", "bus0"
+        #                     ],
+        #                     axis=1,
+        #                 )
+        #                 .sum()
+        #             ).sum()
+        #         ).mul(5).div(flh)
+
+        title = f"full load hours for {threshold_mw} MW_el electrolysis"
+    # elif method == "installed_capacity_assumed_flh":
+    #     to_plot = (
+    #         (
+    #             etrago.network.links_t.p0[
+    #                 etrago.network.links[
+    #                     etrago.network.links.carrier == "power_to_H2"
+    #                 ].index
+    #             ]
+    #             .groupby(
+    #                 etrago.network.links.loc[
+    #                     etrago.network.links.carrier == "power_to_H2", "bus0"
+    #                 ],
+    #                 axis=1,
+    #             )
+    #             .sum()
+    #         ).sum()
+    #     ).mul(5) / threshold_mw
+
+        # title = f"full load hours for {threshold_mw} MW_el electrolysis"
 
     bus_series = pd.Series(
-        index=etrago.network.buses[etrago.network.buses.carrier == "AC"].index,
+        index=to_plot.index.values, #etrago.network.buses[etrago.network.buses.carrier == "AC"].index,
         data=0.0,
     )
 
@@ -3967,15 +4139,25 @@ def electrolysis_dispatch(
 
     fig, ax = plt.subplots(1, 1)
     electrolysis_areas = gpd.GeoDataFrame(bus_series, geometry=geoms)
+    
+    electrolysis_areas.geometry = electrolysis_areas.geometry.buffer(1)
 
     if not boundaries:
         boundaries = [electrolysis_areas[0].min(), electrolysis_areas[0].max()]
+        
+    geoms.buffer(1).plot(
+        ax=ax,
+        edgecolor="black",
+        linewidth=0.5,
+        facecolor="white"
+    )
     plot = electrolysis_areas.plot(
         column=0,
         cmap=plt.cm.jet,
         legend=True,
         ax=ax,
-        #  edgecolor="black",
+        linewidth=0.5,
+        edgecolor="black",
         vmin=boundaries[0],
         vmax=boundaries[1],
     )
