@@ -745,6 +745,11 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
                     "capital_cost"
                     ]
                 )))
+
+    etrago.network.links.loc[
+           etrago.network.links.carrier == "power_to_H2", "p_nom_max"
+        ] = np.inf
+
     # start linear optimal powerflow calculations
     
     etrago.network.storage_units.cyclic_state_of_charge = True
