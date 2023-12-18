@@ -26,6 +26,7 @@ the function run_etrago.
 
 
 import datetime
+import numpy as np
 import os
 import os.path
 
@@ -166,7 +167,7 @@ args = {
 }
 
 
-def run_etrago(args, json_path, electrolysis_mw=10):
+def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
     """Function to conduct optimization considering the following arguments.
 
     Parameters
@@ -733,6 +734,17 @@ def run_etrago(args, json_path, electrolysis_mw=10):
     # skip snapshots
     etrago.skip_snapshots()
 
+    if seed:
+        s = np.random.RandomState(seed)
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="power_to_H2",
+            "capital_cost"
+            ] += abs(s.normal(0, 1, len(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier=="power_to_H2",
+                    "capital_cost"
+                    ]
+                )))
     # start linear optimal powerflow calculations
     
     etrago.network.storage_units.cyclic_state_of_charge = True
