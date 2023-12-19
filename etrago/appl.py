@@ -755,18 +755,16 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
     etrago.network.storage_units.cyclic_state_of_charge = True
     
     etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
-
-    mga = False
+    etrago.network.links.marginal_cost_quadratic = 0.0
+    etrago.optimize()
+    mga = True
 
     if mga:
-        etrago.network.links.marginal_cost_quadratic = 0.0
-        etrago.network.optimize(solver_name='gurobi')
-
         weights = dict(Link=dict(p_nom={"power_to_H2": 1}))
         etrago.network.optimize.optimize_mga(
-            slack=0.000001, weights=weights, solver_name='gurobi', sense="max")
-    else:
-        etrago.optimize()
+            slack=0.001, weights=weights, solver_name='gurobi', sense="max",
+            )
+
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
