@@ -2541,7 +2541,7 @@ def check_args(etrago):
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
 
-        if not etrago.args["method"]["pyomo"]:
+        if etrago.args["method"]["formulation"] != "pyomo":
             logger.warning(
                 "Snapshot clustering constraints are"
                 " not yet correctly implemented without pyomo."
@@ -2549,7 +2549,7 @@ def check_args(etrago):
             )
             etrago.args["method"]["pyomo"] = True
 
-    if not etrago.args["method"]["pyomo"]:
+    if etrago.args["method"]["formulation"] == "gurobi":
         try:
             # The import isn't used, but just here to test for Gurobi.
             # So we can make `flake8` stop complaining about the "unused
