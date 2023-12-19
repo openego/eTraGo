@@ -29,7 +29,7 @@ from pypsa.descriptors import (
     expand_series,
     get_switchable_as_dense as get_as_dense,
 )
-from pypsa.linopt import define_constraints, define_variables, get_var, linexpr
+from pypsa.optimization.compat import get_var, define_constraints, linexpr
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
