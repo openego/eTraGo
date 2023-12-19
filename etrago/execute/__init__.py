@@ -196,7 +196,7 @@ def run_lopf(etrago, extra_functionality, method):
         etrago.network_tsa.stores.e_initial = 0
 
     else:
-        if method["pyomo"]:
+        if method["formulation"] == "pyomo":
             etrago.network.lopf(
                 etrago.network.snapshots,
                 solver_name=etrago.args["solver"],
@@ -208,7 +208,13 @@ def run_lopf(etrago, extra_functionality, method):
 
             if etrago.network.results["Solver"][0]["Status"] != "ok":
                 raise Exception("LOPF not solved.")
-
+        elif method["formulation"] == "linopy":
+            etrago.network.optimize(
+                solver_name=etrago.args["solver"],
+                solver_options=etrago.args["solver_options"],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args["model_formulation"],
+                )
         else:
             status, termination_condition = network_lopf(
                 etrago.network,
