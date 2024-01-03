@@ -223,7 +223,14 @@ class NetworkScenario(ScenarioBase):
                 vars()[f"egon_etrago_{name.lower()}"].version == self.version
             )
 
-        df = saio.as_pandas(query, crs=4326, geometry=None).set_index(index)
+        df_saio = saio.as_pandas(query, crs=4326, geometry=None).set_index(index)
+
+        # Copy data into new dataframe which a´has column names with type 'str'
+        # When using saio, the data type of column names is 'quoted_name',
+        # which leads to errors when using pandas.groupby()
+        df = pd.DataFrame()
+        for col in df_saio.columns:
+            df.loc[:, str(col)] = df_saio.loc[:, col]
 
         if name == "Transformer":
             df.tap_side = 0
