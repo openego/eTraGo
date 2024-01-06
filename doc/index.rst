@@ -3,32 +3,42 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
 Welcome to eTraGo's documentation!
 ==================================
 
+eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization.
+
+Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
 
 .. figure:: images/etrago_logo.png
    :align: right
    :scale: 80%
 
-.. warning:: Note, eTraGo and its documentation is in
-             continuous development.
+Key Features
+------------
+
+* Feature 1
+* Feature 2
+* Feature 3
+   
+.. note:: eTraGo and its documentation is in continuous development.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    
    about
    installation
    howToUse
    theoretical_background
-   developer_notes
+   contributing
    whatsnew
    api
+   references
 
 
-Indices and tables
+Indices and Tables
 ==================
 
 * :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`

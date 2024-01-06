@@ -14,17 +14,32 @@ The focus of optimization are flexibility options with a special focus on
 energy storage and grid expansion measures.
 
 
-
-Research projects
-====================
+Research Projects and Publications
+==================================
 This software project was initially developed in the research project
 `open_eGo <https://openegoproject.wordpress.com>`_.
 It is constantly further developed in different reserach projects, 
 e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_. 
 
+Publications:
 
-The OpenEnergy Platform
-=======================
+* *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
+* *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
+* *Integrated Techno-Economic Power System Planning of Transmission and Distribution Grids* [Mueller2019]_
+* *The eGo grid model: An open source approach towards a model of German high and extra-high voltage power grids* [Mueller20181]_
+* *The Role of the High Voltage Power Level in Future Power Systems and Their Modelling* [Mueller20182]_
+
+
+eTraGo as part of the eGo-Toolchain
+===================================
+
+.. figure:: images/ego_tools.svg
+   :align: center
+   :scale: 75%
+
+OpenEnergyPlatform
+------------------
+
 Within the open_eGo project we developed the OpenEnergy Platform which this software
 is using in order to get and store the in- and output data. Before you start to
 calculate a registration on the platform is needed. For more information see
@@ -37,30 +52,28 @@ modelling process transparent. All data of the open_eGo project are stored at
 this platform. 
 `Learn more about the database access <https://oep-data-interface.readthedocs.io>`_.
 
+Data Model Creation
+-------------------
+For the eGon project the python-tool `eGon-data <https://github.com/openego/eGon-data>`_ was implemented, which creates input data  for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses. 
 
+eGon-data is a further development of the `Data processing <https://github.com/openego/data_processing>`_ developed in the former research project `open_eGo <https://openegoproject.wordpress.com/>`_. It aims for an extensions of the data models as well as for a better replicability and manageability of the data preparation and processing. 
+The resulting data set serves as an input for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses.  
 
+Distribution Grid Optimization
+------------------------------
 
+The DIstribution Network GeneratOr (ding0) is a tool to generate synthetic 
+medium and low voltage power distribution grids based on open 
+(or at least accessible) data. 
+`Learn more here <https://dingo.readthedocs.io/>`_.
 
-Tool overview
-=============
-
-
-
-.. figure:: images/ego_tools.svg
-   :align: center
-   :scale: 75%
-
-
-eDisGo
-======
 The python package eDisGo provides a toolbox for analysis and optimization
 of distribution grids. It is closely related to the python project Ding0 as this
 project is currently the single data source for eDisGo providing synthetic
 grid data for whole Germany. `Learn more here <http://edisgo.readthedocs.io/>`_.
 
-
-eGo
-===
+Cross Grid-Level Optimization
+-----------------------------
 
 The python package eGo is a toolbox and application which connects the tool eTraGo
 (optimization of flexibility options at transmission grid level)
@@ -70,26 +83,7 @@ packages were initially developed in the research project
 `Learn more here <http://openego.readthedocs.io/>`_.
 
 
-Data model creation
-===================
-For the eGon project the python-tool `eGon-data <https://github.com/openego/eGon-data>`_ was implemented, which creates input data  for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses. 
-
-eGon-data is a further development of the `Data processing <https://github.com/openego/data_processing>`_ developed in the former research project `open_eGo <https://openegoproject.wordpress.com/>`_. It aims for an extensions of the data models as well as for a better replicability and manageability of the data preparation and processing. 
-The resulting data set serves as an input for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses.  
-
-
-Dingo
-=====
-
-The DIstribution Network GeneratOr (Ding0) is a tool to generate synthetic 
-medium and low voltage power distribution grids based on open 
-(or at least accessible) data. 
-`Learn more here <https://dingo.readthedocs.io/>`_.
-
-
-
-
-LICENSE
+License
 =======
 
 © Copyright 2015-2023
@@ -97,8 +91,6 @@ Flensburg University of Applied Sciences,
 Europa-Universität Flensburg,
 Centre for Sustainable Energy Systems and
 DLR-Institute for Networked Energy Systems
-
-
 
 This program is free software: you can redistribute it and/or modify it under
 the terms of the GNU Affero General Public License as published by the Free

@@ -1,6 +1,6 @@
 .. _HowToUse:
 ==================
-How to use eTraGo?
+How to use eTraGo
 ==================
 
 After you installed eTraGo you would typically start optimization runs by
@@ -47,7 +47,7 @@ specified also in the 'args' dictionary.
 
 
 .. _Examples:
-Examples and tutorial notebooks
+Examples and Tutorial Notebooks
 ===============================
 
 
