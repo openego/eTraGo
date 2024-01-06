@@ -34,7 +34,7 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-from etrago.tools.execute import import_gen_from_links
+from etrago.execute import import_gen_from_links
 
 cartopy_present = True
 try:
