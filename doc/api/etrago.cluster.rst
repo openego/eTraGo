@@ -1,14 +1,6 @@
 etrago.cluster package
 =======================
 
-etrago.cluster.disaggregation module
------------------------------------------
-
-.. automodule:: etrago.cluster.disaggregation
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 etrago.cluster.electrical module
 -----------------------------------------
 

@@ -8,6 +8,7 @@ API
 
    api/etrago.analyze
    api/etrago.cluster
+   api/etrago.disaggregate
    api/etrago.execute
    api/etrago.io
    api/etrago.tools
