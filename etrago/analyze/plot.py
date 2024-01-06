@@ -34,8 +34,12 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-from etrago.execute import import_gen_from_links
 
+from geoalchemy2.shape import to_shape
+from pyproj import Proj, transform
+from shapely.geometry import LineString, MultiPoint, Point, Polygon
+import geopandas as gpd
+import tilemapbase
 cartopy_present = True
 try:
     import cartopy.crs as ccrs
@@ -46,11 +50,7 @@ from pypsa.plot import draw_map_cartopy
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    from geoalchemy2.shape import to_shape
-    from pyproj import Proj, transform
-    from shapely.geometry import LineString, MultiPoint, Point, Polygon
-    import geopandas as gpd
-    import tilemapbase
+    from etrago.execute import import_gen_from_links
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "

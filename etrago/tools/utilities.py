@@ -35,10 +35,10 @@ import pandas as pd
 import pypsa
 import sqlalchemy.exc
 
-if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point
-    import geopandas as gpd
+from shapely.geometry import Point
+import geopandas as gpd
 
+if "READTHEDOCS" not in os.environ:
     from etrago.io import db
 
 logger = logging.getLogger(__name__)

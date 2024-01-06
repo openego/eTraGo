@@ -22,17 +22,19 @@
 execute.py defines optimization and simulation methods for the etrago object.
 """
 import os
+import logging
+import time
+
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    import logging
-    import time
 
-    import pandas as pd
 
     from etrago.execute import iterate_lopf
     from etrago.tools.constraints import Constraints
-
-    logger = logging.getLogger(__name__)
+   
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "

@@ -22,21 +22,20 @@
 spatially for applications within the tool eTraGo."""
 
 import os
+import logging
+
+from pypsa import Network
+from pypsa.networkclustering import (
+    aggregatebuses,
+    aggregateoneport,
+    busmap_by_kmeans,
+)
+from six import iteritems
+import numpy as np
+import pandas as pd
+import pypsa.io as io
 
 if "READTHEDOCS" not in os.environ:
-    import logging
-
-    from pypsa import Network
-    from pypsa.networkclustering import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-    )
-    from six import iteritems
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
-
     from etrago.cluster.spatial import (
         group_links,
         kmedoids_dijkstra_clustering,

@@ -22,25 +22,28 @@
 
 import os
 
-if "READTHEDOCS" not in os.environ:
-    from itertools import product
-    from math import ceil
-    import logging
-    import multiprocessing as mp
+from itertools import product
+from math import ceil
+import logging
+import multiprocessing as mp
 
-    from networkx import NetworkXNoPath
-    from pypsa.networkclustering import (
-        _flatten_multiindex,
-        busmap_by_kmeans,
-        busmap_by_stubs,
-        get_clustering_from_busmap,
-    )
-    from sklearn.cluster import KMeans
-    from threadpoolctl import threadpool_limits
-    import networkx as nx
-    import numpy as np
-    import pandas as pd
-    import pypsa
+from networkx import NetworkXNoPath
+from pypsa.networkclustering import (
+    _flatten_multiindex,
+    busmap_by_kmeans,
+    busmap_by_stubs,
+    get_clustering_from_busmap,
+)
+from sklearn.cluster import KMeans
+from threadpoolctl import threadpool_limits
+import networkx as nx
+import numpy as np
+import pandas as pd
+import pypsa
+
+logger = logging.getLogger(__name__)
+
+if "READTHEDOCS" not in os.environ:
 
     from etrago.tools.utilities import (
         buses_grid_linked,
@@ -48,8 +51,6 @@ if "READTHEDOCS" not in os.environ:
         connected_grid_lines,
         connected_transformer,
     )
-
-    logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "

@@ -54,14 +54,12 @@ import os
 import numpy as np
 import pandas as pd
 import pypsa
+import logging
 
-if "READTHEDOCS" not in os.environ:
-    import logging
+from sqlalchemy.orm.exc import NoResultFound
+import saio
 
-    from sqlalchemy.orm.exc import NoResultFound
-    import saio
-
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 carr_ormclass = "Source"
 
