@@ -21,8 +21,8 @@
 """
 Constraints.py includes additional constraints for eTraGo-optimizations
 """
-import os
 import logging
+import os
 
 from pyomo.environ import Constraint
 from pypsa.descriptors import expand_series
@@ -33,7 +33,7 @@ import pandas as pd
 import pyomo.environ as po
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.tools import db
+    from etrago.io import db
 
 logger = logging.getLogger(__name__)
 

@@ -39,7 +39,7 @@ if "READTHEDOCS" not in os.environ:
     from shapely.geometry import Point
     import geopandas as gpd
 
-    from etrago.tools import db
+    from etrago.io import db
 
 logger = logging.getLogger(__name__)
 
