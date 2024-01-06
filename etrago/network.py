@@ -33,7 +33,6 @@ if "READTHEDOCS" not in os.environ:
     from etrago.io import db
 
 from etrago import __version__
-from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
@@ -46,8 +45,10 @@ from etrago.analyze.calc_results import (
     german_network,
     system_costs_germany,
 )
+from etrago.disaggregate.spatial import run_disaggregation
+from etrago.disaggregate.temporal import dispatch_disaggregation
 from etrago.execute import (
-    dispatch_disaggregation,
+    
     lopf,
     run_pf_post_lopf,
 )
