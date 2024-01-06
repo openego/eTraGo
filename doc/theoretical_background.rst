@@ -4,7 +4,7 @@ Functionalities
 
 .. figure:: images/etrago_functionalities.png
    :align: center
-   :scale: 75%
+   :width: 600
 
 eTraGo is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units.
 
@@ -20,7 +20,7 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
 
 .. figure:: images/modelling_concept.png
    :align: center
-   :scale: 75%
+   :width: 600
    
    
 Scenario Variation

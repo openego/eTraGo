@@ -34,6 +34,7 @@ Key Features
    contributing
    whatsnew
    api
+   references
 
 
 Indices and Tables
@@ -41,9 +42,3 @@ Indices and Tables
 
 * :ref:`genindex`
 * :ref:`modindex`
-
-
-References
-==========
-
-.. include:: references.rst
