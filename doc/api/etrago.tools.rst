@@ -3,7 +3,7 @@ etrago.tools package
 
 
 etrago.tools.constraints module
-----------------------------------
+-------------------------------
 
 .. automodule:: etrago.tools.constraints
     :members:
@@ -11,7 +11,7 @@ etrago.tools.constraints module
     :show-inheritance:
 
 etrago.tools.extendable module
-----------------------------------
+------------------------------
 
 .. automodule:: etrago.tools.extendable
     :members:
@@ -27,7 +27,7 @@ etrago.tools.io module
     :show-inheritance:
 
 etrago.tools.utilities module
--------------------------------
+-----------------------------
 
 .. automodule:: etrago.tools.utilities
     :members:
