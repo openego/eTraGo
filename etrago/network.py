@@ -30,14 +30,14 @@ from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.tools import db
+    from etrago.io import db
 
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.tools.calc_results import (
+from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
     calc_etrago_results,
@@ -46,19 +46,19 @@ from etrago.tools.calc_results import (
     german_network,
     system_costs_germany,
 )
-from etrago.tools.execute import (
+from etrago.execute import (
     dispatch_disaggregation,
     lopf,
     run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
-from etrago.tools.io import (
+from etrago.io import (
     NetworkScenario,
     add_ch4_h2_correspondence,
     decommissioning,
     extension,
 )
-from etrago.tools.plot import (
+from etrago.analyze.plot import (
     bev_flexibility_potential,
     demand_side_management,
     flexibility_usage,
@@ -199,7 +199,7 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["spatial_disaggregation"] is not None:
+            if self.args["disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -354,7 +354,7 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2_grid" in self.network.buses.carrier.unique():
+        if "H2" in self.network.buses.carrier:
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
