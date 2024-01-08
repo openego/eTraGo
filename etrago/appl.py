@@ -57,7 +57,7 @@ args = {
         "pyomo": True,  # set if pyomo is used for model building
     },
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after lopf
+        "active": False,  # choose if perform a pf after lopf
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
@@ -688,9 +688,12 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'central_heat', 'rural_heat',
+           'central_heat_store', 'rural_heat_store', 'Li_ion', 'H2_grid'])
     # start linear optimal powerflow calculations
     etrago.lopf()
 
+    etrago.sclopf(branch_outages=etrago.network.lines.index)
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
 
