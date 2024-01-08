@@ -555,7 +555,8 @@ def import_gen_from_links(network, drop_small_capacities=True):
     df["control"] = "PV"
     df.reset_index(inplace=True)
 
-    df.index = df.bus + " " + df.carrier
+    if not df.empty:
+        df.index = df.bus + " " + df.carrier
 
     # Aggregate disptach time series for new generators
     gas_to_add["bus1_carrier"] = gas_to_add.bus + " " + gas_to_add.carrier
