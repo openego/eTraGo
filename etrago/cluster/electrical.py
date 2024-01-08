@@ -192,7 +192,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
                 & (network2.links["carrier"] == map_carrier[carry])
             ].copy()
             df["elec"] = df["bus0"].isin(busmap.keys())
-            bus_hv = df[df["elec"]]["bus0"][0]
+            bus_hv = df[df["elec"]]["bus0"].iloc[0]
             bus_ehv = busmap[bus_hv]
             if bus_ehv not in foreign_hv:
                 busmap3.at[bus_ne, "elec_bus"] = bus_ehv
