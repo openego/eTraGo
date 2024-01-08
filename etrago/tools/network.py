@@ -75,6 +75,10 @@ from etrago.tools.plot import (
     plot_heat_summary,
     shifted_energy,
 )
+from etrago.tools.sclopf import(
+    iterate_sclopf,
+    post_contingency_analysis_lopf
+    )
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
@@ -327,6 +331,10 @@ class Etrago:
     manual_fixes_datamodel = manual_fixes_datamodel
 
     shifted_energy = shifted_energy
+    
+    post_contingency_analysis = post_contingency_analysis_lopf
+    
+    sclopf = iterate_sclopf
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
