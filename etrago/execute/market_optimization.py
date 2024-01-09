@@ -70,9 +70,11 @@ def market_optimization(self):
     logger.info("Preparing short-term UC market model")
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
+    
+    #import pdb; pdb.set_trace()
+    
     self.market_model.optimize.optimize_with_rolling_horizon(
-        snapshots=None, horizon=168, overlap=144, solver_name=self.args["solver"])
-
+         snapshots=None, horizon=168, overlap=144, solver_name=self.args["solver"])
     
     # quick and dirty csv export of market model results
     path = self.args["csv_export"]
@@ -138,7 +140,7 @@ def build_market_model(self):
         .assign(p_nom_max=ac.s_nom_max)
         .assign(p_nom_extendable=ac.s_nom_extendable)
         .assign(p_max_pu=ac.s_max_pu)
-        .assign(p_min_pu=-1)
+        .assign(p_min_pu=-1.0)
         .assign(carrier="DC")
         .set_index(ac.index),
         "Link",
@@ -174,8 +176,9 @@ def build_shortterm_market_model(self):
     # set UC constraints
     
     import pypsa
-    
+
     unit_commitment = pd.read_csv("/home/ulf/github/pypsa-eur/data/unit_commitment.csv", index_col=0) #TODO integragte pypsa-eur data cleanly or differently
+    unit_commitment.fillna(0, inplace=True)
     committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame("committable")
     
     for attr in unit_commitment.index:
@@ -183,9 +186,25 @@ def build_shortterm_market_model(self):
         committable_attrs[attr] = m.generators.carrier.map(unit_commitment.loc[attr]).fillna(
             default
         )
-    #Todo: also adress link carriers i.e. OCGT
+    m.generators[committable_attrs.columns]=committable_attrs
+    m.generators[unit_commitment.index] = m.generators[unit_commitment.index].astype(float)
+    m.generators.min_up_time = m.generators.min_up_time.astype(int)
+    m.generators.min_down_time = m.generators.min_down_time.astype(int)
+            
     
-    
+    #Tadress link carriers i.e. OCGT
+    committable_links = m.links.carrier.isin(unit_commitment).to_frame("committable")
+
+    for attr in unit_commitment.index:
+        default = pypsa.components.component_attrs["Link"].default[attr]
+        committable_links[attr] = m.links.carrier.map(unit_commitment.loc[attr]).fillna(
+            default
+        ) 
+    m.links[committable_links.columns]=committable_links
+    m.links[unit_commitment.index] = m.links[unit_commitment.index].astype(float)
+    m.links.min_up_time = m.links.min_up_time.astype(int)
+    m.links.min_down_time = m.links.min_down_time.astype(int)
+
     self.market_model = m
     
 
