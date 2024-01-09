@@ -720,6 +720,8 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
 
     fix_electrolysis_expansion = False
 
+    ely_at_each_node = False
+
     if fix_electrolysis_expansion:
         etrago.network.links.loc[
             etrago.network.links.carrier == "power_to_H2", "p_nom_extendable"
@@ -727,6 +729,27 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
         etrago.network.links.loc[
             etrago.network.links.carrier == "power_to_H2", "p_nom"
         ] = (electrolysis_mw)
+
+        h2_bus = etrago.network.buses[etrago.network.buses.carrier=="H2_grid"].index
+
+    if ely_at_each_node:
+        ac_buses_no_ely = etrago.network.buses[
+            (etrago.network.buses.carrier=="AC")
+            & (etrago.network.buses.country=="DE")
+            &~(etrago.network.buses.index.isin( etrago.network.links.loc[
+                 etrago.network.links.carrier == "power_to_H2", "bus0"
+             ].values))
+            ].index
+
+        for bus in ac_buses_no_ely:
+            etrago.network.add(
+                "Link",
+                f"power_to_hydrogen_{bus}",
+                bus0=bus,
+                bus1=h2_bus[0],
+                p_nom=electrolysis_mw,
+                efficiency=0.7
+                )
 
     # snapshot clustering
     etrago.snapshot_clustering()
