@@ -29,7 +29,7 @@ import datetime
 import numpy as np
 import os
 import os.path
-
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -774,20 +774,24 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
         ] = np.inf
 
     # start linear optimal powerflow calculations
-    
     etrago.network.storage_units.cyclic_state_of_charge = True
-    
     etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
     etrago.network.links.marginal_cost_quadratic = 0.0
+
     etrago.optimize()
+
     mga = True
 
     if mga:
-        weights = dict(Link=dict(p_nom={"power_to_H2": 1}))
+        weights = dict(Link=
+                       {"p_nom": pd.Series(1, index=etrago.network.links[
+                           etrago.network.links.carrier=="power_to_H2"].index)})
+        slack = 1e-9
         etrago.network.optimize.optimize_mga(
-            slack=0.001, weights=weights, solver_name='gurobi', sense="max",
+            slack=slack, weights=weights, solver_name='gurobi', sense="max",
+            solver_options = args["solver_options"]
             )
-
+        etrago.network.export_to_csv_folder(args["csv_export"]+f"/mga_{slack}")
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
