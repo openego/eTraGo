@@ -811,11 +811,11 @@ def run_etrago(args, json_path, electrolysis_mw=10, seed=None):
 
 if __name__ == "__main__":
     # execute etrago function
-    for mw in [10, 20, 30, 50, 100, 250, 500, 1000, 2000, 3000, 1000000]:
+    for mw in [10]:
         print(f"Starting calculation with {mw} MW electrolyis")
         print(datetime.datetime.now())
         args["csv_export"] = f"results_electrolysis_dispatch_300ac_{mw}mw"
-        etrago = run_etrago(args, json_path=None,electrolysis_mw = mw)
+        etrago = run_etrago(args, json_path=None,electrolysis_mw = mw, seed=45866)
         from etrago.tools.plot import electrolysis_dispatch
         electrolysis_dispatch(
             etrago,
