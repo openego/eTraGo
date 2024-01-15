@@ -25,18 +25,11 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
-    import time
 
-    from pypsa.clustering.spatial import get_clustering_from_busmap
     from pypsa.components import component_attrs
-    import numpy as np
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
-    from etrago.cluster.spatial import (
-        strategies_generators,
-        strategies_one_ports,
-    )
 
     logger = logging.getLogger(__name__)
 
@@ -175,8 +168,10 @@ def build_shortterm_market_model(self):
     m.lines.s_nom = m.lines.s_nom_opt
 
     # ToDo maybe ?!
-    # somoehow setting seasonal storage (phs, h2 or finding a dynamic definition with respect to the results i.e. the storage behavior)
-    # filling level (or similar) for the short-term rolling complicated market problem
+    # somoehow setting seasonal storage (phs, h2 or finding a dynamic
+    # definition with respect to the results i.e. the storage behavior)
+    # filling level (or similar) for the short-term rolling complicated
+    # market problem
 
     # set UC constraints
 

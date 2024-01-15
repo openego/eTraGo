@@ -892,7 +892,7 @@ def postprocessing(
                     "y"
                 ].loc[medoid]
 
-    if aggregate_links == True:
+    if aggregate_links:
         clustering.network.links, clustering.network.links_t = group_links(
             clustering.network
         )

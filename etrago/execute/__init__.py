@@ -399,7 +399,8 @@ def lopf(self):
 
 
 def optimize(self):
-    """Run optimization of dispatch and grid and storage expansion based on arguments
+    """Run optimization of dispatch and grid and storage expansion based on
+    arguments
 
     Returns
     -------

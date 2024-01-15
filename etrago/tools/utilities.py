@@ -1345,14 +1345,14 @@ def delete_irrelevant_oneports(etrago):
     network.generators.drop(
         network.generators[
             (network.generators.p_nom == 0)
-            & (network.generators.p_nom_extendable == False)
+            & (network.generators.p_nom_extendable is False)
         ].index,
         inplace=True,
     )
     network.storage_units.drop(
         network.storage_units[
             (network.storage_units.p_nom == 0)
-            & (network.storage_units.p_nom_extendable == False)
+            & (network.storage_units.p_nom_extendable is False)
         ].index,
         inplace=True,
     )
