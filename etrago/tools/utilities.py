@@ -1338,17 +1338,26 @@ def delete_dispensable_ac_buses(etrago):
 
     return
 
+
 def delete_irrelevant_oneports(etrago):
     network = etrago.network
-    
-    network.generators.drop(network.generators[(network.generators.p_nom == 0) & (network.generators.p_nom_extendable ==False)].index, inplace=True)
-    network.storage_units.drop(network.storage_units[(network.storage_units.p_nom == 0) & (network.storage_units.p_nom_extendable ==False)].index, inplace=True)
 
+    network.generators.drop(
+        network.generators[
+            (network.generators.p_nom == 0)
+            & (network.generators.p_nom_extendable == False)
+        ].index,
+        inplace=True,
+    )
+    network.storage_units.drop(
+        network.storage_units[
+            (network.storage_units.p_nom == 0)
+            & (network.storage_units.p_nom_extendable == False)
+        ].index,
+        inplace=True,
+    )
 
-    components = [
-        "generators",
-        "storage_units"
-    ]
+    components = ["generators", "storage_units"]
     for g in components:  # loads_t
         h = g + "_t"
         nw = getattr(network, h)  # network.loads_t
@@ -1361,7 +1370,8 @@ def delete_irrelevant_oneports(etrago):
             for k in cols:
                 del getattr(nw, i)[k]
 
-    return 
+    return
+
 
 def set_line_costs(self, cost110=230, cost220=290, cost380=85, costDC=375):
     """Set capital costs for extendable lines in respect to PyPSA [€/MVA]

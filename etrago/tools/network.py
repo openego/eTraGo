@@ -35,6 +35,14 @@ if "READTHEDOCS" not in os.environ:
 from etrago import __version__
 from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.execute import (
+    dispatch_disaggregation,
+    lopf,
+    optimize,
+    run_pf_post_lopf,
+)
 from etrago.execute.grid_optimization import (
     add_redispatch_generators,
     grid_optimization,
@@ -43,9 +51,6 @@ from etrago.execute.market_optimization import (
     build_market_model,
     market_optimization,
 )
-
-from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.tools.calc_results import (
     ac_export,
     ac_export_per_country,
@@ -54,12 +59,6 @@ from etrago.tools.calc_results import (
     dc_export_per_country,
     german_network,
     system_costs_germany,
-)
-from etrago.execute import (
-    dispatch_disaggregation,
-    optimize,
-    lopf,
-    run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -274,7 +273,7 @@ class Etrago:
     market_optimization = market_optimization
 
     lopf = lopf
-    
+
     optimize = optimize
 
     temporal_disaggregation = dispatch_disaggregation
@@ -340,7 +339,7 @@ class Etrago:
     hydrogen_stores = hydrogen_stores
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
-    
+
     delete_irrelevant_oneports = delete_irrelevant_oneports
 
     get_clustering_data = get_clustering_data
@@ -431,7 +430,7 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
-        
+
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)

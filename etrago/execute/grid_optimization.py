@@ -39,24 +39,25 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
 
 def grid_optimization(self):
-    
     logger.info("Start building grid optimization model")
     fix_chp_generation(self)
     add_redispatch_generators(self)
-    #self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
-    #self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
+    # self.network.generators.drop(self.network.generators[self.network.generators.index.str.contains('ramp')].index, inplace=True)
+    # self.network.links.drop(self.network.links[self.network.links.index.str.contains('ramp')].index, inplace=True)
     logger.info("Start solving grid optimization model")
     self.lopf()
 
-def fix_chp_generation(self):
 
+def fix_chp_generation(self):
     # Select generator and link components that are fixed after
     # the market optimization.
     gens_fixed = self.network.generators[
-        self.network.generators.carrier.str.endswith("_CHP")].index
+        self.network.generators.carrier.str.endswith("_CHP")
+    ].index
 
     links_fixed = self.network.links[
-        self.network.links.carrier.str.endswith("_CHP")].index
+        self.network.links.carrier.str.endswith("_CHP")
+    ].index
 
     # Fix generator dispatch from market simulation:
     ## Set p_max_pu of generators using results from (disaggregated) market model
@@ -87,6 +88,7 @@ def fix_chp_generation(self):
     ] = self.market_model.links_t.p0[links_fixed].mul(
         1 / self.market_model.links.p_nom[links_fixed]
     )
+
 
 def add_redispatch_generators(self):
     """Add components and parameters to model redispatch with costs
@@ -289,12 +291,16 @@ def add_redispatch_generators(self):
     self.network.consistency_check()
 
     # just for the current status2019 scenario a quick fix for buses which do not have a connection
-    #self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
-    
+    # self.network.buses.drop(self.network.buses[self.network.buses.index.isin(['47085', '47086', '37865', '37870'])].index, inplace=True)
+
     # TEMPORAL
-    self.network.generators.loc[self.network.generators.index.str.contains('run_of_river'), 'p_max_pu'] = 0.65
-    self.network.generators.loc[self.network.generators.index.str.contains('reservoir'), 'p_max_pu'] = 0.65
-    
+    self.network.generators.loc[
+        self.network.generators.index.str.contains("run_of_river"), "p_max_pu"
+    ] = 0.65
+    self.network.generators.loc[
+        self.network.generators.index.str.contains("reservoir"), "p_max_pu"
+    ] = 0.65
+
 
 def extra_functionality():
     return None

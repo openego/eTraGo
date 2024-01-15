@@ -29,7 +29,6 @@ import datetime
 import os
 import os.path
 
-
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
@@ -102,10 +101,10 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False, # False or path to stored busmap
+        "busmap": False,  # False or path to stored busmap
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -674,8 +673,7 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    if etrago.args["scn_name"] == "status2019": 
-
+    if etrago.args["scn_name"] == "status2019":
         etrago.network.mremove(
             "Link",
             etrago.network.links[
@@ -688,27 +686,35 @@ def run_etrago(args, json_path):
                 ~etrago.network.links.bus1.isin(etrago.network.buses.index)
             ].index,
         )
-        etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
-        
-        # delete following unconnected CH4 buses. why are they there?
-        etrago.network.buses.drop(etrago.network.buses[etrago.network.buses.index.isin(['37865', '37870'])].index, inplace=True)
-        
-        etrago.network.links.loc[etrago.network.links.carrier.isin(
-            ["central_gas_chp",
-             "industrial_gas_CHP"]
-            ), "p_nom"] *= 1e-3
-        etrago.network.generators.loc[etrago.network.generators.carrier.isin(
-            ["central_lignite_CHP",
-             "industrial_lignite_CHP",
-             "central_oil_CHP",
-             "industrial_coal_CHP",
-             "central_coal_CHP",
-             "industrial_oil_CHP"
-             "central_others_CHP"
-             ]
-            ), "p_nom"] *= 1e-3
+        etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
 
-    
+        # delete following unconnected CH4 buses. why are they there?
+        etrago.network.buses.drop(
+            etrago.network.buses[
+                etrago.network.buses.index.isin(["37865", "37870"])
+            ].index,
+            inplace=True,
+        )
+
+        etrago.network.links.loc[
+            etrago.network.links.carrier.isin(
+                ["central_gas_chp", "industrial_gas_CHP"]
+            ),
+            "p_nom",
+        ] *= 1e-3
+        etrago.network.generators.loc[
+            etrago.network.generators.carrier.isin(
+                [
+                    "central_lignite_CHP",
+                    "industrial_lignite_CHP",
+                    "central_oil_CHP",
+                    "industrial_coal_CHP",
+                    "central_coal_CHP",
+                    "industrial_oil_CHP" "central_others_CHP",
+                ]
+            ),
+            "p_nom",
+        ] *= 1e-3
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -725,11 +731,11 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
-    
+
     etrago.network.storage_units.cyclic_state_of_charge = True
-    
-    etrago.network.lines.loc[etrago.network.lines.r==0.0, 'r']=10
-    
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation

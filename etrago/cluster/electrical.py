@@ -679,7 +679,7 @@ def preprocessing(etrago):
             ],
             axis=1,
         )
-    
+
         network.import_components_from_dataframe(
             network.transformers.loc[
                 :,
@@ -698,21 +698,21 @@ def preprocessing(etrago):
                 x=network.transformers.x
                 * (380.0 / transformer_voltages.max(axis=1)) ** 2,
                 length=1,
-		v_nom=380.0,
+                v_nom=380.0,
             )
             .set_index("T" + trafo_index),
             "Line",
         )
         network.lines.carrier = "AC"
-    
+
         network.transformers.drop(trafo_index, inplace=True)
-    
+
         for attr in network.transformers_t:
-            network.transformers_t[attr] = network.transformers_t[attr].reindex(
-                columns=[]
-            )
+            network.transformers_t[attr] = network.transformers_t[
+                attr
+            ].reindex(columns=[])
     elif trafo_index.empty:
-        logging.info('Your network does not have any transformer')
+        logging.info("Your network does not have any transformer")
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
@@ -770,9 +770,14 @@ def preprocessing(etrago):
     return network_elec, weight, n_clusters, busmap_foreign
 
 
-def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None, 
-                   aggregate_generators_carriers=None,
-                   aggregate_links=True):
+def postprocessing(
+    etrago,
+    busmap,
+    busmap_foreign,
+    medoid_idx=None,
+    aggregate_generators_carriers=None,
+    aggregate_links=True,
+):
     """
     Postprocessing function for network clustering.
 
@@ -889,7 +894,8 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None,
 
     if aggregate_links == True:
         clustering.network.links, clustering.network.links_t = group_links(
-        clustering.network)
+            clustering.network
+        )
 
     return (clustering, busmap)
 

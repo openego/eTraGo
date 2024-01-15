@@ -406,22 +406,20 @@ def optimize(self):
     None.
 
     """
-    
-    if self.args["method"]["type"] == "lopf":
 
+    if self.args["method"]["type"] == "lopf":
         self.lopf()
 
-    elif self.args["method"]["type"] == "market_grid": # besseren Namen finden
-
+    elif self.args["method"]["type"] == "market_grid":  # besseren Namen finden
         self.market_optimization()
 
-        #self.market_results_to_grid()
+        # self.market_results_to_grid()
 
         self.grid_optimization()
 
     else:
         print("Method not defined")
-    
+
 
 def dispatch_disaggregation(self):
     """
