@@ -36,6 +36,7 @@ if "READTHEDOCS" not in os.environ:
         strategies_generators,)
     
     from pypsa.clustering.spatial import get_clustering_from_busmap
+    from pypsa.components import component_attrs
 
 
 
@@ -71,7 +72,6 @@ def market_optimization(self):
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
     
-    #import pdb; pdb.set_trace()
     
     self.market_model.optimize.optimize_with_rolling_horizon(
          snapshots=None, horizon=168, overlap=144, solver_name=self.args["solver"])
@@ -81,7 +81,6 @@ def market_optimization(self):
     if not os.path.exists(path):
         os.makedirs(path, exist_ok=True)
     self.market_model.export_to_csv_folder(path + "/market")
-    #self.market_model.model.write('/home/ulf/file2.lp')
     
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
@@ -152,7 +151,6 @@ def build_market_model(self):
 
     self.pre_market_model = net
     
-    # Todo: buses_by_country() geolocation_buses() apply on market_model does not work because no self.network?!
     
 
 def build_shortterm_market_model(self):
@@ -174,34 +172,32 @@ def build_shortterm_market_model(self):
     # filling level (or similar) for the short-term rolling complicated market problem
     
     # set UC constraints
-    
-    import pypsa
 
-    unit_commitment = pd.read_csv("/home/ulf/github/pypsa-eur/data/unit_commitment.csv", index_col=0) #TODO integragte pypsa-eur data cleanly or differently
+    unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
     unit_commitment.fillna(0, inplace=True)
     committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame("committable")
-    
+            
     for attr in unit_commitment.index:
-        default = pypsa.components.component_attrs["Generator"].default[attr]
+        default = component_attrs["Generator"].default[attr]
         committable_attrs[attr] = m.generators.carrier.map(unit_commitment.loc[attr]).fillna(
-            default
-        )
+            default)
+        committable_attrs[attr] = committable_attrs[attr].astype(m.generators.carrier.map(unit_commitment.loc[attr]).dtype)
+        
     m.generators[committable_attrs.columns]=committable_attrs
-    m.generators[unit_commitment.index] = m.generators[unit_commitment.index].astype(float)
     m.generators.min_up_time = m.generators.min_up_time.astype(int)
     m.generators.min_down_time = m.generators.min_down_time.astype(int)
-            
     
     #Tadress link carriers i.e. OCGT
     committable_links = m.links.carrier.isin(unit_commitment).to_frame("committable")
 
     for attr in unit_commitment.index:
-        default = pypsa.components.component_attrs["Link"].default[attr]
+        default = component_attrs["Link"].default[attr]
         committable_links[attr] = m.links.carrier.map(unit_commitment.loc[attr]).fillna(
             default
         ) 
+        committable_links[attr] = committable_links[attr].astype(m.links.carrier.map(unit_commitment.loc[attr]).dtype)
+
     m.links[committable_links.columns]=committable_links
-    m.links[unit_commitment.index] = m.links[unit_commitment.index].astype(float)
     m.links.min_up_time = m.links.min_up_time.astype(int)
     m.links.min_down_time = m.links.min_down_time.astype(int)
 
