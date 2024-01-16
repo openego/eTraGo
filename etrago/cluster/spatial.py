@@ -787,3 +787,32 @@ def kmedoids_dijkstra_clustering(
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def drop_nan_values(network):
+    """
+    Drops nan values after clustering an replaces output data time series with
+    empty dataframes
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Drop nan values after clustering
+    network.links.min_up_time.fillna(0, inplace=True)
+    network.links.min_down_time.fillna(0, inplace=True)
+    network.links.up_time_before.fillna(0, inplace=True)
+    network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=network.snapshots)

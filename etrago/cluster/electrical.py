@@ -39,6 +39,7 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         busmap_ehv_clustering,
+        drop_nan_values,
         group_links,
         kmean_clustering,
         kmedoids_dijkstra_clustering,
@@ -138,7 +139,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
         return new_ehv_bus
 
-    network = etrago.network
+    network = etrago.network.copy()
     # network2 is supposed to contain all the not electrical or gas buses
     # and links
     network2 = network.copy(with_time=False)
@@ -451,11 +452,7 @@ def ehv_clustering(self):
         self.buses_by_country()
 
         # Drop nan values in timeseries after clustering
-        for c in self.network.iterate_components():
-            for pnl in c.attrs[
-                (c.attrs.status == "Output") & (c.attrs.varying)
-            ].index:
-                c.pnl[pnl] = pd.DataFrame(index=self.network.snapshots)
+        drop_nan_values(self.network)
 
         logger.info("Network clustered to EHV-grid")
 
@@ -673,46 +670,49 @@ def preprocessing(etrago):
     network.lines.loc[lines_v_nom_b, "v_nom"] = 380.0
 
     trafo_index = network.transformers.index
-    transformer_voltages = pd.concat(
-        [
-            network.transformers.bus0.map(network.buses.v_nom),
-            network.transformers.bus1.map(network.buses.v_nom),
-        ],
-        axis=1,
-    )
 
-    network.import_components_from_dataframe(
-        network.transformers.loc[
-            :,
+    if not trafo_index.empty:
+        transformer_voltages = pd.concat(
             [
-                "bus0",
-                "bus1",
-                "r",
-                "x",
-                "s_nom",
-                "capital_cost",
-                "sub_network",
-                "s_max_pu",
-                "lifetime",
+                network.transformers.bus0.map(network.buses.v_nom),
+                network.transformers.bus1.map(network.buses.v_nom),
             ],
-        ]
-        .assign(
-            x=network.transformers.x
-            * (380.0 / transformer_voltages.max(axis=1)) ** 2,
-            length=1,
-            v_nom=380.0,
+            axis=1,
         )
-        .set_index("T" + trafo_index),
-        "Line",
-    )
-    network.lines.carrier = "AC"
 
-    network.transformers.drop(trafo_index, inplace=True)
-
-    for attr in network.transformers_t:
-        network.transformers_t[attr] = network.transformers_t[attr].reindex(
-            columns=[]
+        network.import_components_from_dataframe(
+            network.transformers.loc[
+                :,
+                [
+                    "bus0",
+                    "bus1",
+                    "x",
+                    "s_nom",
+                    "capital_cost",
+                    "sub_network",
+                    "s_max_pu",
+                    "lifetime",
+                ],
+            ]
+            .assign(
+                x=network.transformers.x
+                * (380.0 / transformer_voltages.max(axis=1)) ** 2,
+                length=1,
+                v_nom=380.0,
+            )
+            .set_index("T" + trafo_index),
+            "Line",
         )
+        network.lines.carrier = "AC"
+
+        network.transformers.drop(trafo_index, inplace=True)
+
+        for attr in network.transformers_t:
+            network.transformers_t[attr] = network.transformers_t[
+                attr
+            ].reindex(columns=[])
+    elif trafo_index.empty:
+        logging.info("Your network does not have any transformer")
 
     network.buses["v_nom"].loc[network.buses.carrier.values == "AC"] = 380.0
 
@@ -770,7 +770,14 @@ def preprocessing(etrago):
     return network_elec, weight, n_clusters, busmap_foreign
 
 
-def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
+def postprocessing(
+    etrago,
+    busmap,
+    busmap_foreign,
+    medoid_idx=None,
+    aggregate_generators_carriers=None,
+    aggregate_links=True,
+):
     """
     Postprocessing function for network clustering.
 
@@ -858,6 +865,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
         network,
         busmap,
         aggregate_generators_weighted=True,
+        aggregate_generators_carriers=aggregate_generators_carriers,
         one_port_strategies=strategies_one_ports(),
         generator_strategies=strategies_generators(),
         aggregate_one_ports=aggregate_one_ports,
@@ -867,16 +875,7 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
     )
 
     # Drop nan values after clustering
-    clustering.network.links.min_up_time.fillna(0, inplace=True)
-    clustering.network.links.min_down_time.fillna(0, inplace=True)
-    clustering.network.links.up_time_before.fillna(0, inplace=True)
-    clustering.network.links.down_time_before.fillna(0, inplace=True)
-    # Drop nan values in timeseries after clustering
-    for c in clustering.network.iterate_components():
-        for pnl in c.attrs[
-            (c.attrs.status == "Output") & (c.attrs.varying)
-        ].index:
-            c.pnl[pnl] = pd.DataFrame(index=clustering.network.snapshots)
+    drop_nan_values(clustering.network)
 
     if method == "kmedoids-dijkstra":
         for i in clustering.network.buses[
@@ -893,9 +892,10 @@ def postprocessing(etrago, busmap, busmap_foreign, medoid_idx=None):
                     "y"
                 ].loc[medoid]
 
-    clustering.network.links, clustering.network.links_t = group_links(
-        clustering.network
-    )
+    if aggregate_links:
+        clustering.network.links, clustering.network.links_t = group_links(
+            clustering.network
+        )
 
     return (clustering, busmap)
 
