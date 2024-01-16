@@ -976,7 +976,7 @@ def iterate_sclopf(
             break
 
     if args['csv_export'] != False:
-            etrago.export_to_csv()
+            etrago.export_to_csv(args['csv_export'] + "/grid_optimization")
             track_time.to_csv(args['csv_export']+ '/track-time.csv')
 
     y = (time.time() - x) / 60
