@@ -28,15 +28,25 @@ import pandas as pd
 import time
 import datetime
 import logging
+
 logger = logging.getLogger(__name__)
 
-from pypsa.opt  import l_constraint
-from pypsa.opf import (define_passive_branch_flows_with_kirchhoff, network_lopf_solve, define_passive_branch_flows,
-    network_lopf_build_model, network_lopf_prepare_solver)
+from pypsa.opt import l_constraint
+from pypsa.opf import (
+    define_passive_branch_flows_with_kirchhoff,
+    network_lopf_solve,
+    define_passive_branch_flows,
+    network_lopf_build_model,
+    network_lopf_prepare_solver,
+)
+from pypsa.pf import sub_network_lpf
 import multiprocessing as mp
 import csv
 
-from etrago.tools.execute import import_gen_from_links
+from etrago.tools.execute import (
+    import_gen_from_links,
+    update_electrical_parameters,
+)
 
 
 logger = logging.getLogger(__name__)
