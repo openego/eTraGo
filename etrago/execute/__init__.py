@@ -418,6 +418,17 @@ def optimize(self):
 
         self.grid_optimization()
 
+    elif self.args["method"]["type"] == "sclopf":
+        self.sclopf(
+            branch_outages=self.network.lines[
+                self.network.lines.country=='DE'].index,
+            post_lopf=False,
+            extra_functionality=None,
+            n_process=4,
+            delta=0.01,
+            n_overload=0,
+            div_ext_lines=True,
+            )
     else:
         print("Method not defined")
 
