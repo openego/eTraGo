@@ -740,7 +740,6 @@ def run_etrago(args, json_path):
 
     etrago.optimize()
 
-    etrago.sclopf(branch_outages=etrago.network.lines.index)
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
 
