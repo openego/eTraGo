@@ -51,7 +51,7 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, currently only 'lopf'
+        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf or 'market_grid'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
     },
