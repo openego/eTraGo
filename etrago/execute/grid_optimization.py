@@ -51,14 +51,17 @@ def grid_optimization(self):
     #         self.network.links.index.str.contains('ramp')
     #         ].index, inplace=True)
     logger.info("Start solving grid optimization model")
-    self.sclopf(branch_outages=self.network.lines[
-                    self.network.lines.country=='DE'].index,
-                post_lopf=False,
-                extra_functionality=None,
-                n_process=4,
-                delta=0.01,
-                n_overload=0,
-                div_ext_lines=True,)
+    self.sclopf(
+        branch_outages=self.network.lines[
+            self.network.lines.country == "DE"
+        ].index,
+        post_lopf=False,
+        extra_functionality=None,
+        n_process=4,
+        delta=0.01,
+        n_overload=0,
+        div_ext_lines=True,
+    )
 
 
 def fix_chp_generation(self):
