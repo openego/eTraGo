@@ -38,6 +38,7 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
 
     from etrago.cluster.spatial import (
+        drop_nan_values,
         group_links,
         kmedoids_dijkstra_clustering,
         sum_with_inf,
@@ -526,6 +527,8 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 network_gasgrid_c.buses.loc[i, "y"] = etrago.network.buses.loc[
                     medoid, "y"
                 ]
+
+    drop_nan_values(network_gasgrid_c)
 
     return (network_gasgrid_c, busmap)
 

@@ -2753,7 +2753,9 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["pyomo"]:
                 add_chp_constraints(network, snapshots)
-                if self.args["scn_name"] != "status2019":
+                if (self.args["scn_name"] != "status2019") & (
+                    len(network.snapshots) > 1500
+                ):
                     add_ch4_constraints(self, network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
