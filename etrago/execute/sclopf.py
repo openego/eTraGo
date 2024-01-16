@@ -43,7 +43,7 @@ from pypsa.pf import sub_network_lpf
 import multiprocessing as mp
 import csv
 
-from etrago.tools.execute import (
+from etrago.execute import (
     import_gen_from_links,
     update_electrical_parameters,
 )
@@ -816,7 +816,7 @@ def iterate_sclopf(
 
     network = split_parallel_lines(network)
     network.lines.s_max_pu = pd.Series(index=network.lines.index, data=1.0)
-    branch_outages = network.lines[network.lines.country == "DE"].index[:10]
+    
     args = etrago.args
 
     track_time = pd.Series()
@@ -834,6 +834,9 @@ def iterate_sclopf(
     solver_options_lopf["FeasibilityTol"] = 1e-5
     solver_options_lopf["BarConvTol"] = 1e-6
     div_ext_lines = False  # TODO: wieder ermöglichen
+    
+    # If LOPF was performed beforehand, this can be used as the starting 
+    # point for the SCLOPF
     if post_lopf:
         if div_ext_lines:
             l_snom_pre, t_snom_pre = split_extended_lines(network, percent=1.5)
@@ -854,6 +857,7 @@ def iterate_sclopf(
             network_lopf_prepare_solver(network, solver_name="gurobi")
         path_name = "/post_sclopf_iteration_"
 
+    # Run first iteration without any contingency constraint
     else:
         network.lopf(
             network.snapshots,
@@ -878,7 +882,7 @@ def iterate_sclopf(
             network_lopf_build_model(network, formulation="kirchhoff")
 
             network_lopf_prepare_solver(network, solver_name="gurobi")
-    # Calc SC
+    # Calculate security constraints
     nb = 0
     new = post_contingency_analysis_per_line(
         network, branch_outages, n_process=n_process, delta=delta
@@ -886,7 +890,7 @@ def iterate_sclopf(
 
     track_time[datetime.datetime.now()] = "Overall post contingency analysis"
 
-    # Initalzie dict of SC
+    # Initalzie dict of security constraints
     combinations = dict.fromkeys(network.snapshots, [[], [], []])
     size = 0
     for i in range(len(new.keys())):
@@ -971,10 +975,9 @@ def iterate_sclopf(
             print("Maximum number of iterations reached.")
             break
 
-    # if args['csv_export'] != False:
-    #             path = args['csv_export'] + path_name + str(n+1)
-    #             results_to_csv(network, args, path, with_time = True)
-    #             track_time.to_csv(args['csv_export']+ '/track-time.csv')
+    if args['csv_export'] != False:
+            etrago.export_to_csv()
+            track_time.to_csv(args['csv_export']+ '/track-time.csv')
 
     y = (time.time() - x) / 60
 

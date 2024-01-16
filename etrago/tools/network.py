@@ -51,6 +51,10 @@ from etrago.execute.market_optimization import (
     build_market_model,
     market_optimization,
 )
+from etrago.execute.sclopf import(
+    iterate_sclopf,
+    post_contingency_analysis_lopf
+    )
 from etrago.tools.calc_results import (
     ac_export,
     ac_export_per_country,
@@ -84,10 +88,6 @@ from etrago.tools.plot import (
     plot_heat_summary,
     shifted_energy,
 )
-from etrago.tools.sclopf import(
-    iterate_sclopf,
-    post_contingency_analysis_lopf
-    )
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
