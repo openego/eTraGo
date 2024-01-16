@@ -28,6 +28,7 @@ the function run_etrago.
 import datetime
 import os
 import os.path
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -730,8 +731,9 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
-    etrago.drop_sectors(['dsm', 'CH4', 'H2_saltcavern', 'central_heat', 'rural_heat',
-           'central_heat_store', 'rural_heat_store', 'Li_ion', 'H2_grid'])
+    # Temporary drop DLR as it is currently not working with sclopf
+    etrago.network.lines_t.s_max_pu = pd.DataFrame(index=etrago.network.snapshots, columns=etrago.network.lines.index, data=1.)
+
     # start linear optimal powerflow calculations
 
     etrago.network.storage_units.cyclic_state_of_charge = True
