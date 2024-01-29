@@ -9,10 +9,10 @@ etrago.analyze.calc\_results module
     :undoc-members:
     :show-inheritance:
 
-etrago.analyze.plots module
+etrago.analyze.plot module
 ---------------------------
 
-.. automodule:: etrago.analyze.plots
+.. automodule:: etrago.analyze.plot
     :members:
     :undoc-members:
     :show-inheritance:
