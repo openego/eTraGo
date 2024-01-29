@@ -33,10 +33,6 @@ import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
-
-from pyproj import Proj, transform
-import geopandas as gpd
-import tilemapbase
 cartopy_present = True
 try:
     import cartopy.crs as ccrs
@@ -48,7 +44,10 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
     from etrago.execute import import_gen_from_links
+    import geopandas as gpd
+    from pyproj import Proj, transform
     from shapely.geometry import LineString, Point, Polygon
+    import tilemapbase
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
