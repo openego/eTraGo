@@ -28,14 +28,12 @@ import os
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
-from pyproj import Proj, transform
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
 
 
-from geoalchemy2.shape import to_shape
 from pyproj import Proj, transform
 import geopandas as gpd
 import tilemapbase
