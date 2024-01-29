@@ -11,3 +11,4 @@ nbsphinx
 saio
 pyomo != 6.4.3
 loguru
+scikit-learn
