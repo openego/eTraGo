@@ -25,7 +25,6 @@ from math import log10, sqrt
 import logging
 import os
 
-from etrago.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -45,6 +44,7 @@ from pypsa.plot import draw_map_cartopy
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
+    from etrago.execute import import_gen_from_links
     from geoalchemy2.shape import to_shape
     from pyproj import Proj, transform
     from shapely.geometry import LineString, MultiPoint, Point, Polygon
