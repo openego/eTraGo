@@ -29,7 +29,6 @@ import datetime
 import os
 import os.path
 
-
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
@@ -52,12 +51,12 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "type": "market_grid",  # type of optimization, currently only 'lopf'
+        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
     },
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after lopf
+        "active": False,  # choose if perform a pf after lopf
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
@@ -102,10 +101,10 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False, # False or path to stored busmap
+        "busmap": False,  # False or path to stored busmap
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -113,7 +112,7 @@ args = {
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -674,11 +673,55 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
+    if etrago.args["scn_name"] == "status2019":
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus0.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus1.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
+        # delete following unconnected CH4 buses. why are they there?
+        etrago.network.buses.drop(
+            etrago.network.buses[
+                etrago.network.buses.index.isin(["37865", "37870"])
+            ].index,
+            inplace=True,
+        )
+
+        etrago.network.links.loc[
+            etrago.network.links.carrier.isin(
+                ["central_gas_chp", "industrial_gas_CHP"]
+            ),
+            "p_nom",
+        ] *= 1e-3
+        etrago.network.generators.loc[
+            etrago.network.generators.carrier.isin(
+                [
+                    "central_lignite_CHP",
+                    "industrial_lignite_CHP",
+                    "central_oil_CHP",
+                    "industrial_coal_CHP",
+                    "central_coal_CHP",
+                    "industrial_oil_CHP" "central_others_CHP",
+                ]
+            ),
+            "p_nom",
+        ] *= 1e-3
+
     # ehv network clustering
     etrago.ehv_clustering()
 
     # spatial clustering
     etrago.spatial_clustering()
+
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
@@ -688,7 +731,12 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # start linear optimal powerflow calculations
-    etrago.lopf()
+
+    etrago.network.storage_units.cyclic_state_of_charge = True
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
+    etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()

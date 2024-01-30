@@ -28,12 +28,12 @@ import logging
 import multiprocessing as mp
 
 from networkx import NetworkXNoPath
-from pypsa.networkclustering import (
-    _flatten_multiindex,
-    busmap_by_kmeans,
-    busmap_by_stubs,
-    get_clustering_from_busmap,
-)
+from pypsa.clustering.spatial import (
+        busmap_by_kmeans,
+        busmap_by_stubs,
+        flatten_multiindex,
+        get_clustering_from_busmap,
+    )
 from sklearn.cluster import KMeans
 from threadpoolctl import threadpool_limits
 import networkx as nx
@@ -109,6 +109,18 @@ def sum_with_inf(x):
         return x.sum()
 
 
+def strategies_buses():
+    return {
+        "geom": nan_links,
+    }
+
+
+def strategies_lines():
+    return {
+        "geom": nan_links,
+    }
+
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -129,6 +141,8 @@ def strategies_one_ports():
             "e_nom_min": np.sum,
             "e_nom_max": sum_with_inf,
             "e_initial": np.sum,
+            "e_min_pu": np.mean,
+            "e_max_pu": np.mean,
         },
     }
 
@@ -171,6 +185,11 @@ def strategies_links():
         "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
+        "min_up_time": np.mean,
+        "min_down_time": np.mean,
+        "up_time_before": np.mean,
+        "down_time_before": np.mean,
+        "committable": np.all,
     }
 
 
@@ -236,8 +255,11 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     )
     strategies = strategies_links()
     strategies.update(cus_strateg)
+    strategies.pop("topo")
+    strategies.pop("geom")
+
     new_df = links.groupby(grouper, axis=0).agg(strategies)
-    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
     )
@@ -257,7 +279,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                         weighting.loc[df_agg.columns], axis=1
                     )
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
                 new_pnl[attr] = pd.concat(
@@ -766,3 +788,32 @@ def kmedoids_dijkstra_clustering(
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def drop_nan_values(network):
+    """
+    Drops nan values after clustering an replaces output data time series with
+    empty dataframes
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Drop nan values after clustering
+    network.links.min_up_time.fillna(0, inplace=True)
+    network.links.min_down_time.fillna(0, inplace=True)
+    network.links.up_time_before.fillna(0, inplace=True)
+    network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=network.snapshots)

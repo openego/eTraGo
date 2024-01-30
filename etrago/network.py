@@ -48,9 +48,18 @@ from etrago.analyze.calc_results import (
 from etrago.disaggregate.spatial import run_disaggregation
 from etrago.disaggregate.temporal import dispatch_disaggregation
 from etrago.execute import (
-    
+    dispatch_disaggregation,
     lopf,
+    optimize,
     run_pf_post_lopf,
+)
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
 )
 from etrago.tools.extendable import extendable
 from etrago.io import (
@@ -84,6 +93,7 @@ from etrago.tools.utilities import (
     convert_capital_costs,
     crossborder_capacity,
     delete_dispensable_ac_buses,
+    delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
     filter_links_by_carrier,
@@ -200,7 +210,7 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["disaggregation"] is not None:
+            if self.args["spatial_disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -255,7 +265,17 @@ class Etrago:
 
     snapshot_clustering = snapshot_clustering
 
+    add_redispatch_generators = add_redispatch_generators
+
+    build_market_model = build_market_model
+
+    grid_optimization = grid_optimization
+
+    market_optimization = market_optimization
+
     lopf = lopf
+
+    optimize = optimize
 
     temporal_disaggregation = dispatch_disaggregation
 
@@ -320,6 +340,8 @@ class Etrago:
     hydrogen_stores = hydrogen_stores
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
+
+    delete_irrelevant_oneports = delete_irrelevant_oneports
 
     get_clustering_data = get_clustering_data
 
@@ -409,6 +431,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
 

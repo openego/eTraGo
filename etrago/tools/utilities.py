@@ -1103,7 +1103,8 @@ def group_parallel_lines(network):
         .reset_index()
         .set_index("Line", drop=True)
     )
-    network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
+
+    # network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
 
     return
 
@@ -1333,6 +1334,40 @@ def delete_dispensable_ac_buses(etrago):
             )
         ].transpose()
     )
+
+    return
+
+
+def delete_irrelevant_oneports(etrago):
+    network = etrago.network
+
+    network.generators.drop(
+        network.generators[
+            (network.generators.p_nom == 0)
+            & (network.generators.p_nom_extendable is False)
+        ].index,
+        inplace=True,
+    )
+    network.storage_units.drop(
+        network.storage_units[
+            (network.storage_units.p_nom == 0)
+            & (network.storage_units.p_nom_extendable is False)
+        ].index,
+        inplace=True,
+    )
+
+    components = ["generators", "storage_units"]
+    for g in components:  # loads_t
+        h = g + "_t"
+        nw = getattr(network, h)  # network.loads_t
+        for i in nw.keys():  # network.loads_t.p
+            cols = [
+                j
+                for j in getattr(nw, i).columns
+                if j not in getattr(network, g).index
+            ]
+            for k in cols:
+                del getattr(nw, i)[k]
 
     return
 
@@ -2856,3 +2891,35 @@ def manual_fixes_datamodel(etrago):
     etrago.network.links.loc[
         etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
     ] = 25
+
+    # Set r value if missing
+    if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
+        logger.info(
+            f"""
+            There are {len(
+                etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
+                )} lines without a resistance (r) in the data model.
+            The resistance of these lines will be automatically set to 0.0001.
+            """
+        )
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+
+    if not etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ].empty:
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
+                etrago.network.transformers.r == 0, "r"]
+                )} trafos without a resistance (r) in the data model.
+            The resistance of these trafos will be automatically set to 0.0001.
+            """
+        )
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    # Set vnom of transformers
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values
