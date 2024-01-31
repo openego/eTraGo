@@ -173,11 +173,6 @@ def post_contingency_analysis_lopf(etrago, branch_outages, n_process=4):
                 + ".csv"
             )
 
-    y = (time.time() - x) / 60
-    print(
-        "Post contingengy check finished in " + str(round(y, 2)) + " minutes."
-    )
-
     return d
 
 
@@ -316,6 +311,7 @@ def network_lpf_contingency_subnetwork(
         num_passive_branch x num_branch_outages DataFrame of new power flows
 
     """
+    print("464" in branch_outages)
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
     sn = network.sub_networks.obj[main_subnet]
     sub_network_lpf(sn, snapshot)
@@ -367,38 +363,6 @@ def post_contingency_analysis_per_line(
     n = network.copy()
     # main_subnet = str(network.buses.sub_network.value_counts().argmax())
 
-    # n.mremove(
-    #     "Bus",
-    #     n.buses[
-    #         ~n.buses.index.isin(network.sub_networks["obj"][main_subnet].buses().index)
-    #     ].index,
-    # )
-
-    # for one_port in n.iterate_components(
-    #     ["Load", "Generator", "Store", "StorageUnit"]
-    # ):
-    #     n.mremove(
-    #         one_port.name,
-    #         one_port.df[~one_port.df.bus.isin(n.buses.index)].index,
-    #     )
-
-    # for two_port in n.iterate_components(
-    #     ["Line", "Link", "Transformer"]
-    # ):
-    #     n.mremove(
-    #         two_port.name,
-    #         two_port.df[
-    #             ~two_port.df.bus0.isin(n.buses.index)
-    #         ].index,
-    #     )
-
-    #     n.mremove(
-    #         two_port.name,
-    #         two_port.df[
-    #             ~two_port.df.bus1.isin(n.buses.index)
-    #         ].index,
-    #     )
-
     n.lines.s_nom = n.lines.s_nom_opt.copy()
 
     b_x = 1.0 / n.lines.x_pu
@@ -408,7 +372,6 @@ def post_contingency_analysis_per_line(
 
         pdb.set_trace()
 
-    branch_outages = branch_outages
     n.generators_t.p_set = n.generators_t.p_set.reindex(
         columns=n.generators.index
     )
@@ -484,6 +447,8 @@ def post_contingency_analysis_per_line(
             if not len(combinations[0]) == 0:
                 d[sn] = combinations
 
+    print("464" in branch_outages)
+    print("464" in n.lines.index)
     processes = [
         mp.Process(target=multi_con, args=(n, snapshots_set[i], d))
         for i in snapshots_set
@@ -975,9 +940,8 @@ def iterate_sclopf(
             print("Maximum number of iterations reached.")
             break
 
-    if args['csv_export'] != False:
-            etrago.export_to_csv(args['csv_export'] + "/grid_optimization")
-            track_time.to_csv(args['csv_export']+ '/track-time.csv')
+    if args["csv_export"] != False:
+        etrago.export_to_csv(args["csv_export"] + "/grid_optimization")
 
     y = (time.time() - x) / 60
 
