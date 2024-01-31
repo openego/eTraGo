@@ -899,9 +899,9 @@ def iterate_sclopf(
                 / 2
             )
 
-            track_time[
-                datetime.datetime.now()
-            ] = "Update Contingency constraints"
+            track_time[datetime.datetime.now()] = (
+                "Update Contingency constraints"
+            )
 
             logger.info(
                 "SCLOPF No. "
@@ -944,9 +944,9 @@ def iterate_sclopf(
                     * network.snapshot_weightings.generators[new.keys()[i]]
                 )
 
-            track_time[
-                datetime.datetime.now()
-            ] = "Overall post contingency analysis"
+            track_time[datetime.datetime.now()] = (
+                "Overall post contingency analysis"
+            )
             n += 1
 
         else:

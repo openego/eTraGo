@@ -278,9 +278,9 @@ def iterate_lopf(
         ]
         etrago.network_tsa.transformers.s_nom_extendable = False
 
-        etrago.network_tsa.storage_units[
-            "p_nom"
-        ] = etrago.network.storage_units["p_nom_opt"]
+        etrago.network_tsa.storage_units["p_nom"] = (
+            etrago.network.storage_units["p_nom_opt"]
+        )
         etrago.network_tsa.storage_units["p_nom_extendable"] = False
 
         etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
@@ -480,13 +480,13 @@ def dispatch_disaggregation(self):
                 index=transits,
             )
             for storage in self.network.storage_units.index:
-                self.conduct_dispatch_disaggregation[
-                    storage
-                ] = self.network.storage_units_t.state_of_charge[storage]
+                self.conduct_dispatch_disaggregation[storage] = (
+                    self.network.storage_units_t.state_of_charge[storage]
+                )
             for store in sto.index:
-                self.conduct_dispatch_disaggregation[
-                    store
-                ] = self.network.stores_t.e[store]
+                self.conduct_dispatch_disaggregation[store] = (
+                    self.network.stores_t.e[store]
+                )
 
             extra_func = self.args["extra_functionality"]
             self.args["extra_functionality"] = {}
@@ -526,9 +526,9 @@ def dispatch_disaggregation(self):
         self.network.transformers.s_nom_extendable = (
             self.network_tsa.transformers.s_nom_extendable
         )
-        self.network.storage_units[
-            "p_nom_extendable"
-        ] = self.network_tsa.storage_units["p_nom_extendable"]
+        self.network.storage_units["p_nom_extendable"] = (
+            self.network_tsa.storage_units["p_nom_extendable"]
+        )
         self.network.stores["e_nom_extendable"] = self.network_tsa.stores[
             "e_nom_extendable"
         ]
@@ -817,9 +817,9 @@ def pf_post_lopf(etrago, calc_losses=False):
 
     # Assign generators control strategy
     ac_bus = network.buses[network.buses.carrier == "AC"]
-    network.generators.control[
-        network.generators.bus.isin(ac_bus.index)
-    ] = "PV"
+    network.generators.control[network.generators.bus.isin(ac_bus.index)] = (
+        "PV"
+    )
     network.generators.control[
         network.generators.carrier == "load shedding"
     ] = "PQ"
@@ -1059,9 +1059,7 @@ def calc_line_losses(network, converged):
     """
     # Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
-    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(
-        np.sqrt
-    )
+    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(np.sqrt)
     # in case some snapshots did not converge, discard them from the
     # calculation
     s0_lines.loc[converged[converged is False].index, :] = np.nan
@@ -1071,9 +1069,7 @@ def calc_line_losses(network, converged):
     )
     # calculate losses per line and timestep network.\
     # lines_t.line_losses = I² * R [in MW]
-    network.lines_t.losses = np.divide(
-        i0_lines**2 * network.lines.r, 1000000
-    )
+    network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
     # calculate total losses per line [in MW]
     network.lines = network.lines.assign(
         losses=np.sum(network.lines_t.losses).values
