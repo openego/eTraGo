@@ -804,19 +804,19 @@ def plot_sc_lines(out, mon, network):
 
 def iterate_sclopf(
     etrago,
-    branch_outages,
     extra_functionality=None,
     n_process=4,
     delta=0.01,
     n_overload=0,
-    post_lopf=True,
+    post_lopf=False,
     div_ext_lines=False,
 ):
-    network = etrago.network
+    network = etrago.network.copy()
 
     network = split_parallel_lines(network)
+    branch_outages = network.lines[network.lines.country == "DE"].index
     network.lines.s_max_pu = pd.Series(index=network.lines.index, data=1.0)
-    
+
     args = etrago.args
 
     track_time = pd.Series()

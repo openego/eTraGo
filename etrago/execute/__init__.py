@@ -420,9 +420,6 @@ def optimize(self):
 
     elif self.args["method"]["type"] == "sclopf":
         self.sclopf(
-            branch_outages=self.network.lines[
-                self.network.lines.country == "DE"
-            ].index,
             post_lopf=False,
             extra_functionality=None,
             n_process=4,
