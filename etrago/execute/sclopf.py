@@ -333,13 +333,14 @@ def network_lpf_contingency_subnetwork(
     sn._branches = sn.branches()
     sn.calculate_BODF()
 
+    if not isinstance(branch_outages[0], tuple):
+        logger.warning(
+            f"No type given for {branch_outages}, assuming it is a line"
+        )
+
     for branch in branch_outages:
         if not isinstance(branch, tuple):
-            logger.warning(
-                f"No type given for {branch}, assuming it is a line"
-            )
             branch = ("Line", branch)
-
         sn = network.sub_networks.obj[passive_branches.sub_network[branch]]
 
         branch_i = sn._branches.index.get_loc(branch)
