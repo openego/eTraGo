@@ -670,7 +670,7 @@ def split_extended_lines(network, percent):
                 )
             data_new.s_nom_opt = data_new.s_nom * factor
             if n == 0:
-                new_lines = pd.concat([new_lines, data_new], ignore_index=True)
+                new_lines = pd.concat([new_lines, data_new])
             else:
                 data_new.s_nom_min = 0
                 new_lines = pd.concat(
@@ -686,14 +686,15 @@ def split_extended_lines(network, percent):
                             }
                         ),
                     ],
-                    ignore_index=True,
                 )
 
-            new_lines.index += network.lines.index.astype(int).max()
             num_lines[line] = num_lines[line] - factor
             n = n + 1
 
-    network.lines = network.lines.drop(new_lines.index, errors="ignore")
+    network.lines = network.lines.drop(
+        new_lines.index, axis="index", errors="ignore"
+    )
+    # new_lines.index += network.lines.index.astype(int).max() + 1
     network.import_components_from_dataframe(new_lines, "Line")
 
     l_snom_pre = network.lines.s_nom_opt.copy()
@@ -798,13 +799,13 @@ def iterate_sclopf(
     solver_options_lopf = args["solver_options"]
     solver_options_lopf["FeasibilityTol"] = 1e-5
     solver_options_lopf["BarConvTol"] = 1e-6
-    div_ext_lines = False  # TODO: wieder ermöglichen
-    
-    # If LOPF was performed beforehand, this can be used as the starting 
+
+    # If LOPF was performed beforehand, this can be used as the starting
     # point for the SCLOPF
     if post_lopf:
         if div_ext_lines:
             l_snom_pre, t_snom_pre = split_extended_lines(network, percent=1.5)
+            # branch_outages=network.lines[network.lines.country == "DE"].index
 
             network_lopf_build_model(network, formulation="kirchhoff")
 
@@ -842,7 +843,12 @@ def iterate_sclopf(
         )
         track_time[datetime.datetime.now()] = "Adjust impedances"
         if not post_lopf:
-            l_snom_pre, t_snom_pre = split_extended_lines(network, percent=1.5)
+            if div_ext_lines:
+                l_snom_pre, t_snom_pre = split_extended_lines(
+                    network, percent=1.5
+                )
+
+            #  branch_outages=network.lines[network.lines.country == "DE"].index
 
             network_lopf_build_model(network, formulation="kirchhoff")
 
@@ -867,14 +873,18 @@ def iterate_sclopf(
 
     while size > n_overload:
         if n < 100:
-            if not post_lopf:
-                l_snom_pre, t_snom_pre = split_extended_lines(
-                    network, percent=1.5
-                )
+            print(len(branch_outages))
+            # if not post_lopf:
 
-                network_lopf_build_model(network, formulation="kirchhoff")
+            #     if div_ext_lines:
+            #         l_snom_pre, t_snom_pre = split_extended_lines(
+            #             network, percent=1.5
+            #         )
+            #         branch_outages=network.lines[network.lines.country == "DE"].index
 
-                network_lopf_prepare_solver(network, solver_name="gurobi")
+            #     network_lopf_build_model(network, formulation="kirchhoff")
+
+            #     network_lopf_prepare_solver(network, solver_name="gurobi")
             logger.info(str(size) + " overloadings")
 
             combinations = calc_new_sc_combinations(combinations, new)
@@ -910,9 +920,11 @@ def iterate_sclopf(
                 )
                 track_time[datetime.datetime.now()] = "Adjust impedances"
                 if not post_lopf:
-                    l_snom_pre, t_snom_pre = split_extended_lines(
-                        network, percent=1.5
-                    )
+                    if div_ext_lines:
+                        l_snom_pre, t_snom_pre = split_extended_lines(
+                            network, percent=1.5
+                        )
+                    # branch_outages=network.lines[network.lines.country == "DE"].index
 
                     network_lopf_build_model(network, formulation="kirchhoff")
 
