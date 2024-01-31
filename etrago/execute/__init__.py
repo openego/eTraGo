@@ -425,7 +425,7 @@ def optimize(self):
             n_process=4,
             delta=0.01,
             n_overload=0,
-            div_ext_lines=True,
+            div_ext_lines=False,
         )
     else:
         print("Method not defined")
