@@ -35,7 +35,7 @@ import pandas as pd
 import pyomo.environ as po
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.io import db
+    from etrago.tools.io import db
 
 logger = logging.getLogger(__name__)
 

@@ -30,7 +30,7 @@ from sqlalchemy.orm import sessionmaker
 import pandas as pd
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.io import db
+    from etrago.tools.io import db
 
 from etrago import __version__
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
@@ -48,7 +48,6 @@ from etrago.analyze.calc_results import (
 from etrago.disaggregate.spatial import run_disaggregation
 from etrago.disaggregate.temporal import dispatch_disaggregation
 from etrago.execute import (
-    dispatch_disaggregation,
     lopf,
     optimize,
     run_pf_post_lopf,
@@ -62,7 +61,7 @@ from etrago.execute.market_optimization import (
     market_optimization,
 )
 from etrago.tools.extendable import extendable
-from etrago.io import (
+from etrago.tools.io import (
     NetworkScenario,
     add_ch4_h2_correspondence,
     decommissioning,
