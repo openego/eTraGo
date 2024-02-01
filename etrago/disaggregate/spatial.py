@@ -169,7 +169,7 @@ class Disaggregation:
         externals_to_insert = self.clustered_network.buses[
             self.clustered_network.buses.index.isin(
                 map(
-                    lambda x: x[0][len(self.idx_prefix) :],
+                    lambda x: x[0][len(self.idx_prefix):],
                     external_buses.values,
                 )
             )
@@ -200,7 +200,7 @@ class Disaggregation:
             buses_to_insert = filter_buses(
                 getattr(self.clustered_network, bustype),
                 map(
-                    lambda x: x[0][len(self.idx_prefix) :],
+                    lambda x: x[0][len(self.idx_prefix):],
                     external_buses.values,
                 ),
             )

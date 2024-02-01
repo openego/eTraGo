@@ -33,7 +33,6 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.cluster.spatial import strategies_generators
     from etrago.tools.constraints import Constraints
 
 __copyright__ = (
@@ -167,7 +166,7 @@ def run_lopf(etrago, extra_functionality, method):
                     end = len(etrago.network_tsa.snapshots)
 
                 etrago.network_tsa.lopf(
-                    etrago.network_tsa.snapshots[start : end + 1],
+                    etrago.network_tsa.snapshots[start: end + 1],
                     solver_name=etrago.args["solver"],
                     solver_options=etrago.args["solver_options"],
                     pyomo=True,
@@ -182,7 +181,7 @@ def run_lopf(etrago, extra_functionality, method):
             for i in range(0, no_slices):
                 status, termination_condition = network_lopf(
                     etrago.network_tsa,
-                    etrago.network_tsa.snapshots[start : end + 1],
+                    etrago.network_tsa.snapshots[start: end + 1],
                     solver_name=etrago.args["solver"],
                     solver_options=etrago.args["solver_options"],
                     extra_functionality=extra_functionality,

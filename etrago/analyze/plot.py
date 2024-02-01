@@ -21,34 +21,36 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
-from math import log10, sqrt
+from math import sqrt
 import logging
 import os
 
-from etrago.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from pypsa.plot import draw_map_cartopy
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+
 
 cartopy_present = True
 try:
     import cartopy.crs as ccrs
 except ImportError:
     cartopy_present = False
-from pypsa.plot import draw_map_cartopy
+
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.execute import import_gen_from_links
-    import geopandas as gpd
     from pyproj import Proj, transform
-    from shapely.geometry import LineString, Point, Polygon
+    from shapely.geometry import LineString, Point
+    import geopandas as gpd
     import tilemapbase
+
+    from etrago.execute import import_gen_from_links
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -57,8 +59,9 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
-CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol,
+ClaraBuettner, CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl,
+BartelsJ"""
 
 
 def set_epsg_network(network):
@@ -2369,7 +2372,8 @@ def plot_grid(
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
 
-        * 'nodal_production_balance': net producer/consumer in selected timeteps
+        * 'nodal_production_balance': net producer/consumer in selected
+           timesteps
         * 'storage_expansion': storage expansion per bus and technology
         * 'storage_distribution': installed storage units per bus
         * 'h2_battery_storage_expansion': storage expansion per bus and

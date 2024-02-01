@@ -27,7 +27,6 @@ import logging
 from pypsa import Network
 from pypsa.clustering.spatial import (
     aggregatebuses,
-    aggregategenerators,
     aggregateoneport,
     get_clustering_from_busmap,
 )
