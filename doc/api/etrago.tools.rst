@@ -17,6 +17,13 @@ etrago.tools.extendable module
     :undoc-members:
     :show-inheritance:
 
+etrago.tools.io module
+-----------------------------
+
+.. automodule:: etrago.tools.io
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 etrago.tools.utilities module
 -----------------------------
