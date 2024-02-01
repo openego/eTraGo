@@ -342,7 +342,7 @@ def gen(nodes, n, graph):
     g = graph.copy()
 
     for i in range(0, len(nodes), n):
-        yield (nodes[i: i + n], g)
+        yield (nodes[i : i + n], g)
 
 
 def shortest_path(paths, graph):
