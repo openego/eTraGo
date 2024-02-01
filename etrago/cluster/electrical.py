@@ -25,7 +25,7 @@ import os
 import logging
 
 from pypsa import Network
-from pypsa.networkclustering import (
+from pypsa.clustering.spatial import (
     aggregatebuses,
     aggregategenerators,
     aggregateoneport,
