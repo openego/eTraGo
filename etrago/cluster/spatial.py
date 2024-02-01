@@ -29,11 +29,11 @@ import multiprocessing as mp
 
 from networkx import NetworkXNoPath
 from pypsa.clustering.spatial import (
-        busmap_by_kmeans,
-        busmap_by_stubs,
-        flatten_multiindex,
-        get_clustering_from_busmap,
-    )
+    busmap_by_kmeans,
+    busmap_by_stubs,
+    flatten_multiindex,
+    get_clustering_from_busmap,
+)
 from sklearn.cluster import KMeans
 from threadpoolctl import threadpool_limits
 import networkx as nx
@@ -592,9 +592,9 @@ def kmean_clustering(etrago, selected_network, weight, n_clusters):
             if kmean_settings["use_reduced_coordinates"]:
                 # TODO : FIX THIS HACK THAT HAS UNEXPECTED SIDE-EFFECTS,
                 # i.e. network is changed in place!!
-                network.buses.loc[
-                    busmap.index, ["x", "y"]
-                ] = network.buses.loc[busmap, ["x", "y"]].values
+                network.buses.loc[busmap.index, ["x", "y"]] = (
+                    network.buses.loc[busmap, ["x", "y"]].values
+                )
 
             clustering = get_clustering_from_busmap(
                 network,

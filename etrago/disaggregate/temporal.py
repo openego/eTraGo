@@ -31,10 +31,9 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
 
-
     from etrago.execute import iterate_lopf
     from etrago.tools.constraints import Constraints
-   
+
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -47,6 +46,7 @@ __author__ = (
     "ulfmueller, s3pp, wolfbunke, mariusves, lukasol, KathiEsterl, "
     "ClaraBuettner, CarlosEpia, AmeliaNadal"
 )
+
 
 def dispatch_disaggregation(self):
     """
@@ -96,13 +96,13 @@ def dispatch_disaggregation(self):
                 index=transits,
             )
             for storage in self.network.storage_units.index:
-                self.conduct_dispatch_disaggregation[
-                    storage
-                ] = self.network.storage_units_t.state_of_charge[storage]
+                self.conduct_dispatch_disaggregation[storage] = (
+                    self.network.storage_units_t.state_of_charge[storage]
+                )
             for store in sto.index:
-                self.conduct_dispatch_disaggregation[
-                    store
-                ] = self.network.stores_t.e[store]
+                self.conduct_dispatch_disaggregation[store] = (
+                    self.network.stores_t.e[store]
+                )
 
             extra_func = self.args["extra_functionality"]
             self.args["extra_functionality"] = {}
@@ -142,9 +142,9 @@ def dispatch_disaggregation(self):
         self.network.transformers.s_nom_extendable = (
             self.network_tsa.transformers.s_nom_extendable
         )
-        self.network.storage_units[
-            "p_nom_extendable"
-        ] = self.network_tsa.storage_units["p_nom_extendable"]
+        self.network.storage_units["p_nom_extendable"] = (
+            self.network_tsa.storage_units["p_nom_extendable"]
+        )
         self.network.stores["e_nom_extendable"] = self.network_tsa.stores[
             "e_nom_extendable"
         ]
@@ -161,4 +161,3 @@ def dispatch_disaggregation(self):
         y = time.time()
         z = (y - x) / 60
         logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
-

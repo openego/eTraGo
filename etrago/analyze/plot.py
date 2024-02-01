@@ -912,9 +912,9 @@ def calc_storage_expansion_per_bus(
             [(idx, "battery") for idx in battery_distribution.index]
         )
 
-        dist.loc[
-            dist.index.get_level_values("carrier") == "battery"
-        ] = battery_distribution
+        dist.loc[dist.index.get_level_values("carrier") == "battery"] = (
+            battery_distribution
+        )
     if "H2_overground" in carriers:
         h2_overground = network.stores[
             network.stores.carrier == "H2_overground"
@@ -930,9 +930,9 @@ def calc_storage_expansion_per_bus(
             [(idx, "H2_overground") for idx in h2_over_distribution.index]
         )
 
-        dist.loc[
-            dist.index.get_level_values("carrier") == "H2_overground"
-        ] = h2_over_distribution
+        dist.loc[dist.index.get_level_values("carrier") == "H2_overground"] = (
+            h2_over_distribution
+        )
 
     if "H2_overground" in carriers:
         h2_underground = network.stores[
@@ -3040,10 +3040,15 @@ def plot_clusters(
             & lines["bus1"].isin(map_buses.index)
         ]
         lines["geom"] = lines.apply(
-            lambda x: x["geom"]
-            if not pd.isna(x["geom"])
-            else LineString(
-                [map_buses["geom"][x["bus0"]], map_buses["geom"][x["bus1"]]]
+            lambda x: (
+                x["geom"]
+                if not pd.isna(x["geom"])
+                else LineString(
+                    [
+                        map_buses["geom"][x["bus0"]],
+                        map_buses["geom"][x["bus1"]],
+                    ]
+                )
             ),
             axis=1,
         )

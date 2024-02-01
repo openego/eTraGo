@@ -278,9 +278,9 @@ def iterate_lopf(
         ]
         etrago.network_tsa.transformers.s_nom_extendable = False
 
-        etrago.network_tsa.storage_units[
-            "p_nom"
-        ] = etrago.network.storage_units["p_nom_opt"]
+        etrago.network_tsa.storage_units["p_nom"] = (
+            etrago.network.storage_units["p_nom_opt"]
+        )
         etrago.network_tsa.storage_units["p_nom_extendable"] = False
 
         etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
@@ -420,7 +420,6 @@ def optimize(self):
 
     else:
         print("Method not defined")
-
 
 
 def import_gen_from_links(network, drop_small_capacities=True):
@@ -920,9 +919,7 @@ def calc_line_losses(network, converged):
     """
     # Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
-    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(
-        np.sqrt
-    )
+    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(np.sqrt)
     # in case some snapshots did not converge, discard them from the
     # calculation
     s0_lines.loc[converged[converged is False].index, :] = np.nan
@@ -932,9 +929,7 @@ def calc_line_losses(network, converged):
     )
     # calculate losses per line and timestep network.\
     # lines_t.line_losses = I² * R [in MW]
-    network.lines_t.losses = np.divide(
-        i0_lines**2 * network.lines.r, 1000000
-    )
+    network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
     # calculate total losses per line [in MW]
     network.lines = network.lines.assign(
         losses=np.sum(network.lines_t.losses).values
