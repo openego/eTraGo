@@ -4,19 +4,22 @@ from pprint import pformat
 import nox
 
 cleaned = [
-    "etrago/cluster/disaggregation.py",
+    "etrago/analyze/__init__.py",
+    "etrago/analyze/calc_results.py",
+    "etrago/analyze/plot.py",
     "etrago/cluster/electrical.py",
     "etrago/cluster/gas.py",
     "etrago/cluster/snapshot.py",
     "etrago/cluster/spatial.py",
+    "etrago/disaggregate/spatial.py",
+    "etrago/disaggregate/temporal.py",
     "etrago/execute/__init__.py",
     "etrago/execute/grid_optimization.py",
     "etrago/execute/market_optimization.py",
-    "etrago/tools/calc_results.py",
     "etrago/tools/extendable.py",
-    "etrago/tools/io.py",
-    "etrago/tools/network.py",
+    "etrago/tools/io/__init__.py",
     "etrago/tools/utilities.py",
+    "etrago/network.py",
     "noxfile.py",
     "setup.py",
 ]
