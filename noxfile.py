@@ -16,10 +16,10 @@ cleaned = [
     "etrago/execute/__init__.py",
     "etrago/execute/grid_optimization.py",
     "etrago/execute/market_optimization.py",
+    "etrago/network.py",
     "etrago/tools/extendable.py",
     "etrago/tools/io/__init__.py",
     "etrago/tools/utilities.py",
-    "etrago/network.py",
     "noxfile.py",
     "setup.py",
 ]
