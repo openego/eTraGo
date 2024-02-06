@@ -66,11 +66,12 @@ def market_optimization(self):
         solver_name=self.args["solver"],
     )
 
-    # quick and dirty csv export of market model results
-    path = self.args["csv_export"]
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-    self.market_model.export_to_csv_folder(path + "/market")
+    # Export results of market model
+    if self.args["csv_export"]:
+        path = self.args["csv_export"]
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+        self.market_model.export_to_csv_folder(path + "/market")
 
 
 def build_market_model(self):
