@@ -749,7 +749,8 @@ def preprocessing(etrago, used_for="spatial_clustering"):
         include_foreign = True
     else:
         raise ValueError(
-            f"{used_for} is not a valid value for the used_for parameter")
+            f"{used_for} is not a valid value for the used_for parameter"
+        )
 
     network_elec, n_clusters = select_elec_network(etrago, include_foreign)
 
