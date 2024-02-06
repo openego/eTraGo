@@ -255,6 +255,8 @@ def buses_by_country(self, apply_on="grid_model"):
         network = self.network
     elif apply_on == "market_model":
         network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
     else:
         logger.warning(
             """Parameter apply_on must be either 'grid_model' or 'market_model'
