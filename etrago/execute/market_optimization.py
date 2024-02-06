@@ -154,6 +154,9 @@ def build_market_model(self):
 
     self.pre_market_model = net
 
+    # Set country tags for market model
+    self.buses_by_country(apply_on="pre_market_model")
+    self.geolocation_buses(apply_on="pre_market_model")
 
 def build_shortterm_market_model(self):
     m = self.pre_market_model
@@ -215,6 +218,9 @@ def build_shortterm_market_model(self):
 
     self.market_model = m
 
+    # Set country tags for market model
+    self.buses_by_country(apply_on="market_model")
+    self.geolocation_buses(apply_on="market_model")
 
 def extra_functionality():
     """Placeholder for extra functionalities within market optimization
