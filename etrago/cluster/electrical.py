@@ -457,7 +457,7 @@ def ehv_clustering(self):
         logger.info("Network clustered to EHV-grid")
 
 
-def select_elec_network(etrago):
+def select_elec_network(etrago, include_foreign):
     """
     Selects the electric network based on the clustering settings specified
     in the Etrago object.
@@ -466,6 +466,9 @@ def select_elec_network(etrago):
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    include_foreign: bool
+        define if the returned electrical network will include (True) foreign
+        buses or not (False).
 
     Returns
     -------
@@ -477,7 +480,7 @@ def select_elec_network(etrago):
     """
     elec_network = etrago.network.copy()
     settings = etrago.args["network_clustering"]
-    if settings["cluster_foreign_AC"]:
+    if include_foreign:
         elec_network.buses = elec_network.buses[
             elec_network.buses.carrier == "AC"
         ]
@@ -626,7 +629,7 @@ def unify_foreign_buses(etrago):
     return busmap_foreign
 
 
-def preprocessing(etrago):
+def preprocessing(etrago, used_for="spatial_clustering"):
     """
     Preprocesses an Etrago object to prepare it for network clustering.
 
@@ -634,6 +637,10 @@ def preprocessing(etrago):
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    used_for : string
+        provide information about the objective of the preprocessing. Which
+        process is going to use the result. e.g. "spatial_clustering",
+        "market_model".
 
     Returns
     -------
@@ -736,7 +743,15 @@ def preprocessing(etrago):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters = select_elec_network(etrago)
+    if used_for == "spatial_clustering":
+        include_foreign = settings["cluster_foreign_AC"]
+    elif used_for == "market_model":
+        include_foreign = True
+    else:
+        raise ValueError(
+            f"{used_for} is not a valid value for the used_for parameter")
+
+    network_elec, n_clusters = select_elec_network(etrago, include_foreign)
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns

@@ -111,6 +111,7 @@ def sum_with_inf(x):
 def strategies_buses():
     return {
         "geom": nan_links,
+        "country": "first"
     }
 
 
