@@ -68,33 +68,33 @@ def fix_chp_generation(self):
     # Fix generator dispatch from market simulation:
     # Set p_max_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_max_pu.loc[
-        :, gens_fixed
-    ] = self.market_model.generators_t.p[gens_fixed].mul(
-        1 / self.market_model.generators.p_nom[gens_fixed]
+    self.network.generators_t.p_max_pu.loc[:, gens_fixed] = (
+        self.market_model.generators_t.p[gens_fixed].mul(
+            1 / self.market_model.generators.p_nom[gens_fixed]
+        )
     )
 
     # Set p_min_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_min_pu.loc[
-        :, gens_fixed
-    ] = self.market_model.generators_t.p[gens_fixed].mul(
-        1 / self.market_model.generators.p_nom[gens_fixed]
+    self.network.generators_t.p_min_pu.loc[:, gens_fixed] = (
+        self.market_model.generators_t.p[gens_fixed].mul(
+            1 / self.market_model.generators.p_nom[gens_fixed]
+        )
     )
 
     # Fix link dispatch (gas turbines) from market simulation
     # Set p_max_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_max_pu.loc[
-        :, links_fixed
-    ] = self.market_model.links_t.p0[links_fixed].mul(
-        1 / self.market_model.links.p_nom[links_fixed]
+    self.network.links_t.p_max_pu.loc[:, links_fixed] = (
+        self.market_model.links_t.p0[links_fixed].mul(
+            1 / self.market_model.links.p_nom[links_fixed]
+        )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_min_pu.loc[
-        :, links_fixed
-    ] = self.market_model.links_t.p0[links_fixed].mul(
-        1 / self.market_model.links.p_nom[links_fixed]
+    self.network.links_t.p_min_pu.loc[:, links_fixed] = (
+        self.market_model.links_t.p0[links_fixed].mul(
+            1 / self.market_model.links.p_nom[links_fixed]
+        )
     )
 
 
@@ -139,33 +139,33 @@ def add_redispatch_generators(self):
     # Fix generator dispatch from market simulation:
     # Set p_max_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_max_pu.loc[
-        :, gens_redispatch
-    ] = self.market_model.generators_t.p[gens_redispatch].mul(
-        1 / self.market_model.generators.p_nom[gens_redispatch]
+    self.network.generators_t.p_max_pu.loc[:, gens_redispatch] = (
+        self.market_model.generators_t.p[gens_redispatch].mul(
+            1 / self.market_model.generators.p_nom[gens_redispatch]
+        )
     )
 
     # Set p_min_pu of generators using results from (disaggregated) market
     # model
-    self.network.generators_t.p_min_pu.loc[
-        :, gens_redispatch
-    ] = self.market_model.generators_t.p[gens_redispatch].mul(
-        1 / self.market_model.generators.p_nom[gens_redispatch]
+    self.network.generators_t.p_min_pu.loc[:, gens_redispatch] = (
+        self.market_model.generators_t.p[gens_redispatch].mul(
+            1 / self.market_model.generators.p_nom[gens_redispatch]
+        )
     )
 
     # Fix link dispatch (gas turbines) from market simulation
     # Set p_max_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_max_pu.loc[
-        :, links_redispatch
-    ] = self.market_model.links_t.p0[links_redispatch].mul(
-        1 / self.market_model.links.p_nom[links_redispatch]
+    self.network.links_t.p_max_pu.loc[:, links_redispatch] = (
+        self.market_model.links_t.p0[links_redispatch].mul(
+            1 / self.market_model.links.p_nom[links_redispatch]
+        )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
-    self.network.links_t.p_min_pu.loc[
-        :, links_redispatch
-    ] = self.market_model.links_t.p0[links_redispatch].mul(
-        1 / self.market_model.links.p_nom[links_redispatch]
+    self.network.links_t.p_min_pu.loc[:, links_redispatch] = (
+        self.market_model.links_t.p0[links_redispatch].mul(
+            1 / self.market_model.links.p_nom[links_redispatch]
+        )
     )
 
     # Calculate costs for redispatch
@@ -216,7 +216,9 @@ def add_redispatch_generators(self):
     # Set maximum feed-in limit for ramp up generators based on feed-in of
     # (disaggregated) generators from the market optimization and potential
     # feedin time series
-    p_max_pu_all = self.network.get_switchable_as_dense("Generator", "p_max_pu")
+    p_max_pu_all = self.network.get_switchable_as_dense(
+        "Generator", "p_max_pu"
+    )
 
     self.network.generators_t.p_max_pu.loc[:, gens_redispatch + " ramp_up"] = (
         (
@@ -309,6 +311,7 @@ def add_redispatch_generators(self):
     #     self.network.buses[
     #         self.network.buses.index.isin(['47085', '47086', '37865', '37870'
     #                                        ])].index, inplace=True)
+
 
 def extra_functionality():
     return None
