@@ -144,7 +144,7 @@ def buses_grid_linked(network, voltage_level):
     return df.index
 
 
-def geolocation_buses(self):
+def geolocation_buses(self, apply_on="grid_model"):
     """
     If geopandas is installed:
     Use geometries of buses x/y(lon/lat) and polygons
@@ -160,9 +160,22 @@ def geolocation_buses(self):
     ----------
     etrago : :class:`etrago.Etrago`
        Transmission grid object
-
+    apply_on: str
+        State if this function is applied on the grid_model or the
+        market_model. The market_model options can only be used if the method
+        type is "market_grid".
     """
-    network = self.network
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            or 'pre_market_model'.""")
 
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
@@ -219,7 +232,7 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(self):
+def buses_by_country(self, apply_on="grid_model"):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
@@ -228,11 +241,24 @@ def buses_by_country(self):
     ----------
     self : Etrago object
         Overall container of PyPSA
+    apply_on: str
+        State if this function is applied on the grid_model or the
+        market_model. The market_model options can only be used if the method
+        type is "market_grid".
 
     Returns
     -------
     None
     """
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            or 'pre_market_model'.""")
 
     countries = {
         "Poland": "PL",
@@ -265,7 +291,7 @@ def buses_by_country(self):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
-    geobuses = self.network.buses.copy()
+    geobuses = network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point([x["x"], x["y"]]), axis=1
     )
@@ -277,7 +303,7 @@ def buses_by_country(self):
 
     for country in countries:
         geobuses["country"][
-            self.network.buses.index.isin(
+            network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -290,7 +316,7 @@ def buses_by_country(self):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    self.network.buses = geobuses.drop(columns="geom")
+    network.buses = geobuses.drop(columns="geom")
 
     return
 
