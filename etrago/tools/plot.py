@@ -1820,7 +1820,7 @@ def plot_background_grid(network, ax, geographical_boundaries, osm):
             )
 
 
-def demand_side_management(self, buses, snapshots, agg="5h", used=False):
+def demand_side_management(self, buses, snapshots, agg="5h", used=False, apply_on="grid_model"):
     """Calculate shifting potential of demand side management
 
     Parameters
@@ -1833,6 +1833,9 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -1840,19 +1843,33 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    link = self.network.links[
-        (self.network.links.carrier == "dsm")
-        & (self.network.links.bus0.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    link = network.links[
+        (network.links.carrier == "dsm")
+        & (network.links.bus0.isin(buses))
     ]
-    s = self.network.stores[
-        (self.network.stores.carrier == "dsm")
-        & (self.network.stores.bus.isin(link.bus1.values))
+    s = network.stores[
+        (network.stores.carrier == "dsm")
+        & (network.stores.bus.isin(link.bus1.values))
     ]
 
     df["p_min"] = (
-        self.network.links_t.p_min_pu[link.index]
+        network.links_t.p_min_pu[link.index]
         .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
@@ -1860,7 +1877,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         .iloc[snapshots]
     )
     df["p_max"] = (
-        self.network.links_t.p_max_pu[link.index]
+        network.links_t.p_max_pu[link.index]
         .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
@@ -1869,13 +1886,13 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     )
 
     df["e_min"] = (
-        self.network.stores_t.e_min_pu[s.index]
+        network.stores_t.e_min_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
         .iloc[snapshots]
     )
     df["e_max"] = (
-        self.network.stores_t.e_max_pu[s.index]
+        network.stores_t.e_max_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
         .iloc[snapshots]
@@ -1883,13 +1900,13 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     if used:
         df["p"] = (
-            self.network.links_t.p0[link.index]
+            network.links_t.p0[link.index]
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
         )
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
@@ -1900,6 +1917,7 @@ def bev_flexibility_potential(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential of electric vehicles
 
@@ -1913,6 +1931,9 @@ def bev_flexibility_potential(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -1920,31 +1941,44 @@ def bev_flexibility_potential(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
     # Initialize DataFrame
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    df = pd.DataFrame(index=network.snapshots[snapshots])
 
     # Select BEV buses and links
-    bev_buses = self.network.buses[
-        self.network.buses.carrier.str.contains("Li ion")
+    bev_buses = network.buses[
+        network.buses.carrier.str.contains("Li ion")
     ]
-    bev_links = self.network.links[
-        (self.network.links.bus1.isin(bev_buses.index.values))
-        & (self.network.links.bus0.isin(buses))
+    bev_links = network.links[
+        (network.links.bus1.isin(bev_buses.index.values))
+        & (network.links.bus0.isin(buses))
     ]
     bev_buses = bev_links.bus1.values
 
     # Maximum loading of BEV charger in MW per BEV bus
     bev_links_t = (
-        self.network.links_t.p_max_pu[bev_links.index]
+        network.links_t.p_max_pu[bev_links.index]
         .mul(bev_links.p_nom, axis=1)
         .iloc[snapshots]
     )
     bev_links_t.columns = bev_links_t.columns.map(bev_links.bus1)
 
     # BEV loads per bus
-    bev_loads = self.network.loads[self.network.loads.bus.isin(bev_buses)]
-    bev_loads_t = self.network.loads_t.p_set[bev_loads.index].iloc[snapshots]
+    bev_loads = network.loads[network.loads.bus.isin(bev_buses)]
+    bev_loads_t = network.loads_t.p_set[bev_loads.index].iloc[snapshots]
     bev_loads_t.columns = bev_loads_t.columns.map(bev_loads.bus)
 
     # Maximal positive shifting df is max. loading of charger minus fixed loads
@@ -1954,11 +1988,11 @@ def bev_flexibility_potential(
     df["p_min"] = bev_loads_t.mul(-1).sum(axis=1).resample(agg).mean()
 
     # Select BEV stores (batteries of vehicles)
-    bev_stores = self.network.stores[self.network.stores.bus.isin(bev_buses)]
+    bev_stores = network.stores[network.stores.bus.isin(bev_buses)]
 
     # Calculate maximum and minumum state of charges of battries
     df["e_max"] = (
-        self.network.stores_t.e_max_pu[bev_stores.index]
+        network.stores_t.e_max_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
         .iloc[snapshots]
         .sum(axis=1)
@@ -1966,7 +2000,7 @@ def bev_flexibility_potential(
         .mean()
     )
     df["e_min"] = (
-        self.network.stores_t.e_min_pu[bev_stores.index]
+        network.stores_t.e_min_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
         .iloc[snapshots]
         .sum(axis=1)
@@ -1975,7 +2009,7 @@ def bev_flexibility_potential(
     )
 
     if used:
-        bev_links_t_used = self.network.links_t.p0[bev_links.index].iloc[
+        bev_links_t_used = network.links_t.p0[bev_links.index].iloc[
             snapshots
         ]
 
@@ -1991,7 +2025,7 @@ def bev_flexibility_potential(
             .mean()
         )  # always < 0
         df["e"] = (
-            self.network.stores_t.e[bev_stores.index]
+            network.stores_t.e[bev_stores.index]
             .sum(axis=1)
             .resample(agg)
             .mean()
@@ -2007,6 +2041,7 @@ def heat_stores(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential (and usage) of heat stores
 
@@ -2020,6 +2055,9 @@ def heat_stores(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -2027,34 +2065,48 @@ def heat_stores(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    heat_buses = self.network.links[
-        self.network.links.bus0.isin(
-            self.network.buses[
-                (self.network.buses.carrier == "AC")
-                & (self.network.buses.index.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    heat_buses = network.links[
+        network.links.bus0.isin(
+            network.buses[
+                (network.buses.carrier == "AC")
+                & (network.buses.index.isin(buses))
             ].index
         )
-        & self.network.links.bus1.isin(
-            self.network.buses[
-                self.network.buses.carrier.str.contains("heat")
+        & network.links.bus1.isin(
+            network.buses[
+                network.buses.carrier.str.contains("heat")
             ].index
         )
     ].bus1.unique()
 
-    l_charge = self.network.links[
-        (self.network.links.carrier.str.contains("heat_store_charger"))
-        & (self.network.links.bus0.isin(heat_buses))
+    l_charge = network.links[
+        (network.links.carrier.str.contains("heat_store_charger"))
+        & (network.links.bus0.isin(heat_buses))
     ]
-    l_discharge = self.network.links[
-        (self.network.links.carrier.str.contains("heat_store_discharger"))
-        & (self.network.links.bus1.isin(heat_buses))
+    l_discharge = network.links[
+        (network.links.carrier.str.contains("heat_store_discharger"))
+        & (network.links.bus1.isin(heat_buses))
     ]
 
-    s = self.network.stores[
-        (self.network.stores.carrier.str.contains("heat_store"))
-        & (self.network.stores.bus.isin(l_charge.bus1.values))
+    s = network.stores[
+        (network.stores.carrier.str.contains("heat_store"))
+        & (network.stores.bus.isin(l_charge.bus1.values))
     ]
 
     df["p_min"] = l_discharge.p_nom_opt.mul(-1 * l_discharge.efficiency).sum()
@@ -2065,18 +2117,18 @@ def heat_stores(
 
     if used:
         df["p"] = (
-            self.network.links_t.p1[l_charge.index]
+            network.links_t.p1[l_charge.index]
             .mul(-1)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
-            + self.network.links_t.p0[l_discharge.index]
+            + network.links_t.p0[l_discharge.index]
             .mul(-1)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
         )
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
@@ -2087,6 +2139,7 @@ def hydrogen_stores(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential (and usage) of heat stores
 
@@ -2100,6 +2153,9 @@ def hydrogen_stores(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -2107,39 +2163,53 @@ def hydrogen_stores(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    h2_buses = self.network.links[
-        self.network.links.bus0.isin(
-            self.network.buses[
-                (self.network.buses.carrier == "AC")
-                & (self.network.buses.index.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    h2_buses = network.links[
+        network.links.bus0.isin(
+            network.buses[
+                (network.buses.carrier == "AC")
+                & (network.buses.index.isin(buses))
             ].index
         )
-        & self.network.links.bus1.isin(
-            self.network.buses[
-                self.network.buses.carrier.str.contains("H2")
+        & network.links.bus1.isin(
+            network.buses[
+                network.buses.carrier.str.contains("H2")
             ].index
         )
     ].bus1.unique()
 
-    s = self.network.stores[self.network.stores.bus.isin(h2_buses)]
+    s = network.stores[network.stores.bus.isin(h2_buses)]
 
-    df["p_min"] = self.network.stores_t.p[s.index].sum(axis=1).min()
-    df["p_max"] = self.network.stores_t.p[s.index].sum(axis=1).max()
+    df["p_min"] = network.stores_t.p[s.index].sum(axis=1).min()
+    df["p_max"] = network.stores_t.p[s.index].sum(axis=1).max()
 
     df["e_min"] = 0
     df["e_max"] = s.e_nom_opt.sum()
 
     if used:
-        df["p"] = self.network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["p"] = network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
 
 def flexibility_usage(
-    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None
+    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None, apply_on="grid_model",
 ):
     """Plots temporal distribution of potential and usage for flexibilities
 
@@ -2156,22 +2226,39 @@ def flexibility_usage(
         The default is [].
     pre_path : str, optional
         State of and where you want to store the figure. The default is None.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
     None.
 
     """
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
+
     colors = coloring()
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
 
     if not buses:
-        buses = self.network.buses.index
+        buses = network.buses.index
 
     if len(snapshots) == 0:
-        snapshots = range(1, len(self.network.snapshots))
+        snapshots = range(1, len(network.snapshots))
 
     if flexibility == "dsm":
         df = demand_side_management(
@@ -2180,6 +2267,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "BEV charger":
@@ -2189,6 +2277,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "heat":
@@ -2198,20 +2287,21 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "battery":
-        df = pd.DataFrame(index=self.network.snapshots[snapshots])
+        df = pd.DataFrame(index=network.snapshots[snapshots])
 
-        su = self.network.storage_units[
-            (self.network.storage_units.carrier == "battery")
-            & (self.network.storage_units.bus.isin(buses))
+        su = network.storage_units[
+            (network.storage_units.carrier == "battery")
+            & (network.storage_units.bus.isin(buses))
         ]
 
         df["p_min"] = su.p_nom_opt.sum() * (-1)
         df["p_max"] = su.p_nom_opt.sum()
         df["p"] = (
-            self.network.storage_units_t.p[su.index]
+            network.storage_units_t.p[su.index]
             .sum(axis=1)
             .iloc[snapshots]
         )
@@ -2219,7 +2309,7 @@ def flexibility_usage(
         df["e_min"] = 0
         df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
         df["e"] = (
-            self.network.storage_units_t.state_of_charge[su.index]
+            network.storage_units_t.state_of_charge[su.index]
             .sum(axis=1)
             .iloc[snapshots]
         )
@@ -2231,6 +2321,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     fig, ax = plt.subplots(figsize=(15, 5))
@@ -2254,7 +2345,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
+def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model"):
     """
     Parameters
     ----------
@@ -2272,7 +2363,20 @@ def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
     None.
 
     """
-    network = etrago.network
+    # Choose network or disaggregated_network
+    if apply_on == "grid_model":
+        network = etrago.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = etrago.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = etrago.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = etrago.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
+
     colors = coloring()
     line_colors = "lightblue"
 
@@ -2341,7 +2445,7 @@ def plot_grid(
     osm=False,
     boundaries=None,
     filename=None,
-    disaggregated=False,
+    apply_on="grid_model",
     ext_min=0.1,
     ext_width=False,
     legend_entries="all",
@@ -2396,8 +2500,9 @@ def plot_grid(
        Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
         Save figure in this direction. The default is None.
-    disaggregated : bool, optional
-        Choose if disaggregated network is shown. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
     ext_min: float
         Choose minimum relative line extension shown in plot in p.u..
     ext_width: float or bool
@@ -2421,10 +2526,18 @@ def plot_grid(
 
     """
     # Choose network or disaggregated_network
-    if disaggregated:
-        network = self.disaggregated_network.copy()
-    else:
+    if apply_on == "grid_model":
         network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
     # Set colors for plotting
     plotting_colors(network)
