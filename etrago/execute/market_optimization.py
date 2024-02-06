@@ -93,27 +93,38 @@ def build_market_model(self):
 
     net, weight, n_clusters, busmap_foreign = preprocessing(self)
 
-    df = pd.DataFrame(
-        {
-            "country": net.buses.country.unique(),
-            "marketzone": net.buses.country.unique(),
-        },
-        columns=["country", "marketzone"],
-    )
+    # Define market regions based on settings. 
+    # Currently the only option is 'status_quo' which means that the current 
+    # regions are used. When other market zone options are introduced, they
+    # can be assinged here.
+    if self.args["method"]["market_zones"] == "status_quo":
+        df = pd.DataFrame(
+            {
+                "country": net.buses.country.unique(),
+                "marketzone": net.buses.country.unique(),
+            },
+            columns=["country", "marketzone"],
+        )
 
-    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = "DE/LU"
+        df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = "DE/LU"
 
-    df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
+        df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
-    for i in net.buses.country.unique():
-        net.buses.loc[net.buses.country == i, "cluster"] = df.loc[
-            df.country == i, "cluster"
-        ].values[0]
+        for i in net.buses.country.unique():
+            net.buses.loc[net.buses.country == i, "cluster"] = df.loc[
+                df.country == i, "cluster"
+            ].values[0]
 
-    busmap = pd.Series(
-        net.buses.cluster.astype(int).astype(str), net.buses.index
-    )
-    medoid_idx = pd.Series(dtype=str)
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+
+    else:
+        logger.warning(
+            f"""
+            Market zone setting {self.args['method']['market_zones']}
+            is not available. Please use one of ['status_quo'].""")
 
     logger.info("Start market zone specifc clustering")
 
