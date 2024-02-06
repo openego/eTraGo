@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
 
@@ -51,7 +52,9 @@ def market_optimization(self):
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
         pyomo=True,
-        extra_functionality=extra_functionality(),
+        extra_functionality=Constraints(
+            self.args, False
+        ).functionality,
         formulation=self.args["model_formulation"],
     )
 
@@ -233,13 +236,3 @@ def build_shortterm_market_model(self):
     self.buses_by_country(apply_on="market_model")
     self.geolocation_buses(apply_on="market_model")
 
-def extra_functionality():
-    """Placeholder for extra functionalities within market optimization
-
-    Returns
-    -------
-    None.
-
-    """
-
-    return None
