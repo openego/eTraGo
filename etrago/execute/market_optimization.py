@@ -59,11 +59,14 @@ def market_optimization(self):
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
 
-    self.market_model.optimize.optimize_with_rolling_horizon(
+    optimize_with_rolling_horizon(
+        self.market_model,
+        self.pre_market_model,
         snapshots=None,
-        horizon=168,
-        overlap=144,
+        horizon=72,
+        overlap=48,
         solver_name=self.args["solver"],
+        extra_functionality=extra_functionality(),
     )
 
     # quick and dirty csv export of market model results
@@ -72,6 +75,74 @@ def market_optimization(self):
         os.makedirs(path, exist_ok=True)
     self.market_model.export_to_csv_folder(path + "/market")
 
+
+def optimize_with_rolling_horizon(n, pre_market, snapshots=None, horizon=2, overlap=0, **kwargs):
+    """
+    Optimizes the network in a rolling horizon fashion.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+    snapshots : list-like
+        Set of snapshots to consider in the optimization. The default is None.
+    horizon : int
+        Number of snapshots to consider in each iteration. Defaults to 100.
+    overlap : int
+        Number of snapshots to overlap between two iterations. Defaults to 0.
+    **kwargs:
+        Keyword argument used by `linopy.Model.solve`, such as `solver_name`,
+
+    Returns
+    -------
+    None
+    """
+    if snapshots is None:
+        snapshots = n.snapshots
+
+    if horizon <= overlap:
+        raise ValueError("overlap must be smaller than horizon")
+
+    starting_points = range(0, len(snapshots), horizon - overlap)
+    for i, start in enumerate(starting_points):
+        end = min(len(snapshots), start + horizon)
+        sns = snapshots[start:end]
+        logger.info(
+            f"Optimizing network for snapshot horizon [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."
+        )
+
+        if i:
+            if not n.stores.empty:
+                n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
+
+                # Select seasonal stores
+                seasonal_stores = n.stores.index[n.stores.carrier.isin(["central_heat_store", "H2_overground", "CH4"])]
+
+                # Set e_initial from pre_market model for seasonal stores
+                n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[snapshots[start - 1], seasonal_stores]
+
+                # Set e at the end of the horizon by setting e_max_pu and e_min_pu
+                n.stores_t.e_max_pu.loc[snapshots[end-1],seasonal_stores] = pre_market.stores_t.e.loc[snapshots[end-1], seasonal_stores].div(
+                    pre_market.stores.e_nom_opt[seasonal_stores]
+                    )
+                n.stores_t.e_min_pu.loc[snapshots[end-1],seasonal_stores] = pre_market.stores_t.e.loc[snapshots[end-1], seasonal_stores].div(
+                    pre_market.stores.e_nom_opt[seasonal_stores]
+                    )
+                n.stores_t.e_min_pu.fillna(0., inplace=True)
+                n.stores_t.e_max_pu.fillna(1., inplace=True)
+
+            if not n.storage_units.empty:
+                n.storage_units.state_of_charge_initial = (
+                    n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
+                )
+
+       
+        status, condition = n.optimize(sns, **kwargs)
+        
+        if status != "ok":
+            logger.warning(
+                f"Optimization failed with status {status} and condition {condition}"
+            )
+    return n
 
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
