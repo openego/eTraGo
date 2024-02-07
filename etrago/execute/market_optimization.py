@@ -76,7 +76,9 @@ def market_optimization(self):
     self.market_model.export_to_csv_folder(path + "/market")
 
 
-def optimize_with_rolling_horizon(n, pre_market, snapshots=None, horizon=2, overlap=0, **kwargs):
+def optimize_with_rolling_horizon(
+    n, pre_market, snapshots=None, horizon=2, overlap=0, **kwargs
+):
     """
     Optimizes the network in a rolling horizon fashion.
 
@@ -115,34 +117,50 @@ def optimize_with_rolling_horizon(n, pre_market, snapshots=None, horizon=2, over
                 n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
 
                 # Select seasonal stores
-                seasonal_stores = n.stores.index[n.stores.carrier.isin(["central_heat_store", "H2_overground", "CH4"])]
+                seasonal_stores = n.stores.index[
+                    n.stores.carrier.isin(
+                        ["central_heat_store", "H2_overground", "CH4"]
+                    )
+                ]
 
                 # Set e_initial from pre_market model for seasonal stores
-                n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[snapshots[start - 1], seasonal_stores]
+                n.stores.e_initial[seasonal_stores] = (
+                    pre_market.stores_t.e.loc[
+                        snapshots[start - 1], seasonal_stores
+                    ]
+                )
 
                 # Set e at the end of the horizon by setting e_max_pu and e_min_pu
-                n.stores_t.e_max_pu.loc[snapshots[end-1],seasonal_stores] = pre_market.stores_t.e.loc[snapshots[end-1], seasonal_stores].div(
+                n.stores_t.e_max_pu.loc[
+                    snapshots[end - 1], seasonal_stores
+                ] = pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(
                     pre_market.stores.e_nom_opt[seasonal_stores]
-                    )
-                n.stores_t.e_min_pu.loc[snapshots[end-1],seasonal_stores] = pre_market.stores_t.e.loc[snapshots[end-1], seasonal_stores].div(
+                )
+                n.stores_t.e_min_pu.loc[
+                    snapshots[end - 1], seasonal_stores
+                ] = pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(
                     pre_market.stores.e_nom_opt[seasonal_stores]
-                    )
-                n.stores_t.e_min_pu.fillna(0., inplace=True)
-                n.stores_t.e_max_pu.fillna(1., inplace=True)
+                )
+                n.stores_t.e_min_pu.fillna(0.0, inplace=True)
+                n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
             if not n.storage_units.empty:
                 n.storage_units.state_of_charge_initial = (
                     n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
                 )
 
-       
         status, condition = n.optimize(sns, **kwargs)
-        
+
         if status != "ok":
             logger.warning(
                 f"Optimization failed with status {status} and condition {condition}"
             )
     return n
+
 
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
