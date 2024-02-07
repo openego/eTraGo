@@ -175,7 +175,8 @@ def geolocation_buses(self, apply_on="grid_model"):
     else:
         logger.warning(
             """Parameter apply_on must be either 'grid_model' or 'market_model'
-            or 'pre_market_model'.""")
+            or 'pre_market_model'."""
+        )
 
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
@@ -260,7 +261,8 @@ def buses_by_country(self, apply_on="grid_model"):
     else:
         logger.warning(
             """Parameter apply_on must be either 'grid_model' or 'market_model'
-            or 'pre_market_model'.""")
+            or 'pre_market_model'."""
+        )
 
     countries = {
         "Poland": "PL",

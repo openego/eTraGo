@@ -52,9 +52,7 @@ def market_optimization(self):
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
         pyomo=True,
-        extra_functionality=Constraints(
-            self.args, False
-        ).functionality,
+        extra_functionality=Constraints(self.args, False).functionality,
         formulation=self.args["model_formulation"],
     )
 
@@ -96,8 +94,8 @@ def build_market_model(self):
 
     net, weight, n_clusters, busmap_foreign = preprocessing(self)
 
-    # Define market regions based on settings. 
-    # Currently the only option is 'status_quo' which means that the current 
+    # Define market regions based on settings.
+    # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
     # can be assinged here.
     if self.args["method"]["market_zones"] == "status_quo":
@@ -109,7 +107,9 @@ def build_market_model(self):
             columns=["country", "marketzone"],
         )
 
-        df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = "DE/LU"
+        df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+            "DE/LU"
+        )
 
         df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
@@ -127,7 +127,8 @@ def build_market_model(self):
         logger.warning(
             f"""
             Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo'].""")
+            is not available. Please use one of ['status_quo']."""
+        )
 
     logger.info("Start market zone specifc clustering")
 
@@ -171,6 +172,7 @@ def build_market_model(self):
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
+
 
 def build_shortterm_market_model(self):
     m = self.pre_market_model
@@ -235,4 +237,3 @@ def build_shortterm_market_model(self):
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
     self.geolocation_buses(apply_on="market_model")
-
