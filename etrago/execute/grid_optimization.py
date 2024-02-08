@@ -273,7 +273,7 @@ def add_redispatch_generators(self):
     # (disaggregated) generators in the market model
     self.network.generators_t.p_min_pu.loc[
         :, gens_redispatch + " ramp_down"
-    ] = (-(self.market_model.generators_t.p.loc[:, gens_redispatch])).values
+    ] = (-(self.market_model.generators_t.p.loc[:, gens_redispatch].clip(lower=0.))).values
 
     # Add ramp down links to the network for the grid optimization
     # Marginal cost are currently only the management fee of 4 EUR/MWh,
@@ -295,7 +295,7 @@ def add_redispatch_generators(self):
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) links in the market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch + " ramp_down"] = (
-        -(self.market_model.links_t.p0.loc[:, links_redispatch])
+        -(self.market_model.links_t.p0.loc[:, links_redispatch].clip(lower=0.))
     ).values
 
     # Check if the network contains any problems
