@@ -47,6 +47,7 @@ def market_optimization(self):
     logger.info("Start building pre market model")
     build_market_model(self)
     logger.info("Start solving pre market model")
+
     self.pre_market_model.lopf(
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
@@ -178,8 +179,7 @@ def build_market_model(self):
     """
 
     # use existing preprocessing to get only the electricity system
-
-    net, weight, n_clusters, busmap_foreign = preprocessing(self)
+    net, weight, n_clusters, busmap_foreign = preprocessing(self, apply_on="market_model")
 
     df = pd.DataFrame(
         {
@@ -212,6 +212,7 @@ def build_market_model(self):
         medoid_idx,
         aggregate_generators_carriers=[],
         aggregate_links=False,
+        apply_on="market_model",
     )
 
     self.update_busmap(busmap)
@@ -238,7 +239,7 @@ def build_market_model(self):
     )
     # net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
-    net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
+    net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     self.pre_market_model = net
 

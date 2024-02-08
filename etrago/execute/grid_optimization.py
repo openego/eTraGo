@@ -221,7 +221,8 @@ def add_redispatch_generators(self):
             self.network.generators_t.p_max_pu.loc[:, gens_redispatch].mul(
                 self.network.generators.loc[gens_redispatch, "p_nom"]
             )
-            - (self.market_model.generators_t.p.loc[:, gens_redispatch])
+            - (self.market_model.generators_t.p.loc[self.network.snapshots,
+                                                    gens_redispatch])
         )
         .clip(lower=0.0)
         .values
@@ -247,7 +248,7 @@ def add_redispatch_generators(self):
     self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_up"] = (
         (
             self.network.links.loc[links_redispatch, "p_nom"]
-            - (self.market_model.links_t.p0.loc[:, links_redispatch])
+            - (self.market_model.links_t.p0.loc[self.network.snapshots, links_redispatch])
         )
         .clip(lower=0.0)
         .values
@@ -275,7 +276,7 @@ def add_redispatch_generators(self):
         :, gens_redispatch + " ramp_down"
     ] = (
         -(
-            self.market_model.generators_t.p.loc[:, gens_redispatch].clip(
+            self.market_model.generators_t.p.loc[self.network.snapshots, gens_redispatch].clip(
                 lower=0.0
             )
         )
@@ -302,7 +303,7 @@ def add_redispatch_generators(self):
     # (disaggregated) links in the market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch + " ramp_down"] = (
         -(
-            self.market_model.links_t.p0.loc[:, links_redispatch].clip(
+            self.market_model.links_t.p0.loc[self.network.snapshots, links_redispatch].clip(
                 lower=0.0
             )
         )
