@@ -63,8 +63,8 @@ def market_optimization(self):
         self.market_model,
         self.pre_market_model,
         snapshots=None,
-        horizon=72,
-        overlap=48,
+        horizon=self.args["method"]["rolling_horizon"]["planning_horizon"],
+        overlap=self.args["method"]["rolling_horizon"]["overlap"],
         solver_name=self.args["solver"],
         extra_functionality=extra_functionality(),
     )

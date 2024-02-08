@@ -54,6 +54,10 @@ args = {
         "type": "market_grid",  # type of optimization, currently only 'lopf'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
+        "rolling_horizon": { # Define parameter of market optimization
+            "planning_horizon": 72, # number of snapshots in each optimization
+            "overlap": 24, # number of overlapping hours
+            },
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
