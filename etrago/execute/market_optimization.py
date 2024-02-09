@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
 
@@ -60,6 +61,10 @@ def market_optimization(self):
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
 
+    # Set 'linopy' as formulation to make sure that constraints are added
+    method_args = self.args["method"]["formulation"]
+    self.args["method"]["formulation"] = "linopy"
+
     optimize_with_rolling_horizon(
         self.market_model,
         self.pre_market_model,
@@ -67,9 +72,13 @@ def market_optimization(self):
         horizon=self.args["method"]["rolling_horizon"]["planning_horizon"],
         overlap=self.args["method"]["rolling_horizon"]["overlap"],
         solver_name=self.args["solver"],
-        extra_functionality=extra_functionality(),
+        extra_functionality=Constraints(
+            self.args, False
+        ).functionality,
     )
 
+    # Reset formulation to previous setting of args
+    self.args["method"]["formulation"]= method_args
     # quick and dirty csv export of market model results
     path = self.args["csv_export"]
     if not os.path.exists(path):
