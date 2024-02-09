@@ -310,6 +310,57 @@ def _min_renewable_share(self, network, snapshots):
 
     network.model.min_renewable_share = Constraint(rule=_rule)
 
+def _max_redispatch(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch.
+    Add key 'max_redispatc' and maximual amount of redispatch in MWh
+    to args.extra_functionality.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            network.generators.index.str.contains("ramp_up")]
+    )
+    ramp_up_links = list(
+        network.links.index[
+            network.links.index.str.contains("ramp_up")]
+    )
+
+    def _rule(m):
+        redispatch_gens = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up
+            for sn in snapshots
+        )
+        redispatch_links = sum(
+            m.links_p[gen, sn]
+            * network.links.loc[ramp_up_links, "efficiency"]
+            * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up_links
+            for sn in snapshots
+        )
+        return (
+            sum(redispatch_gens, redispatch_links)
+            <= self.args["extra_functionality"]["max_redispatch"]
+        )
+
+    if len(ramp_up) > 0 or len(ramp_up_links)>0:
+        network.model.max_redispatch = Constraint(rule=_rule)
+    else:
+        print("""Constraint max_redispatch was not added,
+              there are no redispatch generators or links.""")
 
 def _cross_border_flow(self, network, snapshots):
     """
