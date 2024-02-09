@@ -2839,7 +2839,7 @@ class Constraints:
                     len(network.snapshots) > 1500
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
-                add_chp_constraints_linopy
+                add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
                 if self.args["scn_name"] != "status2019":
