@@ -36,10 +36,9 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point
+    from etrago.tools.io import db
     import geopandas as gpd
-
-    from etrago.tools import db
+    from shapely.geometry import Point
 
 logger = logging.getLogger(__name__)
 
@@ -1095,9 +1094,9 @@ def group_parallel_lines(network):
     lines_2["bus0"] = bus_max
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
-    lines_2["geom"] = lines_2.apply(
-        lambda x: None if x.geom is None else x.geom.wkt, axis=1
-    )
+    # lines_2["geom"] = lines_2.apply(
+    #     lambda x: None if x.geom is None else x.geom.wkt, axis=1
+    # )
     network.lines = (
         lines_2.groupby(["bus0", "bus1"])
         .apply(agg_parallel_lines)

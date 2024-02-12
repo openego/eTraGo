@@ -12,4 +12,4 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, lukasol, wolfbunke, mariusves, s3pp"
 __version__ = "0.4"
 
-from etrago.tools.network import Etrago
+from etrago.network import Etrago

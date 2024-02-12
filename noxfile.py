@@ -4,18 +4,21 @@ from pprint import pformat
 import nox
 
 cleaned = [
-    "etrago/cluster/disaggregation.py",
+    "etrago/analyze/__init__.py",
+    "etrago/analyze/calc_results.py",
+    "etrago/analyze/plot.py",
     "etrago/cluster/electrical.py",
     "etrago/cluster/gas.py",
     "etrago/cluster/snapshot.py",
     "etrago/cluster/spatial.py",
+    "etrago/disaggregate/spatial.py",
+    "etrago/disaggregate/temporal.py",
     "etrago/execute/__init__.py",
     "etrago/execute/grid_optimization.py",
     "etrago/execute/market_optimization.py",
-    "etrago/tools/calc_results.py",
+    "etrago/network.py",
     "etrago/tools/extendable.py",
-    "etrago/tools/io.py",
-    "etrago/tools/network.py",
+    "etrago/tools/io/__init__.py",
     "etrago/tools/utilities.py",
     "noxfile.py",
     "setup.py",
@@ -59,7 +62,7 @@ def flake8(session):
     """Check for happy little style accidents with `flake8`."""
     setdefaults(session)
     session.install("Flake8-pyproject", "flake8")
-    session.run("flake8", "--ignore=E722, W605", *cleaned)
+    session.run("flake8", "--ignore=E722, W605, W503, E203", *cleaned)
 
 
 @nox.session(python=["3", "3.9", "3.10", "3.11"])

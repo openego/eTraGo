@@ -22,21 +22,20 @@
 spatially for applications within the tool eTraGo."""
 
 import os
+import logging
+
+from pypsa import Network
+from pypsa.clustering.spatial import (
+    aggregatebuses,
+    aggregateoneport,
+    busmap_by_kmeans,
+)
+from six import iteritems
+import numpy as np
+import pandas as pd
+import pypsa.io as io
 
 if "READTHEDOCS" not in os.environ:
-    import logging
-
-    from pypsa.clustering.spatial import (
-        aggregatebuses,
-        aggregateoneport,
-        busmap_by_kmeans,
-    )
-    from pypsa.components import Network
-    from six import iteritems
-    import numpy as np
-    import pandas as pd
-    import pypsa.io as io
-
     from etrago.cluster.spatial import (
         drop_nan_values,
         group_links,
@@ -514,12 +513,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 ]
                 if len(h2_idx) > 0:
                     h2_idx = h2_idx.index.tolist()[0]
-                    network_gasgrid_c.buses.loc[
-                        h2_idx, "x"
-                    ] = etrago.network.buses["x"].loc[medoid]
-                    network_gasgrid_c.buses.loc[
-                        h2_idx, "y"
-                    ] = etrago.network.buses["y"].loc[medoid]
+                    network_gasgrid_c.buses.loc[h2_idx, "x"] = (
+                        etrago.network.buses["x"].loc[medoid]
+                    )
+                    network_gasgrid_c.buses.loc[h2_idx, "y"] = (
+                        etrago.network.buses["y"].loc[medoid]
+                    )
 
                 network_gasgrid_c.buses.loc[i, "x"] = etrago.network.buses.loc[
                     medoid, "x"

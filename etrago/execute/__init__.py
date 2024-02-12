@@ -22,19 +22,18 @@
 execute.py defines optimization and simulation methods for the etrago object.
 """
 import os
+import logging
+import time
+
+from pypsa.linopf import network_lopf
+from pypsa.pf import sub_network_pf
+import numpy as np
+import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    import logging
-    import time
-
-    from pypsa.linopf import network_lopf
-    from pypsa.pf import sub_network_pf
-    import numpy as np
-    import pandas as pd
-
     from etrago.tools.constraints import Constraints
-
-    logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -278,9 +277,9 @@ def iterate_lopf(
         ]
         etrago.network_tsa.transformers.s_nom_extendable = False
 
-        etrago.network_tsa.storage_units[
-            "p_nom"
-        ] = etrago.network.storage_units["p_nom_opt"]
+        etrago.network_tsa.storage_units["p_nom"] = (
+            etrago.network.storage_units["p_nom_opt"]
+        )
         etrago.network_tsa.storage_units["p_nom_extendable"] = False
 
         etrago.network_tsa.stores["e_nom"] = etrago.network.stores["e_nom_opt"]
@@ -420,122 +419,6 @@ def optimize(self):
 
     else:
         print("Method not defined")
-
-
-def dispatch_disaggregation(self):
-    """
-    Function running the tempral disaggregation meaning the optimization
-    of dispatch in the temporally fully resolved network; therfore, the problem
-    is reduced to smaller subproblems by slicing the whole considered time span
-    while keeping inforation on the state of charge of storage units and stores
-    to ensure compatibility and to reproduce saisonality.
-
-    Returns
-    -------
-    None.
-
-    """
-
-    if self.args["temporal_disaggregation"]["active"]:
-        x = time.time()
-
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            # split dispatch_disaggregation into subproblems
-            # keep some information on soc in beginning and end of slices
-            # to ensure compatibility and to reproduce saisonality
-
-            # define number of slices and corresponding slice length
-            no_slices = self.args["temporal_disaggregation"]["no_slices"]
-            slice_len = int(len(self.network.snapshots) / no_slices)
-
-            # transition snapshots defining start and end of slices
-            transits = self.network.snapshots[0::slice_len]
-            if len(transits) > 1:
-                transits = transits[1:]
-            if transits[-1] != self.network.snapshots[-1]:
-                transits = transits.insert(
-                    (len(transits)), self.network.snapshots[-1]
-                )
-            # for stores, exclude emob and dsm because of their special
-            # constraints
-            sto = self.network.stores[
-                ~self.network.stores.carrier.isin(
-                    ["battery_storage", "battery storage", "dsm"]
-                )
-            ]
-
-            # save state of charge of storage units and stores at those
-            # transition snapshots
-            self.conduct_dispatch_disaggregation = pd.DataFrame(
-                columns=self.network.storage_units.index.append(sto.index),
-                index=transits,
-            )
-            for storage in self.network.storage_units.index:
-                self.conduct_dispatch_disaggregation[
-                    storage
-                ] = self.network.storage_units_t.state_of_charge[storage]
-            for store in sto.index:
-                self.conduct_dispatch_disaggregation[
-                    store
-                ] = self.network.stores_t.e[store]
-
-            extra_func = self.args["extra_functionality"]
-            self.args["extra_functionality"] = {}
-
-        load_shedding = self.args["load_shedding"]
-        if not load_shedding:
-            self.args["load_shedding"] = True
-            self.load_shedding(temporal_disaggregation=True)
-
-        iterate_lopf(
-            self,
-            Constraints(
-                self.args, self.conduct_dispatch_disaggregation
-            ).functionality,
-            method=self.args["method"],
-        )
-
-        # switch to temporally fully resolved network as standard network,
-        # temporally reduced network is stored in network_tsa
-        network1 = self.network.copy()
-        self.network = self.network_tsa.copy()
-        self.network_tsa = network1.copy()
-        network1 = 0
-
-        # keep original settings
-
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            self.args["extra_functionality"] = extra_func
-        self.args["load_shedding"] = load_shedding
-
-        self.network.lines["s_nom_extendable"] = self.network_tsa.lines[
-            "s_nom_extendable"
-        ]
-        self.network.links["p_nom_extendable"] = self.network_tsa.links[
-            "p_nom_extendable"
-        ]
-        self.network.transformers.s_nom_extendable = (
-            self.network_tsa.transformers.s_nom_extendable
-        )
-        self.network.storage_units[
-            "p_nom_extendable"
-        ] = self.network_tsa.storage_units["p_nom_extendable"]
-        self.network.stores["e_nom_extendable"] = self.network_tsa.stores[
-            "e_nom_extendable"
-        ]
-        self.network.storage_units.cyclic_state_of_charge = (
-            self.network_tsa.storage_units.cyclic_state_of_charge
-        )
-        self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
-
-        if not self.args["csv_export"]:
-            path = self.args["csv_export"]
-            self.export_to_csv(path)
-            self.export_to_csv(path + "/temporal_disaggregaton")
-
-        y = time.time()
-        z = (y - x) / 60
-        logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
 def import_gen_from_links(network, drop_small_capacities=True):
@@ -805,20 +688,6 @@ def pf_post_lopf(etrago, calc_losses=False):
             network
         )
 
-    # Assign generators control strategy
-    ac_bus = network.buses[network.buses.carrier == "AC"]
-    network.generators.control[
-        network.generators.bus.isin(ac_bus.index)
-    ] = "PV"
-    network.generators.control[
-        network.generators.carrier == "load shedding"
-    ] = "PQ"
-
-    # Assign storage units control strategy
-    network.storage_units.control[
-        network.storage_units.bus.isin(ac_bus.index)
-    ] = "PV"
-
     # Find out the name of the main subnetwork
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
 
@@ -1049,9 +918,7 @@ def calc_line_losses(network, converged):
     """
     # Line losses
     # calculate apparent power S = sqrt(p² + q²) [in MW]
-    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(
-        np.sqrt
-    )
+    s0_lines = (network.lines_t.p0**2 + network.lines_t.q0**2).apply(np.sqrt)
     # in case some snapshots did not converge, discard them from the
     # calculation
     s0_lines.loc[converged[converged is False].index, :] = np.nan
@@ -1061,9 +928,7 @@ def calc_line_losses(network, converged):
     )
     # calculate losses per line and timestep network.\
     # lines_t.line_losses = I² * R [in MW]
-    network.lines_t.losses = np.divide(
-        i0_lines**2 * network.lines.r, 1000000
-    )
+    network.lines_t.losses = np.divide(i0_lines**2 * network.lines.r, 1000000)
     # calculate total losses per line [in MW]
     network.lines = network.lines.assign(
         losses=np.sum(network.lines_t.losses).values
