@@ -48,6 +48,7 @@ def market_optimization(self):
     logger.info("Start building pre market model")
     build_market_model(self)
     logger.info("Start solving pre market model")
+
     self.pre_market_model.lopf(
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
@@ -60,12 +61,22 @@ def market_optimization(self):
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
 
-    self.market_model.optimize.optimize_with_rolling_horizon(
+    # Set 'linopy' as formulation to make sure that constraints are added
+    method_args = self.args["method"]["formulation"]
+    self.args["method"]["formulation"] = "linopy"
+
+    optimize_with_rolling_horizon(
+        self.market_model,
+        self.pre_market_model,
         snapshots=None,
-        horizon=168,
-        overlap=144,
+        horizon=self.args["method"]["rolling_horizon"]["planning_horizon"],
+        overlap=self.args["method"]["rolling_horizon"]["overlap"],
         solver_name=self.args["solver"],
+        extra_functionality=Constraints(self.args, False).functionality,
     )
+
+    # Reset formulation to previous setting of args
+    self.args["method"]["formulation"] = method_args
 
     # Export results of market model
     if self.args["csv_export"]:
@@ -73,6 +84,95 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.market_model.export_to_csv_folder(path + "/market")
+
+
+def optimize_with_rolling_horizon(
+    n, pre_market, snapshots=None, horizon=2, overlap=0, **kwargs
+):
+    """
+    Optimizes the network in a rolling horizon fashion.
+
+    Parameters
+    ----------
+    n : pypsa.Network
+    snapshots : list-like
+        Set of snapshots to consider in the optimization. The default is None.
+    horizon : int
+        Number of snapshots to consider in each iteration. Defaults to 100.
+    overlap : int
+        Number of snapshots to overlap between two iterations. Defaults to 0.
+    **kwargs:
+        Keyword argument used by `linopy.Model.solve`, such as `solver_name`,
+
+    Returns
+    -------
+    None
+    """
+    if snapshots is None:
+        snapshots = n.snapshots
+
+    if horizon <= overlap:
+        raise ValueError("overlap must be smaller than horizon")
+
+    starting_points = range(0, len(snapshots), horizon - overlap)
+    for i, start in enumerate(starting_points):
+        end = min(len(snapshots), start + horizon)
+        sns = snapshots[start:end]
+        logger.info(
+            f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
+        )
+
+        if i:
+            if not n.stores.empty:
+                n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
+
+                # Select seasonal stores
+                seasonal_stores = n.stores.index[
+                    n.stores.carrier.isin(
+                        ["central_heat_store", "H2_overground", "CH4"]
+                    )
+                ]
+
+                # Set e_initial from pre_market model for seasonal stores
+                n.stores.e_initial[seasonal_stores] = (
+                    pre_market.stores_t.e.loc[
+                        snapshots[start - 1], seasonal_stores
+                    ]
+                )
+
+                # Set e at the end of the horizon
+                # by setting e_max_pu and e_min_pu
+                n.stores_t.e_max_pu.loc[
+                    snapshots[end - 1], seasonal_stores
+                ] = pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(
+                    pre_market.stores.e_nom_opt[seasonal_stores]
+                )
+                n.stores_t.e_min_pu.loc[
+                    snapshots[end - 1], seasonal_stores
+                ] = pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(
+                    pre_market.stores.e_nom_opt[seasonal_stores]
+                )
+                n.stores_t.e_min_pu.fillna(0.0, inplace=True)
+                n.stores_t.e_max_pu.fillna(1.0, inplace=True)
+
+            if not n.storage_units.empty:
+                n.storage_units.state_of_charge_initial = (
+                    n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
+                )
+
+        status, condition = n.optimize(sns, **kwargs)
+
+        if status != "ok":
+            logger.warning(
+                f"""Optimization failed with status {status}
+                and condition {condition}"""
+            )
+    return n
 
 
 def build_market_model(self):
@@ -91,8 +191,9 @@ def build_market_model(self):
     """
 
     # use existing preprocessing to get only the electricity system
-
-    net, weight, n_clusters, busmap_foreign = preprocessing(self)
+    net, weight, n_clusters, busmap_foreign = preprocessing(
+        self, apply_on="market_model"
+    )
 
     # Define market regions based on settings.
     # Currently the only option is 'status_quo' which means that the current
@@ -139,6 +240,7 @@ def build_market_model(self):
         medoid_idx,
         aggregate_generators_carriers=[],
         aggregate_links=False,
+        apply_on="market_model",
     )
 
     self.update_busmap(busmap)
@@ -165,7 +267,7 @@ def build_market_model(self):
     )
     # net.buses.loc[net.buses.carrier == 'AC', 'carrier'] = "DC"
 
-    net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
+    net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     self.pre_market_model = net
 
