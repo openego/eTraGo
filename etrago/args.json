@@ -5,7 +5,7 @@
         "type": "lopf",
         "n_iter": 4,
         "pyomo": true,
-        "market_zones": "market_grid"
+        "market_zones": "status_quo"
     },
     "pf_post_lopf": {
         "active": false,
