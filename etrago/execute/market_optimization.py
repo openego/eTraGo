@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def market_optimization(self):
         solver_name=self.args["solver"],
         solver_options=self.args["solver_options"],
         pyomo=True,
-        extra_functionality=extra_functionality(),
+        extra_functionality=Constraints(self.args, False).functionality,
         formulation=self.args["model_formulation"],
     )
 
@@ -66,11 +67,12 @@ def market_optimization(self):
         solver_name=self.args["solver"],
     )
 
-    # quick and dirty csv export of market model results
-    path = self.args["csv_export"]
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-    self.market_model.export_to_csv_folder(path + "/market")
+    # Export results of market model
+    if self.args["csv_export"]:
+        path = self.args["csv_export"]
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+        self.market_model.export_to_csv_folder(path + "/market")
 
 
 def build_market_model(self):
@@ -92,27 +94,41 @@ def build_market_model(self):
 
     net, weight, n_clusters, busmap_foreign = preprocessing(self)
 
-    df = pd.DataFrame(
-        {
-            "country": net.buses.country.unique(),
-            "marketzone": net.buses.country.unique(),
-        },
-        columns=["country", "marketzone"],
-    )
+    # Define market regions based on settings.
+    # Currently the only option is 'status_quo' which means that the current
+    # regions are used. When other market zone options are introduced, they
+    # can be assinged here.
+    if self.args["method"]["market_zones"] == "status_quo":
+        df = pd.DataFrame(
+            {
+                "country": net.buses.country.unique(),
+                "marketzone": net.buses.country.unique(),
+            },
+            columns=["country", "marketzone"],
+        )
 
-    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = "DE/LU"
+        df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+            "DE/LU"
+        )
 
-    df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
+        df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
-    for i in net.buses.country.unique():
-        net.buses.loc[net.buses.country == i, "cluster"] = df.loc[
-            df.country == i, "cluster"
-        ].values[0]
+        for i in net.buses.country.unique():
+            net.buses.loc[net.buses.country == i, "cluster"] = df.loc[
+                df.country == i, "cluster"
+            ].values[0]
 
-    busmap = pd.Series(
-        net.buses.cluster.astype(int).astype(str), net.buses.index
-    )
-    medoid_idx = pd.Series(dtype=str)
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+
+    else:
+        logger.warning(
+            f"""
+            Market zone setting {self.args['method']['market_zones']}
+            is not available. Please use one of ['status_quo']."""
+        )
 
     logger.info("Start market zone specifc clustering")
 
@@ -152,6 +168,10 @@ def build_market_model(self):
     net.generators_t.p_max_pu = self.network.generators_t.p_max_pu
 
     self.pre_market_model = net
+
+    # Set country tags for market model
+    self.buses_by_country(apply_on="pre_market_model")
+    self.geolocation_buses(apply_on="pre_market_model")
 
 
 def build_shortterm_market_model(self):
@@ -214,14 +234,6 @@ def build_shortterm_market_model(self):
 
     self.market_model = m
 
-
-def extra_functionality():
-    """Placeholder for extra functionalities within market optimization
-
-    Returns
-    -------
-    None.
-
-    """
-
-    return None
+    # Set country tags for market model
+    self.buses_by_country(apply_on="market_model")
+    self.geolocation_buses(apply_on="market_model")

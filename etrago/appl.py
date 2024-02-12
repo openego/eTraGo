@@ -51,9 +51,10 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, currently only 'lopf'
+        "type": "market_grid",  # type of optimization, 'lopf' or 'market_grid'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
+        "market_zones": "status_quo", # only used if type='market_grid'
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
