@@ -169,7 +169,7 @@ def optimize_with_rolling_horizon(
 
         if status != "ok":
             logger.warning(
-                f"""Optimization failed with status {status} 
+                f"""Optimization failed with status {status}
                 and condition {condition}"""
             )
     return n
