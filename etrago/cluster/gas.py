@@ -514,12 +514,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 ]
                 if len(h2_idx) > 0:
                     h2_idx = h2_idx.index.tolist()[0]
-                    network_gasgrid_c.buses.loc[
-                        h2_idx, "x"
-                    ] = etrago.network.buses["x"].loc[medoid]
-                    network_gasgrid_c.buses.loc[
-                        h2_idx, "y"
-                    ] = etrago.network.buses["y"].loc[medoid]
+                    network_gasgrid_c.buses.loc[h2_idx, "x"] = (
+                        etrago.network.buses["x"].loc[medoid]
+                    )
+                    network_gasgrid_c.buses.loc[h2_idx, "y"] = (
+                        etrago.network.buses["y"].loc[medoid]
+                    )
 
                 network_gasgrid_c.buses.loc[i, "x"] = etrago.network.buses.loc[
                     medoid, "x"

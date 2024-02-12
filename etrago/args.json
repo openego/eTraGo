@@ -4,7 +4,8 @@
     "method": {
         "type": "lopf",
         "n_iter": 4,
-        "pyomo": true
+        "pyomo": true,
+        "market_zones": "status_quo"
     },
     "pf_post_lopf": {
         "active": false,
