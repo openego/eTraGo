@@ -119,7 +119,8 @@ def optimize_with_rolling_horizon(
         end = min(len(snapshots), start + horizon)
         sns = snapshots[start:end]
         logger.info(
-            f"Optimizing network for snapshot horizon [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."
+            f"""Optimizing network for snapshot horizon
+            [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
         )
 
         if i:
@@ -140,7 +141,8 @@ def optimize_with_rolling_horizon(
                     ]
                 )
 
-                # Set e at the end of the horizon by setting e_max_pu and e_min_pu
+                # Set e at the end of the horizon
+                # by setting e_max_pu and e_min_pu
                 n.stores_t.e_max_pu.loc[
                     snapshots[end - 1], seasonal_stores
                 ] = pre_market.stores_t.e.loc[
@@ -167,7 +169,8 @@ def optimize_with_rolling_horizon(
 
         if status != "ok":
             logger.warning(
-                f"Optimization failed with status {status} and condition {condition}"
+                f"""Optimization failed with status {status} 
+                and condition {condition}"""
             )
     return n
 
