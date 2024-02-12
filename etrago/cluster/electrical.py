@@ -95,7 +95,9 @@ def _leading(busmap, df):
     return leader
 
 
-def adjust_no_electric_network(etrago, busmap, cluster_met, apply_on="grid_model"):
+def adjust_no_electric_network(
+    etrago, busmap, cluster_met, apply_on="grid_model"
+):
     """
     Adjusts the non-electric network based on the electrical network
     (esp. eHV network), adds the gas buses to the busmap, and creates the
@@ -139,7 +141,7 @@ def adjust_no_electric_network(etrago, busmap, cluster_met, apply_on="grid_model
 
         return new_ehv_bus
 
-    if apply_on=="grid_model":
+    if apply_on == "grid_model":
         network = etrago.network.copy()
     elif apply_on == "market_model":
         network = etrago.network_tsa.copy()
@@ -484,10 +486,10 @@ def select_elec_network(etrago, apply_on="grid_model"):
         n_clusters : int
             number of clusters used in the clustering process.
     """
-    if apply_on=="grid_model":
+    if apply_on == "grid_model":
         elec_network = etrago.network.copy()
-    elif apply_on=="market_model":
-        elec_network=etrago.network_tsa.copy()
+    elif apply_on == "market_model":
+        elec_network = etrago.network_tsa.copy()
     else:
         logger.warning(
             """Parameter apply_on must be either 'grid_model' or 'market_model'
@@ -803,7 +805,7 @@ def postprocessing(
     medoid_idx=None,
     aggregate_generators_carriers=None,
     aggregate_links=True,
-    apply_on="grid_model"
+    apply_on="grid_model",
 ):
     """
     Postprocessing function for network clustering.

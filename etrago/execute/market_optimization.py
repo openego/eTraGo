@@ -72,13 +72,11 @@ def market_optimization(self):
         horizon=self.args["method"]["rolling_horizon"]["planning_horizon"],
         overlap=self.args["method"]["rolling_horizon"]["overlap"],
         solver_name=self.args["solver"],
-        extra_functionality=Constraints(
-            self.args, False
-        ).functionality,
+        extra_functionality=Constraints(self.args, False).functionality,
     )
 
     # Reset formulation to previous setting of args
-    self.args["method"]["formulation"]= method_args
+    self.args["method"]["formulation"] = method_args
 
     # Export results of market model
     if self.args["csv_export"]:
@@ -190,7 +188,9 @@ def build_market_model(self):
     """
 
     # use existing preprocessing to get only the electricity system
-    net, weight, n_clusters, busmap_foreign = preprocessing(self, apply_on="market_model")
+    net, weight, n_clusters, busmap_foreign = preprocessing(
+        self, apply_on="market_model"
+    )
 
     # Define market regions based on settings.
     # Currently the only option is 'status_quo' which means that the current
