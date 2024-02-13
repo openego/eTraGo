@@ -368,35 +368,40 @@ def post_contingency_analysis_per_line(
     from_AC = n.buses.carrier[n.links.bus0] == "AC"
     to_AC = n.buses.carrier[n.links.bus1] == "AC"
 
-    links_from_ac = n.links[(from_AC.values)&(n.links.carrier!="DC")]
-    links_to_ac = n.links[(to_AC.values)&(n.links.carrier!="DC")]
+    links_from_ac = n.links[(from_AC.values) & (n.links.carrier != "DC")]
+    links_to_ac = n.links[(to_AC.values) & (n.links.carrier != "DC")]
 
-    links_from_ac.drop(links_from_ac[links_from_ac.index.isin(links_to_ac.index)].index, inplace=True)
-    ts_from =  n.links_t.p0[links_from_ac.index]
-    ts_from.columns = "link_from_" +ts_from.columns
+    links_from_ac.drop(
+        links_from_ac[links_from_ac.index.isin(links_to_ac.index)].index,
+        inplace=True,
+    )
+    ts_from = n.links_t.p0[links_from_ac.index]
+    ts_from.columns = "link_from_" + ts_from.columns
 
-    ts_to =  n.links_t.p1[links_to_ac.index]
-    ts_to.columns = "link_to_" +ts_to.columns
-
-    n.madd(
-        "Load",
-        "link_from_"+links_from_ac.index.values,
-        bus = links_from_ac.bus0.values,
-        p_set =  ts_from
-        )
+    ts_to = n.links_t.p1[links_to_ac.index]
+    ts_to.columns = "link_to_" + ts_to.columns
 
     n.madd(
         "Load",
-        "link_to_"+links_to_ac.index.values,
-        bus = links_to_ac.bus0.values,
-        p_set =  ts_to
-        )
+        "link_from_" + links_from_ac.index.values,
+        bus=links_from_ac.bus0.values,
+        p_set=ts_from,
+    )
+
+    n.madd(
+        "Load",
+        "link_to_" + links_to_ac.index.values,
+        bus=links_to_ac.bus0.values,
+        p_set=ts_to,
+    )
 
     buses_to_drop = (
         links_from_ac.bus1.values.tolist()
         + links_to_ac.bus0.values.tolist()
-        + n.buses[n.buses.carrier.str.contains(
-            "heat_store")].index.values.tolist())
+        + n.buses[
+            n.buses.carrier.str.contains("heat_store")
+        ].index.values.tolist()
+    )
 
     for one_port in n.iterate_components(
         ["Load", "Generator", "Store", "StorageUnit"]
@@ -409,22 +414,15 @@ def post_contingency_analysis_per_line(
     for two_port in n.iterate_components(["Link", "Transformer"]):
         n.mremove(
             two_port.name,
-            two_port.df[
-                two_port.df.bus0.isin(buses_to_drop)
-            ].index,
+            two_port.df[two_port.df.bus0.isin(buses_to_drop)].index,
         )
 
         n.mremove(
             two_port.name,
-            two_port.df[
-                two_port.df.bus1.isin(buses_to_drop)
-            ].index,
+            two_port.df[two_port.df.bus1.isin(buses_to_drop)].index,
         )
 
-    n.mremove(
-        "Bus",
-        buses_to_drop
-        )
+    n.mremove("Bus", buses_to_drop)
 
     n.lines.s_nom = n.lines.s_nom_opt.copy()
 
@@ -916,7 +914,9 @@ def iterate_sclopf(
     # Calculate security constraints
     nb = 0
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
-    branch_outages = network.lines[network.lines.sub_network==main_subnet].index
+    branch_outages = network.lines[
+        network.lines.sub_network == main_subnet
+    ].index
 
     new = post_contingency_analysis_per_line(
         network, branch_outages, n_process=n_process, delta=delta
