@@ -311,7 +311,7 @@ def network_lpf_contingency_subnetwork(
         num_passive_branch x num_branch_outages DataFrame of new power flows
 
     """
-    print("464" in branch_outages)
+
     main_subnet = str(network.buses.sub_network.value_counts().argmax())
     sn = network.sub_networks.obj[main_subnet]
     sub_network_lpf(sn, snapshot)
@@ -448,8 +448,6 @@ def post_contingency_analysis_per_line(
             if not len(combinations[0]) == 0:
                 d[sn] = combinations
 
-    print("464" in branch_outages)
-    print("464" in n.lines.index)
     processes = [
         mp.Process(target=multi_con, args=(n, snapshots_set[i], d))
         for i in snapshots_set
