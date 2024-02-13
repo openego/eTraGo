@@ -781,7 +781,6 @@ def iterate_sclopf(
     network = etrago.network.copy()
 
     network = split_parallel_lines(network)
-    branch_outages = network.lines[network.lines.country == "DE"].index
     network.lines.s_max_pu = pd.Series(index=network.lines.index, data=1.0)
 
     args = etrago.args
@@ -856,6 +855,9 @@ def iterate_sclopf(
             network_lopf_prepare_solver(network, solver_name="gurobi")
     # Calculate security constraints
     nb = 0
+    main_subnet = str(network.buses.sub_network.value_counts().argmax())
+    branch_outages = network.lines[network.lines.sub_network==main_subnet].index
+
     new = post_contingency_analysis_per_line(
         network, branch_outages, n_process=n_process, delta=delta
     )
