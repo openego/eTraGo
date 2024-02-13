@@ -364,6 +364,68 @@ def post_contingency_analysis_per_line(
     n = network.copy()
     # main_subnet = str(network.buses.sub_network.value_counts().argmax())
 
+    # Import other sectors into main subnetwork
+    from_AC = n.buses.carrier[n.links.bus0] == "AC"
+    to_AC = n.buses.carrier[n.links.bus1] == "AC"
+
+    links_from_ac = n.links[(from_AC.values)&(n.links.carrier!="DC")]
+    links_to_ac = n.links[(to_AC.values)&(n.links.carrier!="DC")]
+
+    links_from_ac.drop(links_from_ac[links_from_ac.index.isin(links_to_ac.index)].index, inplace=True)
+    ts_from =  n.links_t.p0[links_from_ac.index]
+    ts_from.columns = "link_from_" +ts_from.columns
+
+    ts_to =  n.links_t.p1[links_to_ac.index]
+    ts_to.columns = "link_to_" +ts_to.columns
+
+    n.madd(
+        "Load",
+        "link_from_"+links_from_ac.index.values,
+        bus = links_from_ac.bus0.values,
+        p_set =  ts_from
+        )
+
+    n.madd(
+        "Load",
+        "link_to_"+links_to_ac.index.values,
+        bus = links_to_ac.bus0.values,
+        p_set =  ts_to
+        )
+
+    buses_to_drop = (
+        links_from_ac.bus1.values.tolist()
+        + links_to_ac.bus0.values.tolist()
+        + n.buses[n.buses.carrier.str.contains(
+            "heat_store")].index.values.tolist())
+
+    for one_port in n.iterate_components(
+        ["Load", "Generator", "Store", "StorageUnit"]
+    ):
+        n.mremove(
+            one_port.name,
+            one_port.df[one_port.df.bus.isin(buses_to_drop)].index,
+        )
+
+    for two_port in n.iterate_components(["Link", "Transformer"]):
+        n.mremove(
+            two_port.name,
+            two_port.df[
+                two_port.df.bus0.isin(buses_to_drop)
+            ].index,
+        )
+
+        n.mremove(
+            two_port.name,
+            two_port.df[
+                two_port.df.bus1.isin(buses_to_drop)
+            ].index,
+        )
+
+    n.mremove(
+        "Bus",
+        buses_to_drop
+        )
+
     n.lines.s_nom = n.lines.s_nom_opt.copy()
 
     b_x = 1.0 / n.lines.x_pu
