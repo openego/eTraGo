@@ -222,12 +222,20 @@ def add_redispatch_generators(self):
     # Set maximum feed-in limit for ramp up generators based on feed-in of
     # (disaggregated) generators from the market optimization and potential
     # feedin time series
+    p_max_pu_all = self.network.get_switchable_as_dense(
+        "Generator", "p_max_pu"
+    )
+
     self.network.generators_t.p_max_pu.loc[:, gens_redispatch + " ramp_up"] = (
         (
-            self.network.generators_t.p_max_pu.loc[:, gens_redispatch].mul(
+            p_max_pu_all.loc[:, gens_redispatch].mul(
                 self.network.generators.loc[gens_redispatch, "p_nom"]
             )
-            - (self.market_model.generators_t.p.loc[:, gens_redispatch])
+            - (
+                self.market_model.generators_t.p.loc[
+                    self.network.snapshots, gens_redispatch
+                ]
+            )
         )
         .clip(lower=0.0)
         .values
@@ -253,7 +261,11 @@ def add_redispatch_generators(self):
     self.network.links_t.p_max_pu.loc[:, links_redispatch + " ramp_up"] = (
         (
             self.network.links.loc[links_redispatch, "p_nom"]
-            - (self.market_model.links_t.p0.loc[:, links_redispatch])
+            - (
+                self.market_model.links_t.p0.loc[
+                    self.network.snapshots, links_redispatch
+                ]
+            )
         )
         .clip(lower=0.0)
         .values
@@ -279,7 +291,13 @@ def add_redispatch_generators(self):
     # (disaggregated) generators in the market model
     self.network.generators_t.p_min_pu.loc[
         :, gens_redispatch + " ramp_down"
-    ] = (-(self.market_model.generators_t.p.loc[:, gens_redispatch])).values
+    ] = (
+        -(
+            self.market_model.generators_t.p.loc[
+                self.network.snapshots, gens_redispatch
+            ].clip(lower=0.0)
+        )
+    ).values
 
     # Add ramp down links to the network for the grid optimization
     # Marginal cost are currently only the management fee of 4 EUR/MWh,
@@ -301,7 +319,11 @@ def add_redispatch_generators(self):
     # Ramp down can be at maximum as high as the feed-in of the
     # (disaggregated) links in the market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch + " ramp_down"] = (
-        -(self.market_model.links_t.p0.loc[:, links_redispatch])
+        -(
+            self.market_model.links_t.p0.loc[
+                self.network.snapshots, links_redispatch
+            ].clip(lower=0.0)
+        )
     ).values
 
     # Check if the network contains any problems
@@ -313,14 +335,6 @@ def add_redispatch_generators(self):
     #     self.network.buses[
     #         self.network.buses.index.isin(['47085', '47086', '37865', '37870'
     #                                        ])].index, inplace=True)
-
-    # TEMPORAL
-    self.network.generators.loc[
-        self.network.generators.index.str.contains("run_of_river"), "p_max_pu"
-    ] = 0.65
-    self.network.generators.loc[
-        self.network.generators.index.str.contains("reservoir"), "p_max_pu"
-    ] = 0.65
 
 
 def extra_functionality():

@@ -220,6 +220,11 @@ class Etrago:
                     ignore_standard_types,
                 )
 
+            if self.args["method"]["type"] == "market_grid":
+                self.market_model = Network(
+                    csv_folder_name + "/market", name, ignore_standard_types
+                )
+
             self.get_clustering_data(csv_folder_name)
 
         else:
