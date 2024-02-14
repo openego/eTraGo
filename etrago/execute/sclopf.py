@@ -912,7 +912,9 @@ def iterate_sclopf(
             network_lopf_build_model(network, formulation="kirchhoff")
 
             # Add extra_functionalities depending on args
-            Constraints(etrago.args, False).functionality(etrago.network, etrago.network.snapshots)
+            Constraints(etrago.args, False).functionality(
+                etrago.network, etrago.network.snapshots
+            )
 
             network_lopf_prepare_solver(network, solver_name="gurobi")
     # Calculate security constraints
