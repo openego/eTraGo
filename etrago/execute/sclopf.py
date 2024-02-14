@@ -48,6 +48,8 @@ from etrago.execute import (
     update_electrical_parameters,
 )
 
+from etrago.tools.constraints import Constraints
+
 
 logger = logging.getLogger(__name__)
 
@@ -558,7 +560,7 @@ def iterate_lopf_calc(network, args, l_snom_pre, t_snom_pre):
         logger.error("Currently only implemented for kirchhoff-formulation.")
     y = time.time()
     logger.info("Flow constraints updated in [min] " + str((y - x) / 60))
-    network = network_lopf_solve(
+    network_lopf_solve(
         network,
         network.snapshots,
         formulation=args["model_formulation"],
@@ -829,14 +831,13 @@ def plot_sc_lines(out, mon, network):
 
 def iterate_sclopf(
     etrago,
-    extra_functionality=None,
     n_process=4,
     delta=0.01,
     n_overload=0,
     post_lopf=False,
     div_ext_lines=False,
 ):
-    network = etrago.network.copy()
+    network = etrago.network
 
     network = split_parallel_lines(network)
     network.lines.s_max_pu = pd.Series(index=network.lines.index, data=1.0)
@@ -887,7 +888,7 @@ def iterate_sclopf(
             network.snapshots,
             solver_name=args["solver"],
             solver_options=solver_options_lopf,
-            extra_functionality=extra_functionality,
+            extra_functionality=Constraints(etrago.args, False).functionality,
             formulation=args["model_formulation"],
             pyomo=True,
         )
@@ -909,6 +910,9 @@ def iterate_sclopf(
             #  branch_outages=network.lines[network.lines.country == "DE"].index
 
             network_lopf_build_model(network, formulation="kirchhoff")
+
+            # Add extra_functionalities depending on args
+            Constraints(etrago.args, False).functionality(etrago.network, etrago.network.snapshots)
 
             network_lopf_prepare_solver(network, solver_name="gurobi")
     # Calculate security constraints
