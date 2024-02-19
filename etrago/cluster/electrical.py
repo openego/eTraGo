@@ -468,7 +468,7 @@ def ehv_clustering(self):
         logger.info("Network clustered to EHV-grid")
 
 
-def select_elec_network(etrago, include_foreign, apply_on="grid_model"):
+def select_elec_network(etrago, apply_on="grid_model"):
     """
     Selects the electric network based on the clustering settings specified
     in the Etrago object.
@@ -477,9 +477,12 @@ def select_elec_network(etrago, include_foreign, apply_on="grid_model"):
     ----------
     etrago : Etrago
         An instance of the Etrago class
-    include_foreign: bool
-        define if the returned electrical network will include (True) foreign
-        buses or not (False).
+    apply_on: str
+        gives information about the objective of the output network. If
+        "spatial_clustering" is provided, the value assigned in the args for
+        ["network_clustering"]["cluster_foreign_AC""] will define if the
+        foreign buses will be included in the network. if "market_model" is
+        provided, foreign buses will be always included.
 
     Returns
     -------
@@ -499,6 +502,12 @@ def select_elec_network(etrago, include_foreign, apply_on="grid_model"):
             """
         )
     settings = etrago.args["network_clustering"]
+
+    if apply_on == "grid_model":
+        include_foreign = settings["cluster_foreign_AC"]
+    elif apply_on == "market_model":
+        include_foreign = True
+
     if include_foreign:
         elec_network.buses = elec_network.buses[
             elec_network.buses.carrier == "AC"
@@ -648,9 +657,7 @@ def unify_foreign_buses(etrago):
     return busmap_foreign
 
 
-def preprocessing(
-    etrago, used_for="spatial_clustering", apply_on="grid_model"
-):
+def preprocessing(etrago, apply_on="grid_model"):
     """
     Preprocesses an Etrago object to prepare it for network clustering.
 
@@ -658,10 +665,9 @@ def preprocessing(
     ----------
     etrago : Etrago
         An instance of the Etrago class
-    used_for : string
+    apply_on : string
         provide information about the objective of the preprocessing. Which
-        process is going to use the result. e.g. "spatial_clustering",
-        "market_model".
+        process is going to use the result. e.g. "grid_model", "market_model".
 
     Returns
     -------
@@ -773,18 +779,7 @@ def preprocessing(
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    if used_for == "spatial_clustering":
-        include_foreign = settings["cluster_foreign_AC"]
-    elif used_for == "market_model":
-        include_foreign = True
-    else:
-        raise ValueError(
-            f"{used_for} is not a valid value for the used_for parameter"
-        )
-
-    network_elec, n_clusters = select_elec_network(
-        etrago, include_foreign, apply_on=apply_on
-    )
+    network_elec, n_clusters = select_elec_network(etrago, apply_on=apply_on)
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
