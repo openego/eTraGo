@@ -648,7 +648,9 @@ def unify_foreign_buses(etrago):
     return busmap_foreign
 
 
-def preprocessing(etrago, used_for="spatial_clustering", apply_on="grid_model"):
+def preprocessing(
+    etrago, used_for="spatial_clustering", apply_on="grid_model"
+):
     """
     Preprocesses an Etrago object to prepare it for network clustering.
 
@@ -780,7 +782,9 @@ def preprocessing(etrago, used_for="spatial_clustering", apply_on="grid_model"):
             f"{used_for} is not a valid value for the used_for parameter"
         )
 
-    network_elec, n_clusters = select_elec_network(etrago, include_foreign, apply_on=apply_on)
+    network_elec, n_clusters = select_elec_network(
+        etrago, include_foreign, apply_on=apply_on
+    )
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
