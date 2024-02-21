@@ -2831,12 +2831,12 @@ class Constraints:
             if self.args["method"]["formulation"] == "pyomo":
                 add_chp_constraints(network, snapshots)
                 if (self.args["scn_name"] != "status2019") & (
-                    len(network.snapshots) > 1500
+                    len(snapshots) > 1500
                 ):
                     add_ch4_constraints(self, network, snapshots)
             elif self.args["method"]["formulation"] == "linopy":
                 if (self.args["scn_name"] != "status2019") & (
-                    len(network.snapshots) > 1500
+                    len(snapshots) > 1500
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
                 add_chp_constraints_linopy(network, snapshots)
