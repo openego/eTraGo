@@ -310,10 +310,11 @@ def _min_renewable_share(self, network, snapshots):
 
     network.model.min_renewable_share = Constraint(rule=_rule)
 
+
 def _max_redispatch(self, network, snapshots):
     """
     Extra-functionality that limits the maximum usage of redispatch.
-    Add key 'max_redispatc' and maximual amount of redispatch in MWh
+    Add key 'max_redispatch' and maximual amount of redispatch in MWh
     to args.extra_functionality.
 
     Parameters
