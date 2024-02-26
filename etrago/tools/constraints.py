@@ -332,11 +332,11 @@ def _max_redispatch(self, network, snapshots):
 
     ramp_up = list(
         network.generators.index[
-            network.generators.index.str.contains("ramp_up")]
+            network.generators.index.str.contains("ramp_up")
+        ]
     )
     ramp_up_links = list(
-        network.links.index[
-            network.links.index.str.contains("ramp_up")]
+        network.links.index[network.links.index.str.contains("ramp_up")]
     )
 
     def _rule(m):
@@ -1379,6 +1379,7 @@ def read_max_gas_generation(self):
 
     return arg
 
+
 def add_ch4_constraints_linopy(self, network, snapshots):
     """
     Add CH4 constraints for optimization with linopy
@@ -1406,7 +1407,7 @@ def add_ch4_constraints_linopy(self, network, snapshots):
     # Add constraint for Germany
     arg = read_max_gas_generation(self)
     gas_carrier = arg.keys()
-    
+
     carrier_names = {
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
@@ -1424,15 +1425,18 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         if not gens.empty:
             factor = arg[c]
             generation = (
-                        get_var(network, "Generator", "p")
-                        .loc[snapshots, gens] * 
-                        network.snapshot_weightings.generators
-                    )
-            define_constraints(
-                network, generation, "<=", factor * (n_snapshots / 8760),
-                "Genertor", "max_flh_DE_" + c
+                get_var(network, "Generator", "p").loc[snapshots, gens]
+                * network.snapshot_weightings.generators
             )
-            
+            define_constraints(
+                network,
+                generation,
+                "<=",
+                factor * (n_snapshots / 8760),
+                "Genertor",
+                "max_flh_DE_" + c,
+            )
+
     # Add contraints for neigbouring countries
     gen_abroad = network.generators[
         (network.generators.carrier == "CH4")
@@ -1447,16 +1451,19 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         factor = network.generators.e_nom_max[g]
 
         generation = (
-                    get_var(network, "Generator", "p")
-                    .loc[snapshots, g] * 
-                    network.snapshot_weightings.generators
-                )
+            get_var(network, "Generator", "p").loc[snapshots, g]
+            * network.snapshot_weightings.generators
+        )
         define_constraints(
-            network, generation, "<=", factor * (n_snapshots / 8760),
-            "Genertor", "max_flh_abroad_" + str(g).replace(" ", "_")
+            network,
+            generation,
+            "<=",
+            factor * (n_snapshots / 8760),
+            "Genertor",
+            "max_flh_abroad_" + str(g).replace(" ", "_"),
         )
 
-      
+
 def add_ch4_constraints(self, network, snapshots):
     """
     Add CH4 constraints for optimization with pyomo
@@ -2912,7 +2919,9 @@ class Constraints:
                     )
             elif self.args["method"]["formulation"] == "linopy":
                 logger.warning(
-                    "Constraint {} not defined for linopy formulation".format(constraint)
+                    "Constraint {} not defined for linopy formulation".format(
+                        constraint
+                    )
                     + ". New constraints can be defined in"
                     + " etrago/tools/constraint.py."
                 )
@@ -3188,6 +3197,7 @@ def add_chp_constraints(network, snapshots):
             Constraint(list(snapshots), rule=top_iso_fuel_line),
         )
 
+
 def add_chp_constraints_linopy(network, snapshots):
     """
     Limits the dispatch of combined heat and power links based on
@@ -3239,28 +3249,33 @@ def add_chp_constraints_linopy(network, snapshots):
         ].index
 
         dispatch_heat = (
-            c_m * get_var(network, "Link", "p").loc[snapshots, heat_chp] *
-            network.links.loc[heat_chp, "efficiency"]).sum()
+            c_m
+            * get_var(network, "Link", "p").loc[snapshots, heat_chp]
+            * network.links.loc[heat_chp, "efficiency"]
+        ).sum()
         dispatch_elec = (
-            get_var(network, "Link", "p").loc[snapshots, elec_chp] *
-            network.links.loc[elec_chp, "efficiency"]).sum()
-         
+            get_var(network, "Link", "p").loc[snapshots, elec_chp]
+            * network.links.loc[elec_chp, "efficiency"]
+        ).sum()
+
         define_constraints(
             network,
             (dispatch_heat - dispatch_elec),
             "<=",
             0,
-            "Link", "backpressure_" + i
+            "Link",
+            "backpressure_" + i,
         )
-        
+
         define_constraints(
-            network, 
-            get_var(network, "Link", "p").loc[snapshots, heat_chp].sum() + 
-            get_var(network, "Link", "p").loc[snapshots, elec_chp].sum(),
+            network,
+            get_var(network, "Link", "p").loc[snapshots, heat_chp].sum()
+            + get_var(network, "Link", "p").loc[snapshots, elec_chp].sum(),
             "<=",
             network.links[
                 (network.links.carrier == "central_gas_CHP")
                 & (network.links.bus0 == i)
             ].p_nom.sum(),
-            "Link", "top_iso_fuel_line_" + i
-            )
+            "Link",
+            "top_iso_fuel_line_" + i,
+        )
