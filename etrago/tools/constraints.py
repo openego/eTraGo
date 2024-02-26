@@ -346,22 +346,25 @@ def _max_redispatch(self, network, snapshots):
             for sn in snapshots
         )
         redispatch_links = sum(
-            m.links_p[gen, sn]
-            * network.links.loc[ramp_up_links, "efficiency"]
+            m.link_p[gen, sn]
+            * network.links.loc[gen, "efficiency"]
             * network.snapshot_weightings.generators[sn]
             for gen in ramp_up_links
             for sn in snapshots
         )
-        return (
-            sum(redispatch_gens, redispatch_links)
-            <= self.args["extra_functionality"]["max_redispatch"]
-        )
+        return (redispatch_gens + redispatch_links) <= self.args[
+            "extra_functionality"
+        ]["max_redispatch"]
 
-    if len(ramp_up) > 0 or len(ramp_up_links)>0:
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
         network.model.max_redispatch = Constraint(rule=_rule)
     else:
-        print("""Constraint max_redispatch was not added,
-              there are no redispatch generators or links.""")
+        print(
+            """Constraint max_redispatch was not added,
+              there are no redispatch generators or links."""
+        )
+
+
 
 def _cross_border_flow(self, network, snapshots):
     """
