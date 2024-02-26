@@ -743,7 +743,8 @@ def run_etrago(args, json_path):
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
             columns=etrago.network.lines.index,
-            data=1.)
+            data=1.0,
+        )
 
     # start linear optimal powerflow calculations
 
