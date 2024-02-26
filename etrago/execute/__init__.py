@@ -421,7 +421,6 @@ def optimize(self):
     elif self.args["method"]["type"] == "sclopf":
         self.sclopf(
             post_lopf=False,
-            extra_functionality=None,
             n_process=4,
             delta=0.01,
             n_overload=0,
