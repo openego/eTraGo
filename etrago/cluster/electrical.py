@@ -507,6 +507,11 @@ def select_elec_network(etrago, apply_on="grid_model"):
         include_foreign = settings["cluster_foreign_AC"]
     elif apply_on == "market_model":
         include_foreign = True
+    else:
+        raise ValueError(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
 
     if include_foreign:
         elec_network.buses = elec_network.buses[
