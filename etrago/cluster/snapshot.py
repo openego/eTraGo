@@ -373,9 +373,9 @@ def segmentation_extreme_periods(
                 if date < maxi:
                     i = i + 1
                 else:
-                    timeseries[
-                        "SegmentDuration_Extreme"
-                    ] = timeseries.index.get_level_values("SegmentDuration")
+                    timeseries["SegmentDuration_Extreme"] = (
+                        timeseries.index.get_level_values("SegmentDuration")
+                    )
                     old_row = timeseries.iloc[i].copy()
                     old_row = pd.DataFrame(old_row).transpose()
 
@@ -395,12 +395,12 @@ def segmentation_extreme_periods(
                     if new_date.isin(
                         timeseries.index.get_level_values("dates")
                     ):
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -428,12 +428,12 @@ def segmentation_extreme_periods(
                         for col in new_row.columns:
                             new_row[col][0] = old_row[col][0]
 
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -457,9 +457,9 @@ def segmentation_extreme_periods(
                 else:
                     if i == -1:
                         i = 0
-                    max_val[
-                        "SegmentDuration"
-                    ] = timeseries.index.get_level_values("SegmentDuration")[i]
+                    max_val["SegmentDuration"] = (
+                        timeseries.index.get_level_values("SegmentDuration")[i]
+                    )
                     max_val.set_index(
                         ["dates", "SegmentNo", "SegmentDuration"], inplace=True
                     )
@@ -496,9 +496,9 @@ def segmentation_extreme_periods(
                 if date < mini:
                     i = i + 1
                 else:
-                    timeseries[
-                        "SegmentDuration_Extreme"
-                    ] = timeseries.index.get_level_values("SegmentDuration")
+                    timeseries["SegmentDuration_Extreme"] = (
+                        timeseries.index.get_level_values("SegmentDuration")
+                    )
                     old_row = timeseries.iloc[i].copy()
                     old_row = pd.DataFrame(old_row).transpose()
 
@@ -518,12 +518,12 @@ def segmentation_extreme_periods(
                     if new_date.isin(
                         timeseries.index.get_level_values("dates")
                     ):
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -550,12 +550,12 @@ def segmentation_extreme_periods(
                         )
                         for col in new_row.columns:
                             new_row[col][0] = old_row[col][0]
-                        timeseries[
-                            "dates"
-                        ] = timeseries.index.get_level_values("dates")
-                        timeseries[
-                            "SegmentNo"
-                        ] = timeseries.index.get_level_values("SegmentNo")
+                        timeseries["dates"] = (
+                            timeseries.index.get_level_values("dates")
+                        )
+                        timeseries["SegmentNo"] = (
+                            timeseries.index.get_level_values("SegmentNo")
+                        )
                         timeseries["SegmentDuration"] = timeseries[
                             "SegmentDuration_Extreme"
                         ]
@@ -579,9 +579,9 @@ def segmentation_extreme_periods(
                 else:
                     if i == -1:
                         i = 0
-                    min_val[
-                        "SegmentDuration"
-                    ] = timeseries.index.get_level_values("SegmentDuration")[i]
+                    min_val["SegmentDuration"] = (
+                        timeseries.index.get_level_values("SegmentDuration")[i]
+                    )
                     min_val.set_index(
                         ["dates", "SegmentNo", "SegmentDuration"], inplace=True
                     )
@@ -811,7 +811,7 @@ def skip_snapshots(self):
     if (
         self.args["temporal_disaggregation"]["active"]
         and not self.args["snapshot_clustering"]["active"]
-    ):
+    ) or self.args["method"]["type"] == "market_grid":
         self.network_tsa = self.network.copy()
 
     n_skip = self.args["skip_snapshots"]

@@ -95,7 +95,9 @@ def _leading(busmap, df):
     return leader
 
 
-def adjust_no_electric_network(etrago, busmap, cluster_met):
+def adjust_no_electric_network(
+    etrago, busmap, cluster_met, apply_on="grid_model"
+):
     """
     Adjusts the non-electric network based on the electrical network
     (esp. eHV network), adds the gas buses to the busmap, and creates the
@@ -139,7 +141,16 @@ def adjust_no_electric_network(etrago, busmap, cluster_met):
 
         return new_ehv_bus
 
-    network = etrago.network.copy()
+    if apply_on == "grid_model":
+        network = etrago.network.copy()
+    elif apply_on == "market_model":
+        network = etrago.network_tsa.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
+
     # network2 is supposed to contain all the not electrical or gas buses
     # and links
     network2 = network.copy(with_time=False)
@@ -457,7 +468,7 @@ def ehv_clustering(self):
         logger.info("Network clustered to EHV-grid")
 
 
-def select_elec_network(etrago):
+def select_elec_network(etrago, apply_on="grid_model"):
     """
     Selects the electric network based on the clustering settings specified
     in the Etrago object.
@@ -475,7 +486,15 @@ def select_elec_network(etrago):
         n_clusters : int
             number of clusters used in the clustering process.
     """
-    elec_network = etrago.network.copy()
+    if apply_on == "grid_model":
+        elec_network = etrago.network.copy()
+    elif apply_on == "market_model":
+        elec_network = etrago.network_tsa.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
     settings = etrago.args["network_clustering"]
     if settings["cluster_foreign_AC"]:
         elec_network.buses = elec_network.buses[
@@ -626,7 +645,7 @@ def unify_foreign_buses(etrago):
     return busmap_foreign
 
 
-def preprocessing(etrago):
+def preprocessing(etrago, apply_on="grid_model"):
     """
     Preprocesses an Etrago object to prepare it for network clustering.
 
@@ -647,7 +666,16 @@ def preprocessing(etrago):
         The Series object with the foreign bus mapping data.
     """
 
-    network = etrago.network
+    if apply_on == "grid_model":
+        network = etrago.network
+    elif apply_on == "market_model":
+        network = etrago.network_tsa
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
+
     settings = etrago.args["network_clustering"]
 
     # problem our lines have no v_nom. this is implicitly defined by the
@@ -736,7 +764,7 @@ def preprocessing(etrago):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters = select_elec_network(etrago)
+    network_elec, n_clusters = select_elec_network(etrago, apply_on=apply_on)
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
@@ -777,6 +805,7 @@ def postprocessing(
     medoid_idx=None,
     aggregate_generators_carriers=None,
     aggregate_links=True,
+    apply_on="grid_model",
 ):
     """
     Postprocessing function for network clustering.
@@ -846,7 +875,7 @@ def postprocessing(
         )
 
     network, busmap = adjust_no_electric_network(
-        etrago, busmap, cluster_met=method
+        etrago, busmap, cluster_met=method, apply_on=apply_on
     )
 
     # merge busmap for foreign buses with the German buses
