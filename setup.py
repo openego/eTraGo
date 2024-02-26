@@ -54,6 +54,7 @@ setup(
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
+        "pandas < 2.2",
         "pypsa == 0.26.2",
         "rtree",
         "saio",
