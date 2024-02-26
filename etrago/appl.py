@@ -739,7 +739,11 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     # Temporary drop DLR as it is currently not working with sclopf
-    etrago.network.lines_t.s_max_pu = pd.DataFrame(index=etrago.network.snapshots, columns=etrago.network.lines.index, data=1.)
+    if etrago.args["method"] != "lopf":
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+            columns=etrago.network.lines.index,
+            data=1.)
 
     # start linear optimal powerflow calculations
 
