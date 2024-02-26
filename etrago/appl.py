@@ -52,7 +52,7 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf or 'market_grid'
+        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
         "formulation": "pyomo",
@@ -188,8 +188,9 @@ def run_etrago(args, json_path):
         Choose method and settings for optimization.
         The provided dictionary can have the following entries:
 
-        * "lopf" : str
-            Type of optimization, currently only "lopf". Default: "lopf".
+        * "type" : str
+            Choose the type of optimization. Current options: "lopf", "sclopf"
+            or "market_grid". Default: "market_grid".
         * "n_iter" : int
             In case of extendable lines, several LOPFs have to be performed.
             You can either set "n_iter" and specify a fixed number of
