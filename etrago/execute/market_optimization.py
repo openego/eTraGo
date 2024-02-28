@@ -49,13 +49,23 @@ def market_optimization(self):
     build_market_model(self)
     logger.info("Start solving pre market model")
 
-    self.pre_market_model.lopf(
-        solver_name=self.args["solver"],
-        solver_options=self.args["solver_options"],
-        pyomo=True,
-        extra_functionality=Constraints(self.args, False).functionality,
-        formulation=self.args["model_formulation"],
-    )
+    if self.args["method"]["type"] == "pyomo":
+        self.pre_market_model.lopf(
+            solver_name=self.args["solver"],
+            solver_options=self.args["solver_options"],
+            pyomo=True,
+            extra_functionality=Constraints(self.args, False).functionality,
+            formulation=self.args["model_formulation"],
+        )
+    elif self.args["method"]["type"] == "linopy":
+        self.pre_market_model.optimize(
+            solver_name=self.args["solver"],
+            solver_options=self.args["solver_options"],
+            extra_functionality=Constraints(self.args, False).functionality,
+            formulation=self.args["model_formulation"],
+        )
+    else:
+        logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
     logger.info("Preparing short-term UC market model")
     build_shortterm_market_model(self)
