@@ -477,6 +477,12 @@ def select_elec_network(etrago, apply_on="grid_model"):
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    apply_on: str
+        gives information about the objective of the output network. If
+        "grid_model" is provided, the value assigned in the args for
+        ["network_clustering"]["cluster_foreign_AC""] will define if the
+        foreign buses will be included in the network. if "market_model" is
+        provided, foreign buses will be always included.
 
     Returns
     -------
@@ -496,7 +502,18 @@ def select_elec_network(etrago, apply_on="grid_model"):
             """
         )
     settings = etrago.args["network_clustering"]
-    if settings["cluster_foreign_AC"]:
+
+    if apply_on == "grid_model":
+        include_foreign = settings["cluster_foreign_AC"]
+    elif apply_on == "market_model":
+        include_foreign = True
+    else:
+        raise ValueError(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
+
+    if include_foreign:
         elec_network.buses = elec_network.buses[
             elec_network.buses.carrier == "AC"
         ]
@@ -653,6 +670,9 @@ def preprocessing(etrago, apply_on="grid_model"):
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    apply_on : string
+        provide information about the objective of the preprocessing. Which
+        process is going to use the result. e.g. "grid_model", "market_model".
 
     Returns
     -------
