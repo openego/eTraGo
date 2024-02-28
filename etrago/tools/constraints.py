@@ -190,6 +190,42 @@ def _max_line_ext_nmp(self, network, snapshots):
     network.model.max_line_ext = Constraint(rule=_rule)
 
 
+def _max_line_ext_linopy(self, network, snapshots):
+    """
+    Extra-functionality that limits overall line expansion to a multiple
+    of existing capacity using linopy.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None
+
+    """
+
+    lines_snom = network.lines.s_nom_min.sum()
+
+    links_elec = network.links[network.links.carrier == "DC"]
+    links_index = links_elec.index
+    links_pnom = links_elec.p_nom_min.sum()
+
+    define_constraints(
+        network,
+        get_var(network, "Line", "s_nom").sum() +
+        get_var(network, "Link", "p_nom").loc[links_index].sum(),
+        "<=",
+        (
+            lines_snom + links_pnom
+        ) * self.args["extra_functionality"]["max_line_ext"],
+        "Global", "max_line_ext"
+        )
+
+
 def _min_renewable_share_nmp(self, network, snapshots):
     """
     Extra-functionality that limits the minimum share of renewable generation.
