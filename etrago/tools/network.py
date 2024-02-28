@@ -51,6 +51,10 @@ from etrago.execute.market_optimization import (
     build_market_model,
     market_optimization,
 )
+from etrago.execute.sclopf import (
+    iterate_sclopf,
+    post_contingency_analysis_lopf,
+)
 from etrago.tools.calc_results import (
     ac_export,
     ac_export_per_country,
@@ -354,6 +358,10 @@ class Etrago:
     manual_fixes_datamodel = manual_fixes_datamodel
 
     shifted_energy = shifted_energy
+
+    post_contingency_analysis = post_contingency_analysis_lopf
+
+    sclopf = iterate_sclopf
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
