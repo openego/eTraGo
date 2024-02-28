@@ -53,8 +53,7 @@ args = {
     "method": {  # Choose method and settings for optimization
         "type": "market_grid",  # type of optimization, 'lopf' or 'market_grid'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "pyomo": True,  # set if pyomo is used for model building
-        "formulation": "pyomo",
+        "formulation": "linopy",
         "market_zones": "status_quo", # only used if type='market_grid'
         "rolling_horizon": { # Define parameter of market optimization
             "planning_horizon": 72, # number of snapshots in each optimization
