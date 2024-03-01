@@ -57,6 +57,7 @@ from etrago.tools.io import (
     add_ch4_h2_correspondence,
     decommissioning,
     extension,
+    import_home_battery_self_consumption_optimization,
 )
 from etrago.tools.plot import (
     bev_flexibility_potential,
@@ -358,6 +359,11 @@ class Etrago:
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
+
+        if self.args["home_battery_self_consumption"]:
+            import_home_battery_self_consumption_optimization(self)
+            logger.info(
+                "Imported results from home battery self consumption optimization")
 
     def adjust_network(self):
         """

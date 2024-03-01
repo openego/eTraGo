@@ -1003,6 +1003,75 @@ def add_ch4_h2_correspondence(self):
     self.ch4_h2_mapping.index.name = "CH4_bus"
     self.ch4_h2_mapping = self.ch4_h2_mapping.astype(str)
 
+def import_home_battery_self_consumption_optimization(self):
+
+    overall_path = self.args["home_battery_self_consumption"]
+
+    # Get bus_ids with underlying mv grids 
+    mv_grids = []        
+    for root, dirs, files in os.walk(overall_path):
+        if "mv_grid" in root:
+            mv_grids.append(int(root.split("mv_grid_")[1]))
+
+    # Create index
+    timeindex = pd.DatetimeIndex(
+        data=pd.date_range(
+            start="2011-01-01 00:00:00", periods=8760, freq="h"
+        )
+    )
+
+    for bus in mv_grids: 
+
+        # Import files and change unit to MW
+        storage_p = pd.read_csv(
+            overall_path+f"/mv_grid_{bus}/storage_p.csv",
+            index_col="Unnamed: 0").mul(1e-6)
+        storage_p.index = timeindex
+        generator_p = pd.read_csv(
+            overall_path+f"/mv_grid_{bus}/generators_p.csv",
+            index_col="Unnamed: 0").mul(1e-6)
+        generator_p.index = timeindex
+        dispatch_grid = pd.read_csv(
+            overall_path+f"/mv_grid_{bus}/link_p0.csv",
+            index_col="Unnamed: 0").mul(1e-6)
+        dispatch_grid.index=timeindex
+
+        # Select pv generator at correspunding bus
+        pv_generator = self.network.generators[
+            (self.network.generators.carrier=="solar_rooftop")
+            &(self.network.generators.bus==str(bus))
+            ].index
+
+        # Set pv feedin series of self consumption optimization as p_min_pu
+        self.network.generators_t.p_min_pu[pv_generator] = (
+            (generator_p - dispatch_grid) /
+            self.network.generators.p_nom.loc[pv_generator].values
+            )
+
+        # Select battery at corresponding bus
+        battery = self.network.storage_units[
+            (self.network.storage_units.carrier=="battery")
+            &(self.network.storage_units.bus==str(bus))
+            ].index
+
+        # Add home battery at selected bus
+        self.network.add(
+            "StorageUnit",
+            f"home_battery_{bus}",
+            bus = bus,
+            carrier= "home_battery",
+            max_hours = 2,
+            p_nom = self.network.storage_units.loc[battery, "p_nom_min"]
+            )
+
+        # Set timeseries from self consumption optimization
+        self.network.storage_units_t.p_set[
+            f"home_battery_{bus}"] = storage_p.loc[
+            self.network.snapshots, "0"
+            ]
+
+        # Remove home battery capacity from existing, combined battery
+        self.network.storage_units.loc[battery, "p_nom_min"] = 0
 
 if __name__ == "__main__":
     if pypsa.__version__ not in ["0.6.2", "0.11.0"]:
