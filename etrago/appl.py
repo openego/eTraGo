@@ -674,6 +674,16 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # Do not expand rural heat stores, they are either predefined or not available
+    etrago.network.stores.loc[
+        etrago.network.stores.carrier=="rural_heat_store",
+        "e_nom_extendable"]=False
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="rural_heat_store_charger",
+        "p_nom_extendable"]=False
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="rural_heat_store_discharger",
+        "p_nom_extendable"]=False
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
