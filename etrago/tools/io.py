@@ -1073,6 +1073,49 @@ def import_home_battery_self_consumption_optimization(self):
         # Remove home battery capacity from existing, combined battery
         self.network.storage_units.loc[battery, "p_nom_min"] = 0
 
+def import_static_bev_timeseries(etrago):
+    import saio
+    from saio.grid import egon_etrago_load
+    from saio.grid import egon_etrago_load_timeseries
+    
+    # Drop flexible EV charging stuff
+    etrago.drop_sectors(["Li_ion"])
+    
+    non_flexible_load = saio.as_pandas(etrago.session.query(            
+        egon_etrago_load).filter(
+            egon_etrago_load.scn_name=="eGon2035_lowflex").filter(
+                egon_etrago_load.carrier=="land_transport_EV"
+                ))
+
+    non_flexible_load_ts = saio.as_pandas(etrago.session.query(
+        getattr(vars()["egon_etrago_load_timeseries"], "load_id"
+        ),
+        getattr(vars()["egon_etrago_load_timeseries"], "p_set")[
+            etrago.args["start_snapshot"]-1:etrago.args["end_snapshot"]
+        ],
+    ).filter(egon_etrago_load_timeseries.scn_name
+        == "eGon2035_lowflex"
+    ))
+    non_flexible_load_ts = non_flexible_load_ts[non_flexible_load_ts.load_id.isin(
+        non_flexible_load.load_id)].set_index("load_id")
+
+    df = non_flexible_load_ts.anon_1.apply(pd.Series).transpose()
+    
+    df.index = etrago.network.snapshots
+    df.columns = df.columns.astype(str) + "_EV"
+    
+    etrago.network.madd(
+        "Load",
+        non_flexible_load.load_id.astype(str).values + "_EV",
+        bus = non_flexible_load.bus.astype(str).values,
+        carrier = "land_transport_EV",            
+        )
+    etrago.network.import_series_from_dataframe(
+        df, "Load", "p_set"
+        )
+    
+        
+
 if __name__ == "__main__":
     if pypsa.__version__ not in ["0.6.2", "0.11.0"]:
         print("Pypsa version %s not supported." % pypsa.__version__)

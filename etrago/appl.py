@@ -166,6 +166,7 @@ args = {
     "home_battery_self_consumption": "/home/clara/etrago-lca/results_self_consumption_opt", # False or path/to/results
     "dynamic_line_rating": False, # State if Dynamic line rating is considered
     "use_results_from_pre_run": "results",
+    "flexible_bev_charging": False,
 }
 
 

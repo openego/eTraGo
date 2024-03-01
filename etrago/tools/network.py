@@ -58,6 +58,7 @@ from etrago.tools.io import (
     decommissioning,
     extension,
     import_home_battery_self_consumption_optimization,
+    import_static_bev_timeseries,
 )
 from etrago.tools.plot import (
     bev_flexibility_potential,
@@ -370,6 +371,10 @@ class Etrago:
                 index=self.network.snapshots)
             logger.info(
                 "Dropped dynamic line rating.")
+        if (not self.args["flexible_bev_charging"]) & (self.args["scn_name"] == "eGon2035"):
+            import_static_bev_timeseries(self)
+            logger.info(
+                "Imported static BEV load timeseries")
 
     def adjust_network(self):
         """
