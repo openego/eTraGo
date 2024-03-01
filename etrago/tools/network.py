@@ -364,6 +364,12 @@ class Etrago:
             import_home_battery_self_consumption_optimization(self)
             logger.info(
                 "Imported results from home battery self consumption optimization")
+            
+        if not self.args["dynamic_line_rating"]:
+            self.network.lines_t.s_max_pu = pd.DataFrame(
+                index=self.network.snapshots)
+            logger.info(
+                "Dropped dynamic line rating.")
 
     def adjust_network(self):
         """

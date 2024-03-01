@@ -163,7 +163,8 @@ args = {
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
-    "home_battery_self_consumption": "results_self_consumption_opt" # False or path/to/results
+    "home_battery_self_consumption": "results_self_consumption_opt", # False or path/to/results
+    "dynamic_line_rating": False, # Stae if Dynamic line ration is considered
 }
 
 
