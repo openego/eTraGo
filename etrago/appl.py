@@ -163,8 +163,9 @@ args = {
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
-    "home_battery_self_consumption": "results_self_consumption_opt", # False or path/to/results
-    "dynamic_line_rating": False, # Stae if Dynamic line ration is considered
+    "home_battery_self_consumption": "/home/clara/etrago-lca/results_self_consumption_opt", # False or path/to/results
+    "dynamic_line_rating": False, # State if Dynamic line rating is considered
+    "use_results_from_pre_run": "results",
 }
 
 
@@ -688,6 +689,43 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    # Use expansion results from previous calcultaion if selected
+    if etrago.args["use_results_from_pre_run"]:
+        etrago_pre = Etrago(csv_folder_name=etrago.args[
+            "use_results_from_pre_run"])
+        
+        network_pre = etrago_pre.network
+        
+        etrago.network.storage_units[
+            etrago.network.storage_units.carrier=="battery"].p_nom = (
+                network_pre.storage_units[
+                    network_pre.storage_units.carrier=="battery"].p_nom_opt               
+                )
+        etrago.network.storage_units.loc[
+            etrago.network.storage_units.carrier=="battery",
+            "p_nom_extendable"]=False
+        
+        for c in ["power_to_H2", "H2_to_power",
+                  "central_heat_store_charger",
+                  "central_heat_store_discharger",
+                  "CH4_to_H2", "H2_to_CH4"]:
+            etrago.network.links[
+                etrago.network.links.carrier==c].p_nom = (
+                    network_pre.links[
+                        network_pre.links.carrier==c].p_nom_opt               
+                    )
+            etrago.network.links.loc[
+                etrago.network.links.carrier==c, "p_nom_extendable"]=False
+            
+        for c in ["H2_underground", "central_heat_store", "H2_overground"]:
+            etrago.network.stores[
+                etrago.network.stores.carrier==c].e_nom = (
+                    network_pre.stores[
+                        network_pre.stores.carrier==c].e_nom_opt               
+                    )
+            etrago.network.stores.loc[
+                etrago.network.stores.carrier==c, "e_nom_extendable"]=False
 
     # start linear optimal powerflow calculations
     etrago.lopf()
