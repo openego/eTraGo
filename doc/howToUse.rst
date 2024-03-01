@@ -55,4 +55,5 @@ Examples and tutorial notebooks
 **eTraGo version 0.5.1:**
 `etrago_OpenMod_Zuerich18 <https://github.com/openego/eGo/blob/master/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>`_.
 
-**eTraGo version 0.9:** Tutorial notebook will be available in the next release.
+**eTraGo version 0.9:**
+`eTraGo_eGon_final_workshop <https://github.com/openego/eTraGo/blob/master/doc/eTraGo_tutorial_release0.9.ipynb>`_.

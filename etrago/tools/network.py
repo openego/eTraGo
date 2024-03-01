@@ -64,6 +64,7 @@ from etrago.tools.plot import (
     flexibility_usage,
     heat_stores,
     hydrogen_stores,
+    plot_carrier,
     plot_clusters,
     plot_gas_generation,
     plot_gas_summary,
@@ -198,7 +199,7 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["disaggregation"] is not None:
+            if self.args["spatial_disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
@@ -293,6 +294,8 @@ class Etrago:
 
     plot_clusters = plot_clusters
 
+    plot_carrier = plot_carrier
+
     plot_gas_generation = plot_gas_generation
 
     plot_gas_summary = plot_gas_summary
@@ -351,7 +354,7 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2" in self.network.buses.carrier:
+        if "H2_grid" in self.network.buses.carrier.unique():
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")

@@ -2421,8 +2421,14 @@ def check_args(etrago):
         ), "gridversion does not exist"
 
     if etrago.args["snapshot_clustering"]["active"]:
+        # Assert that skip_snapshots and snapshot_clustering are not combined
+        # more information: https://github.com/openego/eTraGo/issues/691
+        assert etrago.args["skip_snapshots"] is False, (
+            "eTraGo does not support combining snapshot_clustering and"
+            " skip_snapshots. Please update your settings and choose either"
+            " snapshot_clustering or skip_snapshots."
+        )
         # typical periods
-
         if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
             # typical days
 
