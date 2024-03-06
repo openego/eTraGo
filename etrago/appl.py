@@ -28,6 +28,7 @@ the function run_etrago.
 import datetime
 import os
 import os.path
+import pandas as pd
 
 
 __copyright__ = (
@@ -49,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "egon-data_guenni",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -74,7 +75,7 @@ args = {
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
-    # Scenario variations:
+    # Scenario variations:psycopg2
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
@@ -102,10 +103,10 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False, # False or path to stored busmap
+        "busmap": False,  # False or path to stored busmap
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -671,37 +672,117 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # change max_hours for batteries manually
+    max_hours = 2
+    etrago.network.storage_units.loc[
+        etrago.network.storage_units["carrier"] == "battery", "max_hours"
+    ] = max_hours
+
+    # adjust capital costs to be in line with new max_hours
+    def annualize_capital_costs_batteries(max_hours):
+        p = 0.05
+
+        cost_inv = 130000  # €/MW
+        lifetime_inv = 10
+        pva_inv = (1 / p) - (1 / (p * (1 + p) ** lifetime_inv))
+        a_cost_inv = cost_inv / pva_inv
+
+        cost_stor = 118000  # €/MWh
+        lifetime_stor = 27.5
+        pva_stor = (1 / p) - (1 / (p * (1 + p) ** lifetime_stor))
+        a_cost_stor = cost_stor / pva_stor
+
+        cost_comb = a_cost_inv + max_hours * a_cost_stor
+        return cost_comb
+
+    etrago.network.storage_units.loc[
+        (etrago.network.storage_units["carrier"] == "battery")
+        & (etrago.network.storage_units["p_nom_extendable"] == True),
+        "capital_cost",
+    ] = annualize_capital_costs_batteries(max_hours)
+
+    # Filter stores DataFrame for carrier = "rural_heat_store"
+    stores_filtered = etrago.network.stores[
+        etrago.network.stores["carrier"] == "rural_heat_store"
+    ]
+
+    # Filter links DataFrame for carriers "rural_heat_store_charger" and "rural_heat_pump"
+    links_filtered = etrago.network.links[
+        etrago.network.links["carrier"].isin(
+            ["rural_heat_store_charger", "rural_heat_pump"]
+        )
+    ]
+
+    # Merge stores with links for charger information
+    heat_store_merged = stores_filtered.merge(
+        links_filtered[["bus0", "bus1"]],
+        left_on="bus",
+        right_on="bus1",
+        how="left",
+    )
+
+    # Merge with links for heat pump information
+    merged_df = heat_store_merged.merge(
+        links_filtered[["bus1", "p_nom"]],
+        left_on="bus0",
+        right_on="bus1",
+        how="left",
+        suffixes=("_store", "_hp"),
+    )
+
+    # Add new column with p_nom_flex
+    merged_df.drop(columns=["e_nom"], inplace=True)
+    merged_df["e_nom"] = merged_df["p_nom"] * 3.49
+
+    stores_filtered.drop(columns=["e_nom"], inplace=True)
+    stores_filtered = stores_filtered.merge(
+        merged_df[["bus", "e_nom"]], left_on="bus", right_on="bus", how="left"
+    )
+
+    etrago.network.stores = etrago.network.stores.drop(
+        etrago.network.stores[
+            etrago.network.stores["carrier"] == "rural_heat_store"
+        ].index
+    )
+
+    etrago.network.stores = etrago.network.stores.append(stores_filtered)
+
+    etrago.network.stores.loc[
+        etrago.network.stores["carrier"] == "rural_heat_store",
+        "e_nom_extendable",
+    ] = False
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    # ehv network clustering
-    etrago.ehv_clustering()
+    # # ehv network clustering
+    # etrago.ehv_clustering()
 
-    # spatial clustering
-    etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()
+    # # spatial clustering
+    # etrago.spatial_clustering()
+    # etrago.spatial_clustering_gas()
 
-    # snapshot clustering
-    etrago.snapshot_clustering()
+    # # snapshot clustering
+    # etrago.snapshot_clustering()
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # # skip snapshots
+    # etrago.skip_snapshots()
 
-    # start linear optimal powerflow calculations
-    etrago.lopf()
+    # # start linear optimal powerflow calculations
+    # etrago.lopf()
 
-    # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.temporal_disaggregation()
+    # # conduct lopf with full complex timeseries for dispatch disaggregation
+    # etrago.temporal_disaggregation()
 
-    # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    # # start power flow based on lopf results
+    # etrago.pf_post_lopf()
 
-    # spatial disaggregation
-    # needs to be adjusted for new sectors
-    etrago.spatial_disaggregation()
+    # # spatial disaggregation
+    # # needs to be adjusted for new sectors
+    # etrago.spatial_disaggregation()
 
-    # calculate central etrago results
-    etrago.calc_results()
+    # # calculate central etrago results
+    # etrago.calc_results()
 
     return etrago
 
