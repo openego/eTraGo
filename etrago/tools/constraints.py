@@ -187,6 +187,55 @@ def _max_line_ext_nmp(self, network, snapshots):
 
     network.model.max_line_ext = Constraint(rule=_rule)
 
+def _fixed_battery_expansion_germany(self, network, snapshots):
+    """
+    Define the overall expanded capacity of batteries in Germany.
+    To avoid nummerical problems, a difference of 0.1% is allowed.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+    home_battery_capacity = network.storage_units[
+        network.storage_units.carrier=="battery"].p_nom_min.sum()
+
+    batteries = network.storage_units[(
+        network.storage_units.carrier=="battery")
+        &(network.storage_units.bus.isin(
+            network.buses[network.buses.country=="DE"].index))]
+
+    def _rule_min(m):
+        batteries_opt = sum(
+            m.storage_p_nom[index]
+            for index in batteries.index
+        )
+        return (batteries_opt) >= (
+            0.999
+        ) * (
+            self.args["extra_functionality"]["fixed_battery_expansion_germany"]
+            + home_battery_capacity)
+
+    def _rule_max(m):
+        batteries_opt = sum(
+            m.storage_p_nom[index]
+            for index in batteries.index
+        )
+        return batteries_opt <= (
+            1.001
+        ) * (self.args["extra_functionality"]["fixed_battery_expansion_germany"]
+            + home_battery_capacity)
+
+    network.model.min_battery_ext = Constraint(rule=_rule_min)
+    network.model.max_battery_ext = Constraint(rule=_rule_max)
+
 
 def _min_renewable_share_nmp(self, network, snapshots):
     """

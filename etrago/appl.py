@@ -50,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data_guenni",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, currently only 'lopf'
@@ -75,7 +75,7 @@ args = {
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
-    # Scenario variations:psycopg2
+    # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
     # Export options:
@@ -103,10 +103,10 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False,  # False or path to stored busmap
+        "busmap": False, # False or path to stored busmap
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -164,6 +164,10 @@ args = {
         "capacity": "osmTGmod",  # 'osmTGmod', 'tyndp2020', 'ntc_acer' or 'thermal_acer'
     },
     "comments": None,
+    "home_battery_self_consumption": "/home/clara/etrago-lca/results_self_consumption_opt", # False or path/to/results
+    "dynamic_line_rating": False, # State if Dynamic line rating is considered
+    "use_results_from_pre_run": "results",
+    "flexible_bev_charging": False,
 }
 
 
@@ -747,42 +751,84 @@ def run_etrago(args, json_path):
 
     etrago.network.stores = etrago.network.stores.append(stores_filtered)
 
+    # Do not expand rural heat stores, they are either predefined or not available
     etrago.network.stores.loc[
-        etrago.network.stores["carrier"] == "rural_heat_store",
-        "e_nom_extendable",
-    ] = False
-
+        etrago.network.stores.carrier=="rural_heat_store",
+        "e_nom_extendable"]=False
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="rural_heat_store_charger",
+        "p_nom_extendable"]=False
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="rural_heat_store_discharger",
+        "p_nom_extendable"]=False
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    # # ehv network clustering
-    # etrago.ehv_clustering()
+    # ehv network clustering
+    etrago.ehv_clustering()
 
-    # # spatial clustering
-    # etrago.spatial_clustering()
-    # etrago.spatial_clustering_gas()
+    # spatial clustering
+    etrago.spatial_clustering()
+    etrago.spatial_clustering_gas()
 
-    # # snapshot clustering
-    # etrago.snapshot_clustering()
+    # snapshot clustering
+    etrago.snapshot_clustering()
 
-    # # skip snapshots
-    # etrago.skip_snapshots()
+    # skip snapshots
+    etrago.skip_snapshots()
 
-    # # start linear optimal powerflow calculations
-    # etrago.lopf()
+    # Use expansion results from previous calcultaion if selected
+    if etrago.args["use_results_from_pre_run"]:
+        etrago_pre = Etrago(csv_folder_name=etrago.args[
+            "use_results_from_pre_run"])
+        
+        network_pre = etrago_pre.network
+        
+        etrago.network.storage_units[
+            etrago.network.storage_units.carrier=="battery"].p_nom = (
+                network_pre.storage_units[
+                    network_pre.storage_units.carrier=="battery"].p_nom_opt               
+                )
+        etrago.network.storage_units.loc[
+            etrago.network.storage_units.carrier=="battery",
+            "p_nom_extendable"]=False
+        
+        for c in ["power_to_H2", "H2_to_power",
+                  "central_heat_store_charger",
+                  "central_heat_store_discharger",
+                  "CH4_to_H2", "H2_to_CH4"]:
+            etrago.network.links[
+                etrago.network.links.carrier==c].p_nom = (
+                    network_pre.links[
+                        network_pre.links.carrier==c].p_nom_opt               
+                    )
+            etrago.network.links.loc[
+                etrago.network.links.carrier==c, "p_nom_extendable"]=False
+            
+        for c in ["H2_underground", "central_heat_store", "H2_overground"]:
+            etrago.network.stores[
+                etrago.network.stores.carrier==c].e_nom = (
+                    network_pre.stores[
+                        network_pre.stores.carrier==c].e_nom_opt               
+                    )
+            etrago.network.stores.loc[
+                etrago.network.stores.carrier==c, "e_nom_extendable"]=False
 
-    # # conduct lopf with full complex timeseries for dispatch disaggregation
-    # etrago.temporal_disaggregation()
+    # start linear optimal powerflow calculations
+    etrago.lopf()
 
-    # # start power flow based on lopf results
-    # etrago.pf_post_lopf()
+    # conduct lopf with full complex timeseries for dispatch disaggregation
+    etrago.temporal_disaggregation()
 
-    # # spatial disaggregation
-    # # needs to be adjusted for new sectors
-    # etrago.spatial_disaggregation()
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
-    # # calculate central etrago results
-    # etrago.calc_results()
+    # spatial disaggregation
+    # needs to be adjusted for new sectors
+    etrago.spatial_disaggregation()
+
+    # calculate central etrago results
+    etrago.calc_results()
 
     return etrago
 
