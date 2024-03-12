@@ -174,6 +174,8 @@ def optimize_with_rolling_horizon(
                 f"""Optimization failed with status {status}
                 and condition {condition}"""
             )
+            n.model.print_infeasibilities()
+            import pdb; pdb.set_trace()
     return n
 
 
