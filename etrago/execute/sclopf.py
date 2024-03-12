@@ -795,14 +795,13 @@ def split_parallel_lines(network):
         data_new.num_parallel = 1
         num = parallel_lines.num_parallel[i]
         for n in range(int(num)):
+            data_new.index = [str(i) + "_" + str(int(n + 1))]
             new_lines = pd.concat(
                 [
                     new_lines,
-                    data_new.rename(index={i: str(i) + "_" + str(int(n + 1))}),
+                    data_new,
                 ],
-                ignore_index=True,
             )
-            new_lines.index += network.lines.index.astype(int).max()
 
     network.mremove("Line", parallel_lines.index)
 
