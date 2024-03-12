@@ -274,6 +274,45 @@ def build_market_model(self):
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
 
+    # set UC constraints
+
+    unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
+    unit_commitment.fillna(0, inplace=True)
+    committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
+        "committable"
+    )
+
+    for attr in unit_commitment.index:
+        default = component_attrs["Generator"].default[attr]
+        committable_attrs[attr] = net.generators.carrier.map(
+            unit_commitment.loc[attr]
+        ).fillna(default)
+        committable_attrs[attr] = committable_attrs[attr].astype(
+            net.generators.carrier.map(unit_commitment.loc[attr]).dtype
+        )
+
+    net.generators[committable_attrs.columns] = committable_attrs
+    net.generators.min_up_time = net.generators.min_up_time.astype(int)
+    net.generators.min_down_time = net.generators.min_down_time.astype(int)
+
+    # Tadress link carriers i.e. OCGT
+    committable_links = net.links.carrier.isin(unit_commitment).to_frame(
+        "committable"
+    )
+
+    for attr in unit_commitment.index:
+        default = component_attrs["Link"].default[attr]
+        committable_links[attr] = net.links.carrier.map(
+            unit_commitment.loc[attr]
+        ).fillna(default)
+        committable_links[attr] = committable_links[attr].astype(
+            net.links.carrier.map(unit_commitment.loc[attr]).dtype
+        )
+
+    net.links[committable_links.columns] = committable_links
+    net.links.min_up_time = net.links.min_up_time.astype(int)
+    net.links.min_down_time = net.links.min_down_time.astype(int)
+    net.links[committable_links.columns].loc["ramp_limit_down"] = 1.
 
     # Set stores and storage_units to cyclic
     net.stores.loc[net.stores.carrier!="battery_storage", "e_cyclic"] = True
