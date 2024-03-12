@@ -221,9 +221,22 @@ class Etrago:
                 )
 
             if self.args["method"]["type"] == "market_grid":
-                self.market_model = Network(
-                    csv_folder_name + "/market", name, ignore_standard_types
-                )
+                try:
+                    self.market_model = Network(
+                        csv_folder_name + "/market",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.warning(
+                        """
+                        Could not import a market_model but the selected
+                        method in the args indicated that it should be there.
+                        This happens when the exported network was not solved
+                        yet.Run 'etrago.optimize()' to build and solve the
+                        market model.
+                        """
+                    )
 
             self.get_clustering_data(csv_folder_name)
 
