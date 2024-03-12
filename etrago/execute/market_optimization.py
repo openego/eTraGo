@@ -279,7 +279,7 @@ def build_market_model(self):
 
 
 def build_shortterm_market_model(self):
-    m = self.pre_market_model
+    m = self.pre_market_model.copy()
 
     m.storage_units.p_nom_extendable = False
     m.stores.e_nom_extendable = False
