@@ -291,6 +291,9 @@ def build_shortterm_market_model(self):
     m.links.p_nom = m.links.p_nom_opt
     m.lines.s_nom = m.lines.s_nom_opt
 
+    m.stores.e_cyclic = False
+    m.storage_units.cyclic_state_of_charge = False
+
     # ToDo maybe ?!
     # somoehow setting seasonal storage (phs, h2 or finding a dynamic
     # definition with respect to the results i.e. the storage behavior)
