@@ -126,47 +126,46 @@ def optimize_with_rolling_horizon(
             [{sns[0]}:{sns[-1]}] ({i+1}/{len(starting_points)})."""
         )
 
-        if i:
-            if not n.stores.empty:
-                n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
+        if not n.stores.empty:
+            n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
 
-                # Select seasonal stores
-                seasonal_stores = n.stores.index[
-                    n.stores.carrier.isin(
-                        ["central_heat_store", "H2_overground", "CH4"]
-                    )
+            # Select seasonal stores
+            seasonal_stores = n.stores.index[
+                n.stores.carrier.isin(
+                    ["central_heat_store", "H2_overground", "CH4"]
+                )
+            ]
+
+            # Set e_initial from pre_market model for seasonal stores
+            n.stores.e_initial[seasonal_stores] = (
+                pre_market.stores_t.e.loc[
+                    snapshots[start - 1], seasonal_stores
                 ]
+            )
 
-                # Set e_initial from pre_market model for seasonal stores
-                n.stores.e_initial[seasonal_stores] = (
-                    pre_market.stores_t.e.loc[
-                        snapshots[start - 1], seasonal_stores
-                    ]
-                )
+            # Set e at the end of the horizon
+            # by setting e_max_pu and e_min_pu
+            n.stores_t.e_max_pu.loc[
+                snapshots[end - 1], seasonal_stores
+            ] = pre_market.stores_t.e.loc[
+                snapshots[end - 1], seasonal_stores
+            ].div(
+                pre_market.stores.e_nom_opt[seasonal_stores]
+            )
+            n.stores_t.e_min_pu.loc[
+                snapshots[end - 1], seasonal_stores
+            ] = pre_market.stores_t.e.loc[
+                snapshots[end - 1], seasonal_stores
+            ].div(
+                pre_market.stores.e_nom_opt[seasonal_stores]
+            )
+            n.stores_t.e_min_pu.fillna(0.0, inplace=True)
+            n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
-                # Set e at the end of the horizon
-                # by setting e_max_pu and e_min_pu
-                n.stores_t.e_max_pu.loc[
-                    snapshots[end - 1], seasonal_stores
-                ] = pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(
-                    pre_market.stores.e_nom_opt[seasonal_stores]
-                )
-                n.stores_t.e_min_pu.loc[
-                    snapshots[end - 1], seasonal_stores
-                ] = pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(
-                    pre_market.stores.e_nom_opt[seasonal_stores]
-                )
-                n.stores_t.e_min_pu.fillna(0.0, inplace=True)
-                n.stores_t.e_max_pu.fillna(1.0, inplace=True)
-
-            if not n.storage_units.empty:
-                n.storage_units.state_of_charge_initial = (
-                    n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
-                )
+        if not n.storage_units.empty:
+            n.storage_units.state_of_charge_initial = (
+                n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
+            )
 
         status, condition = n.optimize(sns, **kwargs)
 
