@@ -114,6 +114,9 @@ def optimize_with_rolling_horizon(
     if horizon <= overlap:
         raise ValueError("overlap must be smaller than horizon")
 
+    # Make sure that quadratic costs as zero and not NaN
+    n.links.marginal_cost_quadratic = 0.0
+
     starting_points = range(0, len(snapshots), horizon - overlap)
     for i, start in enumerate(starting_points):
         end = min(len(snapshots), start + horizon)
