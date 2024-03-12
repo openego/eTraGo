@@ -836,6 +836,13 @@ def iterate_sclopf(
     post_lopf=False,
     div_ext_lines=False,
 ):
+
+    if etrago.args["method"]["formulation"] != "pyomo":
+        etrago.args["method"]["formulation"] = "pyomo"
+        logger.info("""
+                    SCLOPF currently only implemented for pyomo.
+                    Setting etrago.args["method"]["formulation"] = 'pyomo'
+                    """)
     network = etrago.network
 
     network = split_parallel_lines(network)
