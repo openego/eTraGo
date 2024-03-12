@@ -303,7 +303,8 @@ def build_market_model(self):
     net.generators[committable_attrs.columns] = committable_attrs
     net.generators.min_up_time = net.generators.min_up_time.astype(int)
     net.generators.min_down_time = net.generators.min_down_time.astype(int)
-    net.generators[committable_attrs.columns].loc["ramp_limit_down"].fillna(1.)
+
+    net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(1., inplace=True)
 
     # Tadress link carriers i.e. OCGT
     committable_links = net.links.carrier.isin(unit_commitment).to_frame(
@@ -400,6 +401,9 @@ def build_shortterm_market_model(self):
     # That would be in conflict with the e_min_pu and e_max_pu limit
     m.stores.loc[m.stores.carrier!="battery_storage", "e_cyclic"] = False
     m.storage_units.cyclic_state_of_charge = False
+
+    m.generators.loc[m.generators.committable, "ramp_limit_down"].fillna(1., inplace=True)
+    m.links.loc[m.links.committable, "ramp_limit_down"].fillna(1., inplace=True)
 
     self.market_model = m
 
