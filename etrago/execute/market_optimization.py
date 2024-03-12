@@ -151,14 +151,14 @@ def optimize_with_rolling_horizon(
                 snapshots[end - 1], seasonal_stores
             ].div(
                 pre_market.stores.e_nom_opt[seasonal_stores]
-            )
+            ) * 1.01
             n.stores_t.e_min_pu.loc[
                 snapshots[end - 1], seasonal_stores
             ] = pre_market.stores_t.e.loc[
                 snapshots[end - 1], seasonal_stores
             ].div(
                 pre_market.stores.e_nom_opt[seasonal_stores]
-            )
+            ) * 0.99
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
