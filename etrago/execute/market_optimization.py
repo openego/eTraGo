@@ -303,6 +303,7 @@ def build_market_model(self):
     net.generators[committable_attrs.columns] = committable_attrs
     net.generators.min_up_time = net.generators.min_up_time.astype(int)
     net.generators.min_down_time = net.generators.min_down_time.astype(int)
+    net.generators[committable_attrs.columns].loc["ramp_limit_down"].fillna(1.)
 
     # Tadress link carriers i.e. OCGT
     committable_links = net.links.carrier.isin(unit_commitment).to_frame(
