@@ -20,7 +20,7 @@ you create a virtual environment (where you like it) and activate it:
 
 .. code-block:: bash
 
-   $ virtualenv venv --clear -p python3.8
+   $ virtualenv venv --clear -p python3.10
    $ source venv/bin/activate
    $ cd venv
 
@@ -40,14 +40,14 @@ Windows or Mac OSX users
 ========================
 
 For Windows and/or Mac OSX user we highly recommend to install and use Anaconda
-for your Python3 installation. First install Conda including python 3.8 or
+for your Python3 installation. First install Conda including python 3.10 or
 higher version from https://www.anaconda.com/download/ and open an anaconda
 prompt as administrator and run:
 
 .. code-block:: bash
 
   $ conda config --add channels conda-forge
-  $ conda create -n etrago_env python=3.8
+  $ conda create -n etrago_env python=3.10
   $ conda activate etrago_env
   $ pip install eTraGo
 

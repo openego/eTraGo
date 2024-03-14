@@ -26,12 +26,12 @@ import os
 if "READTHEDOCS" not in os.environ:
     import logging
 
-    from pypsa import Network
-    from pypsa.networkclustering import (
+    from pypsa.clustering.spatial import (
         aggregatebuses,
         aggregateoneport,
         busmap_by_kmeans,
     )
+    from pypsa.components import Network
     from six import iteritems
     import numpy as np
     import pandas as pd
@@ -39,6 +39,7 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago.cluster.spatial import (
         find_buses_area,
+        drop_nan_values,
         group_links,
         kmedoids_dijkstra_clustering,
         sum_with_inf,
@@ -85,10 +86,15 @@ def preprocessing(etrago):
     # Create network_ch4 (grid nodes in order to create the busmap basis)
     network_ch4 = Network()
 
-    buses_ch4 = etrago.network.buses
-    links_ch4 = etrago.network.links
+    buses_ch4 = etrago.network.buses.copy()
+    links_ch4 = etrago.network.links.copy()
+
     io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
-    io.import_components_from_dataframe(network_ch4, links_ch4, "Link")
+    network_ch4.madd(
+        "Link", links_ch4.index, **links_ch4.loc[:, ~links_ch4.isna().any()]
+    )
+
+    network_ch4.buses["country"] = buses_ch4.country
 
     # Cluster ch4 buses
     settings = etrago.args["network_clustering"]
@@ -359,7 +365,7 @@ def gas_postprocessing(
                 + "_result.csv"
             )
 
-    if "H2" in etrago.network.buses.carrier.unique():
+    if "H2_grid" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
@@ -491,6 +497,7 @@ def gas_postprocessing(
         network_gasgrid_c, etrago.network.carriers, "Carrier"
     )
 
+    network_gasgrid_c.consistency_check()
     network_gasgrid_c.determine_network_topology()
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
@@ -502,32 +509,36 @@ def gas_postprocessing(
             if cluster in busmap[medoid_idx].values:
                 medoid = busmap[medoid_idx][
                     busmap[medoid_idx] == cluster
-                ].index
+                ].index[0]
                 h2_idx = network_gasgrid_c.buses.loc[
                     (network_gasgrid_c.buses.carrier == "H2_grid")
                     & (
                         network_gasgrid_c.buses.y
-                        == network_gasgrid_c.buses.at[i, "y"]
+                        == network_gasgrid_c.buses.loc[i, "y"]
                     )
                     & (
                         network_gasgrid_c.buses.x
-                        == network_gasgrid_c.buses.at[i, "x"]
+                        == network_gasgrid_c.buses.loc[i, "x"]
                     )
                 ]
                 if len(h2_idx) > 0:
                     h2_idx = h2_idx.index.tolist()[0]
-                    network_gasgrid_c.buses.at[
-                        h2_idx, "x"
-                    ] = etrago.network.buses["x"].loc[medoid]
-                    network_gasgrid_c.buses.at[
-                        h2_idx, "y"
-                    ] = etrago.network.buses["y"].loc[medoid]
-                network_gasgrid_c.buses.at[i, "x"] = etrago.network.buses[
-                    "x"
-                ].loc[medoid]
-                network_gasgrid_c.buses.at[i, "y"] = etrago.network.buses[
-                    "y"
-                ].loc[medoid]
+                    network_gasgrid_c.buses.loc[h2_idx, "x"] = (
+                        etrago.network.buses["x"].loc[medoid]
+                    )
+                    network_gasgrid_c.buses.loc[h2_idx, "y"] = (
+                        etrago.network.buses["y"].loc[medoid]
+                    )
+
+                network_gasgrid_c.buses.loc[i, "x"] = etrago.network.buses.loc[
+                    medoid, "x"
+                ]
+                network_gasgrid_c.buses.loc[i, "y"] = etrago.network.buses.loc[
+                    medoid, "y"
+                ]
+
+    drop_nan_values(network_gasgrid_c)
+
     return (network_gasgrid_c, busmap)
 
 
@@ -868,6 +879,7 @@ def get_clustering_from_busmap(
         A new gas grid pypsa.Network object with aggregated components based
         on the bus mapping.
     """
+
     network_gasgrid_c = Network()
 
     # Aggregate buses
@@ -928,7 +940,9 @@ def get_clustering_from_busmap(
 
     # import the links and the respective time series with the bus0 and bus1
     # values updated from the busmap
-    io.import_components_from_dataframe(network_gasgrid_c, new_links, "Link")
+    io.import_components_from_dataframe(
+        network_gasgrid_c, new_links.loc[:, ~new_links.isna().all()], "Link"
+    )
 
     if with_time:
         for attr, df in network.links_t.items():
@@ -936,6 +950,7 @@ def get_clustering_from_busmap(
                 io.import_series_from_dataframe(
                     network_gasgrid_c, df, "Link", attr
                 )
+
     return network_gasgrid_c
 
 

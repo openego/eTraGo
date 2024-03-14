@@ -37,6 +37,24 @@ from etrago.cluster.disaggregation import run_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.execute import (
+    dispatch_disaggregation,
+    lopf,
+    optimize,
+    run_pf_post_lopf,
+)
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
+)
+from etrago.execute.sclopf import (
+    iterate_sclopf,
+    post_contingency_analysis_lopf,
+)
 from etrago.tools.calc_results import (
     ac_export,
     ac_export_per_country,
@@ -45,11 +63,6 @@ from etrago.tools.calc_results import (
     dc_export_per_country,
     german_network,
     system_costs_germany,
-)
-from etrago.tools.execute import (
-    dispatch_disaggregation,
-    lopf,
-    run_pf_post_lopf,
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -83,6 +96,7 @@ from etrago.tools.utilities import (
     convert_capital_costs,
     crossborder_capacity,
     delete_dispensable_ac_buses,
+    delete_irrelevant_oneports,
     drop_sectors,
     export_to_csv,
     filter_links_by_carrier,
@@ -199,12 +213,30 @@ class Etrago:
                 csv_folder_name, name, ignore_standard_types
             )
 
-            if self.args["disaggregation"] is not None:
+            if self.args["spatial_disaggregation"] is not None:
                 self.disaggregated_network = Network(
                     csv_folder_name + "/disaggregated_network",
                     name,
                     ignore_standard_types,
                 )
+
+            if self.args["method"]["type"] == "market_grid":
+                try:
+                    self.market_model = Network(
+                        csv_folder_name + "/market",
+                        name,
+                        ignore_standard_types,
+                    )
+                except ValueError:
+                    logger.warning(
+                        """
+                        Could not import a market_model but the selected
+                        method in the args indicated that it should be there.
+                        This happens when the exported network was not solved
+                        yet.Run 'etrago.optimize()' to build and solve the
+                        market model.
+                        """
+                    )
 
             self.get_clustering_data(csv_folder_name)
 
@@ -260,13 +292,23 @@ class Etrago:
 
     snapshot_clustering = snapshot_clustering
 
+    add_redispatch_generators = add_redispatch_generators
+
+    build_market_model = build_market_model
+
+    grid_optimization = grid_optimization
+
+    market_optimization = market_optimization
+
     lopf = lopf
 
-    dispatch_disaggregation = dispatch_disaggregation
+    optimize = optimize
+
+    temporal_disaggregation = dispatch_disaggregation
 
     pf_post_lopf = run_pf_post_lopf
 
-    disaggregation = run_disaggregation
+    spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
 
@@ -326,6 +368,8 @@ class Etrago:
 
     delete_dispensable_ac_buses = delete_dispensable_ac_buses
 
+    delete_irrelevant_oneports = delete_irrelevant_oneports
+
     get_clustering_data = get_clustering_data
 
     adjust_CH4_gen_carriers = adjust_CH4_gen_carriers
@@ -333,6 +377,10 @@ class Etrago:
     manual_fixes_datamodel = manual_fixes_datamodel
 
     shifted_energy = shifted_energy
+
+    post_contingency_analysis = post_contingency_analysis_lopf
+
+    sclopf = iterate_sclopf
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -360,7 +408,7 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2" in self.network.buses.carrier:
+        if "H2_grid" in self.network.buses.carrier.unique():
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
@@ -414,6 +462,8 @@ class Etrago:
         self.convert_capital_costs()
 
         self.delete_dispensable_ac_buses()
+
+        self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
 

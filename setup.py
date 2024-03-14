@@ -42,7 +42,7 @@ setup(
         )
     ),
     long_description_content_type="text/x-rst",
-    version="0.8.0",
+    version="0.9.0",
     url="https://github.com/openego/eTraGo",
     license="GNU Affero General Public License Version 3 (AGPL-3.0)",
     packages=find_packages(),
@@ -54,11 +54,8 @@ setup(
         "loguru",
         "matplotlib >= 3.0.3",
         "oedialect",
-        # Fix upper version limits for pyomo and pandas
-        # Related to problems with old pypsa version
-        "pandas < 2",
-        "pyomo>6.4, <6.6, !=6.4.3",
-        "pypsa == 0.20.1",
+        "pandas < 2.2",
+        "pypsa == 0.26.2",
         "rtree",
         "saio",
         "scikit-learn",

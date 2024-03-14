@@ -674,12 +674,12 @@ def calc_etrago_results(self):
 
     # system costs
 
-    self.results.value[
-        "annual ac grid investment costs"
-    ] = calc_investment_cost(self)[0][0]
-    self.results.value[
-        "annual dc grid investment costs"
-    ] = calc_investment_cost(self)[0][1]
+    self.results.value["annual ac grid investment costs"] = (
+        calc_investment_cost(self)[0][0]
+    )
+    self.results.value["annual dc grid investment costs"] = (
+        calc_investment_cost(self)[0][1]
+    )
     self.results.value["annual electrical grid investment costs"] = sum(
         calc_investment_cost(self)[0]
     )
@@ -688,9 +688,9 @@ def calc_etrago_results(self):
         self
     )[1]
 
-    self.results.value[
-        "annual electrical storage investment costs"
-    ] = calc_investment_cost(self)[2][0]
+    self.results.value["annual electrical storage investment costs"] = (
+        calc_investment_cost(self)[2][0]
+    )
     self.results.value["annual store investment costs"] = calc_investment_cost(
         self
     )[2][1]
@@ -715,9 +715,9 @@ def calc_etrago_results(self):
     network = self.network
 
     if not network.storage_units[network.storage_units.p_nom_extendable].empty:
-        self.results.value[
-            "battery storage expansion"
-        ] = _calc_storage_expansion(self).sum()
+        self.results.value["battery storage expansion"] = (
+            _calc_storage_expansion(self).sum()
+        )
 
         store = _calc_store_expansion(self)
         self.results.value["store expansion"] = store.sum()
@@ -743,19 +743,19 @@ def calc_etrago_results(self):
         self.results.value["fuel cell links expansion"] = links[0]
         self.results.value["electrolyzer links expansion"] = links[1]
         self.results.value["methanisation links expansion"] = links[2]
-        self.results.value[
-            "Steam Methane Reformation links expansion"
-        ] = links[3]
+        self.results.value["Steam Methane Reformation links expansion"] = (
+            links[3]
+        )
 
     # grid expansion
 
     if not network.lines[network.lines.s_nom_extendable].empty:
-        self.results.value[
-            "abs. electrical ac grid expansion"
-        ] = _calc_network_expansion(self)[0].sum()
-        self.results.value[
-            "abs. electrical dc grid expansion"
-        ] = _calc_network_expansion(self)[1].sum()
+        self.results.value["abs. electrical ac grid expansion"] = (
+            _calc_network_expansion(self)[0].sum()
+        )
+        self.results.value["abs. electrical dc grid expansion"] = (
+            _calc_network_expansion(self)[1].sum()
+        )
         self.results.value["abs. electrical grid expansion"] = (
             self.results.value["abs. electrical ac grid expansion"]
             + self.results.value["abs. electrical dc grid expansion"]

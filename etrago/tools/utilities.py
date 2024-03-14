@@ -144,7 +144,7 @@ def buses_grid_linked(network, voltage_level):
     return df.index
 
 
-def geolocation_buses(self):
+def geolocation_buses(self, apply_on="grid_model"):
     """
     If geopandas is installed:
     Use geometries of buses x/y(lon/lat) and polygons
@@ -160,9 +160,23 @@ def geolocation_buses(self):
     ----------
     etrago : :class:`etrago.Etrago`
        Transmission grid object
-
+    apply_on: str
+        State if this function is applied on the grid_model or the
+        market_model. The market_model options can only be used if the method
+        type is "market_grid".
     """
-    network = self.network
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            or 'pre_market_model'."""
+        )
 
     transborder_lines_0 = network.lines[
         network.lines["bus0"].isin(
@@ -219,7 +233,7 @@ def geolocation_buses(self):
     return network
 
 
-def buses_by_country(self):
+def buses_by_country(self, apply_on="grid_model"):
     """
     Find buses of foreign countries using coordinates
     and return them as Pandas Series
@@ -228,11 +242,27 @@ def buses_by_country(self):
     ----------
     self : Etrago object
         Overall container of PyPSA
+    apply_on: str
+        State if this function is applied on the grid_model or the
+        market_model. The market_model options can only be used if the method
+        type is "market_grid".
 
     Returns
     -------
     None
     """
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            or 'pre_market_model'."""
+        )
 
     countries = {
         "Poland": "PL",
@@ -265,7 +295,7 @@ def buses_by_country(self):
     if len(germany_sh.gen.unique()) > 1:
         shapes.at["Germany", "geometry"] = germany_sh.geometry.unary_union
 
-    geobuses = self.network.buses.copy()
+    geobuses = network.buses.copy()
     geobuses["geom"] = geobuses.apply(
         lambda x: Point([x["x"], x["y"]]), axis=1
     )
@@ -277,7 +307,7 @@ def buses_by_country(self):
 
     for country in countries:
         geobuses["country"][
-            self.network.buses.index.isin(
+            network.buses.index.isin(
                 geobuses.clip(shapes[shapes.index == country]).index
             )
         ] = countries[country]
@@ -290,7 +320,7 @@ def buses_by_country(self):
         closest = distances.idxmin()
         geobuses.loc[bus, "country"] = countries[closest]
 
-    self.network.buses = geobuses.drop(columns="geom")
+    network.buses = geobuses.drop(columns="geom")
 
     return
 
@@ -1104,7 +1134,8 @@ def group_parallel_lines(network):
         .reset_index()
         .set_index("Line", drop=True)
     )
-    network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
+
+    # network.lines["geom"] = gpd.GeoSeries.from_wkt(network.lines["geom"])
 
     return
 
@@ -1334,6 +1365,40 @@ def delete_dispensable_ac_buses(etrago):
             )
         ].transpose()
     )
+
+    return
+
+
+def delete_irrelevant_oneports(etrago):
+    network = etrago.network
+
+    network.generators.drop(
+        network.generators[
+            (network.generators.p_nom == 0)
+            & (network.generators.p_nom_extendable is False)
+        ].index,
+        inplace=True,
+    )
+    network.storage_units.drop(
+        network.storage_units[
+            (network.storage_units.p_nom == 0)
+            & (network.storage_units.p_nom_extendable is False)
+        ].index,
+        inplace=True,
+    )
+
+    components = ["generators", "storage_units"]
+    for g in components:  # loads_t
+        h = g + "_t"
+        nw = getattr(network, h)  # network.loads_t
+        for i in nw.keys():  # network.loads_t.p
+            cols = [
+                j
+                for j in getattr(nw, i).columns
+                if j not in getattr(network, g).index
+            ]
+            for k in cols:
+                del getattr(nw, i)[k]
 
     return
 
@@ -2421,8 +2486,14 @@ def check_args(etrago):
         ), "gridversion does not exist"
 
     if etrago.args["snapshot_clustering"]["active"]:
+        # Assert that skip_snapshots and snapshot_clustering are not combined
+        # more information: https://github.com/openego/eTraGo/issues/691
+        assert etrago.args["skip_snapshots"] is False, (
+            "eTraGo does not support combining snapshot_clustering and"
+            " skip_snapshots. Please update your settings and choose either"
+            " snapshot_clustering or skip_snapshots."
+        )
         # typical periods
-
         if etrago.args["snapshot_clustering"]["method"] == "typical_periods":
             # typical days
 
@@ -2846,3 +2917,40 @@ def manual_fixes_datamodel(etrago):
         ].index,
         "p_max_pu",
     ] = 0.65
+
+    # Set costs for CO2 from DAC for needed for methanation
+    etrago.network.links.loc[
+        etrago.network.links.carrier == "H2_to_CH4", "marginal_cost"
+    ] = 25
+
+    # Set r value if missing
+    if not etrago.network.lines.loc[etrago.network.lines.r == 0, "r"].empty:
+        logger.info(
+            f"""
+            There are {len(
+                etrago.network.lines.loc[etrago.network.lines.r == 0, "r"]
+                )} lines without a resistance (r) in the data model.
+            The resistance of these lines will be automatically set to 0.0001.
+            """
+        )
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0, "r"] = 0.0001
+
+    if not etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ].empty:
+        logger.info(
+            f"""There are {len(etrago.network.transformers.loc[
+                etrago.network.transformers.r == 0, "r"]
+                )} trafos without a resistance (r) in the data model.
+            The resistance of these trafos will be automatically set to 0.0001.
+            """
+        )
+    etrago.network.transformers.loc[
+        etrago.network.transformers.r == 0, "r"
+    ] = 0.0001
+
+    # Set vnom of transformers
+    etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
+        etrago.network.transformers.bus0.values, "v_nom"
+    ].values

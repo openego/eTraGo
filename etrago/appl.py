@@ -28,7 +28,7 @@ the function run_etrago.
 import datetime
 import os
 import os.path
-
+import pandas as pd
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -52,12 +52,18 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "lopf",  # type of optimization, currently only 'lopf'
-        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
+        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
+        "formulation": "pyomo",
+        "market_zones": "status_quo", # only used if type='market_grid'
+        "rolling_horizon": { # Define parameter of market optimization
+            "planning_horizon": 72, # number of snapshots in each optimization
+            "overlap": 24, # number of overlapping hours
+            },
     },
     "pf_post_lopf": {
-        "active": True,  # choose if perform a pf after lopf
+        "active": False,  # choose if perform a pf after lopf
         "add_foreign_lopf": True,  # keep results of lopf for foreign DC-links
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
@@ -102,10 +108,10 @@ args = {
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
+    "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False, # False or path to stored busmap
+        "busmap": False,  # False or path to stored busmap
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -115,7 +121,7 @@ args = {
         "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
         "cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -141,7 +147,7 @@ args = {
             },
         },
     },
-    "disaggregation": None,  # None or 'uniform'
+    "spatial_disaggregation": None,  # None or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
@@ -184,8 +190,9 @@ def run_etrago(args, json_path):
         Choose method and settings for optimization.
         The provided dictionary can have the following entries:
 
-        * "lopf" : str
-            Type of optimization, currently only "lopf". Default: "lopf".
+        * "type" : str
+            Choose the type of optimization. Current options: "lopf", "sclopf"
+            or "market_grid". Default: "market_grid".
         * "n_iter" : int
             In case of extendable lines, several LOPFs have to be performed.
             You can either set "n_iter" and specify a fixed number of
@@ -683,6 +690,49 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
+    if etrago.args["scn_name"] == "status2019":
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus0.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.mremove(
+            "Link",
+            etrago.network.links[
+                ~etrago.network.links.bus1.isin(etrago.network.buses.index)
+            ].index,
+        )
+        etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
+        # delete following unconnected CH4 buses. why are they there?
+        etrago.network.buses.drop(
+            etrago.network.buses[
+                etrago.network.buses.index.isin(["37865", "37870"])
+            ].index,
+            inplace=True,
+        )
+
+        etrago.network.links.loc[
+            etrago.network.links.carrier.isin(
+                ["central_gas_chp", "industrial_gas_CHP"]
+            ),
+            "p_nom",
+        ] *= 1e-3
+        etrago.network.generators.loc[
+            etrago.network.generators.carrier.isin(
+                [
+                    "central_lignite_CHP",
+                    "industrial_lignite_CHP",
+                    "central_oil_CHP",
+                    "industrial_coal_CHP",
+                    "central_coal_CHP",
+                    "industrial_oil_CHP" "central_others_CHP",
+                ]
+            ),
+            "p_nom",
+        ] *= 1e-3
+
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -697,18 +747,31 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    # Temporary drop DLR as it is currently not working with sclopf
+    if etrago.args["method"] != "lopf":
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+            columns=etrago.network.lines.index,
+            data=1.0,
+        )
+
     # start linear optimal powerflow calculations
-    etrago.lopf()
+
+    etrago.network.storage_units.cyclic_state_of_charge = True
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
+    etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.dispatch_disaggregation()
+    etrago.temporal_disaggregation()
 
     # start power flow based on lopf results
     etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
-    etrago.disaggregation()
+    etrago.spatial_disaggregation()
 
     # calculate central etrago results
     etrago.calc_results()

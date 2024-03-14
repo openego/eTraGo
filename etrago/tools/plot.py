@@ -25,7 +25,7 @@ from math import log10, sqrt
 import logging
 import os
 
-from etrago.tools.execute import import_gen_from_links
+from etrago.execute import import_gen_from_links
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -115,7 +115,7 @@ def plot_osm(x, y, zoom, alpha=0.4):
     )
     plotter.plot(ax, alpha=alpha)
     # ax.plot(x, y, "ro-")
-    return fig, ax
+    return fig, ax, extent.xrange, extent.yrange
 
 
 def coloring():
@@ -198,6 +198,14 @@ def coloring():
         "BEV charger": "indigo",
         "BEV_charger": "indigo",
         "others": "dimgrey",
+        "central_coal_CHP": "darkorange",
+        "central_lignite_CHP": "darkorange",
+        "central_oil_CHP": "darkorange",
+        "central_others_CHP": "darkorange",
+        "industrial_coal_CHP": "darkorange",
+        "industrial_lignite_CHP": "darkorange",
+        "industrial_oil_CHP": "darkorange",
+        "industrial_others_CHP": "darkorange",
     }
 
     return colors
@@ -766,7 +774,7 @@ def curtailment(network, carrier="solar", filename=None):
         plt.close()
 
 
-def calc_dispatch_per_carrier(network, timesteps):
+def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
     """Function that calculates dispatch per carrier in given timesteps
 
     Parameters
@@ -775,6 +783,10 @@ def calc_dispatch_per_carrier(network, timesteps):
         Holds topology of grid including results from powerflow analysis
     timesteps : array
         Timesteps considered in dispatch calculation
+    dispatch_type: str
+        This parameter can receive 3 different options: total, ramp_up and
+        ramp_down. The default is total, which plots the total energy supplied
+        by carrier by the given timesteps.
 
     Returns
     -------
@@ -782,6 +794,34 @@ def calc_dispatch_per_carrier(network, timesteps):
         dispatch per carrier
 
     """
+    # up_time_before and down_time_before are irrelevant for this plot but
+    # create problems when grouping, therefore they are set to 0.
+    if ("up_time_before" in (network.generators.columns)) | (
+        "down_time_before" in (network.generators.columns)
+    ):
+        network.generators["up_time_before"] = 0
+        network.generators["down_time_before"] = 0
+
+    # If ramp_up or ramp_down are passed to the argument dispath_type, all the
+    # not relevant generators and their time series are discarted.
+    if dispatch_type in ("ramp_up", "ramp_down"):
+        if dispatch_type == "ramp_up":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_up")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_up")
+            ].index
+        if dispatch_type == "ramp_down":
+            discard_gen = network.generators[
+                ~network.generators.index.str.contains("ramp_down")
+            ].index
+            discard_gen_l = network.links[
+                ~network.links.index.str.contains("ramp_down")
+            ].index
+        network.mremove("Generator", discard_gen)
+        network.mremove("Link", discard_gen_l)
+        network.generators_t.p = network.generators_t.p * -1
 
     import_gen_from_links(network)
 
@@ -1123,7 +1163,7 @@ def nodal_gen_dispatch(
     if osm is not False:
         if set_epsg_network.counter == 0:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
             subplot_kw={"projection": ccrs.PlateCarree()}, figsize=(5, 5)
@@ -1584,54 +1624,24 @@ def calc_dc_loading(network, timesteps):
         DC line loading in MW
 
     """
-    # Aviod covering of bidirectional links
-    network.links["linked_to"] = 0
-    for i, row in network.links.iterrows():
-        if not (
-            network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
-        ).empty:
-            links_df = network.links.index[
-                (network.links.bus0 == row["bus1"])
-                & (network.links.bus1 == row["bus0"])
-                & (network.links.length == row["length"])
-            ]
+    dc_links = network.links.loc[network.links.carrier == "DC", :]
 
-            network.links.at[i, "linked_to"] = links_df.values[0]
-
-    network.links.linked_to = network.links.linked_to.astype(str)
-    # Set p_nom_max and line_loading for one directional links
     link_load = network.links_t.p0[
-        network.links.index[network.links.linked_to == "0"]
+        network.links.index[network.links.carrier == "DC"]
     ]
 
-    p_nom_opt_max = network.links.p_nom_opt[network.links.linked_to == "0"]
-
-    # Set p_nom_max and line_loading for bidirectional links
-    for i, row in network.links[network.links.linked_to != "0"].iterrows():
-        load = pd.DataFrame(
-            index=network.links_t.p0.index, columns=["to", "from"]
+    dc_load = pd.Series(index=network.links.index, data=0.0)
+    dc_load.loc[dc_links.index] = (
+        (
+            mul_weighting(network, link_load)
+            .loc[network.snapshots[timesteps]]
+            .abs()
+            .sum()[dc_links.index]
+            / dc_links.p_nom_opt
         )
-        load["to"] = network.links_t.p0[row["linked_to"]]
-        load["from"] = network.links_t.p0[i]
-        link_load[i] = load.abs().max(axis=1)
-        p_nom_opt_max[i] = max(
-            row.p_nom_opt,
-            network.links.p_nom_opt[
-                network.links.index == row["linked_to"]
-            ].values[0],
-        )
-    dc_load = (
-        mul_weighting(network, link_load)
-        .loc[network.snapshots[timesteps]]
-        .abs()
-        .sum()[network.links.index]
-        / p_nom_opt_max
-    ).dropna()
-    dc_load.loc[network.links.carrier != "DC"] = 0
+        .fillna(0)
+        .values
+    )
 
     return dc_load
 
@@ -1750,7 +1760,7 @@ def calc_network_expansion(network, method="abs", ext_min=0.1):
     return network, extension_lines, extension_links
 
 
-def plot_background_grid(network, ax):
+def plot_background_grid(network, ax, geographical_boundaries, osm):
     """Plots grid topology in background of other network.plot
 
     Parameters
@@ -1759,6 +1769,11 @@ def plot_background_grid(network, ax):
         Overall container of PyPSA
     ax : matplotlib.axes._subplots.AxesSubplot
         axes of plot
+    geographical_boundaries : list
+        Set georaphical boundaries for the plots
+    osm : False or dict.
+        False if not osm background map is required or dictionary with
+        x, y and zoom information.
 
     Returns
     -------
@@ -1768,20 +1783,7 @@ def plot_background_grid(network, ax):
     link_widths = pd.Series(index=network.links.index, data=0)
     link_widths.loc[network.links.carrier == "DC"] = 0.3
 
-    if cartopy_present:
-        network.plot(
-            ax=ax,
-            line_colors="grey",
-            link_colors="grey",
-            bus_sizes=0,
-            line_widths=0.5,
-            link_widths=link_widths,
-            geomap=True,
-            projection=ccrs.PlateCarree(),
-            color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
-        )
-    else:
+    if osm is not False:
         network.plot(
             ax=ax,
             line_colors="grey",
@@ -1790,10 +1792,35 @@ def plot_background_grid(network, ax):
             line_widths=0.5,
             link_widths=link_widths,
             geomap=False,
+            boundaries=geographical_boundaries,
         )
+    else:
+        if cartopy_present:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=True,
+                projection=ccrs.PlateCarree(),
+                color_geomap=True,
+                boundaries=geographical_boundaries,
+            )
+        else:
+            network.plot(
+                ax=ax,
+                line_colors="grey",
+                link_colors="grey",
+                bus_sizes=0,
+                line_widths=0.5,
+                link_widths=link_widths,
+                geomap=False,
+            )
 
 
-def demand_side_management(self, buses, snapshots, agg="5h", used=False):
+def demand_side_management(self, buses, snapshots, agg="5h", used=False, apply_on="grid_model"):
     """Calculate shifting potential of demand side management
 
     Parameters
@@ -1806,6 +1833,9 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -1813,19 +1843,33 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    link = self.network.links[
-        (self.network.links.carrier == "dsm")
-        & (self.network.links.bus0.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    link = network.links[
+        (network.links.carrier == "dsm")
+        & (network.links.bus0.isin(buses))
     ]
-    s = self.network.stores[
-        (self.network.stores.carrier == "dsm")
-        & (self.network.stores.bus.isin(link.bus1.values))
+    s = network.stores[
+        (network.stores.carrier == "dsm")
+        & (network.stores.bus.isin(link.bus1.values))
     ]
 
     df["p_min"] = (
-        self.network.links_t.p_min_pu[link.index]
+        network.links_t.p_min_pu[link.index]
         .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
@@ -1833,7 +1877,7 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
         .iloc[snapshots]
     )
     df["p_max"] = (
-        self.network.links_t.p_max_pu[link.index]
+        network.links_t.p_max_pu[link.index]
         .mul(link.p_nom, axis=1)
         .sum(axis=1)
         .resample(agg)
@@ -1842,13 +1886,13 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
     )
 
     df["e_min"] = (
-        self.network.stores_t.e_min_pu[s.index]
+        network.stores_t.e_min_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
         .iloc[snapshots]
     )
     df["e_max"] = (
-        self.network.stores_t.e_max_pu[s.index]
+        network.stores_t.e_max_pu[s.index]
         .mul(s.e_nom, axis=1)
         .sum(axis=1)
         .iloc[snapshots]
@@ -1856,13 +1900,13 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False):
 
     if used:
         df["p"] = (
-            self.network.links_t.p0[link.index]
+            network.links_t.p0[link.index]
             .clip(lower=0)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
         )
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
@@ -1873,6 +1917,7 @@ def bev_flexibility_potential(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential of electric vehicles
 
@@ -1886,6 +1931,9 @@ def bev_flexibility_potential(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -1893,31 +1941,44 @@ def bev_flexibility_potential(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
     # Initialize DataFrame
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    df = pd.DataFrame(index=network.snapshots[snapshots])
 
     # Select BEV buses and links
-    bev_buses = self.network.buses[
-        self.network.buses.carrier.str.contains("Li ion")
+    bev_buses = network.buses[
+        network.buses.carrier.str.contains("Li ion")
     ]
-    bev_links = self.network.links[
-        (self.network.links.bus1.isin(bev_buses.index.values))
-        & (self.network.links.bus0.isin(buses))
+    bev_links = network.links[
+        (network.links.bus1.isin(bev_buses.index.values))
+        & (network.links.bus0.isin(buses))
     ]
     bev_buses = bev_links.bus1.values
 
     # Maximum loading of BEV charger in MW per BEV bus
     bev_links_t = (
-        self.network.links_t.p_max_pu[bev_links.index]
+        network.links_t.p_max_pu[bev_links.index]
         .mul(bev_links.p_nom, axis=1)
         .iloc[snapshots]
     )
     bev_links_t.columns = bev_links_t.columns.map(bev_links.bus1)
 
     # BEV loads per bus
-    bev_loads = self.network.loads[self.network.loads.bus.isin(bev_buses)]
-    bev_loads_t = self.network.loads_t.p_set[bev_loads.index].iloc[snapshots]
+    bev_loads = network.loads[network.loads.bus.isin(bev_buses)]
+    bev_loads_t = network.loads_t.p_set[bev_loads.index].iloc[snapshots]
     bev_loads_t.columns = bev_loads_t.columns.map(bev_loads.bus)
 
     # Maximal positive shifting df is max. loading of charger minus fixed loads
@@ -1927,11 +1988,11 @@ def bev_flexibility_potential(
     df["p_min"] = bev_loads_t.mul(-1).sum(axis=1).resample(agg).mean()
 
     # Select BEV stores (batteries of vehicles)
-    bev_stores = self.network.stores[self.network.stores.bus.isin(bev_buses)]
+    bev_stores = network.stores[network.stores.bus.isin(bev_buses)]
 
     # Calculate maximum and minumum state of charges of battries
     df["e_max"] = (
-        self.network.stores_t.e_max_pu[bev_stores.index]
+        network.stores_t.e_max_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
         .iloc[snapshots]
         .sum(axis=1)
@@ -1939,7 +2000,7 @@ def bev_flexibility_potential(
         .mean()
     )
     df["e_min"] = (
-        self.network.stores_t.e_min_pu[bev_stores.index]
+        network.stores_t.e_min_pu[bev_stores.index]
         .mul(bev_stores.e_nom, axis=1)
         .iloc[snapshots]
         .sum(axis=1)
@@ -1948,7 +2009,7 @@ def bev_flexibility_potential(
     )
 
     if used:
-        bev_links_t_used = self.network.links_t.p0[bev_links.index].iloc[
+        bev_links_t_used = network.links_t.p0[bev_links.index].iloc[
             snapshots
         ]
 
@@ -1964,7 +2025,7 @@ def bev_flexibility_potential(
             .mean()
         )  # always < 0
         df["e"] = (
-            self.network.stores_t.e[bev_stores.index]
+            network.stores_t.e[bev_stores.index]
             .sum(axis=1)
             .resample(agg)
             .mean()
@@ -1980,6 +2041,7 @@ def heat_stores(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential (and usage) of heat stores
 
@@ -1993,6 +2055,9 @@ def heat_stores(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -2000,34 +2065,48 @@ def heat_stores(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    heat_buses = self.network.links[
-        self.network.links.bus0.isin(
-            self.network.buses[
-                (self.network.buses.carrier == "AC")
-                & (self.network.buses.index.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    heat_buses = network.links[
+        network.links.bus0.isin(
+            network.buses[
+                (network.buses.carrier == "AC")
+                & (network.buses.index.isin(buses))
             ].index
         )
-        & self.network.links.bus1.isin(
-            self.network.buses[
-                self.network.buses.carrier.str.contains("heat")
+        & network.links.bus1.isin(
+            network.buses[
+                network.buses.carrier.str.contains("heat")
             ].index
         )
     ].bus1.unique()
 
-    l_charge = self.network.links[
-        (self.network.links.carrier.str.contains("heat_store_charger"))
-        & (self.network.links.bus0.isin(heat_buses))
+    l_charge = network.links[
+        (network.links.carrier.str.contains("heat_store_charger"))
+        & (network.links.bus0.isin(heat_buses))
     ]
-    l_discharge = self.network.links[
-        (self.network.links.carrier.str.contains("heat_store_discharger"))
-        & (self.network.links.bus1.isin(heat_buses))
+    l_discharge = network.links[
+        (network.links.carrier.str.contains("heat_store_discharger"))
+        & (network.links.bus1.isin(heat_buses))
     ]
 
-    s = self.network.stores[
-        (self.network.stores.carrier.str.contains("heat_store"))
-        & (self.network.stores.bus.isin(l_charge.bus1.values))
+    s = network.stores[
+        (network.stores.carrier.str.contains("heat_store"))
+        & (network.stores.bus.isin(l_charge.bus1.values))
     ]
 
     df["p_min"] = l_discharge.p_nom_opt.mul(-1 * l_discharge.efficiency).sum()
@@ -2038,18 +2117,18 @@ def heat_stores(
 
     if used:
         df["p"] = (
-            self.network.links_t.p1[l_charge.index]
+            network.links_t.p1[l_charge.index]
             .mul(-1)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
-            + self.network.links_t.p0[l_discharge.index]
+            + network.links_t.p0[l_discharge.index]
             .mul(-1)
             .sum(axis=1)
             .resample(agg)
             .mean()[snapshots]
         )
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
@@ -2060,6 +2139,7 @@ def hydrogen_stores(
     snapshots,
     agg="5h",
     used=False,
+    apply_on="grid_model",
 ):
     """Calculate shifting potential (and usage) of heat stores
 
@@ -2073,6 +2153,9 @@ def hydrogen_stores(
         Temporal resolution. The default is '5h'.
     used : boolean, optional
         State if usage should be included in the results. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
@@ -2080,39 +2163,53 @@ def hydrogen_stores(
         Shifting potential (and usage) of power (MW) and energy (MWh)
 
     """
-    df = pd.DataFrame(index=self.network.snapshots[snapshots])
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
-    h2_buses = self.network.links[
-        self.network.links.bus0.isin(
-            self.network.buses[
-                (self.network.buses.carrier == "AC")
-                & (self.network.buses.index.isin(buses))
+    df = pd.DataFrame(index=network.snapshots[snapshots])
+
+    h2_buses = network.links[
+        network.links.bus0.isin(
+            network.buses[
+                (network.buses.carrier == "AC")
+                & (network.buses.index.isin(buses))
             ].index
         )
-        & self.network.links.bus1.isin(
-            self.network.buses[
-                self.network.buses.carrier.str.contains("H2")
+        & network.links.bus1.isin(
+            network.buses[
+                network.buses.carrier.str.contains("H2")
             ].index
         )
     ].bus1.unique()
 
-    s = self.network.stores[self.network.stores.bus.isin(h2_buses)]
+    s = network.stores[network.stores.bus.isin(h2_buses)]
 
-    df["p_min"] = self.network.stores_t.p[s.index].sum(axis=1).min()
-    df["p_max"] = self.network.stores_t.p[s.index].sum(axis=1).max()
+    df["p_min"] = network.stores_t.p[s.index].sum(axis=1).min()
+    df["p_max"] = network.stores_t.p[s.index].sum(axis=1).max()
 
     df["e_min"] = 0
     df["e_max"] = s.e_nom_opt.sum()
 
     if used:
-        df["p"] = self.network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
-        df["e"] = self.network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
+        df["p"] = network.stores_t.p[s.index].sum(axis=1).iloc[snapshots]
+        df["e"] = network.stores_t.e[s.index].sum(axis=1).iloc[snapshots]
 
     return df
 
 
 def flexibility_usage(
-    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None
+    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None, apply_on="grid_model",
 ):
     """Plots temporal distribution of potential and usage for flexibilities
 
@@ -2129,22 +2226,39 @@ def flexibility_usage(
         The default is [].
     pre_path : str, optional
         State of and where you want to store the figure. The default is None.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
 
     Returns
     -------
     None.
 
     """
+    # Choose which network is plotted
+    if apply_on == "grid_model":
+        network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
+
     colors = coloring()
     colors["dlr"] = "orange"
     colors["h2_store"] = colors["H2_underground"]
     colors["heat"] = colors["central_heat_store"]
 
     if not buses:
-        buses = self.network.buses.index
+        buses = network.buses.index
 
     if len(snapshots) == 0:
-        snapshots = range(1, len(self.network.snapshots))
+        snapshots = range(1, len(network.snapshots))
 
     if flexibility == "dsm":
         df = demand_side_management(
@@ -2153,6 +2267,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "BEV charger":
@@ -2162,6 +2277,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "heat":
@@ -2171,20 +2287,21 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     elif flexibility == "battery":
-        df = pd.DataFrame(index=self.network.snapshots[snapshots])
+        df = pd.DataFrame(index=network.snapshots[snapshots])
 
-        su = self.network.storage_units[
-            (self.network.storage_units.carrier == "battery")
-            & (self.network.storage_units.bus.isin(buses))
+        su = network.storage_units[
+            (network.storage_units.carrier == "battery")
+            & (network.storage_units.bus.isin(buses))
         ]
 
         df["p_min"] = su.p_nom_opt.sum() * (-1)
         df["p_max"] = su.p_nom_opt.sum()
         df["p"] = (
-            self.network.storage_units_t.p[su.index]
+            network.storage_units_t.p[su.index]
             .sum(axis=1)
             .iloc[snapshots]
         )
@@ -2192,7 +2309,7 @@ def flexibility_usage(
         df["e_min"] = 0
         df["e_max"] = su.p_nom_opt.mul(su.max_hours).sum()
         df["e"] = (
-            self.network.storage_units_t.state_of_charge[su.index]
+            network.storage_units_t.state_of_charge[su.index]
             .sum(axis=1)
             .iloc[snapshots]
         )
@@ -2204,6 +2321,7 @@ def flexibility_usage(
             snapshots,
             agg,
             used=True,
+            apply_on=apply_on,
         )
 
     fig, ax = plt.subplots(figsize=(15, 5))
@@ -2227,7 +2345,7 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
+def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model"):
     """
     Parameters
     ----------
@@ -2245,7 +2363,20 @@ def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"]):
     None.
 
     """
-    network = etrago.network
+    # Choose network or disaggregated_network
+    if apply_on == "grid_model":
+        network = etrago.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = etrago.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = etrago.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = etrago.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
+
     colors = coloring()
     line_colors = "lightblue"
 
@@ -2314,15 +2445,12 @@ def plot_grid(
     osm=False,
     boundaries=None,
     filename=None,
-    disaggregated=False,
+    apply_on="grid_model",
     ext_min=0.1,
     ext_width=False,
     legend_entries="all",
-    scaling_store_expansion={
-        "H2": 50,
-        "heat": 0.1,
-        "battery": 10,
-    },
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58],
 ):
     """Function that plots etrago.network and results for lines and buses
 
@@ -2352,6 +2480,8 @@ def plot_grid(
         * 'h2_battery_storage_expansion': storage expansion per bus and
            technology for underground and overground H2 and batteries.
         * 'gen_dist': dispatch per carrier in selected timesteps
+        * 'ramp_up': re-dispatch up per carrier in selected timesteps
+        * 'ramp_down': re-dispatch down per carrier in selected timesteps
         * 'PowerToH2': location and sizes of electrolizers
         * 'flexibility_usage': use of DSM and BEV charger
 
@@ -2370,8 +2500,9 @@ def plot_grid(
        Set fixed boundaries of heatmap axis. The default is None.
     filename: str or None
         Save figure in this direction. The default is None.
-    disaggregated : bool, optional
-        Choose if disaggregated network is shown. The default is False.
+    apply_on : str, optional
+        Choose which network is plotted. The available networks depend on your
+        settings. The default is 'grid_model'
     ext_min: float
         Choose minimum relative line extension shown in plot in p.u..
     ext_width: float or bool
@@ -2383,7 +2514,11 @@ def plot_grid(
     scaling_store_expansion : dict, optional
         Set scaling values to be used per technology for the plots
         storage_expansion and h2_battery_storage_expansion. The default is
+        False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
+    geographical_boundaries : list, optional
+        Set georaphical boundaries for the plots. This parameter is overwritten
+        when osm is used. The default is [-2.5, 16, 46.8, 58]
 
     Returns
     -------
@@ -2391,10 +2526,18 @@ def plot_grid(
 
     """
     # Choose network or disaggregated_network
-    if disaggregated:
-        network = self.disaggregated_network.copy()
-    else:
+    if apply_on == "grid_model":
         network = self.network.copy()
+    elif apply_on == "disaggreagted_network":
+        network = self.disaggregated_network.copy()
+    elif apply_on == "market_model":
+        network = self.market_model.copy()
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model.copy()
+    else:
+        logger.warning(
+            """Parameter apply_on must be one of ['grid_model', 'market_model'
+            'pre_market_model', 'disaggregated_network'.""")
 
     # Set colors for plotting
     plotting_colors(network)
@@ -2409,7 +2552,8 @@ def plot_grid(
     if osm is not False:
         if network.srid == 4326:
             set_epsg_network(network)
-        fig, ax = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        fig, ax, xrange, yrange = plot_osm(osm["x"], osm["y"], osm["zoom"])
+        geographical_boundaries = [xrange[0], xrange[1], yrange[0], yrange[1]]
 
     elif (osm is False) and cartopy_present:
         fig, ax = plt.subplots(
@@ -2438,7 +2582,7 @@ def plot_grid(
             link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
             line_widths = 10
         label = "line loading in p.u."
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         # Only active flow direction is displayed!
         flow = pd.Series(1, index=network.branches().index, dtype="float64")
         flow.iloc[flow.index.get_level_values("component") == "Line"] = (
@@ -2477,14 +2621,14 @@ def plot_grid(
         label = "v_nom in kV"
         line_colors = network.lines.v_nom
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "expansion_abs":
         title = "Network expansion"
         label = "network expansion in GVA"
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="abs", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
 
         if ext_width is not False:
             line_widths = line_colors / ext_width
@@ -2506,7 +2650,7 @@ def plot_grid(
         all_network, line_colors, link_colors = calc_network_expansion(
             network, method="rel", ext_min=ext_min
         )
-        plot_background_grid(all_network, ax)
+        plot_background_grid(all_network, ax, geographical_boundaries, osm)
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
             link_widths = link_colors.apply(
@@ -2526,11 +2670,11 @@ def plot_grid(
         if ext_width is not False:
             line_widths = 0.5 + (line_colors / ext_width)
         link_colors = pd.Series(data=0, index=network.links.index)
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
     elif line_colors == "dlr":
         title = "Dynamic line rating"
         label = "TWh above nominal capacity"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
 
         # calc min capacity per line in the given period: Since lines with
         # different original voltage level could be aggregated during the
@@ -2563,7 +2707,7 @@ def plot_grid(
         label = ""
         line_colors = "grey"
         link_colors = "grey"
-        plot_background_grid(network, ax)
+        plot_background_grid(network, ax, geographical_boundaries, osm)
         link_widths = 0
         line_widths = 0
 
@@ -2591,7 +2735,7 @@ def plot_grid(
             )
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
-        for store_carrier in ["H2", "heat", "battery"]:
+        for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(
                     store_carrier
@@ -2633,9 +2777,11 @@ def plot_grid(
         )
         bus_legend = "Storage distribution"
         bus_unit = "TW"
-    elif bus_colors == "gen_dist":
+    elif bus_colors in ("gen_dist", "ramp_up", "ramp_down"):
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * calc_dispatch_per_carrier(network, timesteps)
+        bus_sizes = bus_scaling * calc_dispatch_per_carrier(
+            network, timesteps, bus_colors
+        )
         bus_legend = "Dispatch"
         bus_unit = "TW"
     elif bus_colors == "flexibility_usage":
@@ -2699,7 +2845,7 @@ def plot_grid(
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
-    if cartopy_present:
+    if cartopy_present & (osm is False):
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
@@ -2714,7 +2860,7 @@ def plot_grid(
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     else:
         ll = network.plot(
@@ -2729,7 +2875,7 @@ def plot_grid(
             flow=flow,
             title=title,
             geomap=False,
-            boundaries=[-2.5, 16, 46.8, 58],
+            boundaries=geographical_boundaries,
         )
     l3 = None
 

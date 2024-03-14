@@ -9,8 +9,10 @@ cleaned = [
     "etrago/cluster/gas.py",
     "etrago/cluster/snapshot.py",
     "etrago/cluster/spatial.py",
+    "etrago/execute/__init__.py",
+    "etrago/execute/grid_optimization.py",
+    "etrago/execute/market_optimization.py",
     "etrago/tools/calc_results.py",
-    "etrago/tools/execute.py",
     "etrago/tools/extendable.py",
     "etrago/tools/io.py",
     "etrago/tools/network.py",
@@ -57,10 +59,10 @@ def flake8(session):
     """Check for happy little style accidents with `flake8`."""
     setdefaults(session)
     session.install("Flake8-pyproject", "flake8")
-    session.run("flake8", "--ignore=E722, W605", *cleaned)
+    session.run("flake8", "--ignore=E722, W605, W503, E203", *cleaned)
 
 
-@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=["3", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
     setdefaults(session)
@@ -69,7 +71,7 @@ def build(session):
     session.run("twine", "check", "dist/eTraGo*")
 
 
-@nox.session(python=["3", "3.8", "3.9", "3.10", "3.11"])
+@nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
     setdefaults(session)
