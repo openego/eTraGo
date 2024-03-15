@@ -23,9 +23,11 @@ e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_.
 
 Publications:
 
-* Feature 1
-* Feature 2
-* Feature 3
+* *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
+* *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
+* *Integrated Techno-Economic Power System Planning of Transmission and Distribution Grids* [Mueller2019]
+* *The eGo grid model: An open source approach towards a model of German high and extra-high voltage power grids* [Mueller20181]
+* *The Role of the High Voltage Power Level in Future Power Systems and Their Modelling* [Mueller20182]
 
 
 eTraGo as part of the eGo-Toolchain
