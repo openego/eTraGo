@@ -2743,7 +2743,7 @@ def adjust_CH4_gen_carriers(self):
     the contraint applying differently to each of them.
     """
 
-    if self.args["scn_name"] == "eGon2035":
+    if "eGon2035" in self.args["scn_name"]:
         # Define marginal cost
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
@@ -2752,7 +2752,7 @@ def adjust_CH4_gen_carriers(self):
             sql = f"""
             SELECT gas_parameters
             FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"]}';"""
+            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
             df = pd.read_sql(sql, engine)
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.ProgrammingError:
