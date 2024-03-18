@@ -136,7 +136,11 @@ def optimize_with_rolling_horizon(
         )
 
         if not n.stores.empty:
-            n.stores.e_initial = n.stores_t.e.loc[snapshots[start - 1]]
+            stores_no_dsm = n.stores[~n.stores.carrier.isin([
+                "dsm", "battery_storage"])].index
+            n.stores.loc[
+                stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], stores_no_dsm]
 
             # Select seasonal stores
             seasonal_stores = n.stores.index[
