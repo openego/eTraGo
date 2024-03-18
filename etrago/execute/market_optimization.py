@@ -329,6 +329,8 @@ def build_market_model(self):
     net.stores.loc[net.stores.carrier!="battery_storage", "e_cyclic"] = True
     net.storage_units.cyclic_state_of_charge = True
 
+    net.links.loc[net.links.carrier=="CH4", "p_nom"] *= 1000
+
     self.pre_market_model = net
 
     # Set country tags for market model
