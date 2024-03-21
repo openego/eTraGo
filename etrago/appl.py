@@ -681,6 +681,14 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # drop generators without p_nom
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            etrago.network.generators.p_nom==0].index
+        )
+
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
