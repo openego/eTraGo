@@ -58,15 +58,32 @@ def market_optimization(self):
             formulation=self.args["model_formulation"],
         )
     elif self.args["method"]["formulation"] == "linopy":
-        self.pre_market_model.optimize(
+        status, condition = self.pre_market_model.optimize(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             extra_functionality=Constraints(self.args, False).functionality,
-        )
+            linearized_unit_commitment=True
+            )
+
+        if status != "ok":
+            logger.warning(
+                f"""Optimization failed with status {status}
+                and condition {condition}"""
+            )
+            self.pre_market_model.model.print_infeasibilities()
+            import pdb; pdb.set_trace()
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
+    # Export results of pre-market model
+    if self.args["csv_export"]:
+        path = self.args["csv_export"]
+        if not os.path.exists(path):
+            os.makedirs(path, exist_ok=True)
+        self.pre_market_model.export_to_csv_folder(path + "/pre_market")
+
     logger.info("Preparing short-term UC market model")
+
     build_shortterm_market_model(self)
     logger.info("Start solving short-term UC market model")
 
