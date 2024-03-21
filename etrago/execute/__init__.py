@@ -215,14 +215,16 @@ def run_lopf(etrago, extra_functionality, method):
                 solver_options=etrago.args["solver_options"],
                 extra_functionality=extra_functionality,
                 formulation=etrago.args["model_formulation"],
-                )
+            )
             if status != "ok":
                 logger.warning(
                     f"""Optimization failed with status {status}
                     and condition {condition}"""
                 )
                 etrago.network.model.print_infeasibilities()
-                import pdb; pdb.set_trace()
+                import pdb
+
+                pdb.set_trace()
         else:
             status, termination_condition = network_lopf(
                 etrago.network,
@@ -428,7 +430,6 @@ def optimize(self):
         # self.market_results_to_grid()
 
         self.grid_optimization()
-
 
     elif self.args["method"]["type"] == "lopf":
 

@@ -62,8 +62,8 @@ def market_optimization(self):
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             extra_functionality=Constraints(self.args, False).functionality,
-            linearized_unit_commitment=True
-            )
+            linearized_unit_commitment=True,
+        )
 
         if status != "ok":
             logger.warning(
@@ -71,7 +71,9 @@ def market_optimization(self):
                 and condition {condition}"""
             )
             self.pre_market_model.model.print_infeasibilities()
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
@@ -95,8 +97,12 @@ def market_optimization(self):
         self.market_model,
         self.pre_market_model,
         snapshots=None,
-        horizon=self.args["method"]["market_optimization"]["rolling_horizon"]["planning_horizon"],
-        overlap=self.args["method"]["market_optimization"]["rolling_horizon"]["overlap"],
+        horizon=self.args["method"]["market_optimization"]["rolling_horizon"][
+            "planning_horizon"
+        ],
+        overlap=self.args["method"]["market_optimization"]["rolling_horizon"][
+            "overlap"
+        ],
         solver_name=self.args["solver"],
         extra_functionality=Constraints(self.args, False).functionality,
     )
@@ -153,11 +159,12 @@ def optimize_with_rolling_horizon(
         )
 
         if not n.stores.empty:
-            stores_no_dsm = n.stores[~n.stores.carrier.isin([
-                "dsm", "battery_storage"])].index
-            n.stores.loc[
-                stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
-                    snapshots[start - 1], stores_no_dsm]
+            stores_no_dsm = n.stores[
+                ~n.stores.carrier.isin(["dsm", "battery_storage"])
+            ].index
+            n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+                snapshots[start - 1], stores_no_dsm
+            ]
 
             # Select seasonal stores
             seasonal_stores = n.stores.index[
@@ -167,28 +174,24 @@ def optimize_with_rolling_horizon(
             ]
 
             # Set e_initial from pre_market model for seasonal stores
-            n.stores.e_initial[seasonal_stores] = (
-                pre_market.stores_t.e.loc[
-                    snapshots[start - 1], seasonal_stores
-                ]
-            )
+            n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
+                snapshots[start - 1], seasonal_stores
+            ]
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
-            n.stores_t.e_max_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
-            ) * 1.01
-            n.stores_t.e_min_pu.loc[
-                snapshots[end - 1], seasonal_stores
-            ] = pre_market.stores_t.e.loc[
-                snapshots[end - 1], seasonal_stores
-            ].div(
-                pre_market.stores.e_nom_opt[seasonal_stores]
-            ) * 0.99
+            n.stores_t.e_max_pu.loc[snapshots[end - 1], seasonal_stores] = (
+                pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(pre_market.stores.e_nom_opt[seasonal_stores])
+                * 1.01
+            )
+            n.stores_t.e_min_pu.loc[snapshots[end - 1], seasonal_stores] = (
+                pre_market.stores_t.e.loc[
+                    snapshots[end - 1], seasonal_stores
+                ].div(pre_market.stores.e_nom_opt[seasonal_stores])
+                * 0.99
+            )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)
 
@@ -205,7 +208,9 @@ def optimize_with_rolling_horizon(
                 and condition {condition}"""
             )
             n.model.print_infeasibilities()
-            import pdb; pdb.set_trace()
+            import pdb
+
+            pdb.set_trace()
     return n
 
 
@@ -233,7 +238,10 @@ def build_market_model(self):
     # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
     # can be assinged here.
-    if self.args["method"]["market_optimization"]["market_zones"] == "status_quo":
+    if (
+        self.args["method"]["market_optimization"]["market_zones"]
+        == "status_quo"
+    ):
         df = pd.DataFrame(
             {
                 "country": net.buses.country.unique(),
@@ -303,9 +311,7 @@ def build_market_model(self):
 
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
-
     # set UC constraints
-
     unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
     unit_commitment.fillna(0, inplace=True)
     committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
@@ -313,6 +319,7 @@ def build_market_model(self):
     )
 
     for attr in unit_commitment.index:
+
         default = component_attrs["Generator"].default[attr]
         committable_attrs[attr] = net.generators.carrier.map(
             unit_commitment.loc[attr]
@@ -325,11 +332,13 @@ def build_market_model(self):
     net.generators.min_up_time = net.generators.min_up_time.astype(int)
     net.generators.min_down_time = net.generators.min_down_time.astype(int)
 
-    net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(1., inplace=True)
+    net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(
+        1.0, inplace=True
+    )
 
     # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.generators.loc[net.generators.committable, "start_up_cost"] = 0.
-    net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.
+    net.generators.loc[net.generators.committable, "start_up_cost"] = 0.0
+    net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.0
 
     # Tadress link carriers i.e. OCGT
     committable_links = net.links.carrier.isin(unit_commitment).to_frame(
@@ -349,15 +358,17 @@ def build_market_model(self):
     net.links[committable_links.columns] = committable_links
     net.links.min_up_time = net.links.min_up_time.astype(int)
     net.links.min_down_time = net.links.min_down_time.astype(int)
-    net.links[committable_links.columns].loc["ramp_limit_down"] = 1.
-    net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] =-1.
+    net.links[committable_links.columns].loc["ramp_limit_down"] = 1.0
+    net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = (
+        -1.0
+    )
 
     # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.links.loc[net.links.committable, "start_up_cost"] = 0.
-    net.links.loc[net.links.committable, "shut_down_cost"] = 0.
+    net.links.loc[net.links.committable, "start_up_cost"] = 0.0
+    net.links.loc[net.links.committable, "shut_down_cost"] = 0.0
 
     # Set stores and storage_units to cyclic
-    net.stores.loc[net.stores.carrier!="battery_storage", "e_cyclic"] = True
+    net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
     net.storage_units.cyclic_state_of_charge = True
 
     self.pre_market_model = net
@@ -427,14 +438,18 @@ def build_shortterm_market_model(self):
     m.links[committable_links.columns] = committable_links
     m.links.min_up_time = m.links.min_up_time.astype(int)
     m.links.min_down_time = m.links.min_down_time.astype(int)
-    m.links.loc[m.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] =-1.
+    m.links.loc[m.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
     # Set stores and storage_units to not cyclic
     # That would be in conflict with the e_min_pu and e_max_pu limit
-    m.stores.loc[m.stores.carrier!="battery_storage", "e_cyclic"] = False
+    m.stores.loc[m.stores.carrier != "battery_storage", "e_cyclic"] = False
     m.storage_units.cyclic_state_of_charge = False
 
-    m.generators.loc[m.generators.committable, "ramp_limit_down"].fillna(1., inplace=True)
-    m.links.loc[m.links.committable, "ramp_limit_down"].fillna(1., inplace=True)
+    m.generators.loc[m.generators.committable, "ramp_limit_down"].fillna(
+        1.0, inplace=True
+    )
+    m.links.loc[m.links.committable, "ramp_limit_down"].fillna(
+        1.0, inplace=True
+    )
 
     self.market_model = m
 

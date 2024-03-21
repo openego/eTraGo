@@ -184,7 +184,8 @@ def adjust_no_electric_network(
         ):
             buses_orig = network.buses.copy()
             ac_buses_out = buses_orig[
-                (buses_orig["country"] != "DE") & (buses_orig["carrier"] == "AC")
+                (buses_orig["country"] != "DE")
+                & (buses_orig["carrier"] == "AC")
             ].dropna(subset=["country", "carrier"])
 
             for bus_out in ac_buses_out.index:
@@ -899,11 +900,9 @@ def postprocessing(
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method, apply_on=apply_on
     )
-    
-
 
     # merge busmap for foreign buses with the German buses
-    if not settings["cluster_foreign_AC"] and (apply_on=="grid_model"):
+    if not settings["cluster_foreign_AC"] and (apply_on == "grid_model"):
         for bus in busmap_foreign.index:
             busmap[bus] = busmap_foreign[bus]
             if bus == busmap_foreign[bus]:
