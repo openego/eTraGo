@@ -310,12 +310,17 @@ def build_market_model(self):
 
     net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(1., inplace=True)
 
+    # Set all start_up and shut_down cost to 0 to simpify unit committment
+    net.generators.loc[net.generators.committable, "start_up_cost"] = 0.
+    net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.
+
     # Tadress link carriers i.e. OCGT
     committable_links = net.links.carrier.isin(unit_commitment).to_frame(
         "committable"
     )
 
     for attr in unit_commitment.index:
+
         default = component_attrs["Link"].default[attr]
         committable_links[attr] = net.links.carrier.map(
             unit_commitment.loc[attr]
@@ -329,6 +334,11 @@ def build_market_model(self):
     net.links.min_down_time = net.links.min_down_time.astype(int)
     net.links[committable_links.columns].loc["ramp_limit_down"] = 1.
     net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] =-1.
+
+    # Set all start_up and shut_down cost to 0 to simpify unit committment
+    net.links.loc[net.links.committable, "start_up_cost"] = 0.
+    net.links.loc[net.links.committable, "shut_down_cost"] = 0.
+
     # Set stores and storage_units to cyclic
     net.stores.loc[net.stores.carrier!="battery_storage", "e_cyclic"] = True
     net.storage_units.cyclic_state_of_charge = True
