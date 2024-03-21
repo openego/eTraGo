@@ -2589,7 +2589,7 @@ def check_args(etrago):
             )
             etrago.args["method"]["pyomo"] = True
 
-    if not etrago.args["method"]["pyomo"]:
+    if etrago.args["method"]["formulation"] != "pyomo":
         try:
             # The import isn't used, but just here to test for Gurobi.
             # So we can make `flake8` stop complaining about the "unused
