@@ -78,8 +78,8 @@ def market_optimization(self):
         self.market_model,
         self.pre_market_model,
         snapshots=None,
-        horizon=self.args["method"]["rolling_horizon"]["planning_horizon"],
-        overlap=self.args["method"]["rolling_horizon"]["overlap"],
+        horizon=self.args["method"]["market_optimization"]["rolling_horizon"]["planning_horizon"],
+        overlap=self.args["method"]["market_optimization"]["rolling_horizon"]["overlap"],
         solver_name=self.args["solver"],
         extra_functionality=Constraints(self.args, False).functionality,
     )
@@ -216,7 +216,7 @@ def build_market_model(self):
     # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
     # can be assinged here.
-    if self.args["method"]["market_zones"] == "status_quo":
+    if self.args["method"]["market_optimization"]["market_zones"] == "status_quo":
         df = pd.DataFrame(
             {
                 "country": net.buses.country.unique(),

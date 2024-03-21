@@ -408,15 +408,17 @@ def optimize(self):
 
     """
 
-    if self.args["method"]["type"] == "lopf":
-        self.lopf()
-
-    elif self.args["method"]["type"] == "market_grid":  # besseren Namen finden
+    if self.args["method"]["market_optimization"]:
         self.market_optimization()
 
         # self.market_results_to_grid()
 
         self.grid_optimization()
+
+
+    elif self.args["method"]["type"] == "lopf":
+
+        self.lopf()
 
     elif self.args["method"]["type"] == "sclopf":
         self.sclopf(
