@@ -743,12 +743,12 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     etrago.snapshot_clustering()
-
+    breakpoint()
     # skip snapshots
     etrago.skip_snapshots()
 
     # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"] != "lopf":
+    if etrago.args["method"]["type"] != "lopf":
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
             columns=etrago.network.lines.index,
