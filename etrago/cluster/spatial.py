@@ -35,8 +35,10 @@ if "READTHEDOCS" not in os.environ:
         flatten_multiindex,
         get_clustering_from_busmap,
     )
+    from shapely.geometry import Point
     from sklearn.cluster import KMeans
     from threadpoolctl import threadpool_limits
+    import geopandas as gpd
     import networkx as nx
     import numpy as np
     import pandas as pd
@@ -785,6 +787,51 @@ def kmedoids_dijkstra_clustering(
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def find_buses_area(etrago, carrier):
+    """
+    Find buses of a specified carrier in a defined area. Usually used to
+    findout the buses that sould not be clustered.
+    """
+    settings = etrago.args["network_clustering"]
+
+    if settings["interest_area"]:
+        if isinstance(settings["interest_area"], list):
+            con = etrago.engine
+            query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+
+            de_areas = gpd.read_postgis(query, con, geom_col="geometry")
+            de_areas = de_areas[
+                de_areas["gen"].isin(settings["interest_area"])
+            ]
+        elif isinstance(settings["interest_area"], str):
+            de_areas = gpd.read_file(settings["interest_area"])
+        else:
+            raise Exception(
+                "not supported format supplied to 'interest_area' argument"
+            )
+
+        try:
+            buses_area = gpd.GeoDataFrame(
+                etrago.network.buses, geometry="geom", crs=4326
+            )
+        except:
+            buses_area = etrago.network.buses[["x", "y", "carrier"]]
+            buses_area["geom"] = buses_area.apply(
+                lambda x: Point(x["x"], x["y"]), axis=1
+            )
+            buses_area = gpd.GeoDataFrame(
+                buses_area, geometry="geom", crs=4326
+            )
+
+        buses_area = gpd.clip(buses_area, de_areas)
+        buses_area = buses_area[buses_area.carrier == carrier]
+
+    else:
+        buses_area = pd.DataFrame()
+
+    return buses_area.index
 
 
 def drop_nan_values(network):

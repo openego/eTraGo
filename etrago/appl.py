@@ -118,6 +118,8 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
+        "cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -259,22 +261,17 @@ def run_etrago(args, json_path):
     scn_name : str
          Choose your scenario. Currently, there are two different
          scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or str
-        This option does currently not work!
+    scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
         network container. Data of the extension scenarios are located in
-        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension\_'.
-        There are three overlay networks:
+        extension-tables (e.g. grid.egon_etrago_extension_line)
+        There are two overlay networks:
 
-        * 'nep2035_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur
-        * 'nep2035_b2' includes all new lines planned by the
-          Netzentwicklungsplan 2025 in scenario 2035 B2
-        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-          adds BE and NO as electrical neighbours
-
+        * 'nep2021_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur included in the NEP version 2021
+        * 'nep2021_c2035' includes all new lines planned by the
+          Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
     scn_decommissioning : NoneType or str
         This option does currently not work!
@@ -444,6 +441,18 @@ def run_etrago(args, json_path):
             ``'n_clusters_AC'``. If set to True, foreign AC buses are clustered
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
+            Default: False.
+        * "interest_area": False, list, string
+            Area of especial interest that will be not clustered. It is by
+            default set to false. When an exclusion area is provided, the given
+            value for n_clusters_AC will mean the total of AC buses outside the
+            area.The areas can be provided in two ways: list of
+            nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
+            with a path to a shape file.
+            Default: False.
+        * "cluster_interest_area": False, int
+            Number of buses to cluster all the electrical buses in the
+            exclusion area. Method provided in the arg "method" is used.
             Default: False.
         * "method_gas" : str
             Method used for gas clustering. You can choose between two
@@ -734,12 +743,12 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     etrago.snapshot_clustering()
-
+    breakpoint()
     # skip snapshots
     etrago.skip_snapshots()
 
     # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"] != "lopf":
+    if etrago.args["method"]["type"] != "lopf":
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
             columns=etrago.network.lines.index,
