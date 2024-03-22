@@ -56,6 +56,10 @@ def grid_optimization(self):
                 ].index)
     logger.info("Start solving grid optimization model")
 
+    # Replace NaN values in quadratic costs to keep problem linear
+    self.network.generators.marginal_cost_quadratic.fillna(0., inplace=True)
+    self.network.links.marginal_cost_quadratic.fillna(0., inplace=True)
+
     if self.args["method"]["type"] == "lopf":
         self.lopf()
     else:
