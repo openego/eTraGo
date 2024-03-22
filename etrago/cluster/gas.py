@@ -312,7 +312,7 @@ def get_h2_clusters(etrago, busmap_ch4):
 
 
 def gas_postprocessing(
-    etrago, busmap, medoid_idx=None, busmap_area=pd.DataFrame()
+    etrago, busmap, medoid_idx=None, busmap_area=pd.Series()
 ):
     """
     Performs the postprocessing for the gas grid clustering based on the
@@ -364,6 +364,10 @@ def gas_postprocessing(
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
+
+    if len(busmap_area) > 0:
+        for bus_area in busmap_area.values:
+            busmap[bus_area] = bus_area
 
     if "H2_grid" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
