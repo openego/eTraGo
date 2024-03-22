@@ -63,6 +63,7 @@ args = {
                     "planning_horizon": 168, # number of snapshots in each optimization
                     "overlap": 120, # number of overlapping hours
                  },
+                "redispatch": True,
              }
     },
     "pf_post_lopf": {

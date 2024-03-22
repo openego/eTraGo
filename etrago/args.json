@@ -12,7 +12,8 @@
                 "rolling_horizon": {
                     "planning_horizon": 168,
                     "overlap": 120
-                 }
+                 },
+                 "redispatch": true
              }
     },
     "pf_post_lopf": {
