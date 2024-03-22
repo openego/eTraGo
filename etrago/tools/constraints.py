@@ -311,6 +311,127 @@ def _min_renewable_share(self, network, snapshots):
     network.model.min_renewable_share = Constraint(rule=_rule)
 
 
+def _max_redispatch(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch.
+    Add key 'max_redispatch' and maximual amount of redispatch in MWh
+    to args.extra_functionality.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            network.generators.index.str.contains("ramp_up")
+        ]
+    )
+    ramp_up_links = list(
+        network.links.index[network.links.index.str.contains("ramp_up")]
+    )
+
+    def _rule(m):
+        redispatch_gens = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up
+            for sn in snapshots
+        )
+        redispatch_links = sum(
+            m.link_p[gen, sn]
+            * network.links.loc[gen, "efficiency"]
+            * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up_links
+            for sn in snapshots
+        )
+        return (redispatch_gens + redispatch_links) <= self.args[
+            "extra_functionality"
+        ]["max_redispatch"]
+
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
+        network.model.max_redispatch = Constraint(rule=_rule)
+    else:
+        print(
+            """Constraint max_redispatch was not added,
+              there are no redispatch generators or links."""
+        )
+
+
+def _max_redispatch_germany(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch in Germany.
+    Add key 'max_redispatch_germany' and maximual amount of redispatch in MWh
+    in Germany to args.extra_functionality. The redispatch in other countries
+    is not limited in this constraint.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            (network.generators.index.str.contains("ramp_up"))
+            & (
+                network.generators.bus.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+    )
+    ramp_up_links = list(
+        network.links.index[
+            (network.links.index.str.contains("ramp_up"))
+            & (
+                network.links.bus0.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+    )
+
+    def _rule(m):
+        redispatch_gens = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up
+            for sn in snapshots
+        )
+        redispatch_links = sum(
+            m.link_p[gen, sn]
+            * network.links.loc[gen, "efficiency"]
+            * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up_links
+            for sn in snapshots
+        )
+        return (redispatch_gens + redispatch_links) <= self.args[
+            "extra_functionality"
+        ]["max_redispatch_germany"]
+
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
+        network.model.max_redispatch = Constraint(rule=_rule)
+    else:
+        print(
+            """Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links."""
+        )
+
+
 def _cross_border_flow(self, network, snapshots):
     """
     Extra_functionality that limits overall AC crossborder flows from/to
@@ -1372,15 +1493,18 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         if not gens.empty:
             factor = arg[c]
             generation = (
-                        get_var(network, "Generator", "p")
-                        .loc[snapshots, gens] * 
-                        network.snapshot_weightings.generators
-                    )
-            define_constraints(
-                network, generation, "<=", factor * (n_snapshots / 8760),
-                "Genertor", "max_flh_DE_" + c
+                get_var(network, "Generator", "p").loc[snapshots, gens]
+                * network.snapshot_weightings.generators
             )
-            
+            define_constraints(
+                network,
+                generation,
+                "<=",
+                factor * (n_snapshots / 8760),
+                "Genertor",
+                "max_flh_DE_" + c,
+            )
+
     # Add contraints for neigbouring countries
     gen_abroad = network.generators[
         (network.generators.carrier == "CH4")
@@ -1395,16 +1519,19 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         factor = network.generators.e_nom_max[g]
 
         generation = (
-                    get_var(network, "Generator", "p")
-                    .loc[snapshots, g] * 
-                    network.snapshot_weightings.generators
-                )
+            get_var(network, "Generator", "p").loc[snapshots, g]
+            * network.snapshot_weightings.generators
+        )
         define_constraints(
-            network, generation, "<=", factor * (n_snapshots / 8760),
-            "Genertor", "max_flh_abroad_" + str(g).replace(" ", "_")
+            network,
+            generation,
+            "<=",
+            factor * (n_snapshots / 8760),
+            "Genertor",
+            "max_flh_abroad_" + str(g).replace(" ", "_"),
         )
 
-      
+
 def add_ch4_constraints(self, network, snapshots):
     """
     Add CH4 constraints for optimization with pyomo
@@ -2860,7 +2987,9 @@ class Constraints:
                     )
             elif self.args["method"]["formulation"] == "linopy":
                 logger.warning(
-                    "Constraint {} not defined for linopy formulation".format(constraint)
+                    "Constraint {} not defined for linopy formulation".format(
+                        constraint
+                    )
                     + ". New constraints can be defined in"
                     + " etrago/tools/constraint.py."
                 )
