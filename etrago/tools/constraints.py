@@ -365,6 +365,53 @@ def _max_redispatch(self, network, snapshots):
         )
 
 
+def _max_redispatch_linopy(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch.
+    Add key 'max_redispatch' and maximual amount of redispatch in MWh
+    to args.extra_functionality.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            (network.generators.index.str.contains("ramp_up"))
+        ]
+    )
+    ramp_up_links = list(
+        network.links.index[
+            (network.links.index.str.contains("ramp_up"))
+        ]
+    )
+
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
+        define_constraints(
+            network,
+            get_var(network, "Generator", "p").loc[:, ramp_up].sum() +
+            get_var(network, "Link", "p").loc[:, ramp_up_links].sum(), 
+            "<=",
+            (
+                self.args["extra_functionality"]["max_redispatch"]
+            ),
+            "Global", "max_redispatch"
+        )
+    else:
+        print(
+            """Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links."""
+        )
+
 def _max_redispatch_germany(self, network, snapshots):
     """
     Extra-functionality that limits the maximum usage of redispatch in Germany.
@@ -425,6 +472,64 @@ def _max_redispatch_germany(self, network, snapshots):
 
     if len(ramp_up) > 0 or len(ramp_up_links) > 0:
         network.model.max_redispatch = Constraint(rule=_rule)
+    else:
+        print(
+            """Constraint max_redispatch_germany was not added,
+              there are no redispatch generators or links."""
+        )
+
+def _max_redispatch_germany_linopy(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch in Germany.
+    Add key 'max_redispatch_germany' and maximual amount of redispatch in MWh
+    in Germany to args.extra_functionality. The redispatch in other countries
+    is not limited in this constraint.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            (network.generators.index.str.contains("ramp_up"))
+            & (
+                network.generators.bus.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+    )
+    ramp_up_links = list(
+        network.links.index[
+            (network.links.index.str.contains("ramp_up"))
+            & (
+                network.links.bus0.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+        ]
+    )
+
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
+        define_constraints(
+            network,
+            get_var(network, "Generator", "p").loc[:, ramp_up].sum() +
+            get_var(network, "Link", "p").loc[:, ramp_up_links].sum(), 
+            "<=",
+            (
+                self.args["extra_functionality"]["max_redispatch_germany"]
+            ),
+            "Global", "max_redispatch_germany"
+        )
     else:
         print(
             """Constraint max_redispatch_germany was not added,
@@ -2986,13 +3091,19 @@ class Constraints:
                         + " etrago/tools/constraint.py."
                     )
             elif self.args["method"]["formulation"] == "linopy":
-                logger.warning(
-                    "Constraint {} not defined for linopy formulation".format(
-                        constraint
+                try:
+                    eval("_" + constraint + "_linopy(self, network, snapshots)")
+                    logger.info(
+                        "Added extra_functionality {}".format(constraint)
                     )
-                    + ". New constraints can be defined in"
-                    + " etrago/tools/constraint.py."
-                )
+                except:
+                    logger.warning(
+                        "Constraint {} not defined for linopy formulation".format(
+                            constraint
+                        )
+                        + ". New constraints can be defined in"
+                        + " etrago/tools/constraint.py."
+                    )
             else:
                 try:
                     eval("_" + constraint + "_nmp(self, network, snapshots)")
