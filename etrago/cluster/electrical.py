@@ -1061,6 +1061,9 @@ def weighting_for_scenario(network, save=None):
     gen = network.generators[network.generators.carrier != "load shedding"][
         ["bus", "carrier", "p_nom"]
     ].copy()
+    if len(gen) == 0:
+        return pd.Series()
+
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
 
