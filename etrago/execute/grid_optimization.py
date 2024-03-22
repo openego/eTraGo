@@ -258,6 +258,8 @@ def add_redispatch_generators(self):
         ].values
         + 4,
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
+        efficiency=self.network.links.loc[
+            links_redispatch, "efficiency"].values,
     )
 
     # Set maximum feed-in limit for ramp up links based on feed-in of
@@ -315,6 +317,7 @@ def add_redispatch_generators(self):
         p_nom=self.network.links.loc[links_redispatch, "p_nom"].values,
         marginal_cost=-(4),
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
+        efficiency=self.network.links.loc[links_redispatch, "efficiency"].values,
     )
 
     # Ramp down links can not feed-in addtional energy
