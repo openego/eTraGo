@@ -60,6 +60,16 @@ def grid_optimization(self):
     self.network.generators.marginal_cost_quadratic.fillna(0., inplace=True)
     self.network.links.marginal_cost_quadratic.fillna(0., inplace=True)
 
+    # Replacevery small values with zero to avoid numerical problems
+    self.network.generators_t.p_max_pu.where(
+        self.network.generators_t.p_max_pu.abs()>1e-7, other=0., inplace=True)
+    self.network.generators_t.p_min_pu.where(
+        self.network.generators_t.p_min_pu.abs()>1e-7, other=0., inplace=True)
+    self.network.links_t.p_max_pu.where(
+        self.network.links_t.p_max_pu.abs()>1e-7, other=0., inplace=True)
+    self.network.links_t.p_min_pu.where(
+        self.network.links_t.p_min_pu>1e-7, other=0., inplace=True)
+
     if self.args["method"]["type"] == "lopf":
         self.lopf()
     else:
