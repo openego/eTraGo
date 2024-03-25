@@ -70,6 +70,7 @@ def grid_optimization(self):
     self.network.links_t.p_min_pu.where(
         self.network.links_t.p_min_pu>1e-7, other=0., inplace=True)
 
+    self.args["method"]["formulation"] = "pyomo"
     if self.args["method"]["type"] == "lopf":
         self.lopf()
     else:
