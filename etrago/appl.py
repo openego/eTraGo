@@ -681,49 +681,6 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
-    if etrago.args["scn_name"] == "status2019":
-        etrago.network.mremove(
-            "Link",
-            etrago.network.links[
-                ~etrago.network.links.bus0.isin(etrago.network.buses.index)
-            ].index,
-        )
-        etrago.network.mremove(
-            "Link",
-            etrago.network.links[
-                ~etrago.network.links.bus1.isin(etrago.network.buses.index)
-            ].index,
-        )
-        etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
-
-        # delete following unconnected CH4 buses. why are they there?
-        etrago.network.buses.drop(
-            etrago.network.buses[
-                etrago.network.buses.index.isin(["37865", "37870"])
-            ].index,
-            inplace=True,
-        )
-
-        etrago.network.links.loc[
-            etrago.network.links.carrier.isin(
-                ["central_gas_chp", "industrial_gas_CHP"]
-            ),
-            "p_nom",
-        ] *= 1e-3
-        etrago.network.generators.loc[
-            etrago.network.generators.carrier.isin(
-                [
-                    "central_lignite_CHP",
-                    "industrial_lignite_CHP",
-                    "central_oil_CHP",
-                    "industrial_coal_CHP",
-                    "central_coal_CHP",
-                    "industrial_oil_CHP" "central_others_CHP",
-                ]
-            ),
-            "p_nom",
-        ] *= 1e-3
-
     # ehv network clustering
     etrago.ehv_clustering()
 
