@@ -704,6 +704,11 @@ def run_etrago(args, json_path):
         )
 
     # start linear optimal powerflow calculations
+
+    etrago.network.storage_units.cyclic_state_of_charge = True
+
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
