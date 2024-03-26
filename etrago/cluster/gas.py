@@ -207,6 +207,7 @@ def preprocessing(etrago):
         if save:
             weightings.to_csv(save)
         return weightings
+
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
     if settings["gas_weight_tocsv"] is not None:

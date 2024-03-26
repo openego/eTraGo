@@ -784,7 +784,8 @@ def kmedoids_dijkstra_clustering(
                 etrago.args["network_clustering"]["CPU_cores"],
             )
         elif len(busmap) < n_clusters:
-            logger.warning(f"""
+            logger.warning(
+                f"""
             The number supplied to the parameter n_clusters for
             {buses.carrier[0]} buses is larger than the actual number of buses
             in the network.
