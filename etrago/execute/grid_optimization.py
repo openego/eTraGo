@@ -261,6 +261,7 @@ def add_redispatch_generators(self):
             )
         )
         .clip(lower=0.0)
+        .mul(1/self.network.generators.loc[gens_redispatch, "p_nom"])
         .values
     )
 
@@ -293,6 +294,7 @@ def add_redispatch_generators(self):
             )
         )
         .clip(lower=0.0)
+        .mul(1/self.network.links.loc[links_redispatch, "p_nom"])
         .values
     )
 
@@ -320,7 +322,7 @@ def add_redispatch_generators(self):
         -(
             self.market_model.generators_t.p.loc[
                 self.network.snapshots, gens_redispatch
-            ].clip(lower=0.0)
+            ].clip(lower=0.0).mul(1/self.network.generators.loc[gens_redispatch, "p_nom"])
         )
     ).values
 
@@ -348,7 +350,7 @@ def add_redispatch_generators(self):
         -(
             self.market_model.links_t.p0.loc[
                 self.network.snapshots, links_redispatch
-            ].clip(lower=0.0)
+            ].clip(lower=0.0).mul(1/self.network.links.loc[links_redispatch, "p_nom"])
         )
     ).values
 
