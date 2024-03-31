@@ -383,7 +383,7 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
+def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     """
     Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
@@ -413,15 +413,15 @@ def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     """
 
     # data preperation
-    s_buses = buses_grid_linked(etrago.network, fromlvl)
-    lines = connected_grid_lines(etrago.network, s_buses)
-    transformer = connected_transformer(etrago.network, s_buses)
-    mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
+    s_buses = buses_grid_linked(network, fromlvl)
+    lines = connected_grid_lines(network, s_buses)
+    transformer = connected_transformer(network, s_buses)
+    mask = transformer.bus1.isin(buses_of_vlvl(network, tolvl))
 
-    dc = etrago.network.links[etrago.network.links.carrier == "DC"]
+    dc = network.links[network.links.carrier == "DC"]
     dc.index = "DC_" + dc.index
     lines_plus_dc = pd.concat([lines, dc])
-    lines_plus_dc = lines_plus_dc[etrago.network.lines.columns]
+    lines_plus_dc = lines_plus_dc[network.lines.columns]
     lines_plus_dc["carrier"] = "AC"
 
     # temporary end points, later replaced by bus1 pendant
@@ -456,16 +456,16 @@ def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     df.target = df.target.map(
         dict(
             zip(
-                etrago.network.transformers.bus0,
-                etrago.network.transformers.bus1,
+                network.transformers.bus0,
+                network.transformers.bus1,
             )
         )
     )
 
     # append to busmap buses only connected to transformer
-    transformer = etrago.network.transformers
+    transformer = network.transformers
     idx = list(
-        set(buses_of_vlvl(etrago.network, fromlvl)).symmetric_difference(
+        set(buses_of_vlvl(network, fromlvl)).symmetric_difference(
             set(s_buses)
         )
     )
@@ -480,7 +480,7 @@ def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, toappend], ignore_index=True, axis=0)
 
     # append all other buses
-    buses = etrago.network.buses[etrago.network.buses.carrier == "AC"]
+    buses = network.buses[network.buses.carrier == "AC"]
     mask = buses.index.isin(df.source)
 
     assert (buses[~mask].v_nom.astype(int).isin(tolvl)).all()
@@ -524,7 +524,7 @@ def busmap_ehv_clustering(etrago):
             cpu_cores = int(cpu_cores)
 
         busmap = busmap_by_shortest_path(
-            etrago,
+            etrago.network,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
             cpu_cores=cpu_cores,
