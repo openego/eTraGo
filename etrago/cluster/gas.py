@@ -298,9 +298,12 @@ def get_h2_clusters(etrago, busmap_ch4):
         to its corresponding cluster ID.
     """
     # Mapping of H2 buses to new CH4 cluster IDs
+    map_ch4_h2 = etrago.ch4_h2_mapping[
+        etrago.ch4_h2_mapping.index.isin(busmap_ch4.index)
+    ]
     busmap_h2 = pd.Series(
-        busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
-        index=etrago.ch4_h2_mapping.values,
+        busmap_ch4.loc[map_ch4_h2.index].values,
+        index=map_ch4_h2.values,
     )
 
     # Create unique H2 cluster IDs
@@ -368,12 +371,12 @@ def gas_postprocessing(
                 + "_result.csv"
             )
 
+    if "H2_grid" in etrago.network.buses.carrier.unique():
+        busmap = get_h2_clusters(etrago, busmap)
+
     if len(busmap_area) > 0:
         for bus_area in busmap_area.values:
             busmap[bus_area] = bus_area
-
-    if "H2_grid" in etrago.network.buses.carrier.unique():
-        busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
