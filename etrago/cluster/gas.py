@@ -235,7 +235,9 @@ def preprocessing(etrago):
         weight_ch4.loc[loaded_weights.index] = loaded_weights
     else:
         weight_ch4 = weighting_for_scenario(network_ch4.buses, save=False)
-    return network_ch4, weight_ch4.squeeze(), n_clusters, busmap_area
+
+    return network_ch4, weight_ch4.squeeze(axis=1), n_clusters, busmap_area
+
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
