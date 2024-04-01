@@ -38,13 +38,15 @@ if "READTHEDOCS" not in os.environ:
     import pypsa.io as io
 
     from etrago.cluster.spatial import (
-        find_buses_area,
         drop_nan_values,
         group_links,
         kmedoids_dijkstra_clustering,
         sum_with_inf,
     )
-    from etrago.tools.utilities import set_control_strategies
+    from etrago.tools.utilities import (
+        find_buses_area,
+        set_control_strategies,
+    )
 
 logger = logging.getLogger(__name__)
 

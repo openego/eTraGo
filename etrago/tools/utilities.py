@@ -2954,3 +2954,217 @@ def manual_fixes_datamodel(etrago):
     etrago.network.transformers["v_nom"] = etrago.network.buses.loc[
         etrago.network.transformers.bus0.values, "v_nom"
     ].values
+
+
+def select_elec_network(etrago, apply_on="grid_model"):
+    """
+    Creates networks to be used on the clustering based on settings specified
+    in the args.
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    apply_on: str
+        gives information about the objective of the output network. If
+        "grid_model" is provided, the value assigned in the args for
+        ["network_clustering"]["cluster_foreign_AC""] will define if the
+        foreign buses will be included in the network. if "market_model" is
+        provided, foreign buses will be always included.
+
+    Returns
+    -------
+    Tuple containing:
+        elec_network : pypsa.Network
+            Contains the electric network
+        n_clusters : int
+            number of clusters used in the clustering process.
+        area_network : pypsa.Network
+            Contains the electric network in the area of interest defined in
+            network_clustering - interest_area.
+    """
+    settings = etrago.args["network_clustering"]
+
+    if apply_on in["grid_model", "grid_model-ehv"]:
+        # Find buses in the area that should not be clustered
+        buses_area = find_buses_area(etrago, "AC")
+
+        elec_network_buses = etrago.network.buses[
+            (~etrago.network.buses.index.isin(buses_area))
+            & (etrago.network.buses.carrier == "AC")
+        ].index
+        if apply_on == "grid_model-ehv":
+            n_clusters = pd.NA
+        # Exclude foreign buses when it is set to don't include them in clustering
+        elif settings["cluster_foreign_AC"]:
+            n_clusters = settings["n_clusters_AC"]
+        else:
+            foreign_buses = etrago.network.buses[
+                (etrago.network.buses.country != "DE")
+                & (etrago.network.buses.carrier == "AC")
+            ]
+
+            num_neighboring_country = len(
+                foreign_buses[
+                    foreign_buses.index.isin(etrago.network.loads.bus)
+                ]
+            )
+
+            elec_network_buses = elec_network_buses[
+                ~elec_network_buses.isin(foreign_buses.index)
+            ]
+            n_clusters = settings["n_clusters_AC"] - num_neighboring_country
+
+        elec_network = network_based_on_buses(
+            etrago.network, elec_network_buses
+        )
+        area_network = network_based_on_buses(etrago.network, buses_area)
+
+    elif apply_on == "market_model":
+        elec_network_buses = etrago.network_tsa.buses[
+            etrago.network_tsa.buses.carrier == "AC"
+        ].index
+        elec_network = network_based_on_buses(
+            etrago.network_tsa, elec_network_buses
+        )
+        area_network = pypsa.Network()
+
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
+
+    return elec_network, n_clusters, area_network
+
+
+def network_based_on_buses(network, buses):
+    """
+    Extract all the elements in a network related to the supplied list of
+    buses and return it like a new network.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Original network that contains the buses of interest and other buses.
+    buses : Pandas.Series
+        Series that contains the name of all the buses that the new network
+        will contain.
+
+    Returns
+    -------
+    elec_network : pypsa.Network
+        network containing only electrical elements attached to the supplied
+        list of buses.
+
+    """
+    elec_network = network.copy()
+    elec_network.buses = elec_network.buses[
+        elec_network.buses.index.isin(buses)
+    ]
+    # Dealing with links
+    elec_network.links = elec_network.links[
+        (
+            (elec_network.links.carrier == "AC")
+            | (elec_network.links.carrier == "DC")
+        )
+        & (elec_network.links.bus0.isin(elec_network.buses.index))
+        & (elec_network.links.bus1.isin(elec_network.buses.index))
+    ]
+
+    # Dealing with generators
+    elec_network.generators = elec_network.generators[
+        elec_network.generators.bus.isin(elec_network.buses.index)
+    ]
+
+    for attr in elec_network.generators_t:
+        elec_network.generators_t[attr] = elec_network.generators_t[attr].loc[
+            :,
+            elec_network.generators_t[attr].columns.isin(
+                elec_network.generators.index
+            ),
+        ]
+
+    # Dealing with loads
+    elec_network.loads = elec_network.loads[
+        elec_network.loads.bus.isin(elec_network.buses.index)
+    ]
+
+    for attr in elec_network.loads_t:
+        elec_network.loads_t[attr] = elec_network.loads_t[attr].loc[
+            :,
+            elec_network.loads_t[attr].columns.isin(elec_network.loads.index),
+        ]
+
+    # Dealing with storage_units
+    elec_network.storage_units = elec_network.storage_units[
+        elec_network.storage_units.bus.isin(elec_network.buses.index)
+    ]
+
+    for attr in elec_network.storage_units_t:
+        elec_network.storage_units_t[attr] = elec_network.storage_units_t[
+            attr
+        ].loc[
+            :,
+            elec_network.storage_units_t[attr].columns.isin(
+                elec_network.storage_units.index
+            ),
+        ]
+
+    # Dealing with stores
+    elec_network.stores = elec_network.stores[
+        elec_network.stores.bus.isin(elec_network.buses.index)
+    ]
+
+    for attr in elec_network.stores_t:
+        elec_network.stores_t[attr] = elec_network.stores_t[attr].loc[
+            :,
+            elec_network.stores_t[attr].columns.isin(
+                elec_network.stores.index
+            ),
+        ]
+    return elec_network
+
+def find_buses_area(etrago, carrier):
+    """
+    Find buses of a specified carrier in a defined area. Usually used to
+    findout the buses that sould not be clustered.
+    """
+    settings = etrago.args["network_clustering"]
+
+    if settings["interest_area"]:
+        if isinstance(settings["interest_area"], list):
+            con = etrago.engine
+            query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+
+            de_areas = gpd.read_postgis(query, con, geom_col="geometry")
+            de_areas = de_areas[
+                de_areas["gen"].isin(settings["interest_area"])
+            ]
+        elif isinstance(settings["interest_area"], str):
+            de_areas = gpd.read_file(settings["interest_area"])
+        else:
+            raise Exception(
+                "not supported format supplied to 'interest_area' argument"
+            )
+
+        try:
+            buses_area = gpd.GeoDataFrame(
+                etrago.network.buses, geometry="geom", crs=4326
+            )
+        except:
+            buses_area = etrago.network.buses[["x", "y", "carrier"]]
+            buses_area["geom"] = buses_area.apply(
+                lambda x: Point(x["x"], x["y"]), axis=1
+            )
+            buses_area = gpd.GeoDataFrame(
+                buses_area, geometry="geom", crs=4326
+            )
+
+        buses_area = gpd.clip(buses_area, de_areas)
+        buses_area = buses_area[buses_area.carrier == carrier]
+
+    else:
+        buses_area = pd.DataFrame()
+
+    return buses_area.index

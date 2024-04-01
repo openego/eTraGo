@@ -49,6 +49,7 @@ if "READTHEDOCS" not in os.environ:
         buses_of_vlvl,
         connected_grid_lines,
         connected_transformer,
+        select_elec_network,
     )
 
     logger = logging.getLogger(__name__)
@@ -515,24 +516,38 @@ def busmap_ehv_clustering(etrago):
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-
     if etrago.args["network_clustering_ehv"]["busmap"] is False:
         cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
         if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
-
-        busmap = busmap_by_shortest_path(
-            etrago.network,
-            fromlvl=[110],
-            tolvl=[220, 380, 400, 450],
-            cpu_cores=cpu_cores,
-        )
-        pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
-            "ehv_elecgrid_busmap_result.csv",
-            index=False,
-        )
+            
+        if etrago.args["network_clustering_ehv"]["interest_area"] is False:
+            busmap = busmap_by_shortest_path(
+                etrago.network,
+                fromlvl=[110],
+                tolvl=[220, 380, 400, 450],
+                cpu_cores=cpu_cores,
+            )
+            pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+                "ehv_elecgrid_busmap_result.csv",
+                index=False,
+            )
+        else:
+            network, _, area = select_elec_network(etrago, apply_on="grid_model-ehv")
+            busmap = busmap_by_shortest_path(
+                network,
+                fromlvl=[110],
+                tolvl=[220, 380, 400, 450],
+                cpu_cores=cpu_cores,
+            )
+            for bus in area.buses.index:
+                busmap[bus] = bus
+            pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+                "ehv_elecgrid_busmap_result.csv",
+                index=False,
+            )
     else:
         busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
         busmap = pd.Series(
@@ -787,51 +802,6 @@ def kmedoids_dijkstra_clustering(
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
-
-
-def find_buses_area(etrago, carrier):
-    """
-    Find buses of a specified carrier in a defined area. Usually used to
-    findout the buses that sould not be clustered.
-    """
-    settings = etrago.args["network_clustering"]
-
-    if settings["interest_area"]:
-        if isinstance(settings["interest_area"], list):
-            con = etrago.engine
-            query = "SELECT gen, geometry FROM boundaries.vg250_krs"
-
-            de_areas = gpd.read_postgis(query, con, geom_col="geometry")
-            de_areas = de_areas[
-                de_areas["gen"].isin(settings["interest_area"])
-            ]
-        elif isinstance(settings["interest_area"], str):
-            de_areas = gpd.read_file(settings["interest_area"])
-        else:
-            raise Exception(
-                "not supported format supplied to 'interest_area' argument"
-            )
-
-        try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
-        except:
-            buses_area = etrago.network.buses[["x", "y", "carrier"]]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
-
-        buses_area = gpd.clip(buses_area, de_areas)
-        buses_area = buses_area[buses_area.carrier == carrier]
-
-    else:
-        buses_area = pd.DataFrame()
-
-    return buses_area.index
 
 
 def drop_nan_values(network):
