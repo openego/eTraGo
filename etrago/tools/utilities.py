@@ -2985,7 +2985,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
     """
     settings = etrago.args["network_clustering"]
 
-    if apply_on in["grid_model", "grid_model-ehv"]:
+    if apply_on in ["grid_model", "grid_model-ehv"]:
         # Find buses in the area that should not be clustered
         buses_area = find_buses_area(etrago, "AC")
 
@@ -3124,6 +3124,7 @@ def network_based_on_buses(network, buses):
             ),
         ]
     return elec_network
+
 
 def find_buses_area(etrago, carrier):
     """

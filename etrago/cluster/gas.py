@@ -239,7 +239,6 @@ def preprocessing(etrago):
     return network_ch4, weight_ch4.squeeze(axis=1), n_clusters, busmap_area
 
 
-
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
     """
     Performs K-means clustering on the gas network data in the given

@@ -466,9 +466,7 @@ def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     # append to busmap buses only connected to transformer
     transformer = network.transformers
     idx = list(
-        set(buses_of_vlvl(network, fromlvl)).symmetric_difference(
-            set(s_buses)
-        )
+        set(buses_of_vlvl(network, fromlvl)).symmetric_difference(set(s_buses))
     )
     mask = transformer.bus0.isin(idx)
 
@@ -522,7 +520,7 @@ def busmap_ehv_clustering(etrago):
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
-            
+
         if etrago.args["network_clustering_ehv"]["interest_area"] is False:
             busmap = busmap_by_shortest_path(
                 etrago.network,
@@ -535,7 +533,9 @@ def busmap_ehv_clustering(etrago):
                 index=False,
             )
         else:
-            network, _, area = select_elec_network(etrago, apply_on="grid_model-ehv")
+            network, _, area = select_elec_network(
+                etrago, apply_on="grid_model-ehv"
+            )
             busmap = busmap_by_shortest_path(
                 network,
                 fromlvl=[110],

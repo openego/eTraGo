@@ -50,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
     )
     from etrago.tools.utilities import (
         set_control_strategies,
-        select_elec_network
+        select_elec_network,
     )
 
     logger = logging.getLogger(__name__)
@@ -469,8 +469,6 @@ def ehv_clustering(self):
         drop_nan_values(self.network)
 
         logger.info("Network clustered to EHV-grid")
-
-
 
 
 def unify_foreign_buses(etrago):
