@@ -279,7 +279,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     busmap : dict
         Maps old bus_ids to new bus_ids including all sectors.
     """
-
     network_c = Network()
 
     network, busmap = adjust_no_electric_network(
@@ -299,7 +298,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     # keep attached lines
     lines = network.lines.copy()
-    mask = lines.bus0.isin(buses.index)
+    mask = lines.bus0.isin(buses.index) & lines.bus1.isin(buses.index)
     lines = lines.loc[mask, :]
 
     # keep attached transformer
