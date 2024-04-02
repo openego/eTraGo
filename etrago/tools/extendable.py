@@ -326,6 +326,42 @@ def extendable(
             network.storage_units.loc[de_battery, "marginal_cost"].max()
         )
 
+    if "foreign_storage_unlimited" in extendable_settings[
+            "extendable_components"]:
+        foreign_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country != "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        de_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
+
+        network.storage_units.loc[foreign_battery, "p_nom_max"] = np.inf
+
+        network.storage_units.loc[foreign_battery, "p_nom"] = (
+            network.storage_units.loc[foreign_battery, "p_nom_min"]
+        )
+
+        network.storage_units.loc[foreign_battery, "capital_cost"] = (
+            network.storage_units.loc[de_battery, "capital_cost"].max()
+        )
+
+        network.storage_units.loc[foreign_battery, "marginal_cost"] = (
+            network.storage_units.loc[de_battery, "marginal_cost"].max()
+        )
+
     # Extension settings for extension-NEP 2035 scenarios
     if "overlay_network" in extendable_settings["extendable_components"]:
         for i in range(len(self.args["scn_extension"])):
