@@ -25,7 +25,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
-
+    from matplotlib import pyplot as plt
     import pandas as pd
 
     logger = logging.getLogger(__name__)
@@ -771,3 +771,100 @@ def calc_etrago_results(self):
         self.results.value["rel. electrical dc grid expansion"] = (
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
+
+def total_redispatch(network, only_de=True):
+
+    if only_de:        
+        ramp_up = network.generators[
+            (network.generators.index.str.contains("ramp_up"))
+            & (network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index.values))]
+    
+        ramp_up_links = network.links[
+            (network.links.index.str.contains("ramp_up")
+            )
+            & (network.links.bus0.isin(
+                network.buses[network.buses.country=="DE"].index.values))]
+        ramp_down = network.generators[
+            (network.generators.index.str.contains("ramp_down"))
+            & (network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index.values))]
+
+        ramp_down_links = network.links[
+            (network.links.index.str.contains("ramp_down")
+            )
+            & (network.links.bus0.isin(
+                network.buses[network.buses.country=="DE"].index.values))]
+
+    else:
+        ramp_up = network.generators[
+            network.generators.index.str.contains("ramp_up")]
+    
+        ramp_up_links = network.links[
+            network.links.index.str.contains("ramp_up")
+            ]  
+        ramp_down = network.generators[
+            network.generators.index.str.contains("ramp_down")]
+        ramp_down_links = network.links[
+            network.links.index.str.contains("ramp_down")
+            ]
+    
+    # Annual ramp up in MWh
+    total_ramp_up = (network.links_t.p1[
+        ramp_up_links.index].sum(axis=1).mul(
+            network.snapshot_weightings.generators).sum()*(-1) 
+        + network.generators_t.p[ramp_up.index].sum(axis=1).mul(
+            network.snapshot_weightings.generators).sum())
+
+    # Hourly ramp up during the year in MW
+    total_ramp_up_t = (network.links_t.p1[ramp_up_links.index].sum(axis=1)*(-1)
+                       + network.generators_t.p[ramp_up.index].sum(axis=1))
+
+    # Hourly ramp up potential during the year in MW
+    total_ramp_up_potential = (
+        network.get_switchable_as_dense("Link", "p_max_pu")[
+            ramp_up_links.index].mul(ramp_up_links.p_nom).sum(axis=1)
+         + network.get_switchable_as_dense("Generator", "p_max_pu")[
+             ramp_up.index].mul(ramp_up.p_nom).sum(axis=1))
+
+    # Plot potential and accutual ramp up
+    fig, ax= plt.subplots(figsize=(15, 5))
+    total_ramp_up_potential.plot(ax=ax, kind="area", color="lightblue")
+    total_ramp_up_t.plot(ax=ax, color="blue")
+
+
+    # Annual ramp down in MWh
+    total_ramp_down = (network.links_t.p1[
+        ramp_down_links.index].sum(axis=1).mul(
+            network.snapshot_weightings.generators).sum()*(-1) 
+        + network.generators_t.p[ramp_down.index].sum(axis=1).mul(
+            network.snapshot_weightings.generators).sum())
+
+    # Hourly ramp down during the year in MW
+    total_ramp_down_t = (network.links_t.p1[
+        ramp_down_links.index].sum(axis=1)*(-1) 
+        + network.generators_t.p[ramp_down.index].sum(axis=1))
+
+    # Hourly ramp down potential during the year in MW
+    total_ramp_down_potential = (
+        network.get_switchable_as_dense("Link", "p_min_pu")[
+            ramp_down_links.index].mul(ramp_down_links.p_nom).sum(axis=1) 
+        + network.get_switchable_as_dense("Generator", "p_min_pu")[
+            ramp_down.index].mul(ramp_down.p_nom).sum(axis=1))
+
+    fig, ax= plt.subplots(figsize=(15, 5))
+    total_ramp_down_potential.plot(ax=ax, kind="area", color="lightblue")
+    total_ramp_down_t.plot(ax=ax, color="blue")
+    
+    return {
+        "ramp_up":{
+            "total": total_ramp_up,
+            "timeseries": total_ramp_up_t,
+            "potential": total_ramp_up_potential
+            },
+        "ramp_down":{
+            "total": total_ramp_down,
+            "timeseries": total_ramp_down_t,
+            "potential": total_ramp_down_potential
+            }
+        }
