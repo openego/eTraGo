@@ -3013,7 +3013,16 @@ def select_elec_network(etrago, apply_on="grid_model"):
             elec_network_buses = elec_network_buses[
                 ~elec_network_buses.isin(foreign_buses.index)
             ]
-            n_clusters = settings["n_clusters_AC"] - num_neighboring_country
+            if settings["n_clusters_AC"] is False:
+                n_clusters = False
+            else:
+                n_clusters = (
+                    settings["n_clusters_AC"] - num_neighboring_country
+                )
+                assert (
+                    n_clusters > 1
+                ), f"""'n_clusters_AC' must be greater than the number of foreign
+                countries({num_neighboring_country})"""
 
         elec_network = network_based_on_buses(
             etrago.network, elec_network_buses

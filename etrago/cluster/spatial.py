@@ -748,6 +748,17 @@ def kmedoids_dijkstra_clustering(
 
     settings = etrago.args["network_clustering"]
 
+    if n_clusters is False:
+        busmap = pd.Series(
+            range(len(buses)), index=buses.index, name="final_assignment"
+        )
+        busmap.index.name = "bus_id"
+        busmap = busmap.apply(str)
+
+        medoid_idx = pd.Series(busmap.index, index=busmap.values, name=0)
+
+        return busmap, medoid_idx
+
     # n_jobs was deprecated for the function fit(). scikit-learn recommends
     # to use threadpool_limits:
     # https://scikit-learn.org/stable/computing/parallelism.html
