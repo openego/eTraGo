@@ -52,7 +52,7 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
+        "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
         "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
         "formulation": "pyomo",
@@ -112,6 +112,7 @@ args = {
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
+        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
@@ -119,7 +120,7 @@ args = {
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
-        "cluster_interest_area": False, # False or number of buses.
+        "cluster_interest_area": 30, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -397,6 +398,7 @@ def run_etrago(args, json_path):
         connected lines are merged. This reduces the spatial complexity without
         losing any accuracy.
         Default: True.
+        
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -412,6 +414,13 @@ def run_etrago(args, json_path):
         a new busmap must be calculated. False or path to the busmap in csv
         format should be given.
         Default: False
+        * "interest_area": False, list, string
+        Area of especial interest that will be not clustered. It is by
+        default set to false. When an interest_area is provided, the given
+        value for n_clusters_AC will mean the total of AC buses outside the
+        area.The area can be provided in two ways: list of
+        nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
+        with a path to a shape file (.shp).
 
     network_clustering : dict
         Choose if you want to apply a clustering of all network buses and
@@ -428,12 +437,14 @@ def run_etrago(args, json_path):
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers electrical distances between
             buses
-
             Default: "kmedoids-dijkstra".
-        * "n_clusters_AC" : int
+        * "n_clusters_AC" : int, False
             Defines total number of resulting AC nodes including DE and foreign
             nodes if `cluster_foreign_AC` is set to True, otherwise only DE
-            nodes.
+            nodes. When using the interest_area parameter, n_clusters_AC could
+            be set to False, which means that only the buses inside the 
+            provided area are clustered.
+
             Default: 30.
         * "cluster_foreign_AC" : bool
             If set to False, the AC buses outside Germany are not clustered
@@ -444,11 +455,11 @@ def run_etrago(args, json_path):
             Default: False.
         * "interest_area": False, list, string
             Area of especial interest that will be not clustered. It is by
-            default set to false. When an exclusion area is provided, the given
+            default set to false. When an interest_area is provided, the given
             value for n_clusters_AC will mean the total of AC buses outside the
-            area.The areas can be provided in two ways: list of
+            area.The area can be provided in two ways: list of
             nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
-            with a path to a shape file.
+            with a path to a shape file (.shp).
             Default: False.
         * "cluster_interest_area": False, int
             Number of buses to cluster all the electrical buses in the
@@ -460,7 +471,6 @@ def run_etrago(args, json_path):
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers 'electrical' distances between
             buses
-
             Default: "kmedoids-dijkstra".
         * "n_clusters_gas" : int
             Defines total number of resulting CH4 nodes including DE and
