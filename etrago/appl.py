@@ -163,13 +163,13 @@ args = {
             "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
     },
-    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
+    "network_clustering_ehv": True,  # clustering of HV buses to EHV buses.
     "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
         "active": False,  # choose if clustering is activated
         "method": "segmentation",  # 'typical_periods' or 'segmentation'
-        "extreme_periods": None, # consideration of extreme timesteps; e.g. 'append'
+        "extreme_periods": "append", # consideration of extreme timesteps; e.g. 'append'
         "how": "daily",  # type of period, currently only 'daily' - only relevant for 'typical_periods'
         "storage_constraints": "soc_constraints",  # additional constraints for storages  - only relevant for 'typical_periods'
         "n_clusters": 5,  #  number of periods - only relevant for 'typical_periods'
@@ -634,7 +634,7 @@ def run_etrago(args, json_path):
     # ehv network clustering
     etrago.ehv_clustering()
     
-    etrago.export_to_csv("before_spatial")
+    #etrago.export_to_csv("before_spatial")
     
     print(' ')
     print('start spatial clustering')
@@ -649,7 +649,7 @@ def run_etrago(args, json_path):
     print(datetime.datetime.now())
     print(' ')
     
-    etrago.export_to_csv("after_spatial")
+    #etrago.export_to_csv("after_spatial")
     
     from etrago.tools.utilities import modular_weight
     print(' ')
@@ -659,7 +659,7 @@ def run_etrago(args, json_path):
 
     #etrago.spatial_clustering_gas()
 
-    etrago.args["load_shedding"] = True
+    etrago.args["load_shedding"] = False
     etrago.load_shedding()
 
     etrago.network.stores.e_cyclic = True
@@ -672,6 +672,10 @@ def run_etrago(args, json_path):
     etrago.skip_snapshots()
 
     etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-7, other=0., inplace=True)
+    
+    #etrago.network.storage_units.p_nom_extendable=False
+    #etrago.export_to_csv("original")
+    #etrago = Etrago(csv_folder_name="original")
 
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
@@ -704,9 +708,9 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [20, 300, 30, 40, 50, 100, 150, 200, 250, 400, 500, 600]
+    spatial_resolution = [300]
     
-    spatial_method = ['kmedoids-dijkstra']
+    spatial_method = ['kmedoids-dijkstra', 'kmeans'] 
     
     for i in range (0, len(spatial_method)):
 
