@@ -80,6 +80,10 @@ spatial_resolution = [20, 30, 40, 50, 100, 150, 200, 250, 300, 400, 500, 600]
 
 spatial_method = ['kmeans', 'kmedoids-dijkstra']
 
+#spatial_method = ['kmeans', 'kmedoids-dijkstra_x', 'kmedoids-dijkstra']
+
+#spatial_resolution = [20, 30, 40, 50, 200, 300]
+
 load_shedding = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 export = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 modularity = pd.DataFrame(index=spatial_resolution, columns=spatial_method)
@@ -168,11 +172,11 @@ network_dc.plot(legend=True)
 
 storage_expansion.plot(legend=True)'''
 
-etrago = Etrago(csv_folder_name="Calcs/kmeans/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/300")
 
 etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.000001, ext_min=0.01, legend_entries=[], boundaries=[0, 20000])
 
-etrago = Etrago(csv_folder_name="Calcs/kmedoids-dijkstra/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/300")
 
 etrago.plot_grid(line_colors='expansion_abs', bus_colors='storage_expansion', bus_sizes=0.000001, ext_min=0.01, legend_entries=[], boundaries=[0, 20000])
 
@@ -189,12 +193,16 @@ import networkx as nx
 
 import matplotlib.pyplot as plt
 
-spatial_resolution = [20, 50, 100, 150, 200, 250, 300, 400, 500, 600]
+spatial_resolution = [50, 100, 150, 200, 250, 300, 400, 500, 600] #20
 
 spatial_method = ['kmeans', 'kmedoids-dijkstra']
 
+#spatial_method = ['kmeans', 'kmedoids-dijkstra_x']
+
+#spatial_resolution = [20, 30, 40, 50, 200, 300]
+
 # dataframe for system costs = marginal + investment costs
-costs1 = pd.DataFrame(columns=['marginal costs', 'store investment costs', 'electrical grid investment costs'])# 'electrical grid investment costs in Germany', 'electrical grid investment costs in foreign countries'], index=spatial_resolution)
+costs1 = pd.DataFrame(columns=['marginal costs', 'battery investment costs', 'electrical grid investment costs'])# 'electrical grid investment costs in Germany', 'electrical grid investment costs in foreign countries'], index=spatial_resolution)
 costs2 = costs1.copy()
 
 # dataframe for investment costs = store + grid investment in Germany and foreign countries
@@ -208,13 +216,19 @@ inv2_DE = inv1_DE.copy()
 # to plot some relative costs 
 # related to the result of the 500 nodes k-medoids Dijkstra clustered network
 
-etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/500")
+etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/kmedoids-dijkstra/500")
 etrago.calc_results()
 
 relac_expansion =  pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 base_relac = etrago.results.loc['annual ac grid investment costs'].value
 
 new_relac = pd.Series(index=spatial_resolution)
+new_ac = pd.Series(index=spatial_resolution)
+ac_mean = pd.Series(index=spatial_resolution)
+new_reldc = pd.Series(index=spatial_resolution)
+new_relsto = pd.Series(index=spatial_resolution)
+new_relmarg = pd.Series(index=spatial_resolution)
+new_relsys = pd.Series(index=spatial_resolution)
 
 reldc_expansion =  pd.DataFrame(index=spatial_resolution, columns=spatial_method)
 base_reldc = etrago.results.loc['annual dc grid investment costs'].value
@@ -245,7 +259,7 @@ for i in range (0, len(spatial_method)):
         
             idx = spatial_resolution[j]
     
-            etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/"+col+"/"+str(idx))
+            etrago = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/"+col+"/"+str(idx))
             
             etrago.calc_results()
             
@@ -253,7 +267,7 @@ for i in range (0, len(spatial_method)):
             costs.at[idx, 'electrical grid investment costs'] = etrago.results.loc['annual electrical grid investment costs'].value
             #costs.at[idx, 'electrical grid investment costs in Germany'] = etrago.results.loc['annual ac grid investment costs'].value
             #costs.at[idx, 'electrical grid investment costs in foreign countries'] = etrago.results.loc['annual ac grid investment costs'].value
-            costs.at[idx, 'store investment costs'] = etrago.results.loc['annual storage+store investment costs'].value
+            costs.at[idx, 'battery investment costs'] = etrago.results.loc['annual storage+store investment costs'].value
             
             foreign_store = foreign_sto_expansion(etrago.network)
             inv.at[idx, 'store investment costs in foreign countries'] = foreign_store
@@ -271,11 +285,48 @@ for i in range (0, len(spatial_method)):
             rel_objective.at[idx, col] = etrago.results.loc['annual system costs'].value / base_objective
             
             if col=='kmedoids-dijkstra':
-                import pdb; pdb.set_trace()
+
+                base = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/Calcs/kmeans/"+str(idx))
+                base.calc_results()
+                
+                base_ac = base.results.loc['annual ac grid investment costs'].value
+                new_relac.loc[idx] = ((etrago.results.loc['annual ac grid investment costs'].value / base_ac)*100) -100
+                new_ac.loc[idx] = etrago.results.loc['annual ac grid investment costs'].value
+                ac_mean.loc[idx] = base_ac 
+                
+                base_dc = base.results.loc['annual dc grid investment costs'].value
+                new_reldc.loc[idx] = ((etrago.results.loc['annual dc grid investment costs'].value / base_dc)*100) -100
+                
+                base_sto = base.results.loc['annual storage+store investment costs'].value
+                new_relsto.loc[idx] = ((etrago.results.loc['annual storage+store investment costs'].value / base_sto)*100) -100
+                
+                base_marg = base.results.loc['annual marginal costs'].value
+                new_relmarg.loc[idx] = ((etrago.results.loc['annual marginal costs'].value / base_marg)*100) -100
+                
+                base_sys = base.results.loc['annual system costs'].value
+                new_relsys.loc[idx] = ((etrago.results.loc['annual system costs'].value / base_sys)*100) -100
+                
+                
+                '''
                 base = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/"+str(idx))
                 base.calc_results()
-                base = base.results.loc['annual ac grid investment costs'].value
-                new_relac.loc[idx] = etrago.results.loc['annual ac grid investment costs'].value / base
+                
+                base_ac = base.results.loc['annual ac grid investment costs'].value
+                new_relac.loc[idx] = (etrago.results.loc['annual ac grid investment costs'].value - base_ac) / etrago.results.loc['annual ac grid investment costs'].value
+                
+                base_dc = base.results.loc['annual dc grid investment costs'].value
+                new_reldc.loc[idx] = (etrago.results.loc['annual dc grid investment costs'].value - base_dc) / etrago.results.loc['annual dc grid investment costs'].value
+                
+                base_sto = base.results.loc['annual storage+store investment costs'].value
+                new_relsto.loc[idx] = (etrago.results.loc['annual storage+store investment costs'].value - base_sto) / etrago.results.loc['annual storage+store investment costs'].value
+                
+                base_marg = base.results.loc['annual marginal costs'].value
+                new_relmarg.loc[idx] = (etrago.results.loc['annual marginal costs'].value - base_marg) / etrago.results.loc['annual marginal costs'].value
+                base_sys = base.results.loc['annual system costs'].value
+                new_relsys.loc[idx] = (etrago.results.loc['annual system costs'].value - base_sys) / etrago.results.loc['annual system costs'].value'''
+                
+                
+                
                 
 # new_relac.plot()
 #relac_expansion.plot(legend=True)
@@ -289,7 +340,9 @@ for i in range (0, len(spatial_method)):
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-fig = plt.figure()
+plt.rc('font', size=25)
+
+fig = plt.figure(figsize=(30,15))
 ax = fig.add_subplot(111)
 
 index11 = spatial_resolution.copy()
@@ -312,28 +365,44 @@ color2 = ['maroon', 'tomato', 'lightsalmon']#, 'lightsalmon'] # kmedoids-djkstra
 
 col = costs1.columns
 
-plt.bar(index11, costs1[col[0]].values, width = 3, color=color1[0], label='k-means Clustring: marginal costs')#label='marginal costs')#,
-plt.bar(index12, costs1[col[1]].values, width = 3, color=color1[1], label='k-means Clustring: store investment')#label='store investment costs')#,
-plt.bar(index13, costs1[col[2]].values, width = 3, color=color1[2], label='k-means Clustring: electrical grid investment')#label='electrcial grid investment costs')#,
+ax.bar(index11, costs1[col[0]].values, width = 3, color=color1[0], label='k-means Clustring: marginal costs')#label='marginal costs')#,
+ax.bar(index12, costs1[col[1]].values, width = 3, color=color1[1], label='k-means Clustring: store investment')#label='store investment costs')#,
+ax.bar(index13, costs1[col[2]].values, width = 3, color=color1[2], label='k-means Clustring: electrical grid investment')#label='electrcial grid investment costs')#,
 
-plt.bar(index21, costs2[col[0]].values, width = 3, color=color2[0], label='k-medoids Dijkstra Clustering: marginal costs')
-plt.bar(index22, costs2[col[1]].values, width = 3, color=color2[1], label='k-medoids Dijkstra Clustering: store investment')
-plt.bar(index23, costs2[col[2]].values, width = 3, color=color2[2], label='k-medoids Dijkstra Clustering: electrical grid investment')
+ax.bar(index21, costs2[col[0]].values, width = 3, color=color2[0], label='k-medoids Dijkstra Clustering: marginal costs')
+ax.bar(index22, costs2[col[1]].values, width = 3, color=color2[1], label='k-medoids Dijkstra Clustering: store investment')
+ax.bar(index23, costs2[col[2]].values, width = 3, color=color2[2], label='k-medoids Dijkstra Clustering: electrical grid investment')
+
+ax2 = ax.twinx()
+
+new_relsys.plot(linestyle='-', marker='x', ax = ax2)
+new_relmarg.plot(linestyle='-', marker='x', ax = ax2)
+new_relsto.plot(linestyle='-', marker='x', ax = ax2)
+new_reldc.plot(linestyle='-', marker='x', ax = ax2)
+new_relac.plot(linestyle='-', marker='x', ax = ax2)
 
 plt.xticks(spatial_resolution)
 
-plt.legend(loc='upper right')
-plt.ylim([0,20])
-plt.ylabel('costs in billion Euro')
+ax.set_ylim([0,40])
+ax2.set_ylim([0,400])
+
+ax.legend(loc='upper right')
+
+plt.ylabel('costs in billion €')
 plt.xlabel('number of nodes')
 #plt.title('System Costs depending on Spatial Resolution')
+
+
+
  
 # plot system costs as bar diagram - OLD
 
 costs1 = costs1 / 1000000000
 costs2 = costs2 / 1000000000
 
-fig = plt.figure()
+plt.rc('font', size=18)
+
+fig = plt.figure()#figsize=(30,20))
 ax = fig.add_subplot(111)
 
 index1 = spatial_resolution.copy()
@@ -343,35 +412,63 @@ for i in range(0, len(index1)):
     index1[i] = index1[i] - 5
     index2[i] = index2[i] + 5
 
-bottom1 = [0, 0, 0, 0, 0, 0, 0, 0, 0]
+bottom1 = [0, 0, 0, 0, 0, 0, 0, 0, 0] #0
 bottom2=bottom1.copy()
 i = -1
 
-color1 = ['darkslategrey', 'darkcyan', 'skyblue']#, 'skyblue'] # kmeans
-color2 = ['maroon', 'tomato', 'lightsalmon']#, 'lightsalmon'] # kmedoids-djkstra
+#color1 = ['darkslategrey', 'darkcyan', 'skyblue']#, 'skyblue'] # kmeans
+#color2 = ['maroon', 'tomato', 'lightsalmon']#, 'lightsalmon'] # kmedoids-djkstra
+color1 = ['skyblue', 'darkcyan', 'darkslategrey']
+color2 = ['lightsalmon', 'tomato', 'maroon']
 
-hatch = [False, False, False, "/"]
+#hatch = [False, False, False, "/"]
 
-for col in costs.columns:
+for col in costs1.columns:
     
     if i >= 0:
         bottom1 = bottom1 + costs1[costs1.columns[i]].values
         bottom2 = bottom2 + costs2[costs2.columns[i]].values
     i = i+1
     
-    if hatch[i]:
-        plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], hatch=hatch[i], label='k-means Clustring: '+col)
-        plt.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], hatch=hatch[i], label='k-medoids Dijkstra Clustering: '+col)
-    else:   
-        plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustring: '+col)
-        plt.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
+    #if hatch[i]:
+    ax.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col) #, hatch=hatch[i]
+    ax.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
+    #else:   
+        #plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col)
+        #plt.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
 
-plt.xticks(spatial_resolution)
+#plt.xticks(spatial_resolution)
+#plt.legend(loc='lower right')
+#plt.ylabel('costs in billion Euro')
+#plt.xlabel('number of nodes')
+#plt.title('System Costs depending on Spatial Resolution')
 
-plt.legend(loc='lower right')
-plt.ylabel('costs in billion Euro')
-plt.xlabel('number of nodes')
-plt.title('System Costs depending on Spatial Resolution')
+ax2 = ax.twinx()
+
+new_relsys.plot(linestyle='-', marker='x', ax = ax2, label='system costs')
+new_relmarg.plot(linestyle='-', marker='x', ax = ax2, label='operational costs')
+new_reldc.plot(linestyle='-', marker='x', ax = ax2, label='foreign grid expansion costs')
+new_relac.plot(linestyle='-', marker='x', ax = ax2, label='inner-German grid expansion costs')
+new_relsto.plot(linestyle='-', marker='x', ax = ax2, label='battery expansion costs')
+
+ax.set_xticks(spatial_resolution)
+
+ax.set_ylim([0,40])
+ax2.set_ylim([-10, 400])
+
+ax.legend(loc='upper left')
+ax2.legend(loc='upper right')
+
+ax.set_ylabel('costs in billion Euro')
+ax2.set_ylabel('difference in % (k-medoids Dijkstra - k-means)')
+ax.set_xlabel('number of nodes')
+
+
+#plt.xlabel('number of nodes')
+
+
+
+
 
 # plot investment costs as bar diagram - OLD
 
@@ -602,9 +699,110 @@ capacities.plot(legend=True, xlabel='number of nodes', ylabel='Former Border Cap
 
 capacities.drop(['k-means optimized', 'k-medoids Dijkstra optimized'], axis=1).plot(legend=True, xlabel='number of nodes', ylabel='Former Border Capacity in MW')
 
+###############################################################################
 
+import pandas as pd
+
+# modularity
+
+mod = pd.read_csv("Dijkstra-Paper/plots/modularity.csv")
+mod.rename(columns={'Unnamed: 0':"number of nodes"}, inplace= True)
+mod.set_index("number of nodes", inplace = True)
+mod.drop(columns=["kmedoids-dijkstra_x"], inplace= True)
+
+mod.at[400, "k-means Clustering"] = 0.825
+mod.at[500, "k-means Clustering"] = 0.802
+mod.at[600, "k-means Clustering"] = 0.798
+
+mod.at[400, "k-medoids Dijkstra Clustering"] = 0.87
+mod.at[500, "k-medoids Dijkstra Clustering"] = 0.856
+mod.at[600, "k-medoids Dijkstra Clustering"] = 0.847
+
+mod.plot(ylabel="modularity")
+
+# optimization time 
+
+mod = pd.read_csv("Dijkstra-Paper/Calcs/calc-time.csv")
+mod['number of nodes'] = mod["spatial resolution"]
+mod.drop("spatial resolution", axis=1, inplace=True)
+mod.set_index("number of nodes", inplace = True)
+
+mod.plot(ylabel="optimization time in minutes")
+
+###############################################################################
+
+from etrago import Etrago
+import geopandas as gpd
+from shapely.geometry import Point, LineString
+
+ddr_shape_path='DDR.geojson'
+ddr = gpd.read_file(ddr_shape_path)
+
+# kmeans
+
+kmeans = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/300")
+
+generate_geom(kmeans.network)
+klines, kbuses = generate_geom(kmeans.network)
+
+
+kbuses["in_ddr"] = kbuses.intersects(ddr.unary_union)
+klines["bus0_in_ddr"] = klines["bus0"].map(kbuses["in_ddr"])
+klines["bus1_in_ddr"] = klines["bus1"].map(kbuses["in_ddr"])
+klines["to_ddr"] = klines["bus0_in_ddr"] ^ klines["bus1_in_ddr"]
+
+kde_buses = kmeans.network.buses[kmeans.network.buses.country=='DE']
+
+ksto = kmeans.network.storage_units[kmeans.network.storage_units.carrier=='battery']
+ksto = ksto[ksto.bus.isin(kde_buses.index)]
+
+ksto_ddr = ksto[ksto.bus.isin(kbuses[kbuses.in_ddr].index)]
+(ksto_ddr.p_nom_opt-ksto_ddr.p_nom_min).sum()
+
+ksto_brd = ksto[~ksto.bus.isin(kbuses[kbuses.in_ddr].index)]
+(ksto_brd.p_nom_opt-ksto_brd.p_nom_min).sum()
+
+klines_ddr = klines[klines.bus0_in_ddr & klines.bus1_in_ddr]
+klines_brd = klines[(klines.bus0_in_ddr==False) & (klines.bus1_in_ddr==False)]
+
+(klines_brd.s_nom_opt*klines_brd.length).sum()
+(klines_ddr.s_nom_opt*klines_ddr.length).sum()
+
+((klines_brd.s_nom_opt-klines_brd.s_nom_min)*klines_brd.length).sum()
+((klines_ddr.s_nom_opt-klines_ddr.s_nom_min)*klines_ddr.length).sum()
+
+(klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr].length).sum()
+((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr].length).sum()
+
+# dijkstra 
+
+dijkstra = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/300")
+
+dsto = dijkstra.network.storage_units[dijkstra.network.storage_units.carrier=='battery']
+dde_buses=dijkstra.network.buses[dijkstra.network.buses.country=='DE']
+dsto = dsto[dsto.bus.isin(dde_buses.index)]
+
+dlines, dbuses = generate_geom(dijkstra.network)
+
+dbuses["in_ddr"] = dbuses.intersects(ddr.unary_union)
+dlines["bus0_in_ddr"] = dlines["bus0"].map(dbuses["in_ddr"])
+dlines["bus1_in_ddr"] = dlines["bus1"].map(dbuses["in_ddr"])
+dlines["to_ddr"] = dlines["bus0_in_ddr"] ^ dlines["bus1_in_ddr"]
+
+dsto_brd = dsto[~dsto.bus.isin(dbuses[dbuses.in_ddr].index)]
+dsto_ddr = dsto[dsto.bus.isin(dbuses[dbuses.in_ddr].index)]
+
+(dsto_ddr.p_nom_opt-dsto_ddr.p_nom_min).sum()
+(dsto_brd.p_nom_opt-dsto_brd.p_nom_min).sum()
             
-        
-            
+dlines_ddr = dlines[dlines.bus0_in_ddr & dlines.bus1_in_ddr]
+dlines_brd = dlines[(dlines.bus0_in_ddr==False) & (dlines.bus1_in_ddr==False)]
+    
+(dlines_brd.s_nom_opt*dlines_brd.length).sum()
+(dlines_ddr.s_nom_opt*dlines_ddr.length).sum() 
 
+((dlines_brd.s_nom_opt-dlines_brd.s_nom_min)*dlines_brd.length).sum()
+((dlines_ddr.s_nom_opt-dlines_ddr.s_nom_min)*dlines_ddr.length).sum()
 
+((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr].length).sum()
+(dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr].length).sum()
