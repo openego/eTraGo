@@ -365,6 +365,60 @@ def _max_redispatch(self, network, snapshots):
         )
 
 
+def _max_redispatch_ramp_down(self, network, snapshots):
+    """
+    Extra-functionality that limits the maximum usage of redispatch.
+    Add key 'max_redispatch' and maximual amount of redispatch in MWh
+    to args.extra_functionality.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    ramp_up = list(
+        network.generators.index[
+            network.generators.index.str.contains("ramp_down")
+        ]
+    )
+    ramp_up_links = list(
+        network.links.index[network.links.index.str.contains("ramp_down")]
+    )
+
+    def _rule(m):
+        redispatch_gens = sum(
+            m.generator_p[gen, sn] * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up
+            for sn in snapshots
+        )
+        redispatch_links = sum(
+            m.link_p[gen, sn]
+            * network.links.loc[gen, "efficiency"]
+            * network.snapshot_weightings.generators[sn]
+            for gen in ramp_up_links
+            for sn in snapshots
+        )
+        return (redispatch_gens + redispatch_links) >= self.args[
+            "extra_functionality"
+        ]["max_redispatch_ramp_down"]
+
+    if len(ramp_up) > 0 or len(ramp_up_links) > 0:
+        network.model.max_redispatch_ramp_down = Constraint(rule=_rule)
+    else:
+        print(
+            """Constraint max_redispatch was not added,
+              there are no redispatch generators or links."""
+        )
+
+
 def _max_redispatch_linopy(self, network, snapshots):
     """
     Extra-functionality that limits the maximum usage of redispatch.
