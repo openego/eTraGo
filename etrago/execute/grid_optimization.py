@@ -41,6 +41,19 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
 def grid_optimization(self):
     logger.info("Start building grid optimization model")
+
+    # Drop existing ramping generators
+    self.network.mremove(
+        "Generator",
+        self.network.generators[
+            self.network.generators.index.str.contains('ramp')
+            ].index,)
+    self.network.mremove(
+        "Link",
+        self.network.links[
+            self.network.links.index.str.contains('ramp')
+            ].index)
+
     fix_chp_generation(self)
     add_redispatch_generators(self)
 
