@@ -25,6 +25,7 @@ import os
 
 if "READTHEDOCS" not in os.environ:
     import logging
+    import numpy as np
 
     logger = logging.getLogger(__name__)
 
@@ -69,6 +70,18 @@ def grid_optimization(self):
         self.network.links_t.p_max_pu.abs()>1e-7, other=0., inplace=True)
     self.network.links_t.p_min_pu.where(
         self.network.links_t.p_min_pu>1e-7, other=0., inplace=True)
+
+    self.network.links.loc[
+        (self.network.links.bus0.isin(
+            self.network.buses[self.network.buses.country=="GB"].index)) &
+        (self.network.links.bus1.isin(
+            self.network.buses[self.network.buses.country=="GB"].index))
+        & (self.network.links.carrier=="DC"), "p_nom_max"] = np.inf
+
+    self.network.storage_units.loc[
+        (self.network.storage_units.bus.isin(
+            self.network.buses[self.network.buses.country!="DE"].index))
+        & (self.network.storage_units.carrier=="battery"), "p_nom_max"] = np.inf
 
     self.args["method"]["formulation"] = "pyomo"
     if self.args["method"]["type"] == "lopf":
