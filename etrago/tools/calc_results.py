@@ -773,7 +773,7 @@ def calc_etrago_results(self):
         )
 
 
-def total_redispatch(network, only_de=True):
+def total_redispatch(network, only_de=True, plot=False):
 
     if only_de:
         ramp_up = network.generators[
@@ -859,10 +859,11 @@ def total_redispatch(network, only_de=True):
         axis=1
     )
 
-    # Plot potential and accutual ramp up
-    fig, ax = plt.subplots(figsize=(15, 5))
-    total_ramp_up_potential.plot(ax=ax, kind="area", color="lightblue")
-    total_ramp_up_t.plot(ax=ax, color="blue")
+    if plot:
+        # Plot potential and accutual ramp up
+        fig, ax = plt.subplots(figsize=(15, 5))
+        total_ramp_up_potential.plot(ax=ax, kind="area", color="lightblue")
+        total_ramp_up_t.plot(ax=ax, color="blue")
 
     # Annual ramp down in MWh
     total_ramp_down = (
@@ -897,9 +898,10 @@ def total_redispatch(network, only_de=True):
         axis=1
     )
 
-    fig, ax = plt.subplots(figsize=(15, 5))
-    total_ramp_down_potential.plot(ax=ax, kind="area", color="lightblue")
-    total_ramp_down_t.plot(ax=ax, color="blue")
+    if plot:
+        fig, ax = plt.subplots(figsize=(15, 5))
+        total_ramp_down_potential.plot(ax=ax, kind="area", color="lightblue")
+        total_ramp_down_t.plot(ax=ax, color="blue")
 
     return {
         "ramp_up": {
