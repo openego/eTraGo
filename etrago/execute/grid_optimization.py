@@ -155,7 +155,7 @@ def add_redispatch_generators(self):
     # Select generator and link components that are considered in redispatch
     # all others can be redispatched without any extra costs
     gens_redispatch = self.network.generators[
-        self.network.generators.carrier.isin(
+        (self.network.generators.carrier.isin(
             [
                 "coal",
                 "lignite",
@@ -170,7 +170,10 @@ def add_redispatch_generators(self):
                 "solar_rooftop",
                 "biomass",
                 "OCGT",
-            ]
+            ])
+            & (
+                ~self.network.generators.index.str.contains("ramp")
+                )
         )
     ].index
 
