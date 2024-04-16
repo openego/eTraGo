@@ -394,12 +394,6 @@ def build_shortterm_market_model(self):
     m.stores.e_cyclic = False
     m.storage_units.cyclic_state_of_charge = False
 
-    # ToDo maybe ?!
-    # somoehow setting seasonal storage (phs, h2 or finding a dynamic
-    # definition with respect to the results i.e. the storage behavior)
-    # filling level (or similar) for the short-term rolling complicated
-    # market problem
-
     # set UC constraints
 
     unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
