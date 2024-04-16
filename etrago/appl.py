@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 2,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1e-05,
@@ -163,7 +163,7 @@ args = {
             "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
     },
-    "network_clustering_ehv": True,  # clustering of HV buses to EHV buses.
+    "network_clustering_ehv": False,  # clustering of HV buses to EHV buses.
     "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
     "snapshot_clustering": {
@@ -188,7 +188,7 @@ args = {
 }
 
 
-def run_etrago(args, json_path):
+def run_etrago(args, percentage, json_path):
     """The etrago function works with following arguments:
 
 
@@ -630,6 +630,8 @@ def run_etrago(args, json_path):
     etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0.copy()
 
     etrago.adjust_network()
+    
+    etrago.network.lines.capital_cost = (percentage/100) * etrago.network.lines.capital_cost
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -638,6 +640,8 @@ def run_etrago(args, json_path):
     
     print(' ')
     print('start spatial clustering')
+    print(etrago.args["network_clustering"]["method"])
+    print(etrago.args["network_clustering"]["n_clusters_AC"])
     print(datetime.datetime.now())
     print(' ')
 
@@ -708,9 +712,11 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [300]
+    spatial_resolution = [300] # 300, 300, 300
     
-    spatial_method = ['kmedoids-dijkstra', 'kmeans'] 
+    percentage = [50] # 25, 15, 5
+    
+    spatial_method = ['kmeans', 'kmedoids-dijkstra'] 
     
     for i in range (0, len(spatial_method)):
 
@@ -720,7 +726,7 @@ if __name__ == "__main__":
             
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
-            args['csv_export'] = args['network_clustering']['method']+'/'+str(args['network_clustering']['n_clusters_AC'])
+            args['csv_export'] = args['network_clustering']['method']+'_lines/'+str(args['network_clustering']['n_clusters_AC'])+'_'+str(percentage[j])
             
             print(' ')
             print('method: ')
@@ -737,7 +743,7 @@ if __name__ == "__main__":
             
             print(datetime.datetime.now())
                         
-            etrago = run_etrago(args, json_path=None)
+            etrago = run_etrago(args, percentage[j], json_path=None)
             
             etrago.args["load_shedding"] = False
             
