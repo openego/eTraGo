@@ -580,7 +580,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     ppathss = list(product(o_buses, c_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.x, ix) for ix, row in connections.iterrows()]
+    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in connections.iterrows()]
     M = graph_from_edges(edges)
 
     # processor count
