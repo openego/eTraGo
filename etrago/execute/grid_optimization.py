@@ -39,7 +39,7 @@ __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
 
-def grid_optimization(self):
+def grid_optimization(self, factor_redispatch_cost=1, management_cost=4):
     logger.info("Start building grid optimization model")
 
     # Drop existing ramping generators
@@ -55,7 +55,8 @@ def grid_optimization(self):
             ].index)
 
     fix_chp_generation(self)
-    add_redispatch_generators(self)
+    add_redispatch_generators(self, factor_redispatch_cost,
+                              management_cost)
 
     if not self.args["method"]["market_optimization"]["redispatch"]:
         self.network.mremove(
@@ -153,7 +154,7 @@ def fix_chp_generation(self):
     )
 
 
-def add_redispatch_generators(self):
+def add_redispatch_generators(self, factor_redispatch_cost, management_cost):
     """Add components and parameters to model redispatch with costs
 
     This function currently assumes that the market_model includes all
@@ -231,9 +232,10 @@ def add_redispatch_generators(self):
     market_price_per_bus = self.market_model.buses_t.marginal_price
 
     # Set market price for each disaggregated generator according to the bus
+    # can be reduced liner by setting a factor_redispatch_cost
     market_price_per_generator = market_price_per_bus.loc[
         :, self.market_model.generators.loc[gens_redispatch, "bus"]
-    ].median()
+    ].median()*factor_redispatch_cost
     market_price_per_generator.index = gens_redispatch
 
     # Costs for ramp_up generators are first set the marginal_cost for each
@@ -267,7 +269,7 @@ def add_redispatch_generators(self):
         gens_redispatch + " ramp_up",
         bus=self.network.generators.loc[gens_redispatch, "bus"].values,
         p_nom=self.network.generators.loc[gens_redispatch, "p_nom"].values,
-        marginal_cost=ramp_up_costs.values + 4,
+        marginal_cost=ramp_up_costs.values + management_cost,
         carrier=self.network.generators.loc[gens_redispatch, "carrier"].values,
     )
 
@@ -305,7 +307,7 @@ def add_redispatch_generators(self):
         marginal_cost=self.network.links.loc[
             links_redispatch, "marginal_cost"
         ].values
-        + 4,
+        + management_cost,
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
         efficiency=self.network.links.loc[
             links_redispatch, "efficiency"].values,
@@ -335,7 +337,7 @@ def add_redispatch_generators(self):
         gens_redispatch + " ramp_down",
         bus=self.network.generators.loc[gens_redispatch, "bus"].values,
         p_nom=self.network.generators.loc[gens_redispatch, "p_nom"].values,
-        marginal_cost=-(ramp_down_costs.values + 4),
+        marginal_cost=-(ramp_down_costs.values + management_cost),
         carrier=self.network.generators.loc[gens_redispatch, "carrier"].values,
     )
 
@@ -365,7 +367,7 @@ def add_redispatch_generators(self):
         bus0=self.network.links.loc[links_redispatch, "bus0"].values,
         bus1=self.network.links.loc[links_redispatch, "bus1"].values,
         p_nom=self.network.links.loc[links_redispatch, "p_nom"].values,
-        marginal_cost=-(4),
+        marginal_cost=-(management_cost),
         carrier=self.network.links.loc[links_redispatch, "carrier"].values,
         efficiency=self.network.links.loc[links_redispatch, "efficiency"].values,
     )
