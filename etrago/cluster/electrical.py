@@ -295,28 +295,20 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
                 io.import_series_from_dataframe(network_c, df, "Link", attr)
 
     # dealing with generators
-    network.generators.control = "PV"
     network.generators["weight"] = 1
 
-    new_df, new_pnl = aggregategenerators(
-        network, busmap, with_time, custom_strategies=strategies_generators()
-    )
-    io.import_components_from_dataframe(network_c, new_df, "Generator")
-    for attr, df in iteritems(new_pnl):
-        io.import_series_from_dataframe(network_c, df, "Generator", attr)
+    for one_port in network.one_port_components.copy():
+        if one_port == "Generator":
+            custom_strategies = strategies_generators()
 
-    # dealing with all other components
-    aggregate_one_ports = network.one_port_components.copy()
-    aggregate_one_ports.discard("Generator")
-
-    for one_port in aggregate_one_ports:
-        one_port_strategies = strategies_one_ports()
+        else:
+            custom_strategies = strategies_one_ports().get(one_port, {})
         new_df, new_pnl = aggregateoneport(
             network,
             busmap,
             component=one_port,
             with_time=with_time,
-            custom_strategies=one_port_strategies.get(one_port, {}),
+            custom_strategies=custom_strategies,
         )
         io.import_components_from_dataframe(network_c, new_df, one_port)
         for attr, df in iteritems(new_pnl):
@@ -522,7 +514,7 @@ def preprocessing(etrago):
 
         busmap_foreign = pd.Series(dtype=str)
         medoids_foreign = pd.Series(dtype=str)
-
+        #breakpoint()
         for country, df in foreign_buses.groupby(by="country"):
             weight = df.apply(lambda x: 1 if x.name in foreign_buses_load.index else 0, axis = 1)
             n_clusters = (foreign_buses_load.country == country).sum()
