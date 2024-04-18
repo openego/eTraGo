@@ -50,6 +50,7 @@ def market_optimization(self):
     logger.info("Start solving pre market model")
 
     if self.args["method"]["formulation"] == "pyomo":
+        self.pre_market_model.determine_network_topology()
         self.pre_market_model.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
