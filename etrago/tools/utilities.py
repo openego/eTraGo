@@ -2846,3 +2846,326 @@ def manual_fixes_datamodel(etrago):
         ].index,
         "p_max_pu",
     ] = 0.65
+    
+
+
+
+from shapely.geometry import Point, LineString
+from geoalchemy2.shape import from_shape, to_shape
+
+def add_energy_community_to_network(network, ec_location, existing_bus_id, ec_voltage, ec_id=None):
+    if ec_id is None:
+        ec_id = str(network.buses.index.astype(int).max() + 1)
+
+    ec_point = Point(ec_location)
+
+    # Ensure geometry is available for existing bus
+    if 'geom' in network.buses.columns and network.buses.at[existing_bus_id, 'geom']:
+        existing_bus_geom = to_shape(network.buses.at[existing_bus_id, 'geom'])
+    else:
+        raise ValueError("Geometry data not available for existing bus")
+
+    # Add energy community bus with geometry
+    network.buses.at[ec_id, "geom"] = from_shape(ec_point, srid=4326)
+    network.add("Bus", ec_id, carrier="AC", v_nom=ec_voltage, 
+            x=ec_location[0], y=ec_location[1], geom=network.buses.at[ec_id, 'geom'])
+
+    # Verify and correct the carrier if necessary
+    if network.buses.at[ec_id, 'carrier'] != 'AC':
+       print(f"Correcting the carrier for bus {ec_id} to 'AC'.")
+       network.buses.at[ec_id, 'carrier'] = 'AC'
+
+    # Fetch attributes from an existing generator
+    if not network.generators.empty:
+        # Get the ID of the first generator
+        example_gen_id = network.generators.index[0]
+
+        # Specify the common attribute names you want to copy
+        common_attribute_names = [
+            'p_nom_extendable', 'p_nom_min', 'p_nom_max', 'p_min_pu', 'p_max_pu',
+            'marginal_cost', 'build_year', 'lifetime', 'efficiency',
+            'committable', 'start_up_cost', 'shut_down_cost', 'min_up_time',
+            'min_down_time', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up',
+            'ramp_limit_shut_down', 'e_nom_max'
+        ]
+
+        # Retrieve common attribute values from the existing generator
+        common_attributes = network.generators.loc[example_gen_id, common_attribute_names].to_dict()
+
+        # Add a new Biogas generator with these attributes copied from an existing one
+        biogas_gen_id = str(network.generators.index.astype(int).max() + 1)
+        network.add("Generator",
+                    scn_name="eGon2035",
+                    bus=ec_id,
+                    p_nom=1.5,
+                    carrier="biogas",
+                    marginal_cost=50,
+                    capital_cost=1000,
+                    p_max_pu=1,
+                    gen_id=biogas_gen_id,
+                    **common_attributes)
+
+        # Add a new Solar Plant generator
+        solar_gen_id = str(network.generators.index.astype(int).max() + 1)
+        network.add("Generator",
+                    scn_name="eGon2035",
+                    bus=ec_id,
+                    p_nom=2.0,  # Nominal power in MW
+                    carrier="solar",
+                    marginal_cost=0,  # $ per MWh
+                    capital_cost=1200,  # $ per kW
+                    p_max_pu=1,
+                    gen_id=solar_gen_id,
+                    **common_attributes)
+    else:
+        print("No existing generators found to copy attributes from.")
+
+# Example usage
+ec_location = (8.998612860245618, 54.646649530579886)  # Replace with actual coordinates
+existing_bus_id = "32941"  # Replace with actual bus ID
+ec_voltage = 110  # Replace with actual voltage
+
+
+
+
+from shapely.geometry import Point, LineString
+from geoalchemy2.shape import from_shape, to_shape
+
+def add_energy_community_to_network(network, ec_location, existing_bus_id, ec_voltage, ec_id=None):
+    if ec_id is None:
+        ec_id = str(network.buses.index.astype(int).max() + 1)
+    
+    ec_point = Point(ec_location)
+
+    # Ensure geometry is available for existing bus
+    if 'geom' in network.buses.columns and network.buses.at[existing_bus_id, 'geom']:
+        existing_bus_geom = to_shape(network.buses.at[existing_bus_id, 'geom'])
+    else:
+        raise ValueError("Geometry data not available for existing bus")
+    
+    # Add energy community bus with geometry
+    network.buses.at[ec_id, "geom"] = from_shape(ec_point, srid=4326)
+    network.add("Bus", ec_id, carrier="AC", v_nom=ec_voltage,
+                x=ec_location[0], y=ec_location[1], geom=network.buses.at[ec_id, 'geom'])
+
+    # Confirm addition of the bus
+    if ec_id in network.buses.index:
+        print(f"Bus with ID {ec_id} has been successfully added to the network.")
+        print(network.buses.loc[ec_id])
+    else:
+        print(f"Failed to add bus with ID {ec_id} to the network.")
+
+# Example usage
+ec_location = (8.998612860245618, 54.646649530579886)  # Replace with actual coordinates
+existing_bus_id = "15"  # Replace with actual bus ID
+ec_voltage = 110  # Replace with actual voltage
+
+
+def Add_EC_to_network(network):
+    """
+    Adds missing components to run calculations with SH scenarios.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Overall container of PyPSA
+
+    Returns
+    -------
+    None
+    """
+    from geoalchemy2.shape import from_shape, to_shape
+    from shapely.geometry import LineString, MultiLineString, Point
+
+    # Add connection from Luebeck to Siems
+    new_bus = str(network.buses.index.astype(np.int64).max() + 1)
+    new_line = str(network.lines.index.astype(np.int64).max() + 1)
+    network.add(
+        "Bus", new_bus, carrier="AC", v_nom=220, x=8.998612, y=54.646649
+    )
+    
+
+    # Check if the new bus was added successfully
+    if new_bus in network.buses.index:
+        print(f"Bus {new_bus} has been successfully added.")
+    else:
+        print(f"Failed to add bus {new_bus}.")
+
+    # Fetch attributes from an existing generator
+    if not network.generators.empty:
+        example_gen_id = network.generators.index[0]  # Example: first generator ID
+        common_attributes = network.generators.loc[example_gen_id].to_dict()
+
+        # Add a new Biogas generator with these attributes copied from an existing one
+        biogas_gen_id = str(network.generators.index.astype(np.int64).max() + 1)
+        network.add("Generator",
+                    scn_name="eGon2035",
+                    bus=new_bus,
+                    p_nom=1.5,
+                    carrier="biogas",
+                    marginal_cost=50,
+                    capital_cost=1000,
+                    p_max_pu=1,
+                    gen_id=biogas_gen_id,
+                    **common_attributes)
+
+        # Add a new Solar Plant generator
+        solar_gen_id = str(network.generators.index.astype(np.int64).max() + 1)
+        network.add("Generator",
+                    scn_name="eGon2035",
+                    bus=new_bus,
+                    p_nom=2.0,  # Nominal power in MW
+                    carrier="solar",
+                    marginal_cost=0,  # $ per MWh
+                    capital_cost=1200,  # $ per kW
+                    p_max_pu=1,
+                    gen_id=solar_gen_id,
+                    **common_attributes)
+    else:
+        print("No existing generators found to copy attributes from.")
+
+def Add_EC_to_network(network):
+    from geoalchemy2.shape import from_shape, to_shape
+    from shapely.geometry import LineString, MultiLineString, Point
+    import numpy as np
+
+    # Safely generating a new unique bus ID
+    if network.buses.index.astype(str).str.isdigit().any():  # Check if there are any digit-only indices
+        max_id = network.buses.index[network.buses.index.astype(str).str.isdigit()].astype(int).max()
+    else:
+        max_id = 0  # Start from 0 if no numeric indices exist
+    new_bus = str(max_id + 1)
+
+    # Add new bus safely
+    try:
+        network.add("Bus", new_bus, carrier="AC", v_nom=220, x=8.998612, y=54.646649)
+        print(f"Bus {new_bus} has been successfully added.")
+    except AssertionError as e:
+        print(f"Failed to add bus {new_bus}: {e}")
+
+    # Continue with the addition of transformers, lines, and other components as before
+    #new_trafo = str(network.transformers.index.astype(np.int64).max() + 1)
+    new_line = str(network.lines.index.astype(np.int64).max() + 1)
+    #network.add("Transformer", new_trafo, bus0="32941", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
+    network.add("Line", new_line, bus0="32941", bus1=new_bus, x=0.0001, s_nom=1600)
+
+    # Check if the new bus was added successfully
+    if new_bus in network.buses.index:
+        print(f"Bus {new_bus} has been successfully added.")
+    else:
+        print(f"Failed to add bus {new_bus}.")
+
+    # Handling Generators
+    if not network.generators.empty:
+        max_id = max(network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
+        biogas_gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+        network.add("Generator", biogas_gen_id, bus=new_bus, p_nom=1.5, carrier="central_biomass_CHP_heat", marginal_cost=50, capital_cost=1000, p_max_pu=1)
+
+        solar_gen_id = str(int(biogas_gen_id) + 1)
+        network.add("Generator", solar_gen_id, bus=new_bus, p_nom=2.0, carrier="solar", marginal_cost=0, capital_cost=1200, p_max_pu=1)
+    else:
+        print("No existing generators found to copy attributes from.")
+
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import LineString, MultiLineString, Point
+import numpy as np
+
+def Add_EC_to_network(network):
+    """
+    Adds essential components like buses, lines, and generators to the network.
+    """
+    
+    # Generating a new unique bus ID
+    if network.buses.index.astype(str).str.isdigit().any():  
+        max_id = network.buses.index[network.buses.index.astype(str).str.isdigit()].astype(int).max()
+    else:
+        max_id = 0  # Start from 0 if no numeric indices exist
+    new_bus = str(max_id + 1)
+    
+    # Add new bus
+    try:
+        network.add("Bus", new_bus, carrier="AC", v_nom=220, x=8.998612, y=54.646649)
+        print(f"Bus {new_bus} has been successfully added.")
+    except AssertionError as e:
+        print(f"Failed to add bus {new_bus}: {e}")
+        return  # Exit if bus addition fails
+
+    # Add a new line
+    new_line = str(network.lines.index.astype(np.int64).max() + 1)
+    network.add("Line", new_line, bus0="32941", bus1=new_bus, x=0.0001, s_nom=1600)
+    
+    # Handling Generators
+    if not network.generators.empty:
+        try:
+            max_id = max(network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
+            biogas_gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+            network.add("Generator", biogas_gen_id, scn_name="eGon2035", bus=new_bus, p_nom=1.5, carrier="central_biomass_CHP_heat", marginal_cost=50, capital_cost=1000, p_max_pu=1)
+            
+            solar_gen_id = str(int(biogas_gen_id) + 1)
+            network.add("Generator", solar_gen_id, scn_name="eGon2035", bus=new_bus, p_nom=2.0, carrier="solar", marginal_cost=0, capital_cost=1200, p_max_pu=1)
+        except Exception as e:
+            print(f"Error adding generators: {e}")
+    else:
+        print("No existing generators found to copy attributes from.")
+
+from geoalchemy2.shape import from_shape, to_shape
+from shapely.geometry import LineString, MultiLineString, Point
+import numpy as np
+
+def Add_EC_to_network(network):
+    """
+    Adds essential components like buses, lines, and generators to the network, and prints their details.
+    """
+    
+    # Generating a new unique bus ID
+    if network.buses.index.astype(str).str.isdigit().any():  
+        max_id = network.buses.index[network.buses.index.astype(str).str.isdigit()].astype(int).max()
+    else:
+        max_id = 0  # Start from 0 if no numeric indices exist
+    new_bus = str(max_id + 1)
+    
+    # Add new bus
+    try:
+        network.add("Bus", new_bus, carrier="AC", v_nom=220, x=8.998612, y=54.646649)
+        print(f"Bus {new_bus} has been successfully added.")
+    except AssertionError as e:
+        print(f"Failed to add bus {new_bus}: {e}")
+        return  # Exit if bus addition fails
+
+    # Add a new line
+    new_line = str(network.lines.index.astype(np.int64).max() + 1)
+    try:
+        network.add("Line", new_line, bus0="32941", bus1=new_bus, x=0.0001, s_nom=1600)
+        print(f"Line {new_line} connected between bus 32941 and {new_bus} has been successfully added.")
+    except Exception as e:
+        print(f"Failed to add line {new_line}: {e}")
+    
+    # Handling Generators
+    if not network.generators.empty:
+        try:
+            max_id = max(network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
+            biogas_gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+            network.add("Generator", biogas_gen_id, scn_name="eGon2035", bus=new_bus, p_nom=1.5, carrier="central_biomass_CHP_heat", marginal_cost=50, capital_cost=1000, p_max_pu=1)
+            print(f"Biogas generator {biogas_gen_id} has been successfully added to bus {new_bus}.")
+            
+            solar_gen_id = str(int(biogas_gen_id) + 1)
+            network.add("Generator", solar_gen_id, scn_name="eGon2035", bus=new_bus, p_nom=2.0, carrier="solar", marginal_cost=0, capital_cost=1200, p_max_pu=1)
+            print(f"Solar generator {solar_gen_id} has been successfully added to bus {new_bus}.")
+        except Exception as e:
+            print(f"Error adding generators: {e}")
+    else:
+        print("No existing generators found to copy attributes from.")
+
+    # Print characteristics of associated lines and generators
+    if new_bus in network.buses.index:
+        print("\nCharacteristics of the new bus and associated components:")
+        print("Bus Details:")
+        print(network.buses.loc[new_bus])
+        print("\nLine Details:")
+        print(network.lines[network.lines.bus1 == new_bus] or network.lines[network.lines.bus0 == new_bus])
+        print("\nGenerator Details:")
+        print(network.generators[network.generators.bus == new_bus])
+
+
+
+
