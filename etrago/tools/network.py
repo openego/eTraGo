@@ -74,6 +74,7 @@ from etrago.tools.plot import (
     plot_heat_loads,
     plot_heat_summary,
     shifted_energy,
+    plot_voltage,
 )
 from etrago.tools.utilities import (
     add_missing_components,
@@ -100,6 +101,9 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    add_energy_community_to_network,
+    #data_manipulation_sh,
+    
 )
 
 logger = logging.getLogger(__name__)
@@ -333,7 +337,13 @@ class Etrago:
     manual_fixes_datamodel = manual_fixes_datamodel
 
     shifted_energy = shifted_energy
-
+    
+    add_energy_community_to_network = add_energy_community_to_network
+    
+   # plot_voltage = plot_voltage
+   
+   # data_manipulation_sh = data_manipulation_sh
+    
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
 
