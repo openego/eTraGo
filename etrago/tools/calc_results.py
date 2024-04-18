@@ -665,6 +665,7 @@ def calc_etrago_results(self):
             "abs. electrical dc grid expansion",
             "rel. electrical ac grid expansion",
             "rel. electrical dc grid expansion",
+            "redispatch cost"
         ],
     )
 
@@ -772,6 +773,26 @@ def calc_etrago_results(self):
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
 
+    if not network.generators[network.generators.index.str.contains("ramp")].empty:
+        network = self.network
+        gen_idx = network.generators[network.generators.index.str.contains("ramp")].index
+        gen = (
+            network.generators_t.p[gen_idx].mul(
+                network.snapshot_weightings.objective, axis=0
+            )
+            .sum(axis=0)
+            .mul(network.generators.marginal_cost[gen_idx])
+            .sum()
+        )
+        link_idx = network.links[network.links.index.str.contains("ramp")].index
+        link = (
+            network.links_t.p0[link_idx]
+            .mul(network.snapshot_weightings.objective, axis=0)
+            .sum(axis=0)
+            .mul(network.links.marginal_cost[link_idx])
+            .sum()
+        )
+        self.results.value["redispatch cost"] =  gen + link
 
 def total_redispatch(network, only_de=True, plot=False):
 
