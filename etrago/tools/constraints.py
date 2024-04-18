@@ -3181,10 +3181,57 @@ def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
     # TODO: implementieren
 
 
+
+def fixed_storage_unit_soc_at_the_end(n, sns):
+    """
+    Defines energy balance constraints for storage units. In principal the
+    constraints states:
+
+    previous_soc + p_store - p_dispatch + inflow - spill == soc
+    """
+    from xarray import DataArray
+
+    sns = n.snapshots[-1]
+    m = n.model
+    c = "StorageUnit"
+    assets = n.df(c)
+    if assets.empty:
+        return
+
+    # elapsed hours
+    eh = n.snapshot_weightings.stores[sns]
+    # efficiencies
+    eff_stand = (1 - n.storage_units.standing_loss).pow(eh)
+    eff_dispatch = n.storage_units.efficiency_dispatch
+    eff_store = n.storage_units.efficiency_store
+
+    # SOC first hour of the year
+    post_soc = m[f"{c}-state_of_charge"].loc[n.snapshots[0]]
+
+    # SOC last hour of the year
+    soc = m[f"{c}-state_of_charge"].loc[sns]
+
+    lhs = [
+        (-1, soc),
+        (-1 / eff_dispatch * eh, m[f"{c}-p_dispatch"].loc[sns]),
+        (eff_store * eh, m[f"{c}-p_store"].loc[sns]),
+    ]
+
+    if f"{c}-spill" in m.variables:
+        lhs += [(-eh, m[f"{c}-spill"])]
+
+    # We add inflow and initial soc for noncyclic assets to rhs
+    rhs = DataArray((-n.storage_units.inflow).mul(eh))
+
+    lhs += [(eff_stand, post_soc)]
+
+    m.add_constraints(lhs, "=", rhs, name=f"{c}-energy_balance_end")
+
 class Constraints:
-    def __init__(self, args, conduct_dispatch_disaggregation):
+    def __init__(self, args, conduct_dispatch_disaggregation, apply_on="grid_model"):
         self.args = args
         self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
+        self.apply_on = apply_on
 
     def functionality(self, network, snapshots):
         """Add constraints to pypsa-model using extra-functionality.
@@ -3211,6 +3258,9 @@ class Constraints:
                     len(snapshots) > 1500
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
+
+                if self.apply_on=="last_market_model":
+                    fixed_storage_unit_soc_at_the_end(network, snapshots)
                 add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)

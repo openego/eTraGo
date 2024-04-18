@@ -105,7 +105,7 @@ def market_optimization(self):
             "overlap"
         ],
         solver_name=self.args["solver"],
-        extra_functionality=Constraints(self.args, False).functionality,
+        extra_functionality=Constraints(self.args, False, apply_on="market_model").functionality,
     )
 
     # Reset formulation to previous setting of args
@@ -120,7 +120,8 @@ def market_optimization(self):
 
 
 def optimize_with_rolling_horizon(
-    n, pre_market, snapshots=None, horizon=2, overlap=0, **kwargs
+    n, pre_market, snapshots, horizon, overlap, solver_name,
+    extra_functionality, **kwargs
 ):
     """
     Optimizes the network in a rolling horizon fashion.
@@ -200,6 +201,19 @@ def optimize_with_rolling_horizon(
             n.storage_units.state_of_charge_initial = (
                 n.storage_units_t.state_of_charge.loc[snapshots[start - 1]]
             )
+            print(i)
+            # Make sure that state of charge of batteries and pumped hydro
+            # plants are cyclic over the year by using the state_of_charges
+            # from the pre_market_model
+            if i==0:
+                n.storage_units.state_of_charge_initial = (
+                    pre_market.storage_units_t.state_of_charge.iloc[-1]
+                    )
+
+            elif i == len(starting_points)-1:
+                extra_functionality=Constraints(
+                    {"extra_functionality": []},
+                    False, apply_on="last_market_model").functionality,
 
         status, condition = n.optimize(sns, **kwargs)
 
