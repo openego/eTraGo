@@ -88,6 +88,7 @@ def market_optimization(self):
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self)
+    self.market_model.determine_network_topology()
     logger.info("Start solving short-term UC market model")
 
     # Set 'linopy' as formulation to make sure that constraints are added
