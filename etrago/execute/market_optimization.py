@@ -107,6 +107,7 @@ def market_optimization(self):
         ],
         solver_name=self.args["solver"],
         extra_functionality=Constraints(self.args, False, apply_on="market_model").functionality,
+        args = self.args,
     )
 
     # Reset formulation to previous setting of args
@@ -122,7 +123,7 @@ def market_optimization(self):
 
 def optimize_with_rolling_horizon(
     n, pre_market, snapshots, horizon, overlap, solver_name,
-    extra_functionality, **kwargs
+    extra_functionality, args
 ):
     """
     Optimizes the network in a rolling horizon fashion.
@@ -213,10 +214,11 @@ def optimize_with_rolling_horizon(
 
             elif i == len(starting_points)-1:
                 extra_functionality=Constraints(
-                    {"extra_functionality": []},
-                    False, apply_on="last_market_model").functionality,
+                    args,
+                    False, apply_on="last_market_model").functionality
 
-        status, condition = n.optimize(sns, **kwargs)
+        status, condition = n.optimize(sns, solver_name=solver_name,
+                                       extra_functionality=extra_functionality)
 
         if status != "ok":
             logger.warning(

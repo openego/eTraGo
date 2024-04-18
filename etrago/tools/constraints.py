@@ -207,22 +207,26 @@ def _max_battery_expansion_germany(self, network, snapshots):
 
     """
     home_battery_capacity = network.storage_units[
-        network.storage_units.carrier=="battery"].p_nom_min.sum()
+        network.storage_units.carrier == "battery"
+    ].p_nom_min.sum()
 
-    batteries = network.storage_units[(
-        network.storage_units.carrier=="battery")
-        &(network.storage_units.bus.isin(
-            network.buses[network.buses.country=="DE"].index))]
+    batteries = network.storage_units[
+        (network.storage_units.carrier == "battery")
+        & (
+            network.storage_units.bus.isin(
+                network.buses[network.buses.country == "DE"].index
+            )
+        )
+    ]
 
     def _rule_max(m):
         batteries_opt = sum(
-            m.storage_p_nom[index]
-            for index in batteries.index
+            m.storage_p_nom[index] for index in batteries.index
         )
-        return batteries_opt <= (
-            1
-        ) * (self.args["extra_functionality"]["max_battery_expansion_germany"]
-            + home_battery_capacity)
+        return batteries_opt <= (1) * (
+            self.args["extra_functionality"]["max_battery_expansion_germany"]
+            + home_battery_capacity
+        )
 
     network.model.max_battery_ext = Constraint(rule=_rule_max)
 
@@ -245,33 +249,35 @@ def _fixed_battery_expansion_germany(self, network, snapshots):
 
     """
     home_battery_capacity = network.storage_units[
-        network.storage_units.carrier=="battery"].p_nom_min.sum()
+        network.storage_units.carrier == "battery"
+    ].p_nom_min.sum()
 
-    batteries = network.storage_units[(
-        network.storage_units.carrier=="battery")
-        &(network.storage_units.bus.isin(
-            network.buses[network.buses.country=="DE"].index))]
+    batteries = network.storage_units[
+        (network.storage_units.carrier == "battery")
+        & (
+            network.storage_units.bus.isin(
+                network.buses[network.buses.country == "DE"].index
+            )
+        )
+    ]
 
     def _rule_min(m):
         batteries_opt = sum(
-            m.storage_p_nom[index]
-            for index in batteries.index
+            m.storage_p_nom[index] for index in batteries.index
         )
-        return (batteries_opt) >= (
-            0.999
-        ) * (
+        return (batteries_opt) >= (0.999) * (
             self.args["extra_functionality"]["fixed_battery_expansion_germany"]
-            + home_battery_capacity)
+            + home_battery_capacity
+        )
 
     def _rule_max(m):
         batteries_opt = sum(
-            m.storage_p_nom[index]
-            for index in batteries.index
+            m.storage_p_nom[index] for index in batteries.index
         )
-        return batteries_opt <= (
-            1.001
-        ) * (self.args["extra_functionality"]["fixed_battery_expansion_germany"]
-            + home_battery_capacity)
+        return batteries_opt <= (1.001) * (
+            self.args["extra_functionality"]["fixed_battery_expansion_germany"]
+            + home_battery_capacity
+        )
 
     network.model.min_battery_ext = Constraint(rule=_rule_min)
     network.model.max_battery_ext = Constraint(rule=_rule_max)
@@ -3181,7 +3187,6 @@ def split_dispatch_disaggregation_constraints_nmp(self, n, sns):
     # TODO: implementieren
 
 
-
 def fixed_storage_unit_soc_at_the_end(n, sns):
     """
     Defines energy balance constraints for storage units. In principal the
@@ -3206,13 +3211,13 @@ def fixed_storage_unit_soc_at_the_end(n, sns):
     eff_store = n.storage_units.efficiency_store
 
     # SOC first hour of the year
-    post_soc = m[f"{c}-state_of_charge"].loc[n.snapshots[0]]
+    post_soc = n.storage_units_t.state_of_charge.loc[n.snapshots[0]]
 
     # SOC last hour of the year
     soc = m[f"{c}-state_of_charge"].loc[sns]
 
     lhs = [
-        (-1, soc),
+        (1, soc),
         (-1 / eff_dispatch * eh, m[f"{c}-p_dispatch"].loc[sns]),
         (eff_store * eh, m[f"{c}-p_store"].loc[sns]),
     ]
@@ -3221,14 +3226,15 @@ def fixed_storage_unit_soc_at_the_end(n, sns):
         lhs += [(-eh, m[f"{c}-spill"])]
 
     # We add inflow and initial soc for noncyclic assets to rhs
-    rhs = DataArray((-n.storage_units.inflow).mul(eh))
-
-    lhs += [(eff_stand, post_soc)]
+    rhs = DataArray((-n.storage_units.inflow).mul(eh) + (eff_stand * post_soc))
 
     m.add_constraints(lhs, "=", rhs, name=f"{c}-energy_balance_end")
 
+
 class Constraints:
-    def __init__(self, args, conduct_dispatch_disaggregation, apply_on="grid_model"):
+    def __init__(
+        self, args, conduct_dispatch_disaggregation, apply_on="grid_model"
+    ):
         self.args = args
         self.conduct_dispatch_disaggregation = conduct_dispatch_disaggregation
         self.apply_on = apply_on
@@ -3259,7 +3265,7 @@ class Constraints:
                 ):
                     add_ch4_constraints_linopy(self, network, snapshots)
 
-                if self.apply_on=="last_market_model":
+                if self.apply_on == "last_market_model":
                     fixed_storage_unit_soc_at_the_end(network, snapshots)
                 add_chp_constraints_linopy(network, snapshots)
             else:
