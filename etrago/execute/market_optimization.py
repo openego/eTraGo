@@ -434,10 +434,6 @@ def build_shortterm_market_model(self):
     m.links.min_up_time = m.links.min_up_time.astype(int)
     m.links.min_down_time = m.links.min_down_time.astype(int)
     m.links.loc[m.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
-    # Set stores and storage_units to not cyclic
-    # That would be in conflict with the e_min_pu and e_max_pu limit
-    m.stores.loc[m.stores.carrier != "battery_storage", "e_cyclic"] = False
-    m.storage_units.cyclic_state_of_charge = False
 
     m.generators.loc[m.generators.committable, "ramp_limit_down"].fillna(
         1.0, inplace=True
