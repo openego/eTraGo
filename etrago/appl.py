@@ -722,6 +722,8 @@ def run_etrago(args, json_path):
             data=1.0,
         )
 
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+
     # start linear optimal powerflow calculations
 
     etrago.network.storage_units.cyclic_state_of_charge = True
