@@ -30,6 +30,7 @@ import os
 import os.path
 
 
+
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
     "Europa-Universität Flensburg, Centre for Sustainable Energy Systems, "
@@ -112,7 +113,10 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
+      
+       "interest_area": ["Nordfriesland","Flensburg","Kiel","Lübeck","Neumünster","Dithmarschen","Herzogtum Lauenburg",
+                          "Nordfriesland","Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde","Schleswig-Flensburg"
+                          "Segeberg","Steinburg","Stormarn"],  # False, path to shapefile or list of nuts names of not cluster area
         "cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 17,  # total number of resulting CH4 nodes (DE+foreign)
@@ -680,6 +684,9 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    #add Energy Community
+    etrago.add_energy_community_to_network
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
@@ -724,12 +731,444 @@ if __name__ == "__main__":
     etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
-    # etrago.plot_grid(
-    # line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
+    etrago.plot_grid(
+    line_colors='line_loading', bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10})
+    # Example boundaries - you need to adjust these to Schleswig-Holstein's actual boundaries
+schleswig_holstein_boundaries = [8.5, 11.5, 53.5, 55]
+
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=schleswig_holstein_boundaries,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+# Example osm settings - adjust 'x' and 'y' to Schleswig-Holstein's boundaries
+# Example osm settings - adjust 'x' and 'y' to Schleswig-Holstein's boundaries
+# Define OSM settings to attempt zooming via function parameters
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+
+# Create a GeoAxesSubplot with a specific projection
+fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+# Define the boundaries (e.g., Schleswig-Holstein)
+boundaries = [8.5, 11.5, 53.5, 55]
+
+# Set the extent of the map to the boundaries
+ax.set_extent(boundaries, crs=ccrs.PlateCarree())
+
+# Call the customized plot_grid function with the pre-configured axis
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,  # Assume OSM is not needed
+    boundaries=boundaries,
+    filename='etrago_plot_schleswig_holstein.png',
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+    ax=ax  # Pass the pre-configured GeoAxesSubplot
+)
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+
+# Create a GeoAxesSubplot with a specific projection
+fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+# Define the boundaries
+boundaries = [8.5, 11.5, 53.5, 55]
+
+# Set the extent of the map to the boundaries
+ax.set_extent(boundaries, crs=ccrs.PlateCarree())
+
+# Test: plot a marker at a known location within the boundaries
+ax.plot(9.8, 54.8, marker='o', color='red', transform=ccrs.Geodetic())
+
+# Assuming eTraGo has a method to get coordinates of elements
+# Plot all network buses to see if they fall within the view
+x = [bus.x for bus in etrago.network.buses.itertuples()]
+y = [bus.y for bus in etrago.network.buses.itertuples()]
+ax.scatter(x, y, color='blue', transform=ccrs.Geodetic(), label='Buses')
+
+plt.legend()
+plt.show()
+
+
+
+
+# Example osm settings - adjust 'x' and 'y' to Schleswig-Holstein's boundaries
+osm_settings = {'x': [8.5, 11.5], 'y': [53.5, 55], 'zoom': 6}
+
+
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=osm_settings,
+    boundaries=None,
+    filename='etrago_plot_schleswig_holstein.png',
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+# Approximate boundaries for Schleswig-Holstein
+# You might need to adjust these values based on more precise boundaries
+import matplotlib.pyplot as plt
+
+# Your existing code to plot
+boundaries = [8.5, 11.5, 53.5, 55]  # [x1, x2, y1, y2]
+
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=boundaries,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+
+import matplotlib.pyplot as plt
+
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,  # Not using OSM background
+    boundaries=None,
+    filename='output.png',  # Save the output to a file
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+plt.show()  # Display the plot
+
+
+
+# Define the boundaries for Schleswig-Holstein
+# You might need to adjust these values to better fit the region of interest
+import matplotlib.pyplot as plt
+
+# Call the plot function without specifying boundaries
+
+
+# Define the boundaries for Schleswig-Holstein
+# You might need to adjust these values to better fit the region of interest
+boundaries = [8.0, 10.0, 53.0, 54]  # [x1, x2, y1, y2]
+
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,  # Not using OSM background
+    boundaries=False,  # Focus on Schleswig-Holstein
+    filename='SH.png',  # Save the output to a file
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+plt.show()  # Display the plot
+
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
+
+# Define the projection
+projection = ccrs.PlateCarree()
+
+# Create a GeoAxesSubplot object with the defined projection
+fig, ax = plt.subplots(figsize=(10, 8), dpi=300, subplot_kw={'projection': projection})
+
+# Define the boundaries for Schleswig-Holstein
+boundaries = [8.5, 11.5, 53.5, 55]  # [x_min, x_max, y_min, y_max]
+
+# Set the extent of the map to the boundaries
+ax.set_extent(boundaries, crs=projection)
+
+# Now call the plot_grid function without the osm and boundaries arguments
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,  # Not using OSM since we are manually setting the boundaries
+    boundaries=boundaries,  # Pass the adjusted boundaries
+    filename='etrago_plot_schleswig_holstein.png',
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+plt.show()  # Display the plot
+
+
+# Display the plot
+plt.show()
+
+# Save the figure
+fig.savefig('etrago_plot_schleswig_holstein.png', dpi=300)
+
+
+import matplotlib.pyplot as plt
+
+# Generate the plot without specifying boundaries
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+# Retrieve the current axis
+ax = plt.gca()
+
+# Set the x and y limits to zoom in on the desired area
+# Adjust these values based on the geographical location you want to focus on
+ax.set_xlim([8.5, 11.5])
+ax.set_ylim([53.5, 55])
+
+# Display the plot
+plt.show()
+
+# If you want to save the figure, use savefig after setting the limits
+plt.savefig('etrago_plot_schleswig_holstein_zoomed.png', dpi=300)
+
+# Since the plot is directly generated by the function, we don't use plt.show() here
+# The output should be saved to 'etrago_plot_schleswig_holstein.png'
+
+
+
+
+# After the plot is created, save the current figure with a higher DPI
+plt.savefig("high_res_plot.png", dpi=300)  # Adjust the filename and DPI as needed
+plt.show()  # Show the plot
+
+
+
     # network and storage
-    # etrago.plot_grid(
-    # line_colors='expansion_abs',
-    # bus_colors='storage_expansion',
-    # bus_sizes=0.0001)
+    #etrago.plot_grid(
+    #line_colors='expansion_abs',
+   # bus_colors='storage_expansion',
+   # bus_sizes=0.0001)
     # flexibility usage
-    # etrago.flexibility_usage('DSM')
+   # etrago.flexibility_usage('DSM')
+# Define OSM settings to attempt zooming via function parameters
+osm_settings = {'x': [8.5, 11.5], 'y': [53.5, 55], 'zoom': 6}
+
+# Call the etrago.plot_grid function with adjusted settings for Schleswig-Holstein
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=osm_settings,  # Assuming this sets background and zoom level
+    boundaries=None,  # Ensure this is the correct way to use this parameter
+    filename='etrago_plot_schleswig_holstein.png',  # This will save the plot
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+)
+
+plt.savefig("high_res_plot.png", dpi=300) 
+
+# Create a GeoAxesSubplot with the PlateCarree projection
+fig, ax = plt.subplots(subplot_kw={'projection': ccrs.PlateCarree()})
+
+# Now, instead of calling the `etrago.plot_grid()` directly, you will need to modify the function to accept the `ax` parameter or use the `ax` object inside the function for plotting.
+# If `plot_grid` is your own custom function, add `ax` as an argument and replace plt with ax in your function definition.
+
+# Assuming `plot_grid` can now accept `ax` as an argument:
+etrago.plot_grid(
+    line_colors='expansion_abs',
+    bus_sizes=0.001,
+    bus_colors="grey",
+    timesteps=range(2),
+    osm=False,  # Not using OSM since we are using Cartopy
+    boundaries=boundaries,  # Define your boundaries if needed
+    filename='etrago_plot_schleswig_holstein.png',  # This will save the plot
+    disaggregated=False,
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries="all",
+    scaling_store_expansion={
+        "H2": 50,
+        "heat": 0.1,
+        "battery": 10,
+    },
+    ax=ax  # Pass the GeoAxesSubplot to the function
+)
+plt.show()  # Display the plot if not saving to file
+
+
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'network' is your PyPSA Network object and it has geographical coordinates
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_lines = gpd.GeoDataFrame(etrago.network.lines)
+
+# Create a map centered around the mean coordinates of the buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=12)
+
+# Add buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(location=[row.geometry.y, row.geometry.x],
+                        radius=5,
+                        popup=row.name,
+                        color='blue',
+                        fill=True).add_to(m)
+
+# Assuming line geometries can be derived (simplified example)
+for idx, row in gdf_lines.iterrows():
+    folium.PolyLine(locations=[(etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+                               (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)],
+                    color='green').add_to(m)
+
+# Save to HTML
+m.save('network_map_2.html')
+
+# Assuming you have run the function to add components to the network
+# data_manipulation_sh(network)
+
+# Convert bus index to list of strings
+bus_ids = etrago.network.buses.index.tolist()
+
+# Convert list of strings to integers and find the max
+new_bus_id = max(int(bus_id) for bus_id in bus_ids if bus_id.isdigit())
+
+# Check if the new bus ID is in the network bus dataframe index
+if str(new_bus_id) in etrago.network.buses.index:
+    print(f"New bus with ID {new_bus_id} has been added to the network.")
+    # Print out the details of the new bus
+    print(etrago.network.buses.loc[str(new_bus_id)])
+else:
+    print(f"New bus with ID {new_bus_id} was not added to the network.")
+
+# Alternatively, you can simply print out the last few rows of the bus dataframe
+print(etrago.network.buses.tail())
+
+
+bus_ids = etrago.network.buses.index.tolist()
+
+# Convert list of strings to integers where possible and find the max
+new_bus_id = max(int(bus_id) for bus_id in bus_ids if bus_id.isdigit())
+
+# Check if the new bus ID is in the network bus dataframe index
+if str(new_bus_id) in etrago.network.buses.index:
+    print(f"New bus with ID {new_bus_id} has been added to the network.")
+    
+    # Print out the details of the new bus
+    print("Details of the new bus:")
+    print(etrago.network.buses.loc[str(new_bus_id)])
+    
+    # Find generators associated with this new bus
+    associated_generators = etrago.network.generators[etrago.network.generators.bus == str(new_bus_id)]
+    if not associated_generators.empty:
+        print("\nGenerators associated with this new bus:")
+        print(associated_generators)
+    else:
+        print("No generators are associated with this new bus.")
+else:
+    print(f"New bus with ID {new_bus_id} was not added to the network.")
+
+# Optionally, print out the last few rows of the bus dataframe
+print("\nLast few rows of the buses dataframe:")
+print(etrago.network.buses.tail())
+
+import numpy as np
+Add_EC_to_network(etrago.network)
