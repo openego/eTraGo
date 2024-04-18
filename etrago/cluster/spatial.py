@@ -775,13 +775,23 @@ def kmedoids_dijkstra_clustering(
 
         medoid_idx = distances.idxmin()
 
-        # dijkstra's algorithm
-        busmap = dijkstras_algorithm(
-            buses,
-            connections,
-            medoid_idx,
-            etrago.args["network_clustering"]["CPU_cores"],
-        )
+        if len(busmap) > n_clusters:
+            # dijkstra's algorithm
+            busmap = dijkstras_algorithm(
+                buses,
+                connections,
+                medoid_idx,
+                etrago.args["network_clustering"]["CPU_cores"],
+            )
+        elif len(busmap) < n_clusters:
+            logger.warning(
+                f"""
+            The number supplied to the parameter n_clusters for
+            {buses.carrier[0]} buses is larger than the actual number of buses
+            in the network.
+            """
+            )
+
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
