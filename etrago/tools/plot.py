@@ -2323,7 +2323,17 @@ def plot_grid(
         "heat": 0.1,
         "battery": 10,
     },
+    ax=None,  # Add this line to include ax as a parameter
 ):
+    # The body of the function...
+    # You will need to modify the function to use ax for plotting
+    # For example:
+    if ax is None:
+        fig, ax = plt.subplots()  # If ax is not provided, create a new figure and axis
+
+    # Use the provided ax for plotting operations
+    # ... rest of the function
+
     """Function that plots etrago.network and results for lines and buses
 
     Parameters
