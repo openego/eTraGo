@@ -749,9 +749,6 @@ if __name__ == "__main__":
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
 
-    etrago.args["method"]["market_optimization"]["redispatch"] = False
-    etrago.args["csv_export"] += "_no_redispatch"
-    etrago.grid_optimization()
     print(datetime.datetime.now())
     etrago.session.close()
     # plots: more in tools/plot.py
