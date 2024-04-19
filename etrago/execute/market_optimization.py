@@ -47,10 +47,11 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 def market_optimization(self):
     logger.info("Start building pre market model")
     build_market_model(self)
+    self.pre_market_model.determine_network_topology()
+
     logger.info("Start solving pre market model")
 
     if self.args["method"]["formulation"] == "pyomo":
-        self.pre_market_model.determine_network_topology()
         self.pre_market_model.lopf(
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
