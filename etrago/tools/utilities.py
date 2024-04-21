@@ -3140,7 +3140,7 @@ def find_buses_area(etrago, carrier):
     Find buses of a specified carrier in a defined area. Usually used to
     findout the buses that sould not be clustered.
     """
-    settings = etrago.args["network_clustering"]
+    settings = etrago.args
 
     if settings["interest_area"]:
         if isinstance(settings["interest_area"], list):

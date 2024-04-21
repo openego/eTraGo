@@ -934,7 +934,7 @@ def weighting_for_scenario(network, save=None):
 def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
     args = etrago.args["network_clustering"]
 
-    if not args["interest_area"]:
+    if not etrago.args["interest_area"]:
         return busmap, medoid_idx
     if not args["cluster_interest_area"]:
         for bus in network_area.buses.index:

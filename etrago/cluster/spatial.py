@@ -118,6 +118,10 @@ def strategies_buses():
 def strategies_lines():
     return {
         "geom": nan_links,
+        "cables": np.sum,
+        "topo": "first",
+        "country": "first",
+        "total_cables": np.sum,
     }
 
 
@@ -521,7 +525,7 @@ def busmap_ehv_clustering(etrago):
         else:
             cpu_cores = int(cpu_cores)
 
-        if etrago.args["network_clustering_ehv"]["interest_area"] is False:
+        if etrago.args["interest_area"] is False:
             busmap = busmap_by_shortest_path(
                 etrago.network,
                 fromlvl=[110],
