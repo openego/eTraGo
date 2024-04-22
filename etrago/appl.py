@@ -109,7 +109,7 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
-    "interest_area": False,  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering
+    "interest_area": False,  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
     "network_clustering_ehv": {
         "active": True,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -399,12 +399,13 @@ def run_etrago(args, json_path):
         Default: True.
 
     interest_area: False, list, string
-        Area of especial interest that will be not clustered. It is by
-        default set to false. When an interest_area is provided, the given
-        value for n_clusters_AC will mean the total of AC buses outside the
-        area.The area can be provided in two ways: list of
-        nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
-        with a path to a shape file (.shp).
+        Area of especial interest that will be not clustered, except when
+        n_cluster_interest_area is provided. It is by default set to false.
+        When an interest_area is provided, the given value for n_clusters_AC
+        will mean the total of AC buses outside the area.The area can be
+        provided in two ways: list of nuts names e.G.
+        ["Cuxhaven", "Bremerhaven", "Bremen"] or a string with a path to a
+        shape file (.shp).
         
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
