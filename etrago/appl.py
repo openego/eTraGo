@@ -117,9 +117,9 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign-interest_area)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "cluster_interest_area": False, # False or number of buses.
+        "n_cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -454,15 +454,8 @@ def run_etrago(args, json_path):
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
             Default: False.
-        * "interest_area": False, list, string
-            Area of especial interest that will be not clustered. It is by
-            default set to false. When an interest_area is provided, the given
-            value for n_clusters_AC will mean the total of AC buses outside the
-            area.The area can be provided in two ways: list of
-            nuts names e.G. ["Cuxhaven", "Bremerhaven", "Bremen"] or a string
-            with a path to a shape file (.shp).
-            Default: False.
-        * "cluster_interest_area": False, int
+
+        * "n_cluster_interest_area": False, int
             Number of buses to cluster all the electrical buses in the area
             of interest. Method provided in the arg "method" is used. If
             it is set to False, the area of interest is not clustered.

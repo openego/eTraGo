@@ -936,7 +936,7 @@ def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
 
     if not etrago.args["interest_area"]:
         return busmap, medoid_idx
-    if not args["cluster_interest_area"]:
+    if not args["n_cluster_interest_area"]:
         for bus in network_area.buses.index:
             busmap[bus] = bus
         return busmap, medoid_idx
@@ -946,7 +946,7 @@ def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
                 etrago,
                 network_area,
                 weight_area,
-                args["cluster_interest_area"],
+                args["n_cluster_interest_area"],
             )
             busmap_area = (
                 busmap_area.astype(int) + busmap.apply(int).max() + 1
@@ -958,7 +958,7 @@ def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
                 network_area.buses,
                 network_area.lines,
                 weight_area,
-                args["cluster_interest_area"],
+                args["n_cluster_interest_area"],
             )
 
             medoid_idx_area.index = (
