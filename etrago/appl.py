@@ -111,7 +111,7 @@ args = {
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "interest_area": False,  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
     "network_clustering_ehv": {
-        "active": True,  # choose if clustering of HV buses to EHV buses is activated
+        "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
     },
     "network_clustering": {
