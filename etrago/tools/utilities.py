@@ -2995,7 +2995,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
         ].index
         if apply_on == "grid_model-ehv":
             n_clusters = pd.NA
-        # Exclude foreign buses when it is set to don't include them in clustering
+        #Exclude foreign buses when set to don't include them in clustering
         elif settings["cluster_foreign_AC"]:
             n_clusters = settings["n_clusters_AC"]
         else:
@@ -3021,8 +3021,8 @@ def select_elec_network(etrago, apply_on="grid_model"):
                 )
                 assert (
                     n_clusters > 1
-                ), f"""'n_clusters_AC' must be greater than the number of foreign
-                countries({num_neighboring_country})"""
+                ), f"""'n_clusters_AC' must be greater than the number of
+                foreign countries({num_neighboring_country})"""
 
         elec_network = network_based_on_buses(
             etrago.network, elec_network_buses

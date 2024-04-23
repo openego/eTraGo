@@ -35,10 +35,8 @@ if "READTHEDOCS" not in os.environ:
         flatten_multiindex,
         get_clustering_from_busmap,
     )
-    from shapely.geometry import Point
     from sklearn.cluster import KMeans
     from threadpoolctl import threadpool_limits
-    import geopandas as gpd
     import networkx as nx
     import numpy as np
     import pandas as pd
