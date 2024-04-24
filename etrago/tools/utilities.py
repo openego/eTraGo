@@ -2955,10 +2955,11 @@ def manual_fixes_datamodel(etrago):
         etrago.network.transformers.bus0.values, "v_nom"
     ].values
 
-    
     # Drop methanation option in lowflex sceanrio
     if etrago.args["scn_name"] == "eGon2035_lowflex":
         etrago.network.links.drop(
             etrago.network.links[
-                etrago.network.links.carrier=='H2_to_CH4'].index,
-            inplace=True)
+                etrago.network.links.carrier == "H2_to_CH4"
+            ].index,
+            inplace=True,
+        )

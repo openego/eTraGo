@@ -326,8 +326,10 @@ def extendable(
             network.storage_units.loc[de_battery, "marginal_cost"].max()
         )
 
-    if "foreign_storage_unlimited" in extendable_settings[
-            "extendable_components"]:
+    if (
+        "foreign_storage_unlimited"
+        in extendable_settings["extendable_components"]
+    ):
         foreign_battery = network.storage_units[
             (
                 network.storage_units.bus.isin(

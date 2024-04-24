@@ -214,14 +214,24 @@ def calc_marginal_cost(self):
         network.generators_t.p.mul(
             network.snapshot_weightings.objective, axis=0
         )
-        .mul(pypsa.descriptors.get_switchable_as_dense(network, "Generator", "marginal_cost"))
-        .sum().sum()
+        .mul(
+            pypsa.descriptors.get_switchable_as_dense(
+                network, "Generator", "marginal_cost"
+            )
+        )
+        .sum()
+        .sum()
     )
     link = (
         abs(network.links_t.p0)
         .mul(network.snapshot_weightings.objective, axis=0)
-        .mul(pypsa.descriptors.get_switchable_as_dense(network, "Link", "marginal_cost"))
-        .sum().sum()
+        .mul(
+            pypsa.descriptors.get_switchable_as_dense(
+                network, "Link", "marginal_cost"
+            )
+        )
+        .sum()
+        .sum()
     )
     stor = (
         network.storage_units_t.p.mul(
@@ -664,7 +674,7 @@ def calc_etrago_results(self):
             "abs. electrical dc grid expansion",
             "rel. electrical ac grid expansion",
             "rel. electrical dc grid expansion",
-            "redispatch cost"
+            "redispatch cost",
         ],
     )
 
@@ -772,26 +782,37 @@ def calc_etrago_results(self):
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
 
-    if not network.generators[network.generators.index.str.contains("ramp")].empty:
+    if not network.generators[
+        network.generators.index.str.contains("ramp")
+    ].empty:
         network = self.network
-        gen_idx = network.generators[network.generators.index.str.contains("ramp")].index
+        gen_idx = network.generators[
+            network.generators.index.str.contains("ramp")
+        ].index
         gen = (
-            network.generators_t.p[gen_idx].mul(
-                network.snapshot_weightings.objective, axis=0
-            )
+            network.generators_t.p[gen_idx]
+            .mul(network.snapshot_weightings.objective, axis=0)
             .mul(network.generators_t.marginal_cost[gen_idx])
-            .sum().sum(axis=0)
+            .sum()
+            .sum(axis=0)
         )
 
-        link_idx = network.links[network.links.index.str.contains("ramp")].index
+        link_idx = network.links[
+            network.links.index.str.contains("ramp")
+        ].index
         link = (
             network.links_t.p0[link_idx]
             .mul(network.snapshot_weightings.objective, axis=0)
-            .mul(pypsa.descriptors.get_switchable_as_dense(network, "Link", "marginal_cost")[link_idx])
+            .mul(
+                pypsa.descriptors.get_switchable_as_dense(
+                    network, "Link", "marginal_cost"
+                )[link_idx]
+            )
             .sum(axis=0)
             .sum()
         )
-        self.results.value["redispatch cost"] =  gen + link
+        self.results.value["redispatch cost"] = gen + link
+
 
 def total_redispatch(network, only_de=True, plot=False):
 
