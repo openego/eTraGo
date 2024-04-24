@@ -26,6 +26,7 @@ import os
 if "READTHEDOCS" not in os.environ:
     import logging
     import numpy as np
+    import pandas as pd
 
     logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
 
 def grid_optimization(self, factor_redispatch_cost=1, management_cost=0,
-                      time_depended_cost=True):
+                      time_depended_cost=True, fre_mangement_fee=0):
     logger.info("Start building grid optimization model")
 
     # Drop existing ramping generators
@@ -58,7 +59,7 @@ def grid_optimization(self, factor_redispatch_cost=1, management_cost=0,
     fix_chp_generation(self)
 
     add_redispatch_generators(self, factor_redispatch_cost,
-                              management_cost, time_depended_cost)
+                              management_cost, time_depended_cost, fre_mangement_fee)
 
     if not self.args["method"]["market_optimization"]["redispatch"]:
         self.network.mremove(
@@ -157,7 +158,7 @@ def fix_chp_generation(self):
 
 
 def add_redispatch_generators(self, factor_redispatch_cost, management_cost, 
-                              time_depended_cost):
+                              time_depended_cost, fre_mangement_fee):
     """Add components and parameters to model redispatch with costs
 
     This function currently assumes that the market_model includes all
@@ -199,6 +200,42 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
          & (~self.network.links.index.str.contains("ramp"))
          )
     ].index
+
+    management_cost_carrier=pd.Series(
+        index = self.network.generators.loc[gens_redispatch].carrier.unique(),
+        data = management_cost)
+    management_cost_carrier["OCGT"] = management_cost
+    if fre_mangement_fee:
+        management_cost_carrier[["wind_onshore",
+                                 "wind_offshore",
+                                 "solar",
+                                 "solar_rooftop"
+                                 ]] = fre_mangement_fee
+
+    management_cost_per_generator = management_cost_carrier.loc[
+        self.network.generators.loc[gens_redispatch, "carrier"].values]
+    management_cost_per_generator.index = gens_redispatch
+
+    management_cost_per_link = management_cost_carrier.loc[
+        self.network.links.loc[links_redispatch, "carrier"].values]
+    management_cost_per_link.index = links_redispatch
+
+    if time_depended_cost:
+        management_cost_per_generator = pd.DataFrame(
+            index=self.network.snapshots,
+            columns = management_cost_per_generator.index
+            )
+        management_cost_per_link = pd.DataFrame(
+            index=self.network.snapshots,
+            columns = management_cost_per_link.index
+            )
+        for i in self.network.snapshots:
+            management_cost_per_generator.loc[i, :] =  management_cost_carrier.loc[
+                self.network.generators.loc[gens_redispatch, "carrier"].values].values
+
+            management_cost_per_link.loc[i, :] =  management_cost_carrier.loc[
+                self.network.links.loc[links_redispatch, "carrier"].values].values
+
 
     # Fix generator dispatch from market simulation:
     # Set p_max_pu of generators using results from (disaggregated) market
@@ -255,7 +292,6 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
         market_price_per_generator.columns = gens_redispatch
         market_price_per_link.columns = links_redispatch
         market_price_per_generator = market_price_per_generator.loc[self.network.snapshots]
-    import pandas as pd
 
     # Costs for ramp_up generators are first set the marginal_cost for each
     # generator
@@ -286,11 +322,14 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
                 market_price_per_generator
                 > ramp_up_costs
             ] = market_price_per_generator
+        
     else:
         ramp_up_costs[
                 market_price_per_generator
                 > self.network.generators.loc[gens_redispatch, "marginal_cost"]
             ] = market_price_per_generator
+
+    ramp_up_costs = ramp_up_costs + management_cost_per_generator.values
 
     # Costs for ramp down generators consist of the market price
     # which is still payed for the generation. Fuel costs can be saved,
@@ -306,7 +345,7 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
                 market_price_per_generator
                 - self.network.generators.loc[gens_redispatch, "marginal_cost"].values
             )
-
+    ramp_down_costs = ramp_down_costs + management_cost_per_generator.values
     # Add ramp up generators to the network for the grid optimization
     # Marginal cost are incread by a management fee of 4 EUR/MWh
     self.network.madd(
@@ -316,7 +355,7 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
         p_nom=self.network.generators.loc[gens_redispatch, "p_nom"].values,
         carrier=self.network.generators.loc[gens_redispatch, "carrier"].values,
     )
-    
+
     if time_depended_cost:
         ramp_up_costs.columns += " ramp_up"
         self.network.generators_t.marginal_cost = pd.concat(
@@ -378,6 +417,8 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
                 > self.network.links.loc[links_redispatch, "marginal_cost"]
             ] = market_price_per_link
 
+    ramp_up_costs_links = ramp_up_costs_links + management_cost_per_link.values
+
     self.network.madd(
         "Link",
         links_redispatch + " ramp_up",
@@ -394,10 +435,10 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
         self.network.links_t.marginal_cost = pd.concat(
             [self.network.links_t.marginal_cost,
              ramp_up_costs_links], axis=1
-            ) + management_cost
+            )
     else:
         self.network.links.loc[
-            links_redispatch + " ramp_up", "marginal_cost"] = ramp_up_costs_links + management_cost
+            links_redispatch + " ramp_up", "marginal_cost"] = ramp_up_costs_links
 
     # Set maximum feed-in limit for ramp up links based on feed-in of
     # (disaggregated) links from the market optimization
@@ -429,12 +470,12 @@ def add_redispatch_generators(self, factor_redispatch_cost, management_cost,
     if time_depended_cost:
         self.network.generators_t.marginal_cost = pd.concat(
             [self.network.generators_t.marginal_cost,
-            - ramp_down_costs + management_cost], axis=1
+            - ramp_down_costs], axis=1
             )
     else:
         self.network.generators.loc[
             gens_redispatch + " ramp_down", "marginal_cost"] = -(
-                ramp_down_costs.values + management_cost)
+                ramp_down_costs.values)
 
     # Ramp down generators can not feed-in addtional energy
     self.network.generators_t.p_max_pu.loc[
