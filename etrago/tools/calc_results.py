@@ -27,6 +27,7 @@ if "READTHEDOCS" not in os.environ:
     import logging
     from matplotlib import pyplot as plt
     import pandas as pd
+    import pypsa
 
     logger = logging.getLogger(__name__)
 
@@ -213,16 +214,14 @@ def calc_marginal_cost(self):
         network.generators_t.p.mul(
             network.snapshot_weightings.objective, axis=0
         )
-        .sum(axis=0)
-        .mul(network.generators.marginal_cost)
-        .sum()
+        .mul(pypsa.descriptors.get_switchable_as_dense(network, "Generator", "marginal_cost"))
+        .sum().sum()
     )
     link = (
         abs(network.links_t.p0)
         .mul(network.snapshot_weightings.objective, axis=0)
-        .sum(axis=0)
-        .mul(network.links.marginal_cost)
-        .sum()
+        .mul(pypsa.descriptors.get_switchable_as_dense(network, "Link", "marginal_cost"))
+        .sum().sum()
     )
     stor = (
         network.storage_units_t.p.mul(
@@ -780,16 +779,16 @@ def calc_etrago_results(self):
             network.generators_t.p[gen_idx].mul(
                 network.snapshot_weightings.objective, axis=0
             )
-            .sum(axis=0)
-            .mul(network.generators.marginal_cost[gen_idx])
-            .sum()
+            .mul(network.generators_t.marginal_cost[gen_idx])
+            .sum().sum(axis=0)
         )
+
         link_idx = network.links[network.links.index.str.contains("ramp")].index
         link = (
             network.links_t.p0[link_idx]
             .mul(network.snapshot_weightings.objective, axis=0)
+            .mul(pypsa.descriptors.get_switchable_as_dense(network, "Link", "marginal_cost")[link_idx])
             .sum(axis=0)
-            .mul(network.links.marginal_cost[link_idx])
             .sum()
         )
         self.results.value["redispatch cost"] =  gen + link
