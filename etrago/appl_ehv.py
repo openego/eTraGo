@@ -60,14 +60,14 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1e-05,
         "FeasibilityTol": 1e-05,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 4,
+        "threads": 10,
         "method": 2,
         "BarHomogeneous": 1
     },
@@ -96,6 +96,7 @@ args = {
             "grid_max_abs_foreign": None,  # absolute capacity per voltage level
         },
     },
+    "delete_dispensable_ac_buses": False, # bool. Find and delete unnecesary buses
     "generator_noise": 789456,  # apply generator noise, False or seed number
     "extra_functionality": {
         "cross_border_flow_per_country": {
@@ -134,11 +135,6 @@ args = {
         }
     },  # Choose function name or {}
     # Spatial Complexity:
-    "delete_dispensable_ac_buses": True, # bool. Find and delete expendable buses
-    "network_clustering_ehv": {
-        "active": False,  # choose if clustering of HV buses to EHV buses is activated
-        "busmap": False, # False or path to stored busmap
-    },
     "network_clustering": {
         "random_state": 42,  # random state for replicability of kmeans results
         "active": True,  # choose if clustering is activated
@@ -160,13 +156,17 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4, # number of cores used during clustering. "max" for all cores available.
+        "CPU_cores": 10, # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
         "carrier_data": {  # select carriers affected by sector coupling
             "central_heat": {"base": ["CH4", "AC"], "strategy": "simultaneous"},
         },
+    },
+    "network_clustering_ehv": {
+        "active": True,  # choose if clustering of HV buses to EHV buses is activated
+        "busmap": False, # False or path to stored busmap
     },
     "disaggregation": None,  # None, 'mini' or 'uniform'
     # Temporal Complexity:
@@ -192,7 +192,7 @@ args = {
 }
 
 
-def run_etrago(args, percentage, json_path):
+def run_etrago(args, json_path):
     """The etrago function works with following arguments:
 
 
@@ -418,31 +418,15 @@ def run_etrago(args, percentage, json_path):
         the same clusters of CH4 and AC.
 
     delete_dispensable_ac_buses: bool
-        Choose if electrical buses that are only connecting two lines should be
-        removed. These buses have no other components attached to them. The
-        connected lines are merged. This reduces the spatial complexity without
-        losing any accuracy.
-        Default: True.
-    network_clustering_ehv : dict
-        Choose if you want to apply an extra high voltage clustering to the
-        electrical network.
-        The provided dictionary can have the following entries:
-
-        * "active" : bool
+        Choose if unnecessary buses should be identified and deleted from the
+        grid. This buses have no load or generation attached. Additionally,
+        they are just connected to two other buses.
+        Default: False.
+    network_clustering_ehv : bool
+        False,
         Choose if you want to cluster the full HV/EHV dataset down to only the
         EHV buses. In that case, all HV buses are assigned to their closest EHV
-        substation, taking into account the shortest distance on power lines.
-        Default: False.
-        * "busmap" : str
-        Choose if an stored busmap can be used to make the process quicker, or
-        a new busmap must be calculated. False or path to the busmap in csv
-        format should be given.
-        Default: False
-
-    network_clustering : dict
-        Choose if you want to apply a clustering of all network buses and
-        specify settings.
-        The provided dictionary can have the following entries:
+        sub-station, taking into account the shortest distance on power lines.
 
     snapshot_clustering : dict
         {'active': False, 'method':'typical_periods', 'how': 'daily',
@@ -499,6 +483,18 @@ def run_etrago(args, percentage, json_path):
 
     # import network from database
     etrago.build_network_from_db()
+    
+    print(' ')
+    print(etrago.network.buses.carrier.unique())
+    print(' ')
+
+    etrago.network.transformers.loc["99999", :] = etrago.network.transformers.loc["27248",:]
+    etrago.network.transformers.loc["99999","bus0"] = "32756"
+    etrago.network.transformers.loc["99999","bus1"] = "36163"
+    
+    etrago.network.lines.loc["99999", :] = etrago.network.lines.loc["26463", :]
+    etrago.network.lines.loc["99999", "bus0"] = "32788"
+    etrago.network.lines.loc["99999", "bus1"] = "32786"
 
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -655,18 +651,17 @@ def run_etrago(args, percentage, json_path):
     etrago.network.lines_t.s_max_pu = etrago.network.lines_t.p0.copy()
 
     etrago.adjust_network()
-    
-    etrago.network.lines.capital_cost = (percentage/100) * etrago.network.lines.capital_cost
 
     # ehv network clustering
     etrago.ehv_clustering()
     
-    #etrago.export_to_csv("before_spatial")
+    print(' ')
+    print(etrago.network.buses)
+    print(len(etrago.network.buses))
+    print(' ')
     
     print(' ')
     print('start spatial clustering')
-    print(etrago.args["network_clustering"]["method"])
-    print(etrago.args["network_clustering"]["n_clusters_AC"])
     print(datetime.datetime.now())
     print(' ')
 
@@ -677,8 +672,6 @@ def run_etrago(args, percentage, json_path):
     print('stop spatial clustering')
     print(datetime.datetime.now())
     print(' ')
-    
-    #etrago.export_to_csv("after_spatial")
     
     from etrago.tools.utilities import modular_weight
     print(' ')
@@ -705,7 +698,7 @@ def run_etrago(args, percentage, json_path):
     #etrago.network.storage_units.p_nom_extendable=False
     #etrago.export_to_csv("original")
     #etrago = Etrago(csv_folder_name="original")
-
+    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 0.1
     # start linear optimal powerflow calculations
     # needs to be adjusted for new sectors
     etrago.lopf()
@@ -737,11 +730,9 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [300] # 300, 300, 300
+    spatial_resolution = [300]
     
-    percentage = [50] # 25, 15, 5
-    
-    spatial_method = ['kmeans', 'kmedoids-dijkstra'] 
+    spatial_method = ['kmedoids-dijkstra', 'kmeans'] 
     
     for i in range (0, len(spatial_method)):
 
@@ -751,7 +742,7 @@ if __name__ == "__main__":
             
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
-            args['csv_export'] = args['network_clustering']['method']+'_lines/'+str(args['network_clustering']['n_clusters_AC'])+'_'+str(percentage[j])
+            args['csv_export'] = args['network_clustering']['method']+'_ehv'+'/'+str(args['network_clustering']['n_clusters_AC'])
             
             print(' ')
             print('method: ')
@@ -768,7 +759,7 @@ if __name__ == "__main__":
             
             print(datetime.datetime.now())
                         
-            etrago = run_etrago(args, percentage[j], json_path=None)
+            etrago = run_etrago(args, json_path=None)
             
             etrago.args["load_shedding"] = False
             

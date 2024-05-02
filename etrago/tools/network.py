@@ -283,6 +283,25 @@ class Etrago:
         None.
 
         """
+        # Set r value if missing
+        if not self.network.lines.loc[self.network.lines.r == 0, "r"].empty:
+            logger.info(
+		    f"""
+		    There are {len(
+			self.network.lines.loc[self.network.lines.r == 0, "r"]
+			)} lines without a resistance (r) in the data model.
+		    The resistance of these lines will be automatically set to 0.0001.
+		    """)
+            self.network.lines.loc[self.network.lines.r == 0, "r"] = 0.0001
+            
+        if not self.network.transformers.loc[self.network.transformers.r == 0, "r"].empty:
+            logger.info(
+		    f"""There are {len(self.network.transformers.loc[
+			self.network.transformers.r == 0, "r"]
+			)} trafos without a resistance (r) in the data model.
+		    The resistance of these trafos will be automatically set to 0.0001.
+		    """)
+            self.network.transformers.loc[self.network.transformers.r == 0, "r"] = 0.0001
 
         self.geolocation_buses()
 

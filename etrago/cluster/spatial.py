@@ -299,8 +299,9 @@ def shortest_path(paths, graph):
     return df
 
 
-def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
-    """Creates a busmap for the EHV-Clustering between voltage levels based
+def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
+    """
+    Creates a busmap for the EHV-Clustering between voltage levels based
     on dijkstra shortest path. The result is automatically written to the
     `model_draft` on the <OpenEnergyPlatform>[www.openenergy-platform.org]
     database with the name `ego_grid_pf_hv_busmap` and the attributes scn_name
@@ -317,9 +318,6 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     session : sqlalchemy.orm.session.Session object
         Establishes interactions with the database.
 
-    scn_name : str
-        Name of the scenario.
-
     fromlvl : list
         List of voltage-levels to cluster.
 
@@ -334,13 +332,17 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     None
     """
 
-    # cpu_cores = mp.cpu_count()
-
     # data preperation
     s_buses = buses_grid_linked(etrago.network, fromlvl)
     lines = connected_grid_lines(etrago.network, s_buses)
     transformer = connected_transformer(etrago.network, s_buses)
     mask = transformer.bus1.isin(buses_of_vlvl(etrago.network, tolvl))
+
+    dc = etrago.network.links[etrago.network.links.carrier == "DC"]
+    dc.index = "DC_" + dc.index
+    lines_plus_dc = pd.concat([lines, dc])
+    lines_plus_dc = lines_plus_dc[etrago.network.lines.columns]
+    lines_plus_dc["carrier"] = "AC"
 
     # temporary end points, later replaced by bus1 pendant
     t_buses = transformer[mask].bus0
@@ -349,7 +351,11 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     ppaths = list(product(s_buses, t_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in lines.iterrows()]
+    edges = [
+        (row.bus0, row.bus1, row.length, ix)
+        for ix, row in lines_plus_dc.iterrows()
+    ]
+
     M = graph_from_edges(edges)
 
     # applying multiprocessing
@@ -401,88 +407,51 @@ def busmap_by_shortest_path(etrago, scn_name, fromlvl, tolvl, cpu_cores=4):
     df = pd.concat([df, tofill], ignore_index=True, axis=0)
     df.drop_duplicates(inplace=True)
 
-    # prepare data for export
-
-    df["scn_name"] = scn_name
-    df["version"] = etrago.args["gridversion"]
-
-    if not df.version.any():
-        df.version = "testcase"
-
     df.rename(columns={"source": "bus0", "target": "bus1"}, inplace=True)
-    df.set_index(["scn_name", "bus0", "bus1"], inplace=True)
 
-    df.to_sql(
-        "egon_etrago_hv_busmap", con=etrago.engine, schema="grid", if_exists="append"
-    )
+    busmap = pd.Series(df.bus1.values, index=df.bus0).to_dict()
 
-    return
+    return busmap
 
 
-def busmap_from_psql(etrago):
-    """Retrieves busmap from `model_draft.ego_grid_pf_hv_busmap` on the
-    <OpenEnergyPlatform>[www.openenergy-platform.org] by a given scenario
-    name. If this busmap does not exist, it is created with default values.
+def busmap_ehv_clustering(etrago):
+    """
+    Generates a busmap that can be used to cluster an electrical network to
+    only extra high voltage buses. If a path to a busmap in a csv file is
+    passed in the arguments, it loads the csv file and returns it.
 
     Parameters
     ----------
-    network : pypsa.Network object
-        Container for all network components.
-
-    session : sqlalchemy.orm.session.Session object
-        Establishes interactions with the database.
-
-    scn_name : str
-        Name of the scenario.
+    etrago : Etrago
+        An instance of the Etrago class
 
     Returns
     -------
     busmap : dict
         Maps old bus_ids to new bus_ids.
     """
-    scn_name = (
-        etrago.args["scn_name"]
-        if etrago.args["scn_extension"] == None
-        else etrago.args["scn_name"] + "_ext_" + "_".join(etrago.args["scn_extension"])
-    )
 
-    from saio.grid import egon_etrago_hv_busmap
-
-    filter_version = etrago.args["gridversion"]
-
-    if not filter_version:
-        filter_version = "testcase"
-
-    def fetch():
-
-        query = (
-            etrago.session.query(egon_etrago_hv_busmap.bus0, egon_etrago_hv_busmap.bus1)
-            .filter(egon_etrago_hv_busmap.scn_name == scn_name)
-            .filter(egon_etrago_hv_busmap.version == filter_version)
-        )
-
-        return dict(query.all())
-
-    busmap = fetch()
-
-    # TODO: Or better try/except/finally
-    if not busmap:
-        print("Busmap does not exist and will be created.\n")
-
+    if etrago.args["network_clustering_ehv"]["busmap"] is False:
         cpu_cores = etrago.args["network_clustering"]["CPU_cores"]
-        if cpu_cores == 'max':
+        if cpu_cores == "max":
             cpu_cores = mp.cpu_count()
         else:
             cpu_cores = int(cpu_cores)
 
-        busmap_by_shortest_path(
+        busmap = busmap_by_shortest_path(
             etrago,
-            scn_name,
             fromlvl=[110],
             tolvl=[220, 380, 400, 450],
             cpu_cores=cpu_cores,
         )
-        busmap = fetch()
+        pd.DataFrame(busmap.items(), columns=["bus0", "bus1"]).to_csv(
+            "ehv_elecgrid_busmap_result.csv",
+            index=False,
+        )
+    else:
+        busmap = pd.read_csv(etrago.args["network_clustering_ehv"]["busmap"])
+        busmap = pd.Series(busmap.bus1.apply(str).values,
+                           index=busmap.bus0.apply(str)).to_dict()
 
     return busmap
 
@@ -611,7 +580,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     ppathss = list(product(o_buses, c_buses))
 
     # graph creation
-    edges = [(row.bus0, row.bus1, row.x, ix) for ix, row in connections.iterrows()]
+    edges = [(row.bus0, row.bus1, row.length, ix) for ix, row in connections.iterrows()]
     M = graph_from_edges(edges)
 
     # processor count

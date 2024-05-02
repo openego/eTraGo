@@ -60,7 +60,7 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 2,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1e-05,
@@ -656,7 +656,15 @@ def run_etrago(args, percentage, json_path):
 
     etrago.adjust_network()
     
-    etrago.network.lines.capital_cost = (percentage/100) * etrago.network.lines.capital_cost
+    print(' ')
+    print(etrago.network.storage_units.capital_cost.iloc[0])
+    print(' ')
+    
+    etrago.network.storage_units.capital_cost = (percentage/100) * etrago.network.storage_units.capital_cost
+    
+    print(' ')
+    print(etrago.network.storage_units.capital_cost.iloc[0])
+    print(' ')
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -737,11 +745,11 @@ if __name__ == "__main__":
 
     print(datetime.datetime.now())
     
-    spatial_resolution = [300] # 300, 300, 300
+    spatial_resolution = [300, 300]
     
-    percentage = [50] # 25, 15, 5
+    percentage = [10, 25]
     
-    spatial_method = ['kmeans', 'kmedoids-dijkstra'] 
+    spatial_method = ['kmeans', 'kmedoids-dijkstra'] # kmedoids-dijkstra, kmeans
     
     for i in range (0, len(spatial_method)):
 
@@ -751,7 +759,7 @@ if __name__ == "__main__":
             
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
-            args['csv_export'] = args['network_clustering']['method']+'_lines/'+str(args['network_clustering']['n_clusters_AC'])+'_'+str(percentage[j])
+            args['csv_export'] = args['network_clustering']['method']+'_sto/'+str(args['network_clustering']['n_clusters_AC'])+'_'+str(percentage[j])
             
             print(' ')
             print('method: ')
