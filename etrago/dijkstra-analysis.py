@@ -765,14 +765,14 @@ ksto_brd = ksto[~ksto.bus.isin(kbuses[kbuses.in_ddr].index)]
 klines_ddr = klines[klines.bus0_in_ddr & klines.bus1_in_ddr]
 klines_brd = klines[(klines.bus0_in_ddr==False) & (klines.bus1_in_ddr==False)]
 
-(klines_brd.s_nom_opt*klines_brd.length).sum()
-(klines_ddr.s_nom_opt*klines_ddr.length).sum()
+(klines_brd.s_nom_opt*klines_brd['length']).sum()/1000000
+(klines_ddr.s_nom_opt*klines_ddr['length']).sum()/1000000
 
-((klines_brd.s_nom_opt-klines_brd.s_nom_min)*klines_brd.length).sum()
-((klines_ddr.s_nom_opt-klines_ddr.s_nom_min)*klines_ddr.length).sum()
+((klines_brd.s_nom_opt-klines_brd.s_nom_min)*klines_brd['length']).sum()/1000000
+((klines_ddr.s_nom_opt-klines_ddr.s_nom_min)*klines_ddr['length']).sum()/1000000
 
-(klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr].length).sum()
-((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr].length).sum()
+(klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr]['length']).sum()/1000000
+((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr]['length']).sum()/1000000
 
 # dijkstra 
 
@@ -798,11 +798,11 @@ dsto_ddr = dsto[dsto.bus.isin(dbuses[dbuses.in_ddr].index)]
 dlines_ddr = dlines[dlines.bus0_in_ddr & dlines.bus1_in_ddr]
 dlines_brd = dlines[(dlines.bus0_in_ddr==False) & (dlines.bus1_in_ddr==False)]
     
-(dlines_brd.s_nom_opt*dlines_brd.length).sum()
-(dlines_ddr.s_nom_opt*dlines_ddr.length).sum() 
+((dlines_brd.s_nom_opt*dlines_brd['length']).sum())/1000000
+(dlines_ddr.s_nom_opt*dlines_ddr['length']).sum() /1000000
 
-((dlines_brd.s_nom_opt-dlines_brd.s_nom_min)*dlines_brd.length).sum()
-((dlines_ddr.s_nom_opt-dlines_ddr.s_nom_min)*dlines_ddr.length).sum()
+((dlines_brd.s_nom_opt-dlines_brd.s_nom_min)*dlines_brd['length']).sum()/1000000
+((dlines_ddr.s_nom_opt-dlines_ddr.s_nom_min)*dlines_ddr['length']).sum()/1000000
 
-((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr].length).sum()
-(dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr].length).sum()
+((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr]['length']).sum()/1000000
+(dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr]['length']).sum()/1000000
