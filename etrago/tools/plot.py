@@ -26,6 +26,7 @@ import logging
 import os
 
 from etrago.execute import import_gen_from_links
+from etrago.tools.utilities import find_buses_area
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
@@ -2467,6 +2468,8 @@ def plot_grid(
         * 'q_flow_max': maximal reactive flows
         * 'dlr': energy above nominal capacity
         * 'grey': plot all lines and DC links grey colored
+        * 'interest_area': plot all AC buses inside the interest area larger than buses
+          outside the interest area
 
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
@@ -2842,6 +2845,20 @@ def plot_grid(
         bus_sizes[bus_sizes != "AC"] = 0
         bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
         bus_scaling = bus_sizes
+    elif bus_colors == "interest_area":
+        bus_scaling = bus_sizes
+        # only plot AC buses
+        bus_sizes = pd.Series(
+            data=network.buses.carrier, index=network.buses.index
+        )
+        bus_sizes[bus_sizes != "AC"] = 0
+        bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
+        # only plot buses inside interest area
+        buses_interest_area = find_buses_area(self, "AC")
+        buses_outside = [_ for _ in bus_sizes.index if _ not in buses_interest_area]
+        bus_sizes.loc[buses_outside] = bus_sizes.loc[buses_outside] * 0.3
+        bus_scaling = bus_sizes
+        bus_colors = coloring()["AC"]
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
 
