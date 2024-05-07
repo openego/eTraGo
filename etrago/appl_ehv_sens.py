@@ -500,6 +500,16 @@ def run_etrago(args, json_path):
     new_line = new_line.T
     etrago.network.import_components_from_dataframe(new_line, "Line" )
     
+    print('Previous firs capital cost')
+    print(etrago.network.storage_units.capital_cost.iloc[0])
+    print(' ')
+    
+    etrago.network.storage_units.capital_cost = (200/100) * etrago.network.storage_units.capital_cost
+    
+    print('New capital Cost')
+    print(etrago.network.storage_units.capital_cost.iloc[0])
+    print(' ')
+    
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -745,7 +755,7 @@ if __name__ == "__main__":
             
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
-            args['csv_export'] = args['network_clustering']['method']+'_ehv'+'/'+str(args['network_clustering']['n_clusters_AC'])
+            args['csv_export'] = args['network_clustering']['method']+'_ehv_sens'+'/'+str(args['network_clustering']['n_clusters_AC'])
             
             print(' ')
             print('method: ')
