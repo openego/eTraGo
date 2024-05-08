@@ -60,14 +60,14 @@ args = {
         "q_allocation": "p_nom",
     },  # allocate reactive power via 'p_nom' or 'p'
     "start_snapshot": 1,
-    "end_snapshot": 8760,
+    "end_snapshot": 50,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1e-05,
         "FeasibilityTol": 1e-05,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 8,
+        "threads": 16,
         "method": 2,
         "BarHomogeneous": 1
     },
@@ -156,7 +156,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 8, # number of cores used during clustering. "max" for all cores available.
+        "CPU_cores": 16, # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
