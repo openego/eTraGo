@@ -658,7 +658,6 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.ehv_clustering()
-    etrago.export_to_csv("before_ehv_spatial")
     
     print(' ')
     print('start spatial clustering')
@@ -672,9 +671,7 @@ def run_etrago(args, json_path):
     print('stop spatial clustering')
     print(datetime.datetime.now())
     print(' ')
-    
-    etrago.export_to_csv("after_spatial")
-    
+      
     from etrago.tools.utilities import modular_weight
     print(' ')
     print('Modularity')
@@ -707,10 +704,10 @@ def run_etrago(args, json_path):
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.dispatch_disaggregation()
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+    #etrago.dispatch_disaggregation()
+    #etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    #etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
