@@ -67,7 +67,7 @@ args = {
         "FeasibilityTol": 1e-05,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 8,
+        "threads": 16,
         "method": 2,
         "BarHomogeneous": 1
     },
@@ -156,7 +156,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6, # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 8, # number of cores used during clustering. "max" for all cores available.
+        "CPU_cores": 16, # number of cores used during clustering. "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -500,15 +500,7 @@ def run_etrago(args, json_path):
     new_line = new_line.T
     etrago.network.import_components_from_dataframe(new_line, "Line" )
     
-    print('Previous firs capital cost')
-    print(etrago.network.storage_units.capital_cost.iloc[0])
-    print(' ')
-    
     etrago.network.storage_units.capital_cost = (200/100) * etrago.network.storage_units.capital_cost
-    
-    print('New capital Cost')
-    print(etrago.network.storage_units.capital_cost.iloc[0])
-    print(' ')
     
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -668,7 +660,6 @@ def run_etrago(args, json_path):
 
     # ehv network clustering
     etrago.ehv_clustering()
-    etrago.export_to_csv("before_ehv_spatial")
     
     print(' ')
     print('start spatial clustering')
@@ -682,9 +673,7 @@ def run_etrago(args, json_path):
     print('stop spatial clustering')
     print(datetime.datetime.now())
     print(' ')
-    
-    etrago.export_to_csv("after_spatial")
-    
+      
     from etrago.tools.utilities import modular_weight
     print(' ')
     print('Modularity')
@@ -717,10 +706,10 @@ def run_etrago(args, json_path):
     etrago.lopf()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    etrago.dispatch_disaggregation()
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+    #etrago.dispatch_disaggregation()
+    #etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
     # start power flow based on lopf results
-    etrago.pf_post_lopf()
+    #etrago.pf_post_lopf()
 
     # spatial disaggregation
     # needs to be adjusted for new sectors
