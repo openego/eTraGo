@@ -126,6 +126,30 @@ def _calc_network_expansion(self):
     return lines, dc_links
 
 
+def _calc_network_expansion_length(self):
+    """Function that calulates electrical network expansion in MW
+
+    Returns
+    -------
+    float
+        network expansion (AC lines and DC links) in MW
+
+    """
+
+    network = self.network
+
+    lines = (network.lines.s_nom_opt - network.lines.s_nom_min).mul(
+        network.lines.length)[
+        network.lines.s_nom_extendable
+    ]
+
+    ext_links = network.links[network.links.p_nom_extendable]
+    ext_dc_lines = ext_links[ext_links.carrier == "DC"]
+
+    dc_links = (ext_dc_lines.p_nom_opt - ext_dc_lines.p_nom_min).mul(ext_dc_lines.length)
+
+    return lines.sum(), dc_links.sum()
+
 def calc_investment_cost(self):
     """Function that calulates overall annualized investment costs.
 
@@ -671,6 +695,7 @@ def calc_etrago_results(self):
             "methanisation links expansion",
             "Steam Methane Reformation links expansion",
             "abs. electrical grid expansion",
+            "abs. electrical grid expansion length",
             "abs. electrical ac grid expansion",
             "abs. electrical dc grid expansion",
             "rel. electrical ac grid expansion",
@@ -682,6 +707,7 @@ def calc_etrago_results(self):
     self.results.unit[self.results.index.str.contains("cost")] = "EUR/a"
     self.results.unit[self.results.index.str.contains("expansion")] = "MW"
     self.results.unit[self.results.index.str.contains("rel.")] = "p.u."
+    self.results.unit[self.results.index.str.contains("length")] = "MW*km"
 
     # system costs
 
@@ -764,6 +790,12 @@ def calc_etrago_results(self):
         self.results.value["abs. electrical ac grid expansion"] = (
             _calc_network_expansion(self)[0].sum()
         )
+
+        self.results.value["abs. electrical grid expansion length"] = (
+            _calc_network_expansion_length(self)[0] + 
+            _calc_network_expansion_length(self)[1]
+        )
+
         self.results.value["abs. electrical dc grid expansion"] = (
             _calc_network_expansion(self)[1].sum()
         )
