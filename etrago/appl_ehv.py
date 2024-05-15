@@ -660,6 +660,11 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
     
     print(' ')
+    print('spatial resolution after ehv clustering:')
+    print(len(etrago.network.buses))
+    print(' ')   
+    
+    print(' ')
     print('start spatial clustering')
     print(datetime.datetime.now())
     print(' ')

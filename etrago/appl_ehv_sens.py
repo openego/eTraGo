@@ -500,7 +500,7 @@ def run_etrago(args, json_path):
     new_line = new_line.T
     etrago.network.import_components_from_dataframe(new_line, "Line" )
     
-    etrago.network.storage_units.capital_cost = (200/100) * etrago.network.storage_units.capital_cost
+    etrago.network.storage_units.capital_cost = etrago.network.storage_units.capital_cost * 2
     
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
@@ -734,7 +734,7 @@ if __name__ == "__main__":
     
     spatial_resolution = [300]
     
-    spatial_method = ['kmedoids-dijkstra', 'kmeans'] 
+    spatial_method = ['kmeans'] 
     
     for i in range (0, len(spatial_method)):
 
