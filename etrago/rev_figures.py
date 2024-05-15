@@ -7,7 +7,7 @@ import networkx as nx
 
 import matplotlib.pyplot as plt
 
-plt.rc('font', size=25)
+plt.rc('font', size=20)
 
 
 # modularity
@@ -276,8 +276,8 @@ ax.set_xticks(spatial_resolution)
 ax.set_ylim([0,40])
 ax2.set_ylim([-10, 400])
 
-ax.legend(loc='upper left')
-ax2.legend(loc='upper right')
+ax.legend(loc='upper left', fontsize=20)
+ax2.legend(loc='upper right', fontsize=20)
 
 ax.set_ylabel('costs in billion Euro')
 ax2.set_ylabel('difference in % (k-medoids Dijkstra - k-means)')

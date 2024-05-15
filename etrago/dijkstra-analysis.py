@@ -740,7 +740,7 @@ ddr = gpd.read_file(ddr_shape_path)
 
 # kmeans
 
-kmeans = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmeans/300")
+kmeans = Etrago(csv_folder_name="Calcs/kmeans/300")
 
 generate_geom(kmeans.network)
 klines, kbuses = generate_geom(kmeans.network)
@@ -774,9 +774,20 @@ klines_brd = klines[(klines.bus0_in_ddr==False) & (klines.bus1_in_ddr==False)]
 (klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr]['length']).sum()/1000000
 ((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr]['length']).sum()/1000000
 
+## costs optimised
+(klines_brd.s_nom_opt*klines_brd.capital_cost).sum()/1000000
+(klines_ddr.s_nom_opt*klines_ddr.capital_cost).sum()/1000000
+(klines[klines.to_ddr].s_nom_opt*klines[klines.to_ddr].capital_cost).sum()/1000000
+
+## costs expansion
+
+((klines_brd.s_nom_opt-klines_brd.s_nom_min)*klines_brd.capital_cost).sum()/1000000
+((klines_ddr.s_nom_opt-klines_ddr.s_nom_min)*klines_ddr.capital_cost).sum()/1000000
+((klines[klines.to_ddr].s_nom_opt-klines[klines.to_ddr].s_nom_min)*klines[klines.to_ddr].capital_cost).sum()/1000000
+
 # dijkstra 
 
-dijkstra = Etrago(csv_folder_name="Dijkstra-Paper/Calcs/kmedoids-dijkstra/300")
+dijkstra = Etrago(csv_folder_name="Calcs/kmedoids-dijkstra/300")
 
 dsto = dijkstra.network.storage_units[dijkstra.network.storage_units.carrier=='battery']
 dde_buses=dijkstra.network.buses[dijkstra.network.buses.country=='DE']
@@ -806,3 +817,13 @@ dlines_brd = dlines[(dlines.bus0_in_ddr==False) & (dlines.bus1_in_ddr==False)]
 
 ((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr]['length']).sum()/1000000
 (dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr]['length']).sum()/1000000
+
+## costs optimised
+(dlines_brd.s_nom_opt*dlines_brd.capital_cost).sum()/1000000
+(dlines_ddr.s_nom_opt*dlines_ddr.capital_cost).sum()/1000000
+(dlines[dlines.to_ddr].s_nom_opt*dlines[dlines.to_ddr].capital_cost).sum()/1000000
+
+## costs expansion
+((dlines_brd.s_nom_opt-dlines_brd.s_nom_min)*dlines_brd.capital_cost).sum()/1000000
+((dlines_ddr.s_nom_opt-dlines_ddr.s_nom_min)*dlines_ddr.capital_cost).sum()/1000000
+((dlines[dlines.to_ddr].s_nom_opt-dlines[dlines.to_ddr].s_nom_min)*dlines[dlines.to_ddr].capital_cost).sum()/1000000
