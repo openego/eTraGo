@@ -398,7 +398,7 @@ ax12.set_ylim([0,100])
 
 ###############################################################################
 
-'''# ehv clustering
+# ehv clustering
 
 kmeans = Etrago(csv_folder_name="Calcs/kmeans_ehv/300")
 kmeans.calc_results()
@@ -436,7 +436,7 @@ df.at['inner-German grid expansion (TW*km)', 'rel. difference'] = ((TVA_km(dijks
 
 loads = dijkstra.network.generators[dijkstra.network.generators.carrier=='load shedding']
 ls=dijkstra.network.generators_t.p.transpose().loc[loads.index].sum().sum()
-ls_costs = ls * 10000'''
+ls_costs = ls * 10000
 
 
 

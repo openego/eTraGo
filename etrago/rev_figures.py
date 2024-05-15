@@ -280,7 +280,7 @@ ax.legend(loc='upper left', fontsize=20)
 ax2.legend(loc='upper right', fontsize=20)
 
 ax.set_ylabel('costs in billion Euro')
-ax2.set_ylabel('difference in % (k-medoids Dijkstra - k-means)')
+ax2.set_ylabel('rel. difference in %')
 ax.set_xlabel('number of nodes')
 
 
