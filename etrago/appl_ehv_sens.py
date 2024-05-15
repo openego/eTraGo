@@ -500,6 +500,8 @@ def run_etrago(args, json_path):
     new_line = new_line.T
     etrago.network.import_components_from_dataframe(new_line, "Line" )
     
+    etrago.network.storage_units.capital_cost = etrago.network.storage_units.capital_cost * 2
+    
     etrago.network.storage_units.lifetime = np.inf
     etrago.network.transformers.lifetime = 40  # only temporal fix
     etrago.network.lines.lifetime = 40  # only temporal fix until either the
@@ -660,11 +662,6 @@ def run_etrago(args, json_path):
     etrago.ehv_clustering()
     
     print(' ')
-    print('spatial resolution after ehv clustering:')
-    print(len(etrago.network.buses))
-    print(' ')   
-    
-    print(' ')
     print('start spatial clustering')
     print(datetime.datetime.now())
     print(' ')
@@ -737,7 +734,7 @@ if __name__ == "__main__":
     
     spatial_resolution = [300]
     
-    spatial_method = ['kmedoids-dijkstra', 'kmeans'] 
+    spatial_method = ['kmeans'] 
     
     for i in range (0, len(spatial_method)):
 
@@ -747,7 +744,7 @@ if __name__ == "__main__":
             
             args['network_clustering']['n_clusters_AC'] = spatial_resolution[j]
             
-            args['csv_export'] = args['network_clustering']['method']+'_ehv'+'/'+str(args['network_clustering']['n_clusters_AC'])
+            args['csv_export'] = args['network_clustering']['method']+'_ehv_sens'+'/'+str(args['network_clustering']['n_clusters_AC'])
             
             print(' ')
             print('method: ')
