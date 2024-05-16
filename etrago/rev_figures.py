@@ -7,7 +7,7 @@ import networkx as nx
 
 import matplotlib.pyplot as plt
 
-plt.rc('font', size=20)
+plt.rc('font', size=22)
 
 
 # modularity
@@ -251,8 +251,8 @@ for col in costs1.columns:
     i = i+1
     
     #if hatch[i]:
-    ax.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col) #, hatch=hatch[i]
-    ax.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
+    ax.bar(index1, costs2[col].values, width = 4, bottom = bottom2, color=color1[i], label='k-medoids Dijkstra Clustering: '+col) #, hatch=hatch[i]
+    ax.bar(index2, costs1[col].values, width = 4, bottom = bottom1, color=color2[i], label='k-means Clustering: '+col)
     #else:   
         #plt.bar(index1, costs1[col].values, width = 4, bottom = bottom1, color=color1[i], label='k-means Clustering: '+col)
         #plt.bar(index2, costs2[col].values, width = 4, bottom = bottom2, color=color2[i], label='k-medoids Dijkstra Clustering: '+col)
@@ -276,10 +276,10 @@ ax.set_xticks(spatial_resolution)
 ax.set_ylim([0,40])
 ax2.set_ylim([-10, 400])
 
-ax.legend(loc='upper left', fontsize=20)
-ax2.legend(loc='upper right', fontsize=20)
+ax.legend(loc='upper left', fontsize=22)
+ax2.legend(loc='upper right', fontsize=22)
 
-ax.set_ylabel('costs in billion Euro')
+ax.set_ylabel('costs in billion €')
 ax2.set_ylabel('rel. difference in %')
 ax.set_xlabel('number of nodes')
 

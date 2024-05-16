@@ -325,7 +325,7 @@ ax2.bar(index22, plot_abs_lines['k-means Clustering'], width=0.02, label='k-mean
 ax22.plot(plot_lines.index, rel_diff['inner-German grid investment costs'],color='darkslategrey', label='rel. difference')
 
 ax2.set_xticks([0.1, 0.25, 0.5, 1, 1.5, 1.75, 2])
-ax2.set_xlabel('share of original capital costs for lines')
+ax2.set_xlabel('share of the base specific capital costs of lines in p.u.')
 #ax2.set_ylim([0,15])
 ax22.set_ylim([0,50])
 
@@ -336,15 +336,15 @@ ax3.bar(index22, plot_abs_sto['k-means Clustering'], width=0.02, label='k-means 
 ax32.plot(plot_lines.index, rel_diff_sto['inner-German grid investment costs'],color='darkslategrey', label='rel. difference')
 
 ax3.set_xticks([0.1, 0.25, 0.5, 1, 1.5, 1.75, 2])
-ax3.set_xlabel('share of original capital costs for batteries')
+ax3.set_xlabel('share of the base specific capital costs of batteries in p.u.')
 #ax3.set_ylim([0,15])
 ax32.set_ylim([0,50])
 
 ax3.legend(loc='upper left')
 ax32.legend(loc='upper right')
 
-fig.text(0.07, 0.12, 'inner-German grid investment costs in Mio. €', ha='center', rotation='vertical')
-fig.text(0.94, 0.36, 'rel. difference in %', ha='center',  rotation=90)
+fig.text(0.09, 0.22, 'inner-German grid investments in million €', ha='center', rotation='vertical')
+fig.text(0.93, 0.38, 'rel. difference in %', ha='center',  rotation=90)
 
 #plt.ylabel('inner-German grid expansion in TVA*km')
 #ax32.set_ylabel('rel. difference in %')
