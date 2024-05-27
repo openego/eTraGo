@@ -63,6 +63,9 @@ from etrago.tools.calc_results import (
     dc_export_per_country,
     german_network,
     system_costs_germany,
+    calc_system_costs_areas,
+    system_costs_areas,
+    calc_etrago_results_areas,
 )
 from etrago.tools.extendable import extendable
 from etrago.tools.io import (
@@ -81,12 +84,40 @@ from etrago.tools.plot import (
     plot_clusters,
     plot_gas_generation,
     plot_gas_summary,
+    #plot_gas_summary_sh,
     plot_grid,
     plot_h2_generation,
     plot_h2_summary,
     plot_heat_loads,
     plot_heat_summary,
+    plot_heat_summary_sh,
     shifted_energy,
+    plot_residual_load,
+    curtailment,
+    plot_stacked_gen,
+    plot_voltage,
+    calc_dispatch_per_carrier,
+    calc_storage_expansion_per_bus,
+    nodal_gen_dispatch,
+    nodal_production_balance,
+    storage_p_soc,
+    storage_soc_sorted,
+    mul_weighting,
+    calc_ac_loading,
+    calc_dc_loading,
+    plotting_colors,
+    calc_network_expansion,
+    plot_background_grid,
+    bev_flexibility_potential,
+    make_handler_map_to_scale_circles_as_in,
+    make_legend_circles_for,
+    flexibility_duration_curve,
+    heat_stores_sh,
+    plot_heat_loads_sh,
+    plot_h2_summary_sh,
+    plot_h2_generation_sh,
+    plot_clusters_sh,
+    
 )
 from etrago.tools.utilities import (
     add_missing_components,
@@ -114,6 +145,9 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    add_ECG_to_network,
+    subtract_load_time_series,
+    #add_ECG_to_network,
 )
 
 logger = logging.getLogger(__name__)
@@ -357,6 +391,8 @@ class Etrago:
     plot_heat_summary = plot_heat_summary
 
     plot_flexibility_usage = flexibility_usage
+    
+    plot_heat_summary = plot_heat_summary
 
     demand_side_management = demand_side_management
 
@@ -381,6 +417,70 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
+    
+    add_ECG_to_network = add_ECG_to_network
+    
+    subtract_load_time_series = subtract_load_time_series
+   
+    #add_ECG_to_network = add_ECG_to_network
+   
+    curtailment = curtailment
+    
+    plot_stacked_gen = plot_stacked_gen
+    
+    plot_voltage = plot_voltage
+    
+    calc_dispatch_per_carrier = calc_dispatch_per_carrier
+    
+    calc_storage_expansion_per_bus = calc_storage_expansion_per_bus
+    
+    nodal_gen_dispatch = nodal_gen_dispatch
+        
+    nodal_production_balance = nodal_production_balance
+    
+    storage_p_soc = storage_p_soc
+    
+    storage_soc_sorted = storage_soc_sorted
+    
+    mul_weighting = mul_weighting
+    
+    calc_ac_loading = calc_ac_loading
+    
+    calc_dc_loading = calc_dc_loading
+    
+    plotting_colors = plotting_colors
+    
+    calc_network_expansion = calc_network_expansion
+    
+    plot_background_grid = plot_background_grid
+    
+    bev_flexibility_potential = bev_flexibility_potential
+    
+    make_handler_map_to_scale_circles_as_in = make_handler_map_to_scale_circles_as_in
+    
+    make_legend_circles_for = make_legend_circles_for
+    
+    flexibility_duration_curve = flexibility_duration_curve
+    
+    plot_heat_summary_sh = plot_heat_summary_sh
+    
+    #plot_gas_summary_sh = plot_gas_summary_sh
+    
+    heat_stores_sh = heat_stores_sh
+    
+    plot_heat_loads_sh = plot_heat_loads_sh
+    
+    plot_h2_summary_sh = plot_h2_summary_sh
+    
+    plot_h2_generation_sh = plot_h2_generation_sh
+    
+    plot_clusters_sh = plot_clusters_sh
+    
+    calc_system_costs_areas = calc_system_costs_areas
+    
+    system_costs_areas = system_costs_areas
+   
+    calc_etrago_results_areas = calc_etrago_results_areas
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -424,6 +524,14 @@ class Etrago:
 
         """
 
+        self.subtract_load_time_series()
+        
+        #self.add_missing_components
+        
+        self.add_ECG_to_network()
+        
+        #self.add_ECG_to_network
+
         self.manual_fixes_datamodel()
 
         self.geolocation_buses()
@@ -431,7 +539,7 @@ class Etrago:
         self.load_shedding()
 
         self.adjust_CH4_gen_carriers()
-
+        
         self.set_random_noise(0.01)
 
         self.set_q_national_loads(cos_phi=0.9)
@@ -469,3 +577,6 @@ class Etrago:
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
+
+
+

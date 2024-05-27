@@ -1,0 +1,4 @@
+control,type,carrier,p_nom,p_nom_extendable,p_nom_min,p_nom_max,p_min_pu,p_max_pu,p_set,q_set,sign,marginal_cost,build_year,lifetime,capital_cost,efficiency,committable,start_up_cost,shut_down_cost,min_up_time,min_down_time,up_time_before,down_time_before,ramp_limit_up,ramp_limit_down,ramp_limit_start_up,ramp_limit_shut_down,e_nom_max
+NULL,NULL,central_biomass_CHP,0.07,False,0,Infinity,0,1,NULL,NULL,1,25.4433333333333,0,Infinity,0,1,False,0,0,0,0,0,0,NaN,NaN,1,1,Infinity
+,,solar,55016.0981935425,False,0,55016.0989384516,0,1,NULL,NULL,1,0.0205166406315682,0,Infinity,37228.564160708,1,False,0,0,0,0,1,0,NULL,NULL,1,1,Infinity
+,,wind_onshore,13863.0927477874,False,0,13863.0929934957,0,1,NULL,NULL,1,0.0252603045063377,0,Infinity,83330.1733037277,1,False,0,0,0,0,1,0,NULL,NULL,1,1,Infinity

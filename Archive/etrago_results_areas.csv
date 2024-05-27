@@ -1,0 +1,21 @@
+area,label,value,unit
+primary,annual ac grid investment costs,768193.8127206444,EUR
+primary,annual dc grid investment costs,0,EUR
+primary,annual electrical grid investment costs,768193.8127206444,EUR
+primary,annual generation investment costs,655320.5646525961,EUR
+primary,annual invest costs for link electrical,0,EUR
+primary,annual investment costs power to gas,0,EUR
+primary,annual investment costs gas to power,,EUR
+primary,annual power to gas dispatch costs,,EUR
+primary,annual gas to power dispatch costs,,EUR
+primary,annual marginal cost,25135523.889436733,EUR
+secondary,annual ac grid investment costs,6525336.861019495,EUR
+secondary,annual dc grid investment costs,2.305157492897901,EUR
+secondary,annual electrical grid investment costs,6525339.166176988,EUR
+secondary,annual generation investment costs,2453021.4239915474,EUR
+secondary,annual invest costs for link electrical,0,EUR
+secondary,annual investment costs power to gas,0,EUR
+secondary,annual investment costs gas to power,,EUR
+secondary,annual power to gas dispatch costs,,EUR
+secondary,annual gas to power dispatch costs,,EUR
+secondary,annual marginal cost,214645169.80831364,EUR

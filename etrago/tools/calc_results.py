@@ -39,6 +39,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, s3pp, wolfbunke, mariusves, lukasol"
 
+from etrago.tools.utilities import find_buses_area
 
 def _calc_storage_expansion(self):
     """Function that calulates storage expansion in MW
@@ -771,3 +772,525 @@ def calc_etrago_results(self):
         self.results.value["rel. electrical dc grid expansion"] = (
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
+
+    #self.results.to_csv(results_file)
+
+
+#calculating results in focus regions:
+
+def _calc_storage_expansion_areas(self):
+    """Function that calculates storage expansion in MW for primary and secondary areas"""
+    storage_expansion_areas = pd.DataFrame(columns=["area", "carrier", "expansion"])
+
+    for area in ["primary", "secondary"]:
+        if area == "primary":
+            network_area = self.primary_network()
+        else:
+            network_area = self.secondary_network()
+
+        storage_expansion = (
+            (
+                network_area.storage_units.p_nom_opt
+                - network_area.storage_units.p_nom_min
+            )[network_area.storage_units.p_nom_extendable]
+            .groupby(network_area.storage_units.carrier)
+            .sum()
+        )
+
+        for carrier, expansion in storage_expansion.items():
+            storage_expansion_areas = storage_expansion_areas.append(
+                {"area": area, "carrier": carrier, "expansion": expansion},
+                ignore_index=True,
+            )
+
+    return storage_expansion_areas
+
+
+def _calc_store_expansion_areas(self):
+    """Function that calculates store expansion in MW for primary and secondary areas"""
+    store_expansion_areas = pd.DataFrame(columns=["area", "expansion"])
+
+    for area in ["primary", "secondary"]:
+        if area == "primary":
+            network_area = self.primary_network()
+        else:
+            network_area = self.secondary_network()
+
+        store_expansion = (
+            network_area.stores.e_nom_opt - network_area.stores.e_nom_min
+        )[network_area.stores.e_nom_extendable].sum()
+
+        store_expansion_areas = store_expansion_areas.append(
+            {"area": area, "expansion": store_expansion}, ignore_index=True
+        )
+
+    return store_expansion_areas
+
+
+def _calc_sectorcoupling_link_expansion_areas(self):
+    """Function that calculates expansion of sectorcoupling links in MW for primary and secondary areas"""
+    link_expansion_areas = pd.DataFrame(
+        columns=["area", "H2_to_power", "power_to_H2", "H2_to_CH4", "CH4_to_H2"]
+    )
+
+    for area in ["primary", "secondary"]:
+        if area == "primary":
+            network_area = self.primary_network()
+        else:
+            network_area = self.secondary_network()
+
+        ext_links = network_area.links[network_area.links.p_nom_extendable]
+
+        links = [0, 0, 0, 0]
+
+        l1 = ext_links[ext_links.carrier == "H2_to_power"]
+        l2 = ext_links[ext_links.carrier == "power_to_H2"]
+        l3 = ext_links[ext_links.carrier == "H2_to_CH4"]
+        l4 = ext_links[ext_links.carrier == "CH4_to_H2"]
+
+        links[0] = (l1.p_nom_opt - l1.p_nom_min).sum()
+        links[1] = (l2.p_nom_opt - l2.p_nom_min).sum()
+        links[2] = (l3.p_nom_opt - l3.p_nom_min).sum()
+        links[3] = (l4.p_nom_opt - l4.p_nom_min).sum()
+
+        link_expansion_areas = link_expansion_areas.append(
+            {
+                "area": area,
+                "H2_to_power": links[0],
+                "power_to_H2": links[1],
+                "H2_to_CH4": links[2],
+                "CH4_to_H2": links[3],
+            },
+            ignore_index=True,
+        )
+
+    return link_expansion_areas
+
+
+def _calc_network_expansion_areas(self):
+    """Function that calculates electrical network expansion in MW for primary and secondary areas"""
+    network_expansion_areas = pd.DataFrame(columns=["area", "lines", "dc_links"])
+
+    for area in ["primary", "secondary"]:
+        if area == "primary":
+            network_area = self.primary_network()
+        else:
+            network_area = self.secondary_network()
+
+        lines = (network_area.lines.s_nom_opt - network_area.lines.s_nom_min)[
+            network_area.lines.s_nom_extendable
+        ].sum()
+
+        ext_links = network_area.links[network_area.links.p_nom_extendable]
+        ext_dc_lines = ext_links[ext_links.carrier == "DC"]
+
+        dc_links = (ext_dc_lines.p_nom_opt - ext_dc_lines.p_nom_min).sum()
+
+        network_expansion_areas = network_expansion_areas.append(
+            {"area": area, "lines": lines, "dc_links": dc_links}, ignore_index=True
+        )
+
+    return network_expansion_areas
+
+
+def calc_investment_cost_areas(self, network):
+    """Function that calculates overall annualized investment costs for both primary and secondary areas.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        The PyPSA network object.
+
+    Returns
+    -------
+    primary_costs : tuple
+        Investment costs for the primary area (network_costs, link_costs, sto_costs).
+    secondary_costs : tuple
+        Investment costs for the secondary area (network_costs, link_costs, sto_costs).
+    """
+    # Find the buses that belong to the primary and secondary areas
+    primary_buses = find_buses_area(self, carrier="AC", area_type="primary")
+    secondary_buses = find_buses_area(self, carrier="AC", area_type="secondary")
+
+    # Initialize cost variables for both areas
+    primary_network_costs = [0, 0]
+    primary_link_costs = 0
+    primary_sto_costs = [0, 0]
+
+    secondary_network_costs = [0, 0]
+    secondary_link_costs = 0
+    secondary_sto_costs = [0, 0]
+
+    # Filter the network components based on the buses in each area
+    ext_lines = network.lines[network.lines.s_nom_extendable]
+    ext_trafos = network.transformers[network.transformers.s_nom_extendable]
+    ext_links = network.links[network.links.p_nom_extendable]
+    ext_dc_lines = ext_links[ext_links.carrier == "DC"]
+    ext_storage = network.storage_units[network.storage_units.p_nom_extendable]
+    ext_store = network.stores[network.stores.e_nom_extendable]
+
+    # Calculate costs for the primary area
+    if not ext_lines[ext_lines.bus0.isin(primary_buses) | ext_lines.bus1.isin(primary_buses)].empty:
+        primary_network_costs[0] = (
+            (ext_lines[ext_lines.bus0.isin(primary_buses) | ext_lines.bus1.isin(primary_buses)].s_nom_opt -
+             ext_lines[ext_lines.bus0.isin(primary_buses) | ext_lines.bus1.isin(primary_buses)].s_nom_min)
+            * ext_lines[ext_lines.bus0.isin(primary_buses) | ext_lines.bus1.isin(primary_buses)].capital_cost
+        ).sum()
+
+    if not ext_trafos[ext_trafos.bus0.isin(primary_buses) | ext_trafos.bus1.isin(primary_buses)].empty:
+        primary_network_costs[0] += (
+            (ext_trafos[ext_trafos.bus0.isin(primary_buses) | ext_trafos.bus1.isin(primary_buses)].s_nom_opt -
+             ext_trafos[ext_trafos.bus0.isin(primary_buses) | ext_trafos.bus1.isin(primary_buses)].s_nom)
+            * ext_trafos[ext_trafos.bus0.isin(primary_buses) | ext_trafos.bus1.isin(primary_buses)].capital_cost
+        ).sum()
+
+    if not ext_dc_lines[ext_dc_lines.bus0.isin(primary_buses) | ext_dc_lines.bus1.isin(primary_buses)].empty:
+        primary_network_costs[1] = (
+            (ext_dc_lines[ext_dc_lines.bus0.isin(primary_buses) | ext_dc_lines.bus1.isin(primary_buses)].p_nom_opt -
+             ext_dc_lines[ext_dc_lines.bus0.isin(primary_buses) | ext_dc_lines.bus1.isin(primary_buses)].p_nom_min)
+            * ext_dc_lines[ext_dc_lines.bus0.isin(primary_buses) | ext_dc_lines.bus1.isin(primary_buses)].capital_cost
+        ).sum()
+
+    ext_links_primary = ext_links[(ext_links.bus0.isin(primary_buses) | ext_links.bus1.isin(primary_buses)) & (ext_links.carrier != "DC")]
+    if not ext_links_primary.empty:
+        primary_link_costs = (
+            (ext_links_primary.p_nom_opt - ext_links_primary.p_nom_min)
+            * ext_links_primary.capital_cost
+        ).sum()
+
+    if not ext_storage[ext_storage.bus.isin(primary_buses)].empty:
+        primary_sto_costs[0] = (ext_storage[ext_storage.bus.isin(primary_buses)].p_nom_opt * ext_storage[ext_storage.bus.isin(primary_buses)].capital_cost).sum()
+
+    if not ext_store[ext_store.bus.isin(primary_buses)].empty:
+        primary_sto_costs[1] = (ext_store[ext_store.bus.isin(primary_buses)].e_nom_opt * ext_store[ext_store.bus.isin(primary_buses)].capital_cost).sum()
+
+    # Calculate costs for the secondary area
+    if not ext_lines[ext_lines.bus0.isin(secondary_buses) | ext_lines.bus1.isin(secondary_buses)].empty:
+        secondary_network_costs[0] = (
+            (ext_lines[ext_lines.bus0.isin(secondary_buses) | ext_lines.bus1.isin(secondary_buses)].s_nom_opt -
+             ext_lines[ext_lines.bus0.isin(secondary_buses) | ext_lines.bus1.isin(secondary_buses)].s_nom_min)
+            * ext_lines[ext_lines.bus0.isin(secondary_buses) | ext_lines.bus1.isin(secondary_buses)].capital_cost
+        ).sum()
+
+    if not ext_trafos[ext_trafos.bus0.isin(secondary_buses) | ext_trafos.bus1.isin(secondary_buses)].empty:
+        secondary_network_costs[0] += (
+            (ext_trafos[ext_trafos.bus0.isin(secondary_buses) | ext_trafos.bus1.isin(secondary_buses)].s_nom_opt -
+             ext_trafos[ext_trafos.bus0.isin(secondary_buses) | ext_trafos.bus1.isin(secondary_buses)].s_nom)
+            * ext_trafos[ext_trafos.bus0.isin(secondary_buses) | ext_trafos.bus1.isin(secondary_buses)].capital_cost
+        ).sum()
+
+    if not ext_dc_lines[ext_dc_lines.bus0.isin(secondary_buses) | ext_dc_lines.bus1.isin(secondary_buses)].empty:
+        secondary_network_costs[1] = (
+            (ext_dc_lines[ext_dc_lines.bus0.isin(secondary_buses) | ext_dc_lines.bus1.isin(secondary_buses)].p_nom_opt -
+             ext_dc_lines[ext_dc_lines.bus0.isin(secondary_buses) | ext_dc_lines.bus1.isin(secondary_buses)].p_nom_min)
+            * ext_dc_lines[ext_dc_lines.bus0.isin(secondary_buses) | ext_dc_lines.bus1.isin(secondary_buses)].capital_cost
+        ).sum()
+
+    ext_links_secondary = ext_links[(ext_links.bus0.isin(secondary_buses) | ext_links.bus1.isin(secondary_buses)) & (ext_links.carrier != "DC")]
+    if not ext_links_secondary.empty:
+        secondary_link_costs = (ext_links_secondary.p_nom_opt - ext_links_secondary.p_nom_min) * (ext_links_secondary.capital_cost).sum()
+
+    if not ext_storage[ext_storage.bus.isin(secondary_buses)].empty:
+        secondary_sto_costs[0] = (ext_storage[ext_storage.bus.isin(secondary_buses)].p_nom_opt * ext_storage[ext_storage.bus.isin(secondary_buses)].capital_cost).sum()
+
+    if not ext_store[ext_store.bus.isin(secondary_buses)].empty:
+        secondary_sto_costs[1] = (ext_store[ext_store.bus.isin(secondary_buses)].e_nom_opt * ext_store[ext_store.bus.isin(secondary_buses)].capital_cost).sum()
+
+    primary_costs = (primary_network_costs, primary_link_costs, primary_sto_costs)
+    secondary_costs = (secondary_network_costs, secondary_link_costs, secondary_sto_costs)
+
+    return primary_costs, secondary_costs
+
+def calc_marginal_cost_areas(self, network):
+    """
+    Function that calculates and returns marginal costs, considering
+    generation and link and storage dispatch costs for both primary and secondary areas.
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        The PyPSA network object.
+
+    Returns
+    -------
+    primary_marginal_cost : float
+        Annual marginal cost in EUR for the primary area.
+    secondary_marginal_cost : float
+        Annual marginal cost in EUR for the secondary area.
+    """
+    # Find the buses that belong to the primary and secondary areas
+    primary_buses = find_buses_area(self, carrier="AC", area_type="primary")
+    secondary_buses = find_buses_area(self, carrier="AC", area_type="secondary")
+
+    # Calculate marginal costs for the primary area
+    primary_gen = (
+        network.generators_t.p.loc[:, network.generators.bus.isin(primary_buses)]
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.generators[network.generators.bus.isin(primary_buses)].marginal_cost)
+        .sum()
+    )
+    primary_link = (
+        abs(network.links_t.p0.loc[:, (network.links.bus0.isin(primary_buses) | network.links.bus1.isin(primary_buses))])
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.links[(network.links.bus0.isin(primary_buses) | network.links.bus1.isin(primary_buses))].marginal_cost)
+        .sum()
+    )
+    primary_stor = (
+        network.storage_units_t.p.loc[:, network.storage_units.bus.isin(primary_buses)]
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.storage_units[network.storage_units.bus.isin(primary_buses)].marginal_cost)
+        .sum()
+    )
+    primary_marginal_cost = primary_gen + primary_link + primary_stor
+
+    # Calculate marginal costs for the secondary area
+    secondary_gen = (
+        network.generators_t.p.loc[:, network.generators.bus.isin(secondary_buses)]
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.generators[network.generators.bus.isin(secondary_buses)].marginal_cost)
+        .sum()
+    )
+    secondary_link = (
+        abs(network.links_t.p0.loc[:, (network.links.bus0.isin(secondary_buses) | network.links.bus1.isin(secondary_buses))])
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.links[(network.links.bus0.isin(secondary_buses) | network.links.bus1.isin(secondary_buses))].marginal_cost)
+        .sum()
+    )
+    secondary_stor = (
+        network.storage_units_t.p.loc[:, network.storage_units.bus.isin(secondary_buses)]
+        .mul(network.snapshot_weightings.objective, axis=0)
+        .sum(axis=0)
+        .mul(network.storage_units[network.storage_units.bus.isin(secondary_buses)].marginal_cost)
+        .sum()
+    )
+    secondary_marginal_cost = secondary_gen + secondary_link + secondary_stor
+
+    return primary_marginal_cost, secondary_marginal_cost    
+    
+def calc_system_costs_areas(self):
+    """Calculate system costs for primary and secondary areas"""
+    self.system_costs_areas = pd.DataFrame(
+        columns=["area", "marginal_cost", "invest_cost", "import_costs"],
+        index=["primary", "secondary"],
+    )
+
+    for area in ["primary", "secondary"]:
+        if area == "primary":
+            network_area = self.primary_network()
+        else:
+            network_area = self.secondary_network()
+
+        marginal_cost, invest_cost, import_costs = self.system_costs_area(network_area)
+
+        self.system_costs_areas.loc[area, "area"] = area
+        self.system_costs_areas.loc[area, "marginal_cost"] = marginal_cost
+        self.system_costs_areas.loc[area, "invest_cost"] = invest_cost
+        self.system_costs_areas.loc[area, "import_costs"] = import_costs
+
+def system_costs_areas(self, network_area):
+    """Calculate system costs for a specific area"""
+    marginal_cost = 0
+    invest_cost = 0
+
+    for c in network_area.iterate_components():
+        if c.name in ["Store"]:
+            value = "e"
+        elif c.name in ["Line", "Transformer"]:
+            value = "s"
+        else:
+            value = "p"
+        if c.name in network_area.one_port_components:
+            if "marginal_cost" in c.df.columns:
+                marginal_cost += (
+                    c.pnl.p.mul(c.df.marginal_cost)
+                    .mul(network_area.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+        else:
+            if "marginal_cost" in c.df.columns:
+                marginal_cost += (
+                    c.pnl.p0.mul(c.df.marginal_cost)
+                    .mul(network_area.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+        if c.name not in ["Bus", "Load", "LineType", "TransformerType", "Carrier"]:
+            invest_cost += (
+                (
+                    c.df[c.df[f"{value}_nom_extendable"]][f"{value}_nom_opt"]
+                    - c.df[c.df[f"{value}_nom_extendable"]][f"{value}_nom_min"]
+                )
+                * c.df[c.df[f"{value}_nom_extendable"]]["capital_cost"]
+            ).sum()
+
+    # import and its costs
+    links_export = self.network.links[
+        (
+            self.network.links.bus0.isin(network_area.buses.index.values)
+            & ~(self.network.links.bus1.isin(network_area.buses.index.values))
+        )
+    ]
+
+    export_positive = (
+        self.network.links_t.p0[links_export.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    export_negative = (
+        self.network.links_t.p0[links_export.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    links_import = self.network.links[
+        (
+            self.network.links.bus1.isin(network_area.buses.index.values)
+            & ~(self.network.links.bus0.isin(network_area.buses.index.values))
+        )
+    ]
+
+    import_positive = (
+        self.network.links_t.p0[links_import.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    import_negative = (
+        self.network.links_t.p0[links_import.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    import_costs = export_negative + import_positive - export_positive - import_negative
+
+    return marginal_cost, invest_cost, import_costs
+
+
+
+def calc_etrago_results_areas(self):
+    """
+    Function that calculates and stores eTraGo results for primary and secondary areas.
+    """
+    network = self.network.copy()
+
+    # Calculate investment costs for primary and secondary areas
+    primary_costs, secondary_costs = calc_investment_cost_areas(self, network)
+
+    # Calculate marginal costs for primary and secondary areas
+    primary_marginal_cost, secondary_marginal_cost = calc_marginal_cost_areas(self, network)
+
+    # Create a DataFrame to store the results
+    self.results_area = pd.DataFrame(
+        columns=["value", "unit"],
+        index=pd.MultiIndex.from_tuples(
+            [
+                ("primary", "annual ac grid investment costs"),
+                ("primary", "annual dc grid investment costs"),
+                ("primary", "annual electrical grid investment costs"),
+                ("primary", "annual generation investment costs"),
+                ("primary", "annual invest costs for link electrical"),
+                ("primary", "annual investment costs power to gas"),
+                ("primary", "annual investment costs gas to power"),
+                ("primary", "annual power to gas dispatch costs"),
+                ("primary", "annual gas to power dispatch costs"),
+                ("primary", "annual marginal cost"),
+                ("secondary", "annual ac grid investment costs"),
+                ("secondary", "annual dc grid investment costs"),
+                ("secondary", "annual electrical grid investment costs"),
+                ("secondary", "annual generation investment costs"),
+                ("secondary", "annual invest costs for link electrical"),
+                ("secondary", "annual investment costs power to gas"),
+                ("secondary", "annual investment costs gas to power"),
+                ("secondary", "annual power to gas dispatch costs"),
+                ("secondary", "annual gas to power dispatch costs"),
+                ("secondary", "annual marginal cost"),
+            ],
+            names=["area", "label"],
+        ),
+    )
+
+    # Store investment costs for primary area
+    self.results_area.loc[("primary", "annual ac grid investment costs"), "value"] = primary_costs[0][0]
+    self.results_area.loc[("primary", "annual dc grid investment costs"), "value"] = primary_costs[0][1]
+    self.results_area.loc[("primary", "annual electrical grid investment costs"), "value"] = sum(primary_costs[0])
+    self.results_area.loc[("primary", "annual invest costs for link electrical"), "value"] = primary_costs[1]
+    self.results_area.loc[("primary", "annual generation investment costs"), "value"] = primary_costs[2][0]
+    self.results_area.loc[("primary", "annual investment costs power to gas"), "value"] = primary_costs[2][1]
+
+    # Store investment costs for secondary area
+    self.results_area.loc[("secondary", "annual ac grid investment costs"), "value"] = secondary_costs[0][0]
+    self.results_area.loc[("secondary", "annual dc grid investment costs"), "value"] = secondary_costs[0][1]
+    self.results_area.loc[("secondary", "annual electrical grid investment costs"), "value"] = sum(secondary_costs[0])
+    #self.results_area.loc[("secondary", "annual invest costs for link electrical"), "value"] = secondary_costs[1]
+    
+    if isinstance(secondary_costs[1], pd.Series):
+       self.results_area.loc[("secondary", "annual invest costs for link electrical"), "value"] = secondary_costs[1].values[0]
+    else:
+       self.results_area.loc[("secondary", "annual invest costs for link electrical"), "value"] = secondary_costs[1]
+    
+        
+    self.results_area.loc[("secondary", "annual generation investment costs"), "value"] = secondary_costs[2][0]
+    self.results_area.loc[("secondary", "annual investment costs power to gas"), "value"] = secondary_costs[2][1]
+
+    # Store marginal costs for primary and secondary areas
+    self.results_area.loc[("primary", "annual marginal cost"), "value"] = primary_marginal_cost
+    self.results_area.loc[("secondary", "annual marginal cost"), "value"] = secondary_marginal_cost
+
+    # Set the units for the results
+    self.results_area.loc[
+        [
+            ("primary", "annual ac grid investment costs"),
+            ("primary", "annual dc grid investment costs"),
+            ("primary", "annual electrical grid investment costs"),
+            ("primary", "annual generation investment costs"),
+            ("primary", "annual invest costs for link electrical"),
+            ("primary", "annual investment costs power to gas"),
+            ("primary", "annual investment costs gas to power"),
+            ("primary", "annual power to gas dispatch costs"),
+            ("primary", "annual gas to power dispatch costs"),
+            ("primary", "annual marginal cost"),
+            ("secondary", "annual ac grid investment costs"),
+            ("secondary", "annual dc grid investment costs"),
+            ("secondary", "annual electrical grid investment costs"),
+            ("secondary", "annual generation investment costs"),
+            ("secondary", "annual invest costs for link electrical"),
+            ("secondary", "annual investment costs power to gas"),
+            ("secondary", "annual investment costs gas to power"),
+            ("secondary", "annual power to gas dispatch costs"),
+            ("secondary", "annual gas to power dispatch costs"),
+            ("secondary", "annual marginal cost"),
+        ],
+        "unit",
+    ] = "EUR"
+
+# Save the results to a CSV file
+

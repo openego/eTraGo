@@ -47,9 +47,11 @@ if "READTHEDOCS" not in os.environ:
 
     from etrago import Etrago
 
+
+
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
@@ -68,7 +70,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -112,15 +114,21 @@ args = {
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
-        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
+        "interest_area": False, #False, #path to shapefile or list of nuts names of not cluster area
+        #"secondary_interest_area": False, #["Bremerhaven"], #False, #path to shapefile or list of nuts names of not cluster area
     },
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
-        "cluster_interest_area": 30, # False or number of buses.
+        #"interest_area": ["Nordfriesland","Flensburg","Kiel","Lübeck","Neumünster","Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde","Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List Nordfriesland of NUTS names or path to a shapefile for primary interest area
+        "primary_interest_area": ["Nordfriesland"],  # List of NUTS names or path to a shapefile for primary interest area
+        "secondary_interest_area": ["Flensburg","Kiel","Lübeck","Neumünster", "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde", "Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List for secondary interest area minus "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde",
+        "cluster_primary_area": False, # No clustering for primary area or specify number of clusters if needed
+        "cluster_secondary_area": 7,  # Specific number of clusters for secondary area
+        "method_gas": "kmedoids-dijkstra",  # choose clustering method for gas: kmeans or kmedoids-dijkstra
+        #"cluster_interest_area": False,  # No clustering for primary area or specify number of clusters if needed
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -159,7 +167,7 @@ args = {
         "n_clusters": 5,  # number of periods - only relevant for 'typical_periods'
         "n_segments": 5,  # number of segments - only relevant for segmentation
     },
-    "skip_snapshots": 5,  # False or number of snapshots to skip
+    "skip_snapshots": 10,  # False or number of snapshots to skip
     "temporal_disaggregation": {
         "active": False,  # choose if temporally full complex dispatch optimization should be conducted
         "no_slices": 8,  # number of subproblems optimization is divided into
@@ -174,6 +182,7 @@ args = {
     "comments": None,
 }
 
+    
 
 def run_etrago(args, json_path):
     """Function to conduct optimization considering the following arguments.
@@ -697,7 +706,8 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    # adjust network regarding eTraGo setting
+   
+# adjust network regarding eTraGo setting
     etrago.adjust_network()
 
     # ehv network clustering
@@ -710,7 +720,7 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     etrago.snapshot_clustering()
-    breakpoint()
+    #breakpoint()
     # skip snapshots
     etrago.skip_snapshots()
 
@@ -744,7 +754,9 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
-
+    
+    etrago.calc_etrago_results_areas()
+   
     return etrago
 
 
@@ -754,14 +766,466 @@ if __name__ == "__main__":
     etrago = run_etrago(args, json_path=None)
     print(datetime.datetime.now())
     etrago.session.close()
+    
+    etrago.results_area.to_csv("etrago_results_areas_eGon2035.csv")
+    etrago.results.to_csv("etrago_results_eGon2035.csv")
+
+
+'''    
     # plots: more in tools/plot.py
     # make a line loading plot
-    # etrago.plot_grid(
-    # line_colors='line_loading', bus_sizes=0.0001, timesteps=range(2))
+    etrago.plot_clusters_sh(
+        carrier="AC",
+        save_path=False,
+        transmission_lines=False,
+        gas_pipelines=False,
+        area_type="primary",
+    )
+    etrago.plot_h2_generation(t_resolution="20H", save_path=False)
+    etrago.plot_heat_loads(t_resolution="20H", save_path=False)
+    etrago.plot_heat_loads_sh(t_resolution="20H", save_path=False, area_type="primary_secondary")
+    etrago.plot_h2_summary_sh(t_resolution="20H", stacked=True, save_path=False, area_type="all")
+    etrago.plot_h2_summary(t_resolution="20H", stacked=True, save_path=False)
+    etrago.plot_h2_generation_sh(t_resolution="20H", save_path=False, area_type="all")
+    etrago.plot_h2_generation(t_resolution="20H", save_path=False)
+    etrago.heat_stores_sh(etrago.network.buses.index, etrago.network.snapshots, agg="5h", used=False, apply_on="grid_model", area_type="all")
+    etrago.plot_heat_summary_sh(t_resolution="20H", stacked=True, save_path=False, area_type="all")
+    etrago.plot_heat_summary_sh(t_resolution="20H", stacked=True, save_path=False, area_type="primary")
+    etrago.plot_heat_summary(t_resolution="20H", stacked=True, save_path=False)
+    #etrago.plot_gas_summary_sh(t_resolution="20H", stacked=True, save_path=False, area_type="all")
+    #etrago.plot_gas_summary_sh(t_resolution="20H", stacked=True, save_path=False, area_type="primary")
+
+    etrago.plot_grid(
+    line_colors='line_loading', bus_sizes=0.000001, timesteps=range(2))
     # network and storage
-    # etrago.plot_grid(
-    # line_colors='expansion_abs',
-    # bus_colors='storage_expansion',
-    # bus_sizes=0.0001)
+    #etrago.plot_grid(
+    #line_colors='expansion_abs',
+   # bus_colors='storage_expansion',
+   # bus_sizes=0.0001,
+   # scaling_store_expansion = {"H2": 50,
+    #"heat": 0.1,
+   # "battery": 10})
     # flexibility usage
-    # etrago.flexibility_usage('DSM')
+    #etrago.flexibility_usage('DSM')
+    etrago.plot_grid(
+     line_colors='line_loading',
+        bus_sizes=0.00001,
+        bus_colors="grey",
+        timesteps=range(2),
+        osm=False,  # Not using OpenStreetMap for background to focus on boundaries
+        boundaries=None,  # Boundaries for Schleswig-Holstein
+        filename='ECSH21.png',  # Saving the plot as a PNG file
+        apply_on="grid_model",
+        ext_min=0.1,
+        ext_width=False,
+        legend_entries="all",
+        scaling_store_expansion=False
+            ,
+        geographical_boundaries= [-2.5, 16, 46.8, 58]  #DE+Foriegn[-2.5, 16, 46.8, 58]   SH:#[7.5,11.2, 53.3, 54.8]
+,
+)
+    
+#save html map of the network
+'''
+'''
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'network' is your PyPSA Network object and it has geographical coordinates
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_lines = gpd.GeoDataFrame(etrago.network.lines)
+
+# Create a map centered around the mean coordinates of the buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=12)
+
+# Add buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(location=[row.geometry.y, row.geometry.x],
+                        radius=5,
+                        popup=row.name,
+                        color='blue',
+                        fill=True).add_to(m)
+
+# Assuming line geometries can be derived (simplified example)
+for idx, row in gdf_lines.iterrows():
+    folium.PolyLine(locations=[(etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+                               (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)],
+                    color='green').add_to(m)
+
+
+
+
+etrago.plot_heat_summary(t_resolution="20H", stacked=True, save_path=False)
+
+etrago.plot_carrier(carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model")
+'''
+'''
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'etrago.network' is your PyPSA Network object and it has geographical coordinates
+
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_lines = gpd.GeoDataFrame(etrago.network.lines)
+
+# Determine buses connected to lines
+connected_buses = set(gdf_lines.bus0).union(gdf_lines.bus1)
+
+# Filter the bus GeoDataFrame to only include connected buses
+gdf_buses = gdf_buses.loc[gdf_buses.index.isin(connected_buses)]
+
+# Create a map centered around the mean coordinates of the connected buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=12)
+
+# Add connected buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(
+        location=[row.geometry.y, row.geometry.x],
+        radius=1,
+        popup=row.name,
+        color='blue',
+        fill=True
+    ).add_to(m)
+
+# Add lines to the map by plotting a polyline between the connected buses
+for idx, row in gdf_lines.iterrows():
+    folium.PolyLine(
+        locations=[
+            (etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+            (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)
+        ],
+        color='green'
+    ).add_to(m)
+
+# Save to HTML
+m.save('network_map_EC2levels21.html')
+
+
+
+#etrago.plot_clusters(carrier="AC", save_path=False, transmission_lines=False, gas_pipelines=False)
+
+
+# Call the plot_grid function with the desired parameters
+etrago.plot_grid(
+    line_colors='v_nom',
+    bus_sizes=0.02,
+    bus_colors='grey',
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    apply_on='grid_model',
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries='all',
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58]
+)
+
+
+
+# Call the plot_carrier function with the desired parameters
+
+
+etrago.plot_carrier(carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model")
+
+
+
+
+# Call the plot_grid function with the desired parameters
+etrago.plot_grid(
+    line_colors='line_loading',
+    bus_sizes=0.02,
+    bus_colors='grey',
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    apply_on='grid_model',
+    ext_min=0.000001,
+    ext_width=0.9,  # Adjust this value to reduce the line widths
+    legend_entries='all',
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58]
+)
+
+
+import matplotlib.pyplot as plt
+
+# Set the default line width for all lines
+plt.rcParams['lines.linewidth'] = 0.1  # Adjust this value to change the line thickness
+
+# Call the plot_grid function with the desired parameters
+etrago.plot_grid(
+    line_colors='dlr',
+    bus_sizes=0.0001,
+    bus_colors='grey',
+    timesteps=range(2),
+    osm=False,
+    boundaries=None,
+    filename=None,
+    apply_on='grid_model',
+    ext_min=0.1,
+    ext_width=False,
+    legend_entries='all',
+    scaling_store_expansion=False,
+    geographical_boundaries=[-2.5, 16, 46.8, 58] #Nordfriesland[8.28,9.28, 54.46, 54.90] #SH:[7.5,11.2, 53.3, 55.2] #DE: [-2.5, 16, 46.8, 58]
+)
+
+
+
+#function to plot whole grid
+
+
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'etrago.network' is your PyPSA Network object and it has geographical coordinates
+
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_lines = gpd.GeoDataFrame(etrago.network.lines)
+
+# Determine buses connected to lines
+connected_buses = set(gdf_lines.bus0).union(gdf_lines.bus1)
+
+# Filter the bus GeoDataFrame to only include connected buses
+gdf_buses = gdf_buses.loc[gdf_buses.index.isin(connected_buses)]
+
+# Create a map centered around the mean coordinates of the connected buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=6)
+
+# Load country boundaries from a GeoJSON file
+countries = gpd.read_file('countries.geojson')
+
+# Filter countries based on the presence of buses
+countries_with_buses = countries[countries['ISO_A2'].isin(gdf_buses['country'].unique())]
+
+# Add country boundaries to the map
+folium.GeoJson(
+    countries_with_buses,
+    name='Country Boundaries',
+    style_function=lambda feature: {
+        'fillColor': '#dedddb',
+        'color': 'black',
+        'weight': 2,
+        'fillOpacity': 0.7
+    },
+    tooltip=folium.features.GeoJsonTooltip(fields=['ADMIN'], labels=True, sticky=True)
+).add_to(m)
+
+# Find the main bus for each country
+main_buses = gdf_buses.groupby('country').first()
+
+# Add country abbreviations as separate text labels near the main bus of each country
+for idx, row in main_buses.iterrows():
+    folium.map.Marker(
+        location=[row.geometry.y, row.geometry.x],
+        icon=folium.features.DivIcon(
+            icon_size=(50, 36),
+            icon_anchor=(0, 0),
+            html=f'<div style="font-size: 14pt; color: black; -webkit-text-stroke: 1px white; font-weight: bold;">{idx}</div>'
+        )
+    ).add_to(m)
+
+# Add connected buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(
+        location=[row.geometry.y, row.geometry.x],
+        radius=2,
+        popup=row.name,
+        color='black',
+        fill=True
+    ).add_to(m)
+
+# Define line width based on voltage levels
+def get_line_width(voltage):
+    if voltage >= 380:
+        return 4
+    elif voltage >= 220:
+        return 3
+    elif voltage >= 110:
+        return 2
+    else:
+        return 1
+
+# Add lines to the map with widths based on voltage levels and specific color
+for idx, row in gdf_lines.iterrows():
+    folium.PolyLine(
+        locations=[
+            (etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+            (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)
+        ],
+        color='#ac5a4c',  # RGB(172, 90, 76)
+        weight=get_line_width(row.v_nom)
+    ).add_to(m)
+
+# Save to HTML
+m.save('GeneralGrid4.html')
+
+
+
+
+
+
+
+
+
+#function to plot focus on regions
+
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'etrago.network' is your PyPSA Network object and it has geographical coordinates
+
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_lines = gpd.GeoDataFrame(etrago.network.lines)
+
+# Determine buses connected to lines
+connected_buses = set(gdf_lines.bus0).union(gdf_lines.bus1)
+
+# Filter the bus GeoDataFrame to only include connected buses
+gdf_buses = gdf_buses.loc[gdf_buses.index.isin(connected_buses)]
+
+# Create a map centered around the mean coordinates of the connected buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=6)
+
+# Load country boundaries from a GeoJSON file
+countries = gpd.read_file('countries.geojson')
+
+# Filter countries based on the presence of buses
+countries_with_buses = countries[countries['ISO_A2'].isin(gdf_buses['country'].unique())]
+
+# Add country boundaries to the map
+folium.GeoJson(
+    countries_with_buses,
+    name='Country Boundaries',
+    style_function=lambda feature: {
+        'fillColor': '#dedddb' if feature['properties']['ISO_A2'] != 'DE' else 'transparent',
+        'color': 'black',
+        'weight': 2,
+        'fillOpacity': 0.7 if feature['properties']['ISO_A2'] != 'DE' else 0
+    },
+    tooltip=folium.features.GeoJsonTooltip(fields=['ADMIN'], labels=True, sticky=True)
+).add_to(m)
+
+# Load German district boundaries from etrago.boundaries.vg250_krs
+german_districts = gpd.read_file('vg250_krs.geojson')
+
+# Add German district boundaries to the map
+folium.GeoJson(
+    german_districts,
+    name='German Districts',
+    style_function=lambda feature: {
+        'fillColor': 'gray',
+        'color': 'black',  # Set the color of the district boundaries to red
+        'weight': 2,  # Increase the weight of the district boundaries
+        'fillOpacity': 0.3,
+        'opacity': 0.7  # Increase the opacity of the district boundaries
+    },
+    tooltip=folium.features.GeoJsonTooltip(fields=['gen'], labels=True, sticky=True)
+).add_to(m)
+
+# Find the main bus for each country
+main_buses = gdf_buses.groupby('country').first()
+
+# Add country abbreviations as separate text labels near the main bus of each country
+for idx, row in main_buses.iterrows():
+    folium.map.Marker(
+        location=[row.geometry.y, row.geometry.x],
+        icon=folium.features.DivIcon(
+            icon_size=(50, 36),
+            icon_anchor=(0, 0),
+            html=f'<div style="font-size: 14pt; color: black; -webkit-text-stroke: 1px white; font-weight: bold;">{idx}</div>'
+        )
+    ).add_to(m)
+
+# Add connected buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(
+        location=[row.geometry.y, row.geometry.x],
+        radius=2,
+        popup=row.name,
+        color='black',
+        fill=True
+    ).add_to(m)
+
+# Define line width based on voltage levels
+def get_line_width(voltage):
+    if voltage >= 380:
+        return 4
+    elif voltage >= 220:
+        return 3
+    elif voltage >= 110:
+        return 2
+    else:
+        return 1
+
+# Add lines to the map with widths based on voltage levels and specific color
+for idx, row in gdf_lines.iterrows():
+    folium.PolyLine(
+        locations=[
+            (etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+            (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)
+        ],
+        color='#ac5a4c',  # RGB(172, 90, 76)
+        weight=get_line_width(row.v_nom)
+    ).add_to(m)
+
+# Save the map as an HTML file
+map_html = 'SHFocus4.html'
+m.save(map_html)
+
+
+
+#linkes map:
+
+import folium
+import geopandas as gpd
+from shapely.geometry import Point
+
+# Assuming 'etrago.network' is your PyPSA Network object and it has geographical coordinates
+
+# Convert buses and lines to GeoDataFrames
+gdf_buses = gpd.GeoDataFrame(etrago.network.buses, geometry=gpd.points_from_xy(etrago.network.buses.x, etrago.network.buses.y))
+gdf_links = gpd.GeoDataFrame(etrago.network.links)
+
+# Determine buses connected to lines
+connected_buses = set(gdf_links.bus0).union(gdf_links.bus1)
+
+# Filter the bus GeoDataFrame to only include connected buses
+gdf_buses = gdf_buses.loc[gdf_buses.index.isin(connected_buses)]
+
+# Create a map centered around the mean coordinates of the connected buses
+m = folium.Map(location=[gdf_buses.geometry.y.mean(), gdf_buses.geometry.x.mean()], zoom_start=12)
+
+# Add connected buses to the map
+for idx, row in gdf_buses.iterrows():
+    folium.CircleMarker(
+        location=[row.geometry.y, row.geometry.x],
+        radius=1,
+        popup=row.name,
+        color='blue',
+        fill=True
+    ).add_to(m)
+
+# Add lines to the map by plotting a polyline between the connected buses
+for idx, row in gdf_links.iterrows():
+    folium.PolyLine(
+        locations=[
+            (etrago.network.buses.loc[row.bus0].y, etrago.network.buses.loc[row.bus0].x),
+            (etrago.network.buses.loc[row.bus1].y, etrago.network.buses.loc[row.bus1].x)
+        ],
+        color='green'
+    ).add_to(m)
+
+# Save to HTML
+m.save('network_map_LinksEC2levels21.html')
+'''

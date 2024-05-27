@@ -1,0 +1,26 @@
+,unit,value
+annual system costs,EUR/a,18459540056.31453
+annual investment costs,EUR/a,1363569321.593694
+annual marginal costs,EUR/a,17095970734.720837
+annual electrical grid investment costs,EUR/a,1275544472.9325824
+annual ac grid investment costs,EUR/a,391689496.67164075
+annual dc grid investment costs,EUR/a,883854976.2609415
+annual links investment costs,EUR/a,0
+annual storage+store investment costs,EUR/a,88024848.66111156
+annual electrical storage investment costs,EUR/a,88024848.66111156
+annual store investment costs,EUR/a,0
+battery storage expansion,MW,0.18067630849296884
+store expansion,MW,0.0
+H2 store expansion,MW,0.0
+CH4 store expansion,MW,0.0
+heat store expansion,MW,0.0
+storage+store expansion,MW,0.18067630849296884
+fuel cell links expansion,MW,0.0
+electrolyzer links expansion,MW,0.0
+methanisation links expansion,MW,0.0
+Steam Methane Reformation links expansion,MW,0.0
+abs. electrical grid expansion,MW,92722.51954668219
+abs. electrical ac grid expansion,MW,80817.04739217191
+abs. electrical dc grid expansion,MW,11905.472154510277
+rel. electrical ac grid expansion,p.u.,0.17726316455809674
+rel. electrical dc grid expansion,p.u.,1.5089318320038374
