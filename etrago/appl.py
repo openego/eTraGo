@@ -390,6 +390,17 @@ def run_etrago(args, json_path):
         * 'capacity_factor_per_gen_cntr': dict of dict of arrays
             Limit overall energy production country-wise for each generator
             by carrier. Set upper/lower limit in p.u.
+        * 'add_piecewise_constraint': dict(dict)
+            Add piecewise constraints for certain links. The dictionary should look
+            something like this:
+            {
+                "link_name_1": {
+                    "breakpoints_x_pu": [0.0, 0.5, 1.0],  # list(float)
+                    "breakpoints_y_pu": [0.0, 0.4, 0.7],  # list(float)
+                },
+            }
+            See :func:`etrago.tools.constraints._add_piecewise_constraint` for more
+            information.
 
     delete_dispensable_ac_buses: bool
         Choose if electrical buses that are only connecting two lines should be
