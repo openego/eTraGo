@@ -108,6 +108,28 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
     return l_snom_pre, t_snom_pre
 
 
+def update_piecewise_link_p1(etrago):
+    """
+    Overwrites results for links_t.p1 in case piecewise constraints were applied.
+
+    PyPSA calculates p1 of links through p0*efficiency. In case of piecewise
+    constraints, the link efficiency in the links dataframe is not taken into account.
+    The efficiency is instead specified through the breakpoints provided in
+    etrago.args["extra_functionality"]["add_piecewise_constraint"]. p1 therefore needs
+    to be recalculated and overwritten, which is done in this function.
+
+    Parameters
+    ----------
+    etrago : etrago object
+
+    """
+    # overwrite p1 for piecewise links
+    if "add_piecewise_constraint" in etrago.args["extra_functionality"].keys():
+        p1_df = pd.Series(etrago.network.model.link_out_var.get_values(),
+                          dtype=float).unstack(0)
+        etrago.network.links_t.p1.loc[etrago.network.snapshots, p1_df.columns] = -p1_df
+
+
 def run_lopf(etrago, extra_functionality, method):
     """
     Function that performs lopf with or without pyomo
@@ -413,6 +435,7 @@ def optimize(self):
 
     elif self.args["method"]["type"] == "market_grid":  # besseren Namen finden
         self.market_optimization()
+        update_piecewise_link_p1(self)
 
         # self.market_results_to_grid()
 
@@ -428,6 +451,9 @@ def optimize(self):
         )
     else:
         print("Method not defined")
+
+    if self.args["method"]["type"] in ["lopf", "market_grid", "sclopf"]:
+        update_piecewise_link_p1(self)
 
 
 def dispatch_disaggregation(self):
