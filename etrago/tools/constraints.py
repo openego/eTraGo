@@ -30,6 +30,8 @@ from pypsa.descriptors import (
     get_switchable_as_dense as get_as_dense,
 )
 from pypsa.optimization.compat import get_var, define_constraints, linexpr
+from pypsa.opf import define_nodal_balances
+from pypsa.opt import LConstraint, LExpression, l_constraint
 import numpy as np
 import pandas as pd
 import pyomo.environ as po
@@ -3212,3 +3214,166 @@ def add_chp_constraints_linopy(network, snapshots):
             ].p_nom.sum(),
             "Link", "top_iso_fuel_line_" + i
             )
+
+
+def add_piecewise_constraint(self, network, snapshots):
+    """
+    Adds piecewise constraints for specified links.
+
+    Instead of using the link's efficiency, a variable efficiency is set through this
+    function, that is defined through breakpoints of a piecewise linear function. For
+    example, if the link represents an electrolyser, the specified x-breakpoints would
+    represent the electrolyser's electricity demand and the y-breakpoints the resulting
+    hydrogen production at that respective electricity demand.
+
+    It is assumed that the link's bus0 is the input bus and bus1 the output bus. If the
+    link has multiple outputs, their constraints won't be overwritten by this function.
+
+    The piecewise constraints are parametrised through a dictionary whose keys give
+    the names of the links to apply a piecewise constraint to and whose values are
+    again dictionaries giving the piecewise function for the respective link:
+
+    .. code-block:: python
+
+        {
+            "link_name": {
+                "breakpoints_x_pu": [0.0, 0.5, 1.0],
+                "breakpoints_y_pu": [0.0, 0.4, 0.7],
+            },
+        }
+
+    Where:
+
+    link_name : str
+        Name of link as in index of network.links of which to change constraints.
+    breakpoints_x_pu : list(float)
+        x-values of piecewise linear function, normed by p_nom of the link, so that
+        values are between 0 and 1.
+    breakpoints_y_pu : list(float)
+        y-values of piecewise linear function, normed by p_nom of the link, so that
+        values are between 0 and 1.
+
+    The piecewise representation used here is SOS2 (special ordered set 2).
+
+    Parameters
+    ----------
+    self : etrago object
+    network : :class:`pypsa.Network`
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    """
+    # define parameters
+    param_dict = self.args["extra_functionality"]["add_piecewise_constraint"]
+    link_names = list(param_dict.keys())
+    link_p_nom = network.links.loc[link_names, "p_nom"]
+    out_bus = network.links.loc[link_names, "bus1"]
+    link_efficiency = network.links.loc[link_names, "efficiency"]
+    for k in link_names:
+        param_dict[k]["breakpoints_x"] = list(
+            np.array(param_dict[k]["breakpoints_x_pu"]) * link_p_nom.at[k])
+        param_dict[k]["breakpoints_y"] = list(
+            np.array(param_dict[k]["breakpoints_y_pu"]) * link_p_nom.at[k])
+
+    # make new variable for link "input"
+    def link_p_nom_bounds(model, k, sn):
+        return (
+            0, link_p_nom.at[k],
+        )
+
+    network.model.link_in_var = po.Var(
+        link_names, network.snapshots,
+        bounds=link_p_nom_bounds, domain=po.Reals
+    )
+
+    # set new variable for link input equal to link_p variable
+    def link_input_rule(model, k, sn):
+        lhs = network.model.link_in_var[(k, sn)]
+        rhs = network.model.link_p[(k, sn)]
+        return lhs == rhs
+
+    network.model.link_input_equal_link_flow = po.Constraint(
+        link_names, network.snapshots, rule=link_input_rule
+    )
+
+    # make new variable for link "output"
+    network.model.link_out_var = po.Var(
+        link_names, network.snapshots,
+        bounds=link_p_nom_bounds, domain=po.Reals
+    )
+
+    # deactivate power balance constraint for output bus
+    for k in param_dict.keys():
+        for sn in network.snapshots:
+            network.model.power_balance[(out_bus.at[k], sn)].deactivate()
+
+    # get power balances from pypsa to set up new power balance for output bus
+    define_nodal_balances(network, network.snapshots)
+
+    def add_passive_branches():
+        # from pypsa.opf.define_nodal_balance_constraints()
+        passive_branches = network.passive_branches()
+        for branch in passive_branches.index:
+            bus0 = passive_branches.at[branch, "bus0"]
+            bus1 = passive_branches.at[branch, "bus1"]
+            bt = branch[0]
+            bn = branch[1]
+            for sn in snapshots:
+                network._p_balance[bus0, sn].variables.append(
+                    (-1, network.model.passive_branch_p[bt, bn, sn])
+                )
+                network._p_balance[bus1, sn].variables.append(
+                    (1, network.model.passive_branch_p[bt, bn, sn])
+                )
+
+    # add passive branches to nodal balances (is not yet done in define_nodal_balances()
+    # but in other pypsa function pypsa.opf.define_nodal_balance_constraints())
+    add_passive_branches()
+
+    # adapt power balance from pypsa
+    p_balance = {}
+    for k in link_names:
+        for sn in network.snapshots:
+            p_balance[(k, sn)] = network._p_balance[out_bus.at[k], sn]
+            # remove initial term
+            p_balance[(k, sn)].variables.remove(
+                (link_efficiency.at[k], network.model.link_p[k, sn])
+            )
+            # add new variable
+            p_balance[(k, sn)].variables.append(
+                (1, network.model.link_out_var[(k, sn)])
+            )
+
+    # add new power balance to model
+    power_balance = {
+        k: LConstraint(v, "==", LExpression()) for k, v in
+        p_balance.items()
+    }
+    l_constraint(
+        network.model,
+        "power_balance_new",
+        power_balance,
+        link_names,
+        network.snapshots,
+    )
+    # tidy up auxiliary expression
+    del network._p_balance
+
+    # add piecewise constraint
+    def _conversion_function(model, k, sn, el_in):
+        ind = param_dict[k]["breakpoints_x"].index(el_in)
+        return param_dict[k]["breakpoints_y"][ind]
+
+    breakpoints = {}
+    for k in link_names:
+        for sn in network.snapshots:
+            breakpoints[(k, sn)] = param_dict[k]["breakpoints_x"]
+
+    network.model.piecewise_balance = po.Piecewise(
+        link_names, network.snapshots,
+        network.model.link_out_var, network.model.link_in_var,
+        pw_pts=breakpoints, pw_constr_type='EQ', f_rule=_conversion_function,
+        pw_repn="SOS2"
+    )
+
