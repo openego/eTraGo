@@ -2482,8 +2482,10 @@ def plot_grid(
         * 'gen_dist': dispatch per carrier in selected timesteps
         * 'ramp_up': re-dispatch up per carrier in selected timesteps
         * 'ramp_down': re-dispatch down per carrier in selected timesteps
-        * 'PowerToH2': location and sizes of electrolizers
+        * 'PowerToH2': location and sizes of electrolyzers
         * 'flexibility_usage': use of DSM and BEV charger
+        * 'PowerToH2_correlation': indication of degree of correlation to 
+        market or nodal price of electrolyzers
 
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default
@@ -2873,7 +2875,6 @@ def plot_grid(
                                df_corr.corr(method = 'spearman').loc["nodal_price", "ely"])+
                                df_corr.corr(method = 'spearman').loc["market", "ely"])
             
-        #import pdb; pdb.set_trace()
         bus_colors = bus_colors.abs()
             
         # ely.corr
