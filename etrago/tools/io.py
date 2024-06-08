@@ -857,70 +857,63 @@ def decommissioning(self, **kwargs):
     if self.args["scn_decommissioning"] is not None:
         for i in range(len(self.args["scn_extension"])):
             scn_decom = self.args["scn_extension"][i]
-            
+
             df_decommisionning = pd.read_sql(
                 f"""
                 SELECT * FROM 
                 grid.egon_etrago_extension_line
                 WHERE scn_name = 'decomissioining_{scn_decom}'
                 """,
-                self.session.bind
+                self.session.bind,
             )
 
             self.network.mremove(
                 "Line",
                 df_decommisionning.line_id.astype(str).values,
-               
-                )
-            
+            )
+
             # buses only between removed lines
-            candidates = pd.concat([df_decommisionning.bus0,
-                                    df_decommisionning.bus1])
+            candidates = pd.concat(
+                [df_decommisionning.bus0, df_decommisionning.bus1]
+            )
             candidates.drop_duplicates(inplace=True, keep="first")
             candidates = candidates.astype(str)
 
             # Drop buses that are connecting other lines
             candidates = candidates[~candidates.isin(self.network.lines.bus0)]
             candidates = candidates[~candidates.isin(self.network.lines.bus1)]
-            
+
             # Drop buses that are connection other DC-lines
             candidates = candidates[~candidates.isin(self.dc_lines().bus0)]
             candidates = candidates[~candidates.isin(self.dc_lines().bus1)]
 
             drop_buses = self.network.buses[
-                (self.network.buses.index.isin(candidates.values)) &
-                (self.network.buses.country=="DE")]
+                (self.network.buses.index.isin(candidates.values))
+                & (self.network.buses.country == "DE")
+            ]
 
             drop_links = self.network.links[
-                (self.network.links.bus0.isin(drop_buses.index)) | 
-                (self.network.links.bus1.isin(drop_buses.index))].index
+                (self.network.links.bus0.isin(drop_buses.index))
+                | (self.network.links.bus1.isin(drop_buses.index))
+            ].index
 
             drop_trafos = self.network.transformers[
-                (self.network.transformers.bus0.isin(drop_buses.index)) |
-                (self.network.transformers.bus1.isin(drop_buses.index))].index
+                (self.network.transformers.bus0.isin(drop_buses.index))
+                | (self.network.transformers.bus1.isin(drop_buses.index))
+            ].index
 
             drop_su = self.network.storage_units[
-                self.network.storage_units.bus.isin(candidates.values)].index
+                self.network.storage_units.bus.isin(candidates.values)
+            ].index
 
-            self.network.mremove(
-                "StorageUnit",
-                drop_su
-                )
+            self.network.mremove("StorageUnit", drop_su)
 
-            self.network.mremove(
-                "Transformer",
-                drop_trafos
-                )
+            self.network.mremove("Transformer", drop_trafos)
 
-            self.network.mremove(
-                "Link",
-                drop_links
-                )
+            self.network.mremove("Link", drop_links)
 
-            self.network.mremove(
-                "Bus",
-                drop_buses.index
-                )
+            self.network.mremove("Bus", drop_buses.index)
+
 
 def distance(x0, x1, y0, y1):
     """
