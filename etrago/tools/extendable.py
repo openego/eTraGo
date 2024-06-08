@@ -100,12 +100,12 @@ def extendable(
             network.links.loc[
                 network.links.carrier == "DC", "p_nom_extendable"
             ] = True
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_min"
-            ] = network.links.p_nom
-            network.links.loc[
-                network.links.carrier == "DC", "p_nom_max"
-            ] = float("inf")
+            network.links.loc[network.links.carrier == "DC", "p_nom_min"] = (
+                network.links.p_nom
+            )
+            network.links.loc[network.links.carrier == "DC", "p_nom_max"] = (
+                float("inf")
+            )
 
     if "german_network" in extendable_settings["extendable_components"]:
         buses = network.buses[network.buses.country == "DE"]
@@ -305,21 +305,21 @@ def extendable(
 
         network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
 
-        network.storage_units.loc[
-            foreign_battery, "p_nom_max"
-        ] = network.storage_units.loc[foreign_battery, "p_nom"]
+        network.storage_units.loc[foreign_battery, "p_nom_max"] = (
+            network.storage_units.loc[foreign_battery, "p_nom"]
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "p_nom"
-        ] = network.storage_units.loc[foreign_battery, "p_nom_min"]
+        network.storage_units.loc[foreign_battery, "p_nom"] = (
+            network.storage_units.loc[foreign_battery, "p_nom_min"]
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "capital_cost"
-        ] = network.storage_units.loc[de_battery, "capital_cost"].max()
+        network.storage_units.loc[foreign_battery, "capital_cost"] = (
+            network.storage_units.loc[de_battery, "capital_cost"].max()
+        )
 
-        network.storage_units.loc[
-            foreign_battery, "marginal_cost"
-        ] = network.storage_units.loc[de_battery, "marginal_cost"].max()
+        network.storage_units.loc[foreign_battery, "marginal_cost"] = (
+            network.storage_units.loc[de_battery, "marginal_cost"].max()
+        )
 
     # Extension settings for extension-NEP 2035 scenarios
     if "overlay_network" in extendable_settings["extendable_components"]:
@@ -651,9 +651,11 @@ def transformer_max_abs(network, buses):
     # the calculated maximum. For these cases, max capacity is set to be the
     # equal to the min capacity.
     network.transformers["s_nom_max"] = network.transformers.apply(
-        lambda x: x["s_nom_max"]
-        if float(x["s_nom_max"]) > float(x["s_nom_min"])
-        else x["s_nom_min"],
+        lambda x: (
+            x["s_nom_max"]
+            if float(x["s_nom_max"]) > float(x["s_nom_min"])
+            else x["s_nom_min"]
+        ),
         axis=1,
     )
 
@@ -741,17 +743,17 @@ def extension_preselection(etrago, method, days=3):
     network.lines.loc[
         ~network.lines.index.isin(extended_lines), "s_nom_extendable"
     ] = False
-    network.lines.loc[
-        network.lines.s_nom_extendable, "s_nom_min"
-    ] = network.lines.s_nom
+    network.lines.loc[network.lines.s_nom_extendable, "s_nom_min"] = (
+        network.lines.s_nom
+    )
     network.lines.loc[network.lines.s_nom_extendable, "s_nom_max"] = np.inf
 
     network.links.loc[
         ~network.links.index.isin(extended_links), "p_nom_extendable"
     ] = False
-    network.links.loc[
-        network.links.p_nom_extendable, "p_nom_min"
-    ] = network.links.p_nom
+    network.links.loc[network.links.p_nom_extendable, "p_nom_min"] = (
+        network.links.p_nom
+    )
     network.links.loc[network.links.p_nom_extendable, "p_nom_max"] = np.inf
 
     network.snapshot_weightings = weighting
