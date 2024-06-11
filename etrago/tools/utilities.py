@@ -3178,3 +3178,35 @@ def find_buses_area(etrago, carrier):
         buses_area = pd.DataFrame()
 
     return buses_area.index
+
+def adjust_before_optimization(self):
+
+    def check_e_initial(etrago):
+        stores = etrago.network.stores
+        stores_t = etrago.network.stores_t
+        for st in stores_t["e_max_pu"].columns:
+            e_initial_pu = stores.at[st, "e_initial"] / stores.at[st, "e_nom"]
+            min_e = stores_t["e_min_pu"].iloc[0, :][st]
+            max_e = stores_t["e_max_pu"].iloc[0, :][st]
+            if (e_initial_pu >= min_e) & (e_initial_pu <= max_e):
+                continue
+            else:
+                stores.at[st, "e_initial"] = (
+                    stores.at[st, "e_nom"] * (min_e + max_e) / 2
+                )
+
+        return stores
+
+    # Temporary drop DLR as it is currently not working with sclopf
+    if self.args["method"]["type"] != "lopf":
+        self.network.lines_t.s_max_pu = pd.DataFrame(
+            index=self.network.snapshots,
+            columns=self.network.lines.index,
+            data=1.0,
+        )
+
+    self.network.storage_units.cyclic_state_of_charge = True
+
+    self.network.lines.loc[self.network.lines.r == 0.0, "r"] = 10
+
+    self.network.stores = check_e_initial(self)
