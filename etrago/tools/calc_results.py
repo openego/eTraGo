@@ -26,7 +26,9 @@ import os
 if "READTHEDOCS" not in os.environ:
     import logging
 
+    from matplotlib import pyplot as plt
     import pandas as pd
+    import pypsa
 
     logger = logging.getLogger(__name__)
 
@@ -124,6 +126,32 @@ def _calc_network_expansion(self):
     return lines, dc_links
 
 
+def _calc_network_expansion_length(self):
+    """Function that calulates electrical network expansion in MW
+
+    Returns
+    -------
+    float
+        network expansion (AC lines and DC links) in MW
+
+    """
+
+    network = self.network
+
+    lines = (network.lines.s_nom_opt - network.lines.s_nom_min).mul(
+        network.lines.length
+    )[network.lines.s_nom_extendable]
+
+    ext_links = network.links[network.links.p_nom_extendable]
+    ext_dc_lines = ext_links[ext_links.carrier == "DC"]
+
+    dc_links = (ext_dc_lines.p_nom_opt - ext_dc_lines.p_nom_min).mul(
+        ext_dc_lines.length
+    )
+
+    return lines.sum(), dc_links.sum()
+
+
 def calc_investment_cost(self):
     """Function that calulates overall annualized investment costs.
 
@@ -213,15 +241,23 @@ def calc_marginal_cost(self):
         network.generators_t.p.mul(
             network.snapshot_weightings.objective, axis=0
         )
-        .sum(axis=0)
-        .mul(network.generators.marginal_cost)
+        .mul(
+            pypsa.descriptors.get_switchable_as_dense(
+                network, "Generator", "marginal_cost"
+            )
+        )
+        .sum()
         .sum()
     )
     link = (
         abs(network.links_t.p0)
         .mul(network.snapshot_weightings.objective, axis=0)
-        .sum(axis=0)
-        .mul(network.links.marginal_cost)
+        .mul(
+            pypsa.descriptors.get_switchable_as_dense(
+                network, "Link", "marginal_cost"
+            )
+        )
+        .sum()
         .sum()
     )
     stor = (
@@ -661,16 +697,19 @@ def calc_etrago_results(self):
             "methanisation links expansion",
             "Steam Methane Reformation links expansion",
             "abs. electrical grid expansion",
+            "abs. electrical grid expansion length",
             "abs. electrical ac grid expansion",
             "abs. electrical dc grid expansion",
             "rel. electrical ac grid expansion",
             "rel. electrical dc grid expansion",
+            "redispatch cost",
         ],
     )
 
     self.results.unit[self.results.index.str.contains("cost")] = "EUR/a"
     self.results.unit[self.results.index.str.contains("expansion")] = "MW"
     self.results.unit[self.results.index.str.contains("rel.")] = "p.u."
+    self.results.unit[self.results.index.str.contains("length")] = "MW*km"
 
     # system costs
 
@@ -753,6 +792,12 @@ def calc_etrago_results(self):
         self.results.value["abs. electrical ac grid expansion"] = (
             _calc_network_expansion(self)[0].sum()
         )
+
+        self.results.value["abs. electrical grid expansion length"] = (
+            _calc_network_expansion_length(self)[0]
+            + _calc_network_expansion_length(self)[1]
+        )
+
         self.results.value["abs. electrical dc grid expansion"] = (
             _calc_network_expansion(self)[1].sum()
         )
@@ -771,3 +816,178 @@ def calc_etrago_results(self):
         self.results.value["rel. electrical dc grid expansion"] = (
             _calc_network_expansion(self)[1].sum() / ext_dc_lines.p_nom.sum()
         )
+
+    if not network.generators[
+        network.generators.index.str.contains("ramp")
+    ].empty:
+        network = self.network
+        gen_idx = network.generators[
+            network.generators.index.str.contains("ramp")
+        ].index
+        gen = (
+            network.generators_t.p[gen_idx]
+            .mul(network.snapshot_weightings.objective, axis=0)
+            .mul(network.generators_t.marginal_cost[gen_idx])
+            .sum()
+            .sum(axis=0)
+        )
+
+        link_idx = network.links[
+            network.links.index.str.contains("ramp")
+        ].index
+        link = (
+            network.links_t.p0[link_idx]
+            .mul(network.snapshot_weightings.objective, axis=0)
+            .mul(
+                pypsa.descriptors.get_switchable_as_dense(
+                    network, "Link", "marginal_cost"
+                )[link_idx]
+            )
+            .sum(axis=0)
+            .sum()
+        )
+        self.results.value["redispatch cost"] = gen + link
+
+
+def total_redispatch(network, only_de=True, plot=False):
+
+    if only_de:
+        ramp_up = network.generators[
+            (network.generators.index.str.contains("ramp_up"))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index.values
+                )
+            )
+        ]
+
+        ramp_up_links = network.links[
+            (network.links.index.str.contains("ramp_up"))
+            & (
+                network.links.bus0.isin(
+                    network.buses[network.buses.country == "DE"].index.values
+                )
+            )
+        ]
+        ramp_down = network.generators[
+            (network.generators.index.str.contains("ramp_down"))
+            & (
+                network.generators.bus.isin(
+                    network.buses[network.buses.country == "DE"].index.values
+                )
+            )
+        ]
+
+        ramp_down_links = network.links[
+            (network.links.index.str.contains("ramp_down"))
+            & (
+                network.links.bus0.isin(
+                    network.buses[network.buses.country == "DE"].index.values
+                )
+            )
+        ]
+
+    else:
+        ramp_up = network.generators[
+            network.generators.index.str.contains("ramp_up")
+        ]
+
+        ramp_up_links = network.links[
+            network.links.index.str.contains("ramp_up")
+        ]
+        ramp_down = network.generators[
+            network.generators.index.str.contains("ramp_down")
+        ]
+        ramp_down_links = network.links[
+            network.links.index.str.contains("ramp_down")
+        ]
+
+    # Annual ramp up in MWh
+    total_ramp_up = (
+        network.links_t.p1[ramp_up_links.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+        * (-1)
+        + network.generators_t.p[ramp_up.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+    )
+
+    # Hourly ramp up during the year in MW
+    total_ramp_up_t = network.links_t.p1[ramp_up_links.index].sum(axis=1) * (
+        -1
+    ) + network.generators_t.p[ramp_up.index].sum(axis=1)
+
+    # Hourly ramp up potential during the year in MW
+    total_ramp_up_potential = network.get_switchable_as_dense(
+        "Link", "p_max_pu"
+    )[ramp_up_links.index].mul(ramp_up_links.p_nom).sum(
+        axis=1
+    ) + network.get_switchable_as_dense(
+        "Generator", "p_max_pu"
+    )[
+        ramp_up.index
+    ].mul(
+        ramp_up.p_nom
+    ).sum(
+        axis=1
+    )
+
+    if plot:
+        # Plot potential and accutual ramp up
+        fig, ax = plt.subplots(figsize=(15, 5))
+        total_ramp_up_potential.plot(ax=ax, kind="area", color="lightblue")
+        total_ramp_up_t.plot(ax=ax, color="blue")
+
+    # Annual ramp down in MWh
+    total_ramp_down = (
+        network.links_t.p1[ramp_down_links.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+        * (-1)
+        + network.generators_t.p[ramp_down.index]
+        .sum(axis=1)
+        .mul(network.snapshot_weightings.generators)
+        .sum()
+    )
+
+    # Hourly ramp down during the year in MW
+    total_ramp_down_t = network.links_t.p1[ramp_down_links.index].sum(
+        axis=1
+    ) * (-1) + network.generators_t.p[ramp_down.index].sum(axis=1)
+
+    # Hourly ramp down potential during the year in MW
+    total_ramp_down_potential = network.get_switchable_as_dense(
+        "Link", "p_min_pu"
+    )[ramp_down_links.index].mul(ramp_down_links.p_nom).sum(
+        axis=1
+    ) + network.get_switchable_as_dense(
+        "Generator", "p_min_pu"
+    )[
+        ramp_down.index
+    ].mul(
+        ramp_down.p_nom
+    ).sum(
+        axis=1
+    )
+
+    if plot:
+        fig, ax = plt.subplots(figsize=(15, 5))
+        total_ramp_down_potential.plot(ax=ax, kind="area", color="lightblue")
+        total_ramp_down_t.plot(ax=ax, color="blue")
+
+    return {
+        "ramp_up": {
+            "total": total_ramp_up,
+            "timeseries": total_ramp_up_t,
+            "potential": total_ramp_up_potential,
+        },
+        "ramp_down": {
+            "total": total_ramp_down,
+            "timeseries": total_ramp_down_t,
+            "potential": total_ramp_down_potential,
+        },
+    }

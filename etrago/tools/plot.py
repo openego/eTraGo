@@ -2482,8 +2482,10 @@ def plot_grid(
         * 'gen_dist': dispatch per carrier in selected timesteps
         * 'ramp_up': re-dispatch up per carrier in selected timesteps
         * 'ramp_down': re-dispatch down per carrier in selected timesteps
-        * 'PowerToH2': location and sizes of electrolizers
+        * 'PowerToH2': location and sizes of electrolyzers
         * 'flexibility_usage': use of DSM and BEV charger
+        * 'PowerToH2_correlation': indication of degree of correlation to 
+        market or nodal price of electrolyzers
 
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default
@@ -2834,6 +2836,51 @@ def plot_grid(
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
+    elif (
+        bus_colors == "PowerToH2_correlation"
+    ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
+        bus_scaling = bus_sizes
+        bus_sizes = (
+            bus_scaling
+            * network.links[(network.links.carrier == "power_to_H2")]
+            .groupby("bus0")
+            .sum()
+            .p_nom_opt
+        )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
+        bus_colors = coloring()["power_to_H2"]
+        bus_legend = "PowerToH2"
+        bus_unit = "TW"
+        
+
+        
+        market_bus_de = self.market_model.buses[(self.market_model.buses.country=="DE") & (self.market_model.buses.carrier=="AC")].index
+        market_price = self.market_model.buses_t.marginal_price[market_bus_de]
+        
+        bus_colors = pd.Series(index=network.buses.index, data=0)
+        for bus in network.links[(network.links.carrier == "power_to_H2")].bus0:
+            
+            nodal_price = network.buses_t.marginal_price[bus]
+            
+            ely = network.links_t.p0[network.links[(network.links.carrier == "power_to_H2")
+                                                   & (network.links.bus0==bus)].index]
+            df_corr = pd.DataFrame()
+    
+            df_corr["ely"] = ely
+            df_corr["market"] = market_price
+            df_corr["nodal_price"] = nodal_price
+    
+            bus_colors[bus] = (df_corr.corr(method = 'spearman').loc["nodal_price", "ely"]/ (                            
+                               df_corr.corr(method = 'spearman').loc["nodal_price", "ely"])+
+                               df_corr.corr(method = 'spearman').loc["market", "ely"])
+            
+        bus_colors = bus_colors.abs()
+            
+        # ely.corr
+        # ely_corr_market = ely.corrwith(
+        #     market_price, method = 'spearman', axis=1)
+        # ely_corr_nodal = ely.corr(nodal_price, method = 'spearman')
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
         bus_sizes = pd.Series(
@@ -2849,14 +2896,16 @@ def plot_grid(
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
-            line_cmap=plt.cm.jet,
-            link_cmap=plt.cm.jet,
+            line_cmap=plt.cm.viridis,
+            bus_alpha=0.9,
+            link_cmap=plt.cm.viridis,
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
+            bus_cmap = plt.cm.viridis,
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            title=title,
+            #title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
@@ -2912,7 +2961,7 @@ def plot_grid(
                 labels.append(
                     f"""
                     {round(max_value/bus_scaling/scaling_store_expansion[i]/
-                           1000, 0).astype(int)} {bus_unit} """
+                           1000, 0)} {bus_unit} """
                     + i
                 )
         else:
@@ -2995,11 +3044,18 @@ def plot_grid(
             ll[1],
             values=v,
             ticks=v[0:101:10],
-            fraction=0.028,
+            #fraction=0.028,
             pad=0.04,
+            orientation="horizontal"
         )
         # Set legend label
         cb.set_label(label)
+        
+    elif type(bus_colors) != str:
+        #import pdb; pdb.set_trace()
+        ll[0].set_clim([0, bus_colors.max()]) 
+        plt.colorbar(ll[0], fraction=0.04, pad=0.004, label="correlation factor", ax=ax)
+
 
     # Show plot or save to file
     if filename is None:

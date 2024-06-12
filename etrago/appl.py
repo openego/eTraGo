@@ -52,15 +52,19 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "market_grid",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
-        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "pyomo": True,  # set if pyomo is used for model building
-        "formulation": "pyomo",
-        "market_zones": "status_quo", # only used if type='market_grid'
-        "rolling_horizon": { # Define parameter of market optimization
-            "planning_horizon": 72, # number of snapshots in each optimization
-            "overlap": 24, # number of overlapping hours
-            },
+        "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "formulation": "linopy",
+        "market_optimization":
+            {
+                "active": True,
+                "market_zones": "status_quo", # only used if type='market_grid'
+                "rolling_horizon": {# Define parameter of market optimization
+                    "planning_horizon": 168, # number of snapshots in each optimization
+                    "overlap": 120, # number of overlapping hours
+                 },
+                "redispatch": True,
+             }
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -68,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 168,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -678,6 +682,21 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # drop generators without p_nom
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            etrago.network.generators.p_nom==0].index
+        )
+
+    # Temporary drop DLR as it is currently not working with sclopf
+    if (etrago.args["method"]["type"] == "sclopf") & (
+            not etrago.network.lines_t.s_max_pu.empty):
+        print("Setting s_max_pu timeseries to 1")
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+        )
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
@@ -688,7 +707,8 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
 
     etrago.spatial_clustering_gas()
-
+    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
+    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # snapshot clustering
     etrago.snapshot_clustering()
 
@@ -728,6 +748,7 @@ if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
+
     print(datetime.datetime.now())
     etrago.session.close()
     # plots: more in tools/plot.py
