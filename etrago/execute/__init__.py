@@ -429,6 +429,8 @@ def optimize(self):
     None.
 
     """
+    # Verify feasibility
+    self.adjust_before_optimization()
 
     if self.args["method"]["type"] == "lopf":
         self.lopf()
