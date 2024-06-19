@@ -3216,7 +3216,7 @@ def add_chp_constraints_linopy(network, snapshots):
             )
 
 
-def add_piecewise_constraint(self, network, snapshots):
+def _add_piecewise_constraint(self, network, snapshots):
     """
     Adds piecewise constraints for specified links.
 
