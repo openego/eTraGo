@@ -136,7 +136,6 @@ def grid_optimization(
         "p_nom_max",
     ] = np.inf
 
-    self.args["method"]["formulation"] = "pyomo"
     if self.args["method"]["type"] == "lopf":
         self.lopf()
     else:
