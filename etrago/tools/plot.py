@@ -1847,12 +1847,12 @@ def plot_grid(
         #scale heat store representation
         bus_sizes[bus_sizes.index.get_level_values('carrier').str.contains('heat')] /=10
         
-        bus_legend = "Storage expansion"
+        bus_legend = "storage expansion"
         bus_unit = "GW"
     elif bus_colors == "h2_battery_storage_expansion":
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network, carriers=["battery", "H2_overground", "H2_underground"])
-        bus_legend = "Storage expansion"
+        bus_legend = "storage expansion"
         bus_unit = "GW"
     elif bus_colors == "storage_distribution":
         bus_scaling = bus_sizes
@@ -1916,7 +1916,7 @@ def plot_grid(
         bus_sizes = bus_sizes.reset_index()
         bus_sizes = bus_sizes[bus_sizes.carrier.str.contains("H2")]
         bus_sizes.set_index(["bus", "carrier"], inplace=True)
-        bus_legend = "Storage expansion"
+        bus_legend = "storage expansion"
         bus_unit = "GW"
     else:
         logger.warning("bus_color {} undefined".format(bus_colors))
@@ -1924,6 +1924,9 @@ def plot_grid(
     if type(link_widths) != int:
         link_widths.loc[network.links.carrier != "DC"] = 0
 
+    #import pdb; pdb.set_trace()
+    link_widths=3
+    line_widths=3    
     ll = network.plot(
         line_colors=line_colors,
         link_colors=link_colors,
@@ -1934,7 +1937,7 @@ def plot_grid(
         line_widths=line_widths,
         link_widths=link_widths,
         flow=flow,
-        title=title,
+        #title=title,
         geomap=False,
         projection=ccrs.PlateCarree(),
         color_geomap=True,
