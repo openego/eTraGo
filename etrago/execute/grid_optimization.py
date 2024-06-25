@@ -235,6 +235,12 @@ def add_redispatch_generators(
         )
     ].index
 
+    # this function is called here before p_max_pu is modified to set the
+    # dispatch values from the market optimization.
+    p_max_pu_all = self.network.get_switchable_as_dense(
+        "Generator", "p_max_pu"
+    ).copy()
+
     links_redispatch = self.network.links[
         (
             self.network.links.carrier.isin(["OCGT"])
@@ -428,9 +434,6 @@ def add_redispatch_generators(
     # Set maximum feed-in limit for ramp up generators based on feed-in of
     # (disaggregated) generators from the market optimization and potential
     # feedin time series
-    p_max_pu_all = self.network.get_switchable_as_dense(
-        "Generator", "p_max_pu"
-    )
 
     self.network.generators_t.p_max_pu.loc[:, gens_redispatch + " ramp_up"] = (
         (
