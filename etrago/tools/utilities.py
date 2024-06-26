@@ -2564,7 +2564,6 @@ def modular_weight(network, busmap):
     -------
     modularity. The higher the best quality of the clustering.
     """
-
     busmap = pd.Series(busmap)
     ac_buses = network.buses[network.buses.carrier == "AC"]
     busmap = busmap[busmap.index.isin(ac_buses.index.astype(str))]
@@ -2572,14 +2571,19 @@ def modular_weight(network, busmap):
 
     network.buses = network.buses[network.buses.carrier == "AC"]
     network.calculate_dependent_values()
-    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom)).set_index(['bus0','bus1'])
-    links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
+    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom/network.lines.x).set_index(['bus0','bus1']))
+    #lines["weight"] = lines["weight"].apply(lambda x: x if x<0 else 1)
 
-    links = network.links[network.links.carrier == "DC"]
-    links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
+    #links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
+
+    #links = network.links[network.links.carrier == "DC"]
+    #links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
+
+
 
     G = nx.Graph()
     G.add_nodes_from(network.buses.index)
     G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in lines.itertuples())
-    G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
+    
+    #G.add_edges_from((u,v,dict(weight=w)) for (u,v),w in links.itertuples())
     return nx.algorithms.community.quality.modularity(G, list(set(busmap[busmap==c].index) for c in busmap.unique()))
