@@ -2550,7 +2550,7 @@ def residual_load(network, sector="electricity"):
 
     return loads_per_bus - renewable_dispatch
 
-def modular_weight(network, busmap):
+def modular_weight(network, busmap, weight, exclude):
     """
     Calculate the modularity to evaluate the quality of a clustering process
     Parameters
@@ -2571,15 +2571,17 @@ def modular_weight(network, busmap):
 
     network.buses = network.buses[network.buses.carrier == "AC"]
     network.calculate_dependent_values()
-    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=network.lines.s_nom/network.lines.x).set_index(['bus0','bus1']))
+    
+    if exclude:
+        lines = network.lines[network.lines.length>exclude]
+    else:
+        lines=network.lines
+    lines = (network.lines.loc[:,['bus0', 'bus1']].assign(weight=weight).set_index(['bus0','bus1']))
     #lines["weight"] = lines["weight"].apply(lambda x: x if x<0 else 1)
-
+    
     #links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
-
     #links = network.links[network.links.carrier == "DC"]
     #links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
-
-
 
     G = nx.Graph()
     G.add_nodes_from(network.buses.index)
