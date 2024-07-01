@@ -2571,13 +2571,14 @@ def modular_weight(network, busmap, weight, exclude):
 
     network.buses = network.buses[network.buses.carrier == "AC"]
     network.calculate_dependent_values()
+
     if exclude:
         lines = network.lines[network.lines.length>exclude]
     else:
         lines=network.lines
     lines = (lines.loc[:,['bus0', 'bus1']].assign(weight=weight)).set_index(['bus0','bus1'])
     #lines["weight"] = lines["weight"].apply(lambda x: x if x<0 else 1)
-
+    
     #links = (network.links.loc[:,['bus0', 'bus1']].assign(weight=network.links.p_nom)).set_index(['bus0','bus1'])
     #links = network.links[network.links.carrier == "DC"]
     #links = (links.loc[:,['bus0', 'bus1']].assign(weight=links.p_nom)).set_index(['bus0','bus1'])
