@@ -2573,9 +2573,22 @@ def modular_weight(network, busmap, weight, exclude):
     network.calculate_dependent_values()
 
     if exclude:
-        lines = network.lines[network.lines.length>exclude]
+        print(' ')
+        print(len(network.lines))
+        print(' ')
+        #lines = network.lines[network.lines.v_nom>110.0]
+        #lines = network.lines[network.lines.length > exclude]
+        percentile = network.lines['length'].quantile(exclude)
+        lines = network.lines[network.lines['length'] > percentile]
+        print(' ')
+        print(len(lines))
+        print((pd.concat([network.lines, lines]).drop_duplicates(keep=False)).length.max())
+        print((pd.concat([network.lines, lines]).drop_duplicates(keep=False)).length.idxmax())
+        print(' ')
+        
     else:
         lines=network.lines
+
     lines = (lines.loc[:,['bus0', 'bus1']].assign(weight=weight)).set_index(['bus0','bus1'])
     #lines["weight"] = lines["weight"].apply(lambda x: x if x<0 else 1)
     
