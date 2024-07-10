@@ -19,8 +19,9 @@ Research projects
 ====================
 This software project was initially developed in the research project
 `open_eGo <https://openegoproject.wordpress.com>`_.
-It is constantly further developed in different reserach projects, 
-e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_. 
+It is constantly further developed in different research projects,
+e.g. `eGon <https://ego-n.org/>`_, `PoWerD <https://www.h2-powerd.de/>`_, and
+`hyBit <https://hybit.org/>`_.
 
 
 The OpenEnergy Platform
