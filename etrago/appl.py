@@ -731,15 +731,15 @@ def run_etrago(args, json_path):
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
 
-    # # start power flow based on lopf results
-    # etrago.pf_post_lopf()
+    # start power flow based on lopf results
+    etrago.pf_post_lopf()
 
-    # # spatial disaggregation
-    # # needs to be adjusted for new sectors
-    # etrago.spatial_disaggregation()
+    # spatial disaggregation
+    # needs to be adjusted for new sectors
+    etrago.spatial_disaggregation()
 
-    # # calculate central etrago results
-    # etrago.calc_results()
+    # calculate central etrago results
+    etrago.calc_results()
 
     return etrago
 
