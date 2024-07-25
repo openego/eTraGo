@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "powerd-data",  # database session
+    "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -83,7 +83,7 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -729,7 +729,7 @@ def run_etrago(args, json_path):
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
-    # etrago.temporal_disaggregation()
+    etrago.temporal_disaggregation()
 
     # # start power flow based on lopf results
     # etrago.pf_post_lopf()
