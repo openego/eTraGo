@@ -342,7 +342,12 @@ def build_market_model(self):
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     # set UC constraints
-    unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
+    unit_commitment_fpath = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data",
+        "unit_commitment.csv",
+    )
+    unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
     unit_commitment.fillna(0, inplace=True)
     committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
         "committable"
@@ -425,8 +430,12 @@ def build_shortterm_market_model(self):
     m.storage_units.cyclic_state_of_charge = False
 
     # set UC constraints
-
-    unit_commitment = pd.read_csv("./data/unit_commitment.csv", index_col=0)
+    unit_commitment_fpath = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data",
+        "unit_commitment.csv",
+    )
+    unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
     unit_commitment.fillna(0, inplace=True)
     committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame(
         "committable"
