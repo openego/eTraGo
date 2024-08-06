@@ -73,32 +73,16 @@ def update_electrical_parameters(network, l_snom_pre, t_snom_pre):
         network.lines.x * l_snom_pre / network.lines.s_nom_opt
     )
 
-    network.transformers.x[network.transformers.s_nom_extendable] = (
-        network.transformers.x * t_snom_pre / network.transformers.s_nom_opt
-    )
-
     network.lines.r[network.lines.s_nom_extendable] = (
         network.lines.r * l_snom_pre / network.lines.s_nom_opt
-    )
-
-    network.transformers.r[network.transformers.s_nom_extendable] = (
-        network.transformers.r * t_snom_pre / network.transformers.s_nom_opt
     )
 
     network.lines.g[network.lines.s_nom_extendable] = (
         network.lines.g * network.lines.s_nom_opt / l_snom_pre
     )
 
-    network.transformers.g[network.transformers.s_nom_extendable] = (
-        network.transformers.g * network.transformers.s_nom_opt / t_snom_pre
-    )
-
     network.lines.b[network.lines.s_nom_extendable] = (
         network.lines.b * network.lines.s_nom_opt / l_snom_pre
-    )
-
-    network.transformers.b[network.transformers.s_nom_extendable] = (
-        network.transformers.b * network.transformers.s_nom_opt / t_snom_pre
     )
 
     # Set snom_pre to s_nom_opt for next iteration
