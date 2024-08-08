@@ -28,7 +28,6 @@ import os
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
-
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -44,11 +43,12 @@ from pypsa.plot import draw_map_cartopy
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    from etrago.execute import import_gen_from_links
     from pyproj import Proj, transform
     from shapely.geometry import LineString, Point
     import geopandas as gpd
     import tilemapbase
+
+    from etrago.execute import import_gen_from_links
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
