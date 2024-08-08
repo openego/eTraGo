@@ -682,14 +682,6 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    # Temporary drop DLR as it is currently not working with sclopf
-    if (etrago.args["method"]["type"] == "sclopf") & (
-            not etrago.network.lines_t.s_max_pu.empty):
-        print("Setting s_max_pu timeseries to 1")
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-        )
-
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 

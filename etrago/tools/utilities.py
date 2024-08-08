@@ -2963,3 +2963,15 @@ def manual_fixes_datamodel(etrago):
             ].index,
             inplace=True,
         )
+
+    # Temporary drop DLR as it is currently not working with sclopf
+    if (etrago.args["method"]["type"] == "sclopf") & (
+            not etrago.network.lines_t.s_max_pu.empty):
+        print(
+            """
+            Dynamic line rating is not implemented for the sclopf yet.
+            Setting s_max_pu timeseries to 1
+            """)
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+        )
