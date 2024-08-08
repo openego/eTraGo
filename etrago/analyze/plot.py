@@ -21,14 +21,14 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
-from math import log10, sqrt
+from math import sqrt
 import logging
 import os
 
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
-from pyproj import Proj, transform
+
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -45,9 +45,8 @@ logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
     from etrago.execute import import_gen_from_links
-    from geoalchemy2.shape import to_shape
     from pyproj import Proj, transform
-    from shapely.geometry import LineString, MultiPoint, Point, Polygon
+    from shapely.geometry import LineString, Point
     import geopandas as gpd
     import tilemapbase
 
