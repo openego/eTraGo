@@ -23,6 +23,7 @@ import os
 
 from sqlalchemy import create_engine
 import keyring
+import oedialect
 
 
 def readcfg(filepath, section):
