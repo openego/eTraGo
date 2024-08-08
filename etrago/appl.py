@@ -708,7 +708,6 @@ def run_etrago(args, json_path):
     etrago.pf_post_lopf()
 
     # spatial disaggregation
-    # needs to be adjusted for new sectors
     etrago.spatial_disaggregation()
 
     # calculate central etrago results
