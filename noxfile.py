@@ -17,7 +17,6 @@ cleaned = [
     "etrago/execute/grid_optimization.py",
     "etrago/execute/market_optimization.py",
     "etrago/network.py",
-    "etrago/tools/calc_results.py",
     "etrago/tools/extendable.py",
     "etrago/tools/io.py",
     "etrago/tools/utilities.py",
