@@ -57,8 +57,8 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, 
-ClaraBuettner, CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, 
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol,
+ClaraBuettner, CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl,
 BartelsJ"""
 
 
@@ -2479,7 +2479,7 @@ def plot_grid(
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
 
-        * 'nodal_production_balance': net producer/consumer in selected 
+        * 'nodal_production_balance': net producer/consumer in selected
            time steps
         * 'storage_expansion': storage expansion per bus and technology
         * 'storage_distribution': installed storage units per bus
