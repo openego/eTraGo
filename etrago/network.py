@@ -55,7 +55,7 @@ from etrago.execute.sclopf import (
     iterate_sclopf,
     post_contingency_analysis_lopf,
 )
-from etrago.tools.calc_results import (
+from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
     calc_etrago_results,
@@ -71,7 +71,7 @@ from etrago.tools.io import (
     decommissioning,
     extension,
 )
-from etrago.tools.plot import (
+from etrago.analyze.plot import (
     bev_flexibility_potential,
     demand_side_management,
     flexibility_usage,
