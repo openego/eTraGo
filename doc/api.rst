@@ -8,5 +8,8 @@ API
 
    api/etrago.analyze
    api/etrago.cluster
+   api/etrago.disaggregate
+   api/etrago.execute
    api/etrago.tools
    api/appl.rst
+   api/network.rst
