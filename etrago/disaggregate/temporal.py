@@ -21,8 +21,8 @@
 """
 execute.py defines optimization and simulation methods for the etrago object.
 """
-import os
 import logging
+import os
 import time
 
 import pandas as pd

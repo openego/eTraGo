@@ -33,28 +33,6 @@ if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
 
 from etrago import __version__
-from etrago.disaggregate.spatial import run_disaggregation
-from etrago.disaggregate.temporal import dispatch_disaggregation
-from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
-from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.execute import (
-    lopf,
-    optimize,
-    run_pf_post_lopf,
-)
-from etrago.execute.grid_optimization import (
-    add_redispatch_generators,
-    grid_optimization,
-)
-from etrago.execute.market_optimization import (
-    build_market_model,
-    market_optimization,
-)
-from etrago.execute.sclopf import (
-    iterate_sclopf,
-    post_contingency_analysis_lopf,
-)
 from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
@@ -63,13 +41,6 @@ from etrago.analyze.calc_results import (
     dc_export_per_country,
     german_network,
     system_costs_germany,
-)
-from etrago.tools.extendable import extendable
-from etrago.tools.io import (
-    NetworkScenario,
-    add_ch4_h2_correspondence,
-    decommissioning,
-    extension,
 )
 from etrago.analyze.plot import (
     bev_flexibility_potential,
@@ -87,6 +58,31 @@ from etrago.analyze.plot import (
     plot_heat_loads,
     plot_heat_summary,
     shifted_energy,
+)
+from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.disaggregate.spatial import run_disaggregation
+from etrago.disaggregate.temporal import dispatch_disaggregation
+from etrago.execute import lopf, optimize, run_pf_post_lopf
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
+)
+from etrago.execute.sclopf import (
+    iterate_sclopf,
+    post_contingency_analysis_lopf,
+)
+from etrago.tools.extendable import extendable
+from etrago.tools.io import (
+    NetworkScenario,
+    add_ch4_h2_correspondence,
+    decommissioning,
+    extension,
 )
 from etrago.tools.utilities import (
     add_missing_components,
