@@ -28,6 +28,7 @@ import os
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from pypsa.plot import draw_map_cartopy
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -38,7 +39,6 @@ try:
     import cartopy.crs as ccrs
 except ImportError:
     cartopy_present = False
-from pypsa.plot import draw_map_cartopy
 
 logger = logging.getLogger(__name__)
 
@@ -3040,7 +3040,7 @@ def plot_grid(
             )
             ax.add_artist(l3)
 
-    if type(line_colors) != str:
+    if type(line_colors) is not str:
         # Set fixed boundaries if selected in parameters
         if not boundaries:
             boundaries = [
@@ -3067,7 +3067,7 @@ def plot_grid(
         # Set legend label
         cb.set_label(label)
 
-    elif type(bus_colors) != str:
+    elif type(bus_colors) is not str:
         # import pdb; pdb.set_trace()
         ll[0].set_clim([0, bus_colors.max()])
         plt.colorbar(
