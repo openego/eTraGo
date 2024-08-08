@@ -34,11 +34,11 @@ if "READTHEDOCS" not in os.environ:
 
 from etrago import __version__
 from etrago.disaggregate.spatial import run_disaggregation
+from etrago.disaggregate.temporal import dispatch_disaggregation
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
 from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
 from etrago.execute import (
-    dispatch_disaggregation,
     lopf,
     optimize,
     run_pf_post_lopf,
