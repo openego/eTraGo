@@ -690,25 +690,13 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
     etrago.spatial_clustering_gas()
-    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
-    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
+
     # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
-
-    # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"]["type"] != "lopf":
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-            columns=etrago.network.lines.index,
-            data=1.0,
-        )
-
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
 
     # start linear optimal powerflow calculations
     etrago.optimize()
