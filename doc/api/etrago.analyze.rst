@@ -1,5 +1,5 @@
-etrago.analyze module
-=====================
+etrago.analyze package
+======================
 
 etrago.analyze.calc\_results module
 -----------------------------------
