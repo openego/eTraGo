@@ -196,7 +196,7 @@ def run_lopf(etrago, extra_functionality, method):
         etrago.network_tsa.stores.e_initial = 0
 
     else:
-        if method["pyomo"]:
+        if method["formulation"] == "pyomo":
             etrago.network.lopf(
                 etrago.network.snapshots,
                 solver_name=etrago.args["solver"],
@@ -209,6 +209,22 @@ def run_lopf(etrago, extra_functionality, method):
             if etrago.network.results["Solver"][0]["Status"] != "ok":
                 raise Exception("LOPF not solved.")
 
+        elif method["formulation"] == "linopy":
+            status, condition = etrago.network.optimize(
+                solver_name=etrago.args["solver"],
+                solver_options=etrago.args["solver_options"],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args["model_formulation"],
+            )
+            if status != "ok":
+                logger.warning(
+                    f"""Optimization failed with status {status}
+                    and condition {condition}"""
+                )
+                etrago.network.model.print_infeasibilities()
+                import pdb
+
+                pdb.set_trace()
         else:
             status, termination_condition = network_lopf(
                 etrago.network,
@@ -410,15 +426,16 @@ def optimize(self):
     # Verify feasibility
     self.adjust_before_optimization()
 
-    if self.args["method"]["type"] == "lopf":
-        self.lopf()
-
-    elif self.args["method"]["type"] == "market_grid":  # besseren Namen finden
+    if self.args["method"]["market_optimization"]:
         self.market_optimization()
 
         # self.market_results_to_grid()
 
         self.grid_optimization()
+
+    elif self.args["method"]["type"] == "lopf":
+
+        self.lopf()
 
     elif self.args["method"]["type"] == "sclopf":
         self.sclopf(

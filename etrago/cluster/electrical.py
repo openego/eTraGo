@@ -177,19 +177,22 @@ def adjust_no_electric_network(
     # busmap2 defines how the no electrical buses directly connected to AC
     # are going to be clustered
     busmap2 = {}
-
     # Map crossborder AC buses in case that they were not part of the k-mean
     # clustering
-    if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
-        cluster_met in ["kmeans", "kmedoids-dijkstra"]
-    ):
-        buses_orig = network.buses.copy()
-        ac_buses_out = buses_orig[
-            (buses_orig["country"] != "DE") & (buses_orig["carrier"] == "AC")
-        ].dropna(subset=["country", "carrier"])
+    # Do not apply this part if the function is used for creating the market
+    # model. It adds one bus per country, which is not useful in this case.
+    if apply_on != "market_model":
+        if (not etrago.args["network_clustering"]["cluster_foreign_AC"]) & (
+            cluster_met in ["kmeans", "kmedoids-dijkstra"]
+        ):
+            buses_orig = network.buses.copy()
+            ac_buses_out = buses_orig[
+                (buses_orig["country"] != "DE")
+                & (buses_orig["carrier"] == "AC")
+            ].dropna(subset=["country", "carrier"])
 
-        for bus_out in ac_buses_out.index:
-            busmap2[bus_out] = bus_out
+            for bus_out in ac_buses_out.index:
+                busmap2[bus_out] = bus_out
 
     foreign_hv = network.buses[
         (network.buses.country != "DE")
@@ -786,7 +789,7 @@ def postprocessing(
     )
 
     # merge busmap for foreign buses with the German buses
-    if not settings["cluster_foreign_AC"]:
+    if not settings["cluster_foreign_AC"] and (apply_on == "grid_model"):
         for bus in busmap_foreign.index:
             busmap[bus] = busmap_foreign[bus]
             if bus == busmap_foreign[bus]:

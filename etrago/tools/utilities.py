@@ -2589,7 +2589,7 @@ def check_args(etrago):
             )
             etrago.args["method"]["pyomo"] = True
 
-    if not etrago.args["method"]["pyomo"]:
+    if etrago.args["method"]["formulation"] != "pyomo":
         try:
             # The import isn't used, but just here to test for Gurobi.
             # So we can make `flake8` stop complaining about the "unused
@@ -2743,7 +2743,7 @@ def adjust_CH4_gen_carriers(self):
     the contraint applying differently to each of them.
     """
 
-    if self.args["scn_name"] == "eGon2035":
+    if "eGon2035" in self.args["scn_name"]:
         # Define marginal cost
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
@@ -2752,7 +2752,7 @@ def adjust_CH4_gen_carriers(self):
             sql = f"""
             SELECT gas_parameters
             FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"]}';"""
+            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
             df = pd.read_sql(sql, engine)
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.ProgrammingError:
@@ -2955,6 +2955,14 @@ def manual_fixes_datamodel(etrago):
         etrago.network.transformers.bus0.values, "v_nom"
     ].values
 
+    # Drop methanation option in lowflex sceanrio
+    if etrago.args["scn_name"] == "eGon2035_lowflex":
+        etrago.network.links.drop(
+            etrago.network.links[
+                etrago.network.links.carrier == "H2_to_CH4"
+            ].index,
+            inplace=True,
+        )
 
 def select_elec_network(etrago, apply_on="grid_model"):
     """

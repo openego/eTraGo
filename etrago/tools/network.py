@@ -221,7 +221,7 @@ class Etrago:
                     ignore_standard_types,
                 )
 
-            if self.args["method"]["type"] == "market_grid":
+            if self.args["method"]["market_optimization"]:
                 try:
                     self.market_model = Network(
                         csv_folder_name + "/market",
