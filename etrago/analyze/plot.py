@@ -2859,7 +2859,6 @@ def plot_grid(
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
-        
 
         market_bus_de = self.market_model.buses[
             (self.market_model.buses.country == "DE")
