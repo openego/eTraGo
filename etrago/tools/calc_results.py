@@ -504,12 +504,12 @@ def system_costs_germany(self):
 
 
 def ac_export(self):
-    """Calculate electricity exports and imports over AC lines
+    """Calculate the balance of electricity exports and imports over AC lines
 
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany
+        Balance of electricity export in MWh (if negative: import from Germany)
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
@@ -536,12 +536,13 @@ def ac_export(self):
 
 
 def ac_export_per_country(self):
-    """Calculate electricity exports and imports over AC lines per country
+    """Calculate the balance of electricity exports and imports over AC lines
+    per country
 
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany in TWh
+        Balance of electricity exchange in TWh (if > 0: export from Germany)
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
@@ -583,12 +584,12 @@ def ac_export_per_country(self):
 
 
 def dc_export(self):
-    """Calculate electricity exports and imports over DC lines
+    """"Calculate the balance of electricity exports and imports over DC lines
 
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany
+        Balance of electricity exchange in MWh (if > 0: export from Germany)
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
@@ -616,12 +617,13 @@ def dc_export(self):
 
 
 def dc_export_per_country(self):
-    """Calculate electricity exports and imports over DC lines per country
+    """Calculate the balance of electricity exports and imports over DC lines
+    per country
 
     Returns
     -------
     float
-        Electricity export (if negative: import) from Germany in TWh
+        Balance of electricity exchange in TWh (if > 0: export from Germany)
 
     """
     de_buses = self.network.buses[self.network.buses.country == "DE"]
