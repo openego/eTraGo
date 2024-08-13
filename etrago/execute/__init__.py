@@ -424,7 +424,7 @@ def optimize(self):
 
     """
 
-    if self.args["method"]["market_optimization"]:
+    if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()
 
         # self.market_results_to_grid()
