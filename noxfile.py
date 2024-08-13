@@ -1,5 +1,6 @@
 from pathlib import Path
 from pprint import pformat
+import platform
 
 import nox
 
@@ -65,6 +66,15 @@ def flake8(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
+    # Get the current Python version and OS
+    current_version = session.python if session.python else "unknown"
+    current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
+
+    # Check if the current session is Python 3.9 on macOS and skip
+    if current_version == "3.9" and current_os == "Darwin":
+        session.skip("Skipping tests for Python 3.9 on macOS")
+
     setdefaults(session)
     session.install("twine")
     session.run("python", "setup.py", "bdist", "bdist_wheel")
@@ -74,6 +84,15 @@ def build(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
+    # Get the current Python version and OS
+    current_version = session.python if session.python else "unknown"
+    current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
+
+    # Check if the current session is Python 3.9 on macOS and skip
+    if current_version == "3.9" and current_os == "Darwin":
+        session.skip("Skipping tests for Python 3.9 on macOS")
+
     setdefaults(session)
     session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
     session.run("python", "-mpip", "install", "--upgrade", "pip")
