@@ -584,7 +584,7 @@ def ac_export_per_country(self):
 
 
 def dc_export(self):
-    """"Calculate the balance of electricity exports and imports over DC lines
+    """Calculate the balance of electricity exports and imports over DC lines
 
     Returns
     -------
