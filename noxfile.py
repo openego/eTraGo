@@ -1,8 +1,8 @@
 from pathlib import Path
 from pprint import pformat
+import sys
 
 import nox
-import sys
 
 cleaned = [
     "etrago/cluster/disaggregation.py",
