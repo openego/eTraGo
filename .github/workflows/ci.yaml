@@ -1,25 +1,30 @@
 name: "CI"
 
-on: 
-  push: 
-    branches: ['**']
-  pull_request: 
-    branches: [dev, master]
+on: {push: {branches: ['**']}, pull_request: {branches: [dev, master]}}
 
 jobs:
-  linux:
-    name: Linux
-    runs-on: ubuntu-latest
+  build:
+    name: ${{ matrix.os.name }}
+    runs-on: ${{ matrix.os.image }}
 
     strategy:
       matrix:
-        python-version: [3, 3.9, "3.10", 3.11]
+        os:
+          - {image: ubuntu-latest, name: Linux}
+          - {image: windows-latest, name: Windows}
+          - {image: macos-latest, name: macOS}
+      max-parallel: 4
+      fail-fast: false
 
     steps:
       - uses: "actions/checkout@main"
       - uses: "actions/setup-python@main"
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: |
+            3
+            3.9
+            3.10
+            3.11
       - name: "Install dependencies"
         run: |
           python -mpip install --progress-bar=off nox
@@ -28,77 +33,25 @@ jobs:
           nox --version
       - name: "Run custom checks"
         run: "python -m nox -s check"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
       - name: "Check with `black`"
         run: "python -m nox -s black"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
       - name: "Check with `flake8`"
         run: "python -m nox -s flake8"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
       - name: "Check with `isort`"
         run: "python -m nox -s isort"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
       - name: "Build and check for packaging errors"
         run: "python -m nox -s build"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
       - name: "Install the package"
         run: "python -m nox -s install"
-
-  windows:
-    name: Windows
-    runs-on: windows-latest
-
-    strategy:
-      matrix:
-        python-version: [3, 3.9, "3.10", 3.11]
-
-    steps:
-      - uses: "actions/checkout@main"
-      - uses: "actions/setup-python@main"
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: "Install dependencies"
-        run: |
-          python -mpip install --progress-bar=off nox
-          python --version
-          pip --version
-          nox --version
-      - name: "Run custom checks"
-        run: "python -m nox -s check"
-      - name: "Check with `black`"
-        run: "python -m nox -s black"
-      - name: "Check with `flake8`"
-        run: "python -m nox -s flake8"
-      - name: "Check with `isort`"
-        run: "python -m nox -s isort"
-      - name: "Build and check for packaging errors"
-        run: "python -m nox -s build"
-      - name: "Install the package"
-        run: "python -m nox -s install"
-
-  macos:
-    name: macOS
-    runs-on: macos-latest
-
-    strategy:
-      matrix:
-        python-version: [3, "3.10", 3.11]  # Exclude Python 3.9 here
-
-    steps:
-      - uses: "actions/checkout@main"
-      - uses: "actions/setup-python@main"
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: "Install dependencies"
-        run: |
-          python -mpip install --progress-bar=off nox
-          python --version
-          pip --version
-          nox --version
-      - name: "Run custom checks"
-        run: "python -m nox -s check"
-      - name: "Check with `black`"
-        run: "python -m nox -s black"
-      - name: "Check with `flake8`"
-        run: "python -m nox -s flake8"
-      - name: "Check with `isort`"
-        run: "python -m nox -s isort"
-      - name: "Build and check for packaging errors"
-        run: "python -m nox -s build"
-      - name: "Install the package"
-        run: "python -m nox -s install"
+        env:
+          PLATFORM: ${{ matrix.os.image }}
