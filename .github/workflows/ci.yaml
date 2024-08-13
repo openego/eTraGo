@@ -13,7 +13,7 @@ jobs:
           - {image: ubuntu-latest, name: Linux}
           - {image: windows-latest, name: Windows}
           - {image: macos-latest, name: macOS}
-        python-version: [3.9, 3.10, 3.11]
+        python-version: [3, 3.9, "3.10", 3.11]
         exclude:
           - os: {image: macos-latest, name: macOS}
             python-version: 3.9
