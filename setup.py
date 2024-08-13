@@ -63,7 +63,7 @@ setup(
         "setuptools >= 54.2.0",
         "shapely",
         "sqlalchemy < 2",
-        "tables < 3.9",
+        "tables",
         "tilemapbase == 0.4.5",
         "tsam",
     ],
