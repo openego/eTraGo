@@ -2,6 +2,7 @@ from pathlib import Path
 from pprint import pformat
 
 import nox
+import sys
 
 cleaned = [
     "etrago/cluster/disaggregation.py",
@@ -69,7 +70,8 @@ def build(session):
     # Skip the session if it doesn't match the current CI Python version
     if session.python and session.python != current_version:
         session.skip(
-            f"Skipping tests for Python {session.python} since the current Python version is {current_version}."
+            f"""Skipping tests for Python {session.python} since the
+            current Python version is {current_version}."""
         )
     setdefaults(session)
     session.install("twine")
@@ -84,7 +86,8 @@ def install(session):
     # Skip the session if it doesn't match the current CI Python version
     if session.python and session.python != current_version:
         session.skip(
-            f"Skipping tests for Python {session.python} since the current Python version is {current_version}."
+            f"""Skipping tests for Python {session.python} since the
+            current Python version is {current_version}."""
         )
     setdefaults(session)
     session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
