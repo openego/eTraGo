@@ -68,7 +68,7 @@ def flake8(session):
 def build(session):
     """Build the package and check for packaging errors."""
     # Get the current Python version and OS
-    current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    current_version = session.python if session.python else "unknown"
     current_os = platform.system()
     print(f"Running install on Python {current_version} and OS {current_os}")
 
@@ -86,7 +86,7 @@ def build(session):
 def install(session):
     """Install the package."""
     # Get the current Python version and OS
-    current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    current_version = session.python if session.python else "unknown"
     current_os = platform.system()
     print(f"Running install on Python {current_version} and OS {current_os}")
 
