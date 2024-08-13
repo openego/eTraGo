@@ -65,6 +65,10 @@ def flake8(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
+    current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    # Skip the session if it doesn't match the current CI Python version
+    if session.python and session.python != current_version:
+        session.skip(f"Skipping tests for Python {session.python} since the current Python version is {current_version}.")
     setdefaults(session)
     session.install("twine")
     session.run("python", "setup.py", "bdist", "bdist_wheel")
@@ -74,6 +78,10 @@ def build(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
+    current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    # Skip the session if it doesn't match the current CI Python version
+    if session.python and session.python != current_version:
+        session.skip(f"Skipping tests for Python {session.python} since the current Python version is {current_version}.")
     setdefaults(session)
     session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
     session.run("python", "-mpip", "install", "--upgrade", "pip")
