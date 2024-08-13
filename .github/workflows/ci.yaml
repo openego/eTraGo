@@ -4,7 +4,7 @@ on: {push: {branches: ['**']}, pull_request: {branches: [dev, master]}}
 
 jobs:
   build:
-    name: ${{ matrix.os.name }}
+    name: ${{ matrix.os.name }} - Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os.image }}
 
     strategy:
@@ -13,6 +13,10 @@ jobs:
           - {image: ubuntu-latest, name: Linux}
           - {image: windows-latest, name: Windows}
           - {image: macos-latest, name: macOS}
+        python-version: [3, 3.9, 3.10, 3.11]
+        exclude:
+          - os: {image: macos-latest, name: macOS}
+            python-version: 3.9
       max-parallel: 4
       fail-fast: false
 
@@ -20,11 +24,7 @@ jobs:
       - uses: "actions/checkout@main"
       - uses: "actions/setup-python@main"
         with:
-          python-version: |
-            3
-            3.9
-            3.10
-            3.11
+          python-version: ${{ matrix.python-version }}
       - name: "Install dependencies"
         run: |
           python -mpip install --progress-bar=off nox
