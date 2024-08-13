@@ -141,7 +141,6 @@ def run_lopf(etrago, extra_functionality, method):
             )
         )[0]
 
-
         # repeat the optimization for all slices
         for i in range(0, no_slices):
             # keep information on the initial state of charge for the
@@ -176,18 +175,23 @@ def run_lopf(etrago, extra_functionality, method):
                         formulation=etrago.args["model_formulation"],
                     )
 
-                    if etrago.network_tsa.results["Solver"][0]["Status"] != "ok":
+                    if (
+                        etrago.network_tsa.results["Solver"][0]["Status"]
+                        != "ok"
+                    ):
                         raise Exception("LOPF not solved.")
                 else:
-                    raise Exception("Temporal disaggregation currently only works when using pyomo.")
+                    raise Exception(
+                        "Temporal disaggregation currently only works when using pyomo."
+                    )
                     status, termination_condition = network_lopf(
-                            etrago.network_tsa,
-                            etrago.network_tsa.snapshots[start : end + 1],
-                            solver_name=etrago.args["solver"],
-                            solver_options=etrago.args["solver_options"],
-                            extra_functionality=extra_functionality,
-                            formulation=etrago.args["model_formulation"],
-                        )
+                        etrago.network_tsa,
+                        etrago.network_tsa.snapshots[start : end + 1],
+                        solver_name=etrago.args["solver"],
+                        solver_options=etrago.args["solver_options"],
+                        extra_functionality=extra_functionality,
+                        formulation=etrago.args["model_formulation"],
+                    )
                     if status != "ok":
                         raise Exception("LOPF not solved.")
 
@@ -423,7 +427,7 @@ def optimize(self):
 
     """
 
-    if self.args["method"]["market_optimization"]:
+    if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()
 
         # self.market_results_to_grid()
