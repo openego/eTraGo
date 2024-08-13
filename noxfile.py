@@ -1,7 +1,6 @@
 from pathlib import Path
 from pprint import pformat
 import platform
-import sys
 
 import nox
 
