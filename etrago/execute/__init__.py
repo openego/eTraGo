@@ -182,7 +182,8 @@ def run_lopf(etrago, extra_functionality, method):
                         raise Exception("LOPF not solved.")
                 else:
                     raise Exception(
-                        "Temporal disaggregation currently only works when using pyomo."
+                        """Temporal disaggregation currently only works when
+                        using pyomo."""
                     )
                     status, termination_condition = network_lopf(
                         etrago.network_tsa,
