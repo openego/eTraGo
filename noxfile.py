@@ -70,6 +70,7 @@ def build(session):
     # Get the current Python version and OS
     current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
 
     # Check if the current session is Python 3.9 on macOS and skip
     if current_version == "3.9" and current_os == "Darwin":
@@ -87,6 +88,7 @@ def install(session):
     # Get the current Python version and OS
     current_version = f"{sys.version_info.major}.{sys.version_info.minor}"
     current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
 
     # Check if the current session is Python 3.9 on macOS and skip
     if current_version == "3.9" and current_os == "Darwin":
