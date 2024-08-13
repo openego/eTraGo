@@ -54,4 +54,5 @@ jobs:
       - name: "Install the package"
         run: "python -m nox -s install"
         env:
+          PYTHONUNBUFFERED: "1"  # Ensure Python output is unbuffered
           PLATFORM: ${{ matrix.os.image }}
