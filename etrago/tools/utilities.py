@@ -2581,13 +2581,13 @@ def check_args(etrago):
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
 
-        if not etrago.args["method"]["pyomo"]:
+        if etrago.args["method"]["formulation"] != "pyomo":
             logger.warning(
                 "Snapshot clustering constraints are"
                 " not yet correctly implemented without pyomo."
-                " Setting `args['method']['pyomo']` to `True`."
+                " Setting `args['method']['formulation']` to `pyomo`."
             )
-            etrago.args["method"]["pyomo"] = True
+            etrago.args["method"]["formulation"] = "pyomo"
 
     if etrago.args["method"]["formulation"] != "pyomo":
         try:
@@ -2606,6 +2606,15 @@ def check_args(etrago):
                 " For installation of gurobipy use pip."
             )
             raise
+
+    if (etrago.args["method"]["formulation"] != "pyomo") & (
+            etrago.args["temporal_disaggregation"]["active"]):
+            logger.warning(
+                "Temporal disaggregation is"
+                " not yet correctly implemented without pyomo."
+                " Setting `args['method']['formulation']` to `pyomo`."
+            )
+            etrago.args["method"]["formulation"] = "pyomo"
 
 
 def drop_sectors(self, drop_carriers):
