@@ -61,7 +61,7 @@ from etrago.analyze.plot import (
 )
 from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
 from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
+from etrago.cluster.temporal import skip_snapshots, snapshot_clustering
 from etrago.disaggregate.spatial import run_disaggregation
 from etrago.disaggregate.temporal import dispatch_disaggregation
 from etrago.execute import lopf, optimize, run_pf_post_lopf
