@@ -55,6 +55,7 @@ setup(
         "matplotlib >= 3.0.3",
         "oedialect",
         "pandas < 2.2",
+        "pyomo < 6.6",
         "pypsa == 0.26.2",
         "rtree",
         "saio",
