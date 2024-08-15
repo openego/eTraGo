@@ -3244,7 +3244,7 @@ def find_buses_area(etrago, carrier, area_type="primary"):
     """
     Given an Etrago object and the selected area, find the buses that
     belong to the area and return them in a list.
-
+    
     Parameters
     ----------
     etrago : Etrago object
@@ -3252,8 +3252,8 @@ def find_buses_area(etrago, carrier, area_type="primary"):
     carrier : str
         The carrier type of the buses to consider (e.g., "AC" or "DC").
     area_type : str, optional (default: "primary")
-        The type of area to consider. Can be "primary" or "secondary".
-
+        The type of area to consider. Can be "primary", "secondary", or "primary+secondary".
+    
     Returns
     -------
     list
@@ -3265,99 +3265,108 @@ def find_buses_area(etrago, carrier, area_type="primary"):
         selected_area = settings["primary_interest_area"]
     elif area_type == "secondary":
         selected_area = settings["secondary_interest_area"]
+    elif area_type == "primary+secondary":
+        selected_area = settings["primary_interest_area"] + settings["secondary_interest_area"]
     else:
-        raise ValueError("Invalid area_type. Must be 'primary' or 'secondary'.")
+        raise ValueError("Invalid area_type. Must be 'primary', 'secondary', or 'primary+secondary'.")
 
     if selected_area:
         if isinstance(selected_area, list):
             con = etrago.engine
             query = "SELECT gen, geometry FROM boundaries.vg250_krs"
-
             df_area = gpd.read_postgis(query, con, geom_col="geometry")
             df_area = df_area[df_area["gen"].isin(selected_area)]
         elif isinstance(selected_area, str):
             df_area = gpd.read_file(selected_area)
         else:
-            raise Exception(
-                "Not supported format supplied to 'selected_area' argument"
-            )
+            raise Exception("Not supported format supplied to 'selected_area' argument")
 
         try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
+            buses_area = gpd.GeoDataFrame(etrago.network.buses, geometry="geom", crs=4326)
         except:
             buses_area = etrago.network.buses[["x", "y", "carrier"]]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
+            buses_area["geom"] = buses_area.apply(lambda x: Point(x["x"], x["y"]), axis=1)
+            buses_area = gpd.GeoDataFrame(buses_area, geometry="geom", crs=4326)
 
         buses_area = gpd.clip(buses_area, df_area)
         buses_area = buses_area[buses_area.carrier == carrier]
-
     else:
         buses_area = pd.DataFrame()
 
     return buses_area.index
 
-'''
-def find_buses_area(etrago, carrier):
-    """
-    Find buses of a specified carrier in a defined area. Usually used to
-    find out the buses that should not be clustered.
-    """
-    settings = etrago.args["network_clustering"]
-    interest_areas = []
 
-    if "primary_interest_area" in settings and settings["primary_interest_area"]:
-        if isinstance(settings["primary_interest_area"], list):
-            interest_areas.extend(settings["primary_interest_area"])
-        elif isinstance(settings["primary_interest_area"], str):
-            interest_areas.append(settings["primary_interest_area"])
 
-    if "secondary_interest_area" in settings and settings["secondary_interest_area"]:
-        if isinstance(settings["secondary_interest_area"], list):
-            interest_areas.extend(settings["secondary_interest_area"])
-        elif isinstance(settings["secondary_interest_area"], str):
-            interest_areas.append(settings["secondary_interest_area"])
+import pandas as pd
+import geopandas as gpd
+from shapely.geometry import Point
 
-    if interest_areas:
-        con = etrago.engine
-        query = "SELECT gen, geometry FROM boundaries.vg250_krs"
 
-        de_areas = gpd.read_postgis(query, con, geom_col="geometry")
-        de_areas = de_areas[de_areas["gen"].isin(interest_areas)]
 
-        try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
-        except:
-            buses_area = etrago.network.buses[["x", "y", "carrier"]]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
+def find_buses(self, area_type="primary", save_path=None):
+        """
+        Given the selected area, find the buses that belong to the area and save them in a CSV file with all their attributes.
 
-        buses_area = gpd.clip(buses_area, de_areas)
-        buses_area = buses_area[buses_area.carrier == carrier]
+        Parameters
+        ----------
+        area_type : str, optional (default: "primary")
+            The type of area to consider. Can be "primary", "secondary", or "primary+secondary".
+        save_path : str, optional
+            The path where the CSV file containing the buses' attributes will be saved. If None, the file will not be saved.
 
-    else:
-        buses_area = pd.DataFrame()
+        Returns
+        -------
+        list
+            A list of buses that belong to the selected area.
+        """
+        settings = self.args["network_clustering"]
 
-    return buses_area.index
-'''
+        if area_type == "primary":
+            selected_area = settings["primary_interest_area"]
+        elif area_type == "secondary":
+            selected_area = settings["secondary_interest_area"]
+        elif area_type == "primary+secondary":
+            selected_area = settings["primary_interest_area"] + settings["secondary_interest_area"]
+        else:
+            raise ValueError("Invalid area_type. Must be 'primary', 'secondary', or 'primary+secondary'.")
+
+        if selected_area:
+            if isinstance(selected_area, list):
+                con = self.engine
+                query = "SELECT gen, geometry FROM boundaries.vg250_krs"
+                df_area = gpd.read_postgis(query, con, geom_col="geometry")
+                df_area = df_area[df_area["gen"].isin(selected_area)]
+            elif isinstance(selected_area, str):
+                df_area = gpd.read_file(selected_area)
+            else:
+                raise Exception("Not supported format supplied to 'selected_area' argument")
+
+            try:
+                buses_area = gpd.GeoDataFrame(self.network.buses, geometry="geom", crs=4326)
+            except Exception as e:
+                buses_area = self.network.buses[["x", "y", "carrier"]]
+                buses_area["geom"] = buses_area.apply(lambda x: Point(x["x"], x["y"]), axis=1)
+                buses_area = gpd.GeoDataFrame(buses_area, geometry="geom", crs=4326)
+
+            buses_area = gpd.clip(buses_area, df_area)
+
+            if save_path:
+                buses_area.to_csv(save_path)
+        else:
+            buses_area = pd.DataFrame()
+
+        return buses_area.index
+
+
+
+###Function to substract load timeseries of Dörpum energy community from database:
+
 
 def subtract_load_time_series(self):
     import pandas as pd
 
     # Parameters
-    load_id = '1600' #eGon2035: 1582, status-quo: 1600
+    load_id = '1582' #eGon2035: 1582, status-quo: 1600
     file_path = 'data/loads.csv'
     column_name = 'AC load'
 
@@ -3383,7 +3392,7 @@ def subtract_load_time_series(self):
         print(f"Load ID {load_id} not found in time series data.")
 
 
-'''
+###Function to add Dörpum energy community to the system:
 
 def add_EC_to_network(self):
     """Adds Energy Community to the network."""
@@ -3472,7 +3481,8 @@ def add_EC_to_network(self):
     default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time', 'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up', 'ramp_limit_shut_down', 'e_nom_max']
     existing_solar = self.network.generators[self.network.generators.carrier == 'solar'].iloc[0]
     solar_attrs = {attr: existing_solar.get(attr, 0) for attr in default_attrs}
-
+    
+     
     existing_biogas = self.network.generators[self.network.generators.carrier == 'central_biomass_CHP_heat'].iloc[0]
     biogas_attrs = {attr: existing_biogas.get(attr, 0) for attr in default_attrs}
 
@@ -3487,12 +3497,12 @@ def add_EC_to_network(self):
     # Add the solar generator with the new ID
     solar_gen_id = gen_id
     self.network.add("Generator", solar_gen_id, bus=new_bus, p_nom=0.03, carrier="solar", marginal_cost=0.01, 
-                     capital_cost=115400, p_max_pu=1, **solar_attrs)
+                     capital_cost=803.71, p_max_pu=1, **solar_attrs)
 
     # Add the biogas generator with the new ID
     biogas_gen_id = str(int(solar_gen_id) + 1)
-    self.network.add("Generator", biogas_gen_id, bus=new_bus, p_nom=2.762, carrier="central_biomass_CHP_heat", marginal_cost=59, 
-                     capital_cost=40750, p_max_pu=1, **biogas_attrs)
+    self.network.add("Generator", biogas_gen_id, bus=new_bus, p_nom=2.762, carrier="central_biomass_CHP_heat", marginal_cost=2.11, 
+                     capital_cost=3381.27, p_max_pu=1, **biogas_attrs)
     
   
     self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
@@ -3555,216 +3565,120 @@ def add_EC_to_network(self):
     print("Lines after addition:", len(self.network.lines))
     print("Generators after addition:", len(self.network.generators))
     print("Loads after addition:", len(self.network.loads))
+    
 
-'''
+### Function to subtract biogas generator capacities within Germany's network
+
+def subtract_generators_nominal_power(self):
+    """
+    Subtracts specified amounts of power from the nominal power of each generator.
+    
+    """
+    
+    # Uncomment the following lines for the status quo C3 scenario (subtracting 1400 MW):
+    '''
+    generator_ids = [
+        2075, 2100, 1225, 1312, 1541, 1715, 1506, 2083, 1143, 1557,
+        355, 1177, 1528, 1828, 549, 1672, 584, 758, 1347, 1681,
+        1540, 1627, 390, 2016, 1893, 1379, 871, 1461, 1612, 2091,
+        1997, 1126, 1804, 1680, 571, 1059, 220, 1927, 2002, 1656,
+        1942, 1912, 1377, 1298, 1473, 1383, 1979, 1725, 1926
+    ]
+    
+    subtract_values = [
+        160, 102.038, 91.5, 85, 66, 61.3, 60.5, 58.1, 53.7193, 49.665,
+        34, 27, 25, 25, 24.525, 22.052, 21.634, 20, 20, 19.5,
+        19.254, 18.3, 18, 18, 17.6, 16.5, 15.7, 14.557, 14.412, 14.4,
+        13.849, 13.042, 12.552, 12.5, 12.3, 11.5, 11.33, 10.861, 10.82, 10.557,
+        10.44, 10, 9.8, 9.648, 9.472, 9.1, 9, 8.664, 8.54
+    ]
+    '''
+
+    '''
+    # Hlists of generator IDs and corresponding values to subtract (in MW), in status quo C2 scenario we will subtract 259.6 MW:
+    generator_ids = [2075, 2100]
+    subtract_values = [159, 100.6]
+    '''
+   
+    # lists of generator IDs and corresponding values to subtract (in MW), in D2 scenario:
+    generator_ids = [6588]
+    subtract_values = [259.628]  
+    '''
+    # lists of generator IDs and corresponding values to subtract (in MW), in eGon2035 D3 scenario:
+    generator_ids = [6588]
+    subtract_values = [4350]
+    '''
+    
+    # Check if the generators DataFrame contains the 'p_nom' column
+    if 'p_nom' not in self.network.generators.columns:
+        print("The 'p_nom' column does not exist in the generators DataFrame.")
+        return
+
+    # Ensure the lists are of the same length
+    if len(generator_ids) != len(subtract_values):
+        print("The lengths of generator_ids and subtract_values lists must match.")
+        return
+
+    # Iterate through the lists and subtract values
+    for generator_id, subtract_value in zip(generator_ids, subtract_values):
+        if generator_id in self.network.generators.index:
+            self.network.generators.at[generator_id, 'p_nom'] -= subtract_value
+            print(f"Adjusted nominal power for Generator ID {generator_id} by subtracting {subtract_value} MW.")
+        else:
+            print(f"Generator ID {generator_id} not found in generators data.")
+
+    print("Nominal power adjustment complete.")
+
+
+### Function to add biogas generators to Germany's network
+
 def add_ECG_to_network(self):
     """Adds Energy Community to the network."""
     from geoalchemy2.shape import from_shape, to_shape
     from shapely.geometry import LineString, MultiLineString, Point
     from math import sqrt
-    import numpy as np
-    import pypsa
+    import pandas as pd
 
-    # Function to calculate s_nom_max based on parameters
-    def snommax(i=1020, u=380, wires=4, circuits=4):
-        """
-        Calculates limitation for capacity expansion.
-        """
-        s_nom_max = (i * u * sqrt(3) * wires * circuits) / 1000
-        return s_nom_max
-
-    def add_line_with_costs_and_snommax(bus0, bus1, voltage, overhead=False):
-        """Adds a line and sets cost and s_nom_max."""
-        new_line = str(self.network.lines.index.astype(int).max() + 1)
-        line_length = pypsa.geo.haversine(
-            self.network.buses.loc[bus0, ['x', 'y']],
-            self.network.buses.loc[bus1, ['x', 'y']]
-        )[0][0] * 1.2  # Adding 20% slack for non-direct paths
-
-        if voltage == 110:
-            cost_per_km = 230
-            s_nom = 280 if not overhead else 260
-            s_nom_max = snommax(u=110, wires=3)  # Example parameters for 110 kV
-        elif voltage == 220:
-            cost_per_km = 290
-            s_nom = 550 if not overhead else 520
-            s_nom_max = snommax(u=220, wires=3)  # Example parameters for 220 kV
-
-        self.network.add("Line", new_line, bus0=bus0, bus1=bus1, length=line_length, x=0.3e-3 if not overhead else 1e-3, s_nom=s_nom, s_nom_min=s_nom, s_nom_max=s_nom_max, s_nom_extendable=True, lifetime=40, r=0.0177 if not overhead else 0.05475, b=210e-9 if not overhead else 11e-9, cables=3, carrier='AC')
-        self.network.lines.loc[new_line, "capital_cost"] = cost_per_km * line_length
-        self.network.lines.loc[new_line, "scn_name"] = "eGon2035"
-        self.network.lines.loc[new_line, "v_nom"] = voltage
-        self.network.lines.loc[new_line, "country"] = "DE"
-        self.network.lines.loc[new_line, "version"] = "added_manually"
-        self.network.lines.loc[new_line, "frequency"] = 50
-        self.network.lines.loc[new_line, "length"] = line_length
-        return new_line
-
-    def add_link(bus_g0, bus_g1, p_nom, p_nom_max):
-        """Adds a link and sets cost and s_nom_max."""
-        new_link = str(self.network.links.index.astype(int).max() + 1)
-        link_length = pypsa.geo.haversine(
-            self.network.buses.loc[bus_g0, ['x', 'y']],
-            self.network.buses.loc[bus_g1, ['x', 'y']]
-        )[0][0] * 1.2  # Adding 20% slack for non-direct paths
-
-        self.network.add(
-            "Link",
-            new_link,
-            bus0=bus_g0,
-            bus1=bus_g1,
-            length=link_length,
-            p_nom=p_nom,
-            p_nom_min=p_nom,
-            p_nom_max=p_nom_max,
-            p_nom_extendable=False,
-            carrier='CH4'
-        )
-        self.network.links.loc[new_link, "capital_cost"] = 0
-        self.network.links.loc[new_link, "scn_name"] = "eGon2035"
-        self.network.links.loc[new_link, "country"] = "DE"
-        self.network.links.loc[new_link, "version"] = "added_manually"
-        self.network.links.loc[new_link, "frequency"] = 0  # Links do not have frequency
-        self.network.links.loc[new_link, "length"] = link_length
-        return new_link
-
-    print("Buses before addition:", len(self.network.buses))
-    print("Transformers before addition:", len(self.network.transformers))
-    print("Lines before addition:", len(self.network.lines))
-    print("Links before addition:", len(self.network.links))
     print("Generators before addition:", len(self.network.generators))
-    print("Loads before addition:", len(self.network.loads))
-
-    # Adding new buses
-    bus_line = str(self.network.buses.index.astype(int).max() + 1)
-    while bus_line in self.network.buses.index:
-        bus_line = str(int(bus_line) + 1)
     
-    bus_link = str(int(bus_line) + 1)
-    while bus_link in self.network.buses.index:
-        bus_link = str(int(bus_link) + 1)
-    
-    bus_existing_link = '47539'  # Existing bus for the link
-    bus_existing_line = '32941'  # Existing bus for the line
-
-    # Adding a new bus for the line
-    self.network.add("Bus", bus_line, carrier="AC", x=8.998612, y=54.646649, v_nom=110)
-    self.network.buses.loc[bus_line, "name"] = "new_line"  # Setting the name separately
-    self.network.buses.loc[bus_line, "scn_name"] = "eGon2035"
-    self.network.buses.loc[bus_line, "country"] = "DE"
-    
-    # Adding a new bus for the link
-    self.network.add("Bus", bus_link, carrier="AC", x=8.998612, y=54.646649, v_nom=1)
-    self.network.buses.loc[bus_link, "name"] = "new_link"  # Setting the name separately
-    self.network.buses.loc[bus_link, "scn_name"] = "eGon2035"
-    self.network.buses.loc[bus_link, "country"] = "DE"
-    
-    # Coordinates for the new buses
-    point_bus1 = Point(8.998612, 54.646649)
-
-    # Add the line between the new bus and an existing bus
-    new_line = add_line_with_costs_and_snommax(bus_existing_line, bus_line, 110, overhead=False)
-    self.network.lines.loc[new_line, "scn_name"] = "eGon2035"
-    self.network.lines.loc[new_line, "country"] = "DE"
-    print(f"Added new line: {new_line} between existing bus {bus_existing_line} and new bus {bus_line}")
-
-    # Add the link between the new bus and an existing bus
-    new_link = add_link(bus_existing_link, bus_link, 0.625, 1)
-    self.network.links.loc[new_link, "scn_name"] = "eGon2035"
-    self.network.links.loc[new_link, "country"] = "DE"
-    print(f"Added new link: {new_link} between existing bus {bus_existing_link} and new bus {bus_link}")
-
-    
-    # Check the geometries 
-    self.network.buses.at[bus_line, "geom"] = from_shape(point_bus1, srid=4326)
-    self.network.lines.at[new_line, "geom"] = from_shape(MultiLineString([LineString([to_shape(self.network.buses.at["32941", "geom"]), point_bus1])]), srid=4326)
-    self.network.buses.at[bus_link, "geom"] = from_shape(point_bus1, srid=4326)
-    self.network.links.at[new_link, "geom"] = from_shape(MultiLineString([LineString([to_shape(self.network.buses.at["47538", "geom"]), point_bus1])]), srid=4326)
-
-
-
-   
-    # Load generation time series from CSV
-    time_series_data = pd.read_csv('data/generators1-p_max_pu.csv')
-    pv_time_series = time_series_data['PV']
-    
+    # Load the bus IDs from the CSV file
+    mv_buses = pd.read_csv('data/egon_map_mvgriddistrict_vg250 (status-quo).csv') #or eGon2035  
 
     # Determine the attributes for new generators by copying from similar existing generators
-    default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time', 'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up', 'ramp_limit_shut_down', 'e_nom_max']
-    existing_solar = self.network.generators[self.network.generators.carrier == 'solar'].iloc[0]
-    solar_attrs = {attr: existing_solar.get(attr, 0) for attr in default_attrs}
-
+    default_attrs = [
+        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
+        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
+        'ramp_limit_start_up', 'ramp_limit_shut_down', 'e_nom_max'
+    ]
     
+    existing_biogas = self.network.generators[self.network.generators.carrier == 'central_biomass_CHP_heat'].iloc[0]
+    biogas_attrs = {attr: existing_biogas.get(attr, 0) for attr in default_attrs}
 
-    # Add the solar generator with the new ID
-    # Determine the next generator ID
+    # Generate new generator IDs
     if not self.network.generators.empty:
         max_id = max(self.network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
         gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
     else:
         gen_id = "1"
 
-    # Add the solar generator with the new ID
-    solar_gen_id = gen_id
-    self.network.add("Generator", solar_gen_id, bus=bus_line, p_nom=0.03, carrier="solar", marginal_cost=0.01, 
-                     capital_cost=115400, p_max_pu=1, **solar_attrs)
- 
-  
-    self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
+    # Add biogas generators to each of the specified buses
+    for index, row in mv_buses.iterrows():
+        bus_id = row['bus_id']
+        
+        biogas_attrs.update({
+            'bus': bus_id,
+            'p_nom': 46.28,  # this value should be modified based on respective scenario
+            'carrier': existing_biogas['carrier'],
+            'type': 'central_biomass_CHP_heat',
+            'capital_cost': 3135.77,
+            'marginal_cost': 2.10
+        })
+        
+        self.network.add("Generator", gen_id, **biogas_attrs)
+        self.network.generators.loc[gen_id, "scn_name"] = "status2019"
+        
+        print(f"Biogas generator {gen_id} added successfully.")
+        gen_id = str(int(gen_id) + 1)
     
-    
-    
-    # Print updated p_max_pu time series
-    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
-    print("Updated p_max_pu time series:")
-    print(self.network.generators_t['p_max_pu'].head())
-    
-    
-    # Initialize and populate time series dataframe for p_max_pu if not already
-    if 'p_max_pu' not in self.network.generators_t:
-        self.network.generators_t['p_max_pu'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.generators.index)
-    self.network.generators_t['p_max_pu'].loc[:, solar_gen_id] = pv_time_series.values[:len(self.network.snapshots)]
-    
-
-    
-   
-    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
-    print("Updated p_max_pu time series:")
-    print(self.network.generators_t['p_max_pu'].head())
-    
-
- # Determine new load IDs
-    load_ac_id = str(self.network.loads.index.astype(int).max() + 1)
-    load_ev_id = str(int(load_ac_id) + 1)
-
-    # Add loads
-    self.network.add("Load", load_ac_id, bus=bus_line, carrier="AC", p_set=0, q_set=0, sign=-1)
-    self.network.add("Load", load_ev_id, bus=bus_line, carrier="land transport EV", p_set=0, q_set=0, sign=-1)
-    
-    self.network.loads.loc[load_ac_id, "scn_name"] = "eGon2035"   
-    self.network.loads.loc[load_ev_id, "scn_name"] = "eGon2035"
-
-    # Load time series data from CSV file
-    load_time_series = pd.read_csv('data/loads.csv')
-    ac_load_series = load_time_series['AC load']
-    ev_load_series = load_time_series['EV load']
-
-    # Initialize time series data frame for loads if not already present
-    if 'p_set' not in self.network.loads_t:
-        self.network.loads_t['p_set'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.loads.index)
-    if 'q_set' not in self.network.loads_t:
-        self.network.loads_t['q_set'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.loads.index)
-
-    # Add the time series data for the new loads
-    self.network.loads_t['p_set'][load_ac_id] = ac_load_series.values[:len(self.network.snapshots)]
-    self.network.loads_t['p_set'][load_ev_id] = ev_load_series.values[:len(self.network.snapshots)]
-
-    print(f"AC Load ID: {load_ac_id} and EV Load ID: {load_ev_id} added to Bus {bus_line}")
-    print("Time series data for loads has been successfully updated.")
-    
-    
-    print("Buses after addition:", len(self.network.buses))
-    print("Lines after addition:", len(self.network.lines))
-    print("Links after addition:", len(self.network.links))
     print("Generators after addition:", len(self.network.generators))
-    print("Loads after addition:", len(self.network.loads))
+

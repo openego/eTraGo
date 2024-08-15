@@ -211,7 +211,6 @@ def coloring():
 
     return colors
 
-
 def plot_line_loading_diff(networkA, networkB, timestep=0, osm=False):
     """
     Plot difference in line loading between two networks
@@ -2134,6 +2133,7 @@ def heat_stores(
     return df
 
 
+
 def heat_stores_sh(
     self,
     buses,
@@ -2257,7 +2257,7 @@ def hydrogen_stores(
     used=False,
     apply_on="grid_model",
 ):
-    """Calculate shifting potential (and usage) of heat stores
+    """Calculate shifting potential (and usage) of h2 stores
 
     Parameters
     ----------
@@ -2386,7 +2386,7 @@ def flexibility_usage(
             apply_on=apply_on,
         )
 
-    elif flexibility == "BEV charger":
+    elif flexibility == "BEV_charger":
         df = bev_flexibility_potential(
             self,
             buses,
@@ -2558,7 +2558,6 @@ def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="g
     ax.set_xlim(geographical_boundaries[0], geographical_boundaries[1])
     ax.set_ylim(geographical_boundaries[2], geographical_boundaries[3])
     
-
 def plot_grid(
     self,
     line_colors,
@@ -2605,8 +2604,10 @@ def plot_grid(
         * 'gen_dist': dispatch per carrier in selected timesteps
         * 'ramp_up': re-dispatch up per carrier in selected timesteps
         * 'ramp_down': re-dispatch down per carrier in selected timesteps
-        * 'PowerToH2': location and sizes of electrolizers
+        * 'PowerToH2': location and sizes of electrolyzers
         * 'flexibility_usage': use of DSM and BEV charger
+        * 'PowerToH2_correlation': indication of degree of correlation to 
+        market or nodal price of electrolyzers
 
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default
@@ -2698,12 +2699,12 @@ def plot_grid(
         link_colors = calc_dc_loading(network, timesteps).abs() / rep_snapshots
         if ext_width is not False:
             link_widths = link_colors.apply(
-                lambda x: 10 + (x / ext_width) if x != 0 else 0
+                lambda x: 3 + (x / ext_width) if x != 0 else 0
             )
-            line_widths = 10 + (line_colors / ext_width)
+            line_widths = 3 + (line_colors / ext_width)
         else:
-            link_widths = link_colors.apply(lambda x: 10 if x != 0 else 0)
-            line_widths = 10
+            link_widths = link_colors.apply(lambda x: 3 if x != 0 else 0)
+            line_widths = 3
         label = "line loading in p.u."
         plot_background_grid(network, ax, geographical_boundaries, osm)
         # Only active flow direction is displayed!
@@ -2913,7 +2914,7 @@ def plot_grid(
             network.links.carrier.isin(
                 [
                     "dsm",
-                    "BEV charger",
+                    "BEV_charger",
                 ]
             )
         ]
@@ -2933,6 +2934,8 @@ def plot_grid(
         )
         bus_unit = "TWh"
         bus_legend = "flexibility_usage"
+      
+        
     elif bus_colors == "h2_storage_expansion":
         bus_scaling = bus_sizes
         bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
@@ -2957,6 +2960,51 @@ def plot_grid(
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
+    elif (
+        bus_colors == "PowerToH2_correlation"
+    ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
+        bus_scaling = bus_sizes
+        bus_sizes = (
+            bus_scaling
+            * network.links[(network.links.carrier == "power_to_H2")]
+            .groupby("bus0")
+            .sum()
+            .p_nom_opt
+        )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
+        bus_colors = coloring()["power_to_H2"]
+        bus_legend = "PowerToH2"
+        bus_unit = "TW"
+        
+
+        
+        market_bus_de = self.market_model.buses[(self.market_model.buses.country=="DE") & (self.market_model.buses.carrier=="AC")].index
+        market_price = self.market_model.buses_t.marginal_price[market_bus_de]
+        
+        bus_colors = pd.Series(index=network.buses.index, data=0)
+        for bus in network.links[(network.links.carrier == "power_to_H2")].bus0:
+            
+            nodal_price = network.buses_t.marginal_price[bus]
+            
+            ely = network.links_t.p0[network.links[(network.links.carrier == "power_to_H2")
+                                                   & (network.links.bus0==bus)].index]
+            df_corr = pd.DataFrame()
+    
+            df_corr["ely"] = ely
+            df_corr["market"] = market_price
+            df_corr["nodal_price"] = nodal_price
+    
+            bus_colors[bus] = (df_corr.corr(method = 'spearman').loc["nodal_price", "ely"]/ (                            
+                               df_corr.corr(method = 'spearman').loc["nodal_price", "ely"])+
+                               df_corr.corr(method = 'spearman').loc["market", "ely"])
+            
+        bus_colors = bus_colors.abs()
+            
+        # ely.corr
+        # ely_corr_market = ely.corrwith(
+        #     market_price, method = 'spearman', axis=1)
+        # ely_corr_nodal = ely.corr(nodal_price, method = 'spearman')
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
         bus_sizes = pd.Series(
@@ -2972,14 +3020,16 @@ def plot_grid(
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
-            line_cmap=plt.cm.jet,
-            link_cmap=plt.cm.jet,
+            line_cmap=plt.cm.viridis,
+            bus_alpha=0.9,
+            link_cmap=plt.cm.viridis,
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
+            bus_cmap = plt.cm.viridis,
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            title=title,
+            #title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
@@ -3035,7 +3085,7 @@ def plot_grid(
                 labels.append(
                     f"""
                     {round(max_value/bus_scaling/scaling_store_expansion[i]/
-                           1000, 0).astype(int)} {bus_unit} """
+                           1000, 0)} {bus_unit} """
                     + i
                 )
         else:
@@ -3057,15 +3107,15 @@ def plot_grid(
             labels,
             loc="upper left",
             bbox_to_anchor=(0.01, 1.01),
-            labelspacing=1.0,
-            framealpha=1.0,
+            labelspacing=1.2,
+            framealpha=0.5,
             title=bus_legend,
             handler_map=make_handler_map_to_scale_circles_as_in(ax),
-            prop={"size": 8},
+            prop={"size": 6},
         )
         ax.add_artist(l2)
 
-        plt.setp(l2.get_title(), fontsize="9")
+        plt.setp(l2.get_title(), fontsize="7")
 
         if not scaling_store_expansion:
             handles = []
@@ -3118,11 +3168,18 @@ def plot_grid(
             ll[1],
             values=v,
             ticks=v[0:101:10],
-            fraction=0.028,
+            #fraction=0.028,
             pad=0.04,
+            orientation="horizontal"
         )
         # Set legend label
         cb.set_label(label)
+        
+    elif type(bus_colors) != str:
+        #import pdb; pdb.set_trace()
+        ll[0].set_clim([0, bus_colors.max()]) 
+        plt.colorbar(ll[0], fraction=0.04, pad=0.004, label="correlation factor", ax=ax)
+
 
     # Show plot or save to file
     if filename is None:
@@ -3146,7 +3203,6 @@ set_epsg_network.counter = 0
 
 # the following functions are copied from pypsa-eur-sec. see:
 # https://github.com/PyPSA/pypsa-eur-sec/blob/master/scripts/plot_network.py
-
 
 def make_handler_map_to_scale_circles_as_in(ax, dont_resize_actively=False):
     fig = ax.get_figure()
@@ -3716,14 +3772,17 @@ def plot_gas_summary(self, t_resolution="20H", stacked=True, save_path=False):
     if save_path:
         plt.savefig(save_path, dpi=300)
 
-'''
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 def plot_gas_summary_sh(self, t_resolution="20H", stacked=True, save_path=False, area_type="all"):
     """
     Plots timeseries data for gas loads (and generation)
 
     Parameters
     ----------
-    self : :class:`Etrago
+    self : :class:`Etrago`
         Overall container of Etrago
     t_resolution : str, optional
         sets the resampling rate of timeseries data to allow for smoother
@@ -3821,7 +3880,7 @@ def plot_gas_summary_sh(self, t_resolution="20H", stacked=True, save_path=False,
         h2_links_feedin = -self.network.links_t.p1[
             self.network.links.loc[
                 (self.network.links.carrier == "H2_feedin") &
-                (self.network.links.bus1.isin(sh_buses))
+                    (self.network.links.bus1.isin(sh_buses))
             ].index
         ]
 
@@ -3875,18 +3934,20 @@ def plot_gas_summary_sh(self, t_resolution="20H", stacked=True, save_path=False,
             data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
             data.plot(ax=ax, label=i, legend=True)
 
-        data = self.network.loads_t.p[
-            self.network.loads.loc[
-                (self.network.loads.carrier == ch4_load_carrier[0]) &
-                (self.network.loads.bus.isin(sh_buses))
-            ].index.to_list()
-        ]
-        data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
-        data.plot(ax=ax, label=ch4_load_carrier[0], ylabel="[GW]", legend=True)
+        for i in ch4_load_carrier:
+            data = self.network.loads_t.p[
+                self.network.loads.loc[
+                    (self.network.loads.carrier == i) &
+                    (self.network.loads.bus.isin(sh_buses))
+                ].index.to_list()
+            ]
+            data = data.sum(axis=1).resample(t_resolution).mean() / 1e3
+            data.plot(ax=ax, label=i, ylabel="[GW]", legend=True)
 
-        for i in ch4_load_carrier[1:]:
-            data = self.network.
-'''
+    if save_path:
+        plt.savefig(save_path, bbox_inches="tight")
+    plt.show()
+
 
 def plot_h2_generation_sh(self, t_resolution="20H", save_path=False, area_type="all"):
     """
@@ -4402,33 +4463,29 @@ def plot_heat_loads(self, t_resolution="20H", save_path=False):
         plt.savefig(save_path, dpi=300)
 
 
-def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False, area_type="all"):
+
+
+def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False, area_type="primary"):
     """
     Plots timeseries data for heat generation (and demand)
 
     Parameters
     ----------
-    self : :class:`Etrago
-        Overall container of Etrago
+    self : :class:`Etrago`
+        Overall container of Etrago.
     t_resolution : str, optional
-        sets the resampling rate of timeseries data to allow for smoother
-        line plots
+        Sets the resampling rate of timeseries data to allow for smoother line plots.
     stacked : bool, optional
-        If True all TS data will be shown as stacked area plot. Total heat
-        demand will then also be plotted to check for matching generation and
-        demand.
+        If True, all TS data will be shown as stacked area plot. Total heat demand will then also be plotted to check for matching generation and demand.
     save_path : bool, optional
         Path to save the generated plot. The default is False.
     area_type : str, optional
-        Specifies the area to be plotted. Can be "primary", "primary_secondary", or "all".
-        Default is "all".
+        The type of area to consider. Can be "primary", "secondary", or "primary+secondary". Default is "primary".
 
     Returns
     -------
     None.
-
     """
-
     heat_gen_techs = [
         "central_resistive_heater",
         "central_heat_pump",
@@ -4438,6 +4495,10 @@ def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False
         "rural_gas_boiler",
     ]
 
+    # Filtering for the specified area
+    heat_buses = find_buses_area(self, carrier="heat", area_type=area_type)
+    print(f"Filtered buses for area_type '{area_type}': {heat_buses}")
+
     heat_gen_ids = self.network.generators.loc[
         self.network.generators.carrier.isin(
             [
@@ -4445,8 +4506,10 @@ def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False
                 "geo_thermal",
                 "central_biomass_CHP_heat",
             ]
-        )
+        ) & self.network.generators.bus.isin(heat_buses)
     ].index
+    print(f"Number of heat generation IDs: {len(heat_gen_ids)}")
+    
     heat_gen_dispatch = (
         self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0) / 1e3
     )
@@ -4454,8 +4517,10 @@ def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False
     links_id_hc = self.network.links.loc[
         self.network.links.carrier.isin(
             ["central_heat_store_charger", "rural_heat_store_charger"]
-        )
+        ) & self.network.links.bus0.isin(heat_buses)
     ].index
+    print(f"Number of heat store charger links: {len(links_id_hc)}")
+    
     heat_store_charger_dispatch = (
         self.network.links_t.p0.T.loc[links_id_hc].sum(axis=0) / 1e3
     )
@@ -4463,8 +4528,10 @@ def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False
     links_id_hdc = self.network.links.loc[
         self.network.links.carrier.isin(
             ["central_heat_store_discharger", "rural_heat_store_discharger"]
-        )
+        ) & self.network.links.bus1.isin(heat_buses)
     ].index
+    print(f"Number of heat store discharger links: {len(links_id_hdc)}")
+    
     heat_store_discharger_dispatch = (
         self.network.links_t.p1.T.loc[links_id_hdc].sum(axis=0) / 1e3
     )
@@ -4491,73 +4558,86 @@ def plot_heat_summary_sh(self, t_resolution="20H", stacked=True, save_path=False
         / 1e3
     )
 
-    if area_type == "primary":
-        sh_buses = find_buses_area(self, carrier="AC", area_type="primary")
-    elif area_type == "primary_secondary":
-        primary_area_buses = find_buses_area(self, carrier="AC", area_type="primary")
-        secondary_area_buses = find_buses_area(self, carrier="AC", area_type="secondary")
-        sh_buses = primary_area_buses.union(secondary_area_buses)
-    elif area_type == "all":
-        sh_buses = self.network.buses.index
-    else:
-        raise ValueError("Invalid area_type. Must be 'primary', 'primary_secondary', or 'all'.")
-
     if stacked:
-        data = pd.DataFrame(-(data[data.columns.intersection(sh_buses)].sum(axis=1)))
+        data = pd.DataFrame(-(data.sum(axis=1)))
         data = data.rename(columns={0: heat_gen_techs[0]})
 
         for i in heat_gen_techs[1:]:
             loads = self.network.links_t.p1[
                 self.network.links.loc[
-                    (self.network.links.carrier == i) &
-                    (self.network.links.bus0.isin(sh_buses))
+                    self.network.links.carrier == i
                 ].index.to_list()
             ]
             data[i] = -(loads).sum(axis=1) / 1e3
 
         fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.resample(t_resolution).mean().plot.area(
+            ax=ax,
+            title=f"Stacked heat generation and demand ({area_type})",
+            ylabel="[GW]",
+            legend=True,
+            stacked=True,
+        )
 
+        (
+            data.sum(axis=1) + heat_store_dispatch_hb + heat_gen_dispatch
+        ).resample(t_resolution).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total heat generation + heat store dispatch",
+            color="yellow",
+        )
+
+    else:
+        data = -data.sum(axis=1) / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+        # Resample and plot the first heat generation technology
         data.resample(t_resolution).mean().plot(
             ax=ax,
             title=f"Heat generation and demand ({area_type})",
+            label=heat_gen_techs[0],
             ylabel="[GW]",
-            legend=True,
+            legend=True
         )
 
-        heat_store_dispatch_hb_filtered = heat_store_dispatch_hb[heat_store_dispatch_hb.index.isin(sh_buses)]
-
-        if not heat_store_dispatch_hb_filtered.empty:
-            heat_store_dispatch_hb_filtered.resample(t_resolution).mean().plot.line(
-                ax=ax,
-                legend=True,
-                label="Heat store dispatch",
-                color="yellow",
-                linestyle="dashed",
+        # Iterate through the remaining heat generation technologies and plot them
+        for tech in heat_gen_techs[1:]:
+            tech_data = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == tech
+                ].index.to_list()
+            ]
+            tech_data = -tech_data.sum(axis=1) / 1e3
+            tech_data.resample(t_resolution).mean().plot(
+                ax=ax, label=tech, legend=True
             )
 
-        central_h_loads_filtered = central_h_loads[central_h.index.intersection(sh_buses)]
-        rural_h_loads_filtered = rural_h_loads[rural_h.index.intersection(sh_buses)]
-
-        if isinstance(central_h_loads_filtered, pd.Series):
-            central_h_loads_filtered = central_h_loads_filtered.to_frame()
-        if isinstance(rural_h_loads_filtered, pd.Series):
-            rural_h_loads_filtered = rural_h_loads_filtered.to_frame()
-
-        (central_h_loads_filtered.sum(axis=1) + rural_h_loads_filtered.sum(axis=1)).resample(t_resolution).mean().plot.line(
+        # Plot the heat store dispatch
+        heat_store_dispatch_hb.resample(t_resolution).mean().plot.line(
             ax=ax,
             legend=True,
-            label="Total heat demand",
-            color="black",
-            linestyle="dashed",
+            label="Heat store dispatch",
+            color="yellow",
+            linestyle="dashed"
         )
 
+    # Plot the total heat demand
+    (central_h_loads + rural_h_loads).resample(t_resolution).mean().plot.line(
+        ax=ax,
+        legend=True,
+        label="Total heat demand",
+        color="black",
+        linestyle="dashed"
+    )
 
-
-
+    # Save or show the plot
     if save_path:
         plt.savefig(save_path, dpi=300)
-
-
+        plt.close()
+    else:
+        plt.show()
 
 
 def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
@@ -4719,6 +4799,156 @@ def plot_heat_summary(self, t_resolution="20H", stacked=True, save_path=False):
     if save_path:
         plt.savefig(save_path, dpi=300)
 
+
+
+def plot_heat_summary_bus(self, t_resolution="20H", stacked=True, save_path=False, bus_ids=None):
+    """
+    Plots timeseries data for heat generation (and demand)
+
+    Parameters
+    ----------
+    self : :class:`Etrago`
+        Overall container of Etrago
+    t_resolution : str, optional
+        Sets the resampling rate of timeseries data to allow for smoother
+        line plots
+    stacked : bool, optional
+        If True all TS data will be shown as stacked area plot. Total heat
+        demand will then also be plotted to check for matching generation and
+        demand.
+    save_path : bool, optional
+        Path to save the generated plot. The default is False.
+    bus_ids : list, optional
+        List of bus IDs to filter the data. Default is None, which means all buses are considered.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    heat_gen_techs = [
+        "central_resistive_heater",
+        "central_heat_pump",
+        "rural_heat_pump",
+        "central_gas_CHP_heat",
+        "central_gas_boiler",
+        "rural_gas_boiler",
+    ]
+
+    heat_gen_ids = self.network.generators.loc[
+        self.network.generators.carrier.isin(
+            [
+                "solar_thermal_collector",
+                "geo_thermal",
+                "central_biomass_CHP_heat",
+            ]
+        )
+    ].index
+    heat_gen_dispatch = (
+        self.network.generators_t.p.T.loc[heat_gen_ids].sum(axis=0) / 1e3
+    )
+
+    links_id_hc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_charger", "rural_heat_store_charger"]
+        )
+    ].index
+    heat_store_charger_dispatch = (
+        self.network.links_t.p0.T.loc[links_id_hc].sum(axis=0) / 1e3
+    )
+
+    links_id_hdc = self.network.links.loc[
+        self.network.links.carrier.isin(
+            ["central_heat_store_discharger", "rural_heat_store_discharger"]
+        )
+    ].index
+    heat_store_discharger_dispatch = (
+        self.network.links_t.p1.T.loc[links_id_hdc].sum(axis=0) / 1e3
+    )
+
+    heat_store_dispatch_hb = (
+        -heat_store_discharger_dispatch - heat_store_charger_dispatch
+    )
+
+    central_h = self.network.loads.loc[
+        self.network.loads.carrier == "central_heat"
+    ]
+    rural_h = self.network.loads.loc[
+        self.network.loads.carrier == "rural_heat"
+    ]
+    central_h_loads = self.network.loads_t.p[central_h.index].sum(axis=1) / 1e3
+    rural_h_loads = self.network.loads_t.p[rural_h.index].sum(axis=1) / 1e3
+
+    data = (
+        self.network.links_t.p1[
+            self.network.links.loc[
+                self.network.links.carrier == heat_gen_techs[0]
+            ].index.to_list()
+        ]
+        / 1e3
+    )
+
+    # If bus_ids are provided, filter the data based on bus_ids
+    if bus_ids is not None:
+        data = data[data.columns.intersection(bus_ids)]
+
+    if stacked:
+        data = pd.DataFrame(-(data.sum(axis=1)))
+        data = data.rename(columns={0: heat_gen_techs[0]})
+
+        for i in heat_gen_techs[1:]:
+            loads = self.network.links_t.p1[
+                self.network.links.loc[
+                    self.network.links.carrier == i
+                ].index.to_list()
+            ]
+            if bus_ids is not None:
+                loads = loads[loads.columns.intersection(bus_ids)]
+            data[i] = -(loads).sum(axis=1) / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+        data.resample(t_resolution).mean().plot.area(
+            ax=ax,
+            title="Stacked heat generation and demand",
+            ylabel="[GW]",
+            legend=True,
+            stacked=True,
+        )
+
+        (
+            data.sum(axis=1) + heat_store_dispatch_hb + heat_gen_dispatch
+        ).resample(t_resolution).mean().plot.line(
+            ax=ax,
+            legend=True,
+            label="Total heat generation + heat store dispatch",
+            color="yellow",
+        )
+
+    else:
+        data = -data.sum(axis=1) / 1e3
+
+        fig, ax = plt.subplots(figsize=(20, 10), dpi=300)
+
+        data.resample(t_resolution).mean().plot.line(
+            ax=ax,
+            title="Heat generation",
+            ylabel="[GW]",
+            legend=True,
+        )
+
+    # Plot the total heat load
+    (central_h_loads + rural_h_loads).resample(t_resolution).mean().plot.line(
+        ax=ax,
+        legend=True,
+        label="Total heat demand",
+        color="red",
+    )
+
+    if save_path:
+        plt.savefig(save_path)
+
+    plt.show()
 
 def shifted_energy(self, carrier, buses):
     """Calulate shifted energy for a specific carrier
@@ -4899,3 +5129,134 @@ def flexibility_duration_curve(etrago, etrago_lowflex, filename=None):
     if filename:
         fig.savefig(filename, dpi=600)
         plt.close()
+
+
+
+def flexibility_duration_curve_sh(etrago, etrago_lowflex, area_type="primary", filename=None):
+    """Plot duration curves of flexibility options
+
+    Parameters
+    ----------
+    etrago : Etrago
+        Object including network with flexibility options
+    etrago_lowflex : Etrago
+        Object including network with less flexibility options
+    area_type : str, optional
+        The type of area to consider. Can be "primary", "secondary", or "primary+secondary". Default is "primary".
+    filename : str, optional
+        Name of file to save plot. The default is None.
+
+    Returns
+    -------
+    None.
+    """
+    colors = coloring()
+    value = "p"
+    df = pd.DataFrame()
+
+    # Get the buses for the specified area
+    dsm_buses = find_buses_area(etrago, carrier="dsm", area_type=area_type)
+    emob_buses = find_buses_area(etrago, carrier="land transport EV", area_type=area_type)
+    heat_buses = find_buses_area(etrago, carrier="heat", area_type=area_type)
+    h2_buses = find_buses_area(etrago, carrier="H2", area_type=area_type)
+
+    # DSM Stores
+    dsm_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("dsm") & etrago.network.stores.bus.isin(dsm_buses)
+    ]
+    df["dsm_positive"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["dsm_negative"] = (
+        etrago.network.stores_t[value][dsm_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    # E-Mobility Static
+    emob_static = etrago_lowflex.network.loads[
+        etrago_lowflex.network.loads.carrier == "land transport EV"
+    ]
+    emob_static = emob_static[emob_static.bus.isin(emob_buses)]
+    emob_static_t = etrago_lowflex.network.loads_t.p_set[emob_static.index]
+    emob_static_t = emob_static_t.loc[:, emob_static.index]
+    emob_static_t.columns = emob_static.bus.values
+
+    # E-Mobility Flex
+    emob_flex = etrago.network.links[
+        etrago.network.links.carrier.str.contains("BEV")
+    ]
+    emob_flex = emob_flex[emob_flex.bus0.isin(emob_buses)]
+    emob_flex_t = etrago.network.links_t.p0[emob_flex.index]
+    emob_flex_t = emob_flex_t.loc[:, emob_flex.index]
+    emob_flex_t.columns = emob_flex.bus0.values
+
+    df["BEV charger_positive"] = (
+        (emob_flex_t - emob_static_t).clip(lower=0).sum(axis=1)
+    )
+    df["BEV charger_negative"] = (
+        (emob_flex_t - emob_static_t).clip(upper=0).sum(axis=1)
+    )
+
+    # Heat Stores
+    heat_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("heat") & etrago.network.stores.bus.isin(heat_buses)
+    ]
+    df["heat_positive"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["heat_negative"] = (
+        etrago.network.stores_t[value][heat_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    # H2 Stores
+    h2_stores = etrago.network.stores[
+        etrago.network.stores.carrier.str.contains("H2") & etrago.network.stores.bus.isin(h2_buses)
+    ]
+    df["H2_positive"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(lower=0)
+        .sum(axis=1)
+    )
+    df["H2_negative"] = (
+        etrago.network.stores_t[value][h2_stores.index]
+        .clip(upper=0)
+        .sum(axis=1)
+    )
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(15, 8))
+    for c in df.columns:
+        result = pd.Series(dtype=float)
+        color = colors[c.split("_")[0]]
+        for p in range(0, 100):
+            result[p * df[c].abs().max() * np.sign(df[c].sum()) / 100] = (
+                df[c][df[c].abs() > p * 0.01 * df[c].abs().max()].size
+                / df[c].size
+            ) * 100
+
+        data_to_plot = pd.DataFrame(
+            index=result.values, data=result.index * 1e-3
+        )
+        data_to_plot.columns = [c.split("_")[0]]
+        data_to_plot.plot(ax=ax, color=color, linewidth=3.0)
+    plt.axhline(y=0.0, color="grey", linestyle="dotted")
+    ax.set_xlim(0, 80)
+    ax.set_xlabel("time in %")
+    ax.set_ylabel("flexibility usage in GW")
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    plt.legend(by_label.values(), by_label.keys())
+
+    if filename:
+        fig.savefig(filename, dpi=600)
+        plt.close()
+    else:
+        plt.show()

@@ -84,7 +84,7 @@ from etrago.tools.plot import (
     plot_clusters,
     plot_gas_generation,
     plot_gas_summary,
-    #plot_gas_summary_sh,
+    plot_gas_summary_sh,
     plot_grid,
     plot_h2_generation,
     plot_h2_summary,
@@ -117,7 +117,9 @@ from etrago.tools.plot import (
     plot_h2_summary_sh,
     plot_h2_generation_sh,
     plot_clusters_sh,
-    
+    plot_heat_summary_bus,
+    #flexibility_duration_curve_bus,
+    flexibility_duration_curve_sh,
 )
 from etrago.tools.utilities import (
     add_missing_components,
@@ -145,9 +147,12 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
-    add_ECG_to_network,
-    subtract_load_time_series,
+    #subtract_load_time_series,
+    #add_EC_to_network,
+    #subtract_generators_nominal_power
     #add_ECG_to_network,
+    find_buses,
+   
 )
 
 logger = logging.getLogger(__name__)
@@ -388,8 +393,7 @@ class Etrago:
 
     plot_heat_loads = plot_heat_loads
 
-    plot_heat_summary = plot_heat_summary
-
+   
     plot_flexibility_usage = flexibility_usage
     
     plot_heat_summary = plot_heat_summary
@@ -418,12 +422,17 @@ class Etrago:
 
     sclopf = iterate_sclopf
     
-    add_ECG_to_network = add_ECG_to_network
+      
+    #subtract_load_time_series = subtract_load_time_series
     
-    subtract_load_time_series = subtract_load_time_series
+    #add_EC_to_network = add_EC_to_network
+    
+       
+    #subtract_generators_nominal_power
    
     #add_ECG_to_network = add_ECG_to_network
-   
+    
+      
     curtailment = curtailment
     
     plot_stacked_gen = plot_stacked_gen
@@ -464,7 +473,7 @@ class Etrago:
     
     plot_heat_summary_sh = plot_heat_summary_sh
     
-    #plot_gas_summary_sh = plot_gas_summary_sh
+    plot_gas_summary_sh = plot_gas_summary_sh
     
     heat_stores_sh = heat_stores_sh
     
@@ -481,6 +490,14 @@ class Etrago:
     system_costs_areas = system_costs_areas
    
     calc_etrago_results_areas = calc_etrago_results_areas
+    
+    plot_heat_summary_bus = plot_heat_summary_bus
+    
+    find_buses = find_buses
+    
+    
+    
+    flexibility_duration_curve_sh = flexibility_duration_curve_sh
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -524,14 +541,16 @@ class Etrago:
 
         """
 
-        self.subtract_load_time_series()
+        #self.subtract_load_time_series()
         
-        #self.add_missing_components
-        
-        self.add_ECG_to_network()
+        #self.subtract_generators_nominal_power
+       
+        self.add_missing_components
+              
+        #self.add_EC_to_network()
         
         #self.add_ECG_to_network
-
+                       
         self.manual_fixes_datamodel()
 
         self.geolocation_buses()
