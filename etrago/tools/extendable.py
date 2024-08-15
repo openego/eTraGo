@@ -27,7 +27,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from etrago.cluster.snapshot import snapshot_clustering
+from etrago.cluster.temporal import snapshot_clustering
 from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
 __copyright__ = (
