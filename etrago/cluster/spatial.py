@@ -25,15 +25,14 @@ import os
 if "READTHEDOCS" not in os.environ:
     from itertools import product
     from math import ceil
-    from pickle import dump
     import logging
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
-    from pypsa.networkclustering import (
-        _flatten_multiindex,
+    from pypsa.clustering.spatial import (
         busmap_by_kmeans,
         busmap_by_stubs,
+        flatten_multiindex,
         get_clustering_from_busmap,
     )
     from sklearn.cluster import KMeans
@@ -109,6 +108,16 @@ def sum_with_inf(x):
         return x.sum()
 
 
+def strategies_buses():
+    return {"geom": nan_links, "country": "first"}
+
+
+def strategies_lines():
+    return {
+        "geom": nan_links,
+    }
+
+
 def strategies_one_ports():
     return {
         "StorageUnit": {
@@ -129,6 +138,8 @@ def strategies_one_ports():
             "e_nom_min": np.sum,
             "e_nom_max": sum_with_inf,
             "e_initial": np.sum,
+            "e_min_pu": np.mean,
+            "e_max_pu": np.mean,
         },
     }
 
@@ -171,6 +182,11 @@ def strategies_links():
         "country": nan_links,
         "build_year": np.mean,
         "lifetime": np.mean,
+        "min_up_time": np.mean,
+        "min_down_time": np.mean,
+        "up_time_before": np.mean,
+        "down_time_before": np.mean,
+        "committable": np.all,
     }
 
 
@@ -236,8 +252,11 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
     )
     strategies = strategies_links()
     strategies.update(cus_strateg)
+    strategies.pop("topo")
+    strategies.pop("geom")
+
     new_df = links.groupby(grouper, axis=0).agg(strategies)
-    new_df.index = _flatten_multiindex(new_df.index).rename("name")
+    new_df.index = flatten_multiindex(new_df.index).rename("name")
     new_df = pd.concat(
         [new_df, network.links.loc[~links_agg_b]], axis=0, sort=False
     )
@@ -257,7 +276,7 @@ def group_links(network, with_time=True, carriers=None, cus_strateg=dict()):
                         weighting.loc[df_agg.columns], axis=1
                     )
                 pnl_df = df_agg.groupby(grouper, axis=1).sum()
-                pnl_df.columns = _flatten_multiindex(pnl_df.columns).rename(
+                pnl_df.columns = flatten_multiindex(pnl_df.columns).rename(
                     "name"
                 )
                 new_pnl[attr] = pd.concat(
@@ -422,7 +441,6 @@ def busmap_by_shortest_path(etrago, fromlvl, tolvl, cpu_cores=4):
     chunksize = ceil(len(ppaths) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppaths, chunksize, M))
     df = pd.concat(container)
-    dump(df, open("df.p", "wb"))
 
     # post processing
     df.sort_index(inplace=True)
@@ -654,7 +672,6 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     chunksize = ceil(len(ppathss) / cpu_cores)
     container = p.starmap(shortest_path, gen(ppathss, chunksize, M))
     df = pd.concat(container)
-    dump(df, open("df.p", "wb"))
 
     # assignment of data points to closest k-medoids centers
     df["path_length"] = pd.to_numeric(df["path_length"])
@@ -758,13 +775,52 @@ def kmedoids_dijkstra_clustering(
 
         medoid_idx = distances.idxmin()
 
-        # dijkstra's algorithm
-        busmap = dijkstras_algorithm(
-            buses,
-            connections,
-            medoid_idx,
-            etrago.args["network_clustering"]["CPU_cores"],
-        )
+        if len(busmap) > n_clusters:
+            # dijkstra's algorithm
+            busmap = dijkstras_algorithm(
+                buses,
+                connections,
+                medoid_idx,
+                etrago.args["network_clustering"]["CPU_cores"],
+            )
+        elif len(busmap) < n_clusters:
+            logger.warning(
+                f"""
+            The number supplied to the parameter n_clusters for
+            {buses.carrier[0]} buses is larger than the actual number of buses
+            in the network.
+            """
+            )
+
         busmap.index.name = "bus_id"
 
     return busmap, medoid_idx
+
+
+def drop_nan_values(network):
+    """
+    Drops nan values after clustering an replaces output data time series with
+    empty dataframes
+
+    Parameters
+    ----------
+    network : pypsa.Network
+        Container for all network components.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Drop nan values after clustering
+    network.links.min_up_time.fillna(0, inplace=True)
+    network.links.min_down_time.fillna(0, inplace=True)
+    network.links.up_time_before.fillna(0, inplace=True)
+    network.links.down_time_before.fillna(0, inplace=True)
+    # Drop nan values in timeseries after clustering
+    for c in network.iterate_components():
+        for pnl in c.attrs[
+            (c.attrs.status == "Output") & (c.attrs.varying)
+        ].index:
+            c.pnl[pnl] = pd.DataFrame(index=network.snapshots)

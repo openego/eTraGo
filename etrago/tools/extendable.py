@@ -27,7 +27,7 @@ import time
 import numpy as np
 import pandas as pd
 
-from etrago.cluster.snapshot import snapshot_clustering
+from etrago.cluster.temporal import snapshot_clustering
 from etrago.tools.utilities import convert_capital_costs, find_snapshots
 
 __copyright__ = (
@@ -86,6 +86,11 @@ def extendable(
         network.storage_units.p_nom_extendable = False
         network.stores.e_nom_extendable = False
         network.generators.p_nom_extendable = False
+
+    if "H2_feedin" not in extendable_settings["extendable_components"]:
+        network.mremove(
+            "Link", network.links[network.links.carrier == "H2_feedin"].index
+        )
 
     if "network" in extendable_settings["extendable_components"]:
         network.lines.s_nom_extendable = True
@@ -308,6 +313,44 @@ def extendable(
         network.storage_units.loc[foreign_battery, "p_nom_max"] = (
             network.storage_units.loc[foreign_battery, "p_nom"]
         )
+
+        network.storage_units.loc[foreign_battery, "p_nom"] = (
+            network.storage_units.loc[foreign_battery, "p_nom_min"]
+        )
+
+        network.storage_units.loc[foreign_battery, "capital_cost"] = (
+            network.storage_units.loc[de_battery, "capital_cost"].max()
+        )
+
+        network.storage_units.loc[foreign_battery, "marginal_cost"] = (
+            network.storage_units.loc[de_battery, "marginal_cost"].max()
+        )
+
+    if (
+        "foreign_storage_unlimited"
+        in extendable_settings["extendable_components"]
+    ):
+        foreign_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country != "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        de_battery = network.storage_units[
+            (
+                network.storage_units.bus.isin(
+                    network.buses.index[network.buses.country == "DE"]
+                )
+            )
+            & (network.storage_units.carrier == "battery")
+        ].index
+
+        network.storage_units.loc[foreign_battery, "p_nom_extendable"] = True
+
+        network.storage_units.loc[foreign_battery, "p_nom_max"] = np.inf
 
         network.storage_units.loc[foreign_battery, "p_nom"] = (
             network.storage_units.loc[foreign_battery, "p_nom_min"]

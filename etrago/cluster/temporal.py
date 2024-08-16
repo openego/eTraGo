@@ -664,7 +664,7 @@ def run(
         segm_hoursperperiod=network.snapshots.size,
     )
 
-    if not segmentation:
+    if segmentation:
         pd.DataFrame(
             timeseries.reset_index(),
             columns=["dates", "SegmentNo", "SegmentDuration"],
@@ -811,7 +811,7 @@ def skip_snapshots(self):
     if (
         self.args["temporal_disaggregation"]["active"]
         and not self.args["snapshot_clustering"]["active"]
-    ):
+    ) or self.args["method"]["market_optimization"]:
         self.network_tsa = self.network.copy()
 
     n_skip = self.args["skip_snapshots"]
