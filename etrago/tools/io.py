@@ -863,7 +863,7 @@ def decommissioning(self, **kwargs):
     Network container including decommissioning
 
     """
-    if self.args["scn_decommissioning"] is not None:
+    if self.args["scn_extension"] is not None:
         for i in range(len(self.args["scn_extension"])):
             scn_decom = self.args["scn_extension"][i]
 
