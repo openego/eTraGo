@@ -29,6 +29,7 @@ import logging
 import math
 import os
 
+from geoalchemy2.shape import to_shape  # noqa: F401
 from pyomo.environ import Constraint, PositiveReals, Var
 import numpy as np
 import pandas as pd
