@@ -43,10 +43,7 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         sum_with_inf,
     )
-    from etrago.tools.utilities import (
-        find_buses_area,
-        set_control_strategies,
-    )
+    from etrago.tools.utilities import find_buses_area, set_control_strategies
 
 logger = logging.getLogger(__name__)
 

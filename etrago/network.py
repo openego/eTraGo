@@ -86,6 +86,7 @@ from etrago.tools.io import (
 )
 from etrago.tools.utilities import (
     add_missing_components,
+    adjust_before_optimization,
     adjust_CH4_gen_carriers,
     buses_by_country,
     check_args,
@@ -110,7 +111,6 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
-    adjust_before_optimization,
 )
 
 logger = logging.getLogger(__name__)
