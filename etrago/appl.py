@@ -112,6 +112,7 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
+    "interest_area": False,  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -119,8 +120,9 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign-interest_area)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "n_cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -383,6 +385,16 @@ def run_etrago(args, json_path):
         connected lines are merged. This reduces the spatial complexity without
         losing any accuracy.
         Default: True.
+
+    interest_area: False, list, string
+        Area of especial interest that will be not clustered, except when
+        n_cluster_interest_area is provided. It is by default set to false.
+        When an interest_area is provided, the given value for n_clusters_AC
+        will mean the total of AC buses outside the area.The area can be
+        provided in two ways: list of nuts names e.G.
+        ["Cuxhaven", "Bremerhaven", "Bremen"] or a string with a path to a
+        shape file (.shp).
+        
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -414,12 +426,14 @@ def run_etrago(args, json_path):
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers electrical distances between
             buses
-
             Default: "kmedoids-dijkstra".
-        * "n_clusters_AC" : int
+        * "n_clusters_AC" : int, False
             Defines total number of resulting AC nodes including DE and foreign
             nodes if `cluster_foreign_AC` is set to True, otherwise only DE
-            nodes.
+            nodes. When using the interest_area parameter, n_clusters_AC could
+            be set to False, which means that only the buses inside the 
+            provided area are clustered.
+
             Default: 30.
         * "cluster_foreign_AC" : bool
             If set to False, the AC buses outside Germany are not clustered
@@ -428,13 +442,18 @@ def run_etrago(args, json_path):
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
             Default: False.
+
+        * "n_cluster_interest_area": False, int
+            Number of buses to cluster all the electrical buses in the area
+            of interest. Method provided in the arg "method" is used. If
+            it is set to False, the area of interest is not clustered.
+            Default: False.
         * "method_gas" : str
             Method used for gas clustering. You can choose between two
             clustering methods:
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers 'electrical' distances between
             buses
-
             Default: "kmedoids-dijkstra".
         * "n_clusters_gas" : int
             Defines total number of resulting CH4 nodes including DE and
@@ -694,17 +713,6 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
-    # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"]["type"] != "lopf":
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-            columns=etrago.network.lines.index,
-            data=1.0,
-        )
-
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
-
-    # start linear optimal powerflow calculations
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation

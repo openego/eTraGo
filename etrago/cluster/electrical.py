@@ -48,7 +48,10 @@ if "READTHEDOCS" not in os.environ:
         strategies_lines,
         strategies_one_ports,
     )
-    from etrago.tools.utilities import set_control_strategies
+    from etrago.tools.utilities import (
+        set_control_strategies,
+        select_elec_network,
+    )
 
     logger = logging.getLogger(__name__)
 
@@ -196,6 +199,7 @@ def adjust_no_electric_network(
         & (network.buses.carrier == "AC")
         & (network.buses.v_nom > 110)
     ].index
+
     busmap3 = pd.DataFrame(columns=["elec_bus", "carrier", "cluster"])
     for bus_ne in network2.buses.index:
         carry = network2.buses.loc[bus_ne, "carrier"]
@@ -278,7 +282,6 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
     busmap : dict
         Maps old bus_ids to new bus_ids including all sectors.
     """
-
     network_c = Network()
 
     network, busmap = adjust_no_electric_network(
@@ -298,7 +301,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
 
     # keep attached lines
     lines = network.lines.copy()
-    mask = lines.bus0.isin(buses.index)
+    mask = lines.bus0.isin(buses.index) & lines.bus1.isin(buses.index)
     lines = lines.loc[mask, :]
 
     # keep attached transformer
@@ -469,132 +472,6 @@ def ehv_clustering(self):
         drop_nan_values(self.network)
 
         logger.info("Network clustered to EHV-grid")
-
-
-def select_elec_network(etrago, apply_on="grid_model"):
-    """
-    Selects the electric network based on the clustering settings specified
-    in the Etrago object.
-
-    Parameters
-    ----------
-    etrago : Etrago
-        An instance of the Etrago class
-    apply_on: str
-        gives information about the objective of the output network. If
-        "grid_model" is provided, the value assigned in the args for
-        ["network_clustering"]["cluster_foreign_AC""] will define if the
-        foreign buses will be included in the network. if "market_model" is
-        provided, foreign buses will be always included.
-
-    Returns
-    -------
-    Tuple containing:
-        elec_network : pypsa.Network
-            Contains the electric network
-        n_clusters : int
-            number of clusters used in the clustering process.
-    """
-    if apply_on == "grid_model":
-        elec_network = etrago.network.copy()
-    elif apply_on == "market_model":
-        elec_network = etrago.network_tsa.copy()
-    else:
-        logger.warning(
-            """Parameter apply_on must be either 'grid_model' or 'market_model'
-            """
-        )
-    settings = etrago.args["network_clustering"]
-
-    if apply_on == "grid_model":
-        include_foreign = settings["cluster_foreign_AC"]
-    elif apply_on == "market_model":
-        include_foreign = True
-    else:
-        raise ValueError(
-            """Parameter apply_on must be either 'grid_model' or 'market_model'
-            """
-        )
-
-    if include_foreign:
-        elec_network.buses = elec_network.buses[
-            elec_network.buses.carrier == "AC"
-        ]
-        elec_network.links = elec_network.links[
-            (elec_network.links.carrier == "AC")
-            | (elec_network.links.carrier == "DC")
-        ]
-        n_clusters = settings["n_clusters_AC"]
-    else:
-        AC_filter = elec_network.buses.carrier.values == "AC"
-
-        foreign_buses = elec_network.buses[
-            (elec_network.buses.country != "DE")
-            & (elec_network.buses.carrier == "AC")
-        ]
-
-        num_neighboring_country = len(
-            foreign_buses[foreign_buses.index.isin(elec_network.loads.bus)]
-        )
-
-        elec_network.buses = elec_network.buses[
-            AC_filter & (elec_network.buses.country.values == "DE")
-        ]
-        n_clusters = settings["n_clusters_AC"] - num_neighboring_country
-
-    # Dealing with generators
-    elec_network.generators = elec_network.generators[
-        elec_network.generators.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.generators_t:
-        elec_network.generators_t[attr] = elec_network.generators_t[attr].loc[
-            :,
-            elec_network.generators_t[attr].columns.isin(
-                elec_network.generators.index
-            ),
-        ]
-
-    # Dealing with loads
-    elec_network.loads = elec_network.loads[
-        elec_network.loads.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.loads_t:
-        elec_network.loads_t[attr] = elec_network.loads_t[attr].loc[
-            :,
-            elec_network.loads_t[attr].columns.isin(elec_network.loads.index),
-        ]
-
-    # Dealing with storage_units
-    elec_network.storage_units = elec_network.storage_units[
-        elec_network.storage_units.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.storage_units_t:
-        elec_network.storage_units_t[attr] = elec_network.storage_units_t[
-            attr
-        ].loc[
-            :,
-            elec_network.storage_units_t[attr].columns.isin(
-                elec_network.storage_units.index
-            ),
-        ]
-
-    # Dealing with stores
-    elec_network.stores = elec_network.stores[
-        elec_network.stores.bus.isin(elec_network.buses.index)
-    ]
-
-    for attr in elec_network.stores_t:
-        elec_network.stores_t[attr] = elec_network.stores_t[attr].loc[
-            :,
-            elec_network.stores_t[attr].columns.isin(
-                elec_network.stores.index
-            ),
-        ]
-
-    return elec_network, n_clusters
 
 
 def unify_foreign_buses(etrago):
@@ -787,7 +664,9 @@ def preprocessing(etrago, apply_on="grid_model"):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters = select_elec_network(etrago, apply_on=apply_on)
+    network_elec, n_clusters, network_area = select_elec_network(
+        etrago, apply_on=apply_on
+    )
 
     if settings["method"] == "kmedoids-dijkstra":
         lines_col = network_elec.lines.columns
@@ -817,8 +696,16 @@ def preprocessing(etrago, apply_on="grid_model"):
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(network=network_elec, save=False)
+        weight_area = weighting_for_scenario(network=network_area, save=False)
 
-    return network_elec, weight, n_clusters, busmap_foreign
+    return (
+        network_elec,
+        weight,
+        n_clusters,
+        busmap_foreign,
+        network_area,
+        weight_area,
+    )
 
 
 def postprocessing(
@@ -1009,6 +896,9 @@ def weighting_for_scenario(network, save=None):
     gen = network.generators[network.generators.carrier != "load shedding"][
         ["bus", "carrier", "p_nom"]
     ].copy()
+    if len(gen) == 0:
+        return pd.Series()
+
     gen["cf"] = gen.apply(calc_availability_factor, axis=1)
     gen["weight"] = gen["p_nom"] * gen["cf"]
 
@@ -1044,6 +934,49 @@ def weighting_for_scenario(network, save=None):
     return weight
 
 
+def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
+    args = etrago.args["network_clustering"]
+
+    if not etrago.args["interest_area"]:
+        return busmap, medoid_idx
+    if not args["n_cluster_interest_area"]:
+        for bus in network_area.buses.index:
+            busmap[bus] = bus
+        return busmap, medoid_idx
+    else:
+        if args["method"] == "kmeans":
+            busmap_area = kmean_clustering(
+                etrago,
+                network_area,
+                weight_area,
+                args["n_cluster_interest_area"],
+            )
+            busmap_area = (
+                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+
+        if args["method"] == "kmedoids-dijkstra":
+            busmap_area, medoid_idx_area = kmedoids_dijkstra_clustering(
+                etrago,
+                network_area.buses,
+                network_area.lines,
+                weight_area,
+                args["n_cluster_interest_area"],
+            )
+
+            medoid_idx_area.index = (
+                medoid_idx_area.index.astype(int) + busmap.apply(int).max() + 1
+            )
+            busmap_area = (
+                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+            medoid_idx = pd.concat([medoid_idx, medoid_idx_area])
+
+        busmap = pd.concat([busmap, busmap_area])
+
+        return busmap, medoid_idx
+
+
 def run_spatial_clustering(self):
     """
     Main method for running spatial clustering on the electrical network.
@@ -1065,16 +998,27 @@ def run_spatial_clustering(self):
         else:
             self.disaggregated_network = self.network.copy(with_time=False)
 
-        elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
+        (
+            elec_network,
+            weight,
+            n_clusters,
+            busmap_foreign,
+            network_area,
+            weight_area,
+        ) = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
             if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-means Clustering")
 
-                busmap = kmean_clustering(
+                busmap_elec = kmean_clustering(
                     self, elec_network, weight, n_clusters
                 )
                 medoid_idx = pd.Series(dtype=str)
+                busmap, medoid_idx = include_busmap_area(
+                    self, busmap_elec, medoid_idx, network_area, weight_area
+                )
+
             else:
                 busmap = pd.Series(dtype=str)
                 medoid_idx = pd.Series(dtype=str)
@@ -1083,12 +1027,16 @@ def run_spatial_clustering(self):
             if not self.args["network_clustering"]["k_elec_busmap"]:
                 logger.info("Start k-medoids Dijkstra Clustering")
 
-                busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                busmap_elec, medoid_idx = kmedoids_dijkstra_clustering(
                     self,
                     elec_network.buses,
                     elec_network.lines,
                     weight,
                     n_clusters,
+                )
+
+                busmap, medoid_idx = include_busmap_area(
+                    self, busmap_elec, medoid_idx, network_area, weight_area
                 )
 
             else:

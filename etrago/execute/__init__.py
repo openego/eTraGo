@@ -427,6 +427,8 @@ def optimize(self):
     None.
 
     """
+    # Verify feasibility
+    self.adjust_before_optimization()
 
     if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()

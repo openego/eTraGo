@@ -43,7 +43,10 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         sum_with_inf,
     )
-    from etrago.tools.utilities import set_control_strategies
+    from etrago.tools.utilities import (
+        find_buses_area,
+        set_control_strategies,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +114,8 @@ def preprocessing(etrago):
         )
     ]
 
-    # select buses dependent on whether they should be clustered in
-    # (only DE or DE+foreign)
+    # select buses dependent on whether they should be clustered in (only DE
+    # or DE+foreign DE except specified area)
     if not settings["cluster_foreign_gas"]:
         network_ch4.buses = network_ch4.buses.loc[
             ch4_filter & (network_ch4.buses["country"].values == "DE")
@@ -132,6 +135,12 @@ def preprocessing(etrago):
     else:
         network_ch4.buses = network_ch4.buses.loc[ch4_filter]
         n_clusters = settings["n_clusters_gas"]
+
+    # Exclude buses in the area that should not be clustered
+    busmap_area = find_buses_area(etrago, "CH4")
+    network_ch4.buses = network_ch4.buses[
+        ~network_ch4.buses.index.isin(busmap_area)
+    ]
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
@@ -226,7 +235,8 @@ def preprocessing(etrago):
         weight_ch4.loc[loaded_weights.index] = loaded_weights
     else:
         weight_ch4 = weighting_for_scenario(network_ch4.buses, save=False)
-    return network_ch4, weight_ch4.squeeze(axis=1), n_clusters
+
+    return network_ch4, weight_ch4.squeeze(axis=1), n_clusters, busmap_area
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
@@ -288,9 +298,12 @@ def get_h2_clusters(etrago, busmap_ch4):
         to its corresponding cluster ID.
     """
     # Mapping of H2 buses to new CH4 cluster IDs
+    map_ch4_h2 = etrago.ch4_h2_mapping[
+        etrago.ch4_h2_mapping.index.isin(busmap_ch4.index)
+    ]
     busmap_h2 = pd.Series(
-        busmap_ch4.loc[etrago.ch4_h2_mapping.index].values,
-        index=etrago.ch4_h2_mapping.values,
+        busmap_ch4.loc[map_ch4_h2.index].values,
+        index=map_ch4_h2.values,
     )
 
     # Create unique H2 cluster IDs
@@ -304,7 +317,9 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
-def gas_postprocessing(etrago, busmap, medoid_idx=None):
+def gas_postprocessing(
+    etrago, busmap, medoid_idx=None, busmap_area=pd.Series()
+):
     """
     Performs the postprocessing for the gas grid clustering based on the
     provided busmap
@@ -358,6 +373,10 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     if "H2_grid" in etrago.network.buses.carrier.unique():
         busmap = get_h2_clusters(etrago, busmap)
+
+    if len(busmap_area) > 0:
+        for bus_area in busmap_area.values:
+            busmap[bus_area] = bus_area
 
     # Add all other buses to busmap
     missing_idx = list(
@@ -967,7 +986,7 @@ def run_spatial_clustering_gas(self):
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
-            gas_network, weight, n_clusters = preprocessing(self)
+            gas_network, weight, n_clusters, busmap_area = preprocessing(self)
 
             if method == "kmeans":
                 if settings["k_gas_busmap"]:
@@ -1011,7 +1030,9 @@ def run_spatial_clustering_gas(self):
                     "spatial clustering method for the gas network"
                 )
                 raise ValueError(msg)
-            self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
+            self.network, busmap = gas_postprocessing(
+                self, busmap, medoid_idx, busmap_area
+            )
 
             self.update_busmap(busmap)
 

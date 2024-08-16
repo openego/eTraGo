@@ -110,6 +110,7 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    adjust_before_optimization,
 )
 
 logger = logging.getLogger(__name__)
@@ -235,6 +236,12 @@ class Etrago:
                     )
 
             self.get_clustering_data(csv_folder_name)
+
+            conn = db.connection(section=self.args["db"])
+            self.engine = conn
+
+            session = sessionmaker(bind=conn)
+            self.session = session()
 
         else:
             logger.error("Set args or csv_folder_name")
@@ -371,6 +378,8 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
+
+    adjust_before_optimization = adjust_before_optimization
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
