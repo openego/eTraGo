@@ -29,8 +29,8 @@ import logging
 import math
 import os
 
-from geoalchemy2.shape import to_shape  # noqa: F401
 from pyomo.environ import Constraint, PositiveReals, Var
+import geoalchemy2
 import numpy as np
 import pandas as pd
 import pypsa
@@ -1126,9 +1126,16 @@ def group_parallel_lines(network):
     lines_2["bus0"] = bus_max
     lines_2["bus1"] = bus_min
     lines_2.reset_index(inplace=True)
+
     lines_2["geom"] = lines_2.apply(
-        lambda x: None if x.geom is None else x.geom.wkt, axis=1
+        lambda x: (
+            x.geom.wkt
+            if isinstance(x.geom, geoalchemy2.elements.WKBElement)
+            else None
+        ),
+        axis=1,
     )
+
     network.lines = (
         lines_2.groupby(["bus0", "bus1"])
         .apply(agg_parallel_lines)
