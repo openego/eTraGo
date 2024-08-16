@@ -110,7 +110,7 @@ def sum_with_inf(x):
 
 
 def strategies_buses():
-    return {"geom": nan_links, "country": "first"}
+    return {"geom": nan_links, "country": "first", "scn_name": "first",}
 
 
 def strategies_lines():
@@ -120,6 +120,7 @@ def strategies_lines():
         "topo": "first",
         "country": "first",
         "total_cables": np.sum,
+        "scn_name": "first",
     }
 
 
