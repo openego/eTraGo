@@ -28,7 +28,6 @@
     "model_formulation": "kirchhoff",
     "scn_name": "eGon2035",
     "scn_extension": null,
-    "scn_decommissioning": null,
     "lpfile": false,
     "csv_export": "results",
     "extendable": {

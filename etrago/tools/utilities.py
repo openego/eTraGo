@@ -2581,13 +2581,13 @@ def check_args(etrago):
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
 
-        if not etrago.args["method"]["pyomo"]:
+        if etrago.args["method"]["formulation"] != "pyomo":
             logger.warning(
                 "Snapshot clustering constraints are"
                 " not yet correctly implemented without pyomo."
-                " Setting `args['method']['pyomo']` to `True`."
+                " Setting `args['method']['formulation']` to `pyomo`."
             )
-            etrago.args["method"]["pyomo"] = True
+            etrago.args["method"]["formulation"] = "pyomo"
 
     if etrago.args["method"]["formulation"] != "pyomo":
         try:
@@ -2606,6 +2606,16 @@ def check_args(etrago):
                 " For installation of gurobipy use pip."
             )
             raise
+
+    if (etrago.args["method"]["formulation"] != "pyomo") & (
+        etrago.args["temporal_disaggregation"]["active"]
+    ):
+        logger.warning(
+            "Temporal disaggregation is"
+            " not yet correctly implemented without pyomo."
+            " Setting `args['method']['formulation']` to `pyomo`."
+        )
+        etrago.args["method"]["formulation"] = "pyomo"
 
 
 def drop_sectors(self, drop_carriers):
@@ -2964,6 +2974,7 @@ def manual_fixes_datamodel(etrago):
             inplace=True,
         )
 
+
 def select_elec_network(etrago, apply_on="grid_model"):
     """
     Creates networks to be used on the clustering based on settings specified
@@ -3003,7 +3014,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
         ].index
         if apply_on == "grid_model-ehv":
             n_clusters = pd.NA
-        #Exclude foreign buses when set to don't include them in clustering
+        # Exclude foreign buses when set to don't include them in clustering
         elif settings["cluster_foreign_AC"]:
             n_clusters = settings["n_clusters_AC"]
         else:
@@ -3186,6 +3197,7 @@ def find_buses_area(etrago, carrier):
         buses_area = pd.DataFrame()
 
     return buses_area.index
+
 
 def adjust_before_optimization(self):
 

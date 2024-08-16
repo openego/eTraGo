@@ -33,29 +33,7 @@ if "READTHEDOCS" not in os.environ:
     from etrago.tools import db
 
 from etrago import __version__
-from etrago.cluster.disaggregation import run_disaggregation
-from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
-from etrago.cluster.gas import run_spatial_clustering_gas
-from etrago.cluster.snapshot import skip_snapshots, snapshot_clustering
-from etrago.execute import (
-    dispatch_disaggregation,
-    lopf,
-    optimize,
-    run_pf_post_lopf,
-)
-from etrago.execute.grid_optimization import (
-    add_redispatch_generators,
-    grid_optimization,
-)
-from etrago.execute.market_optimization import (
-    build_market_model,
-    market_optimization,
-)
-from etrago.execute.sclopf import (
-    iterate_sclopf,
-    post_contingency_analysis_lopf,
-)
-from etrago.tools.calc_results import (
+from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
     calc_etrago_results,
@@ -64,14 +42,7 @@ from etrago.tools.calc_results import (
     german_network,
     system_costs_germany,
 )
-from etrago.tools.extendable import extendable
-from etrago.tools.io import (
-    NetworkScenario,
-    add_ch4_h2_correspondence,
-    decommissioning,
-    extension,
-)
-from etrago.tools.plot import (
+from etrago.analyze.plot import (
     bev_flexibility_potential,
     demand_side_management,
     flexibility_usage,
@@ -88,8 +59,34 @@ from etrago.tools.plot import (
     plot_heat_summary,
     shifted_energy,
 )
+from etrago.cluster.electrical import ehv_clustering, run_spatial_clustering
+from etrago.cluster.gas import run_spatial_clustering_gas
+from etrago.cluster.temporal import skip_snapshots, snapshot_clustering
+from etrago.disaggregate.spatial import run_disaggregation
+from etrago.disaggregate.temporal import dispatch_disaggregation
+from etrago.execute import lopf, optimize, run_pf_post_lopf
+from etrago.execute.grid_optimization import (
+    add_redispatch_generators,
+    grid_optimization,
+)
+from etrago.execute.market_optimization import (
+    build_market_model,
+    market_optimization,
+)
+from etrago.execute.sclopf import (
+    iterate_sclopf,
+    post_contingency_analysis_lopf,
+)
+from etrago.tools.extendable import extendable
+from etrago.tools.io import (
+    NetworkScenario,
+    add_ch4_h2_correspondence,
+    decommissioning,
+    extension,
+)
 from etrago.tools.utilities import (
     add_missing_components,
+    adjust_before_optimization,
     adjust_CH4_gen_carriers,
     buses_by_country,
     check_args,
@@ -114,7 +111,6 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
-    adjust_before_optimization,
 )
 
 logger = logging.getLogger(__name__)

@@ -72,10 +72,7 @@ def market_optimization(self):
                 f"""Optimization failed with status {status}
                 and condition {condition}"""
             )
-            self.pre_market_model.model.print_infeasibilities()
-            import pdb
 
-            pdb.set_trace()
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
