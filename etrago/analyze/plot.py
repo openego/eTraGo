@@ -2920,7 +2920,9 @@ def plot_grid(
         bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
         # only plot buses inside interest area
         buses_interest_area = find_buses_area(self, "AC")
-        buses_outside = [_ for _ in bus_sizes.index if _ not in buses_interest_area]
+        buses_outside = [
+            _ for _ in bus_sizes.index if _ not in buses_interest_area
+        ]
         bus_sizes.loc[buses_outside] = bus_sizes.loc[buses_outside] * 0.3
         bus_scaling = bus_sizes
         bus_colors = coloring()["AC"]

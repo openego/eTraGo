@@ -2974,6 +2974,7 @@ def manual_fixes_datamodel(etrago):
             inplace=True,
         )
 
+
 def select_elec_network(etrago, apply_on="grid_model"):
     """
     Creates networks to be used on the clustering based on settings specified
@@ -3013,7 +3014,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
         ].index
         if apply_on == "grid_model-ehv":
             n_clusters = pd.NA
-        #Exclude foreign buses when set to don't include them in clustering
+        # Exclude foreign buses when set to don't include them in clustering
         elif settings["cluster_foreign_AC"]:
             n_clusters = settings["n_clusters_AC"]
         else:
@@ -3196,6 +3197,7 @@ def find_buses_area(etrago, carrier):
         buses_area = pd.DataFrame()
 
     return buses_area.index
+
 
 def adjust_before_optimization(self):
 
