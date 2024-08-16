@@ -21,16 +21,14 @@
 """
 Plot.py defines functions necessary to plot results of eTraGo.
 """
-from math import log10, sqrt
+from math import sqrt
 import logging
 import os
 
-from etrago.execute import import_gen_from_links
-from etrago.tools.utilities import find_buses_area
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
-from pyproj import Proj, transform
+from pypsa.plot import draw_map_cartopy
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
@@ -41,16 +39,19 @@ try:
     import cartopy.crs as ccrs
 except ImportError:
     cartopy_present = False
-from pypsa.plot import draw_map_cartopy
+
 
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    from geoalchemy2.shape import to_shape
+    from geoalchemy2.shape import to_shape  # noqa: F401
     from pyproj import Proj, transform
-    from shapely.geometry import LineString, MultiPoint, Point, Polygon
+    from shapely.geometry import LineString, Point
     import geopandas as gpd
     import tilemapbase
+
+    from etrago.execute import import_gen_from_links
+    from etrago.tools.utilities import find_buses_area
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -59,8 +60,9 @@ __copyright__ = (
     "DLR-Institute for Networked Energy Systems"
 )
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
-__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol, ClaraBuettner,
-CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl, BartelsJ"""
+__author__ = """ulfmueller, MarlonSchlemminger, mariusves, lukasol,
+ClaraBuettner, CarlosEpia, pieterhexen, gnn, fwitte, lukasol, KathiEsterl,
+BartelsJ"""
 
 
 def set_epsg_network(network):
@@ -914,9 +916,9 @@ def calc_storage_expansion_per_bus(
             [(idx, "battery") for idx in battery_distribution.index]
         )
 
-        dist.loc[
-            dist.index.get_level_values("carrier") == "battery"
-        ] = battery_distribution
+        dist.loc[dist.index.get_level_values("carrier") == "battery"] = (
+            battery_distribution
+        )
     if "H2_overground" in carriers:
         h2_overground = network.stores[
             network.stores.carrier == "H2_overground"
@@ -932,9 +934,9 @@ def calc_storage_expansion_per_bus(
             [(idx, "H2_overground") for idx in h2_over_distribution.index]
         )
 
-        dist.loc[
-            dist.index.get_level_values("carrier") == "H2_overground"
-        ] = h2_over_distribution
+        dist.loc[dist.index.get_level_values("carrier") == "H2_overground"] = (
+            h2_over_distribution
+        )
 
     if "H2_overground" in carriers:
         h2_underground = network.stores[
@@ -1821,7 +1823,9 @@ def plot_background_grid(network, ax, geographical_boundaries, osm):
             )
 
 
-def demand_side_management(self, buses, snapshots, agg="5h", used=False, apply_on="grid_model"):
+def demand_side_management(
+    self, buses, snapshots, agg="5h", used=False, apply_on="grid_model"
+):
     """Calculate shifting potential of demand side management
 
     Parameters
@@ -1856,13 +1860,13 @@ def demand_side_management(self, buses, snapshots, agg="5h", used=False, apply_o
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     df = pd.DataFrame(index=network.snapshots[snapshots])
 
     link = network.links[
-        (network.links.carrier == "dsm")
-        & (network.links.bus0.isin(buses))
+        (network.links.carrier == "dsm") & (network.links.bus0.isin(buses))
     ]
     s = network.stores[
         (network.stores.carrier == "dsm")
@@ -1954,15 +1958,14 @@ def bev_flexibility_potential(
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     # Initialize DataFrame
     df = pd.DataFrame(index=network.snapshots[snapshots])
 
     # Select BEV buses and links
-    bev_buses = network.buses[
-        network.buses.carrier.str.contains("Li ion")
-    ]
+    bev_buses = network.buses[network.buses.carrier.str.contains("Li ion")]
     bev_links = network.links[
         (network.links.bus1.isin(bev_buses.index.values))
         & (network.links.bus0.isin(buses))
@@ -2010,9 +2013,7 @@ def bev_flexibility_potential(
     )
 
     if used:
-        bev_links_t_used = network.links_t.p0[bev_links.index].iloc[
-            snapshots
-        ]
+        bev_links_t_used = network.links_t.p0[bev_links.index].iloc[snapshots]
 
         bev_links_t_used.columns = bev_links_t_used.columns.map(bev_links.bus1)
 
@@ -2078,7 +2079,8 @@ def heat_stores(
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     df = pd.DataFrame(index=network.snapshots[snapshots])
 
@@ -2090,9 +2092,7 @@ def heat_stores(
             ].index
         )
         & network.links.bus1.isin(
-            network.buses[
-                network.buses.carrier.str.contains("heat")
-            ].index
+            network.buses[network.buses.carrier.str.contains("heat")].index
         )
     ].bus1.unique()
 
@@ -2176,7 +2176,8 @@ def hydrogen_stores(
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     df = pd.DataFrame(index=network.snapshots[snapshots])
 
@@ -2188,9 +2189,7 @@ def hydrogen_stores(
             ].index
         )
         & network.links.bus1.isin(
-            network.buses[
-                network.buses.carrier.str.contains("H2")
-            ].index
+            network.buses[network.buses.carrier.str.contains("H2")].index
         )
     ].bus1.unique()
 
@@ -2210,7 +2209,13 @@ def hydrogen_stores(
 
 
 def flexibility_usage(
-    self, flexibility, agg="5h", snapshots=[], buses=[], pre_path=None, apply_on="grid_model",
+    self,
+    flexibility,
+    agg="5h",
+    snapshots=[],
+    buses=[],
+    pre_path=None,
+    apply_on="grid_model",
 ):
     """Plots temporal distribution of potential and usage for flexibilities
 
@@ -2248,7 +2253,8 @@ def flexibility_usage(
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     colors = coloring()
     colors["dlr"] = "orange"
@@ -2302,9 +2308,7 @@ def flexibility_usage(
         df["p_min"] = su.p_nom_opt.sum() * (-1)
         df["p_max"] = su.p_nom_opt.sum()
         df["p"] = (
-            network.storage_units_t.p[su.index]
-            .sum(axis=1)
-            .iloc[snapshots]
+            network.storage_units_t.p[su.index].sum(axis=1).iloc[snapshots]
         )
 
         df["e_min"] = 0
@@ -2346,7 +2350,9 @@ def flexibility_usage(
         fig_e.savefig(pre_path + f"stored_e_{flexibility}")
 
 
-def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model"):
+def plot_carrier(
+    etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="grid_model"
+):
     """
     Parameters
     ----------
@@ -2376,7 +2382,8 @@ def plot_carrier(etrago, carrier_links=["AC"], carrier_buses=["AC"], apply_on="g
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     colors = coloring()
     line_colors = "lightblue"
@@ -2468,8 +2475,8 @@ def plot_grid(
         * 'q_flow_max': maximal reactive flows
         * 'dlr': energy above nominal capacity
         * 'grey': plot all lines and DC links grey colored
-        * 'interest_area': plot all AC buses inside the interest area larger than buses
-          outside the interest area
+        * 'interest_area': plot all AC buses inside the interest area larger
+          than buses outside the interest area
 
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
@@ -2477,7 +2484,8 @@ def plot_grid(
         Set static bus color or attribute to plot. The default is 'grey'.
         Current options:
 
-        * 'nodal_production_balance': net producer/consumer in selected timeteps
+        * 'nodal_production_balance': net producer/consumer in selected
+           time steps
         * 'storage_expansion': storage expansion per bus and technology
         * 'storage_distribution': installed storage units per bus
         * 'h2_battery_storage_expansion': storage expansion per bus and
@@ -2485,8 +2493,10 @@ def plot_grid(
         * 'gen_dist': dispatch per carrier in selected timesteps
         * 'ramp_up': re-dispatch up per carrier in selected timesteps
         * 'ramp_down': re-dispatch down per carrier in selected timesteps
-        * 'PowerToH2': location and sizes of electrolizers
+        * 'PowerToH2': location and sizes of electrolyzers
         * 'flexibility_usage': use of DSM and BEV charger
+        * 'PowerToH2_correlation': indication of degree of correlation to
+        market or nodal price of electrolyzers
 
     timesteps : array, optional
         Timesteps consideredd in time depended plots. The default
@@ -2540,7 +2550,8 @@ def plot_grid(
     else:
         logger.warning(
             """Parameter apply_on must be one of ['grid_model', 'market_model'
-            'pre_market_model', 'disaggregated_network'.""")
+            'pre_market_model', 'disaggregated_network'."""
+        )
 
     # Set colors for plotting
     plotting_colors(network)
@@ -2837,6 +2848,60 @@ def plot_grid(
         bus_colors = coloring()["power_to_H2"]
         bus_legend = "PowerToH2"
         bus_unit = "TW"
+    elif (
+        bus_colors == "PowerToH2_correlation"
+    ):  # PowerToH2 plots p_nom_opt of links with carrier=power to H2
+        bus_scaling = bus_sizes
+        bus_sizes = (
+            bus_scaling
+            * network.links[(network.links.carrier == "power_to_H2")]
+            .groupby("bus0")
+            .sum()
+            .p_nom_opt
+        )
+        if len(bus_sizes) == 0:
+            print("There is no PowerToH2 to plot")
+        bus_colors = coloring()["power_to_H2"]
+        bus_legend = "PowerToH2"
+        bus_unit = "TW"
+
+        market_bus_de = self.market_model.buses[
+            (self.market_model.buses.country == "DE")
+            & (self.market_model.buses.carrier == "AC")
+        ].index
+        market_price = self.market_model.buses_t.marginal_price[market_bus_de]
+
+        bus_colors = pd.Series(index=network.buses.index, data=0)
+        for bus in network.links[
+            (network.links.carrier == "power_to_H2")
+        ].bus0:
+
+            nodal_price = network.buses_t.marginal_price[bus]
+
+            ely = network.links_t.p0[
+                network.links[
+                    (network.links.carrier == "power_to_H2")
+                    & (network.links.bus0 == bus)
+                ].index
+            ]
+            df_corr = pd.DataFrame()
+
+            df_corr["ely"] = ely
+            df_corr["market"] = market_price
+            df_corr["nodal_price"] = nodal_price
+
+            bus_colors[bus] = (
+                df_corr.corr(method="spearman").loc["nodal_price", "ely"]
+                / (df_corr.corr(method="spearman").loc["nodal_price", "ely"])
+                + df_corr.corr(method="spearman").loc["market", "ely"]
+            )
+
+        bus_colors = bus_colors.abs()
+
+        # ely.corr
+        # ely_corr_market = ely.corrwith(
+        #     market_price, method = 'spearman', axis=1)
+        # ely_corr_nodal = ely.corr(nodal_price, method = 'spearman')
     elif bus_colors == "grey":
         bus_scaling = bus_sizes
         bus_sizes = pd.Series(
@@ -2855,7 +2920,9 @@ def plot_grid(
         bus_sizes[bus_sizes == "AC"] = 1 * bus_scaling
         # only plot buses inside interest area
         buses_interest_area = find_buses_area(self, "AC")
-        buses_outside = [_ for _ in bus_sizes.index if _ not in buses_interest_area]
+        buses_outside = [
+            _ for _ in bus_sizes.index if _ not in buses_interest_area
+        ]
         bus_sizes.loc[buses_outside] = bus_sizes.loc[buses_outside] * 0.3
         bus_scaling = bus_sizes
         bus_colors = coloring()["AC"]
@@ -2866,14 +2933,16 @@ def plot_grid(
         ll = network.plot(
             line_colors=line_colors,
             link_colors=link_colors,
-            line_cmap=plt.cm.jet,
-            link_cmap=plt.cm.jet,
+            line_cmap=plt.cm.viridis,
+            bus_alpha=0.9,
+            link_cmap=plt.cm.viridis,
             bus_sizes=bus_sizes,
             bus_colors=bus_colors,
+            bus_cmap=plt.cm.viridis,
             line_widths=line_widths,
             link_widths=link_widths,
             flow=flow,
-            title=title,
+            # title=title,
             geomap=False,
             projection=ccrs.PlateCarree(),
             color_geomap=True,
@@ -2929,7 +2998,7 @@ def plot_grid(
                 labels.append(
                     f"""
                     {round(max_value/bus_scaling/scaling_store_expansion[i]/
-                           1000, 0).astype(int)} {bus_unit} """
+                           1000, 0)} {bus_unit} """
                     + i
                 )
         else:
@@ -2992,7 +3061,7 @@ def plot_grid(
             )
             ax.add_artist(l3)
 
-    if type(line_colors) != str:
+    if type(line_colors) is not str:
         # Set fixed boundaries if selected in parameters
         if not boundaries:
             boundaries = [
@@ -3012,11 +3081,19 @@ def plot_grid(
             ll[1],
             values=v,
             ticks=v[0:101:10],
-            fraction=0.028,
+            # fraction=0.028,
             pad=0.04,
+            orientation="horizontal",
         )
         # Set legend label
         cb.set_label(label)
+
+    elif type(bus_colors) is not str:
+        # import pdb; pdb.set_trace()
+        ll[0].set_clim([0, bus_colors.max()])
+        plt.colorbar(
+            ll[0], fraction=0.04, pad=0.004, label="correlation factor", ax=ax
+        )
 
     # Show plot or save to file
     if filename is None:
@@ -3171,10 +3248,15 @@ def plot_clusters(
             & lines["bus1"].isin(map_buses.index)
         ]
         lines["geom"] = lines.apply(
-            lambda x: x["geom"]
-            if not pd.isna(x["geom"])
-            else LineString(
-                [map_buses["geom"][x["bus0"]], map_buses["geom"][x["bus1"]]]
+            lambda x: (
+                x["geom"]
+                if not pd.isna(x["geom"])
+                else LineString(
+                    [
+                        map_buses["geom"][x["bus0"]],
+                        map_buses["geom"][x["bus1"]],
+                    ]
+                )
             ),
             axis=1,
         )

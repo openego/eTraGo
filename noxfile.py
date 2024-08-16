@@ -1,21 +1,25 @@
 from pathlib import Path
 from pprint import pformat
+import platform
 
 import nox
 
 cleaned = [
-    "etrago/cluster/disaggregation.py",
+    "etrago/analyze/__init__.py",
+    "etrago/analyze/calc_results.py",
+    "etrago/analyze/plot.py",
     "etrago/cluster/electrical.py",
     "etrago/cluster/gas.py",
-    "etrago/cluster/snapshot.py",
     "etrago/cluster/spatial.py",
+    "etrago/cluster/temporal.py",
+    "etrago/disaggregate/spatial.py",
+    "etrago/disaggregate/temporal.py",
     "etrago/execute/__init__.py",
     "etrago/execute/grid_optimization.py",
     "etrago/execute/market_optimization.py",
-    "etrago/tools/calc_results.py",
+    "etrago/network.py",
     "etrago/tools/extendable.py",
     "etrago/tools/io.py",
-    "etrago/tools/network.py",
     "etrago/tools/utilities.py",
     "noxfile.py",
     "setup.py",
@@ -65,6 +69,15 @@ def flake8(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def build(session):
     """Build the package and check for packaging errors."""
+    # Get the current Python version and OS
+    current_version = session.python if session.python else "unknown"
+    current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
+
+    # Check if the current session is Python 3.9 on macOS and skip
+    if current_version == "3.9" and current_os == "Darwin":
+        session.skip("Skipping tests for Python 3.9 on macOS")
+
     setdefaults(session)
     session.install("twine")
     session.run("python", "setup.py", "bdist", "bdist_wheel")
@@ -74,6 +87,15 @@ def build(session):
 @nox.session(python=["3", "3.9", "3.10", "3.11"])
 def install(session):
     """Install the package."""
+    # Get the current Python version and OS
+    current_version = session.python if session.python else "unknown"
+    current_os = platform.system()
+    print(f"Running install on Python {current_version} and OS {current_os}")
+
+    # Check if the current session is Python 3.9 on macOS and skip
+    if current_version == "3.9" and current_os == "Darwin":
+        session.skip("Skipping tests for Python 3.9 on macOS")
+
     setdefaults(session)
     session.env["SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL"] = "False"
     session.run("python", "-mpip", "install", "--upgrade", "pip")

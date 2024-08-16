@@ -163,62 +163,66 @@ def run_lopf(etrago, extra_functionality, method):
             )
         )[0]
 
-        if method["pyomo"]:
-            # repeat the optimization for all slices
-            for i in range(0, no_slices):
-                # keep information on the initial state of charge for the
-                # respectng slice
-                initial = transits[i - 1]
-                soc_initial = etrago.conduct_dispatch_disaggregation.loc[
-                    [etrago.network_tsa.snapshots[initial]]
-                ].transpose()
-                etrago.network_tsa.storage_units.state_of_charge_initial = (
-                    soc_initial
-                )
-                etrago.network_tsa.stores.e_initial = soc_initial
-                etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
-                # the state of charge at the end of each slice is set within
-                # split_dispatch_disaggregation_constraints in constraints.py
+        # repeat the optimization for all slices
+        for i in range(0, no_slices):
+            # keep information on the initial state of charge for the
+            # respectng slice
+            initial = transits[i - 1]
+            soc_initial = etrago.conduct_dispatch_disaggregation.loc[
+                [etrago.network_tsa.snapshots[initial]]
+            ].transpose()
+            etrago.network_tsa.storage_units.state_of_charge_initial = (
+                soc_initial
+            )
+            etrago.network_tsa.stores.e_initial = soc_initial
+            etrago.network_tsa.stores.e_initial.fillna(0, inplace=True)
+            # the state of charge at the end of each slice is set within
+            # split_dispatch_disaggregation_constraints in constraints.py
 
-                # adapt start and end snapshot of respecting slice
-                start = transits[i - 1] + skipped
-                end = transits[i] + (skipped - 1)
-                if i == 0:
-                    start = 0
-                if i == no_slices - 1:
-                    end = len(etrago.network_tsa.snapshots)
+            # adapt start and end snapshot of respecting slice
+            start = transits[i - 1] + skipped
+            end = transits[i] + (skipped - 1)
+            if i == 0:
+                start = 0
+            if i == no_slices - 1:
+                end = len(etrago.network_tsa.snapshots)
 
-                etrago.network_tsa.lopf(
-                    etrago.network_tsa.snapshots[start : end + 1],
-                    solver_name=etrago.args["solver"],
-                    solver_options=etrago.args["solver_options"],
-                    pyomo=True,
-                    extra_functionality=extra_functionality,
-                    formulation=etrago.args["model_formulation"],
-                )
+                if method["formulation"] == "pyomo":
+                    etrago.network_tsa.lopf(
+                        etrago.network_tsa.snapshots[start : end + 1],
+                        solver_name=etrago.args["solver"],
+                        solver_options=etrago.args["solver_options"],
+                        pyomo=True,
+                        extra_functionality=extra_functionality,
+                        formulation=etrago.args["model_formulation"],
+                    )
 
-                if etrago.network_tsa.results["Solver"][0]["Status"] != "ok":
-                    raise Exception("LOPF not solved.")
-
-        else:
-            for i in range(0, no_slices):
-                status, termination_condition = network_lopf(
-                    etrago.network_tsa,
-                    etrago.network_tsa.snapshots[start : end + 1],
-                    solver_name=etrago.args["solver"],
-                    solver_options=etrago.args["solver_options"],
-                    extra_functionality=extra_functionality,
-                    formulation=etrago.args["model_formulation"],
-                )
-
-                if status != "ok":
-                    raise Exception("LOPF not solved.")
+                    if (
+                        etrago.network_tsa.results["Solver"][0]["Status"]
+                        != "ok"
+                    ):
+                        raise Exception("LOPF not solved.")
+                else:
+                    raise Exception(
+                        """Temporal disaggregation currently only works when
+                        using pyomo."""
+                    )
+                    status, termination_condition = network_lopf(
+                        etrago.network_tsa,
+                        etrago.network_tsa.snapshots[start : end + 1],
+                        solver_name=etrago.args["solver"],
+                        solver_options=etrago.args["solver_options"],
+                        extra_functionality=extra_functionality,
+                        formulation=etrago.args["model_formulation"],
+                    )
+                    if status != "ok":
+                        raise Exception("LOPF not solved.")
 
         etrago.network_tsa.storage_units.state_of_charge_initial = 0
         etrago.network_tsa.stores.e_initial = 0
 
     else:
-        if method["pyomo"]:
+        if method["formulation"] == "pyomo":
             etrago.network.lopf(
                 etrago.network.snapshots,
                 solver_name=etrago.args["solver"],
@@ -231,6 +235,22 @@ def run_lopf(etrago, extra_functionality, method):
             if etrago.network.results["Solver"][0]["Status"] != "ok":
                 raise Exception("LOPF not solved.")
 
+        elif method["formulation"] == "linopy":
+            status, condition = etrago.network.optimize(
+                solver_name=etrago.args["solver"],
+                solver_options=etrago.args["solver_options"],
+                extra_functionality=extra_functionality,
+                formulation=etrago.args["model_formulation"],
+            )
+            if status != "ok":
+                logger.warning(
+                    f"""Optimization failed with status {status}
+                    and condition {condition}"""
+                )
+                etrago.network.model.print_infeasibilities()
+                import pdb
+
+                pdb.set_trace()
         else:
             status, termination_condition = network_lopf(
                 etrago.network,
@@ -432,16 +452,17 @@ def optimize(self):
     # Verify feasibility
     self.adjust_before_optimization()
 
-    if self.args["method"]["type"] == "lopf":
-        self.lopf()
-
-    elif self.args["method"]["type"] == "market_grid":  # besseren Namen finden
+    if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()
         update_piecewise_link_p1(self)
 
         # self.market_results_to_grid()
 
         self.grid_optimization()
+
+    elif self.args["method"]["type"] == "lopf":
+
+        self.lopf()
 
     elif self.args["method"]["type"] == "sclopf":
         self.sclopf(
@@ -456,122 +477,6 @@ def optimize(self):
 
     if self.args["method"]["type"] in ["lopf", "market_grid", "sclopf"]:
         update_piecewise_link_p1(self)
-
-
-def dispatch_disaggregation(self):
-    """
-    Function running the tempral disaggregation meaning the optimization
-    of dispatch in the temporally fully resolved network; therfore, the problem
-    is reduced to smaller subproblems by slicing the whole considered time span
-    while keeping inforation on the state of charge of storage units and stores
-    to ensure compatibility and to reproduce saisonality.
-
-    Returns
-    -------
-    None.
-
-    """
-
-    if self.args["temporal_disaggregation"]["active"]:
-        x = time.time()
-
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            # split dispatch_disaggregation into subproblems
-            # keep some information on soc in beginning and end of slices
-            # to ensure compatibility and to reproduce saisonality
-
-            # define number of slices and corresponding slice length
-            no_slices = self.args["temporal_disaggregation"]["no_slices"]
-            slice_len = int(len(self.network.snapshots) / no_slices)
-
-            # transition snapshots defining start and end of slices
-            transits = self.network.snapshots[0::slice_len]
-            if len(transits) > 1:
-                transits = transits[1:]
-            if transits[-1] != self.network.snapshots[-1]:
-                transits = transits.insert(
-                    (len(transits)), self.network.snapshots[-1]
-                )
-            # for stores, exclude emob and dsm because of their special
-            # constraints
-            sto = self.network.stores[
-                ~self.network.stores.carrier.isin(
-                    ["battery_storage", "battery storage", "dsm"]
-                )
-            ]
-
-            # save state of charge of storage units and stores at those
-            # transition snapshots
-            self.conduct_dispatch_disaggregation = pd.DataFrame(
-                columns=self.network.storage_units.index.append(sto.index),
-                index=transits,
-            )
-            for storage in self.network.storage_units.index:
-                self.conduct_dispatch_disaggregation[storage] = (
-                    self.network.storage_units_t.state_of_charge[storage]
-                )
-            for store in sto.index:
-                self.conduct_dispatch_disaggregation[store] = (
-                    self.network.stores_t.e[store]
-                )
-
-            extra_func = self.args["extra_functionality"]
-            self.args["extra_functionality"] = {}
-
-        load_shedding = self.args["load_shedding"]
-        if not load_shedding:
-            self.args["load_shedding"] = True
-            self.load_shedding(temporal_disaggregation=True)
-
-        iterate_lopf(
-            self,
-            Constraints(
-                self.args, self.conduct_dispatch_disaggregation
-            ).functionality,
-            method=self.args["method"],
-        )
-
-        # switch to temporally fully resolved network as standard network,
-        # temporally reduced network is stored in network_tsa
-        network1 = self.network.copy()
-        self.network = self.network_tsa.copy()
-        self.network_tsa = network1.copy()
-        network1 = 0
-
-        # keep original settings
-
-        if self.args["temporal_disaggregation"]["no_slices"]:
-            self.args["extra_functionality"] = extra_func
-        self.args["load_shedding"] = load_shedding
-
-        self.network.lines["s_nom_extendable"] = self.network_tsa.lines[
-            "s_nom_extendable"
-        ]
-        self.network.links["p_nom_extendable"] = self.network_tsa.links[
-            "p_nom_extendable"
-        ]
-        self.network.transformers.s_nom_extendable = (
-            self.network_tsa.transformers.s_nom_extendable
-        )
-        self.network.storage_units["p_nom_extendable"] = (
-            self.network_tsa.storage_units["p_nom_extendable"]
-        )
-        self.network.stores["e_nom_extendable"] = self.network_tsa.stores[
-            "e_nom_extendable"
-        ]
-        self.network.storage_units.cyclic_state_of_charge = (
-            self.network_tsa.storage_units.cyclic_state_of_charge
-        )
-        self.network.stores.e_cyclic = self.network_tsa.stores.e_cyclic
-
-        if not self.args["csv_export"]:
-            path = self.args["csv_export"]
-            self.export_to_csv(path)
-            self.export_to_csv(path + "/temporal_disaggregaton")
-
-        y = time.time()
-        z = (y - x) / 60
-        logger.info("Time for LOPF [min]: {}".format(round(z, 2)))
 
 
 def import_gen_from_links(network, drop_small_capacities=True):

@@ -48,7 +48,6 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, mariusves, pieterhexen, ClaraBuettner"
 
-from importlib import import_module
 import os
 
 import numpy as np
@@ -210,7 +209,7 @@ class NetworkScenario(ScenarioBase):
         )
 
         if self.scenario_extension:
-            from saio.grid import (  # noqa: F401
+            from saio.grid import (  # noqa: F401, F811
                 egon_etrago_extension_bus as egon_etrago_bus,
                 egon_etrago_extension_line as egon_etrago_line,
                 egon_etrago_extension_link as egon_etrago_link,
@@ -863,13 +862,13 @@ def decommissioning(self, **kwargs):
     Network container including decommissioning
 
     """
-    if self.args["scn_decommissioning"] is not None:
+    if self.args["scn_extension"] is not None:
         for i in range(len(self.args["scn_extension"])):
             scn_decom = self.args["scn_extension"][i]
 
             df_decommisionning = pd.read_sql(
                 f"""
-                SELECT * FROM 
+                SELECT * FROM
                 grid.egon_etrago_extension_line
                 WHERE scn_name = 'decomissioining_{scn_decom}'
                 """,

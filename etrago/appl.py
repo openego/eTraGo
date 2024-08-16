@@ -52,15 +52,19 @@ args = {
     "db": "egon-data",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
-        "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
-        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
-        "pyomo": True,  # set if pyomo is used for model building
-        "formulation": "pyomo",
-        "market_zones": "status_quo", # only used if type='market_grid'
-        "rolling_horizon": { # Define parameter of market optimization
-            "planning_horizon": 72, # number of snapshots in each optimization
-            "overlap": 24, # number of overlapping hours
-            },
+        "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
+        "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "formulation": "linopy",
+        "market_optimization":
+            {
+                "active": True,
+                "market_zones": "status_quo", # only used if type='market_grid'
+                "rolling_horizon": {# Define parameter of market optimization
+                    "planning_horizon": 168, # number of snapshots in each optimization
+                    "overlap": 120, # number of overlapping hours
+                 },
+                "redispatch": True,
+             }
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf
@@ -68,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 10,
+    "end_snapshot": 168,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -81,8 +85,7 @@ args = {
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
-    "scn_extension": None,  # None or array of extension scenarios
-    "scn_decommissioning": None,  # None or decommissioning scenario
+    "scn_extension": ["nep2021_c2035"],  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
@@ -264,7 +267,8 @@ def run_etrago(args, json_path):
     scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
-        network container. Data of the extension scenarios are located in
+        network container. In case new lines replace existing ones, these are
+        dropped from the network. Data of the extension scenarios is located in
         extension-tables (e.g. grid.egon_etrago_extension_line)
         There are two overlay networks:
 
@@ -273,23 +277,7 @@ def run_etrago(args, json_path):
         * 'nep2021_c2035' includes all new lines planned by the
           Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
-    scn_decommissioning : NoneType or str
-        This option does currently not work!
 
-        Choose an extra scenario which includes lines you want to decommission
-        from the existing network. Data of the decommissioning scenarios are
-        located in extension-tables
-        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-        'decommissioning\_'.
-        Currently, there are two decommissioning_scenarios which are linked to
-        extension-scenarios:
-
-        * 'nep2035_confirmed' includes all lines that will be replaced in
-          confirmed projects
-        * 'nep2035_b2' includes all lines that will be replaced in
-          NEP-scenario 2035 B2
-
-        Default: None.
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
@@ -703,6 +691,21 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # drop generators without p_nom
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            etrago.network.generators.p_nom==0].index
+        )
+
+    # Temporary drop DLR as it is currently not working with sclopf
+    if (etrago.args["method"]["type"] == "sclopf") & (
+            not etrago.network.lines_t.s_max_pu.empty):
+        print("Setting s_max_pu timeseries to 1")
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+        )
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
@@ -713,7 +716,8 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
 
     etrago.spatial_clustering_gas()
-
+    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
+    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # snapshot clustering
     etrago.snapshot_clustering()
 
@@ -742,6 +746,7 @@ if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
     etrago = run_etrago(args, json_path=None)
+
     print(datetime.datetime.now())
     etrago.session.close()
     # plots: more in tools/plot.py

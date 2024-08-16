@@ -2581,15 +2581,15 @@ def check_args(etrago):
                 etrago.args["snapshot_clustering"]["n_segments"]
             ), "Number of segments is higher than number of snapshots"
 
-        if not etrago.args["method"]["pyomo"]:
+        if etrago.args["method"]["formulation"] != "pyomo":
             logger.warning(
                 "Snapshot clustering constraints are"
                 " not yet correctly implemented without pyomo."
-                " Setting `args['method']['pyomo']` to `True`."
+                " Setting `args['method']['formulation']` to `pyomo`."
             )
-            etrago.args["method"]["pyomo"] = True
+            etrago.args["method"]["formulation"] = "pyomo"
 
-    if not etrago.args["method"]["pyomo"]:
+    if etrago.args["method"]["formulation"] != "pyomo":
         try:
             # The import isn't used, but just here to test for Gurobi.
             # So we can make `flake8` stop complaining about the "unused
@@ -2606,6 +2606,16 @@ def check_args(etrago):
                 " For installation of gurobipy use pip."
             )
             raise
+
+    if (etrago.args["method"]["formulation"] != "pyomo") & (
+        etrago.args["temporal_disaggregation"]["active"]
+    ):
+        logger.warning(
+            "Temporal disaggregation is"
+            " not yet correctly implemented without pyomo."
+            " Setting `args['method']['formulation']` to `pyomo`."
+        )
+        etrago.args["method"]["formulation"] = "pyomo"
 
 
 def drop_sectors(self, drop_carriers):
@@ -2743,7 +2753,7 @@ def adjust_CH4_gen_carriers(self):
     the contraint applying differently to each of them.
     """
 
-    if self.args["scn_name"] == "eGon2035":
+    if "eGon2035" in self.args["scn_name"]:
         # Define marginal cost
         marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
 
@@ -2752,7 +2762,7 @@ def adjust_CH4_gen_carriers(self):
             sql = f"""
             SELECT gas_parameters
             FROM scenario.egon_scenario_parameters
-            WHERE name = '{self.args["scn_name"]}';"""
+            WHERE name = '{self.args["scn_name"].split("_")[0]}';"""
             df = pd.read_sql(sql, engine)
             marginal_cost = df["gas_parameters"][0]["marginal_cost"]
         except sqlalchemy.exc.ProgrammingError:
@@ -2955,6 +2965,15 @@ def manual_fixes_datamodel(etrago):
         etrago.network.transformers.bus0.values, "v_nom"
     ].values
 
+    # Drop methanation option in lowflex sceanrio
+    if etrago.args["scn_name"] == "eGon2035_lowflex":
+        etrago.network.links.drop(
+            etrago.network.links[
+                etrago.network.links.carrier == "H2_to_CH4"
+            ].index,
+            inplace=True,
+        )
+
 
 def select_elec_network(etrago, apply_on="grid_model"):
     """
@@ -2995,7 +3014,7 @@ def select_elec_network(etrago, apply_on="grid_model"):
         ].index
         if apply_on == "grid_model-ehv":
             n_clusters = pd.NA
-        #Exclude foreign buses when set to don't include them in clustering
+        # Exclude foreign buses when set to don't include them in clustering
         elif settings["cluster_foreign_AC"]:
             n_clusters = settings["n_clusters_AC"]
         else:
@@ -3178,6 +3197,7 @@ def find_buses_area(etrago, carrier):
         buses_area = pd.DataFrame()
 
     return buses_area.index
+
 
 def adjust_before_optimization(self):
 
