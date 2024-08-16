@@ -2475,8 +2475,8 @@ def plot_grid(
         * 'q_flow_max': maximal reactive flows
         * 'dlr': energy above nominal capacity
         * 'grey': plot all lines and DC links grey colored
-        * 'interest_area': plot all AC buses inside the interest area larger than buses
-          outside the interest area
+        * 'interest_area': plot all AC buses inside the interest area larger
+          than buses outside the interest area
 
     bus_sizes : float, optional
         Size of buses. The default is 0.001.
