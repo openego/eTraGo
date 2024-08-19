@@ -119,8 +119,10 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "interest_area": False,  # False, path to shapefile or list of nuts names of not cluster area
-        "cluster_interest_area": 30, # False or number of buses.
+        "primary_interest_area": ["Nordfriesland"],  # List of NUTS names or path to a shapefile for primary interest area
+        "secondary_interest_area": ["Flensburg","Kiel","Lübeck","Neumünster", "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde", "Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List for secondary interest area 
+        "cluster_primary_area": False, # No clustering for primary area or specify number of clusters if needed
+        "cluster_secondary_area": 7,  # Specific number of clusters for secondary area
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False

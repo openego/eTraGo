@@ -661,8 +661,8 @@ def preprocessing(etrago, apply_on="grid_model"):
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
-    network_elec, n_clusters, network_area = select_elec_network(
-        etrago, apply_on=apply_on
+    network_elec, n_clusters, primary_area, secondary_area = select_elec_network(
+    etrago, apply_on=apply_on
     )
 
     if settings["method"] == "kmedoids-dijkstra":
@@ -693,15 +693,26 @@ def preprocessing(etrago, apply_on="grid_model"):
         weight.index = weight.index.astype(str)
     else:
         weight = weighting_for_scenario(network=network_elec, save=False)
-        weight_area = weighting_for_scenario(network=network_area, save=False)
+
+    if not primary_area.buses.empty:
+        primary_weight = weighting_for_scenario(network=primary_area, save=False)
+    else:
+        primary_weight = None
+
+    if not secondary_area.buses.empty:
+        secondary_weight = weighting_for_scenario(network=secondary_area, save=False)
+    else:
+        secondary_weight = None
 
     return (
-        network_elec,
-        weight,
-        n_clusters,
-        busmap_foreign,
-        network_area,
-        weight_area,
+    network_elec,
+    weight,
+    n_clusters,
+    busmap_foreign,
+    primary_area,
+    secondary_area,
+    primary_weight,
+    secondary_weight,
     )
 
 
@@ -931,47 +942,81 @@ def weighting_for_scenario(network, save=None):
     return weight
 
 
-def include_busmap_area(etrago, busmap, medoid_idx, network_area, weight_area):
+def include_busmap_area(etrago, busmap, medoid_idx, primary_area, secondary_area, primary_weight, secondary_weight):
     args = etrago.args["network_clustering"]
 
-    if not args["interest_area"]:
+    if not args["primary_interest_area"] and not args["secondary_interest_area"]:
         return busmap, medoid_idx
-    if not args["cluster_interest_area"]:
-        for bus in network_area.buses.index:
-            busmap[bus] = bus
-        return busmap, medoid_idx
-    else:
+
+    if args["cluster_primary_area"]:
         if args["method"] == "kmeans":
-            busmap_area = kmean_clustering(
+            busmap_primary = kmean_clustering(
                 etrago,
-                network_area,
-                weight_area,
-                args["cluster_interest_area"],
+                primary_area,
+                primary_weight,
+                args["cluster_primary_area"],
             )
-            busmap_area = (
-                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            busmap_primary = (
+                busmap_primary.astype(int) + busmap.apply(int).max() + 1
             ).apply(str)
 
         if args["method"] == "kmedoids-dijkstra":
-            busmap_area, medoid_idx_area = kmedoids_dijkstra_clustering(
+            busmap_primary, medoid_idx_primary = kmedoids_dijkstra_clustering(
                 etrago,
-                network_area.buses,
-                network_area.lines,
-                weight_area,
-                args["cluster_interest_area"],
+                primary_area.buses,
+                primary_area.lines,
+                primary_weight,
+                args["cluster_primary_area"],
             )
 
-            medoid_idx_area.index = (
-                medoid_idx_area.index.astype(int) + busmap.apply(int).max() + 1
+            medoid_idx_primary.index = (
+                medoid_idx_primary.index.astype(int) + busmap.apply(int).max() + 1
             )
-            busmap_area = (
-                busmap_area.astype(int) + busmap.apply(int).max() + 1
+            busmap_primary = (
+                busmap_primary.astype(int) + busmap.apply(int).max() + 1
             ).apply(str)
-            medoid_idx = pd.concat([medoid_idx, medoid_idx_area])
+            medoid_idx = pd.concat([medoid_idx, medoid_idx_primary])
 
-        busmap = pd.concat([busmap, busmap_area])
+        busmap = pd.concat([busmap, busmap_primary])
+    else:
+        for bus in primary_area.buses.index:
+            busmap[bus] = bus
 
-        return busmap, medoid_idx
+    if args["cluster_secondary_area"]:
+        if args["method"] == "kmeans":
+            busmap_secondary = kmean_clustering(
+                etrago,
+                secondary_area,
+                secondary_weight,
+                args["cluster_secondary_area"],
+            )
+            busmap_secondary = (
+                busmap_secondary.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+
+        if args["method"] == "kmedoids-dijkstra":
+            busmap_secondary, medoid_idx_secondary = kmedoids_dijkstra_clustering(
+                etrago,
+                secondary_area.buses,
+                secondary_area.lines,
+                secondary_weight,
+                args["cluster_secondary_area"],
+            )
+
+            medoid_idx_secondary.index = (
+                medoid_idx_secondary.index.astype(int) + busmap.apply(int).max() + 1
+            )
+            busmap_secondary = (
+                busmap_secondary.astype(int) + busmap.apply(int).max() + 1
+            ).apply(str)
+            medoid_idx = pd.concat([medoid_idx, medoid_idx_secondary])
+
+        busmap = pd.concat([busmap, busmap_secondary])
+    else:
+        for bus in secondary_area.buses.index:
+            busmap[bus] = bus
+
+    return busmap, medoid_idx
 
 
 def run_spatial_clustering(self):
@@ -1000,8 +1045,10 @@ def run_spatial_clustering(self):
             weight,
             n_clusters,
             busmap_foreign,
-            network_area,
-            weight_area,
+            primary_area,
+            secondary_area,
+            primary_weight,
+            secondary_weight,
         ) = preprocessing(self)
 
         if self.args["network_clustering"]["method"] == "kmeans":
@@ -1013,7 +1060,7 @@ def run_spatial_clustering(self):
                 )
                 medoid_idx = pd.Series(dtype=str)
                 busmap, medoid_idx = include_busmap_area(
-                    self, busmap_elec, medoid_idx, network_area, weight_area
+                    self, busmap_elec, medoid_idx, primary_area, secondary_area, primary_weight, secondary_weight
                 )
 
             else:
@@ -1033,7 +1080,7 @@ def run_spatial_clustering(self):
                 )
 
                 busmap, medoid_idx = include_busmap_area(
-                    self, busmap_elec, medoid_idx, network_area, weight_area
+                    self, busmap_elec, medoid_idx, primary_area, secondary_area, primary_weight, secondary_weight
                 )
 
             else:
@@ -1062,3 +1109,5 @@ def run_spatial_clustering(self):
             )
             + self.args["network_clustering"]["method"]
         )
+
+
