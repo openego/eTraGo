@@ -429,7 +429,7 @@ def busmap_by_shortest_path(network, fromlvl, tolvl, cpu_cores=4):
     lines_plus_dc["carrier"] = "AC"
 
     # temporary end points, later replaced by bus1 pendant
-    t_buses = transformer[mask].bus0
+    t_buses = transformer[mask].bus0.unique()
 
     # create all possible pathways
     ppaths = list(product(s_buses, t_buses))
