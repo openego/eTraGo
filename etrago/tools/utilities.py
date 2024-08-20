@@ -36,7 +36,7 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point, LineString
+    from shapely.geometry import LineString, Point
     import geopandas as gpd
 
     from etrago.tools import db
