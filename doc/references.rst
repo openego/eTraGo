@@ -27,10 +27,6 @@ References
 .. [Buettner2024] C. Buettner, K. Esterl, I. Cussmann, C. A. Realpe Epia, J. Amme, A. Nadal: 
    *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario*. 2024.
    `<https://www.sciencedirect.com/science/article/pii/S2667095X24000060>`_
-
-.. [eGon_report] I. Cußmann, B. Schachler, C. Büttner, H.-P. Tetens, K. Esterl, J. Amme, K. Helfenbein, M. Held, A. Nadal, S. Günther and C. A. Realpe Epia:
-   *Ein offenes netzebenen- und sektorenübergreifendes Planungsinstrument zur Bestimmung des optimalen Einsatzes und Ausbaus von Flexibilitätsoptionen in Deutschland - Projektabschlussbericht*. 2024.
-   `<https://ego-n.org/papers/Endbericht_egon_v2.pdf>`_
    
 .. [Mueller20181]  U. P. Müller, L. Wienholt, D. Kleinhans, I. Cußmann, W.-D. Bunke, G. Pleßmann and J. Wendiggensen: 
    *The eGo grid model: An open source approach towards a model of German high and extra-high voltage power grids*. 2018.
@@ -43,3 +39,19 @@ References
 .. [Mueller2019]  U. P. Müller, B. Schachler, M. scharf, W.-D. Bunke, S. Günther, J. Bartels, G. Pleßmann: 
    *Integrated Techno-Economic Power System Planning of Transmission and Distribution Grids*. 2019.
    `<https://www.mdpi.com/1996-1073/12/11/2091>`_
+   
+.. [eGon_report] I. Cußmann, B. Schachler, C. Büttner, H.-P. Tetens, K. Esterl, J. Amme, K. Helfenbein, M. Held, A. Nadal, S. Günther and C. A. Realpe Epia: 
+   *Ein offenes netzebenen- und sektorenübergreifendes Planungsinstrument zur Bestimmung des optimalen Einsatzes und Ausbaus von Flexibilitätsoptionen in Deutschland - Projektabschlussbericht*. 2024.
+   `<https://ego-n.org/papers/Endbericht_egon_v2.pdf>`_
+   
+.. [openeGo_report] U. P. Müller, B. Schachler, W. Bunke, J. Bartels, M. Glauer, C. Büttner, S. Günther, E. Kötter, I. Cußmann, L. Hülk, M. Scharf, T. Mossakowski and J. Wendiggensen: 
+   *Netzebenenübergreifendes Planungsinstrument zur Bestimmung des optimalen Netz- und Speicherausbaus in Deutschland integriert in einer OpenEnergyPlatform - Projektabschlussbericht*. 2019.
+   `<https://www.uni-flensburg.de/fileadmin/content/abteilungen/industrial/dokumente/downloads/veroeffentlichungen/forschungsergebnisse/20190426endbericht-openego-fkz0325881-final.pdf>`_
+   
+.. [Esterl2022] K. Esterl:
+   *Vergleich von Methoden zur Reduktion der zeitlichen Komplexit\"at für die Optimierung sektorgekoppelter Energiesysteme*. 2022.
+   `<https://ego-n.org/theses/2022_MA_Esterl_Zeitliche_Komplexit%C3%A4tsreduktion.pdf>`_ 
+   
+.. [PyPSA] T. Brown, J. Hörsch and D. Schlachtberger: 
+   *PyPSA: Python for Power System Analysis*. 2018.
+   `<https://doi.org/10.5334/jors.188>`_
