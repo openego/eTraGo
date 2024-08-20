@@ -2,27 +2,22 @@
 About eTraGo
 ============
 
-eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization.
-
-The python package eTraGo provides optimization strategies of flexibility options 
-for transmission grids based on PyPSA. A peculiarity in this context is that 
-the German transmission grid is described by the 380, 220 and 110 kV voltage levels. 
-Conventionally the 110kV grid is part of the distribution grid. The integration of 
-the transmission and ‘upper’ distribution grid is part of eTraGo.
-
-The focus of optimization are flexibility options with a special focus on
-energy storage and grid expansion measures.
+eTraGo has been developed as part of a comprehensive toolchain. 
+The following sections introduce key projects and software tools within this context.
+More detailed information can be found in the publications listed below or the following reports: [openeGo_report]_, [eGon_report]_
 
 
 Research Projects and Publications
 ==================================
-This software project was initially developed in the research project
-`open_eGo <https://openegoproject.wordpress.com>`_.
+
+eTraGo was initially developed in the research projects
+`open_eGo <https://openegoproject.wordpress.com>`_ and `eGon <https://ego-n.org/>`_.
 It is constantly further developed in different reserach projects, 
-e.g. `eGon <https://ego-n.org/>`_ and `PoWerD <https://www.h2-powerd.de/>`_. 
+e.g. `PoWerD <https://www.h2-powerd.de/>`_. 
 
 Publications:
 
+* *NEW PAPER* [C, U]
 * *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
 * *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
 * *Integrated Techno-Economic Power System Planning of Transmission and Distribution Grids* [Mueller2019]_
@@ -37,50 +32,37 @@ eTraGo as part of the eGo-Toolchain
    :align: center
    :scale: 75%
 
-OpenEnergyPlatform
-------------------
+Open Energy Platform
+--------------------
 
-Within the open_eGo project we developed the OpenEnergy Platform which this software
-is using in order to get and store the in- and output data. Before you start to
-calculate a registration on the platform is needed. For more information see
-`openenergy-platform <https://openenergy-platform.org/>`_ and login.
+Within the open_eGo project, the `Open Energy Platform <https://openenergy-platform.org/>`_ has been developed. 
+It addresses students and researchers as well as interested people in 
+the field of energy modelling and analytics and provides tools to make energy system 
+modelling process transparent.
 
-The OpenEnergy platform mainly addresses students, researchers and scientists in 
-the field of energy modelling and analytics as well as interested persons in 
-those fields. The platform provides great tools to make your energy system 
-modelling process transparent. All data of the open_eGo project are stored at
-this platform. 
-`Learn more about the database access <https://oep-data-interface.readthedocs.io>`_.
+All data of the open_eGo and eGon project are stored at the Open Energy Platform. eTraGo retrieves the input data from the Open Energ Platform and enables to store back the results .
+For access to the coresponding data models, registration and login are necessary. Learn more about the database access `here  <https://oep-data-interface.readthedocs.io>`_.
 
 Data Model Creation
 -------------------
-For the eGon project the python-tool `eGon-data <https://github.com/openego/eGon-data>`_ was implemented, which creates input data  for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses. 
 
-eGon-data is a further development of the `Data processing <https://github.com/openego/data_processing>`_ developed in the former research project `open_eGo <https://openegoproject.wordpress.com/>`_. It aims for an extensions of the data models as well as for a better replicability and manageability of the data preparation and processing. 
-The resulting data set serves as an input for the optimization tools `eTraGo <https://github.com/openego/eTraGo>`_, `ding0 <https://github.com/openego/ding0>`_ and `eDisGo <https://github.com/openego/eDisGo>`_ and delivers for example data on grid topologies, demands/demand curves and generation capacities in a high spatial resolution. The outputs of egon-data are published under open source and open data licenses.  
+The corresponding data model is created using the Python tool `eGon-data <https://github.com/openego/eGon-data>`_ which is the further develpment of the `data processing <https://github.com/openego/data_processing>`_. The model covers the coupling of electricity grid models on different voltage levels with a gas grid model, demands and flexibilities from the mobility, heat and hydrogen sectors as well as the integration of other electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. 
+
+The developed data model provides data consistent on different aggregation levels and serves as input for the tools `eTraGo <https://github.com/openego/eTraGo>`_, `eDisGo <https://github.com/openego/eDisGo>`_ and `ding0 <https://github.com/openego/ding0>`_. The outputs of eGon-data are published under open source and open data licenses.
 
 Distribution Grid Optimization
 ------------------------------
 
-The DIstribution Network GeneratOr (ding0) is a tool to generate synthetic 
-medium and low voltage power distribution grids based on open 
-(or at least accessible) data. 
-`Learn more here <https://dingo.readthedocs.io/>`_.
+`Ding0 <https://dingo.readthedocs.io/>`_ (**Di**\stribution **N**\etwork **G**\enerat **0**\r) is a tool to generate synthetic 
+medium and low voltage distribution grids based on open data.
 
-The python package eDisGo provides a toolbox for analysis and optimization
-of distribution grids. It is closely related to the python project Ding0 as this
-project is currently the single data source for eDisGo providing synthetic
-grid data for whole Germany. `Learn more here <http://edisgo.readthedocs.io/>`_.
+`eDisGo <https://dingo.readthedocs.io/>`_ (**e**\lectric **Dis**\tributon **G**\rid **o**\ptimization) provides a toolbox for optimization and analysis
+of medium and low voltage distribution grids.
 
-Cross Grid-Level Optimization
+Cross-Grid Level Optimization
 -----------------------------
 
-The python package eGo is a toolbox and application which connects the tool eTraGo
-(optimization of flexibility options at transmission grid level)
-and eDisGo (optimization of distribution grids). All those python
-packages were initially developed in the research project 
-`open_eGo <https://openegoproject.wordpress.com>`_. 
-`Learn more here <http://openego.readthedocs.io/>`_.
+`eGo <http://openego.readthedocs.io/>`_ combines the tools eTraGo and eDisGo for cross-grid level optimization of the sector-coupled energy system in Germany.
 
 
 License

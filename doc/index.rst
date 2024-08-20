@@ -4,12 +4,12 @@
    contain the root `toctree` directive.
 
 
-Welcome to eTraGo's documentation!
-==================================
+eTraGo - **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization
+====================================================================
 
-eTraGo stands for **e**\lectric **Tra**\nsmission **G**\rid **o**\ptimization.
+eTraGo is a cross-sectoral grid planning tool that focuses on the extra-high and high-voltage power grid level. In addition to the electricity sector, the gas (methane and hydrogen), heat and mobility sectors are considered. eTraGo optimises grid and storage expansion as well as power plant deployment, taking into account various flexibility options. These include electrical flexibilities such as demand-side management or dynamic line rating, as well as flexibilities arising from sector coupling, such as heat stores, gas stores and shifting potentials from charging electric vehicles. 
 
-Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.
+eTraGo is an open-source Python package that is largely based on `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
 
 .. figure:: images/etrago_logo.png
    :align: right
@@ -18,11 +18,12 @@ Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod 
 Key Features
 ------------
 
-* Feature 1
-* Feature 2
-* Feature 3
+* open, cross-sectoral grid planning tool on extra-high and high-voltage level
+* includes a variety of functionalities for scenario variations and reduction of complexity in spatial and temporal dimension
+* market optimization as well as linear-optimal power flow available
+* analyses and plots the results
    
-.. note:: eTraGo and its documentation is in continuous development.
+.. note:: eTraGo and its documentation are in continuous development.
 
 .. toctree::
    :maxdepth: 3
