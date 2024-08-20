@@ -296,6 +296,7 @@ def cluster_on_extra_high_voltage(etrago, busmap, with_time=True):
             "y": _leading(busmap, network.buses),
             "geom": lambda x: np.nan,
             "country": lambda x: "",
+            "scn_name": "first",
         },
     )
 
