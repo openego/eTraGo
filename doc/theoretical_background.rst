@@ -6,15 +6,25 @@ Functionalities
    :align: center
    :width: 800
 
-eTraGo is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units.
+eTraGo is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units [PyPSA]_.
 
 
 Data Model
 ==========
 
-eTraGo fetches the input data from the `OpenEnergy Platform <https://openenergy-platform.org/>`_. The data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) plus data on flexibility potential deriving from those sectors e.g. Dynamic Line Rating, Demand Side Management and flexibility potentials arising from e-mobility. More details on the data model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_.
+The input data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) plus data on flexibility potential deriving from those sectors e.g. demand-side management, dynamic line rating and flexibility potentials arising from e-mobility. The data model is generated using the tool eGon-data. More details on the model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_ or the publications by [eGon_report]_ and [Buettner2024]_. The following graph from [eGon_report]_ gives some impressions:
 
-At the moment, there are two scenarios available basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021. The base one is called eGon2035. To analyse the effect of flexibility options, there is an eGon2035_lowflex scenario available which depicts a lower penetration of flexibilities. More scenarios are being developed. The eGon100RE scenario is being implemented which is characterised by a 100% renewable generation. Analog to the scenario above, a eGon100RE_lowflex scenario will be available.
+.. figure:: images/input_data.png
+   :align: center
+   :width: 800
+
+eTraGo fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for eTraGo. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_.
+
+The following scenarios are available:
+* `eGon2035 <https://zenodo.org/records/8376714>`_ basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021
+* eGon2035_lowflex as scenario variant of eGon2035 with lower penetration of flexibilities 
+* eGon100RE (still under development) characterised by a 100% renewable generation 
+* `status2019 <https://zenodo.org/records/13143969>`_ depicting the status in 2019
 
 You can see the modeling concepts of the scenarios in the figure below. The components marked green have exogenous capacity and endogenous dispatch whereas the components marked in red are optimised endogenously in capacity and dispatch.
 
@@ -26,22 +36,13 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
 Scenario Variation
 ==================
 
-Miscellaneous Features
-----------------------
+Several features were developed to enhance the functionality of eTraGo and allow for scenario variation.
 
-Several features were developed to enhance the functionality of eTraGo. 
-
-To customize computation settings, ‘solver_options’ and ‘generator_noise’ should be adapted. The latter adds a reproducible small random noise to the marginal costs of each generator in order to prevent an optima plateau. The specific solver options depend on the applied solver (e.g. Gurobi, CPLEX or GLPK). 
-
-In ‚extendable‘ you can adapt the type of components you want to be optimised in capacity and set upper limits for gird expansion inside Germany and of lines to foreign countries.
-
-The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
-
-‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
-
-The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
-
-With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
+* In ‚extendable‘ you can adapt the type of components you want to be optimised in capacity and set upper limits for grid expansion inside Germany and of lines to foreign countries.
+* The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
+* ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
+* The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
+* With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
 
 
 Complexity Reduction
@@ -82,31 +83,46 @@ The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering
 Calculation with PyPSA
 ======================
 
-Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network. The optimisation is performed with a linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
+Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network [PyPSA]_. Two optimization methods are available and can be used independently or in combination.
+
+Market Optimization
+-------------------
+
+TODO
+
+Grid and Storage / Store expansion with LOPF
+---------------------------------------------
+
+For grid and storage expansion, a linear-optimal power flow is performed. Therefore, eTraGo is assumed to fulfill the corresponding requirements
+
+linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
 
 With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
-
-Grid and Storage / Store expansion
------------------------------------
 
 The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimisation problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimisation. 
 
 As shown in the figure above, several options to store energy are part of the modeling concept. Extendable batteries (modeled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimisation. Furthermore, two types of hydrogen stores (modeled as stores) are available. Overground stores are optimised in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimisation in terms of power and energy without upper limits. 
 
+Solver Options
+--------------
+
+To customize computation settings, ‘solver_options’ and ‘generator_noise’ should be adapted. The latter adds a reproducible small random noise to the marginal costs of each generator in order to prevent an optima plateau. The specific solver options depend on the applied solver (e.g. Gurobi, CPLEX or GLPK). 
+
 
 Disaggregation
 ==============
 
-By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimising dispatch using the fullcomplex time series in the second step after having optimised grid and storage expansion using the complexity-reduced time series in the first step.
+By applying a 2-level-approach, a **temporal disaggregation** can be conducted. This means optimising dispatch using the fullcomplex time series in the second step after having optimised grid and storage expansion using the complexity-reduced time series in the first step. More information can be found in the master thesis by [Esterl2022]_.
 
-Afterterwards, a **spatial disaggregation** can be conducted. 
+Afterterwards, a **spatial disaggregation** can be conducted distributing power plant and storage utilisation time series, the expansion of storage facilities and the use of flexibility options over the original number of nodes. The expansion of the transmission grid is not disaggregated and remains at the reduced spatial resolution. The methodology is explained in [eGon_report]_.
 
 Analysis
 ========
 
-TODO
+eTraGo contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. 
+Some examplary results by [Buettner2024]_ are presented below:
 
-schönes Bild, etwas Text
-
-in einzelnen Kapitel je auf modules verweisen, die nun entsprechend benannt sind
+.. figure:: images/examplary_results.png
+   :align: center
+   :width: 800
 
