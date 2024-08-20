@@ -85,8 +85,7 @@ args = {
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
-    "scn_extension": None,  # None or array of extension scenarios
-    "scn_decommissioning": None,  # None or decommissioning scenario
+    "scn_extension": ["nep2021_c2035"],  # None or array of extension scenarios
     # Export options:
     "lpfile": False,  # save pyomo's lp file: False or /path/to/lpfile.lp
     "csv_export": "results",  # save results as csv: False or /path/tofolder
@@ -113,6 +112,7 @@ args = {
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
+    "interest_area": False,  # False, path to shapefile or list of nuts names of the area that is excluded from the clustering. By default the buses inside remain the same, but the parameter "n_cluster_interest_area" inside "network clustering" defines if it should be clustered to a certain number of buses.
     "network_clustering_ehv": {
         "active": False,  # choose if clustering of HV buses to EHV buses is activated
         "busmap": False,  # False or path to stored busmap
@@ -120,8 +120,9 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign-interest_area)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
+        "n_cluster_interest_area": False, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
@@ -263,40 +264,20 @@ def run_etrago(args, json_path):
     scn_name : str
          Choose your scenario. Currently, there are two different
          scenarios: "eGon2035", "eGon100RE". Default: "eGon2035".
-    scn_extension : None or str
-        This option does currently not work!
+    scn_extension : None or list of str
 
         Choose extension-scenarios which will be added to the existing
-        network container. Data of the extension scenarios are located in
-        extension-tables (e.g. model_draft.ego_grid_pf_hv_extension_bus)
-        with the prefix 'extension\_'.
-        There are three overlay networks:
+        network container. In case new lines replace existing ones, these are
+        dropped from the network. Data of the extension scenarios is located in
+        extension-tables (e.g. grid.egon_etrago_extension_line)
+        There are two overlay networks:
 
-        * 'nep2035_confirmed' includes all planed new lines confirmed by the
-          Bundesnetzagentur
-        * 'nep2035_b2' includes all new lines planned by the
-          Netzentwicklungsplan 2025 in scenario 2035 B2
-        * 'BE_NO_NEP 2035' includes planned lines to Belgium and Norway and
-          adds BE and NO as electrical neighbours
-
+        * 'nep2021_confirmed' includes all planed new lines confirmed by the
+          Bundesnetzagentur included in the NEP version 2021
+        * 'nep2021_c2035' includes all new lines planned by the
+          Netzentwicklungsplan 2021 in scenario 2035 C
         Default: None.
-    scn_decommissioning : NoneType or str
-        This option does currently not work!
 
-        Choose an extra scenario which includes lines you want to decommission
-        from the existing network. Data of the decommissioning scenarios are
-        located in extension-tables
-        (e.g. model_draft.ego_grid_pf_hv_extension_bus) with the prefix
-        'decommissioning\_'.
-        Currently, there are two decommissioning_scenarios which are linked to
-        extension-scenarios:
-
-        * 'nep2035_confirmed' includes all lines that will be replaced in
-          confirmed projects
-        * 'nep2035_b2' includes all lines that will be replaced in
-          NEP-scenario 2035 B2
-
-        Default: None.
     lpfile : bool or str
         State if and where you want to save pyomo's lp file. Options:
         False or '/path/tofile.lp'. Default: False.
@@ -404,6 +385,16 @@ def run_etrago(args, json_path):
         connected lines are merged. This reduces the spatial complexity without
         losing any accuracy.
         Default: True.
+
+    interest_area: False, list, string
+        Area of especial interest that will be not clustered, except when
+        n_cluster_interest_area is provided. It is by default set to false.
+        When an interest_area is provided, the given value for n_clusters_AC
+        will mean the total of AC buses outside the area.The area can be
+        provided in two ways: list of nuts names e.G.
+        ["Cuxhaven", "Bremerhaven", "Bremen"] or a string with a path to a
+        shape file (.shp).
+        
     network_clustering_ehv : dict
         Choose if you want to apply an extra high voltage clustering to the
         electrical network.
@@ -435,12 +426,14 @@ def run_etrago(args, json_path):
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers electrical distances between
             buses
-
             Default: "kmedoids-dijkstra".
-        * "n_clusters_AC" : int
+        * "n_clusters_AC" : int, False
             Defines total number of resulting AC nodes including DE and foreign
             nodes if `cluster_foreign_AC` is set to True, otherwise only DE
-            nodes.
+            nodes. When using the interest_area parameter, n_clusters_AC could
+            be set to False, which means that only the buses inside the 
+            provided area are clustered.
+
             Default: 30.
         * "cluster_foreign_AC" : bool
             If set to False, the AC buses outside Germany are not clustered
@@ -449,13 +442,18 @@ def run_etrago(args, json_path):
             as well and included in number of clusters specified through
             ``'n_clusters_AC'``.
             Default: False.
+
+        * "n_cluster_interest_area": False, int
+            Number of buses to cluster all the electrical buses in the area
+            of interest. Method provided in the arg "method" is used. If
+            it is set to False, the area of interest is not clustered.
+            Default: False.
         * "method_gas" : str
             Method used for gas clustering. You can choose between two
             clustering methods:
             * "kmeans": considers geographical locations of buses
             * "kmedoids-dijkstra":  considers 'electrical' distances between
             buses
-
             Default: "kmedoids-dijkstra".
         * "n_clusters_gas" : int
             Defines total number of resulting CH4 nodes including DE and
@@ -715,17 +713,6 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
-    # Temporary drop DLR as it is currently not working with sclopf
-    if etrago.args["method"]["type"] != "lopf":
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-            columns=etrago.network.lines.index,
-            data=1.0,
-        )
-
-    etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
-
-    # start linear optimal powerflow calculations
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation

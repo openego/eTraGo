@@ -86,6 +86,7 @@ from etrago.tools.io import (
 )
 from etrago.tools.utilities import (
     add_missing_components,
+    adjust_before_optimization,
     adjust_CH4_gen_carriers,
     buses_by_country,
     check_args,
@@ -236,6 +237,12 @@ class Etrago:
 
             self.get_clustering_data(csv_folder_name)
 
+            conn = db.connection(section=self.args["db"])
+            self.engine = conn
+
+            session = sessionmaker(bind=conn)
+            self.session = session()
+
         else:
             logger.error("Set args or csv_folder_name")
 
@@ -371,6 +378,8 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
+
+    adjust_before_optimization = adjust_before_optimization
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
