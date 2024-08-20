@@ -3028,7 +3028,9 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
 
         components_dict[f"{component}_gdf"] = gpd.GeoDataFrame(
             attr.merge(
-                buses_gdf[["geometry", "v_nom"]], left_on=left_on, right_index=True
+                buses_gdf[["geometry", "v_nom"]],
+                left_on=left_on,
+                right_index=True,
             ),
             crs=f"EPSG:{srid}",
         )
@@ -3042,16 +3044,19 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     lines_df = lines_df.drop(columns=["geom"])
 
     lines_gdf = lines_df.merge(
-        buses_gdf[["geometry", "v_nom"]].rename(columns={"geometry": "geom_0"}),
-        left_on="bus0", right_index=True
+        buses_gdf[["geometry", "v_nom"]].rename(
+            columns={"geometry": "geom_0"}
+        ),
+        left_on="bus0",
+        right_index=True,
     )
     lines_gdf = lines_gdf.merge(
         buses_gdf[["geometry"]].rename(columns={"geometry": "geom_1"}),
-        left_on="bus1", right_index=True
+        left_on="bus1",
+        right_index=True,
     )
     lines_gdf["geometry"] = lines_gdf.apply(
-        lambda _: LineString([_["geom_0"], _["geom_1"]]),
-        axis=1
+        lambda _: LineString([_["geom_0"], _["geom_1"]]), axis=1
     )
     lines_gdf = gpd.GeoDataFrame(lines_gdf, crs=f"EPSG:{srid}")
     components_dict["lines_gdf"] = lines_gdf
@@ -3059,25 +3064,54 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     save_cols = {
         "buses_gdf": ["scn_name", "v_nom", "carrier", "country", "geometry"],
         "generators_gdf": [
-            "scn_name", "bus", "carrier", "p_nom", "p_nom_extendable", "v_nom",
-            "geometry"
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
         ],
         "loads_gdf": ["scn_name", "bus", "carrier", "v_nom", "geometry"],
         "storage_units_gdf": [
-            "scn_name", "bus", "carrier", "p_nom", "p_nom_extendable", "v_nom",
-            "geometry"
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
         ],
         "stores_gdf": [
-            "scn_name", "bus", "carrier", "e_nom", "e_nom_extendable", "v_nom",
-            "geometry"
+            "scn_name",
+            "bus",
+            "carrier",
+            "e_nom",
+            "e_nom_extendable",
+            "v_nom",
+            "geometry",
         ],
         "transformers_gdf": [
-            "scn_name", "bus0", "bus1", "x", "r", "s_nom", "s_nom_extendable",
-            "geometry"
+            "scn_name",
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "geometry",
         ],
         "lines_gdf": [
-            "bus0", "bus1", "x", "r", "s_nom", "s_nom_extendable", "length",
-            "num_parallel", "geometry", "v_nom"
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "length",
+            "num_parallel",
+            "geometry",
+            "v_nom",
         ],
     }
     if shape_files_path:
