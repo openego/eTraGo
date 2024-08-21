@@ -3065,6 +3065,8 @@ def select_elec_network(etrago, apply_on="grid_model"):
         )
         area_network = pypsa.Network()
 
+        n_clusters = pd.NA
+
     else:
         logger.warning(
             """Parameter apply_on must be either 'grid_model' or 'market_model'
