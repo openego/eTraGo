@@ -831,10 +831,6 @@ def extension(self, **kwargs):
 
             self.network = scenario.build_network(self.network)
 
-            # Allow lossless links to conduct bidirectional
-            self.network.links.loc[
-                self.network.links.efficiency == 1.0, "p_min_pu"
-            ] = -1
 
 
 def decommissioning(self, **kwargs):
