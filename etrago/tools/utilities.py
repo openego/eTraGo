@@ -625,7 +625,7 @@ def connected_transformer(network, busids):
 def load_shedding(
     self,
     temporal_disaggregation=False,
-    negative_load_shedding_ev=False,
+    negative_load_shedding_ev=True,
     **kwargs,
 ):
     """Implement load shedding in existing network to identify
