@@ -234,6 +234,7 @@ def run_lopf(etrago, extra_functionality, method):
 
             if etrago.network.results["Solver"][0]["Status"] != "ok":
                 raise Exception("LOPF not solved.")
+            update_piecewise_link_p1(etrago)
 
         elif method["formulation"] == "linopy":
             status, condition = etrago.network.optimize(
@@ -454,7 +455,6 @@ def optimize(self):
 
     if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()
-        update_piecewise_link_p1(self)
 
         # self.market_results_to_grid()
 
@@ -474,9 +474,6 @@ def optimize(self):
         )
     else:
         print("Method not defined")
-
-    if self.args["method"]["type"] in ["lopf", "market_grid", "sclopf"]:
-        update_piecewise_link_p1(self)
 
 
 def import_gen_from_links(network, drop_small_capacities=True):
