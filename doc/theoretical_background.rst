@@ -1,3 +1,4 @@
+.. _Functionalities:
 ===============
 Functionalities
 ===============
@@ -6,21 +7,22 @@ Functionalities
    :align: center
    :width: 800
 
-eTraGo is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units [PyPSA]_.
+*eTraGo* is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units [PyPSA]_.
 
 
 Data Model
 ==========
 
-The input data includes electricity and gas grid topology as well as data on energy supply and load for the considered sectors (electricity, gas, heat and e-mobility) plus data on flexibility potential deriving from those sectors e.g. demand-side management, dynamic line rating and flexibility potentials arising from e-mobility. The data model is generated using the tool eGon-data. More details on the model can be found in the documentaton of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_ or the publications by [eGon_report]_ and [Buettner2024]_. The following graph from [eGon_report]_ gives some impressions:
+The input data covers the coupling of electricity grid models on different voltage levels with a gas grid model, demands and flexibilities from the mobility, heat and hydrogen sectors as well as the integration of other electrical flexibilities such as demand-side management and dynamic line rating. It is characterised by a high spatial resolution within Germany, while other countries are considered in an aggregated form. Several future scenarios have been developed, each covering one year in hourly resolution and differing in terms of generation, demand and availability of some technologies. The data model is generated using the tool *eGon-data*. More details on the model can be found in the documentation of `eGon-data <https://egon-data.readthedocs.io/en/latest/>`_ or the following publications: [eGon_report]_ and [Buettner2024]_. The graphs below give some impressions [eGon_report]_:
 
 .. figure:: images/input_data.png
    :align: center
    :width: 800
 
-eTraGo fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for eTraGo. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_.
+.. _abstand:
 
-The following scenarios are available:
+*eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for *eTraGo*. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
+
 * `eGon2035 <https://zenodo.org/records/8376714>`_ basing on scenario C2035 of the network expansion plan ([NEP]_), version 2021
 * eGon2035_lowflex as scenario variant of eGon2035 with lower penetration of flexibilities 
 * eGon100RE (still under development) characterised by a 100% renewable generation 
@@ -31,18 +33,20 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
 .. figure:: images/modelling_concept.png
    :align: center
    :width: 800
-   
+
+.. _abstand:
    
 Scenario Variation
 ==================
 
-Several features were developed to enhance the functionality of eTraGo and allow for scenario variation.
+Several features were developed to enhance the functionality of *eTraGo* and allow for adaptions within the scenarios introduced above.
 
 * In ‚extendable‘ you can adapt the type of components you want to be optimised in capacity and set upper limits for grid expansion inside Germany and of lines to foreign countries.
-* The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
-* ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
-* The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
 * With ‘foreign_lines‘ you can adapt the foreign lines to be modeled as DC-links (e.g. to avoid loop flows).
+* ‘branch_capacity_factor’ adds a factor to adapt all line capacities in order to consider (n-1) security. Because the average number of HV systems is much smaller than the one of eHV lines, you can choose factors for ‘HV’ and ‘eHV’ separately. 
+* The ‚extra_functionality‘-argument allows to consider extra constraints like limits for energy imort and export or minimal renewable shares in generation.
+* The ‘load_shedding’-argument is used for debugging complex grids in order to avoid infeasibilities. It introduces a very expensive generator at each bus to meet the demand. When optimising storage units and grid expansion without limiting constraints, the need for load shedding should not be existent. 
+
 
 
 Complexity Reduction
@@ -65,6 +69,8 @@ The procedures of the two methods are depicted in the following figure [Esterl20
 .. figure:: images/complexity_spatial.png
    :align: center
    :width: 800
+   
+.. _abstand:
 
 In general, the clustering of the **sector-coupled system** is divided into two steps:
 First, the electrical and gas grid are clustered independently using one of the methods described above. Afterwards, nodes of the other sectors (hydrogen, heat, e-mobility and DSM nodes) are mapped according to their connection to electricity or gas buses and aggregated to one node per carrier.
@@ -83,7 +89,9 @@ The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering
 Calculation with PyPSA
 ======================
 
-Within eTraGo, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network [PyPSA]_. Two optimization methods are available and can be used independently or in combination.
+TODO
+
+Within *eTraGo*, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network [PyPSA]_. Two optimization methods are available and can be used independently or in combination.
 
 Market Optimization
 -------------------
@@ -93,9 +101,11 @@ TODO
 Grid and Storage / Store expansion with LOPF
 ---------------------------------------------
 
-For grid and storage expansion, a linear-optimal power flow is performed. Therefore, eTraGo is assumed to fulfill the corresponding requirements
+TODO
 
-linear approximation assuming eTraGo to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
+For grid and storage expansion, a linear-optimal power flow is performed. Therefore, *eTraGo* is assumed to fulfill the corresponding requirements
+
+linear approximation assuming *eTraGo* to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
 
 With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
 
@@ -108,6 +118,33 @@ Solver Options
 
 To customize computation settings, ‘solver_options’ and ‘generator_noise’ should be adapted. The latter adds a reproducible small random noise to the marginal costs of each generator in order to prevent an optima plateau. The specific solver options depend on the applied solver (e.g. Gurobi, CPLEX or GLPK). 
 
+**Insights on Solver Settings with Gurobi**
+
+* `threads <http://www.gurobi.com/documentation/8.0/refman/threads.html>`_: number of threads to apply to parallel algorithms (concurrent or barrier)
+  * default: 0 (uses all cores in the machine)
+  * reduce if parallel calculations or tight memory
+* `method <http://www.gurobi.com/documentation/8.0/refman/method.html#parameter:Method>`_: algorithm used to solve optimization of lopf
+  * default (-1, concurrent): chooses between simplex or barrier method due to matrix range
+  * 1 (simplex): slower but less sensitive for numerical issues
+  * 2 (barrier): fastest method but sensitive for numerical issues
+* `crossover <http://www.gurobi.com/documentation/8.0/refman/crossover.html>`_ (barrier only): determines the crossover strategy used to transform the interior solution produced by barrier into a basic solution
+  * default: -1 (chooses strategy automatically)
+  * preferred: 0 (disables crossover, solves fastest but may need 'NumericFocus' and 'BarHomogenus' to avoid numerical issues)
+* `BarConvTol <http://www.gurobi.com/documentation/8.0/refman/barconvtol.html>`_ (barrier only): the barrier solver terminates when the relative difference between the primal and dual objective values is less than the specified tolerance
+  * default: 1e-8
+  * preferred: 1e-5 (little less accurate, but solves faster)
+* `FeasibilityTol <http://www.gurobi.com/documentation/8.0/refman/feasibilitytol.html>`_: tolerance of all constraints
+  * default: 1e-6
+  * preferred: 1e-5 (less accurate, but reduces number of iterations)
+* logFile: destination and name of gurobi log file
+  * default: None
+  * preferred: 'gurobi_eTraGo.log'
+* `BarHomogeneous <http://www.gurobi.com/documentation/8.0/refman/barhomogeneous.html>`_: (barrier only): determines whether to use the homogeneous barrier algorithm
+  * default:  -1 (homogeneous barrier algorithm turned off, faster but sensitive for numerical issues)
+  * preferred: 1  (homogeneous barrier algorithm turned on, bit slower but less sensitive for numerical issues, often used when crossover turned off)
+* `NumericFocus <http://www.gurobi.com/documentation/8.0/refman/numericfocus.html>`_: controls the degree to which the code attempts to detect and manage numerical issues
+  * default: 0 (automatic choice with a slight preference for speed)
+  * 1 - 3 (shift the focus towards being slower but less sensitive for numerical issues)
 
 Disaggregation
 ==============
@@ -119,7 +156,7 @@ Afterterwards, a **spatial disaggregation** can be conducted distributing power 
 Analysis
 ========
 
-eTraGo contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. 
+*eTraGo* contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. 
 Some examplary results by [Buettner2024]_ are presented below:
 
 .. figure:: images/examplary_results.png
