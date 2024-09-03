@@ -3,54 +3,31 @@
 How to use eTraGo
 ==================
 
-After you installed eTraGo you would typically start optimization runs by
-executing the ‘appl.py’ which is situated in 
-``./eTrago/etrago/`` (e.g by ``python3 appl.py`` from the terminal).
+Once the *eTraGo* application has been installed, optimization runs can be initiated by executing the ``appl.py`` script, which is located in the ``./eTrago/etrago/`` directory. This may be done, for example, by entering the command ``python3 appl.py`` in the terminal.
 
-eTraGo doesn't have a graphical user interface, 
-the ‘appl.py’ is used as a simple user interface which can be edited with 
-the preferred python-editor.
-Here parameters, calculation methods and scenario settings are set in a python
-dictionary called 'args'. 
-To run the desired calculation, it is crucial to understand these parameters. 
-In addition, some of them contradict the usage of others.
-You find the documentation of all defined parameters from the 'args' here:
-:func:`etrago.appl.run_etrago`.
+The ``appl.py`` file presents the user interface and may be edited with the preferred Python editor. Within the ``appl.py`` module, the scenario settings, parameters and calculation methods are defined within a Python dictionary, referred to as ``args``. It is important to comprehend the parameters in order to execute the desired calculation. It should be noted that some parameters are mutually exclusive, and thus, their usage must be carefully considered. Further information can be found in the subsequent section (Section `Functionalities`_), or in the documentation of all defined parameters from the ``args`` dictionary, accessible in the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>`.
 
-Alternatively, the 'args' dictionary can be edited in a json-file.
-Then the path to the json-file has to be set in the initilization of the 
-Etrago-object (:class:`etrago.tools.network.Etrago`). Once a path is given
-the 'args' dictionary within the 'appl.py' is ignored
-and replaced by the 'args' of the json-file.
+As an alternative approach, the ``args`` dictionary can be modified through the use of a JSON-file.
+The path to the JSON-file must be specified during the initialization of the ``Etrago object`` (of the class ``Etrago.network.Etrago``). Once a path is provided, the ``args`` dictionary in the ``appl.py`` is disregarded and substituted with the dictionary from the JSON-file.
 
-The appl.py contains the :func:`etrago.appl.run_etrago` function which uses the
-defined 'args' dictionary to start the desired calculation.
+The ``appl.py`` contains the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>` which uses the
+defined ``args`` dictionary to start the desired calculation.
 
-To improve the performance of the optimization of the selected solver, 
-you might want to use solver options (part of 'args'). For gurobi
-the most used ones are described 
-`here <https://github.com/openego/eTraGo/issues/213>`_.
+In order to enhance the efficacy of the optimization process using the selected solver, it may be beneficial to consider the utilisation of solver options (which form part of the ``args`` dictionary). 
+For Gurobi, the some preferrable settings are outlined in Section `Functionalities`_.
 
-For more specific or extensive changes you are highly invited
-to write code and add new functionalities.
+For more specific or extensive changes you are kindly invited
+to write code and add new functionalities. Please see Section `Contributing`_.
 
-Once the calculation has finished the PyPSA network of the Etrago-object will
-contain all results. Some main results (e.g. anuual system costs) are calculated
-by :meth:`etrago.calc_results` and can be accesed via 'etrago.results'.
-You can use several plotting functions from the :meth:`etrago.tools.plot` in order
-to visualize the results. For example 
-the :meth:`etrago.tools.plot.plot_grid` can be used to plot relative line loading
-in % or the optimized expansion of all AC lines and DC links of the network.
-
-To save the results you can write them to csv files. These functionalites can be
-specified also in the 'args' dictionary.
+Once the calculation has finished, the ``Etrago-object`` will contain all of the resulting data. Some principal results (e.g. annual system costs) are calculated by the function :meth:`etrago.calc_results<etrago.analyze.calc_results.calc_etrago_results>` and can be accessed via ``etrago.results``. Additionally, several plotting functions are available (:meth:`etrago..analyze.plot<etrago.analyze.plot>`). 
+To save the results, you can write them to csv files. You can specify this export within the ``args``.
 
 
 .. _Examples:
 Examples and Tutorial Notebooks
 ===============================
 
-
+The following links provide examples and tutorial notebooks:
 
 **eTraGo version 0.5.1:**
 `etrago_OpenMod_Zuerich18 <https://github.com/openego/eGo/blob/master/ego/examples/tutorials/etrago_OpenMod_Zuerich18.ipynb>`_.
