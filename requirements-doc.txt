@@ -13,4 +13,5 @@ pypsa == 0.26.2
 saio
 scikit-learn
 sphinx_rtd_theme > 1.2.2
+shapely
 sqlalchemy
