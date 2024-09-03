@@ -30,14 +30,14 @@ import math
 import os
 
 from pyomo.environ import Constraint, PositiveReals, Var
+from shapely.geometry import Point
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point
-    import geopandas as gpd
 
     from etrago.tools import db
 
