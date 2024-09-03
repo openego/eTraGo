@@ -6,11 +6,10 @@ How to use eTraGo
 Once the *eTraGo* application has been installed, optimization runs can be initiated by executing the ``appl.py`` script, which is located in the ``./eTrago/etrago/`` directory. This may be done, for example, by entering the following command:
 
 .. code-block:: bash
-    number-lines:
 
-    # terminal
-    python3 appl.py
-
+  $ python3 appl.py
+    
+    
 The ``appl.py`` file presents the user interface and may be edited with the preferred Python editor. Within the ``appl.py`` module, the scenario settings, parameters and calculation methods are defined within a Python dictionary, referred to as ``args``. It is important to comprehend the parameters in order to execute the desired calculation. It should be noted that some parameters are mutually exclusive, and thus, their usage must be carefully considered. Further information can be found in the subsequent section (Section ref:`Functionalities_ref`), or in the documentation of all defined parameters from the ``args`` dictionary, accessible in the function :func:`etrago.appl.run_etrago<etrago.appl.run_etrago>`.
 
 As an alternative approach, the ``args`` dictionary can be modified through the use of a JSON-file. The path to the JSON-file must be specified during the initialization of the ``Etrago object`` (of the class ``Etrago.network.Etrago``). Once a path is provided, the ``args`` dictionary in the ``appl.py`` is disregarded and substituted with the dictionary from the JSON-file.
