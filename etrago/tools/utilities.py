@@ -2989,7 +2989,6 @@ def manual_fixes_datamodel(etrago):
         )
 
 
-
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """
     Translates all component DataFrames within the pypsa network
