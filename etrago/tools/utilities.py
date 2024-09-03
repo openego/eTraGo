@@ -36,7 +36,7 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point
+    from shapely.geometry import LineString, Point
     import geopandas as gpd
 
     from etrago.tools import db
@@ -2987,3 +2987,151 @@ def manual_fixes_datamodel(etrago):
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
         )
+
+
+
+def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
+    """
+    Translates all component DataFrames within the pypsa network
+    to GeoDataFrames and saves them to shape files.
+
+    Shape files can be used to plot the network in QGIS.
+
+    Currently, only the AC network is exported.
+
+    Parameters
+    ----------
+    pypsa_network : PyPSA network
+        PyPSA network as in etrago.network.
+    shape_files_path : str or None
+        If provided, geodataframes are saved as shapefiles to given directory.
+        Default: None.
+    srid : int
+        SRID bus coordinates are given in. Per default WGS84 is assumed.
+        Default: 4326.
+
+    Returns
+    -------
+    dict
+        Dictionary with geodataframes.
+
+    """
+    os.makedirs(shape_files_path, exist_ok=True)
+
+    # convert buses_df
+    buses_df = pypsa_network.buses[pypsa_network.buses.carrier == "AC"]
+    buses_df = buses_df.assign(
+        geometry=gpd.points_from_xy(buses_df.x, buses_df.y, crs=f"EPSG:{srid}")
+    ).drop(columns=["x", "y", "geom"])
+
+    buses_gdf = gpd.GeoDataFrame(buses_df, crs=f"EPSG:{srid}")
+
+    # convert component DataFrames
+    components = [
+        "generators",
+        "loads",
+        "storage_units",
+        "stores",
+        "transformers",
+    ]
+    components_dict = {"buses_gdf": buses_gdf}
+
+    for component in components:
+        left_on = "bus1" if component == "transformers" else "bus"
+
+        attr = getattr(pypsa_network, component)
+
+        components_dict[f"{component}_gdf"] = gpd.GeoDataFrame(
+            attr.merge(
+                buses_gdf[["geometry", "v_nom"]],
+                left_on=left_on,
+                right_index=True,
+            ),
+            crs=f"EPSG:{srid}",
+        )
+        if components_dict[f"{component}_gdf"].empty:
+            components_dict[f"{component}_gdf"].index = components_dict[
+                f"{component}_gdf"
+            ].index.astype(object)
+
+    # convert lines
+    lines_df = pypsa_network.lines
+    lines_df = lines_df.drop(columns=["geom"])
+
+    lines_gdf = lines_df.merge(
+        buses_gdf[["geometry", "v_nom"]].rename(
+            columns={"geometry": "geom_0"}
+        ),
+        left_on="bus0",
+        right_index=True,
+    )
+    lines_gdf = lines_gdf.merge(
+        buses_gdf[["geometry"]].rename(columns={"geometry": "geom_1"}),
+        left_on="bus1",
+        right_index=True,
+    )
+    lines_gdf["geometry"] = lines_gdf.apply(
+        lambda _: LineString([_["geom_0"], _["geom_1"]]), axis=1
+    )
+    lines_gdf = gpd.GeoDataFrame(lines_gdf, crs=f"EPSG:{srid}")
+    components_dict["lines_gdf"] = lines_gdf
+
+    save_cols = {
+        "buses_gdf": ["scn_name", "v_nom", "carrier", "country", "geometry"],
+        "generators_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "loads_gdf": ["scn_name", "bus", "carrier", "v_nom", "geometry"],
+        "storage_units_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "stores_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "e_nom",
+            "e_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "transformers_gdf": [
+            "scn_name",
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "geometry",
+        ],
+        "lines_gdf": [
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "length",
+            "num_parallel",
+            "geometry",
+            "v_nom",
+        ],
+    }
+    if shape_files_path:
+        for k, v in components_dict.items():
+            shp_filename = os.path.join(shape_files_path, f"{k}.shp")
+            v.loc[:, save_cols[k]].to_file(shp_filename)
+
+    return components_dict
