@@ -2,11 +2,12 @@
 Installation
 ============
 
-eTraGo is designed as a Python package therefore it is mandatory to have
-`Python 3 <https://www.python.org/downloads/.>`_ installed. If you have a
-working Python3 environment, use pypi to install the latest eTraGo version.
-We highly recommend you to use a virtual environment. Use following pip
-command in order to install eTraGo.
+*eTraGo* is designed as a Python package therefore it is mandatory to have
+`Python 3 <https://www.python.org/downloads/.>`_ installed. The current
+version of *eTraGo* is compatible to Python version 3.10 or higher.
+If you have a working Python3 environment, use pypi to install the latest
+*eTraGo* version. We highly recommend you to use a virtual environment.
+Use following pip command in order to install *eTraGo*.
 
 .. code-block:: bash
 
@@ -16,8 +17,8 @@ command in order to install eTraGo.
 Using a Virtual Environment
 ===========================
 
-Before installing eTraGo, 
-you create a virtual environment (where you like it) and activate it:
+Before installing *eTraGo*, you create a virtual environment (where you like it)
+and activate it:
 
 .. code-block:: bash
 
@@ -26,13 +27,13 @@ you create a virtual environment (where you like it) and activate it:
    $ cd venv
 
 Inside your activated virtual environment you can 
-install eTraGo with the pip command, as previously explained.
+install *eTraGo* with the pip command, as previously explained.
 
 
 Linux and Ubuntu
 ================
 
-The Package eTraGo is tested with Ubuntu 16.04, 18.04, 20.04 and 22.04 inside the virtual
+The package *eTraGo* is tested with Ubuntu 20.04 and 22.04 inside the virtual
 environments of `virtualenv <https://virtualenv.pypa.io/en/stable/>`_.
 The installation is shown above.
 
@@ -63,21 +64,21 @@ environments.
 
 Setup Database Connection
 =========================
-The eTraGo module `db <https://github.com/openego/eTraGo/blob/dev/etrago/tools/db.py>`_ 
+The *eTraGo* module `db <https://github.com/openego/eTraGo/blob/dev/etrago/tools/db.py>`_ 
 gives you a python SQL-Alchemy representations of
-the `OpenEnergy-Database(oedb) <https://openenergy-platform.org/dataedit/>`_ 
+the `OpenEnergy-Database (oedb) <https://openenergy-platform.org/dataedit/>`_ 
 and access to it by using the
 `oedialect <https://github.com/openego/oedialect>`_, which is a SQL-Alchemy binding
 Python package for the REST-API used by the OpenEnergy Platform (OEP).
 
-In order to connect eTraGo via the oedialect with the oedb you
+In order to connect *eTraGo* via the oedialect with the oedb you
 have to create an account at
 `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_. 
 You can name the `'db' <https://github.com/openego/eTraGo/blob/7e6719b8f71c78ea8f8312d74558e59c96c1b3a2/etrago/appl.py#L51>`_
 argument of the 'args' of the :func:`etrago.appl.etrago`
 as you wish. Once the :func:`etrago.appl.etrago` is executed you will be asked 
 to enter how you want to connect to which database. If you want to use 
-the oedialect enter the following connection parameter. For <username> and
+the oedialect enter the connection parameter specifed in the code block below. For <username> and
 <token> you have to take your credentials which you obtained by registering
 at `openenergy-platform.org/login <http://openenergy-platform.org/login/>`_.
 
@@ -85,7 +86,7 @@ Your API access / login data will be saved in the folder ``.etrago_database`` in
 ``config.ini``. Consequently, in the config.ini you can also change 
 your connection parameters or add new ones.
 In the following you can see how the config.ini looks like when you use the
-oedialect, a local postgresql database or the old psycopg2 developer connection.
+oedialect or a local postgresql database.
 
 Once you have created a connection (which is saved in the config.ini) you do not have
 to enter the connection parameter again. The software will take the connection parameter
@@ -110,10 +111,10 @@ Local Database Connection
 .. code-block:: desktop
 
    [local]
-   username = YourOEDBUserName
+   username = YourLocalUserName
    database = YourLocalDatabaseName
    host = localhost or 127.0.0.1
-   port = 5433
+   port = YourDatabasePort
    pw = YourLocalPassword
   
   
@@ -127,7 +128,7 @@ Installation for Developers
 
 .. code-block:: bash
 
-   $ virtualenv --clear -p python3.8  etrago``
+   $ virtualenv --clear -p python3.10  etrago``
    $ cd etrago/
    $ source bin/activate
    
@@ -141,7 +142,7 @@ You can checkout to the dev branch and create new feature branches.
 For the correct work-flow, please mind the 
 `Dreissen Branching Model <https://nvie.com/posts/a-successful-git-branching-model/>`_
 
-3. Use the pip -e to install eTraGo directly from the cloned repository:
+3. Use the pip -e to install *eTraGo* directly from the cloned repository:
 
 .. code-block:: bash
 
