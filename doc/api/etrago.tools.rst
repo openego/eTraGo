@@ -10,14 +10,6 @@ etrago.tools.constraints module
     :undoc-members:
     :show-inheritance:
 
-etrago.tools.execute module
-----------------------------------
-
-.. automodule:: etrago.tools.execute
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 etrago.tools.extendable module
 ----------------------------------
 
