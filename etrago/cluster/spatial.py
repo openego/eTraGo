@@ -20,12 +20,12 @@
 # File description for read-the-docs
 """ spatial.py defines the methods to run spatial clustering on networks."""
 
+import logging
 import os
 
 if "READTHEDOCS" not in os.environ:
     from itertools import product
     from math import ceil
-    import logging
     import multiprocessing as mp
 
     from networkx import NetworkXNoPath
@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
         connected_transformer,
     )
 
-    logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "

@@ -19,7 +19,7 @@
 
 # File description
 """
-execute.py defines optimization and simulation methods for the etrago object.
+temporal.py defines the methods to run temporal disaggregation on networks.
 """
 import logging
 import os

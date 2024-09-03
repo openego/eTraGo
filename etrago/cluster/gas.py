@@ -21,10 +21,10 @@
 """ gas.py defines the methods to cluster gas grid networks
 spatially for applications within the tool eTraGo."""
 
+import logging
 import os
 
 if "READTHEDOCS" not in os.environ:
-    import logging
 
     from pypsa.clustering.spatial import (
         aggregatebuses,

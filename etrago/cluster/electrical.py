@@ -21,10 +21,13 @@
 """ electrical.py defines the methods to cluster power grid networks
 spatially for applications within the tool eTraGo."""
 
+import logging
 import os
 
+logger = logging.getLogger(__name__)
+
 if "READTHEDOCS" not in os.environ:
-    import logging
+    
 
     from pypsa import Network
     from pypsa.clustering.spatial import (
@@ -50,7 +53,6 @@ if "READTHEDOCS" not in os.environ:
     )
     from etrago.tools.utilities import set_control_strategies
 
-    logger = logging.getLogger(__name__)
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
