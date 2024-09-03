@@ -1,4 +1,4 @@
-.. _Functionalities:
+.. _Functionalities_ref:
 ===============
 Functionalities
 ===============
@@ -6,6 +6,7 @@ Functionalities
 .. figure:: images/etrago_functionalities.png
    :align: center
    :width: 800
+
 
 *eTraGo* is based on the open source tool `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_ and uses its definitions and units [PyPSA]_.
 
@@ -19,7 +20,6 @@ The input data covers the coupling of electricity grid models on different volta
    :align: center
    :width: 800
 
-.. _abstand:
 
 *eTraGo* fetches the input data from the `Open Energy Platform <https://openenergy-platform.org/>`_. Alternatively, different scenarios of the data models are available through `zenodo <https://zenodo.org/>`_. The data needs to be downloaded and locally stored as a PostgreSQL database to be accessable for *eTraGo*. More explanations can be found in the `zenodo upload <https://zenodo.org/records/8376714>`_. The following scenarios are available:
 
@@ -34,7 +34,6 @@ You can see the modeling concepts of the scenarios in the figure below. The comp
    :align: center
    :width: 800
 
-.. _abstand:
    
 Scenario Variation
 ==================
@@ -69,8 +68,7 @@ The procedures of the two methods are depicted in the following figure [Esterl20
 .. figure:: images/complexity_spatial.png
    :align: center
    :width: 800
-   
-.. _abstand:
+
 
 In general, the clustering of the **sector-coupled system** is divided into two steps:
 First, the electrical and gas grid are clustered independently using one of the methods described above. Afterwards, nodes of the other sectors (hydrogen, heat, e-mobility and DSM nodes) are mapped according to their connection to electricity or gas buses and aggregated to one node per carrier.
@@ -121,28 +119,36 @@ To customize computation settings, ‘solver_options’ and ‘generator_noise�
 **Insights on Solver Settings with Gurobi**
 
 * `threads <http://www.gurobi.com/documentation/8.0/refman/threads.html>`_: number of threads to apply to parallel algorithms (concurrent or barrier)
+
   * default: 0 (uses all cores in the machine)
   * reduce if parallel calculations or tight memory
 * `method <http://www.gurobi.com/documentation/8.0/refman/method.html#parameter:Method>`_: algorithm used to solve optimization of lopf
+
   * default (-1, concurrent): chooses between simplex or barrier method due to matrix range
   * 1 (simplex): slower but less sensitive for numerical issues
   * 2 (barrier): fastest method but sensitive for numerical issues
 * `crossover <http://www.gurobi.com/documentation/8.0/refman/crossover.html>`_ (barrier only): determines the crossover strategy used to transform the interior solution produced by barrier into a basic solution
+
   * default: -1 (chooses strategy automatically)
   * preferred: 0 (disables crossover, solves fastest but may need 'NumericFocus' and 'BarHomogenus' to avoid numerical issues)
 * `BarConvTol <http://www.gurobi.com/documentation/8.0/refman/barconvtol.html>`_ (barrier only): the barrier solver terminates when the relative difference between the primal and dual objective values is less than the specified tolerance
+
   * default: 1e-8
   * preferred: 1e-5 (little less accurate, but solves faster)
 * `FeasibilityTol <http://www.gurobi.com/documentation/8.0/refman/feasibilitytol.html>`_: tolerance of all constraints
+
   * default: 1e-6
   * preferred: 1e-5 (less accurate, but reduces number of iterations)
 * logFile: destination and name of gurobi log file
+
   * default: None
   * preferred: 'gurobi_eTraGo.log'
 * `BarHomogeneous <http://www.gurobi.com/documentation/8.0/refman/barhomogeneous.html>`_: (barrier only): determines whether to use the homogeneous barrier algorithm
+
   * default:  -1 (homogeneous barrier algorithm turned off, faster but sensitive for numerical issues)
   * preferred: 1  (homogeneous barrier algorithm turned on, bit slower but less sensitive for numerical issues, often used when crossover turned off)
 * `NumericFocus <http://www.gurobi.com/documentation/8.0/refman/numericfocus.html>`_: controls the degree to which the code attempts to detect and manage numerical issues
+
   * default: 0 (automatic choice with a slight preference for speed)
   * 1 - 3 (shift the focus towards being slower but less sensitive for numerical issues)
 
@@ -156,10 +162,12 @@ Afterterwards, a **spatial disaggregation** can be conducted distributing power 
 Analysis
 ========
 
-*eTraGo* contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. 
-Some examplary results by [Buettner2024]_ are presented below:
+*eTraGo* contains various functions for evaluating the optimisation results in the form of graphics, maps and tables. Functions to quantify results can be found in :meth:`etrago.analyze.calc_results<etrago.analyze.calc_results>` and functions to plot results can be found in :meth:`etrago.analyze.plot<etrago.analyze.plot>`.
+Some examplary graphs by [Buettner2024]_ are presented below:
 
-.. figure:: images/examplary_results.png
+.. figure:: images/exemplary_results.png
    :align: center
    :width: 800
+   
+
 
