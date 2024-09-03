@@ -1,4 +1,4 @@
-.. _Contributing:
+.. _Contributing_ref:
 ============
 Contributing
 ============
