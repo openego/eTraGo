@@ -3,7 +3,6 @@
 Contributing
 ============
 
-ANPASSEN FÜR ETRAGO
 
 The package *eTraGo* is a collaborative projects with several people
 contributing to it. The following section gives an overview of
@@ -24,6 +23,7 @@ Please tag your issue with one of the predefined labels as it helps
 others to keep track of unsolved bugs, open tasks and questions.
 
 To inform others about intended developments please include:
+
 * a describtion of the purpose and the value it adds
 * outline the required steps for implementation
 * list open questions
