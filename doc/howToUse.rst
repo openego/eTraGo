@@ -20,7 +20,7 @@ In order to enhance the efficacy of the optimization process using the selected 
 
 For more specific or extensive changes you are kindly invited to write code and add new functionalities. Please see Section Section ref:`Contributing_ref`.
 
-Once the calculation has finished, the ``Etrago-object`` will contain all of the resulting data. Some principal results (e.g. annual system costs) are calculated by the function :meth:`etrago.calc_results<etrago.analyze.calc_results.calc_etrago_results>`. Additionally, several plotting functions are available (:meth:`etrago.analyze.plot<etrago.analyze.plot>`). To save the results, you can write them to csv files. You can specify this export within the ``args``.
+Once the calculation has finished, the ``Etrago object`` will contain all of the resulting data. Some principal results (e.g. annual system costs) are calculated by the function :meth:`etrago.calc_results<etrago.analyze.calc_results.calc_etrago_results>`. Additionally, several plotting functions are available (:meth:`etrago.analyze.plot<etrago.analyze.plot>`). To save the results, you can write them to csv files. You can specify this export within the ``args``.
 
 
 .. _Examples:
