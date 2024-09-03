@@ -17,7 +17,7 @@ e.g. `PoWerD <https://www.h2-powerd.de/>`_.
 
 Publications:
 
-* *NEW PAPER* [C, U]
+* *The impact of redispatch on grid and storage expansion planning in the German energy system* [Buettner20242]_
 * *Avoiding False Inter-Zonal Meshing in the Clustering of a Large-Scale German Power Grid* [Esterl2024]_
 * *Influence of flexibility options on the German transmission grid — A sector-coupled mid-term scenario* [Buettner2024]_
 * *Integrated Techno-Economic Power System Planning of Transmission and Distribution Grids* [Mueller2019]_
@@ -31,6 +31,7 @@ eTraGo as part of the eGo-Toolchain
 .. figure:: images/ego_tools.svg
    :align: center
    :scale: 75%
+
    
 The tools illustrated in the graph above have been developed for cross-grid level optimization of the sector-coupled energy system in Germany as part of the aforementioned research projects. The following section describes the individual elements of this toolchain. 
 
