@@ -1609,6 +1609,37 @@ def calc_ac_loading(network, timesteps):
     return loading_lines / network.lines.s_nom_opt
 
 
+def calc_ac_max_loading(network, timesteps):
+    """Calculates loading of AC-lines
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timesteps : range
+        Defines which timesteps are considered. If more than one, an
+        average line loading is calculated.
+
+    Returns
+    -------
+    pandas.Series
+        AC line loading in MVA
+
+    """
+
+    loading_lines = (
+        network.lines_t.p0.loc[network.snapshots[timesteps]]
+    ).abs()
+
+    if not network.lines_t.q0.empty:
+        loading_lines = np.sqrt(
+            loading_lines**2
+            + network.lines_t.q0.loc[network.snapshots[timesteps]]** 2
+        )
+
+    return loading_lines.max() / network.lines.s_nom_opt
+
+
 def calc_dc_loading(network, timesteps):
     """Calculates loading of DC-lines
 
@@ -1641,6 +1672,41 @@ def calc_dc_loading(network, timesteps):
             .abs()
             .sum()[dc_links.index]
             / dc_links.p_nom_opt
+        )
+        .fillna(0)
+        .values
+    )
+
+    return dc_load
+
+
+def calc_dc_max_loading(network, timesteps):
+    """Calculates loading of DC-lines
+
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timesteps : range
+        Defines which timesteps are considered. If more than one, an
+        average line loading is calculated.
+
+    Returns
+    -------
+    pandas.Series
+        DC line loading in MW
+
+    """
+    dc_links = network.links.loc[network.links.carrier == "DC", :]
+    ts = network.snapshots[timesteps]
+
+    link_load = network.links_t.p0.loc[ts, dc_links.index].abs()
+
+    dc_load = pd.Series(index=network.links.index, data=0.0)
+    dc_load.loc[dc_links.index] = (
+        (
+            link_load.max() / dc_links.p_nom_opt
         )
         .fillna(0)
         .values
@@ -2469,6 +2535,7 @@ def plot_grid(
         Current options:
 
         * 'line_loading': mean line loading in p.u. in selected timesteps
+        * 'max_line_loading': maximum line loading in p.u. in selected timesteps
         * 'v_nom': nominal voltage of lines
         * 'expansion_abs': absolute network expansion in MVA
         * 'expansion_rel': network expansion in p.u. of existing capacity
@@ -2629,6 +2696,23 @@ def plot_grid(
         ]
         flow[flow < 0] = -1
         flow[flow > 0] = 1
+
+    elif line_colors == "max_line_loading":
+        title = "Maximum line loading"
+        line_colors = calc_ac_max_loading(network, timesteps)
+        link_colors = calc_dc_max_loading(network, timesteps)
+        if ext_width is not False:
+            link_widths = link_colors.apply(
+                lambda x: 1 + (x / ext_width) if x != 0 else 0
+            )
+            line_widths = 1 + (line_colors / ext_width)
+        else:
+            link_widths = link_colors.apply(lambda x: 1 if x != 0 else 0)
+            line_widths = 1
+        label = "max. line loading in p.u."
+        plot_background_grid(network, ax, geographical_boundaries, osm)
+        # Only active flow direction is displayed!
+        flow = None
 
     elif line_colors == "v_nom":
         title = "Voltage levels"
