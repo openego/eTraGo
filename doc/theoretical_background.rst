@@ -87,29 +87,58 @@ The **Snapshot Clustering on Typical Periods** implies a hierarchical clustering
 Calculation with PyPSA
 ======================
 
-TODO
+All optimization methods within *eTraGo* base on the Linear Optimal Power Flow (LOPF) implemented in `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_.
+The objective is the minimization of system costs, considering marginal cost of energy generation and investments in grid infrastructure, storage units and different flexibility options. The different options are specific for each scenario.
 
-Within *eTraGo*, the fetched data model is translated into a `PyPSA <https://pypsa.readthedocs.io/en/latest/>`_-network [PyPSA]_. Two optimization methods are available and can be used independently or in combination.
+Currently, two different optimization approaches are implemented considering different conficgurations of energy markets and optimization variables. The different options are described in the following sections. 
 
-Market Optimization
--------------------
+Integrated optimization with nodal pricing
+------------------------------------------
 
-TODO
+The objective is to minimize marginal cost of energy generation and investments in grid infrastructure, storage units and different flexibility options in one optmization problem. 
+The following objective function is applied: 
 
-Grid and Storage / Store expansion with LOPF
----------------------------------------------
+.. math::
+  :nowrap:
 
-TODO
+    \begin{gather*}
+    \sum_{n,s} c_{n,s} \bar{g}_{n,s} + \sum_{n,s} c_{n,s} \bar{h}_{n,s} + \sum_{l} c_{l} F_l \\
+    + \sum_{t} w_t \left[\sum_{n,s} o_{n,s,t} g_{n,s,t} + \sum_{n,s} o_{n,s,t} h_{n,s,t} \right]
+    + \sum_{t} \left[suc_{n,s,t} + sdc_{n,s,t} \right]
+    \end{gather*}
 
-For grid and storage expansion, a linear-optimal power flow is performed. Therefore, *eTraGo* is assumed to fulfill the corresponding requirements
 
-linear approximation assuming *eTraGo* to fulfill the assumptions to perfom a LOPF (as those are small voltage angle differences, branch resistances negligible to their reactances, voltage magnitudes can be kept at nominal values) since it focuses on the extra-high and high voltage levels. As objective value of the optimisation, the overall system costs are considered.
+This implies a nodal pricing approach and optimal dispatch and redispatch. Redispatch and curtailment of renewable energy is possible, without any additional redispatch costs. 
+Investments and expanded capacities of grid infrastructure, storage units and different flexibility options are a key result. It has to be noted that expansion is employed continiously. The expanded capacities not always refelect existing technical appliences. This allows to keep a linear optimization problem that is feasible for the described complex model. 
 
-With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
+Various constrains are added to model the physical and electrical behavior. 
+
+The integrated optimization results in highly cost-effective results, but does not reflect the acctual German energy market.
+A more detailed description of this modelling apporoach as well as some results can be found in differnent studies and papers, e.g. in: [Mueller2019]_, [Buettner2024]_.
+
+Consecutive market and grid optimization
+----------------------------------------
+
+This methodology aims to represent an energy market that is close to the acctual current market design by separateing the market model from the grid model. The optimization method consists of three consecutive steps. 
+At first, seasonal storage behavior and market-based expansions of flexibility options are identified through a simplified yet annual calculation. The second step aims to come up with a realistic dispatch for each power plant and hour, taking into account non-linear Unit Commitment constraints and a short-term, rolling planning horizon. In both steps, the spatial resolution is defined by one node per current bidding zone.
+In the last optimization step, the grid topology (potentially in a resuced spatial resolution as described in XX) is considered. This allows to optimize grid expansion. The market-based dispatch is defined by the previous step, redispatch and curtailment is possible, but results into additional system costs. 
+
+A brief overview of the different optimization steps, their key characteristics and results is shown in the following figure. 
+A detailed description of the methodology is given in [Buettner20242]_, which also presents and analyses results.
+
+
+Grid and Storage / Store expansion
+----------------------------------
 
 The grid expansion is realized by extending the capacities of existing lines and substations. These capacities are considered as part of the optimisation problem whereby the possible extension is unlimited. With respect to the different voltage levels and lengths, MVA-specific costs are considered in the optimisation. 
 
 As shown in the figure above, several options to store energy are part of the modeling concept. Extendable batteries (modeled as storage units) are assigned to every node in the electrical grid. A minimum installed capacity is being considered to account for home batteries ([NEP]_). The expansion and operation is part of the optimisation. Furthermore, two types of hydrogen stores (modeled as stores) are available. Overground stores are optimised in operation and dispatch without limitations whereas underground stores depicting saltcaverns are limited by geographical conditions ([BGR]_). Additionally, heat stores part of the optimisation in terms of power and energy without upper limits. 
+
+
+Non-linear power flow
+---------------------
+With the argument ‘pf_post_lopf’, after the LOPF a non-linear power flow simulation can be conducted.
+
 
 Solver Options
 --------------
