@@ -1626,8 +1626,7 @@ def calc_ac_max_loading(network, timesteps):
     network : :class:`pypsa.Network
         Overall container of PyPSA
     timesteps : range
-        Defines which timesteps are considered. If more than one, an
-        average line loading is calculated.
+        Defines which timesteps are considered.
 
     Returns
     -------
@@ -2606,7 +2605,7 @@ def plot_grid(
         False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
     geographical_boundaries : list, optional
-        Set georaphical boundaries for the plots. This parameter is overwritten
+        Set geographical boundaries for the plots. This parameter is overwritten
         when osm is used. The default is [-2.5, 16, 46.8, 58]
 
     Returns
