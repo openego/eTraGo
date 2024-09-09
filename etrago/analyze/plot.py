@@ -46,12 +46,12 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape  # noqa: F401
     from pyproj import Proj, transform
-    from shapely.geometry import LineString, Point
+    from shapely.geometry import LineString, Point, Polygon
     import geopandas as gpd
     import tilemapbase
 
     from etrago.execute import import_gen_from_links
-    from etrago.tools.utilities import find_buses_area
+    from etrago.tools.utilities import find_buses_area, select_buses_area
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -873,6 +873,7 @@ def calc_storage_expansion_per_bus(
         "rural_heat_store",
         "central_heat_store",
     ],
+    buses=None,
 ):
     """Function that calculates storage expansion per bus and technology
 
@@ -887,10 +888,13 @@ def calc_storage_expansion_per_bus(
         storage expansion per bus and technology
 
     """
-    index = [(idx, "battery") for idx in network.buses.index]
+    if buses is None:
+        buses = network.buses.index
+
+    index = [(idx, "battery") for idx in network.buses.loc[buses].index]
     for c in carriers:
         if c != "battery":
-            index.extend([(idx, c) for idx in network.buses.index])
+            index.extend([(idx, c) for idx in network.buses.loc[buses].index])
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
@@ -900,7 +904,8 @@ def calc_storage_expansion_per_bus(
 
     if "battery" in carriers:
         batteries = network.storage_units[
-            network.storage_units.carrier == "battery"
+            (network.storage_units.carrier == "battery") &
+            (network.storage_units.bus.isin(buses))
         ]
         battery_distribution = (
             (
@@ -921,7 +926,8 @@ def calc_storage_expansion_per_bus(
         )
     if "H2_overground" in carriers:
         h2_overground = network.stores[
-            network.stores.carrier == "H2_overground"
+            (network.stores.carrier == "H2_overground") &
+            (network.stores.bus.isin(buses))
         ]
         h2_over_distribution = (
             network.stores.e_nom_opt[h2_overground.index]
@@ -940,7 +946,8 @@ def calc_storage_expansion_per_bus(
 
     if "H2_overground" in carriers:
         h2_underground = network.stores[
-            network.stores.carrier == "H2_underground"
+            (network.stores.carrier == "H2_underground") &
+            (network.stores.bus.isin(buses))
         ]
         h2_under_distribution = (
             network.stores.e_nom_opt[h2_underground.index]
@@ -959,7 +966,8 @@ def calc_storage_expansion_per_bus(
 
     if "rural_heat_store" in carriers:
         rural_heat = network.stores[
-            network.stores.carrier == "rural_heat_store"
+            (network.stores.carrier == "rural_heat_store") &
+            (network.stores.bus.isin(buses))
         ]
         rural_heat_distribution = (
             network.stores.e_nom_opt[rural_heat.index]
@@ -980,7 +988,8 @@ def calc_storage_expansion_per_bus(
         ] = rural_heat_distribution
     if "central_heat_store" in carriers:
         central_heat = network.stores[
-            network.stores.carrier == "central_heat_store"
+            (network.stores.carrier == "central_heat_store") &
+            (network.stores.bus.isin(buses))
         ]
         central_heat_distribution = (
             network.stores.e_nom_opt[central_heat.index]
@@ -2815,6 +2824,17 @@ def plot_grid(
     # Set bus colors
     bus_legend = False
 
+    # specify area that is plotted to select buses within this area and avoid
+    # very large legend entries
+    if osm:
+        x = osm["x"]
+        y = osm["y"]
+    else:
+        x = [geographical_boundaries[0], geographical_boundaries[1]]
+        y = [geographical_boundaries[2], geographical_boundaries[3]]
+    coords = ((x[0], y[0]), (x[0], y[1]), (x[1], y[1]), (x[0], y[1]), (x[0], y[0]))
+    area = Polygon(coords)
+    buses_area = select_buses_area(self, area).index
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -2832,7 +2852,11 @@ def plot_grid(
                             "battery": 10}"""
             )
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(
+            network,
+            carriers=list(scaling_store_expansion.keys()),
+            buses=buses_area
+        )
         for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(

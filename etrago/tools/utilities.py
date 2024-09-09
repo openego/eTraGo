@@ -3217,26 +3217,46 @@ def find_buses_area(etrago, carrier):
                 "not supported format supplied to 'interest_area' argument"
             )
 
-        try:
-            buses_area = gpd.GeoDataFrame(
-                etrago.network.buses, geometry="geom", crs=4326
-            )
-        except:
-            buses_area = etrago.network.buses[["x", "y", "carrier"]]
-            buses_area["geom"] = buses_area.apply(
-                lambda x: Point(x["x"], x["y"]), axis=1
-            )
-            buses_area = gpd.GeoDataFrame(
-                buses_area, geometry="geom", crs=4326
-            )
-
-        buses_area = gpd.clip(buses_area, de_areas)
+        buses_area = select_buses_area(etrago, de_areas)
         buses_area = buses_area[buses_area.carrier == carrier]
 
     else:
         buses_area = pd.DataFrame()
 
     return buses_area.index
+
+
+def select_buses_area(etrago, area):
+    """
+    Select buses inside given area.
+
+    Parameters
+    ----------
+    etrago : ETraGo object
+    area : shapely.Polygon
+        Polygon specifying the area for which to select all buses.
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        GeoDataFrame with all buses inside given area. The dataframe is a subset of
+        network.buses with columns x, y, carrier and geom.
+
+    """
+    try:
+        buses_area = gpd.GeoDataFrame(
+            etrago.network.buses, geometry="geom", crs=4326
+        )
+    except:
+        buses_area = etrago.network.buses[["x", "y", "carrier"]]
+        buses_area["geom"] = buses_area.apply(
+            lambda x: Point(x["x"], x["y"]), axis=1
+        )
+        buses_area = gpd.GeoDataFrame(
+            buses_area, geometry="geom", crs=4326
+        )
+
+    return gpd.clip(buses_area, area)
 
 
 def adjust_before_optimization(self):
