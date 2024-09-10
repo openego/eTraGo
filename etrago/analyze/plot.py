@@ -25,14 +25,19 @@ from math import sqrt
 import logging
 import os
 
+from geoalchemy2.shape import to_shape  # noqa: F401
 from matplotlib import pyplot as plt
 from matplotlib.legend_handler import HandlerPatch
 from matplotlib.patches import Circle, Ellipse
+from pyproj import Proj, transform
 from pypsa.plot import draw_map_cartopy
+from shapely.geometry import LineString, Point
+import geopandas as gpd
 import matplotlib
 import matplotlib.patches as mpatches
 import numpy as np
 import pandas as pd
+import tilemapbase
 
 cartopy_present = True
 try:
@@ -40,11 +45,7 @@ try:
 except ImportError:
     cartopy_present = False
 
-from geoalchemy2.shape import to_shape  # noqa: F401
-from pyproj import Proj, transform
-from shapely.geometry import LineString, Point
-import geopandas as gpd
-import tilemapbase
+
 
 logger = logging.getLogger(__name__)
 
