@@ -39,7 +39,7 @@ try:
     import cartopy.crs as ccrs
 except ImportError:
     cartopy_present = False
-    
+
 from geoalchemy2.shape import to_shape  # noqa: F401
 from pyproj import Proj, transform
 from shapely.geometry import LineString, Point
@@ -49,7 +49,6 @@ import tilemapbase
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-
 
     from etrago.execute import import_gen_from_links
 

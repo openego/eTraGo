@@ -51,6 +51,7 @@ __author__ = (
     "pieterhexen, fwitte, AmeliaNadal, cjbernal071421"
 )
 
+
 class Disaggregation:
     def __init__(self, original_network, clustered_network, busmap, skip=()):
         """

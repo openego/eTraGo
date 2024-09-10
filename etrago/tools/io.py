@@ -58,12 +58,11 @@ import pypsa
 
 logger = logging.getLogger(__name__)
 
-if "READTHEDOCS" not in os.environ: 
+if "READTHEDOCS" not in os.environ:
 
     from sqlalchemy.orm.exc import NoResultFound
     import saio
 
-    
 
 carr_ormclass = "Source"
 

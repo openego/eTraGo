@@ -27,7 +27,6 @@ import os
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
-    
 
     from pypsa import Network
     from pypsa.clustering.spatial import (
