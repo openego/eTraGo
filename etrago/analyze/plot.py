@@ -46,7 +46,6 @@ except ImportError:
     cartopy_present = False
 
 
-
 logger = logging.getLogger(__name__)
 
 if "READTHEDOCS" not in os.environ:
