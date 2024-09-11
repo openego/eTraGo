@@ -682,6 +682,25 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    ###########################################################################
+    #breakpoint()
+    buses = etrago.network.buses
+    etrago.network.buses.loc[buses.carrier=="urban_central_heat", "carrier"] = "central_heat"
+    etrago.network.buses.loc[buses.carrier=="rural_water_tanks", "carrier"] = "rural_heat_store"
+    etrago.network.buses.loc[buses.carrier=="urban_central_water_tanks", "carrier"] = "central_heat_store"
+
+    links = etrago.network.links
+    etrago.network.links.loc[links.carrier=="rural_air_heat_pump", "carrier"] = "rural_heat_pump"
+    etrago.network.links.loc[links.carrier=="rural_ground_heat_pump", "carrier"] = "rural_heat_pump"
+
+    battery_bus = buses[buses.carrier=="battery"].index
+    battery_links = links[(links.bus0.isin(battery_bus))|(links.bus1.isin(battery_bus))].index
+    stores = etrago.network.stores
+    battery_store = stores[stores.bus.isin(battery_bus)].index
+    etrago.network.mremove("Bus", battery_bus)
+    etrago.network.mremove("Link", battery_links)
+    etrago.network.mremove("Store", battery_store)
+    ###########################################################################
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
