@@ -158,6 +158,7 @@ def adjust_no_electric_network(
         (network2.buses["carrier"] != "AC")
         & (network2.buses["carrier"] != "CH4")
         & (network2.buses["carrier"] != "H2_grid")
+        & (network2.buses["carrier"] != "H2")
         & (network2.buses["carrier"] != "rural_heat_store")
         & (network2.buses["carrier"] != "central_heat")
         & (network2.buses["carrier"] != "central_heat_store")
@@ -165,7 +166,6 @@ def adjust_no_electric_network(
     map_carrier = {
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
-        "Li ion": "BEV charger",
         "Li_ion": "BEV_charger",
         "rural_heat": "rural_heat_pump",
     }
