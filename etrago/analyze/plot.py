@@ -1595,7 +1595,7 @@ def calc_ac_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        AC line loading in MVA
+        AC line loading in MVA/MVA
 
     """
 
@@ -1631,7 +1631,7 @@ def calc_ac_max_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        AC line loading in MVA
+        AC line loading in MVA/MVA
 
     """
 
@@ -1663,7 +1663,7 @@ def calc_dc_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        DC line loading in MW
+        DC line loading in MW/MW
 
     """
     dc_links = network.links.loc[network.links.carrier == "DC", :]
@@ -1703,7 +1703,7 @@ def calc_dc_max_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        DC line loading in MW
+        DC line loading in MW/MW
 
     """
     dc_links = network.links.loc[network.links.carrier == "DC", :]
