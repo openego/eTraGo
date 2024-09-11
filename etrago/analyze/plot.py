@@ -46,12 +46,12 @@ logger = logging.getLogger(__name__)
 if "READTHEDOCS" not in os.environ:
     from geoalchemy2.shape import to_shape  # noqa: F401
     from pyproj import Proj, transform
-    from shapely.geometry import LineString, Point
+    from shapely.geometry import LineString, Point, Polygon
     import geopandas as gpd
     import tilemapbase
 
     from etrago.execute import import_gen_from_links
-    from etrago.tools.utilities import find_buses_area
+    from etrago.tools.utilities import find_buses_area, select_buses_area
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -873,6 +873,7 @@ def calc_storage_expansion_per_bus(
         "rural_heat_store",
         "central_heat_store",
     ],
+    buses=None,
 ):
     """Function that calculates storage expansion per bus and technology
 
@@ -887,10 +888,13 @@ def calc_storage_expansion_per_bus(
         storage expansion per bus and technology
 
     """
-    index = [(idx, "battery") for idx in network.buses.index]
+    if buses is None:
+        buses = network.buses.index
+
+    index = [(idx, "battery") for idx in network.buses.loc[buses].index]
     for c in carriers:
         if c != "battery":
-            index.extend([(idx, c) for idx in network.buses.index])
+            index.extend([(idx, c) for idx in network.buses.loc[buses].index])
     # index.extend([(idx, 'hydrogen_storage') for idx in network.buses.index])
 
     dist = pd.Series(
@@ -900,7 +904,8 @@ def calc_storage_expansion_per_bus(
 
     if "battery" in carriers:
         batteries = network.storage_units[
-            network.storage_units.carrier == "battery"
+            (network.storage_units.carrier == "battery") &
+            (network.storage_units.bus.isin(buses))
         ]
         battery_distribution = (
             (
@@ -921,7 +926,8 @@ def calc_storage_expansion_per_bus(
         )
     if "H2_overground" in carriers:
         h2_overground = network.stores[
-            network.stores.carrier == "H2_overground"
+            (network.stores.carrier == "H2_overground") &
+            (network.stores.bus.isin(buses))
         ]
         h2_over_distribution = (
             network.stores.e_nom_opt[h2_overground.index]
@@ -940,7 +946,8 @@ def calc_storage_expansion_per_bus(
 
     if "H2_overground" in carriers:
         h2_underground = network.stores[
-            network.stores.carrier == "H2_underground"
+            (network.stores.carrier == "H2_underground") &
+            (network.stores.bus.isin(buses))
         ]
         h2_under_distribution = (
             network.stores.e_nom_opt[h2_underground.index]
@@ -959,7 +966,8 @@ def calc_storage_expansion_per_bus(
 
     if "rural_heat_store" in carriers:
         rural_heat = network.stores[
-            network.stores.carrier == "rural_heat_store"
+            (network.stores.carrier == "rural_heat_store") &
+            (network.stores.bus.isin(buses))
         ]
         rural_heat_distribution = (
             network.stores.e_nom_opt[rural_heat.index]
@@ -980,7 +988,8 @@ def calc_storage_expansion_per_bus(
         ] = rural_heat_distribution
     if "central_heat_store" in carriers:
         central_heat = network.stores[
-            network.stores.carrier == "central_heat_store"
+            (network.stores.carrier == "central_heat_store") &
+            (network.stores.bus.isin(buses))
         ]
         central_heat_distribution = (
             network.stores.e_nom_opt[central_heat.index]
@@ -1586,7 +1595,7 @@ def calc_ac_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        AC line loading in MVA
+        AC line loading in MVA/MVA
 
     """
 
@@ -1609,6 +1618,36 @@ def calc_ac_loading(network, timesteps):
     return loading_lines / network.lines.s_nom_opt
 
 
+def calc_ac_max_loading(network, timesteps):
+    """Calculates loading of AC-lines
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timesteps : range
+        Defines which timesteps are considered.
+
+    Returns
+    -------
+    pandas.Series
+        AC line loading in MVA/MVA
+
+    """
+
+    loading_lines = (
+        network.lines_t.p0.loc[network.snapshots[timesteps]]
+    ).abs()
+
+    if not network.lines_t.q0.empty:
+        loading_lines = np.sqrt(
+            loading_lines**2
+            + network.lines_t.q0.loc[network.snapshots[timesteps]]** 2
+        )
+
+    return loading_lines.max() / network.lines.s_nom_opt
+
+
 def calc_dc_loading(network, timesteps):
     """Calculates loading of DC-lines
 
@@ -1624,7 +1663,7 @@ def calc_dc_loading(network, timesteps):
     Returns
     -------
     pandas.Series
-        DC line loading in MW
+        DC line loading in MW/MW
 
     """
     dc_links = network.links.loc[network.links.carrier == "DC", :]
@@ -1641,6 +1680,41 @@ def calc_dc_loading(network, timesteps):
             .abs()
             .sum()[dc_links.index]
             / dc_links.p_nom_opt
+        )
+        .fillna(0)
+        .values
+    )
+
+    return dc_load
+
+
+def calc_dc_max_loading(network, timesteps):
+    """Calculates loading of DC-lines
+
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    timesteps : range
+        Defines which timesteps are considered. If more than one, an
+        average line loading is calculated.
+
+    Returns
+    -------
+    pandas.Series
+        DC line loading in MW/MW
+
+    """
+    dc_links = network.links.loc[network.links.carrier == "DC", :]
+    ts = network.snapshots[timesteps]
+
+    link_load = network.links_t.p0.loc[ts, dc_links.index].abs()
+
+    dc_load = pd.Series(index=network.links.index, data=0.0)
+    dc_load.loc[dc_links.index] = (
+        (
+            link_load.max() / dc_links.p_nom_opt
         )
         .fillna(0)
         .values
@@ -2469,6 +2543,7 @@ def plot_grid(
         Current options:
 
         * 'line_loading': mean line loading in p.u. in selected timesteps
+        * 'max_line_loading': maximum line loading in p.u. in selected timesteps
         * 'v_nom': nominal voltage of lines
         * 'expansion_abs': absolute network expansion in MVA
         * 'expansion_rel': network expansion in p.u. of existing capacity
@@ -2530,7 +2605,7 @@ def plot_grid(
         False, it could be assinged like this:
         {"H2": 50, "heat": 0.1, "battery": 10}
     geographical_boundaries : list, optional
-        Set georaphical boundaries for the plots. This parameter is overwritten
+        Set geographical boundaries for the plots. This parameter is overwritten
         when osm is used. The default is [-2.5, 16, 46.8, 58]
 
     Returns
@@ -2629,6 +2704,23 @@ def plot_grid(
         ]
         flow[flow < 0] = -1
         flow[flow > 0] = 1
+
+    elif line_colors == "max_line_loading":
+        title = "Maximum line loading"
+        line_colors = calc_ac_max_loading(network, timesteps)
+        link_colors = calc_dc_max_loading(network, timesteps)
+        if ext_width is not False:
+            link_widths = link_colors.apply(
+                lambda x: 1 + (x / ext_width) if x != 0 else 0
+            )
+            line_widths = 1 + (line_colors / ext_width)
+        else:
+            link_widths = link_colors.apply(lambda x: 1 if x != 0 else 0)
+            line_widths = 1
+        label = "max. line loading in p.u."
+        plot_background_grid(network, ax, geographical_boundaries, osm)
+        # Only active flow direction is displayed!
+        flow = None
 
     elif line_colors == "v_nom":
         title = "Voltage levels"
@@ -2731,6 +2823,17 @@ def plot_grid(
     # Set bus colors
     bus_legend = False
 
+    # specify area that is plotted to select buses within this area and avoid
+    # very large legend entries
+    if osm:
+        x = osm["x"]
+        y = osm["y"]
+    else:
+        x = [geographical_boundaries[0], geographical_boundaries[1]]
+        y = [geographical_boundaries[2], geographical_boundaries[3]]
+    coords = ((x[0], y[0]), (x[0], y[1]), (x[1], y[1]), (x[0], y[1]), (x[0], y[0]))
+    area = Polygon(coords)
+    buses_area = select_buses_area(self, area).index
     if bus_colors == "nodal_production_balance":
         bus_scaling = bus_sizes
         bus_sizes, bus_colors = nodal_production_balance(
@@ -2748,7 +2851,11 @@ def plot_grid(
                             "battery": 10}"""
             )
         bus_scaling = bus_sizes
-        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(network)
+        bus_sizes = bus_scaling * calc_storage_expansion_per_bus(
+            network,
+            carriers=list(scaling_store_expansion.keys()),
+            buses=buses_area
+        )
         for store_carrier in scaling_store_expansion.keys():
             bus_sizes[
                 bus_sizes.index.get_level_values("carrier").str.contains(
