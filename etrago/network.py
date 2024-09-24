@@ -228,7 +228,7 @@ class Etrago:
             self.check_args()
 
         elif csv_folder_name is not None:
-            self.get_args_setting(csv_folder_name + "/args.json")
+            self.get_args_setting(os.path.join(csv_folder_name, "args.json"))
 
             self.network = Network(
                 csv_folder_name, name, ignore_standard_types
