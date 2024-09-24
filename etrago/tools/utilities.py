@@ -1925,7 +1925,8 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
     args : dict
         Dictionary of json file
     """
-
+    if not hasattr(self, "args"):  # init emtpy args if not existing yet
+        self.args = {}
     if jsonpath is not None:
         with open(jsonpath) as f:
             if ("args" in locals()) or (self.args):
