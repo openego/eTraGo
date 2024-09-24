@@ -3390,7 +3390,7 @@ class Constraints:
                 )
 
         if self.conduct_dispatch_disaggregation is not False:
-            if self.args["method"]["formulation"]=="pyomo":
+            if self.args["method"]["formulation"] == "pyomo":
                 split_dispatch_disaggregation_constraints(
                     self, network, snapshots
                 )

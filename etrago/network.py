@@ -197,7 +197,9 @@ class Etrago:
                     conn, server = db.connection_via_ssh(self.args["db_ssh"])
                     self.ssh_server = server
                 except Exception as E:
-                    assert False, f"Cannot establish shh connection to Db due to {E}"
+                    assert (
+                        False
+                    ), f"Cannot establish shh connection to Db due to {E}"
 
             else:  # as usual
                 conn = db.connection(section=self.args["db"])
@@ -212,7 +214,7 @@ class Etrago:
             if _verbose:
                 from sqlalchemy import inspect
 
-                print('Database session vio ssh connection created')
+                print("Database session via ssh connection created")
                 if hasattr(self, "ssh_server"):
                     inspector = inspect(self.engine)
                     schemas = inspector.get_schema_names()
@@ -255,7 +257,9 @@ class Etrago:
                         method in the args indicated that it should be there.
                         This happens when the exported network was not solved
                         yet.Run 'etrago.optimize()' to build and solve the
-                        market model.
+                        market model. Otherwise there may be args but active is False, e.g.                        
+                        args look like: {'active': False, 'market_zones': 'status_quo', 
+                        'rolling_horizon': {'planning_horizon': 168, 'overlap': 120}, 'redispatch': True}
                         """
                     )
 

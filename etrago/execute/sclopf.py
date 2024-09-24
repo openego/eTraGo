@@ -641,7 +641,14 @@ def add_all_contingency_constraints(network, combinations, track_time):
                                     * bodf[out[i][1]][mon[i][1]],
                                     network.model.passive_branch_p[out[i], sn],
                                 ),
-                                (-1 * BODF_FACTOR * network.lines_t.s_max_pu.loc[sn, mon[i][1]], s_nom[mon[i]]),
+                                (
+                                    -1
+                                    * BODF_FACTOR
+                                    * network.lines_t.s_max_pu.loc[
+                                        sn, mon[i][1]
+                                    ],
+                                    s_nom[mon[i]],
+                                ),
                             ],
                             "<=",
                             0,
@@ -784,7 +791,9 @@ def split_parallel_lines(network):
     parallel_lines = network.lines[network.lines.num_parallel > 1]
     s_max_pu = network.lines_t.s_max_pu[
         parallel_lines[
-            parallel_lines.index.isin(network.lines_t.s_max_pu.columns)].index]
+            parallel_lines.index.isin(network.lines_t.s_max_pu.columns)
+        ].index
+    ]
 
     new_lines = pd.DataFrame(columns=network.lines.columns)
     new_lines_t = pd.DataFrame(index=network.snapshots)
@@ -806,7 +815,7 @@ def split_parallel_lines(network):
                 ],
             )
             if i in s_max_pu.columns:
-                new_lines_t.loc[:, data_new.index] =  s_max_pu[i]
+                new_lines_t.loc[:, data_new.index] = s_max_pu[i]
 
     network.mremove("Line", parallel_lines.index)
 
@@ -816,7 +825,8 @@ def split_parallel_lines(network):
         network.import_series_from_dataframe(new_lines_t, "Line", "s_max_pu")
 
     for i in network.lines.index[
-            ~network.lines.index.isin(network.lines_t.s_max_pu.columns)]:
+        ~network.lines.index.isin(network.lines_t.s_max_pu.columns)
+    ]:
         network.lines_t.s_max_pu[i] = network.lines.s_max_pu[i]
     return network
 
@@ -850,10 +860,12 @@ def iterate_sclopf(
 
     if etrago.args["method"]["formulation"] != "pyomo":
         etrago.args["method"]["formulation"] = "pyomo"
-        logger.info("""
+        logger.info(
+            """
                     SCLOPF currently only implemented for pyomo.
                     Setting etrago.args["method"]["formulation"] = 'pyomo'
-                    """)
+                    """
+        )
     network = etrago.network
 
     network = split_parallel_lines(network)

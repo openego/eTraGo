@@ -55,16 +55,15 @@ args = {
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
         "n_iter": 4,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "formulation": "linopy",
-        "market_optimization":
-            {
-                "active": True,
-                "market_zones": "status_quo", # only used if type='market_grid'
-                "rolling_horizon": {# Define parameter of market optimization
-                    "planning_horizon": 168, # number of snapshots in each optimization
-                    "overlap": 120, # number of overlapping hours
-                 },
-                "redispatch": True,
-             }
+        "market_optimization": {
+            "active": True,
+            "market_zones": "status_quo",  # only used if type='market_grid'
+            "rolling_horizon": {  # Define parameter of market optimization
+                "planning_horizon": 168,  # number of snapshots in each optimization
+                "overlap": 120,  # number of overlapping hours
+            },
+            "redispatch": True,
+        },
     },
     "pf_post_lopf": {
         "active": False,  # choose if perform a pf after lopf

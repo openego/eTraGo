@@ -12,16 +12,20 @@ def get_some_results(df):
 
 
 def main(dir=None, export_p=None):
-    """iterate dir for grids; compare components and export results to export_p
-    """
+    """iterate dir for grids; compare components and export results to export_p"""
     if not dir:
         logger.info("Theres no directory given, thus, no grids to compare.")
         return
 
     # init results df
     res_components_dct = {
-        "buses": {}, "lines": {}, "links": {}, "generators": {},
-        "loads": {}, "storage_units": {}, "transformers": {}
+        "buses": {},
+        "lines": {},
+        "links": {},
+        "generators": {},
+        "loads": {},
+        "storage_units": {},
+        "transformers": {},
     }
 
     for grid_name in os.listdir(dir):
@@ -35,8 +39,10 @@ def main(dir=None, export_p=None):
             res_components_dct[component][grid_name] = df
 
     if export_p is not None:
-        msg = ("TODO: do something simple with res_components_dct, "
-               "e.g. v_nom.value_counts, line type, -length, s_nom, ...")
+        msg = (
+            "TODO: do something simple with res_components_dct, "
+            "e.g. v_nom.value_counts, line type, -length, s_nom, ..."
+        )
         print(msg)
         # export if export path is provided
         # df.to_csv(export_p)
