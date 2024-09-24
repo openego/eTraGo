@@ -23,7 +23,6 @@ import os
 
 from sqlalchemy import create_engine
 import keyring
-import oedialect
 
 
 def readcfg(filepath, section):
@@ -144,6 +143,29 @@ def create_oedb_config_file(filepath, section="oep"):
         pass
 
     return cfg
+
+
+def connection_via_ssh(ssh_dct, section="oep", filepath=None):
+    """ssh connection to db with conf from ssh_dct adapted from connection(filepath=None, section="oep", readonly=False)
+    """
+    from sshtunnel import SSHTunnelForwarder  # Run pip install sshtunnel
+
+    server = SSHTunnelForwarder(
+        (ssh_dct["ip_remote_server"], 22),  # Remote server IP and SSH port
+        ssh_username=ssh_dct["username_server"],  # credentials for ssh
+        ssh_password=ssh_dct["pw_server"],  # credentials for ssh
+        remote_bind_address=(  # PostgreSQL server IP and sever port on remote machine
+            ssh_dct["ip_PostgreSQL"], ssh_dct["port_PostgreSQL"]))
+
+    server.start()  # start ssh sever
+
+    # connect to PostgreSQL
+    local_port = str(server.local_bind_port)
+
+    conn = create_engine(f'postgresql://{ssh_dct["username_db"]}:{ssh_dct["pw_db"]}@{ssh_dct["ip_PostgreSQL"]}'
+                         ':' + local_port + f'/{ssh_dct["database_table"]}')
+
+    return conn, server
 
 
 def connection(filepath=None, section="oep", readonly=False):
