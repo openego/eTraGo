@@ -192,13 +192,38 @@ class Etrago:
 
             self.get_args_setting(json_path)
 
-            conn = db.connection(section=self.args["db"])
+            if "db_ssh" in self.args.keys():
+                try:
+                    conn, server = db.connection_via_ssh(self.args["db_ssh"])
+                    self.ssh_server = server
+                except Exception as E:
+                    assert False, f"Cannot establish shh connection to Db due to {E}"
+
+            else:  # as usual
+                conn = db.connection(section=self.args["db"])
 
             session = sessionmaker(bind=conn)
 
             self.engine = conn
 
             self.session = session()
+
+            _verbose = False
+            if _verbose:
+                from sqlalchemy import inspect
+
+                print('Database session vio ssh connection created')
+                if hasattr(self, "ssh_server"):
+                    inspector = inspect(self.engine)
+                    schemas = inspector.get_schema_names()
+                    for schema in schemas:
+                        if schema != "grid":
+                            continue
+                        else:
+                            print("schema: %s" % schema)
+                            break
+                    for table_name in inspector.get_table_names(schema=schema):
+                        print(f"schema {schema} has table {table_name}")
 
             self.check_args()
 
