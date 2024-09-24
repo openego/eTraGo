@@ -1928,7 +1928,7 @@ def get_args_setting(self, jsonpath="scenario_setting.json"):
 
     if jsonpath is not None:
         with open(jsonpath) as f:
-            if "args" in locals():
+            if ("args" in locals()) or (self.args):
                 self.args = merge_dicts(self.args, json.load(f))
             else:
                 self.args = json.load(f)
