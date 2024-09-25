@@ -688,6 +688,7 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+    args["network_clustering"]["active"] = True
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
