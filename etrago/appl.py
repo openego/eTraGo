@@ -688,7 +688,11 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
+
+    etrago.buses_by_country()
+    etrago.geolocation_buses()
     args["network_clustering"]["active"] = True
+
     etrago.spatial_clustering_gas()
 
     # snapshot clustering
