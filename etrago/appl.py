@@ -110,7 +110,43 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
-    "extra_functionality": {},  # Choose function name or {}
+    "extra_functionality": {
+        "cross_border_flow_per_country": {
+            "DK": [
+                -17000000, #Import von DK nach DE maximal 17000000MWh
+                10000000000
+            ],
+            "FR": [
+                -50000000,
+                10000000000
+            ],
+            "AT": [
+                -8000000,
+                10000000000
+            ],
+            "CH": [
+                -18000000,
+                10000000000
+            ],
+            "NL": [
+                -12000000,
+                10000000000
+            ],
+            "SE": [
+                -5000000,
+                10000000000
+            ],
+            "PL": [
+                -5000000,
+                10000000000
+            ],
+            "CZ": [
+                -6000000,
+                10000000000
+            ]
+        }
+    },
+    # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
     "network_clustering_ehv": {
