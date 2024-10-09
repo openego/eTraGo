@@ -44,9 +44,9 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 def grid_optimization(
     self,
     factor_redispatch_cost=1,
-    management_cost=0,
+    management_cost=2,
     time_depended_cost=True,
-    fre_mangement_fee=0,
+    fre_mangement_fee=4,
 ):
     logger.info("Start building grid optimization model")
 
