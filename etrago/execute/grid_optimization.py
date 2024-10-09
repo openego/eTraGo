@@ -295,14 +295,22 @@ def add_redispatch_generators(
     management_cost_carrier_down["OCGT"] = management_cost
 
     if fre_mangement_fee:
-        management_cost_carrier_up[
-            ["wind_onshore", "wind_offshore", "solar", "solar_rooftop"]
-        ] = fre_mangement_fee
 
-        management_cost_carrier_down[
-            ["wind_onshore", "wind_offshore", "solar", "solar_rooftop"]
-        ] = fre_mangement_fee
+        for carrier in [
+            "wind_onshore",
+            "wind_offshore",
+            "solar",
+            "solar_rooftop",
+        ]:
 
+            if carrier in management_cost_carrier_up.index:
+                management_cost_carrier_up[carrier] = fre_mangement_fee
+            else:
+                print(f"Carrier {carrier} not in ramp_up")
+            if carrier in management_cost_carrier_down.index:
+                management_cost_carrier_down[carrier] = fre_mangement_fee
+            else:
+                print(f"Carrier {carrier} not in ramp_down")
     management_cost_per_generator_up = management_cost_carrier_up.loc[
         self.network.generators.loc[gens_redispatch_up, "carrier"].values
     ]
