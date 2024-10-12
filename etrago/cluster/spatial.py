@@ -759,7 +759,7 @@ def kmedoids_dijkstra_clustering(
         kmeans.fit(points)
 
         busmap = pd.Series(
-            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]]),
+            data=kmeans.predict(buses.loc[buses_i, ["x", "y"]].values),
             index=buses_i,
             dtype=object,
         )
