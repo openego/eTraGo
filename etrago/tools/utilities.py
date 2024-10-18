@@ -643,7 +643,12 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding(self, temporal_disaggregation=False, **kwargs):
+def load_shedding(
+    self,
+    temporal_disaggregation=False,
+    negative_load_shedding=True,
+    **kwargs,
+):
     """Implement load shedding in existing network to identify
     feasibility problems
 
@@ -701,6 +706,31 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
             ),
             "Generator",
         )
+
+        if negative_load_shedding:
+            # Add negative load shedding generators for AC buses
+            ac_buses = network.buses[network.buses.carrier == "AC"].index
+            index_ac = list(
+                range(
+                    start + len(network.buses.index),
+                    start + len(network.buses.index) + len(ac_buses),
+                )
+            )
+            network.import_components_from_dataframe(
+                pd.DataFrame(
+                    dict(
+                        marginal_cost=-marginal_cost,
+                        p_nom=p_nom,
+                        p_min_pu=-1,
+                        p_max_pu=0,
+                        carrier="negative load shedding",
+                        bus=ac_buses,
+                        control="PQ",
+                    ),
+                    index=index_ac,
+                ),
+                "Generator",
+            )
 
 
 def set_control_strategies(network):
