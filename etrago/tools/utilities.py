@@ -24,6 +24,7 @@ Utilities.py includes a wide range of useful functions.
 
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
 import json
 import logging
 import math
@@ -287,9 +288,10 @@ def buses_by_country(self, apply_on="grid_model"):
     con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
-    path = gpd.datasets.get_path("naturalearth_lowres")
-    shapes = gpd.read_file(path)
-    shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
+    # read Europe borders. Original data downloaded from naturalearthdata.com/
+    # under Public Domain license
+    path = Path(".") / "tools" / "shapes_europe"
+    shapes = gpd.read_file(path).set_index("name")
 
     # Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
