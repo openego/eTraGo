@@ -292,11 +292,14 @@ def buses_by_country(self, apply_on="grid_model"):
 
     # read Europe borders. Original data downloaded from naturalearthdata.com/
     # under Public Domain license
-    path_countries = Path(".") / "tools" / "shapes_europe"
+    path_countries = Path(".") / "data" / "shapes_europe"
 
     if not os.path.exists(path_countries):
         path_countries.mkdir(exist_ok=True, parents=True)
-        url_countries = "https://naciscdn.org/naturalearth/110m/cultural/ne_110m_admin_0_countries.zip"
+        url_countries = (
+            "https://naciscdn.org/naturalearth/110m/cultural/"
+            + "ne_110m_admin_0_countries.zip"
+        )
         urlretrieve(url_countries, path_countries / "shape_countries.zip")
         with zipfile.ZipFile(
             path_countries / "shape_countries.zip", "r"
