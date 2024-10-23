@@ -26,6 +26,7 @@ the function run_etrago.
 
 
 import datetime
+import numpy as np
 import os
 import os.path
 import pandas as pd
@@ -110,6 +111,7 @@ args = {
         },
     },
     "generator_noise": 789456,  # apply generator noise, False or seed number
+    "seed_electrolysis_capex": 123456, # apply noise on capital cost for electrolysis expansion, False or seed number
     "extra_functionality": {},  # Choose function name or {}
     # Spatial Complexity:
     "delete_dispensable_ac_buses": True,  # bool. Find and delete expendable buses
@@ -697,6 +699,18 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    if etrago.args["seed_electrolysis_capex"]:
+        s = np.random.RandomState(etrago.args["seed_electrolysis_capex"])
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="power_to_H2",
+            "capital_cost"
+            ] += abs(s.normal(0, 1, len(
+                etrago.network.links.loc[
+                    etrago.network.links.carrier=="power_to_H2",
+                    "capital_cost"
+                    ]
+                )))
 
     # start linear optimal powerflow calculations
     etrago.optimize()
