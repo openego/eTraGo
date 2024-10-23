@@ -29,6 +29,7 @@ import datetime
 import os
 import os.path
 import pandas as pd
+import tracemalloc
 
 __copyright__ = (
     "Flensburg University of Applied Sciences, "
@@ -719,9 +720,15 @@ def run_etrago(args, json_path):
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
+    tracemalloc.start()
     etrago = run_etrago(args, json_path=None)
 
     print(datetime.datetime.now())
+    current, peak = tracemalloc.get_traced_memory()
+    print(f"""Current memory usage is {current / 10**9}GB;
+          Peak was {peak / 10**9}GB""")
+    tracemalloc.stop()
+
     etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
