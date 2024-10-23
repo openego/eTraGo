@@ -364,6 +364,13 @@ def extendable(
             network.storage_units.loc[de_battery, "marginal_cost"].max()
         )
 
+    if (
+            "electrolysis_unlimited"
+            in extendable_settings["extendable_components"]):
+        network.links.loc[
+            network.links.carrier == "power_to_H2", "p_nom_max"
+            ] = np.inf
+
     # Extension settings for extension-NEP 2035 scenarios
     if "overlay_network" in extendable_settings["extendable_components"]:
         for i in range(len(self.args["scn_extension"])):
