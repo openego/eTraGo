@@ -301,7 +301,7 @@ def build_market_model(self):
 
     logger.info("Start market zone specifc clustering")
 
-    self.clustering, busmap = postprocessing(
+    clustering, busmap = postprocessing(
         self,
         busmap,
         busmap_foreign,
@@ -311,9 +311,7 @@ def build_market_model(self):
         apply_on="market_model",
     )
 
-    self.update_busmap(busmap)
-
-    net = self.clustering.network
+    net = clustering.network
     # links_col = net.links.columns
     ac = net.lines[net.lines.carrier == "AC"]
     str1 = "transshipment_"
