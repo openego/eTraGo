@@ -311,7 +311,6 @@ def build_market_model(self):
         apply_on="market_model",
     )
 
-
     net = clustering.network
     # links_col = net.links.columns
     ac = net.lines[net.lines.carrier == "AC"]
