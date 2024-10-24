@@ -715,6 +715,20 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
     etrago.optimize()
 
+
+    mga = True
+
+    if mga:
+        weights = dict(Link=
+                       {"p_nom": pd.Series(1, index=etrago.network.links[
+                           etrago.network.links.carrier=="power_to_H2"].index)})
+        slack = 1e-9
+        etrago.network.optimize.optimize_mga(
+            slack=slack, weights=weights, solver_name='gurobi', sense="max",
+            solver_options = args["solver_options"]
+            )
+        etrago.network.export_to_csv_folder(args["csv_export"]+f"/mga_{slack}")
+
     # conduct lopf with full complex timeseries for dispatch disaggregation
     etrago.temporal_disaggregation()
 
