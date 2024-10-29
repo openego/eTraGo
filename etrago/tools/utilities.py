@@ -3257,42 +3257,10 @@ def find_buses(self, area_type="primary", save_path=None):
 
 
 
-###Function to substract load timeseries of Dörpum energy community from database:
-
-
-def subtract_load_time_series(self):
-    import pandas as pd
-
-    # Parameters
-    load_id = '1582' #eGon2035: 1582, status-quo: 1600
-    file_path = 'data/loads.csv'
-    column_name = 'AC load'
-
-    # Load the external time series data from the CSV file
-    subtract_data = pd.read_csv(file_path)
-    subtract_series = subtract_data[column_name]
-
-    # Ensure that subtract_series has the same length as the network snapshots
-    if len(subtract_series) != len(self.network.snapshots):
-        print(f"Length mismatch: {len(subtract_series)} entries in CSV, but {len(self.network.snapshots)} snapshots in network.")
-        # Adjust the length of subtract_series to match the length of snapshots
-        subtract_series = subtract_series.reindex(range(len(self.network.snapshots)), fill_value=0)  # Adjust to the correct length
-
-    # Set the index of subtract_series to match the network snapshots
-    subtract_series.index = self.network.snapshots
-
-    # Check if the load time series DataFrame exists and the load ID is in it
-    if 'p_set' in self.network.loads_t and load_id in self.network.loads_t['p_set'].columns:
-        # Subtract the series from the specified load's time series
-        self.network.loads_t['p_set'][load_id] -= subtract_series
-        print(f"Adjusted time series for Load ID {load_id}.")
-    else:
-        print(f"Load ID {load_id} not found in time series data.")
-
-
 ###Function to add Dörpum energy community to the system:
 
 def add_EC_to_network(self):
+    
     """Adds Energy Community to the network."""
     from geoalchemy2.shape import from_shape, to_shape
     from shapely.geometry import LineString, MultiLineString, Point
@@ -3324,13 +3292,14 @@ def add_EC_to_network(self):
 
        self.network.add("Line", new_line, bus0=bus0, bus1=bus1, length=line_length, x=0.3e-3 if not overhead else 1e-3, s_nom=s_nom, s_nom_min=s_nom, s_nom_max=s_nom_max, s_nom_extendable=True, lifetime=40, r=0.0177 if not overhead else 0.05475, b=210e-9 if not overhead else 11e-9, cables=3, carrier='AC')
        self.network.lines.loc[new_line, "capital_cost"] = cost_per_km * line_length
-       self.network.lines.loc[new_line, "scn_name"] = "eGon2035"
+       self.network.lines.loc[new_line, "scn_name"] = self.args['scn_name']
        self.network.lines.loc[new_line, "v_nom"] = voltage
        self.network.lines.loc[new_line, "country"] = "DE"
        self.network.lines.loc[new_line, "version"] = "added_manually"
        self.network.lines.loc[new_line, "frequency"] = 50
        self.network.lines.loc[new_line, "length"] = line_length
     
+    ###### Add IES bus and connect to etrago-bus via line
     
     print("Buses before addition:", len(self.network.buses))
     print("Transformers before addition:", len(self.network.transformers))
@@ -3346,7 +3315,7 @@ def add_EC_to_network(self):
 
     # Add new bus with additional attributes
     self.network.add("Bus", new_bus, carrier="AC", v_nom=110, x=8.998612, y=54.646649)
-    self.network.buses.loc[new_bus, "scn_name"] = "eGon2035"
+    self.network.buses.loc[new_bus, "scn_name"] = self.args['scn_name']
     self.network.buses.loc[new_bus, "country"] = "DE"
 
     # Print the added bus details
@@ -3354,7 +3323,8 @@ def add_EC_to_network(self):
 
     # Add new transformer and line with additional attributes (bus0: status-quo:30206, eGon2035: 32941)
     #self.network.add("Transformer", new_trafo, bus0="32941", bus1=new_bus, x=1.29960, tap_ratio=1, s_nom=1600)
-    add_line_with_costs_and_snommax("32941", new_bus, 110, overhead=False)
+    etrago_bus ='30206'
+    add_line_with_costs_and_snommax("30206", new_bus, 110, overhead=False)
    
 
     # Print the added transformer and line details
@@ -3367,216 +3337,332 @@ def add_EC_to_network(self):
     self.network.lines.at[new_line, "geom"] = from_shape(MultiLineString([LineString([to_shape(self.network.buses.at["32941", "geom"]), point_bus1])]), srid=4326)
     
     print(f"Geometry for new bus set. Bus {new_bus} location: {point_bus1}")
-
-
-   
-    # Load generation time series from CSV
-    time_series_data = pd.read_csv('data/generators1-p_max_pu.csv')
-    pv_time_series = time_series_data['PV']
-    biogas_time_series = time_series_data['KWK']
-
-    # Determine the attributes for new generators by copying from similar existing generators
-    default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time', 'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up', 'ramp_limit_shut_down', 'e_nom_max']
-    existing_solar = self.network.generators[self.network.generators.carrier == 'solar'].iloc[0]
-    solar_attrs = {attr: existing_solar.get(attr, 0) for attr in default_attrs}
     
-     
-    existing_biogas = self.network.generators[self.network.generators.carrier == 'central_biomass_CHP_heat'].iloc[0]
-    biogas_attrs = {attr: existing_biogas.get(attr, 0) for attr in default_attrs}
-
-    # Add the solar and biogas generators with the new ID
+    ###### Add IES components to new IES bus
+    
+    ### Data Inputs and Co.
+    
+    # Load generation time series from CSV
+    time_series_gen = pd.read_csv('opties-data/generation.csv')
+    time_series_load = pd.read_csv('opties-data/loads.csv')
+    
+    
     # Determine the next generator ID
     if not self.network.generators.empty:
         max_id = max(self.network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
         gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
     else:
         gen_id = "1"
-
-    # Add the solar generator with the new ID
-    solar_gen_id = gen_id
-    self.network.add("Generator", solar_gen_id, bus=new_bus, p_nom=0.03, carrier="solar", marginal_cost=0.01, 
-                     capital_cost=803.71, p_max_pu=1, **solar_attrs)
-
-    # Add the biogas generator with the new ID
-    biogas_gen_id = str(int(solar_gen_id) + 1)
-    self.network.add("Generator", biogas_gen_id, bus=new_bus, p_nom=2.762, carrier="central_biomass_CHP_heat", marginal_cost=2.11, 
-                     capital_cost=3381.27, p_max_pu=1, **biogas_attrs)
-    
-  
-    self.network.generators.loc[solar_gen_id, "scn_name"] = "eGon2035"
-    self.network.generators.loc[biogas_gen_id, "scn_name"] = "eGon2035"
-    
-    
-    # Print updated p_max_pu time series
-    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
-    print(f"Time series for Biogas generator {biogas_gen_id} added successfully.")
-    print("Updated p_max_pu time series:")
-    print(self.network.generators_t['p_max_pu'].head())
-    
-    
-    # Initialize and populate time series dataframe for p_max_pu if not already
-    if 'p_max_pu' not in self.network.generators_t:
-        self.network.generators_t['p_max_pu'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.generators.index)
-    self.network.generators_t['p_max_pu'].loc[:, solar_gen_id] = pv_time_series.values[:len(self.network.snapshots)]
-    self.network.generators_t['p_max_pu'].loc[:, biogas_gen_id] = biogas_time_series.values[:len(self.network.snapshots)]
-
-    
-   
-    print(f"Time series for Solar generator {solar_gen_id} added successfully.")
-    print(f"Time series for Biogas generator {biogas_gen_id} added successfully.")
-    print("Updated p_max_pu time series:")
-    print(self.network.generators_t['p_max_pu'].head())
-    
-
- # Determine new load IDs
-    load_ac_id = str(self.network.loads.index.astype(int).max() + 1)
-    load_ev_id = str(int(load_ac_id) + 1)
-
-    # Add loads
-    self.network.add("Load", load_ac_id, bus=new_bus, carrier="AC", p_set=0, q_set=0, sign=-1)
-    self.network.add("Load", load_ev_id, bus=new_bus, carrier="land transport EV", p_set=0, q_set=0, sign=-1)
-    
-    self.network.loads.loc[load_ac_id, "scn_name"] = "eGon2035"   
-    self.network.loads.loc[load_ev_id, "scn_name"] = "eGon2035"
-
-    # Load time series data from CSV file
-    load_time_series = pd.read_csv('data/loads.csv')
-    ac_load_series = load_time_series['AC load']
-    ev_load_series = load_time_series['EV load']
-
-    # Initialize time series data frame for loads if not already present
-    if 'p_set' not in self.network.loads_t:
-        self.network.loads_t['p_set'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.loads.index)
-    if 'q_set' not in self.network.loads_t:
-        self.network.loads_t['q_set'] = pd.DataFrame(0, index=self.network.snapshots, columns=self.network.loads.index)
-
-    # Add the time series data for the new loads
-    self.network.loads_t['p_set'][load_ac_id] = ac_load_series.values[:len(self.network.snapshots)]
-    self.network.loads_t['p_set'][load_ev_id] = ev_load_series.values[:len(self.network.snapshots)]
-
-    print(f"AC Load ID: {load_ac_id} and EV Load ID: {load_ev_id} added to Bus {new_bus}")
-    print("Time series data for loads has been successfully updated.")
-    
-    
-    print("Buses after addition:", len(self.network.buses))
-    print("Transformers after addition:", len(self.network.transformers))
-    print("Lines after addition:", len(self.network.lines))
-    print("Generators after addition:", len(self.network.generators))
-    print("Loads after addition:", len(self.network.loads))
-    
-
-### Function to subtract biogas generator capacities within Germany's network
-
-def subtract_generators_nominal_power(self):
-    """
-    Subtracts specified amounts of power from the nominal power of each generator.
-    
-    """
-    
-    # Uncomment the following lines for the status quo C3 scenario (subtracting 1400 MW):
-    '''
-    generator_ids = [
-        2075, 2100, 1225, 1312, 1541, 1715, 1506, 2083, 1143, 1557,
-        355, 1177, 1528, 1828, 549, 1672, 584, 758, 1347, 1681,
-        1540, 1627, 390, 2016, 1893, 1379, 871, 1461, 1612, 2091,
-        1997, 1126, 1804, 1680, 571, 1059, 220, 1927, 2002, 1656,
-        1942, 1912, 1377, 1298, 1473, 1383, 1979, 1725, 1926
-    ]
-    
-    subtract_values = [
-        160, 102.038, 91.5, 85, 66, 61.3, 60.5, 58.1, 53.7193, 49.665,
-        34, 27, 25, 25, 24.525, 22.052, 21.634, 20, 20, 19.5,
-        19.254, 18.3, 18, 18, 17.6, 16.5, 15.7, 14.557, 14.412, 14.4,
-        13.849, 13.042, 12.552, 12.5, 12.3, 11.5, 11.33, 10.861, 10.82, 10.557,
-        10.44, 10, 9.8, 9.648, 9.472, 9.1, 9, 8.664, 8.54
-    ]
-    '''
-
-    '''
-    # Hlists of generator IDs and corresponding values to subtract (in MW), in status quo C2 scenario we will subtract 259.6 MW:
-    generator_ids = [2075, 2100]
-    subtract_values = [159, 100.6]
-    '''
-   
-    # lists of generator IDs and corresponding values to subtract (in MW), in D2 scenario:
-    generator_ids = [6588]
-    subtract_values = [259.628]  
-    '''
-    # lists of generator IDs and corresponding values to subtract (in MW), in eGon2035 D3 scenario:
-    generator_ids = [6588]
-    subtract_values = [4350]
-    '''
-    
-    # Check if the generators DataFrame contains the 'p_nom' column
-    if 'p_nom' not in self.network.generators.columns:
-        print("The 'p_nom' column does not exist in the generators DataFrame.")
-        return
-
-    # Ensure the lists are of the same length
-    if len(generator_ids) != len(subtract_values):
-        print("The lengths of generator_ids and subtract_values lists must match.")
-        return
-
-    # Iterate through the lists and subtract values
-    for generator_id, subtract_value in zip(generator_ids, subtract_values):
-        if generator_id in self.network.generators.index:
-            self.network.generators.at[generator_id, 'p_nom'] -= subtract_value
-            print(f"Adjusted nominal power for Generator ID {generator_id} by subtracting {subtract_value} MW.")
-        else:
-            print(f"Generator ID {generator_id} not found in generators data.")
-
-    print("Nominal power adjustment complete.")
-
-
-### Function to add biogas generators to Germany's network
-
-def add_ECG_to_network(self):
-    """Adds Energy Community to the network."""
-    from geoalchemy2.shape import from_shape, to_shape
-    from shapely.geometry import LineString, MultiLineString, Point
-    from math import sqrt
-    import pandas as pd
-
-    print("Generators before addition:", len(self.network.generators))
-    
-    # Load the bus IDs from the CSV file
-    mv_buses = pd.read_csv('data/egon_map_mvgriddistrict_vg250 (status-quo).csv') #or eGon2035  
+        
+    # Determine the next storage unit ID
+    if not self.network.storage_units.empty:
+        max_id = max(self.network.storage_units.index, key=lambda x: int(x) if x.isdigit() else -1)
+        bat_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+    else:
+        bat_id = "1"
+        
+    if not self.network.stores.empty:
+        max_id = max(self.network.stores.index, key=lambda x: int(x) if x.isdigit() else -1)
+        sto_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+    else:
+        sto_id = "1"
+        
+    if not self.network.links.empty:
+        max_id = max(self.network.links.index, key=lambda x: int(x) if x.isdigit() else -1)
+        link_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+    else:
+        link_id = "1"
+        
+    # Determine the next load ID
+    if not self.network.loads.empty:
+        max_id = max(self.network.loads.index, key=lambda x: int(x) if x.isdigit() else -1)
+        load_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
+    else:
+        load_id = "1"
+        
+    bus_id = str(int(new_bus) + 1)
+        
+    ### PV
 
     # Determine the attributes for new generators by copying from similar existing generators
-    default_attrs = [
-        'start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time',
-        'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down',
-        'ramp_limit_start_up', 'ramp_limit_shut_down', 'e_nom_max'
-    ]
+    default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time', 'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up', 'ramp_limit_shut_down']
+    existing_solar = self.network.generators[self.network.generators.carrier == 'solar_rooftop'].iloc[0]
+    solar_attrs = {attr: existing_solar.get(attr, 0) for attr in default_attrs}
     
-    existing_biogas = self.network.generators[self.network.generators.carrier == 'central_biomass_CHP_heat'].iloc[0]
-    biogas_attrs = {attr: existing_biogas.get(attr, 0) for attr in default_attrs}
-
-    # Generate new generator IDs
-    if not self.network.generators.empty:
-        max_id = max(self.network.generators.index, key=lambda x: int(x) if x.isdigit() else -1)
-        gen_id = str(int(max_id) + 1 if max_id.isdigit() else 1)
-    else:
-        gen_id = "1"
-
-    # Add biogas generators to each of the specified buses
-    for index, row in mv_buses.iterrows():
-        bus_id = row['bus_id']
-        
-        biogas_attrs.update({
-            'bus': bus_id,
-            'p_nom': 46.28,  # this value should be modified based on respective scenario
-            'carrier': existing_biogas['carrier'],
-            'type': 'central_biomass_CHP_heat',
-            'capital_cost': 3135.77,
-            'marginal_cost': 2.10
-        })
-        
-        self.network.add("Generator", gen_id, **biogas_attrs)
-        self.network.generators.loc[gen_id, "scn_name"] = "status2019"
-        
-        print(f"Biogas generator {gen_id} added successfully.")
-        gen_id = str(int(gen_id) + 1)
+    # Add the solar generator with the new ID
+    solar_gen_id = gen_id
+    self.network.add("Generator", solar_gen_id, carrier="PV", bus=new_bus, p_nom=0.03, p_nom_min=0.03, p_nom_extendable=False, marginal_cost=0.01, capital_cost=115400, p_max_pu=1, **solar_attrs)
+    self.network.generators.loc[solar_gen_id, "scn_name"] = self.args['scn_name']
+    gen_id = str(int(gen_id)+1)
     
-    print("Generators after addition:", len(self.network.generators))
-
+    pv_time_series = time_series_gen['PV_pot']
+    self.network.generators_t['p_max_pu'].loc[:, solar_gen_id] = pv_time_series.values[:len(self.network.snapshots)]
+    
+    ### BSp
+    
+    self.network.add("StorageUnit", bat_id, carrier="BSp", bus=new_bus, p_nom=0.018, max_hours=1.7, p_nom_min=0.018, p_nom_extendable=False, standing_loss=0.05, efficiency_store=0.93, efficiency_dispatch=0.93, cyclic_state_of_charge=True, marginal_cost=0.01, capital_cost=68800)
+    self.network.storage_units.loc[bat_id, "scn_name"] = self.args['scn_name']
+    bat_id = str(int(bat_id)+1)
+    
+    ### Load
+    
+    # AC load
+    self.network.add("Load",
+                    name='AN_'+load_id,
+                    carrier='AC',
+                    bus=new_bus,
+                    p_set=time_series_load['AC load'],
+                    scn_name=self.args['scn_name']
+                )
+    load_id = str(int(load_id)+1)
+    
+    # EV load
+    self.network.add('Load',
+                     name='LS_'+load_id,
+                     carrier='AC',
+                     bus=new_bus,
+                     p_set=time_series_load['EV load'],
+                     scn_name=self.args['scn_name']
+                 )
+    load_id = str(int(load_id)+1)
+    
+    ### BGA
+    
+    # CH4 bus
+    self.network.add("Bus", bus_id, carrier="Biogas", x=8.998612, y=54.646649)
+    self.network.buses.loc[bus_id, "scn_name"] = self.args['scn_name']
+    self.network.buses.loc[bus_id, "country"] = "DE"
+    gas_bus = bus_id
+    bus_id = str(int(bus_id) + 1)
+    
+    # CH4 generation and storage
+    self.network.add(
+        "Generator",
+        name=gen_id,
+        carrier='Biogas',
+        bus=gas_bus,
+        control='PV',
+        p_nom=1.762,
+        p_nom_min=1.762,
+        p_nom_extendable=False,
+        marginal_cost=59,
+        capital_cost=40750,
+    )
+    gen_id = str(int(gen_id)+1)
+    
+    self.network.add(
+        "Store",
+        name=sto_id,
+        carrier='Biogas',
+        bus=gas_bus,
+        e_nom_extendable=False,
+        e_nom=43,
+        e_nom_min=43,
+        standing_loss=0,
+        e_cyclic=True,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    sto_id = str(int(sto_id)+1)
+    
+    # CHP: AC link
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='central_gas_CHP',
+        bus0=gas_bus,
+        bus1=new_bus,
+        p_nom_extendable=False,
+        p_nom=4.35,
+        p_nom_min=4.35,
+        efficiency=0.4,
+        marginal_cost=5,
+        capital_cost=41800,
+    )
+    link_id = str(int(link_id)+1)
+    
+    # heat conncection and sector
+    # next heat bus (bus1) status-quo:33982, eGon2035: 51963
+    heat_bus = '33982'
+    
+    # heat link
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='central_gas_CHP_heat',
+        bus0=gas_bus,
+        bus1=heat_bus,
+        p_nom_extendable=False,
+        p_nom=4.35,
+        p_nom_min=4.35,
+        efficiency=0.4,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    link_id = str(int(link_id)+1)
+    
+    # WSP
+    
+    self.network.add("Bus", bus_id, carrier="heat", x=8.998612, y=54.646649)
+    self.network.buses.loc[bus_id, "scn_name"] = self.args['scn_name']
+    self.network.buses.loc[bus_id, "country"] = "DE"
+    wsp_bus = bus_id
+    bus_id = str(int(bus_id) + 1)
+    
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='heat_WSp',
+        bus0=heat_bus,
+        bus1=wsp_bus,
+        p_nom_extendable=True,
+        p_nom=0,
+        p_nom_min=0,
+        efficiency=0.84,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    link_id = str(int(link_id)+1)
+    
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='heat_WSp',
+        bus0=wsp_bus,
+        bus1=heat_bus,
+        p_nom_extendable=True,
+        p_nom=0,
+        p_nom_min=0,
+        efficiency=0.84,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    link_id = str(int(link_id)+1)
+    
+    self.network.add(
+        "Store",
+        name=sto_id,
+        carrier='heat_WSp',
+        bus=wsp_bus,
+        e_nom_extendable=False,
+        e_nom=1.8,
+        e_nom_min=1.8,
+        standing_loss=0,
+        e_cyclic=True,
+        marginal_cost=0,
+        capital_cost=46.5,
+    )
+    sto_id = str(int(sto_id)+1)
+    
+    # SpK
+    
+    self.network.add(
+        "Generator",
+        name=gen_id,
+        carrier='SpK',
+        bus=heat_bus,
+        control='PV',
+        p_nom=0.7,
+        p_nom_min=0.7,
+        p_nom_extendable=False,
+        marginal_cost=100,
+        capital_cost=0,
+    )
+    gen_id = str(int(gen_id)+1)
+    
+    # TA
+    
+    self.network.add("Bus", bus_id, carrier="heat", x=8.998612, y=54.646649)
+    self.network.buses.loc[bus_id, "scn_name"] = self.args['scn_name']
+    self.network.buses.loc[bus_id, "country"] = "DE"
+    ta_bus = bus_id
+    bus_id = str(int(bus_id) + 1)
+    
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='heat_TA',
+        bus0=heat_bus,
+        bus1=ta_bus,
+        p_nom_extendable=False,
+        p_nom=0.8,
+        p_nom_min=0.8,
+        efficiency=0.84,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    link_id = str(int(link_id)+1)
+    
+    self.network.add(
+        "Store",
+        name='TA',
+        carrier='TA',
+        bus=ta_bus,
+        e_nom_extendable=False,
+        e_nom=2976,
+        e_nom_min=2976,
+        standing_loss=0,
+        e_cyclic=False,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    sto_id = str(int(sto_id)+1)
+    
+    # heat load
+    
+    self.network.add("Load",
+                    name=load_id,
+                    carrier='heat',
+                    bus=heat_bus,
+                    p_set=time_series_load['heat load'],
+                    scn_name=self.args['scn_name']
+                )
+    load_id = str(int(load_id)+1)
+    
+    # self consumption BGA
+    # AC
+    self.network.add("Load",
+                    name=load_id,
+                    carrier='heat',
+                    bus=new_bus,
+                    p_set=time_series_load['BGA_AC'],
+                    scn_name=self.args['scn_name']
+                )
+    load_id = str(int(load_id)+1)
+    # heat
+    self.network.add("Load",
+                    name=load_id,
+                    carrier='heat',
+                    bus=new_bus,
+                    p_set=time_series_load['BGA_W'],
+                    scn_name=self.args['scn_name']
+                )
+    load_id = str(int(load_id)+1)
+    
+    ###### Delete newly added components from etrago data model
+    
+    ### AC Load
+    
+    idx = self.network.loads[self.network.loads.bus==etrago_bus][self.network.loads.carrier=='AC'].index[0]
+    load =  (time_series_load['AC load'] + time_series_load['EV load'])[:len(self.network.snapshots)]
+    load.index = self.network.snapshots
+    load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
+    self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']
+    
+    ### BGA including CHPs
+    
+    ch4_bus = self.network.buses[self.network.buses.carrier=='CH4'].index[0]
+    gen = self.network.generators[self.network.generators.bus==ch4_bus].index[0]
+    self.network.generators.at[gen, 'p_nom'] = self.network.generators[self.network.generators.bus==ch4_bus].p_nom[0] - 1.762
+    
+    '''ac_link = self.network.links[self.network.links.bus1==etrago_bus][self.network.links.carrier=='central_gas_CHP'].index[0]
+    heat_link = self.network.links[self.network.links.bus1==heat_bus][self.network.links.carrier=='central_gas_CHP_heat'].index[0]
+    self.network.links.at[ac_link, 'p_nom'] = self.network.links.loc[ac_link, 'p_nom']'''
+    
+    ### Heat Sector
+    
+    idx = self.network.loads[self.network.loads.bus==heat_bus][self.network.loads.carrier=='central_heat'].index[0]
+    load =  (time_series_load['heat load'])[:len(self.network.snapshots)]
+    load.index = self.network.snapshots
+    load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
+    self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']

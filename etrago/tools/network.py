@@ -114,10 +114,10 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
-    subtract_load_time_series,
+    #subtract_load_time_series,
     add_EC_to_network,
-    subtract_generators_nominal_power,
-    add_ECG_to_network,
+    #subtract_generators_nominal_power,
+    #add_ECG_to_network,
 )
 
 logger = logging.getLogger(__name__)
@@ -386,7 +386,7 @@ class Etrago:
 
     sclopf = iterate_sclopf
     
-    subtract_load_time_series = subtract_load_time_series
+    #subtract_load_time_series = subtract_load_time_series
     
     add_EC_to_network = add_EC_to_network
     
@@ -438,7 +438,7 @@ class Etrago:
 
         self.manual_fixes_datamodel()
         
-        self.subtract_load_time_series()
+        #self.subtract_load_time_series()
         
         self.add_EC_to_network()
         

@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "etrago-2019",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
@@ -79,7 +79,7 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -117,14 +117,14 @@ args = {
     "network_clustering": {
         "active": True,  # choose if clustering is activated
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
+        "n_clusters_AC": 20,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "primary_interest_area": ["Nordfriesland"],  # List of NUTS names or path to a shapefile for primary interest area
         "secondary_interest_area": ["Flensburg","Kiel","Lübeck","Neumünster", "Dithmarschen","Herzogtum Lauenburg", "Ostholstein","Pinneberg","Plön","Rendsburg-Eckernförde", "Schleswig-Flensburg",  "Segeberg","Steinburg","Stormarn"],  # List for secondary interest area 
         "cluster_primary_area": False, # No clustering for primary area or specify number of clusters if needed
-        "cluster_secondary_area": 7,  # Specific number of clusters for secondary area
+        "cluster_secondary_area": False,  # Specific number of clusters for secondary area
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_gas": 2,  # total number of resulting CH4 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -712,7 +712,7 @@ def run_etrago(args, json_path):
 
     # snapshot clustering
     etrago.snapshot_clustering()
-    breakpoint()
+
     # skip snapshots
     etrago.skip_snapshots()
 

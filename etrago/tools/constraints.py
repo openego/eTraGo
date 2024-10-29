@@ -2830,6 +2830,9 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
                 add_chp_constraints(network, snapshots)
+                # Verbrauch der Trocknungsanlage je nach berechnetem Zeitraum
+                val_ta = 2976 * (len(network.snapshots) / 8760)
+                trocknungsanlage_pyomo(network, snapshots, val_ta)
                 if (self.args["scn_name"] != "status2019") & (
                     len(snapshots) > 1500
                 ):
@@ -3212,3 +3215,18 @@ def add_chp_constraints_linopy(network, snapshots):
             ].p_nom.sum(),
             "Link", "top_iso_fuel_line_" + i
             )
+        
+        
+def trocknungsanlage_pyomo(n, sns, val):
+    def load_trocknungsanlage(model, snapshot):
+        idx = n.stores[n.stores.index.str.endswith('TA')].index[0]
+        lhs = n.model.store_e[idx, snapshot]
+        rhs = val
+        
+        return lhs == rhs
+
+    setattr(
+        n.model,
+        "load_trocknungsanlage",
+        Constraint(sns[-1:], rule=load_trocknungsanlage),
+    )
