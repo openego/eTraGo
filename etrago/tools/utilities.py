@@ -3450,7 +3450,7 @@ def add_EC_to_network(self):
         p_nom=(1.762-0.625),
         p_nom_min=(1.762-0.625),
         p_nom_extendable=False,
-        marginal_cost=59,
+        marginal_cost=25, #59
         capital_cost=40750,
     )
     gen_id = str(int(gen_id)+1)
@@ -3486,7 +3486,7 @@ def add_EC_to_network(self):
         p_nom=4.35,
         p_nom_min=4.35,
         efficiency=0.4,
-        marginal_cost=5,
+        marginal_cost=4.4, #5
         capital_cost=41800,
     )
     link_id = str(int(link_id)+1)
@@ -3621,6 +3621,44 @@ def add_EC_to_network(self):
     )
     sto_id = str(int(sto_id)+1)
     
+    # Abwärme
+    
+    self.network.add("Bus", bus_id, carrier="heat", x=8.998612, y=54.646649)
+    self.network.buses.loc[bus_id, "scn_name"] = self.args['scn_name']
+    self.network.buses.loc[bus_id, "country"] = "DE"
+    abw_bus = bus_id
+    bus_id = str(int(bus_id) + 1)
+    
+    self.network.add(
+        "Link",
+        name=link_id,
+        carrier='heat_Abw',
+        bus0=heat_bus,
+        bus1=abw_bus,
+        p_nom_extendable=True,
+        p_nom=0,
+        p_nom_min=0,
+        efficiency=1,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    link_id = str(int(link_id)+1)
+    
+    self.network.add(
+        "Store",
+        name='Abw',
+        carrier='heat_Abw',
+        bus=abw_bus,
+        e_nom_extendable=True,
+        e_nom=0,
+        e_nom_min=0,
+        standing_loss=0,
+        e_cyclic=False,
+        marginal_cost=0,
+        capital_cost=0,
+    )
+    sto_id = str(int(sto_id)+1)
+    
     # heat load
     
     self.network.add("Load",
@@ -3679,6 +3717,8 @@ def add_EC_to_network(self):
     load.index = self.network.snapshots
     load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
     self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']
+    
+    import pdb; pdb.set_trace()
     
     if x:
         
