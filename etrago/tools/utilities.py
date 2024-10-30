@@ -3262,7 +3262,7 @@ def find_buses(self, area_type="primary", save_path=None):
 def add_EC_to_network(self):
     
     ###########################################################################
-    x = True # True for IES optimal solution, False for GS optimal solution
+    x = False # True for IES optimal solution, False for GS optimal solution
     etrago_bus ='30206' # status-quo: 30206; eGon2035: 32941
     heat_bus = '33982' # status-quo:33982, eGon2035: 51963 
     ###########################################################################
@@ -3440,6 +3440,13 @@ def add_EC_to_network(self):
     gas_bus = bus_id
     bus_id = str(int(bus_id) + 1)
     
+    # heat bus 
+    self.network.add("Bus", bus_id, carrier="heat", x=8.998612, y=54.646649)
+    self.network.buses.loc[bus_id, "scn_name"] = self.args['scn_name']
+    self.network.buses.loc[bus_id, "country"] = "DE"
+    heat_bus2 = bus_id
+    bus_id = str(int(bus_id) + 1)
+    
     # CH4 generation and storage
     self.network.add(
         "Generator",
@@ -3504,7 +3511,7 @@ def add_EC_to_network(self):
         name=link_id,
         carrier=carrier,
         bus0=gas_bus,
-        bus1=heat_bus,
+        bus1=heat_bus2,
         p_nom_extendable=False,
         p_nom=4.35,
         p_nom_min=4.35,
@@ -3526,7 +3533,7 @@ def add_EC_to_network(self):
         "Link",
         name=link_id,
         carrier='heat_WSp',
-        bus0=heat_bus,
+        bus0=heat_bus2,
         bus1=wsp_bus,
         p_nom_extendable=True,
         p_nom=0,
@@ -3542,7 +3549,7 @@ def add_EC_to_network(self):
         name=link_id,
         carrier='heat_WSp',
         bus0=wsp_bus,
-        bus1=heat_bus,
+        bus1=heat_bus2,
         p_nom_extendable=True,
         p_nom=0,
         p_nom_min=0,
@@ -3573,7 +3580,7 @@ def add_EC_to_network(self):
         "Generator",
         name=gen_id,
         carrier='SpK',
-        bus=heat_bus,
+        bus=heat_bus2,
         control='PV',
         p_nom=0.7,
         p_nom_min=0.7,
@@ -3595,7 +3602,7 @@ def add_EC_to_network(self):
         "Link",
         name=link_id,
         carrier='heat_TA',
-        bus0=heat_bus,
+        bus0=heat_bus2,
         bus1=ta_bus,
         p_nom_extendable=False,
         p_nom=0.8,
@@ -3633,7 +3640,7 @@ def add_EC_to_network(self):
         "Link",
         name=link_id,
         carrier='heat_Abw',
-        bus0=heat_bus,
+        bus0=heat_bus2,
         bus1=abw_bus,
         p_nom_extendable=True,
         p_nom=0,
@@ -3664,7 +3671,7 @@ def add_EC_to_network(self):
     self.network.add("Load",
                     name=load_id,
                     carrier='heat',
-                    bus=heat_bus,
+                    bus=heat_bus2,
                     p_set=time_series_load['heat load'],
                     scn_name=self.args['scn_name']
                 )
@@ -3717,8 +3724,6 @@ def add_EC_to_network(self):
     load.index = self.network.snapshots
     load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
     self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']
-    
-    import pdb; pdb.set_trace()
     
     if x:
         
