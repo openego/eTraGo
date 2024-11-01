@@ -3416,7 +3416,7 @@ def add_EC_to_network(self):
                     name='AN_'+load_id,
                     carrier='AC',
                     bus=new_bus,
-                    p_set=time_series_load['AC load'],
+                    p_set=time_series_load['AC load'].values[:len(self.network.snapshots)],
                     scn_name=self.args['scn_name']
                 )
     load_id = str(int(load_id)+1)
@@ -3426,7 +3426,7 @@ def add_EC_to_network(self):
                      name='LS_'+load_id,
                      carrier='AC',
                      bus=new_bus,
-                     p_set=time_series_load['EV load'],
+                     p_set=time_series_load['EV load'].values[:len(self.network.snapshots)],
                      scn_name=self.args['scn_name']
                  )
     load_id = str(int(load_id)+1)
@@ -3672,7 +3672,7 @@ def add_EC_to_network(self):
                     name=load_id,
                     carrier='heat',
                     bus=heat_bus2,
-                    p_set=time_series_load['heat load'],
+                    p_set=time_series_load['heat load'].values[:len(self.network.snapshots)],
                     scn_name=self.args['scn_name']
                 )
     load_id = str(int(load_id)+1)
@@ -3681,9 +3681,9 @@ def add_EC_to_network(self):
     # AC
     self.network.add("Load",
                     name=load_id,
-                    carrier='heat',
+                    carrier='AC',
                     bus=new_bus,
-                    p_set=time_series_load['BGA_AC'],
+                    p_set=time_series_load['BGA_AC'].values[:len(self.network.snapshots)],
                     scn_name=self.args['scn_name']
                 )
     load_id = str(int(load_id)+1)
@@ -3691,8 +3691,8 @@ def add_EC_to_network(self):
     self.network.add("Load",
                     name=load_id,
                     carrier='heat',
-                    bus=new_bus,
-                    p_set=time_series_load['BGA_W'],
+                    bus=heat_bus2,
+                    p_set=time_series_load['BGA_W'].values[:len(self.network.snapshots)],
                     scn_name=self.args['scn_name']
                 )
     load_id = str(int(load_id)+1)
@@ -3735,13 +3735,13 @@ def add_EC_to_network(self):
         self.network.generators_t['p_min_pu'].loc[:, pv] = (time_series_set['PV1'] + time_series_set['PV2']).values[:len(self.network.snapshots)]
         self.network.generators_t['p_max_pu'].loc[:, pv] = (time_series_set['PV1'] + time_series_set['PV2']).values[:len(self.network.snapshots)]
         
+        bsp = self.network.storage_units[self.network.storage_units.carrier=='BSp'].index[0]
+        self.network.storage_units_t['p_min_pu'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
+        self.network.storage_units_t['p_max_pu'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
+        
         bga = self.network.generators[self.network.generators.carrier=='Biogas'].index[0]        
         self.network.generators_t['p_min_pu'].loc[:, bga] = (time_series_set['BGA1'] + time_series_set['BGA2']).values[:len(self.network.snapshots)]
         self.network.generators_t['p_max_pu'].loc[:, bga] = (time_series_set['BGA1'] + time_series_set['BGA2']).values[:len(self.network.snapshots)]
-        
-        spk = self.network.generators[self.network.generators.carrier=='SpK'].index[0]        
-        self.network.generators_t['p_min_pu'].loc[:, spk] = (time_series_set['SpK']).values[:len(self.network.snapshots)]
-        self.network.generators_t['p_max_pu'].loc[:, spk] = (time_series_set['SpK']).values[:len(self.network.snapshots)]
         
         ac = self.network.links[self.network.links.scn_name!='status2019'][self.network.links.carrier=='KWK_AC'].index[0]
         self.network.links_t['p_min_pu'].loc[:, ac] = (time_series_set['CHP1_AC']+time_series_set['CHP2_AC']+time_series_set['CHP3_AC']).values[:len(self.network.snapshots)]
@@ -3751,6 +3751,10 @@ def add_EC_to_network(self):
         self.network.links_t['p_min_pu'].loc[:, heat] = (time_series_set['CHP1_heat']+time_series_set['CHP2_heat']+time_series_set['CHP3_heat']).values[:len(self.network.snapshots)]
         self.network.links_t['p_max_pu'].loc[:, heat] = (time_series_set['CHP1_heat']+time_series_set['CHP2_heat']+time_series_set['CHP3_heat']).values[:len(self.network.snapshots)]
         
+        spk = self.network.generators[self.network.generators.carrier=='SpK'].index[0]        
+        self.network.generators_t['p_min_pu'].loc[:, spk] = (time_series_set['SpK']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_max_pu'].loc[:, spk] = (time_series_set['SpK']).values[:len(self.network.snapshots)]
+        
         wsp1 = self.network.links[self.network.links.carrier=='heat_WSp'].index[0]
         self.network.links_t['p_min_pu'].loc[:, wsp1] = (time_series_set['W_laden']).values[:len(self.network.snapshots)]
         self.network.links_t['p_max_pu'].loc[:, wsp1] = (time_series_set['W_laden']).values[:len(self.network.snapshots)]        
@@ -3759,15 +3763,11 @@ def add_EC_to_network(self):
         self.network.links_t['p_min_pu'].loc[:, wsp2] = (time_series_set['W_entladen']).values[:len(self.network.snapshots)]
         self.network.links_t['p_max_pu'].loc[:, wsp2] = (time_series_set['W_entladen']).values[:len(self.network.snapshots)] 
         
-        ta = self.network.links[self.network.links.carrier=='heat_TA'].index[0]
+        '''ta = self.network.links[self.network.links.carrier=='heat_TA'].index[0]
         self.network.links_t['p_min_pu'].loc[:, ta] = (time_series_set['TA']).values[:len(self.network.snapshots)]
-        self.network.links_t['p_max_pu'].loc[:, ta] = (time_series_set['TA']).values[:len(self.network.snapshots)] 
+        self.network.links_t['p_max_pu'].loc[:, ta] = (time_series_set['TA']).values[:len(self.network.snapshots)]''' 
         
-        gsp = self.network.stores[self.network.stores.carrier=='Biogas'].index[0]
+        '''gsp = self.network.stores[self.network.stores.carrier=='Biogas'].index[0]
         self.network.stores_t['e_min_pu'].loc[:, gsp] = (time_series_set['GSp1']+time_series_set['GSp2']).values[:len(self.network.snapshots)]
-        self.network.stores_t['e_max_pu'].loc[:, gsp] = (time_series_set['GSp1']+time_series_set['GSp2']).values[:len(self.network.snapshots)]        
-        
-        bsp = self.network.storage_units[self.network.storage_units.carrier=='BSp'].index[0]
-        self.network.storage_units_t['p_min_pu'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
-        self.network.storage_units_t['p_max_pu'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
+        self.network.stores_t['e_max_pu'].loc[:, gsp] = (time_series_set['GSp1']+time_series_set['GSp2']).values[:len(self.network.snapshots)]'''        
         
