@@ -841,6 +841,84 @@ def _cross_border_flow_nmp(self, network, snapshots):
     define_constraints(network, expr, "<=", export[1], "Line", "max_cb_flow")
 
 
+def _cross_border_flow_linopy(self, network, snapshots):
+    """
+    Extra_functionality that limits overall crossborder flows from/to Germany.
+    Add key 'cross_border_flow' and array with minimal and maximal
+    import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+    (
+        buses_de,
+        buses_for,
+        cb0,
+        cb1,
+        cb0_link,
+        cb1_link,
+    ) = _get_crossborder_components(network)
+
+    export = pd.Series(
+        data=self.args["extra_functionality"]["cross_border_flow"]
+    )
+
+    if not network.lines.empty:
+        define_constraints(
+            network,
+            get_var(network, "Line", "s").loc[:, cb1].sum()
+            - get_var(network, "Line", "s").loc[:, cb0].sum()
+            + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            ">=",
+            (export[0]),
+            "Global",
+            "min_cross_border",
+        )
+
+        define_constraints(
+            network,
+            get_var(network, "Line", "s").loc[:, cb1].sum()
+            - get_var(network, "Line", "s").loc[:, cb0].sum()
+            + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            "<=",
+            (export[1]),
+            "Global",
+            "max_cross_border",
+        )
+    else:
+        define_constraints(
+            network,
+            get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            ">=",
+            (export[0]),
+            "Global",
+            "min_cross_border",
+        )
+
+        define_constraints(
+            network,
+            get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            "<=",
+            (export[1]),
+            "Global",
+            "max_cross_border",
+        )
+
+
 def _cross_border_flow_per_country_nmp(self, network, snapshots):
     """
     Extra_functionality that limits AC crossborder flows for each given
@@ -1042,6 +1120,92 @@ def _cross_border_flow_per_country(self, network, snapshots):
                 Constraint(rule=_rule_max),
             )
 
+
+def _cross_border_flow_per_country_linopy(self, network, snapshots):
+    """
+    Extra_functionality that limits AC crossborder flows for each given
+    foreign country from/to Germany.
+    Add key 'cross_border_flow_per_country' to args.extra_functionality and
+    define dictionary of country keys and desired limitations of im/exports
+    in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    buses_de = network.buses.index[network.buses.country == "DE"]
+
+    countries = network.buses.country.unique()
+
+    export_per_country = pd.DataFrame(
+        data=self.args["extra_functionality"]["cross_border_flow_per_country"]
+    ).transpose()
+
+    for cntr in export_per_country.index:
+        if cntr in countries:
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
+
+            if not network.lines.empty:
+                define_constraints(
+                    network,
+                    get_var(network, "Line", "s").loc[:, cb1].sum()
+                    - get_var(network, "Line", "s").loc[:, cb0].sum()
+                    + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    ">=",
+                    (export_per_country[0][cntr]),
+                    "Global",
+                    "min_cross_border-" + cntr,
+                )
+
+                define_constraints(
+                    network,
+                    get_var(network, "Line", "s").loc[:, cb1].sum()
+                    - get_var(network, "Line", "s").loc[:, cb0].sum()
+                    + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    "<=",
+                    (export_per_country[1][cntr]),
+                    "Global",
+                    "max_cross_border-" + cntr,
+                )
+            else:
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    ">=",
+                    (export_per_country[0][cntr]),
+                    "Global",
+                    "min_cross_border-" + cntr,
+                )
+
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    "<=",
+                    (export_per_country[1][cntr]),
+                    "Global",
+                    "max_cross_border-" + cntr,
+                )
 
 def _generation_potential(network, carrier, cntr="all"):
     """
