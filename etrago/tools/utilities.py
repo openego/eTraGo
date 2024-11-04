@@ -24,10 +24,13 @@ Utilities.py includes a wide range of useful functions.
 
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
+from urllib.request import urlretrieve
 import json
 import logging
 import math
 import os
+import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
 import numpy as np
@@ -287,9 +290,27 @@ def buses_by_country(self, apply_on="grid_model"):
     con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
-    path = gpd.datasets.get_path("naturalearth_lowres")
-    shapes = gpd.read_file(path)
-    shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
+    # read Europe borders. Original data downloaded from naturalearthdata.com/
+    # under Public Domain license
+    path_countries = Path(".") / "data" / "shapes_europe"
+
+    if not os.path.exists(path_countries):
+        path_countries.mkdir(exist_ok=True, parents=True)
+        url_countries = (
+            "https://naciscdn.org/naturalearth/110m/cultural/"
+            + "ne_110m_admin_0_countries.zip"
+        )
+        urlretrieve(url_countries, path_countries / "shape_countries.zip")
+        with zipfile.ZipFile(
+            path_countries / "shape_countries.zip", "r"
+        ) as zip_ref:
+            zip_ref.extractall(path_countries)
+
+    shapes = (
+        gpd.read_file(path_countries)
+        .rename(columns={"NAME": "name"})
+        .set_index("name")
+    )
 
     # Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
