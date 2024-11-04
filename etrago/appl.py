@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "powerd-data",  # database session
+    "db": "status2019_v2",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -80,7 +80,7 @@ args = {
         "method": 2,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 30,
+        "threads": 20,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "status2019",  # scenario: eGon2035, eGon100RE or status2019
@@ -172,7 +172,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 30,  # number of cores used during clustering, "max" for all cores available.
+        "CPU_cores": 20,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -727,7 +727,7 @@ def run_etrago(args, json_path):
 
     etrago.buses_by_country()
     etrago.geolocation_buses()
-    args["network_clustering"]["active"] = True
+    etrago.args["network_clustering"]["active"] = True
 
     etrago.spatial_clustering_gas()
 
