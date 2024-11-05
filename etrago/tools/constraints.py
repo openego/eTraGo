@@ -2832,6 +2832,7 @@ class Constraints:
                 add_chp_constraints(network, snapshots)
                 # Verbrauch der Trocknungsanlage je nach berechnetem Zeitraum
                 val_ta = 2976 * (len(network.snapshots) / 8760)
+                network.model.write('check.lp')
                 trocknungsanlage_pyomo(network, snapshots, val_ta)
                 if (self.args["scn_name"] != "status2019") & (
                     len(snapshots) > 1500
