@@ -758,10 +758,39 @@ def run_etrago(args, json_path):
 if __name__ == "__main__":
     # execute etrago function
     print(datetime.datetime.now())
-    etrago = run_etrago(args, json_path=None)
 
-    print(datetime.datetime.now())
-    etrago.session.close()
+    args = {}
+
+    if args:
+        print("we dont wanna have args here")
+
+    print(f"args: {args}")
+
+    # this was the first run
+    # json_path = "/home/ise/execution_folder/eTraGo/etrago/args_thorben/args_with_cbf_restr_ehv.json"
+
+    # after 1st run success, going to iterate the rest of the args
+    args_kw = "DONE_args_with_cbf_restr_ehv.json"
+    dir_with_args = "/home/ise/execution_folder/eTraGo/etrago/args_thorben"
+
+    if True:  # replace the loop
+    # for args_fn in os.listdir(dir_with_args):
+    #     print(f"args_fn: {args_fn}")
+    #     if args_kw not in args_fn:
+    #         print(f"Skipping args {args_fn}")
+    #         continue
+        args_fn = args_kw
+
+        args = {}
+        print(f"args: {args}")
+
+        json_path = os.path.join(dir_with_args, args_fn)
+
+        etrago = None
+        print(f"json_path: {json_path}")
+        etrago = run_etrago(args, json_path=json_path)
+        print(datetime.datetime.now())
+        etrago.session.close()
     # plots: more in tools/plot.py
     # make a line loading plot
     # etrago.plot_grid(
