@@ -856,24 +856,8 @@ def postprocessing(
     method = settings["method"]
     num_clusters = settings["n_clusters_AC"]
 
-    if not settings["k_elec_busmap"]:
-        busmap.name = "cluster"
-        busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
-        busmap_elec.index.name = "bus"
-        busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
-        busmap_elec = busmap_elec.join(
-            pd.Series(
-                medoid_idx.index.values.astype(str),
-                medoid_idx,
-                name="medoid_idx",
-            )
-        )
+    if ((settings["k_elec_busmap"] != False) & (apply_on != "market_model")):
 
-        busmap_elec.to_csv(
-            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
-        )
-
-    else:
         logger.info("Import Busmap for spatial clustering")
         busmap_foreign = pd.read_csv(
             settings["k_elec_busmap"],
@@ -896,6 +880,23 @@ def postprocessing(
         medoid_idx = pd.Series(
             medoid_idx.index.values.astype(str), medoid_idx.values.astype(int)
         )
+
+    else:
+        busmap.name = "cluster"
+        busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
+        busmap_elec.index.name = "bus"
+        busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
+        busmap_elec = busmap_elec.join(
+            pd.Series(
+                medoid_idx.index.values.astype(str),
+                medoid_idx,
+                name="medoid_idx",
+            )
+        )
+
+        busmap_elec.to_csv(
+                f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
+            )
 
     network, busmap = adjust_no_electric_network(
         etrago, busmap, cluster_met=method, apply_on=apply_on
