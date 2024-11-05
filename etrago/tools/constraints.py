@@ -1142,7 +1142,7 @@ def _cross_border_flow_per_country_linopy(self, network, snapshots):
     None.
 
     """
-
+    print("APPLYING _cross_border_flow_per_country_linopy")
     buses_de = network.buses.index[network.buses.country == "DE"]
 
     countries = network.buses.country.unique()
@@ -1151,7 +1151,10 @@ def _cross_border_flow_per_country_linopy(self, network, snapshots):
         data=self.args["extra_functionality"]["cross_border_flow_per_country"]
     ).transpose()
 
+    print(f"LEN export_per_country: {len(export_per_country)}")
+
     for cntr in export_per_country.index:
+        print(f"cntr: {cntr}")
         if cntr in countries:
             (
                 buses_de,
@@ -1163,6 +1166,7 @@ def _cross_border_flow_per_country_linopy(self, network, snapshots):
             ) = _get_crossborder_components(network, cntr)
 
             if not network.lines.empty:
+                print(f"for cntr: {cntr}, lines not empty")
                 define_constraints(
                     network,
                     get_var(network, "Line", "s").loc[:, cb1].sum()
@@ -1187,6 +1191,7 @@ def _cross_border_flow_per_country_linopy(self, network, snapshots):
                     "max_cross_border-" + cntr,
                 )
             else:
+                print(f"for cntr: {cntr}, lines ARE empty")
                 define_constraints(
                     network,
                     get_var(network, "Link", "p").loc[:, cb1_link].sum()
@@ -3438,6 +3443,7 @@ class Constraints:
                     add_ch4_constraints_nmp(self, network, snapshots)
 
         for constraint in self.args["extra_functionality"].keys():
+            logger.info(f"constraint: {constraint}; _{constraint}_linopy(self, network, snapshots)")
             if self.args["method"]["formulation"] == "pyomo":
                 try:
                     eval("_" + constraint + "(self, network, snapshots)")
