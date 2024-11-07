@@ -1265,7 +1265,8 @@ def delete_dispensable_ac_buses(etrago):
         [network.transformers.bus0, network.transformers.bus1]
     ).unique()
     b_gen = network.generators[
-        network.generators.carrier != "load shedding"
+        (network.generators.carrier != "load shedding") &
+        (network.generators.carrier != "negative load shedding")
     ].bus.unique()
     b_load = network.loads.bus.unique()
     b_store = network.stores[network.stores.e_nom > 0].bus.unique()
