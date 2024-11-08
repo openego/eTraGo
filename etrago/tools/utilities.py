@@ -1249,10 +1249,10 @@ def delete_dispensable_ac_buses(etrago):
     # Group the parallel transmission lines to reduce the complexity
     group_parallel_lines(etrago.network)
 
+    initial_ac = etrago.network.buses.carrier.value_counts()["AC"]
     diff = len(etrago.network.buses)
     while diff != 0:
         bus_initial = len(etrago.network.buses)
-        print(etrago.network.buses.v_nom.value_counts())
         # ordering of buses
         bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
         bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
@@ -1420,6 +1420,9 @@ def delete_dispensable_ac_buses(etrago):
             ].transpose()
         )
         diff = bus_initial - len(etrago.network.buses)
+
+    final_ac = etrago.network.buses.carrier.value_counts()["AC"]
+    logger.info(f"{initial_ac - final_ac} dispensable AC buses were removed")
 
     return
 
