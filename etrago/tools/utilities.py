@@ -3585,7 +3585,7 @@ def add_EC_to_network(self):
         p_nom=0.7,
         p_nom_min=0.7,
         p_nom_extendable=False,
-        marginal_cost=10000,
+        marginal_cost=100,
         capital_cost=0,
     )
     gen_id = str(int(gen_id)+1)
