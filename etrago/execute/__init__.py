@@ -312,6 +312,22 @@ def iterate_lopf(
 
             for i in range(1, (1 + n_iter)):
                 run_lopf(etrago, extra_functionality, method)
+                
+                ### Eigenverbrauch BGA
+                if i == n_iter-1: 
+                    
+                    AC_bus = etrago.network.generators[etrago.network.generators.carrier=='PV'].bus.values[0]
+                    heat_bus = etrago.network.generators[etrago.network.generators.carrier=='SpK'].bus.values[0]
+                    ac = etrago.network.loads[etrago.network.loads.bus==AC_bus].index[0]
+                    he = etrago.network.loads[etrago.network.loads.bus==heat_bus].index[0]
+                    
+                    bga = etrago.network.generators[etrago.network.generators.carrier=='Biogas'].index[0]     
+                    faktor = (etrago.network.generators_t.p[bga].sum()*5 / 18720)
+                    diff_el = 0.1 - (faktor*0.1)
+                    diff_heat = 0.165 - (faktor*0.165)
+                    
+                    etrago.network.loads_t.p_set[ac] = etrago.network.loads_t.p_set[ac] - diff_el
+                    etrago.network.loads_t.p_set[he] = etrago.network.loads_t.p_set[he] - diff_heat
 
                 if args["csv_export"]:
                     path_it = path + "/lopf_iteration_" + str(i)

@@ -53,7 +53,7 @@ args = {
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf', 'sclopf' or 'market_grid'
-        "n_iter": 1,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
+        "n_iter": 3,  # abort criterion of iterative optimization, 'n_iter' or 'threshold'
         "pyomo": True,  # set if pyomo is used for model building
         "formulation": "pyomo",
         "market_zones": "status_quo", # only used if type='market_grid'
@@ -727,8 +727,12 @@ def run_etrago(args, json_path):
     # start linear optimal powerflow calculations
 
     etrago.network.storage_units.cyclic_state_of_charge = True
+    bsp = etrago.network.storage_units[etrago.network.storage_units.carrier=='BSp'].index[0]
+    etrago.network.storage_units.at[bsp, 'cyclic_state_of_charge'] = False
 
     etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+    
+    import pdb; pdb.set_trace()
 
     etrago.optimize()
 
