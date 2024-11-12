@@ -3780,14 +3780,14 @@ def add_EC_to_network(self):
         time_series_set['W_entladen'] = time_series_set['W_entladen'] / p_wsp_e
         
         pv = self.network.generators[self.network.generators.carrier=='PV'].index[0]        
-        self.network.generators_t['p_min_pu'].loc[:, pv] = 0.9 * (time_series_set['PV']).values[:len(self.network.snapshots)]
-        self.network.generators_t['p_max_pu'].loc[:, pv] = 1.1 *(time_series_set['PV']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_min_pu'].loc[:, pv] = 1 * (time_series_set['PV']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_max_pu'].loc[:, pv] = 1 *(time_series_set['PV']).values[:len(self.network.snapshots)]
         
         self.network.storage_units_t['state_of_charge_set'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
         
         bga = self.network.generators[self.network.generators.carrier=='Biogas'].index[0]        
-        self.network.generators_t['p_min_pu'].loc[:, bga] = 0.9 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
-        self.network.generators_t['p_max_pu'].loc[:, bga] = 1.1 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_min_pu'].loc[:, bga] = 1 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_max_pu'].loc[:, bga] = 1 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
         
         ac = self.network.links[self.network.links.scn_name!='status2019'][self.network.links.carrier==carrier].index[0]
         self.network.links_t['p_set'].loc[:, ac] = (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
@@ -3800,8 +3800,8 @@ def add_EC_to_network(self):
         #self.network.links_t['p_max_pu'].loc[:, heat] = 1.1 * (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
         
         spk = self.network.generators[self.network.generators.carrier=='SpK'].index[0]        
-        self.network.generators_t['p_min_pu'].loc[:, spk] = 0.9 * (time_series_set['SpK']).values[:len(self.network.snapshots)]
-        self.network.generators_t['p_max_pu'].loc[:, spk] = 1.1 * (time_series_set['SpK']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_min_pu'].loc[:, spk] = 1 * (time_series_set['SpK']).values[:len(self.network.snapshots)]
+        self.network.generators_t['p_max_pu'].loc[:, spk] = 1 * (time_series_set['SpK']).values[:len(self.network.snapshots)]
         
         self.network.links_t['p_min_pu'].loc[:, wsp1] = 0.9 * (time_series_set['W_laden']).values[:len(self.network.snapshots)]
         self.network.links_t['p_max_pu'].loc[:, wsp1] = 1.1 * (time_series_set['W_laden']).values[:len(self.network.snapshots)]        
