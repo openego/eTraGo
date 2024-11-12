@@ -3479,7 +3479,7 @@ def add_EC_to_network(self):
     
     # CHP: AC link
     if x:
-        carrier = 'central_gas_CHP' # p0 wird gesetzt, constraints bleiben an
+        carrier = 'KWK_AC'
     else:
         carrier = 'central_gas_CHP'
     
@@ -3502,7 +3502,7 @@ def add_EC_to_network(self):
     
     # heat link
     if x:
-        carrier_h = carrier + '_heat'
+        carrier_h = 'KWK_heat'
     else:
         carrier_h = carrier + '_heat'
     
@@ -3748,8 +3748,8 @@ def add_EC_to_network(self):
         
         time_series_set['PV'] = (time_series_set['PV1'] + time_series_set['PV2']) / 0.03
         time_series_set['BGA'] = (time_series_set['BGA1'] + time_series_set['BGA2'] - 0.625) / (2.762-0.625)
-        time_series_set['CHP_AC'] = (time_series_set['CHP1_AC']+time_series_set['CHP2_AC']+time_series_set['CHP3_AC']) / 4.35
-        time_series_set['CHP_heat'] = (time_series_set['CHP1_heat']+time_series_set['CHP2_heat']+time_series_set['CHP3_heat']) / 4.35
+        time_series_set['CHP_AC'] = (time_series_set['CHP1_AC']+time_series_set['CHP2_AC']+time_series_set['CHP3_AC']) #/ 4.35
+        time_series_set['CHP_heat'] = (time_series_set['CHP1_heat']+time_series_set['CHP2_heat']+time_series_set['CHP3_heat']) #/ 4.35
         time_series_set['SpK'] = time_series_set['SpK'] / 0.7
         time_series_set['W_laden'] = time_series_set['W_laden'] / p_wsp_l
         time_series_set['W_entladen'] = time_series_set['W_entladen'] / p_wsp_e
@@ -3758,20 +3758,21 @@ def add_EC_to_network(self):
         self.network.generators_t['p_min_pu'].loc[:, pv] = 0.9 * (time_series_set['PV']).values[:len(self.network.snapshots)]
         self.network.generators_t['p_max_pu'].loc[:, pv] = 1.1 *(time_series_set['PV']).values[:len(self.network.snapshots)]
         
-        self.network.storage_units_t['state_of_charge_set'].loc[:, bsp] = 0.9 *(time_series_set['BSp']).values[:len(self.network.snapshots)]
-        self.network.storage_units_t['state_of_charge_set'].loc[:, bsp] = 1.1 * (time_series_set['BSp']).values[:len(self.network.snapshots)]
+        self.network.storage_units_t['state_of_charge_set'].loc[:, bsp] = (time_series_set['BSp']).values[:len(self.network.snapshots)]
         
         bga = self.network.generators[self.network.generators.carrier=='Biogas'].index[0]        
         self.network.generators_t['p_min_pu'].loc[:, bga] = 0.9 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
         self.network.generators_t['p_max_pu'].loc[:, bga] = 1.1 * (time_series_set['BGA']).values[:len(self.network.snapshots)]
         
         ac = self.network.links[self.network.links.scn_name!='status2019'][self.network.links.carrier==carrier].index[0]
-        self.network.links_t['p_min_pu'].loc[:, ac] = 0.9 * (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
-        self.network.links_t['p_max_pu'].loc[:, ac] = 1.1 * (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
+        self.network.links_t['p_set'].loc[:, ac] = (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
+        #self.network.links_t['p_min_pu'].loc[:, ac] = 0.9 * (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
+        #self.network.links_t['p_max_pu'].loc[:, ac] = 1.1 * (time_series_set['CHP_AC']).values[:len(self.network.snapshots)]
         
         heat = self.network.links[self.network.links.scn_name!='status2019'][self.network.links.carrier==carrier_h].index[0]
-        self.network.links_t['p_min_pu'].loc[:, heat] = 0.9 * (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
-        self.network.links_t['p_max_pu'].loc[:, heat] = 1.1 * (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
+        self.network.links_t['p_set'].loc[:, heat] = (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
+        #self.network.links_t['p_min_pu'].loc[:, heat] = 0.9 * (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
+        #self.network.links_t['p_max_pu'].loc[:, heat] = 1.1 * (time_series_set['CHP_heat']).values[:len(self.network.snapshots)]
         
         spk = self.network.generators[self.network.generators.carrier=='SpK'].index[0]        
         self.network.generators_t['p_min_pu'].loc[:, spk] = 0.9 * (time_series_set['SpK']).values[:len(self.network.snapshots)]
