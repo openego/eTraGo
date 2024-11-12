@@ -3262,7 +3262,8 @@ def find_buses(self, area_type="primary", save_path=None):
 def add_EC_to_network(self):
     
     ###########################################################################
-    x = True # True for IES optimal solution, False for GS optimal solution
+    x = False # True for IES optimal solution, False for GS optimal solution
+    y = True # True for IES++ (IES-Erweiterung)
     etrago_bus ='30206' # status-quo: 30206; eGon2035: 32941
     heat_bus = '33982' # status-quo:33982, eGon2035: 51963 
     ###########################################################################
@@ -3403,6 +3404,17 @@ def add_EC_to_network(self):
     pv_time_series = time_series_gen['PV_pot']
     self.network.generators_t['p_max_pu'].loc[:, solar_gen_id] = pv_time_series.values[:len(self.network.snapshots)]
     
+    if y:
+        
+        wind_gen_id = gen_id
+        self.network.add("Generator", wind_gen_id, carrier="Wind", bus=new_bus, p_nom=1, p_nom_min=1, p_nom_extendable=False, marginal_cost=1.5, capital_cost=76403, p_max_pu=1)
+        self.network.generators.loc[wind_gen_id, "scn_name"] = self.args['scn_name']
+        gen_id = str(int(gen_id)+1)
+    
+        wind_time_series = time_series_gen['Wind_pot']
+        wind_time_series = (wind_time_series-0.25).clip(lower=0) # Priorisierung Elektrolyseur
+        self.network.generators_t['p_max_pu'].loc[:, wind_gen_id] = wind_time_series.values[:len(self.network.snapshots)]        
+    
     ### BSp
     
     self.network.add("StorageUnit", bat_id, carrier="BSp", bus=new_bus, p_nom=0.018, max_hours=1.7, p_nom_min=0.018, p_nom_extendable=False, standing_loss=0.05, efficiency_store=0.93, efficiency_dispatch=0.93, cyclic_state_of_charge=True, marginal_cost=0.01, capital_cost=68800)
@@ -3412,13 +3424,23 @@ def add_EC_to_network(self):
     ### Load
     
     # AC load
-    self.network.add("Load",
-                    name='AN_'+load_id,
-                    carrier='AC',
-                    bus=new_bus,
-                    p_set=time_series_load['AC load'].values[:len(self.network.snapshots)],
-                    scn_name=self.args['scn_name']
-                )
+    if y:
+        self.network.add("Load",
+                        name='AN_'+load_id,
+                        carrier='AC',
+                        bus=new_bus,
+                        p_set=time_series_load['AC load extension'].values[:len(self.network.snapshots)],
+                        scn_name=self.args['scn_name']
+                    )        
+        
+    else: 
+        self.network.add("Load",
+                        name='AN_'+load_id,
+                        carrier='AC',
+                        bus=new_bus,
+                        p_set=time_series_load['AC load'].values[:len(self.network.snapshots)],
+                        scn_name=self.args['scn_name']
+                    )
     load_id = str(int(load_id)+1)
     
     # EV load
@@ -3479,7 +3501,7 @@ def add_EC_to_network(self):
     
     # CHP: AC link
     if x:
-        carrier = 'KWK_AC'
+        carrier = 'central_gas_CHP' #'KWK_AC'
     else:
         carrier = 'central_gas_CHP'
     
@@ -3502,7 +3524,7 @@ def add_EC_to_network(self):
     
     # heat link
     if x:
-        carrier_h = 'KWK_heat'
+        carrier_h = carrier + '_heat' #'KWK_heat'
     else:
         carrier_h = carrier + '_heat'
     
@@ -3702,7 +3724,10 @@ def add_EC_to_network(self):
     ### AC Load
     
     idx = self.network.loads[self.network.loads.bus==etrago_bus][self.network.loads.carrier=='AC'].index[0]
-    load =  (time_series_load['AC load'] + time_series_load['EV load'])[:len(self.network.snapshots)]
+    if y:
+        load =  (time_series_load['AC load extension'] + time_series_load['EV load'])[:len(self.network.snapshots)]
+    else:
+        load =  (time_series_load['AC load'] + time_series_load['EV load'])[:len(self.network.snapshots)]
     load.index = self.network.snapshots
     load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
     self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']
