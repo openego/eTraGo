@@ -656,13 +656,16 @@ def load_shedding(
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    marginal_cost : int
-        Marginal costs for load shedding
-    p_nom : int
-        Installed capacity of load shedding generator
+    temporal_disaggregation : bool
+        It is set to False by default.
+    negative_load_shedding : False, list
+        Define if generators for negative load shedding will be created.
+        It is set to False by default. When activated supply a list of carriers
+        e.g. ["AC", "Li_ion"]
 
     Returns
     -------
+    None.
 
     """
     logger.debug("Shedding the load.")
@@ -708,12 +711,15 @@ def load_shedding(
         )
 
         if negative_load_shedding:
-            # Add negative load shedding generators for AC buses
-            ac_buses = network.buses[network.buses.carrier == "AC"].index
-            index_ac = list(
+            logger.debug("Shedding the generation.")
+            # Add negative load shedding generators for provided carriers
+            neg_shedding_buses = network.buses[
+                network.buses.carrier.isin(negative_load_shedding)
+            ].index
+            index_neg_shedding = list(
                 range(
                     start + len(network.buses.index),
-                    start + len(network.buses.index) + len(ac_buses),
+                    start + len(network.buses.index) + len(neg_shedding_buses),
                 )
             )
             network.import_components_from_dataframe(
@@ -724,10 +730,10 @@ def load_shedding(
                         p_min_pu=-1,
                         p_max_pu=0,
                         carrier="negative load shedding",
-                        bus=ac_buses,
+                        bus=neg_shedding_buses,
                         control="PQ",
                     ),
-                    index=index_ac,
+                    index=index_neg_shedding,
                 ),
                 "Generator",
             )
