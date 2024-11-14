@@ -64,7 +64,7 @@ def market_optimization(self):
             solver_name=self.args["solver"],
             solver_options=self.args["solver_options"],
             extra_functionality=Constraints(self.args, False).functionality,
-            linearized_unit_commitment=True,
+            linearized_unit_commitment=self.args["method"]["market_optimization"]["unit_commitment"],
         )
 
         if status != "ok":
@@ -335,66 +335,67 @@ def build_market_model(self):
 
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
-    # set UC constraints
-    unit_commitment_fpath = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "data",
-        "unit_commitment.csv",
-    )
-    unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
-    unit_commitment.fillna(0, inplace=True)
-    committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
-        "committable"
-    )
-
-    for attr in unit_commitment.index:
-
-        default = component_attrs["Generator"].default[attr]
-        committable_attrs[attr] = net.generators.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_attrs[attr] = committable_attrs[attr].astype(
-            net.generators.carrier.map(unit_commitment.loc[attr]).dtype
+    if self.args["method"]["market_optimization"]["unit_commitment"]:
+        # set UC constraints
+        unit_commitment_fpath = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "data",
+            "unit_commitment.csv",
         )
-
-    net.generators[committable_attrs.columns] = committable_attrs
-    net.generators.min_up_time = net.generators.min_up_time.astype(int)
-    net.generators.min_down_time = net.generators.min_down_time.astype(int)
-
-    net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(
-        1.0, inplace=True
-    )
-
-    # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.generators.loc[net.generators.committable, "start_up_cost"] = 0.0
-    net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.0
-
-    # Tadress link carriers i.e. OCGT
-    committable_links = net.links.carrier.isin(unit_commitment).to_frame(
-        "committable"
-    )
-
-    for attr in unit_commitment.index:
-
-        default = component_attrs["Link"].default[attr]
-        committable_links[attr] = net.links.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_links[attr] = committable_links[attr].astype(
-            net.links.carrier.map(unit_commitment.loc[attr]).dtype
+        unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
+        unit_commitment.fillna(0, inplace=True)
+        committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
+            "committable"
         )
-
-    net.links[committable_links.columns] = committable_links
-    net.links.min_up_time = net.links.min_up_time.astype(int)
-    net.links.min_down_time = net.links.min_down_time.astype(int)
-    net.links[committable_links.columns].loc["ramp_limit_down"] = 1.0
-    net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = (
-        -1.0
-    )
-
-    # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.links.loc[net.links.committable, "start_up_cost"] = 0.0
-    net.links.loc[net.links.committable, "shut_down_cost"] = 0.0
+    
+        for attr in unit_commitment.index:
+    
+            default = component_attrs["Generator"].default[attr]
+            committable_attrs[attr] = net.generators.carrier.map(
+                unit_commitment.loc[attr]
+            ).fillna(default)
+            committable_attrs[attr] = committable_attrs[attr].astype(
+                net.generators.carrier.map(unit_commitment.loc[attr]).dtype
+            )
+    
+        net.generators[committable_attrs.columns] = committable_attrs
+        net.generators.min_up_time = net.generators.min_up_time.astype(int)
+        net.generators.min_down_time = net.generators.min_down_time.astype(int)
+    
+        net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(
+            1.0, inplace=True
+        )
+    
+        # Set all start_up and shut_down cost to 0 to simpify unit committment
+        net.generators.loc[net.generators.committable, "start_up_cost"] = 0.0
+        net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.0
+    
+        # Tadress link carriers i.e. OCGT
+        committable_links = net.links.carrier.isin(unit_commitment).to_frame(
+            "committable"
+        )
+    
+        for attr in unit_commitment.index:
+    
+            default = component_attrs["Link"].default[attr]
+            committable_links[attr] = net.links.carrier.map(
+                unit_commitment.loc[attr]
+            ).fillna(default)
+            committable_links[attr] = committable_links[attr].astype(
+                net.links.carrier.map(unit_commitment.loc[attr]).dtype
+            )
+    
+        net.links[committable_links.columns] = committable_links
+        net.links.min_up_time = net.links.min_up_time.astype(int)
+        net.links.min_down_time = net.links.min_down_time.astype(int)
+        net.links[committable_links.columns].loc["ramp_limit_down"] = 1.0
+        net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = (
+            -1.0
+        )
+    
+        # Set all start_up and shut_down cost to 0 to simpify unit committment
+        net.links.loc[net.links.committable, "start_up_cost"] = 0.0
+        net.links.loc[net.links.committable, "shut_down_cost"] = 0.0
 
     # Set stores and storage_units to cyclic
     net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True

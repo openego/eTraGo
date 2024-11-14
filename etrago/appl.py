@@ -65,6 +65,7 @@ args = {
                     "overlap": 120, # number of overlapping hours
                  },
                 "redispatch": True,
+                "unit_commitment":False,
              }
     },
     "pf_post_lopf": {
