@@ -644,7 +644,12 @@ def connected_transformer(network, busids):
     return network.transformers[mask]
 
 
-def load_shedding(self, temporal_disaggregation=False, **kwargs):
+def load_shedding(
+    self,
+    temporal_disaggregation=False,
+    negative_load_shedding=False,
+    **kwargs,
+):
     """Implement load shedding in existing network to identify
     feasibility problems
 
@@ -652,13 +657,16 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
     ----------
     network : :class:`pypsa.Network
         Overall container of PyPSA
-    marginal_cost : int
-        Marginal costs for load shedding
-    p_nom : int
-        Installed capacity of load shedding generator
+    temporal_disaggregation : bool
+        It is set to False by default.
+    negative_load_shedding : False, list
+        Define if generators for negative load shedding will be created.
+        It is set to False by default. When activated supply a list of carriers
+        e.g. ["AC", "Li_ion"]
 
     Returns
     -------
+    None.
 
     """
     logger.debug("Shedding the load.")
@@ -702,6 +710,34 @@ def load_shedding(self, temporal_disaggregation=False, **kwargs):
             ),
             "Generator",
         )
+
+        if negative_load_shedding:
+            logger.debug("Shedding the generation.")
+            # Add negative load shedding generators for provided carriers
+            neg_shedding_buses = network.buses[
+                network.buses.carrier.isin(negative_load_shedding)
+            ].index
+            index_neg_shedding = list(
+                range(
+                    start + len(network.buses.index),
+                    start + len(network.buses.index) + len(neg_shedding_buses),
+                )
+            )
+            network.import_components_from_dataframe(
+                pd.DataFrame(
+                    dict(
+                        marginal_cost=-marginal_cost,
+                        p_nom=p_nom,
+                        p_min_pu=-1,
+                        p_max_pu=0,
+                        carrier="negative load shedding",
+                        bus=neg_shedding_buses,
+                        control="PQ",
+                    ),
+                    index=index_neg_shedding,
+                ),
+                "Generator",
+            )
 
 
 def set_control_strategies(network):
@@ -1046,11 +1082,11 @@ def agg_series_lines(l0, network):
         )
     }
 
-    Line = l0["Line"].iloc[0]
+    Line = l0.index[0]
     data = dict(
         r=l0["r"].sum(),
         x=l0["x"].sum(),
-        g=1.0 / (1.0 / l0["g"]).sum(),
+        g=1.0 / (1.0 / l0["g"].apply(float)).sum(),
         b=1.0 / (1.0 / l0["b"]).sum(),
         terrain_factor=l0["terrain_factor"].mean(),
         s_max_pu=(l0["s_max_pu"] * _normed(l0["s_nom"])).sum(),
@@ -1227,173 +1263,180 @@ def delete_dispensable_ac_buses(etrago):
     # Group the parallel transmission lines to reduce the complexity
     group_parallel_lines(etrago.network)
 
-    # ordering of buses
-    bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
-    bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
-    network.lines["bus0"] = bus0_new
-    network.lines["bus1"] = bus1_new
+    initial_ac = etrago.network.buses.carrier.value_counts()["AC"]
+    diff = len(etrago.network.buses)
+    while diff != 0:
+        bus_initial = len(etrago.network.buses)
+        # ordering of buses
+        bus0_new = network.lines.apply(lambda x: max(x.bus0, x.bus1), axis=1)
+        bus1_new = network.lines.apply(lambda x: min(x.bus0, x.bus1), axis=1)
+        network.lines["bus0"] = bus0_new
+        network.lines["bus1"] = bus1_new
 
-    # Find the buses without any other kind of elements attached to them
-    # more than transmission lines.
-    ac_buses = network.buses[network.buses.carrier == "AC"][
-        ["geom", "country"]
-    ]
-    b_links = pd.concat([network.links.bus0, network.links.bus1]).unique()
-    b_trafo = pd.concat(
-        [network.transformers.bus0, network.transformers.bus1]
-    ).unique()
-    b_gen = network.generators[
-        network.generators.carrier != "load shedding"
-    ].bus.unique()
-    b_load = network.loads.bus.unique()
-    b_store = network.stores[network.stores.e_nom > 0].bus.unique()
-    b_store_unit = network.storage_units[
-        network.storage_units.p_nom > 0
-    ].bus.unique()
+        # Find the buses without any other kind of elements attached to them
+        # more than transmission lines.
+        ac_buses = network.buses[network.buses.carrier == "AC"][
+            ["geom", "country"]
+        ]
+        b_links = pd.concat([network.links.bus0, network.links.bus1]).unique()
+        b_trafo = pd.concat(
+            [network.transformers.bus0, network.transformers.bus1]
+        ).unique()
+        b_gen = network.generators[
+            (network.generators.carrier != "load shedding")
+            & (network.generators.carrier != "negative load shedding")
+        ].bus.unique()
+        b_load = network.loads.bus.unique()
+        b_store = network.stores[network.stores.e_nom > 0].bus.unique()
+        b_store_unit = network.storage_units[
+            network.storage_units.p_nom > 0
+        ].bus.unique()
 
-    ac_buses["links"] = ac_buses.index.isin(b_links)
-    ac_buses["trafo"] = ac_buses.index.isin(b_trafo)
-    ac_buses["gen"] = ac_buses.index.isin(b_gen)
-    ac_buses["load"] = ac_buses.index.isin(b_load)
-    ac_buses["store"] = ac_buses.index.isin(b_store)
-    ac_buses["storage_unit"] = ac_buses.index.isin(b_store_unit)
+        ac_buses["links"] = ac_buses.index.isin(b_links)
+        ac_buses["trafo"] = ac_buses.index.isin(b_trafo)
+        ac_buses["gen"] = ac_buses.index.isin(b_gen)
+        ac_buses["load"] = ac_buses.index.isin(b_load)
+        ac_buses["store"] = ac_buses.index.isin(b_store)
+        ac_buses["storage_unit"] = ac_buses.index.isin(b_store_unit)
 
-    ac_buses = ac_buses[
-        ~(ac_buses.links)
-        & ~(ac_buses.trafo)
-        & ~(ac_buses.gen)
-        & ~(ac_buses.load)
-        & ~(ac_buses.store)
-        & ~(ac_buses.storage_unit)
-    ][[]]
+        ac_buses = ac_buses[
+            ~(ac_buses.links)
+            & ~(ac_buses.trafo)
+            & ~(ac_buses.gen)
+            & ~(ac_buses.load)
+            & ~(ac_buses.store)
+            & ~(ac_buses.storage_unit)
+        ][[]]
 
-    # count how many lines are connected to each bus
-    number_of_lines = count_lines(network.lines)
-    ac_buses["n_lines"] = 0
-    ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
+        # count how many lines are connected to each bus
+        number_of_lines = count_lines(network.lines)
+        ac_buses["n_lines"] = 0
+        ac_buses["n_lines"] = ac_buses.apply(number_of_lines, axis=1)
 
-    # Keep the buses with two or less transmission lines
-    ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
+        # Keep the buses with two or less transmission lines
+        ac_buses = ac_buses[ac_buses["n_lines"] <= 2]
 
-    # Keep only the buses connecting 2 lines with the same capacity
-    lines_cap = network.lines[
-        (network.lines.bus0.isin(ac_buses.index))
-        | (network.lines.bus1.isin(ac_buses.index))
-    ][["bus0", "bus1", "s_nom"]]
+        # Keep only the buses connecting 2 lines with the same capacity
+        lines_cap = network.lines[
+            (network.lines.bus0.isin(ac_buses.index))
+            | (network.lines.bus1.isin(ac_buses.index))
+        ][["bus0", "bus1", "s_nom"]]
 
-    delete_bus = []
-    for bus in ac_buses[ac_buses["n_lines"] == 2].index:
-        l0 = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
-            "s_nom"
-        ].unique()
-        if len(l0) != 1:
-            delete_bus.append(bus)
-    ac_buses.drop(delete_bus, inplace=True)
+        delete_bus = []
+        for bus in ac_buses[ac_buses["n_lines"] == 2].index:
+            l0 = lines_cap[(lines_cap.bus0 == bus) | (lines_cap.bus1 == bus)][
+                "s_nom"
+            ].unique()
+            if len(l0) != 1:
+                delete_bus.append(bus)
+        ac_buses.drop(delete_bus, inplace=True)
 
-    # create groups of lines to join
-    buses_2 = ac_buses[ac_buses["n_lines"] == 2]
-    lines = network.lines[
-        (network.lines.bus0.isin(buses_2.index))
-        | (network.lines.bus1.isin(buses_2.index))
-    ][["bus0", "bus1"]].copy()
-    lines_index = lines.index
-    new_lines = pd.DataFrame(columns=["bus0", "bus1", "lines"])
-    group = 0
+        # create groups of lines to join
+        buses_2 = ac_buses[ac_buses["n_lines"] == 2]
+        lines = network.lines[
+            (network.lines.bus0.isin(buses_2.index))
+            | (network.lines.bus1.isin(buses_2.index))
+        ][["bus0", "bus1"]].copy()
+        lines_index = lines.index
+        new_lines = pd.DataFrame(columns=["bus0", "bus1", "lines"])
+        group = 0
 
-    for line in lines_index:
-        if line not in lines.index:
-            continue
-        bus0 = lines.at[line, "bus0"]
-        bus1 = lines.at[line, "bus1"]
-        lines_group = [line]
-        lines.drop(line, inplace=True)
-
-        # Determine bus0 new group
-        end_search = False
-
-        while not end_search:
-            if bus0 not in ac_buses.index:
-                end_search = True
+        for line in lines_index:
+            if line not in lines.index:
                 continue
-            lines_b = lines[(lines.bus0 == bus0) | (lines.bus1 == bus0)]
-            if len(lines_b) > 0:
-                lines_group.append(lines_b.index[0])
-                if lines_b.iat[0, 0] == bus0:
-                    bus0 = lines_b.iat[0, 1]
+            bus0 = lines.at[line, "bus0"]
+            bus1 = lines.at[line, "bus1"]
+            lines_group = [line]
+            lines.drop(line, inplace=True)
+
+            # Determine bus0 new group
+            end_search = False
+
+            while not end_search:
+                if bus0 not in ac_buses.index:
+                    end_search = True
+                    continue
+                lines_b = lines[(lines.bus0 == bus0) | (lines.bus1 == bus0)]
+                if len(lines_b) > 0:
+                    lines_group.append(lines_b.index[0])
+                    if lines_b.iat[0, 0] == bus0:
+                        bus0 = lines_b.iat[0, 1]
+                    else:
+                        bus0 = lines_b.iat[0, 0]
+                    lines.drop(lines_b.index[0], inplace=True)
                 else:
-                    bus0 = lines_b.iat[0, 0]
-                lines.drop(lines_b.index[0], inplace=True)
-            else:
-                end_search = True
+                    end_search = True
 
-        # Determine bus1 new group
-        end_search = False
-        while not end_search:
-            if bus1 not in ac_buses.index:
-                end_search = True
-                continue
-            lines_b = lines[(lines.bus0 == bus1) | (lines.bus1 == bus1)]
-            if len(lines_b) > 0:
-                lines_group.append(lines_b.index[0])
-                if lines_b.iat[0, 0] == bus1:
-                    bus1 = lines_b.iat[0, 1]
+            # Determine bus1 new group
+            end_search = False
+            while not end_search:
+                if bus1 not in ac_buses.index:
+                    end_search = True
+                    continue
+                lines_b = lines[(lines.bus0 == bus1) | (lines.bus1 == bus1)]
+                if len(lines_b) > 0:
+                    lines_group.append(lines_b.index[0])
+                    if lines_b.iat[0, 0] == bus1:
+                        bus1 = lines_b.iat[0, 1]
+                    else:
+                        bus1 = lines_b.iat[0, 0]
+                    lines.drop(lines_b.index[0], inplace=True)
                 else:
-                    bus1 = lines_b.iat[0, 0]
-                lines.drop(lines_b.index[0], inplace=True)
-            else:
-                end_search = True
+                    end_search = True
 
-        # Define the parameters of the new lines to be inserted into
-        # `network.lines`.
-        new_lines.loc[group] = [bus0, bus1, lines_group]
-        group = group + 1
+            # Define the parameters of the new lines to be inserted into
+            # `network.lines`.
+            new_lines.loc[group] = [bus0, bus1, lines_group]
+            group = group + 1
 
-    # Create the new lines as result of aggregating series lines
-    lines = network.lines[
-        (network.lines.bus0.isin(buses_2.index))
-        | (network.lines.bus1.isin(buses_2.index))
-    ]
+        # Create the new lines as result of aggregating series lines
+        lines = network.lines[
+            (network.lines.bus0.isin(buses_2.index))
+            | (network.lines.bus1.isin(buses_2.index))
+        ]
 
-    new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
+        new_lines_df = pd.DataFrame(columns=lines.columns).rename_axis("Lines")
 
-    for l0 in new_lines.index:
-        lines_group = (
-            lines[lines.index.isin(new_lines.at[l0, "lines"])]
-            .copy()
-            .reset_index()
+        for l0 in new_lines.index:
+            lines_group = lines[
+                lines.index.isin(new_lines.at[l0, "lines"])
+            ].copy()
+            l_new = agg_series_lines(lines_group, network)
+            l_new["bus0"] = new_lines.at[l0, "bus0"]
+            l_new["bus1"] = new_lines.at[l0, "bus1"]
+            new_lines_df["s_nom_extendable"] = new_lines_df[
+                "s_nom_extendable"
+            ].astype(bool)
+            new_lines_df.loc[l_new.name] = l_new
+
+        # Delete all the dispensable buses
+        (
+            network.buses,
+            network.lines,
+            network.storage_units,
+            network.generators,
+        ) = delete_buses(ac_buses, network)
+
+        # exclude from the new lines the ones connected to deleted buses
+        new_lines_df = new_lines_df[
+            (~new_lines_df.bus0.isin(ac_buses.index))
+            & (~new_lines_df.bus1.isin(ac_buses.index))
+        ]
+
+        etrago.network.lines = pd.concat([etrago.network.lines, new_lines_df])
+
+        # Drop s_max_pu timeseries for deleted lines
+        etrago.network.lines_t.s_max_pu = (
+            etrago.network.lines_t.s_max_pu.transpose()[
+                etrago.network.lines_t.s_max_pu.columns.isin(
+                    etrago.network.lines.index
+                )
+            ].transpose()
         )
-        l_new = agg_series_lines(lines_group, network)
-        l_new["bus0"] = new_lines.at[l0, "bus0"]
-        l_new["bus1"] = new_lines.at[l0, "bus1"]
-        new_lines_df["s_nom_extendable"] = new_lines_df[
-            "s_nom_extendable"
-        ].astype(bool)
-        new_lines_df.loc[l_new.name] = l_new
+        diff = bus_initial - len(etrago.network.buses)
 
-    # Delete all the dispensable buses
-    (
-        network.buses,
-        network.lines,
-        network.storage_units,
-        network.generators,
-    ) = delete_buses(ac_buses, network)
-
-    # exclude from the new lines the ones connected to deleted buses
-    new_lines_df = new_lines_df[
-        (~new_lines_df.bus0.isin(ac_buses.index))
-        & (~new_lines_df.bus1.isin(ac_buses.index))
-    ]
-
-    etrago.network.lines = pd.concat([etrago.network.lines, new_lines_df])
-
-    # Drop s_max_pu timeseries for deleted lines
-    etrago.network.lines_t.s_max_pu = (
-        etrago.network.lines_t.s_max_pu.transpose()[
-            etrago.network.lines_t.s_max_pu.columns.isin(
-                etrago.network.lines.index
-            )
-        ].transpose()
-    )
+    final_ac = etrago.network.buses.carrier.value_counts()["AC"]
+    logger.info(f"{initial_ac - final_ac} dispensable AC buses were removed")
 
     return
 
