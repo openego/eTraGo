@@ -433,20 +433,20 @@ def gas_postprocessing(
         },
         one_port_strategies={
             "Generator": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "p_nom_max": np.sum,
-                "p_nom_min": np.sum,
-                "e_nom_max": np.sum,
+                "marginal_cost": "mean",
+                "capital_cost": "mean",
+                "p_nom_max": "sum",
+                "p_nom_min": "sum",
+                "e_nom_max": "sum",
             },
             "Store": {
-                "marginal_cost": np.mean,
-                "capital_cost": np.mean,
-                "e_nom": np.sum,
+                "marginal_cost": "mean",
+                "capital_cost": "mean",
+                "e_nom": "sum",
                 "e_nom_max": sum_with_inf,
             },
             "Load": {
-                "p_set": np.sum,
+                "p_set": "sum",
             },
         },
     )

@@ -680,21 +680,6 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    # drop generators without p_nom
-    etrago.network.mremove(
-        "Generator",
-        etrago.network.generators[
-            etrago.network.generators.p_nom==0].index
-        )
-
-    # Temporary drop DLR as it is currently not working with sclopf
-    if (etrago.args["method"]["type"] == "sclopf") & (
-            not etrago.network.lines_t.s_max_pu.empty):
-        print("Setting s_max_pu timeseries to 1")
-        etrago.network.lines_t.s_max_pu = pd.DataFrame(
-            index=etrago.network.snapshots,
-        )
-
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
@@ -703,16 +688,15 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-
     etrago.spatial_clustering_gas()
-    etrago.network.links.loc[etrago.network.links.carrier=="CH4", "p_nom"] *= 100
-    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
+
     # snapshot clustering
     etrago.snapshot_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
 
+    # start linear optimal powerflow calculations
     etrago.optimize()
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
@@ -722,7 +706,6 @@ def run_etrago(args, json_path):
     etrago.pf_post_lopf()
 
     # spatial disaggregation
-    # needs to be adjusted for new sectors
     etrago.spatial_disaggregation()
 
     # calculate central etrago results

@@ -24,10 +24,13 @@ Utilities.py includes a wide range of useful functions.
 
 from collections.abc import Mapping
 from copy import deepcopy
+from pathlib import Path
+from urllib.request import urlretrieve
 import json
 import logging
 import math
 import os
+import zipfile
 
 from pyomo.environ import Constraint, PositiveReals, Var
 import geoalchemy2
@@ -37,7 +40,7 @@ import pypsa
 import sqlalchemy.exc
 
 if "READTHEDOCS" not in os.environ:
-    from shapely.geometry import Point
+    from shapely.geometry import LineString, Point
     import geopandas as gpd
 
     from etrago.tools import db
@@ -288,9 +291,27 @@ def buses_by_country(self, apply_on="grid_model"):
     con = self.engine
     germany_sh = gpd.read_postgis(query, con, geom_col="geometry")
 
-    path = gpd.datasets.get_path("naturalearth_lowres")
-    shapes = gpd.read_file(path)
-    shapes = shapes[shapes.name.isin([*countries])].set_index(keys="name")
+    # read Europe borders. Original data downloaded from naturalearthdata.com/
+    # under Public Domain license
+    path_countries = Path(".") / "data" / "shapes_europe"
+
+    if not os.path.exists(path_countries):
+        path_countries.mkdir(exist_ok=True, parents=True)
+        url_countries = (
+            "https://naciscdn.org/naturalearth/110m/cultural/"
+            + "ne_110m_admin_0_countries.zip"
+        )
+        urlretrieve(url_countries, path_countries / "shape_countries.zip")
+        with zipfile.ZipFile(
+            path_countries / "shape_countries.zip", "r"
+        ) as zip_ref:
+            zip_ref.extractall(path_countries)
+
+    shapes = (
+        gpd.read_file(path_countries)
+        .rename(columns={"NAME": "name"})
+        .set_index("name")
+    )
 
     # Use Germany borders from egon-data if not using the SH test case
     if len(germany_sh.gen.unique()) > 1:
@@ -2982,6 +3003,20 @@ def manual_fixes_datamodel(etrago):
             inplace=True,
         )
 
+    # Temporary drop DLR as it is currently not working with sclopf
+    if (etrago.args["method"]["type"] == "sclopf") & (
+        not etrago.network.lines_t.s_max_pu.empty
+    ):
+        print(
+            """
+            Dynamic line rating is not implemented for the sclopf yet.
+            Setting s_max_pu timeseries to 1
+            """
+        )
+        etrago.network.lines_t.s_max_pu = pd.DataFrame(
+            index=etrago.network.snapshots,
+        )
+
 
 def select_elec_network(etrago, apply_on="grid_model"):
     """
@@ -3209,34 +3244,148 @@ def find_buses_area(etrago, carrier):
     return buses_area.index
 
 
-def adjust_before_optimization(self):
+def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
+    """
+    Translates all component DataFrames within the pypsa network
+    to GeoDataFrames and saves them to shape files.
 
-    def check_e_initial(etrago):
-        stores = etrago.network.stores
-        stores_t = etrago.network.stores_t
-        for st in stores_t["e_max_pu"].columns:
-            e_initial_pu = stores.at[st, "e_initial"] / stores.at[st, "e_nom"]
-            min_e = stores_t["e_min_pu"].iloc[0, :][st]
-            max_e = stores_t["e_max_pu"].iloc[0, :][st]
-            if (e_initial_pu >= min_e) & (e_initial_pu <= max_e):
-                continue
-            else:
-                stores.at[st, "e_initial"] = (
-                    stores.at[st, "e_nom"] * (min_e + max_e) / 2
-                )
+    Shape files can be used to plot the network in QGIS.
 
-        return stores
+    Currently, only the AC network is exported.
 
-    # Temporary drop DLR as it is currently not working with sclopf
-    if self.args["method"]["type"] != "lopf":
-        self.network.lines_t.s_max_pu = pd.DataFrame(
-            index=self.network.snapshots,
-            columns=self.network.lines.index,
-            data=1.0,
+    Parameters
+    ----------
+    pypsa_network : PyPSA network
+        PyPSA network as in etrago.network.
+    shape_files_path : str or None
+        If provided, geodataframes are saved as shapefiles to given directory.
+        Default: None.
+    srid : int
+        SRID bus coordinates are given in. Per default WGS84 is assumed.
+        Default: 4326.
+
+    Returns
+    -------
+    dict
+        Dictionary with geodataframes.
+
+    """
+    os.makedirs(shape_files_path, exist_ok=True)
+
+    # convert buses_df
+    buses_df = pypsa_network.buses[pypsa_network.buses.carrier == "AC"]
+    buses_df = buses_df.assign(
+        geometry=gpd.points_from_xy(buses_df.x, buses_df.y, crs=f"EPSG:{srid}")
+    ).drop(columns=["x", "y", "geom"])
+
+    buses_gdf = gpd.GeoDataFrame(buses_df, crs=f"EPSG:{srid}")
+
+    # convert component DataFrames
+    components = [
+        "generators",
+        "loads",
+        "storage_units",
+        "stores",
+        "transformers",
+    ]
+    components_dict = {"buses_gdf": buses_gdf}
+
+    for component in components:
+        left_on = "bus1" if component == "transformers" else "bus"
+
+        attr = getattr(pypsa_network, component)
+
+        components_dict[f"{component}_gdf"] = gpd.GeoDataFrame(
+            attr.merge(
+                buses_gdf[["geometry", "v_nom"]],
+                left_on=left_on,
+                right_index=True,
+            ),
+            crs=f"EPSG:{srid}",
         )
+        if components_dict[f"{component}_gdf"].empty:
+            components_dict[f"{component}_gdf"].index = components_dict[
+                f"{component}_gdf"
+            ].index.astype(object)
 
-    self.network.storage_units.cyclic_state_of_charge = True
+    # convert lines
+    lines_df = pypsa_network.lines
+    lines_df = lines_df.drop(columns=["geom"])
 
-    self.network.lines.loc[self.network.lines.r == 0.0, "r"] = 10
+    lines_gdf = lines_df.merge(
+        buses_gdf[["geometry", "v_nom"]].rename(
+            columns={"geometry": "geom_0"}
+        ),
+        left_on="bus0",
+        right_index=True,
+    )
+    lines_gdf = lines_gdf.merge(
+        buses_gdf[["geometry"]].rename(columns={"geometry": "geom_1"}),
+        left_on="bus1",
+        right_index=True,
+    )
+    lines_gdf["geometry"] = lines_gdf.apply(
+        lambda _: LineString([_["geom_0"], _["geom_1"]]), axis=1
+    )
+    lines_gdf = gpd.GeoDataFrame(lines_gdf, crs=f"EPSG:{srid}")
+    components_dict["lines_gdf"] = lines_gdf
 
-    self.network.stores = check_e_initial(self)
+    save_cols = {
+        "buses_gdf": ["scn_name", "v_nom", "carrier", "country", "geometry"],
+        "generators_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "loads_gdf": ["scn_name", "bus", "carrier", "v_nom", "geometry"],
+        "storage_units_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "p_nom",
+            "p_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "stores_gdf": [
+            "scn_name",
+            "bus",
+            "carrier",
+            "e_nom",
+            "e_nom_extendable",
+            "v_nom",
+            "geometry",
+        ],
+        "transformers_gdf": [
+            "scn_name",
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "geometry",
+        ],
+        "lines_gdf": [
+            "bus0",
+            "bus1",
+            "x",
+            "r",
+            "s_nom",
+            "s_nom_extendable",
+            "length",
+            "num_parallel",
+            "geometry",
+            "v_nom",
+        ],
+    }
+    if shape_files_path:
+        for k, v in components_dict.items():
+            shp_filename = os.path.join(shape_files_path, f"{k}.shp")
+            v.loc[:, save_cols[k]].to_file(shp_filename)
+
+    return components_dict

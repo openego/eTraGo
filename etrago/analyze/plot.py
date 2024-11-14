@@ -842,16 +842,18 @@ def calc_dispatch_per_carrier(network, timesteps, dispatch_type="total"):
     ]
 
     dist = pd.Series(
-        index=pd.MultiIndex.from_tuples(index, names=["bus", "carrier"]),
+        index=pd.MultiIndex.from_tuples(
+            index, names=["bus", "carrier"]
+        ).unique(),
         dtype=float,
-    )
+    ).sort_index()
 
     for i in dist.index:
         gens = network.generators[
             (network.generators.bus == i[0])
             & (network.generators.carrier == i[1])
         ].index
-        dist[i] = (
+        dist.loc[i] = (
             (
                 network.generators_t.p[gens].transpose()[
                     network.snapshots[timesteps]
