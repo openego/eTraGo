@@ -832,7 +832,6 @@ def extension(self, **kwargs):
             self.network = scenario.build_network(self.network)
 
 
-
 def decommissioning(self, **kwargs):
     """
     Function that removes components in a decommissioning-scenario from
