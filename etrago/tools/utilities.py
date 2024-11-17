@@ -3426,21 +3426,20 @@ def add_EC_to_network(self):
     # AC load
     if y:
         self.network.add("Load",
-                        name='AN_'+load_id,
+                        name='AN_ext'+load_id,
                         carrier='AC',
                         bus=new_bus,
                         p_set=time_series_load['AC load extension'].values[:len(self.network.snapshots)],
                         scn_name=self.args['scn_name']
                     )        
-        
-    else: 
-        self.network.add("Load",
-                        name='AN_'+load_id,
-                        carrier='AC',
-                        bus=new_bus,
-                        p_set=time_series_load['AC load'].values[:len(self.network.snapshots)],
-                        scn_name=self.args['scn_name']
-                    )
+
+    self.network.add("Load",
+                    name='AN_'+load_id,
+                    carrier='AC',
+                    bus=new_bus,
+                    p_set=time_series_load['AC load'].values[:len(self.network.snapshots)],
+                    scn_name=self.args['scn_name']
+                )
     load_id = str(int(load_id)+1)
     
     # EV load
@@ -3725,12 +3724,17 @@ def add_EC_to_network(self):
     
     idx = self.network.loads[self.network.loads.bus==etrago_bus][self.network.loads.carrier=='AC'].index[0]
     if y:
-        load =  (time_series_load['AC load extension'] + time_series_load['EV load'])[:len(self.network.snapshots)]
+        load =  (time_series_load['AC load'] + time_series_load['AC load extension'] + time_series_load['EV load'])[:len(self.network.snapshots)]
     else:
         load =  (time_series_load['AC load'] + time_series_load['EV load'])[:len(self.network.snapshots)]
     load.index = self.network.snapshots
     load = pd.DataFrame(index=load.index, columns=['load'], data=load.values)
     self.network.loads_t.p_set[idx] = self.network.loads_t.p_set[idx] - load['load']
+    
+    ### generation
+    
+    wind = self.network.generators[self.network.generators.bus==etrago_bus][self.network.generators.carrier=='wind_onshore'].index[0]
+    self.network.generators.at[wind, 'p_nom'] = self.network.generators.loc[wind].p_nom - 1
     
     ### BGA including CHPs
     
