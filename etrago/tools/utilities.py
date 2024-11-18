@@ -3389,6 +3389,11 @@ def add_EC_to_network(self):
     bus_id = str(int(new_bus) + 1)
         
     ### PV
+    
+    if y:
+        pv_pnom = 1.5
+    else: 
+        pv_pnom = 0.03
 
     # Determine the attributes for new generators by copying from similar existing generators
     default_attrs = ['start_up_cost', 'shut_down_cost', 'min_up_time', 'min_down_time', 'up_time_before', 'down_time_before', 'ramp_limit_up', 'ramp_limit_down', 'ramp_limit_start_up', 'ramp_limit_shut_down']
@@ -3397,7 +3402,7 @@ def add_EC_to_network(self):
     
     # Add the solar generator with the new ID
     solar_gen_id = gen_id
-    self.network.add("Generator", solar_gen_id, carrier="PV", bus=new_bus, p_nom=0.03, p_nom_min=0.03, p_nom_extendable=False, marginal_cost=0.01, capital_cost=115400, p_max_pu=1, **solar_attrs)
+    self.network.add("Generator", solar_gen_id, carrier="PV", bus=new_bus, p_nom=pv_pnom, p_nom_min=pv_pnom, p_nom_extendable=False, marginal_cost=0.01, capital_cost=115400, p_max_pu=1, **solar_attrs)
     self.network.generators.loc[solar_gen_id, "scn_name"] = self.args['scn_name']
     gen_id = str(int(gen_id)+1)
     
@@ -3417,7 +3422,12 @@ def add_EC_to_network(self):
     
     ### BSp
     
-    self.network.add("StorageUnit", bat_id, carrier="BSp", bus=new_bus, p_nom=0.018, max_hours=1.7, p_nom_min=0.018, p_nom_extendable=False, standing_loss=0.05, efficiency_store=0.93, efficiency_dispatch=0.93, cyclic_state_of_charge=True, marginal_cost=0.01, capital_cost=68800)
+    if y:
+        bat_pnom = 0.103
+    else: 
+        bat_pnom = 0.018
+    
+    self.network.add("StorageUnit", bat_id, carrier="BSp", bus=new_bus, p_nom=bat_pnom, max_hours=1.7, p_nom_min=bat_pnom, p_nom_extendable=False, standing_loss=0.05, efficiency_store=0.93, efficiency_dispatch=0.93, cyclic_state_of_charge=True, marginal_cost=0.01, capital_cost=68800)
     self.network.storage_units.loc[bat_id, "scn_name"] = self.args['scn_name']
     bat_id = str(int(bat_id)+1)
     
