@@ -51,6 +51,10 @@ def market_optimization(self):
 
     logger.info("Start solving pre market model")
 
+    # Set 'linopy' as formulation to make sure that constraints are added
+    method_args = self.args["method"]["formulation"]
+    self.args["method"]["formulation"] = "linopy"
+
     if self.args["method"]["formulation"] == "pyomo":
         self.pre_market_model.lopf(
             solver_name=self.args["solver"],
@@ -89,9 +93,7 @@ def market_optimization(self):
     self.market_model.determine_network_topology()
     logger.info("Start solving short-term UC market model")
 
-    # Set 'linopy' as formulation to make sure that constraints are added
-    method_args = self.args["method"]["formulation"]
-    self.args["method"]["formulation"] = "linopy"
+
 
     optimize_with_rolling_horizon(
         self.market_model,
