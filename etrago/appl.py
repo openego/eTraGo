@@ -723,14 +723,29 @@ def run_etrago(args, json_path):
     mga = True
 
     if mga:
-        weights = dict(Link=
-                       {"p_nom": pd.Series(1, index=etrago.network.links[
-                           etrago.network.links.carrier=="power_to_H2"].index)})
-        slack = 1e-9
-        etrago.network.optimize.optimize_mga(
-            slack=slack, weights=weights, solver_name='gurobi', sense="max",
-            solver_options = args["solver_options"]
-            )
+        print(etrago.network.links[etrago.network.links.carrier=="power_to_H2"].p_nom_opt.sum())
+        from etrago.execute.mga import mga_electrolysis_expansion
+        slack=1e-5
+        mga_electrolysis_expansion(etrago, slack = slack)
+        
+        # weights_series = pd.Series(0.0, index=etrago.network.links.index)
+        
+        # weights_series[etrago.network.links[
+        #     etrago.network.links.carrier=="power_to_H2"].index] = 1.0
+        # weights = dict(Link=
+        #                {"p_nom": weights_series[weights_series>0]})
+        # slack = 1e-6
+        # etrago.network.optimize.optimize_mga(
+        #     slack=slack, weights=weights, solver_name='gurobi', sense="min",
+        #     solver_options = {'BarConvTol': 1e-05,
+        #      'FeasibilityTol': 1e-05,
+        #      'method': 2,
+        #      'crossover': 0,
+        #      'logFile': 'solver_etrago_mga.log',
+        #      "BarHomogeneous": 1,
+        #      "InfUnbdInfo":1,
+        #      'threads': 4}
+        #     )
         etrago.network.export_to_csv_folder(args["csv_export"]+f"/mga_{slack}")
 
     # conduct lopf with full complex timeseries for dispatch disaggregation
