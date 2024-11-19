@@ -697,7 +697,7 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
-
+    etrago.network.generators_t.p_max_pu.where(etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # snapshot clustering
     etrago.snapshot_clustering()
 
