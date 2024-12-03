@@ -701,6 +701,11 @@ def run_etrago(args, json_path):
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
+    
+    etrago.network.storage_units.p_nom_extendable=False
+    etrago.network.lines.s_nom_max = etrago.network.lines.s_nom
+    dc = etrago.network.links[etrago.network.links.carrier=='DC'].index
+    etrago.network.links.loc[dc, 'p_nom_extendable'] = False
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -726,11 +731,24 @@ def run_etrago(args, json_path):
 
     # start linear optimal powerflow calculations
 
-    etrago.network.storage_units.cyclic_state_of_charge = True
-    bsp = etrago.network.storage_units[etrago.network.storage_units.carrier=='BSp'].index[0]
-    etrago.network.storage_units.at[bsp, 'cyclic_state_of_charge'] = False
-
     etrago.network.lines.loc[etrago.network.lines.r == 0.0, "r"] = 10
+    etrago.network.storage_units.cyclic_state_of_charge = True
+    
+    #bsp = etrago.network.storage_units[etrago.network.storage_units.carrier=='BSp'].index[0]
+    #etrago.network.storage_units.at[bsp, 'cyclic_state_of_charge'] = False
+    
+    # avoid stub provoking load shedding
+    line = etrago.network.lines[etrago.network.lines.bus1=='29943'].index[0]
+    etrago.network.lines.at[line, 's_nom'] = 4 * etrago.network.lines.loc[line].s_nom
+    etrago.network.lines.at[line, 's_nom_min'] = 4 * etrago.network.lines.loc[line].s_nom_min
+    etrago.network.lines.at[line, 's_nom_max'] = 4 * etrago.network.lines.loc[line].s_nom_max
+    '''import numpy as np
+    line = etrago.network.lines[etrago.network.lines.bus1=='38690'].index[0]
+    etrago.network.lines.at[line, 's_nom'] = 0 # 4 * etrago.network.lines.loc[line].s_nom
+    etrago.network.lines.at[line, 's_nom_min'] = 0 # 4 * etrago.network.lines.loc[line].s_nom_min
+    etrago.network.lines.at[line, 's_nom_max'] = np.inf # 4 * etrago.network.lines.loc[line].s_nom_max
+    etrago.network.lines.at[line, 's_nom_extendable'] = True
+    etrago.network.lines.at[line, 'capital_cost'] = 0'''
 
     etrago.optimize()
 
