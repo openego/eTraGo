@@ -108,9 +108,9 @@ def mga_electrolysis_expansion(
     objective = m.objective
     if not isinstance(objective, (LinearExpression, QuadraticExpression)):
         objective = objective.expression
-        
+    numerical_factor = 1e-5
     m.add_constraints(
-        objective + fixed_cost <= (1 + slack) * optimal_cost, name="budget"
+        numerical_factor*(objective + fixed_cost) <= numerical_factor*((1 + slack) * optimal_cost), name="budget"
     )
 
     # parse optimization sense
