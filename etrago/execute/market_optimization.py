@@ -27,8 +27,10 @@ if "READTHEDOCS" not in os.environ:
     import logging
 
     from pypsa.components import component_attrs
+    from shapely.geometry import Point
     import pandas as pd
-
+    import geopandas as gpd
+    
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.tools.constraints import Constraints
 
@@ -240,6 +242,7 @@ def optimize_with_rolling_horizon(
     return n
 
 
+
 def build_market_model(self):
     """Builds market model based on imported network from eTraGo
 
@@ -291,7 +294,193 @@ def build_market_model(self):
             net.buses.cluster.astype(int).astype(str), net.buses.index
         )
         medoid_idx = pd.Series(dtype=str)
+        
+      
+    elif (
+        self.args["method"]["market_optimization"]["market_zones"]
+        == "2_zones"
+    ):
+        
+        
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/2_Zonen.shp").to_crs(epsg=4326)
 
+        # Explode multi-polygons
+        zones = zones.explode(index_parts=False).reset_index(drop=True)
+
+        # Convert net.buses to a GeoDataFrame
+        geometry = [
+            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
+        ]
+        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
+
+        # Spatial join to assign zones
+        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
+
+        def assign_zone(row):
+            if pd.notnull(row["id"]):
+                if row["id"] == 1:
+                    return "Zone_1"
+                elif row["id"] == 2:
+                    return "Zone_2"
+            else:
+                # If zone_id is NaN, use the country value
+                return row["country"]
+        
+        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
+
+        # Assign clusters based on the zones
+        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
+        net.buses["cluster"] = geo_buses["cluster"]
+
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+        
+        
+
+        
+    elif (
+        self.args["method"]["market_optimization"]["market_zones"]
+        == "3_zones"
+    ):
+        
+        
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/3_Zonen.shp").to_crs(epsg=4326)
+
+        # Explode multi-polygons
+        zones = zones.explode(index_parts=False).reset_index(drop=True)
+
+        # Convert net.buses to a GeoDataFrame
+        geometry = [
+            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
+        ]
+        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
+
+        # Spatial join to assign zones
+        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
+
+        def assign_zone(row):
+            if pd.notnull(row["id"]):
+                if row["id"] == 1:
+                    return "Zone_1"
+                elif row["id"] == 2:
+                    return "Zone_2"
+                elif row["id"] == 3:
+                    return "Zone_3"
+            else:
+                # If zone_id is NaN, use the country value
+                return row["country"]
+        
+        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
+
+        # Assign clusters based on the zones
+        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
+        net.buses["cluster"] = geo_buses["cluster"]
+
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+        
+        
+    elif (
+        self.args["method"]["market_optimization"]["market_zones"]
+        == "4_zones"
+    ):
+        
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/4_Zonen.shp").to_crs(epsg=4326)
+
+        # Explode multi-polygons
+        zones = zones.explode(index_parts=False).reset_index(drop=True)
+
+        # Convert net.buses to a GeoDataFrame
+        geometry = [
+            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
+        ]
+        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
+
+        # Spatial join to assign zones
+        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
+
+        def assign_zone(row):
+            if pd.notnull(row["id"]):
+                if row["id"] == 1:
+                    return "Zone_1"
+                elif row["id"] == 2:
+                    return "Zone_2"
+                elif row["id"] == 3:
+                    return "Zone_3"
+                elif row["id"] == 4:
+                    return "Zone_4"
+            else:
+                # If zone_id is NaN, use the country value
+                return row["country"]
+        
+        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
+
+        # Assign clusters based on the zones
+        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
+        net.buses["cluster"] = geo_buses["cluster"]
+
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+        
+        
+        
+    elif (
+        self.args["method"]["market_optimization"]["market_zones"]
+        == "5_zones"
+    ):
+        
+        
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/5_Zonen.shp").to_crs(epsg=4326)
+
+        # Explode multi-polygons if necessary
+        zones = zones.explode(index_parts=False).reset_index(drop=True)
+
+        # Convert net.buses to a GeoDataFrame
+        geometry = [
+            Point(xy) for xy in zip(net.buses["x"].values, net.buses["y"].values)
+        ]
+        geo_buses = gpd.GeoDataFrame(net.buses, geometry=geometry, crs="EPSG:4326")
+
+        # Spatial join to assign zones
+        geo_buses = gpd.sjoin(geo_buses, zones[["geometry", "id"]], how="left", predicate="within")
+
+        def assign_zone(row):
+            if pd.notnull(row["id"]):
+                if row["id"] == 1:
+                    return "Zone_1"
+                elif row["id"] == 2:
+                    return "Zone_2"
+                elif row["id"] == 3:
+                    return "Zone_3"
+                elif row["id"] == 4:
+                    return "Zone_4"
+                elif row["id"] == 5:
+                    return "Zone_5"
+            else:
+                # If zone_id is NaN, use the country value
+                return row["country"]
+        
+        geo_buses["marketzone"] = geo_buses.apply(assign_zone, axis=1)
+
+        # Assign clusters based on the zones
+        geo_buses["cluster"] = geo_buses.groupby("marketzone").ngroup()
+        net.buses["cluster"] = geo_buses["cluster"]
+
+        busmap = pd.Series(
+            net.buses.cluster.astype(int).astype(str), net.buses.index
+        )
+        medoid_idx = pd.Series(dtype=str)
+        
     else:
         logger.warning(
             f"""
@@ -301,6 +490,7 @@ def build_market_model(self):
 
     logger.info("Start market zone specifc clustering")
 
+   
     clustering, busmap = postprocessing(
         self,
         busmap,

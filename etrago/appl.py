@@ -58,7 +58,7 @@ args = {
         "market_optimization":
             {
                 "active": True,
-                "market_zones": "status_quo", # only used if type='market_grid'
+                "market_zones": "5_zones", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
                     "overlap": 120, # number of overlapping hours
@@ -80,8 +80,9 @@ args = {
         "method": 2,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 4,
+        "threads": 7,
     },
+    
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
@@ -138,7 +139,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
+        "CPU_cores": 7,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
