@@ -91,7 +91,7 @@ def mga_electrolysis_expansion(
 
 
     n.links.marginal_cost_quadratic = 0.0
-    n.links[n.links.carrier=="power_to_H2"].p_nom_max = 25000
+    n.links.loc[n.links.carrier=="power_to_H2", "p_nom_max"] = 25000
     # create basic model
     m = n.optimize.create_model(
         snapshots=snapshots,
