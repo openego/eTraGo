@@ -312,6 +312,18 @@ def build_market_model(self):
     )
 
     net = clustering.network
+
+    # Adjust positions foreign buses
+    foreign = self.network.buses[self.network.buses.country != "DE"].copy()
+    foreign = foreign[foreign.index.isin(self.network.loads.bus)]
+    foreign = foreign.drop_duplicates(subset="country")
+    foreign = foreign.set_index("country")
+
+    for country in foreign.index:
+        bus_for = net.buses.index[net.buses.country == country]
+        net.buses.loc[bus_for, "x"] = foreign.at[country, "x"]
+        net.buses.loc[bus_for, "y"] = foreign.at[country, "y"]
+
     # links_col = net.links.columns
     ac = net.lines[net.lines.carrier == "AC"]
     str1 = "transshipment_"
