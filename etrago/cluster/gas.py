@@ -61,15 +61,17 @@ __author__ = (
 )
 
 
-def preprocessing(etrago):
+def preprocessing(etrago, carrier):
     """
     Preprocesses the gas network data from the given Etrago object for the
-    spatial clustering process of the CH4 grid.
+    spatial clustering process of the CH4 o H2 grid.
 
     Parameters
     ----------
     etrago : Etrago
         An instance of the Etrago class
+    carrier : str
+        Name of the bus carrier that will be clustered
 
     Returns
     -------
@@ -82,40 +84,40 @@ def preprocessing(etrago):
         neighboring country gas buses.
     """
 
-    # Create network_ch4 (grid nodes in order to create the busmap basis)
-    network_ch4 = Network()
+    # Create network_gas (grid nodes in order to create the busmap basis)
+    network_gas = Network()
 
-    buses_ch4 = etrago.network.buses.copy()
-    links_ch4 = etrago.network.links.copy()
+    buses_gas = etrago.network.buses.copy()
+    links_gas = etrago.network.links.copy()
 
-    io.import_components_from_dataframe(network_ch4, buses_ch4, "Bus")
-    network_ch4.madd(
-        "Link", links_ch4.index, **links_ch4.loc[:, ~links_ch4.isna().any()]
+    io.import_components_from_dataframe(network_gas, buses_gas, "Bus")
+    network_gas.madd(
+        "Link", links_gas.index, **links_gas.loc[:, ~links_gas.isna().any()]
     )
 
-    network_ch4.buses["country"] = buses_ch4.country
+    network_gas.buses["country"] = buses_gas.country
 
     # Cluster ch4 buses
     settings = etrago.args["network_clustering"]
 
-    ch4_filter = network_ch4.buses["carrier"].values == "CH4"
+    gas_filter = network_gas.buses["carrier"].values == carrier
 
     num_neighboring_country = (
-        ch4_filter & (network_ch4.buses["country"] != "DE")
+        gas_filter & (network_gas.buses["country"] != "DE")
     ).sum()
 
-    network_ch4.links = network_ch4.links.loc[
-        network_ch4.links["bus0"].isin(network_ch4.buses.loc[ch4_filter].index)
-        & network_ch4.links["bus1"].isin(
-            network_ch4.buses.loc[ch4_filter].index
+    network_gas.links = network_gas.links.loc[
+        network_gas.links["bus0"].isin(network_gas.buses.loc[gas_filter].index)
+        & network_gas.links["bus1"].isin(
+            network_gas.buses.loc[gas_filter].index
         )
     ]
 
     # select buses dependent on whether they should be clustered in
     # (only DE or DE+foreign)
     if not settings["cluster_foreign_gas"]:
-        network_ch4.buses = network_ch4.buses.loc[
-            ch4_filter & (network_ch4.buses["country"].values == "DE")
+        network_gas.buses = network_gas.buses.loc[
+            gas_filter & (network_gas.buses["country"].values == "DE")
         ]
 
         if settings["n_clusters_gas"] <= num_neighboring_country:
@@ -130,7 +132,7 @@ def preprocessing(etrago):
             raise ValueError(msg)
         n_clusters = settings["n_clusters_gas"] - num_neighboring_country
     else:
-        network_ch4.buses = network_ch4.buses.loc[ch4_filter]
+        network_gas.buses = network_gas.buses.loc[gas_filter]
         n_clusters = settings["n_clusters_gas"]
 
     def weighting_for_scenario(ch4_buses, save=None):
@@ -181,21 +183,21 @@ def preprocessing(etrago):
                 etrago.network.generators.carrier != "load shedding"
             ].bus,
         )
-        buses_CH4_gen = generators_.index.intersection(rel_links.keys())
+        buses_gas_gen = generators_.index.intersection(rel_links.keys())
         loads_ = pd.Series(
             etrago.network.loads.index, index=etrago.network.loads.bus
         )
-        buses_CH4_load = loads_.index.intersection(rel_links.keys())
+        buses_gas_load = loads_.index.intersection(rel_links.keys())
 
         # sum up all relevant entities and cast to integer
         # Note: rel_links will hold the weightings for each bus afterwards
         for i in rel_links:
             rel_links[i] = etrago.network.links.loc[rel_links[i]].p_nom.sum()
-            if i in buses_CH4_gen:
+            if i in buses_gas_gen:
                 rel_links[i] += etrago.network.generators.loc[
                     generators_.loc[i]
                 ].p_nom.sum()
-            if i in buses_CH4_load:
+            if i in buses_gas_load:
                 rel_links[i] += (
                     etrago.network.loads_t.p_set.loc[:, loads_.loc[i]]
                     .mean()
@@ -211,22 +213,22 @@ def preprocessing(etrago):
     # State whether to create a bus weighting and save it, create or not save
     # it, or use a bus weighting from a csv file
     if settings["gas_weight_tocsv"] is not None:
-        weight_ch4 = weighting_for_scenario(
-            network_ch4.buses,
+        weight_gas = weighting_for_scenario(
+            network_gas.buses,
             settings["gas_weight_tocsv"],
         )
     elif settings["gas_weight_fromcsv"] is not None:
         # create DataFrame with uniform weightings for all ch4_buses
-        weight_ch4 = pd.DataFrame([1] * len(buses_ch4), index=buses_ch4.index)
+        weight_gas = pd.DataFrame([1] * len(buses_gas), index=buses_gas.index)
         loaded_weights = pd.read_csv(
             settings["gas_weight_fromcsv"], index_col=0
         )
         # load weights into previously created DataFrame
         loaded_weights.index = loaded_weights.index.astype(str)
-        weight_ch4.loc[loaded_weights.index] = loaded_weights
+        weight_gas.loc[loaded_weights.index] = loaded_weights
     else:
-        weight_ch4 = weighting_for_scenario(network_ch4.buses, save=False)
-    return network_ch4, weight_ch4.squeeze(axis=1), n_clusters
+        weight_gas = weighting_for_scenario(network_gas.buses, save=False)
+    return network_gas, weight_gas.squeeze(axis=1), n_clusters
 
 
 def kmean_clustering_gas(etrago, network_ch4, weight, n_clusters):
@@ -960,14 +962,17 @@ def run_spatial_clustering_gas(self):
     ValueError: If the selected method is not "kmeans" or "kmedoids-dijkstra".
 
     """
-    if "CH4" in self.network.buses.carrier.values:
+
+    if ("CH4" in self.network.buses.carrier.values) | (
+        "H2_grid" in self.network.buses.carrier.values
+    ):
         settings = self.args["network_clustering"]
 
         if settings["active"]:
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
-            gas_network, weight, n_clusters = preprocessing(self)
+            gas_network, weight, n_clusters = preprocessing(self, "CH4")
 
             if method == "kmeans":
                 if settings["k_gas_busmap"]:
