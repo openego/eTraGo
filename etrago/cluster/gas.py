@@ -492,40 +492,13 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
 
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
     if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
-        for i in network_gasgrid_c.buses[
-            network_gasgrid_c.buses.carrier == "CH4"
-        ].index:
-            cluster = str(i)
-            if cluster in busmap[medoid_idx].values:
-                medoid = busmap[medoid_idx][
-                    busmap[medoid_idx] == cluster
-                ].index[0]
-                h2_idx = network_gasgrid_c.buses.loc[
-                    (network_gasgrid_c.buses.carrier == "H2_grid")
-                    & (
-                        network_gasgrid_c.buses.y
-                        == network_gasgrid_c.buses.loc[i, "y"]
-                    )
-                    & (
-                        network_gasgrid_c.buses.x
-                        == network_gasgrid_c.buses.loc[i, "x"]
-                    )
-                ]
-                if len(h2_idx) > 0:
-                    h2_idx = h2_idx.index.tolist()[0]
-                    network_gasgrid_c.buses.loc[h2_idx, "x"] = (
-                        etrago.network.buses["x"].loc[medoid]
-                    )
-                    network_gasgrid_c.buses.loc[h2_idx, "y"] = (
-                        etrago.network.buses["y"].loc[medoid]
-                    )
-
-                network_gasgrid_c.buses.loc[i, "x"] = etrago.network.buses.loc[
-                    medoid, "x"
-                ]
-                network_gasgrid_c.buses.loc[i, "y"] = etrago.network.buses.loc[
-                    medoid, "y"
-                ]
+        for cluster in medoid_idx:
+            network_gasgrid_c.buses.loc[cluster, "x"] = etrago.network.buses.loc[
+                cluster, "x"
+            ]
+            network_gasgrid_c.buses.loc[cluster, "y"] = etrago.network.buses.loc[
+                cluster, "y"
+            ]
 
     drop_nan_values(network_gasgrid_c)
 
@@ -964,13 +937,15 @@ def join_busmap_medoids(
     medoid_idx : pd.Series
         Pandas series joining medoid_idx1 and medoid_idx2
     """
-
     length_m1 = len(medoid_idx1)
     medoid_idx2.index = medoid_idx2.index + length_m1
     busmap2 = (busmap2.apply(int) + length_m1).apply(str)
 
     busmap = pd.concat([busmap1, busmap2])
     medoid_idx = pd.concat([medoid_idx1, medoid_idx2])
+    busmap = busmap.apply(int).map(medoid_idx)
+
+    medoid_idx.index = medoid_idx.apply(int)
 
     return busmap, medoid_idx
 
