@@ -358,9 +358,6 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + "_result.csv"
             )
 
-    if "H2_grid" in etrago.network.buses.carrier.unique():
-        busmap = get_h2_clusters(etrago, busmap)
-
     # Add all other buses to busmap
     missing_idx = list(
         etrago.network.buses[
@@ -946,6 +943,36 @@ def get_clustering_from_busmap(
 
     return network_gasgrid_c
 
+def join_busmap_medoids(
+    busmap1: pd.Series,
+    busmap2: pd.Series,
+    medoid_idx1: pd.Series,
+    medoid_idx2: pd.Series,
+):
+    """
+    Parameters
+    ----------
+    busmap1 : pd.Series
+    busmap2 : pd.Series
+    medoid_idx1 : pd.Series
+    medoid_idx2 : pd.Series
+
+    Returns
+    -------
+    busmap : pd.Series
+        Pandas series joining busmap1 and busmap2
+    medoid_idx : pd.Series
+        Pandas series joining medoid_idx1 and medoid_idx2
+    """
+
+    length_m1 = len(medoid_idx1)
+    medoid_idx2.index = medoid_idx2.index + length_m1
+    busmap2 = (busmap2.apply(int) + length_m1).apply(str)
+
+    busmap = pd.concat([busmap1, busmap2])
+    medoid_idx = pd.concat([medoid_idx1, medoid_idx2])
+
+    return busmap, medoid_idx
 
 def run_spatial_clustering_gas(self):
     """
@@ -972,7 +999,8 @@ def run_spatial_clustering_gas(self):
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
-            gas_network, weight, n_clusters = preprocessing(self, "CH4")
+            ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(self, "CH4")
+            h2_network, weight_h2, n_clusters_h2 = preprocessing(self, "H2_grid")
 
             if method == "kmeans":
                 if settings["k_gas_busmap"]:
@@ -983,8 +1011,11 @@ def run_spatial_clustering_gas(self):
                     ).squeeze()
                     medoid_idx = None
                 else:
-                    busmap, medoid_idx = kmean_clustering_gas(
-                        self, gas_network, weight, n_clusters
+                    busmap_ch4, medoid_idx_ch4 = kmean_clustering_gas(
+                        self, ch4_network, weight_ch4, n_clusters_ch4
+                    )
+                    busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
+                        self, h2_network, weight_h2, n_clusters_h2
                     )
 
             elif method == "kmedoids-dijkstra":
@@ -1002,12 +1033,19 @@ def run_spatial_clustering_gas(self):
                     busmap = busmap["cluster"]
 
                 else:
-                    busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                    busmap_ch4, medoid_idx_ch4 = kmedoids_dijkstra_clustering(
                         self,
-                        gas_network.buses,
-                        gas_network.links,
-                        weight,
-                        n_clusters,
+                        ch4_network.buses,
+                        ch4_network.links,
+                        weight_ch4,
+                        n_clusters_ch4,
+                    )
+                    busmap_h2, medoid_idx_h2 = kmedoids_dijkstra_clustering(
+                        self,
+                        h2_network.buses,
+                        h2_network.links,
+                        weight_h2,
+                        n_clusters_h2,
                     )
 
             else:
@@ -1016,6 +1054,10 @@ def run_spatial_clustering_gas(self):
                     "spatial clustering method for the gas network"
                 )
                 raise ValueError(msg)
+
+            busmap, medoid_idx = join_busmap_medoids(
+                busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
+            )
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
             self.update_busmap(busmap)
