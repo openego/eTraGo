@@ -80,8 +80,8 @@ def preprocessing(etrago, carrier):
     Raises
     ------
     ValueError
-        If `settings["n_clusters_gas"]` is less than or equal to the number of
-        neighboring country gas buses.
+        If "n_clusters_gas" or "n_clusters_h2" is less than or equal to the
+        number of neighboring country gas buses.
     """
 
     # Create network_gas (grid nodes in order to create the busmap basis)
@@ -97,8 +97,13 @@ def preprocessing(etrago, carrier):
 
     network_gas.buses["country"] = buses_gas.country
 
-    # Cluster ch4 buses
+    # Cluster buses
     settings = etrago.args["network_clustering"]
+
+    if carrier == "CH4":
+        total_clusters = settings["n_clusters_gas"]
+    else:
+        total_clusters = settings["n_clusters_h2"]
 
     gas_filter = network_gas.buses["carrier"].values == carrier
 
@@ -120,20 +125,20 @@ def preprocessing(etrago, carrier):
             gas_filter & (network_gas.buses["country"].values == "DE")
         ]
 
-        if settings["n_clusters_gas"] <= num_neighboring_country:
+        if total_clusters <= num_neighboring_country:
             msg = (
                 "The number of clusters for the gas sector ("
-                + str(settings["n_clusters_gas"])
+                + str(total_clusters)
                 + ") must be higher than the number of neighboring country "
                 + "gas buses ("
                 + str(num_neighboring_country)
                 + ")."
             )
             raise ValueError(msg)
-        n_clusters = settings["n_clusters_gas"] - num_neighboring_country
+        n_clusters = total_clusters - num_neighboring_country
     else:
         network_gas.buses = network_gas.buses.loc[gas_filter]
-        n_clusters = settings["n_clusters_gas"]
+        n_clusters = total_clusters
 
     def weighting_for_scenario(ch4_buses, save=None):
         """
