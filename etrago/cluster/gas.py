@@ -504,12 +504,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
     if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
         for cluster in medoid_idx:
-            network_gasgrid_c.buses.loc[cluster, "x"] = etrago.network.buses.loc[
-                cluster, "x"
-            ]
-            network_gasgrid_c.buses.loc[cluster, "y"] = etrago.network.buses.loc[
-                cluster, "y"
-            ]
+            network_gasgrid_c.buses.loc[cluster, "x"] = (
+                etrago.network.buses.loc[cluster, "x"]
+            )
+            network_gasgrid_c.buses.loc[cluster, "y"] = (
+                etrago.network.buses.loc[cluster, "y"]
+            )
 
     drop_nan_values(network_gasgrid_c)
 
@@ -927,6 +927,7 @@ def get_clustering_from_busmap(
 
     return network_gasgrid_c
 
+
 def join_busmap_medoids(
     busmap1: pd.Series,
     busmap2: pd.Series,
@@ -960,6 +961,7 @@ def join_busmap_medoids(
 
     return busmap, medoid_idx
 
+
 def run_spatial_clustering_gas(self):
     """
     Performs spatial clustering on the gas network using either K-means or
@@ -986,7 +988,9 @@ def run_spatial_clustering_gas(self):
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
-            ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(self, "CH4")
+            ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
+                self, "CH4"
+            )
             if scn not in ["eGon2035", "status2019"]:
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
