@@ -335,6 +335,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
         A Pandas Series mapping each bus to its corresponding cluster ID.
     """
     settings = etrago.args["network_clustering"]
+    scn = etrago.args["scn_name"]
 
     if settings["k_gas_busmap"] is False:
         if settings["method_gas"] == "kmeans":
@@ -362,6 +363,11 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                 + str(settings["n_clusters_gas"])
                 + "_result.csv"
             )
+
+    if ("H2_grid" in etrago.network.buses.carrier.unique()) & (
+        scn in ["eGon2035"]
+    ):
+        busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
@@ -974,13 +980,17 @@ def run_spatial_clustering_gas(self):
         "H2_grid" in self.network.buses.carrier.values
     ):
         settings = self.args["network_clustering"]
+        scn = self.args["scn_name"]
 
         if settings["active"]:
             method = settings["method_gas"]
             logger.info(f"Start {method} clustering GAS")
 
             ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(self, "CH4")
-            h2_network, weight_h2, n_clusters_h2 = preprocessing(self, "H2_grid")
+            if scn not in ["eGon2035", "status2019"]:
+                h2_network, weight_h2, n_clusters_h2 = preprocessing(
+                    self, "H2_grid"
+                )
 
             if method == "kmeans":
                 if settings["k_gas_busmap"]:
@@ -994,9 +1004,10 @@ def run_spatial_clustering_gas(self):
                     busmap_ch4, medoid_idx_ch4 = kmean_clustering_gas(
                         self, ch4_network, weight_ch4, n_clusters_ch4
                     )
-                    busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
-                        self, h2_network, weight_h2, n_clusters_h2
-                    )
+                    if scn not in ["eGon2035", "status2019"]:
+                        busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
+                            self, h2_network, weight_h2, n_clusters_h2
+                        )
 
             elif method == "kmedoids-dijkstra":
                 if settings["k_gas_busmap"]:
@@ -1020,13 +1031,16 @@ def run_spatial_clustering_gas(self):
                         weight_ch4,
                         n_clusters_ch4,
                     )
-                    busmap_h2, medoid_idx_h2 = kmedoids_dijkstra_clustering(
-                        self,
-                        h2_network.buses,
-                        h2_network.links,
-                        weight_h2,
-                        n_clusters_h2,
-                    )
+                    if scn not in ["eGon2035", "status2019"]:
+                        busmap_h2, medoid_idx_h2 = (
+                            kmedoids_dijkstra_clustering(
+                                self,
+                                h2_network.buses,
+                                h2_network.links,
+                                weight_h2,
+                                n_clusters_h2,
+                            )
+                        )
 
             else:
                 msg = (
@@ -1035,9 +1049,14 @@ def run_spatial_clustering_gas(self):
                 )
                 raise ValueError(msg)
 
-            busmap, medoid_idx = join_busmap_medoids(
-                busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
-            )
+            if scn not in ["eGon2035", "status2019"]:
+                busmap, medoid_idx = join_busmap_medoids(
+                    busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
+                )
+            else:
+                busmap = busmap_ch4
+                medoid_idx = medoid_idx_ch4
+
             self.network, busmap = gas_postprocessing(self, busmap, medoid_idx)
 
             self.update_busmap(busmap)
@@ -1048,7 +1067,7 @@ def run_spatial_clustering_gas(self):
             set_control_strategies(self.network)
 
             logger.info(
-                """GAS Network clustered to {} DE-buses and {} foreign buses
+                """CH4 Network clustered to {} DE-buses and {} foreign buses
                  with {} algorithm.""".format(
                     len(
                         self.network.buses.loc[
@@ -1065,3 +1084,23 @@ def run_spatial_clustering_gas(self):
                     method,
                 )
             )
+
+            if scn not in ["eGon2035", "status2019"]:
+                logger.info(
+                    """H2 Network clustered to {} DE-buses and {} foreign buses
+                     with {} algorithm.""".format(
+                        len(
+                            self.network.buses.loc[
+                                (self.network.buses.carrier == "H2_grid")
+                                & (self.network.buses.country == "DE")
+                            ]
+                        ),
+                        len(
+                            self.network.buses.loc[
+                                (self.network.buses.carrier == "H2_grid")
+                                & (self.network.buses.country != "DE")
+                            ]
+                        ),
+                        method,
+                    )
+                )
