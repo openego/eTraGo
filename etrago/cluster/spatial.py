@@ -773,9 +773,10 @@ def kmedoids_dijkstra_clustering(
         )
         distances = distances.apply(pd.to_numeric)
 
-        medoid_idx = distances.idxmin()
+        medoid_idx = distances.idxmin().drop_duplicates()
 
         if len(busmap) > n_clusters:
+
             # dijkstra's algorithm
             busmap = dijkstras_algorithm(
                 buses,
