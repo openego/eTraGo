@@ -677,10 +677,35 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
+    
+    # Drop biogas generators without bus
+    etrago.network.mremove(
+        "Generator",
+        ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
+         '211', '212', '213', '214'])
+
+    etrago.network.lines.build_year = 0
+    etrago.network.buses.loc[
+        etrago.network.buses.carrier == "low_voltage", "carrier"] = "AC"
+    
+    # Add static p-set to other AC load
+    static_ac_loads = etrago.network.loads[
+        (etrago.network.loads.carrier=="AC") &
+        (etrago.network.loads.p_set > 0)
+        ]
+    for i, row in static_ac_loads.iterrows():
+        etrago.network.loads_t.p_set[etrago.network.loads[
+            (etrago.network.loads.bus==row.bus)
+            & (etrago.network.loads.p_set == 0)
+            ].index] += row.p_set
+        etrago.network.remove(
+            "Load",
+            i
+            )
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
