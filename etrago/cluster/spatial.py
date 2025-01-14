@@ -115,6 +115,7 @@ def strategies_buses():
 def strategies_lines():
     return {
         "geom": nan_links,
+        "country": "first"
     }
 
 
