@@ -783,7 +783,8 @@ def preprocessing(etrago, apply_on="grid_model"):
         network.buses.country.loc[network.buses.country.isna()] = "DE"
 
     if settings["k_elec_busmap"] is False:
-        busmap_foreign = unify_foreign_buses(etrago)
+        busmap_foreign = pd.Series(name="foreign", dtype=str)
+        #busmap_foreign = unify_foreign_buses(etrago)
     else:
         busmap_foreign = pd.Series(name="foreign", dtype=str)
 
