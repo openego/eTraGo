@@ -717,6 +717,22 @@ def run_etrago(args, json_path):
             i
             )
 
+    # Standardize naming of H2 infrastructure
+    etrago.network.links.loc[etrago.network.links.carrier=="H2_pipeline", "carrier"] = "H2_grid"
+    etrago.network.links.loc[etrago.network.links.carrier=="H2_retrofit", "carrier"] = "H2_grid"
+    etrago.network.buses.loc[(etrago.network.buses.carrier =="H2")
+                             & (etrago.network.buses.country!="DE"), "carrier"] = "H2_grid"
+
+    # Drop isolated H2_grid bus in Hallendorf next to Salzgitter
+    etrago.network.links.loc[etrago.network.links.bus0=='45316', "bus0"] = "45246"
+    etrago.network.remove("Bus", "45316")
+    
+    etrago.network.links.loc[
+        etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
+        "p_nom_max"] = etrago.network.links.loc[
+            etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
+            "p_nom_min"] * 1.01
+    
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
