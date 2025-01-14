@@ -140,6 +140,7 @@ def strategies_one_ports():
             "e_initial": "sum",
             "e_min_pu": "mean",
             "e_max_pu": "mean",
+            "e_nom_extendable": "any",
         },
     }
 
@@ -164,7 +165,7 @@ def strategies_links():
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
         "p_nom": "sum",
-        "p_nom_extendable": _make_consense_links,
+        "p_nom_extendable": "any",
         "p_nom_max": sum_with_inf,
         "capital_cost": "mean",
         "length": "mean",
