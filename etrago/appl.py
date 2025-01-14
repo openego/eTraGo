@@ -694,10 +694,14 @@ def run_etrago(args, json_path):
         ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
          '211', '212', '213', '214'])
 
+    # Set build years to 0 to avoid problems in the clustering
     etrago.network.lines.build_year = 0
+    etrago.network.links.build_year = 0
+    
+    # Rename carrier of low voltage bus in foreign countries
     etrago.network.buses.loc[
         etrago.network.buses.carrier == "low_voltage", "carrier"] = "AC"
-    
+
     # Add static p-set to other AC load
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier=="AC") &
