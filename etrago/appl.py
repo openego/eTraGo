@@ -689,15 +689,12 @@ def run_etrago(args, json_path):
     
         from itertools import count
     
-        # Zähler für neue Bus- und Store-IDs
         next_bus_id = max(etrago.network.buses.index.astype(int)) + 1
         next_store_id = max(etrago.network.stores.index.astype(int)) + 1
         bus_id_counter = count(start=next_bus_id)
         store_id_counter = count(start=next_store_id)
         
-        # Iteriere durch alle relevanten Busse
         for bus in PtH2_AC_buses:
-            # Links für den aktuellen Bus
             power_to_h2_links = etrago.network.links[
                 (etrago.network.links.carrier == "power_to_H2") & (etrago.network.links.bus0 == bus)].index
             power_to_heat_links = etrago.network.links[
@@ -718,7 +715,7 @@ def run_etrago(args, json_path):
                 new_bus_id = next(bus_id_counter)
                 new_store_id = next(store_id_counter)
         
-                # Füge neuen Heat-Bus und Store hinzu
+                # Add new heat/o2-bus and -store
                 etrago.network.add("Bus", name=new_bus_id, carrier=f"PtH2_extra_bus_{carrier}")
                 etrago.network.add(
                     "Store",
@@ -734,15 +731,15 @@ def run_etrago(args, json_path):
                 )
                 etrago.network.stores.loc[str(new_store_id), "scn_name"] = args["scn_name"]
         
-                # Aktualisiere den Multiple Link mit dem neuen Heat-Bus
+                #Connect multiple link with new heat/o2-bus
                 etrago.network.links.loc[power_to_h2_links, f"bus{idx}"] = str(new_bus_id)
                 etrago.network.links.loc[power_to_h2_links, f"efficiency{idx}"] = efficiency
         
-                # Erstelle individuelle Links vom neuen Heat-Bus zu den Ziel-Bussen
+                # Adjust originals waste_heat- and oxygen-links with new bus0
                 for link in links:
                     etrago.network.links.loc[link, "bus0"] = str(new_bus_id)
                 
-                               
+                           
     adjust_PtH2_model()  
 
     # adjust network regarding eTraGo setting
