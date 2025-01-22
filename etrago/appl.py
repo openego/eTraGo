@@ -747,6 +747,10 @@ def run_etrago(args, json_path):
             etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
             "p_nom_min"] * 1.01
     
+    etrago.network.loads_t.p_set.where(
+        etrago.network.loads_t.p_set.abs()>1e-5, other=0., inplace=True)
+    etrago.network.generators_t.p_max_pu.where(
+        etrago.network.generators_t.p_max_pu>1e-5, other=0., inplace=True)
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
@@ -756,7 +760,13 @@ def run_etrago(args, json_path):
     # spatial clustering
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
-
+    etrago.network.links.loc[
+        etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
+        "p_nom_max"] = etrago.network.links.loc[
+            etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
+            "p_nom_min"] * 1.01
+    
+    
     # snapshot clustering
     etrago.snapshot_clustering()
 
