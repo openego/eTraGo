@@ -47,6 +47,9 @@ __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 def market_optimization(self):
     logger.info("Start building pre market model")
     build_market_model(self)
+    
+    self.pre_market_model.links.loc[self.pre_market_model.links.p_nom_extendable, "committable"] = False
+    
     self.pre_market_model.determine_network_topology()
 
     logger.info("Start solving pre market model")
@@ -86,6 +89,8 @@ def market_optimization(self):
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self)
+
+    self.market_model.links.loc[self.market_model.links.p_nom_extendable, "committable"] = False
     self.market_model.determine_network_topology()
     logger.info("Start solving short-term UC market model")
 
