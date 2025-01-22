@@ -688,6 +688,20 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
     
+    # Drop buses with only NaN values
+    etrago.network.mremove(
+        "Bus", 
+        etrago.network.buses[etrago.network.buses.carrier.isnull()].index
+        )
+    
+    # Drop isolated O2 buses
+    etrago.network.mremove(
+        "Bus", 
+        etrago.network.buses[
+            (etrago.network.buses.carrier == "O2") & 
+            (~etrago.network.buses.index.isin(
+                etrago.network.loads.bus))].index)
+
     # Drop biogas generators without bus
     etrago.network.mremove(
         "Generator",
