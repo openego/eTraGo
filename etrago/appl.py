@@ -49,7 +49,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "eGon100_2025",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -72,7 +72,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 4,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -83,7 +83,7 @@ args = {
         "threads": 4,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -677,7 +677,7 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
@@ -729,7 +729,15 @@ def run_etrago(args, json_path):
                     e_cyclic=False,
                     standing_loss=1
                 )
+
                 etrago.network.stores.loc[str(new_store_id), "scn_name"] = args["scn_name"]
+                etrago.network.buses.loc[str(new_bus_id), "scn_name"] = args["scn_name"]
+                etrago.network.buses.loc[str(new_bus_id), "country"] = 'DE'
+                
+                #set coordinates for new bus for the clustering method
+                bus0_index = etrago.network.links.loc[power_to_h2_links, "bus0"]  
+                etrago.network.buses.loc[str(new_bus_id), "x"] = etrago.network.buses.loc[bus0_index, "x"].values[0]
+                etrago.network.buses.loc[str(new_bus_id), "y"] = etrago.network.buses.loc[bus0_index, "y"].values[0]
         
                 #Connect multiple link with new heat/o2-bus
                 etrago.network.links.loc[power_to_h2_links, f"bus{idx}"] = str(new_bus_id)
@@ -739,8 +747,8 @@ def run_etrago(args, json_path):
                 for link in links:
                     etrago.network.links.loc[link, "bus0"] = str(new_bus_id)
                 
+                
                            
-    adjust_PtH2_model()  
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
@@ -752,6 +760,8 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
 
+    adjust_PtH2_model()  
+    print('PtH2_model adjusted')
     # snapshot clustering
     etrago.snapshot_clustering()
 
