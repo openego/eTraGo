@@ -687,26 +687,6 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-    
-    # Drop buses with only NaN values
-    etrago.network.mremove(
-        "Bus", 
-        etrago.network.buses[etrago.network.buses.carrier.isnull()].index
-        )
-    
-    # Drop isolated O2 buses
-    etrago.network.mremove(
-        "Bus", 
-        etrago.network.buses[
-            (etrago.network.buses.carrier == "O2") & 
-            (~etrago.network.buses.index.isin(
-                etrago.network.loads.bus))].index)
-
-    # Drop biogas generators without bus
-    etrago.network.mremove(
-        "Generator",
-        ['201', '202', '203', '204', '205', '206', '207', '208', '209', '210',
-         '211', '212', '213', '214'])
 
     # Set build years to 0 to avoid problems in the clustering
     etrago.network.lines.build_year = 0
@@ -732,15 +712,14 @@ def run_etrago(args, json_path):
             )
 
     # Standardize naming of H2 infrastructure
-    etrago.network.links.loc[etrago.network.links.carrier=="H2_pipeline", "carrier"] = "H2_grid"
-    etrago.network.links.loc[etrago.network.links.carrier=="H2_retrofit", "carrier"] = "H2_grid"
-    etrago.network.buses.loc[(etrago.network.buses.carrier =="H2")
-                             & (etrago.network.buses.country!="DE"), "carrier"] = "H2_grid"
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="H2_pipeline", "carrier"] = "H2_grid"
+    etrago.network.links.loc[
+        etrago.network.links.carrier=="H2_retrofit", "carrier"] = "H2_grid"
+    etrago.network.buses.loc[
+        (etrago.network.buses.carrier =="H2")
+        & (etrago.network.buses.country!="DE"), "carrier"] = "H2_grid"
 
-    # Drop isolated H2_grid bus in Hallendorf next to Salzgitter
-    etrago.network.links.loc[etrago.network.links.bus0=='45316', "bus0"] = "45246"
-    etrago.network.remove("Bus", "45316")
-    
     etrago.network.links.loc[
         etrago.network.links.p_nom_max < etrago.network.links.p_nom_min,
         "p_nom_max"] = etrago.network.links.loc[
