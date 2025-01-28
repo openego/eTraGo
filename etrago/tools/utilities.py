@@ -3092,6 +3092,18 @@ def manual_fixes_datamodel(etrago):
                 etrago.network.remove("Link", discharger.index[0])
             etrago.network.mremove("Store", foreign_stores.index)
 
+        # Set foreign store components extendable
+        etrago.network.stores.carrier.unique()
+        ext_foreign_stores = etrago.network.stores[
+            (etrago.network.stores.carrier.isin([
+                "urban_central_water_tanks", "rural_water_tanks",
+                'urban_decentral_water_tanks', 'H2_overground',
+                'H2_underground', "H2_Store", 'central_heat_store',
+                'rural_heat_store'])) &
+            (etrago.network.stores.bus.isin(
+                etrago.network.buses[etrago.network.buses.country!="DE"].index))].copy()
+        etrago.network.stores.loc[ext_foreign_stores.index, "e_nom_extendable"] = True
+
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier=="AC") &
