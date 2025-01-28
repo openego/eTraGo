@@ -3082,6 +3082,17 @@ def manual_fixes_datamodel(etrago):
                 i
                 )
 
+    # Standardize naming of H2 infrastructure
+    if "H2_pipeline" in etrago.network.links.carrier.unique():
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="H2_pipeline", "carrier"] = "H2_grid"
+        etrago.network.links.loc[
+            etrago.network.links.carrier=="H2_retrofit", "carrier"] = "H2_grid"
+        etrago.network.buses.loc[
+            (etrago.network.buses.carrier =="H2")
+            & (etrago.network.buses.country!="DE"), "carrier"] = "H2_grid"
+
+
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """
     Translates all component DataFrames within the pypsa network
