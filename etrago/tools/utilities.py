@@ -3056,6 +3056,15 @@ def manual_fixes_datamodel(etrago):
             index=etrago.network.snapshots,
         )
 
+    if etrago.args["scn_name"] == "eGon100RE":
+        # Fix starting capacity of foreign DC-lines
+        etrago.network.links.loc[(
+            etrago.network.links.carrier=="DC"),
+            "p_nom_min"
+            ] = etrago.network.links.loc[(
+                etrago.network.links.carrier=="DC"),
+                "p_nom"
+                ]
 
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """
