@@ -2966,6 +2966,10 @@ def manual_fixes_datamodel(etrago):
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
 
+    # Set build years to 0 to avoid problems in the clustering
+    etrago.network.lines.build_year = 0
+    etrago.network.links.build_year = 0
+
     # Set efficiences of CHP
     etrago.network.links.loc[
         etrago.network.links[
