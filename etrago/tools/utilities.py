@@ -3066,6 +3066,32 @@ def manual_fixes_datamodel(etrago):
                 "p_nom"
                 ]
 
+        # Model foreign batteries as StorageUnits
+        for carrier in ["battery", "home_battery"]:
+            foreign_stores = etrago.network.stores[
+                (etrago.network.stores.carrier==carrier) &
+                (etrago.network.stores.bus.isin(
+                    etrago.network.buses[etrago.network.buses.country!="DE"].index))].copy()
+            foreign_stores_grouped = foreign_stores.groupby("bus").e_nom.sum().reset_index()
+            for i, row in foreign_stores_grouped.iterrows():
+                charger = etrago.network.links[etrago.network.links.bus1==row.bus]
+                discharger = etrago.network.links[etrago.network.links.bus0==row.bus]
+                max_hours = 6
+                etrago.network.add(
+                    "StorageUnit",
+                    name=str(etrago.network.storage_units.index.astype(int).max() + 1),
+                    bus=charger.bus0.values[0],
+                    p_nom = row.e_nom / max_hours,
+                    max_hours = max_hours,
+                    carrier = carrier,
+                    p_nom_min = 0,
+                    p_nom_extendable = True
+                    )
+                etrago.network.remove("Bus", row.bus)
+                etrago.network.remove("Link", charger.index[0])
+                etrago.network.remove("Link", discharger.index[0])
+            etrago.network.mremove("Store", foreign_stores.index)
+
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier=="AC") &
