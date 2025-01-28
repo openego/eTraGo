@@ -682,6 +682,13 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            ["electricity_distribution_grid", "rural_ground_heat_pump",
+             "rural_resistive_heater", "urban_central_air_heat_pump",
+             "urban_central_resistive_heater", 
+             "urban_decentral_resistive_heater"]), "p_nom_extendable"] = False
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
