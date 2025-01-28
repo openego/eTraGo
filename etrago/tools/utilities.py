@@ -3066,6 +3066,22 @@ def manual_fixes_datamodel(etrago):
                 "p_nom"
                 ]
 
+    # Add static p-set to other AC load in foreign countries
+    static_ac_loads = etrago.network.loads[
+        (etrago.network.loads.carrier=="AC") &
+        (etrago.network.loads.p_set > 0)
+        ]
+    if not static_ac_loads.empty:
+        for i, row in static_ac_loads.iterrows():
+            etrago.network.loads_t.p_set[etrago.network.loads[
+                (etrago.network.loads.bus==row.bus)
+                & (etrago.network.loads.p_set == 0)
+                ].index] += row.p_set
+            etrago.network.remove(
+                "Load",
+                i
+                )
+
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """
     Translates all component DataFrames within the pypsa network
