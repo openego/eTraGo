@@ -2970,6 +2970,14 @@ def manual_fixes_datamodel(etrago):
     etrago.network.lines.build_year = 0
     etrago.network.links.build_year = 0
 
+    # Set foreign links not-extendable
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            ["electricity_distribution_grid", "rural_ground_heat_pump",
+             "rural_resistive_heater", "urban_central_air_heat_pump",
+             "urban_central_resistive_heater",
+             "urban_decentral_resistive_heater"]), "p_nom_extendable"] = False
+
     # Set efficiences of CHP
     etrago.network.links.loc[
         etrago.network.links[
