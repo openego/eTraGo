@@ -110,6 +110,7 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    adjust_PtH2_model
 )
 
 logger = logging.getLogger(__name__)
@@ -371,6 +372,8 @@ class Etrago:
     post_contingency_analysis = post_contingency_analysis_lopf
 
     sclopf = iterate_sclopf
+    
+    adjust_PtH2_model = adjust_PtH2_model
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
