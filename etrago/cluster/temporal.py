@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" This module contains functions for reducing the complexity of a PyPSA
+"""This module contains functions for reducing the complexity of a PyPSA
  network in temporal dimension by
 a) downsampling to every n-th snapshot
 b) clustering to typical periods (eg days, weeks)
