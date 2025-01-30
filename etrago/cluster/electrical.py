@@ -155,18 +155,20 @@ def adjust_no_electric_network(
     # and links
     network2 = network.copy(with_time=False)
     network2.buses = network2.buses[
-        (network2.buses["carrier"] != "AC")
-        & (network2.buses["carrier"] != "CH4")
-        & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "rural_heat_store")
-        & (network2.buses["carrier"] != "central_heat")
-        & (network2.buses["carrier"] != "central_heat_store")
+    (network2.buses["carrier"] != "AC")
+    & (network2.buses["carrier"] != "CH4")
+    & (network2.buses["carrier"] != "H2_saltcavern")
+    & (network2.buses["carrier"] != "rural_heat_store")
+    & (network2.buses["carrier"] != "central_heat")
+    & (network2.buses["carrier"] != "central_heat_store")
+    & (network2.buses["country"] == 'DE')
     ]
     map_carrier = {
-        "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
         "Li ion": "BEV charger",
-        "O2": "power_to_O2",
+        "H2_grid": "power_to_H2",
+        "H2": "power_to_H2",
+        "O2": "PtH2_O2",
         "rural_heat": "rural_heat_pump",
     }
 
