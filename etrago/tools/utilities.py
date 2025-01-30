@@ -3161,7 +3161,7 @@ def manual_fixes_datamodel(etrago):
                     etrago.network.links.carrier
                     == "electricity_distribution_grid"
                 )
-            ]
+            ].copy()
             new_bus = link.bus0.unique()[0]
             for comp in etrago.network.iterate_components():
                 if "bus" in comp.df.columns:
