@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" electrical.py defines the methods to cluster power grid networks
+"""electrical.py defines the methods to cluster power grid networks
 spatially for applications within the tool eTraGo."""
 
 import os

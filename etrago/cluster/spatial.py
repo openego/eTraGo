@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" spatial.py defines the methods to run spatial clustering on networks."""
+"""spatial.py defines the methods to run spatial clustering on networks."""
 
 import os
 

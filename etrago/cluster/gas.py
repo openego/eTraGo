@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" gas.py defines the methods to cluster gas grid networks
+"""gas.py defines the methods to cluster gas grid networks
 spatially for applications within the tool eTraGo."""
 
 import os
