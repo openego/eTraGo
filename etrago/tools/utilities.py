@@ -2966,6 +2966,25 @@ def manual_fixes_datamodel(etrago):
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
 
+    # Set build years to 0 to avoid problems in the clustering
+    etrago.network.lines.build_year = 0
+    etrago.network.links.build_year = 0
+
+    # Set foreign links not-extendable
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            [
+                "electricity_distribution_grid",
+                "rural_ground_heat_pump",
+                "rural_resistive_heater",
+                "urban_central_air_heat_pump",
+                "urban_central_resistive_heater",
+                "urban_decentral_resistive_heater",
+            ]
+        ),
+        "p_nom_extendable",
+    ] = False
+
     # Set efficiences of CHP
     etrago.network.links.loc[
         etrago.network.links[
@@ -3051,6 +3070,136 @@ def manual_fixes_datamodel(etrago):
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
         )
+
+    if etrago.args["scn_name"] == "eGon100RE":
+        # Fix starting capacity of foreign DC-lines
+        etrago.network.links.loc[
+            (etrago.network.links.carrier == "DC"), "p_nom_min"
+        ] = etrago.network.links.loc[
+            (etrago.network.links.carrier == "DC"), "p_nom"
+        ]
+
+        # Model foreign batteries as StorageUnits
+        for carrier in ["battery", "home_battery"]:
+            foreign_stores = etrago.network.stores[
+                (etrago.network.stores.carrier == carrier)
+                & (
+                    etrago.network.stores.bus.isin(
+                        etrago.network.buses[
+                            etrago.network.buses.country != "DE"
+                        ].index
+                    )
+                )
+            ].copy()
+            foreign_stores_grouped = (
+                foreign_stores.groupby("bus").e_nom.sum().reset_index()
+            )
+            for i, row in foreign_stores_grouped.iterrows():
+                charger = etrago.network.links[
+                    etrago.network.links.bus1 == row.bus
+                ]
+                discharger = etrago.network.links[
+                    etrago.network.links.bus0 == row.bus
+                ]
+                max_hours = 6
+                etrago.network.add(
+                    "StorageUnit",
+                    name=str(
+                        etrago.network.storage_units.index.astype(int).max()
+                        + 1
+                    ),
+                    bus=charger.bus0.values[0],
+                    p_nom=row.e_nom / max_hours,
+                    max_hours=max_hours,
+                    carrier=carrier,
+                    p_nom_min=0,
+                    p_nom_extendable=True,
+                )
+                etrago.network.remove("Bus", row.bus)
+                etrago.network.remove("Link", charger.index[0])
+                etrago.network.remove("Link", discharger.index[0])
+            etrago.network.mremove("Store", foreign_stores.index)
+
+        # Set foreign store components extendable
+        etrago.network.stores.carrier.unique()
+        ext_foreign_stores = etrago.network.stores[
+            (
+                etrago.network.stores.carrier.isin(
+                    [
+                        "urban_central_water_tanks",
+                        "rural_water_tanks",
+                        "urban_decentral_water_tanks",
+                        "H2_overground",
+                        "H2_underground",
+                        "H2_Store",
+                        "central_heat_store",
+                        "rural_heat_store",
+                    ]
+                )
+            )
+            & (
+                etrago.network.stores.bus.isin(
+                    etrago.network.buses[
+                        etrago.network.buses.country != "DE"
+                    ].index
+                )
+            )
+        ].copy()
+        etrago.network.stores.loc[
+            ext_foreign_stores.index, "e_nom_extendable"
+        ] = True
+
+        # Temporary drop low_voltage buses in foreign countries and combine
+        # them with AC
+        low_voltage_buses = etrago.network.buses.loc[
+            etrago.network.buses.carrier == "low_voltage"
+        ].copy()
+        for i, row in low_voltage_buses.iterrows():
+            link = etrago.network.links[
+                (etrago.network.links.bus1 == i)
+                & (
+                    etrago.network.links.carrier
+                    == "electricity_distribution_grid"
+                )
+            ].copy()
+            new_bus = link.bus0.unique()[0]
+            for comp in etrago.network.iterate_components():
+                if "bus" in comp.df.columns:
+                    comp.df.loc[comp.df.bus == i, "bus"] = new_bus
+                elif "bus0" in comp.df.columns:
+                    comp.df.loc[comp.df.bus0 == i, "bus0"] = new_bus
+                    comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
+            etrago.network.remove("Bus", i)
+            etrago.network.mremove("Link", link.index)
+
+    # Add static p-set to other AC load in foreign countries
+    static_ac_loads = etrago.network.loads[
+        (etrago.network.loads.carrier == "AC")
+        & (etrago.network.loads.p_set > 0)
+    ]
+    if not static_ac_loads.empty:
+        for i, row in static_ac_loads.iterrows():
+            etrago.network.loads_t.p_set[
+                etrago.network.loads[
+                    (etrago.network.loads.bus == row.bus)
+                    & (etrago.network.loads.p_set == 0)
+                ].index
+            ] += row.p_set
+            etrago.network.remove("Load", i)
+
+    # Standardize naming of H2 infrastructure
+    if "H2_pipeline" in etrago.network.links.carrier.unique():
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "H2_pipeline", "carrier"
+        ] = "H2_grid"
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "H2_retrofit", "carrier"
+        ] = "H2_grid"
+        etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "H2")
+            & (etrago.network.buses.country != "DE"),
+            "carrier",
+        ] = "H2_grid"
 
 
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
