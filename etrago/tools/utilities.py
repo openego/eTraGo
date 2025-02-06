@@ -3201,6 +3201,11 @@ def manual_fixes_datamodel(etrago):
             "carrier",
         ] = "H2_grid"
 
+    # Standardize "type" attribute in O2 buses
+    if "O2" in etrago.network.buses.carrier.unique():
+        o2_buses = etrago.network.buses[etrago.network.buses.carrier == "O2"]
+        etrago.network.buses.loc[o2_buses.index, "type"] = 1
+
 
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """

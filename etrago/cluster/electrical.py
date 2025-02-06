@@ -901,12 +901,6 @@ def postprocessing(
         etrago, busmap, cluster_met=method, apply_on=apply_on
     )
 
-    ###########################################################################
-    # PROVISIONAL FIX FOR O2 BUSES
-    o2_buses = network.buses[network.buses.carrier == "O2"]
-    network.buses.loc[o2_buses.index, "type"] = 1
-    ###########################################################################
-
     # merge busmap for foreign buses with the German buses
     if not settings["cluster_foreign_AC"] and (apply_on == "grid_model"):
         for bus in busmap_foreign.index:
