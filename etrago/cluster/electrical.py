@@ -166,7 +166,7 @@ def adjust_no_electric_network(
         "H2_saltcavern": "power_to_H2",
         "dsm": "dsm",
         "Li ion": "BEV charger",
-        "O2": "power_to_O2",
+        "Li_ion": "BEV_charger",
         "rural_heat": "rural_heat_pump",
     }
 
