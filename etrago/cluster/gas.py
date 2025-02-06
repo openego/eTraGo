@@ -982,7 +982,6 @@ def run_spatial_clustering_gas(self):
         "H2_grid" in self.network.buses.carrier.values
     ):
         settings = self.args["network_clustering"]
-        scn = self.args["scn_name"]
 
         if settings["active"]:
             method = settings["method_gas"]
@@ -1008,7 +1007,7 @@ def run_spatial_clustering_gas(self):
                     busmap_ch4, medoid_idx_ch4 = kmean_clustering_gas(
                         self, ch4_network, weight_ch4, n_clusters_ch4
                     )
-                    if scn not in ["eGon2035", "status2019"]:
+                    if "H2_grid" in self.network.links.carrier.unique():
                         busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
                             self, h2_network, weight_h2, n_clusters_h2
                         )
@@ -1035,7 +1034,7 @@ def run_spatial_clustering_gas(self):
                         weight_ch4,
                         n_clusters_ch4,
                     )
-                    if scn not in ["eGon2035", "status2019"]:
+                    if "H2_grid" in self.network.links.carrier.unique():
                         busmap_h2, medoid_idx_h2 = (
                             kmedoids_dijkstra_clustering(
                                 self,
@@ -1053,7 +1052,7 @@ def run_spatial_clustering_gas(self):
                 )
                 raise ValueError(msg)
 
-            if scn not in ["eGon2035", "status2019"]:
+            if "H2_grid" in self.network.links.carrier.unique():
                 busmap, medoid_idx = join_busmap_medoids(
                     busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
                 )
@@ -1089,7 +1088,7 @@ def run_spatial_clustering_gas(self):
                 )
             )
 
-            if scn not in ["eGon2035", "status2019"]:
+            if "H2_grid" in self.network.links.carrier.unique():
                 logger.info(
                     """H2 Network clustered to {} DE-buses and {} foreign buses
                      with {} algorithm.""".format(
