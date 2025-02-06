@@ -123,8 +123,8 @@ args = {
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
-        "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
-        "n_clusters_h2": 14,  # total number of resulting H2 nodes (DE+foreign)
+        "n_clusters_gas": 15,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
