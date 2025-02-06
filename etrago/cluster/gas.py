@@ -991,7 +991,7 @@ def run_spatial_clustering_gas(self):
             ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
                 self, "CH4"
             )
-            if scn not in ["eGon2035", "status2019"]:
+            if "H2_grid" in self.network.links.carrier.unique():
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
                 )
