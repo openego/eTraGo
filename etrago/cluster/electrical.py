@@ -238,28 +238,26 @@ def adjust_no_electric_network(
             f"""There are {len(no_elec_conex)} buses that have no direct
             connection to the electric network: {no_elec_conex}"""
         )
-
-    # rural_heat_store buses are clustered based on the AC buses connected to
-    # their corresponding rural_heat buses. Results saved in busmap4
-    links_rural_store = etrago.network.links[
-        etrago.network.links.carrier == "rural_heat_store_charger"
-    ].copy()
-
+        
     busmap4 = {}
-    links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap3)
-    for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
-        cluster_bus = df.bus1.iat[0]
-        for rural_store_bus in df.bus1:
-            busmap4[rural_store_bus] = cluster_bus
+    if "rural_heat" in map_carrier.keys():
+        # rural_heat_store buses are clustered based on the AC buses connected to
+        # their corresponding rural_heat buses. Results saved in busmap4
+        links_rural_store = etrago.network.links[
+            etrago.network.links.carrier == "rural_heat_store_charger"
+        ].copy()
+        links_rural_store["to_ac"] = links_rural_store["bus0"].map(busmap3)
+        for rural_heat_bus, df in links_rural_store.groupby("to_ac"):
+            cluster_bus = df.bus1.iat[0]
+            for rural_store_bus in df.bus1:
+                busmap4[rural_store_bus] = cluster_bus
 
-    # Add the gas buses to the busmap and map them to themself
-    for gas_bus in network.buses[
-        (network.buses["carrier"] == "H2_grid")
-        | (network.buses["carrier"] == "CH4")
-        | (network.buses["carrier"] == "central_heat")
-        | (network.buses["carrier"] == "central_heat_store")
+    # Add the buses not related to AC to the busmap and map them to themself
+    for no_ac_bus in network.buses[
+        ~network.buses["carrier"].isin(
+            np.append(network2.buses.carrier.unique(), "AC"))
     ].index:
-        busmap2[gas_bus] = gas_bus
+        busmap2[no_ac_bus] = no_ac_bus
 
     busmap = {**busmap, **busmap2, **busmap3, **busmap4}
 
