@@ -3114,6 +3114,7 @@ def manual_fixes_datamodel(etrago):
                     carrier=carrier,
                     p_nom_min=0,
                     p_nom_extendable=True,
+                    cyclic_state_of_charge=True,
                 )
                 etrago.network.remove("Bus", row.bus)
                 etrago.network.remove("Link", charger.index[0])
