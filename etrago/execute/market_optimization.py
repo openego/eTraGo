@@ -43,6 +43,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
+from etrago.tools.utilities import adjust_PtH2_model
 
 def market_optimization(self):
     logger.info("Start building pre market model")
@@ -414,6 +415,9 @@ def build_market_model(self):
 
     self.pre_market_model = net
 
+    self.pre_market_model = adjust_PtH2_model(self)
+    logger.info("PtH2-Model adjusted")
+    
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
