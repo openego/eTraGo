@@ -153,22 +153,32 @@ def adjust_no_electric_network(
 
     # network2 is supposed to contain all the not electrical or gas buses
     # and links
+    # resp: Buses that are aggregated only based on the AC bus they are
+    # connected to via a link (carriers in map_carrier)
     network2 = network.copy(with_time=False)
+    
+    if etrago.args["scn_name"] == "eGon100RE":
+        map_carrier = {
+            "dsm": "dsm",
+            "Li ion": "BEV charger",
+            "Li_ion": "BEV_charger",
+            "O2": "PtH2_O2",
+        }
+    else:
+        map_carrier = {
+            "H2_saltcavern": "power_to_H2",
+            "dsm": "dsm",
+            "Li ion": "BEV charger",
+            "Li_ion": "BEV_charger",
+            "O2": "PtH2_O2",
+            "rural_heat": "rural_heat_pump",
+        }
+    
+    # network2 contains all busses that will be clustered only based on AC 
+    # connection
     network2.buses = network2.buses[
-        (network2.buses["carrier"] != "AC")
-        & (network2.buses["carrier"] != "CH4")
-        & (network2.buses["carrier"] != "H2_grid")
-        & (network2.buses["carrier"] != "rural_heat_store")
-        & (network2.buses["carrier"] != "central_heat")
-        & (network2.buses["carrier"] != "central_heat_store")
+        network2.buses["carrier"].isin(map_carrier.keys())
     ]
-    map_carrier = {
-        "H2_saltcavern": "power_to_H2",
-        "dsm": "dsm",
-        "Li ion": "BEV charger",
-        "Li_ion": "BEV_charger",
-        "rural_heat": "rural_heat_pump",
-    }
 
     no_elec_conex = []
     # busmap2 defines how the no electrical buses directly connected to AC
