@@ -716,6 +716,11 @@ def run_etrago(args, json_path):
     # skip snapshots
     etrago.skip_snapshots()
 
+    for comp in etrago.network.iterate_components():
+        for key in comp.pnl:
+            comp.pnl[key].where(
+                comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+
     # start linear optimal powerflow calculations
     etrago.optimize()
 
