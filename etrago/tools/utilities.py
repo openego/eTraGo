@@ -3173,6 +3173,28 @@ def manual_fixes_datamodel(etrago):
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
 
+        # Drop CH4_for_industry bus and link and add the load to the 
+        # corresponding CH4 bus
+        ch4_ind_buses = etrago.network.buses.loc[
+            etrago.network.buses.carrier == "CH4_for_industry"
+        ].copy()
+        for i, row in ch4_ind_buses.iterrows():
+            link = etrago.network.links[
+                (etrago.network.links.bus1 == i)
+                & (
+                    etrago.network.links.carrier
+                    == "CH4_for_industry"
+                )
+            ].copy()
+            new_bus = link.bus0.unique()[0]
+            for comp in etrago.network.iterate_components():
+                if "bus" in comp.df.columns:
+                    comp.df.loc[comp.df.bus == i, "bus"] = new_bus
+                elif "bus0" in comp.df.columns:
+                    comp.df.loc[comp.df.bus0 == i, "bus0"] = new_bus
+                    comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
+            etrago.network.remove("Bus", i)
+            etrago.network.mremove("Link", link.index)
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier == "AC")
