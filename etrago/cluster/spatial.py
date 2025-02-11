@@ -156,12 +156,13 @@ def strategies_generators():
         "marginal_cost": "mean",
         "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
+        "up_time_before": "mean",
     }
 
 
 def strategies_links():
     return {
-        "scn_name": _make_consense_links,
+        "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
