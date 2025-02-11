@@ -414,9 +414,12 @@ def build_market_model(self):
     net.storage_units.cyclic_state_of_charge = True
 
     self.pre_market_model = net
+    
+    gas_clustering_market_model(self)
 
     self.pre_market_model = adjust_PtH2_model(self)
     logger.info("PtH2-Model adjusted")
+
     
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
@@ -495,3 +498,74 @@ def build_shortterm_market_model(self):
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
     self.geolocation_buses(apply_on="market_model")
+    
+def gas_clustering_market_model(self):
+    from etrago.cluster.gas import (
+        preprocessing as gas_preprocessing,
+        gas_postprocessing
+        
+        )
+    ch4_network, weight_ch4, n_clusters_ch4 = gas_preprocessing(
+        self, "CH4", apply_on="market_model"
+    )
+    
+    df = pd.DataFrame(
+        {
+            "country": ch4_network.buses.country.unique(),
+            "marketzone": ch4_network.buses.country.unique(),
+        },
+        columns=["country", "marketzone"],
+    )
+
+    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+        "DE/LU"
+    )
+
+    df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
+
+    for i in ch4_network.buses.country.unique():
+        ch4_network.buses.loc[ch4_network.buses.country == i, "cluster"] = df.loc[
+            df.country == i, "cluster"
+        ].values[0]
+
+    busmap = pd.Series(
+        ch4_network.buses.cluster.astype(int).astype(str), ch4_network.buses.index
+    )    
+    
+    if "H2_grid" in self.network.links.carrier.unique():  
+        h2_network, weight_h2, n_clusters_h2 = gas_preprocessing(
+            self, "H2_grid", apply_on="market_model"
+        )        
+
+        df_h2 = pd.DataFrame(
+            {
+                "country": h2_network.buses.country.unique(),
+                "marketzone": h2_network.buses.country.unique(),
+            },
+            columns=["country", "marketzone"],
+        )
+
+        df_h2.loc[(df.country == "DE") | (df_h2.country == "LU"), "marketzone"] = (
+            "DE/LU"
+        )
+
+        df_h2["cluster"] = df_h2.groupby(df_h2.marketzone).grouper.group_info[0] + len(df)
+
+        for i in h2_network.buses.country.unique():
+            h2_network.buses.loc[h2_network.buses.country == i, "cluster"] = df_h2.loc[
+                df_h2.country == i, "cluster"
+            ].values[0]
+    
+        busmap = pd.concat(
+            [busmap,  pd.Series(
+                h2_network.buses.cluster.astype(int).astype(str), h2_network.buses.index
+            )])
+    
+    medoid_idx = pd.Series()
+    # Set country tags for market model
+    self.buses_by_country(apply_on="pre_market_model")
+    self.geolocation_buses(apply_on="pre_market_model")
+
+    self.pre_market_model, busmap_new = gas_postprocessing(
+        self, busmap, medoid_idx = medoid_idx, apply_on="market_model")
+        
