@@ -725,6 +725,26 @@ def run_etrago(args, json_path):
         for key in comp.pnl:
             comp.pnl[key].where(
                 comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+    for comp in etrago.network_tsa.iterate_components():
+        for col in comp.df.columns:
+            if comp.df[col].dtype == "float64":
+                comp.df[col].where(
+                    comp.df[col].abs()>1e-5, other=0., inplace=True)
+        for key in comp.pnl:
+            comp.pnl[key].where(
+                comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+    for n in [etrago.network, etrago.network_tsa]:
+        n.mremove("Generator", n.generators[
+            (n.generators.p_nom_extendable == False) &
+            (n.generators.p_nom < 100)].index)
+        import numpy as np
+        n.stores.e_nom_max = np.inf
+        n.links.loc[n.links.carrier == "central_gas_boiler", "p_nom"] = 1e7
+
+        n.links.ramp_limit_up = np.nan
+        n.links.ramp_limit_down = np.nan
+        n.generators.ramp_limit_up = np.nan
+        n.generators.ramp_limit_down = np.nan
 
     # start linear optimal powerflow calculations
     etrago.optimize()
