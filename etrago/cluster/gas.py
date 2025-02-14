@@ -442,18 +442,25 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
+    if apply_on == "market_model":
+        aggregate_generators_carriers = []
+    else:
+        aggregate_generators_carriers = None
+
     network_gasgrid_c = get_clustering_from_busmap(
         network,
         busmap,
+        aggregate_generators_carriers=aggregate_generators_carriers,
         one_port_strategies=strategies_one_ports(),
         generator_strategies=strategies_generators(),
         bus_strategies=strategies_buses(),
     )
 
-    # aggregation of the links and links time series
-    network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(
-        network_gasgrid_c
-    )
+    if apply_on != "market_model":
+        # aggregation of the links and links time series
+        network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(
+            network_gasgrid_c
+        )
 
     # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
     if etrago.args["scn_name"] == "eGon2035":
@@ -824,6 +831,7 @@ def sc_single_carrier_based(connected_links):
 def get_clustering_from_busmap(
     network,
     busmap,
+    aggregate_generators_carriers=None,
     line_length_factor=1.0,
     with_time=True,
     bus_strategies=dict(),
@@ -893,6 +901,7 @@ def get_clustering_from_busmap(
             new_df, new_pnl = aggregateoneport(
                 network,
                 busmap,
+                carriers=aggregate_generators_carriers,
                 component=one_port,
                 with_time=with_time,
                 custom_strategies=generator_strategies,
