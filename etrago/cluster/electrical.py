@@ -160,8 +160,6 @@ def adjust_no_electric_network(
     if etrago.args["scn_name"] == "eGon100RE":
         map_carrier = {
             "dsm": "dsm",
-            "Li ion": "BEV charger",
-            "Li_ion": "BEV_charger",
             "O2": "PtH2_O2",
         }
     else:

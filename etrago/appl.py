@@ -161,6 +161,10 @@ args = {
                 "base": ["H2_grid"],
                 "strategy": "consecutive",  # select strategy to cluster other sectors
             },
+            "Li_ion": {
+                "base": ["AC"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
+            },
         },
     },
     "spatial_disaggregation": None,  # None or 'uniform'
