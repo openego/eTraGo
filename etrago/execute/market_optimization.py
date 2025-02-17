@@ -368,7 +368,7 @@ def build_market_model(self, unit_commitment=False):
             ["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
 
     self.pre_market_model = adjust_PtH2_model(self)
-    logger.info("PtH2-Model adjusted")
+    logger.info("PtH2-Model adjusted in pre_market_network")
 
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
