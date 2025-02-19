@@ -3072,6 +3072,14 @@ def manual_fixes_datamodel(etrago):
         )
 
     if etrago.args["scn_name"] == "eGon100RE":
+
+        # Drop H2 load for transport
+        etrago.network.mremove(
+            "Load",
+            etrago.network.loads[
+                etrago.network.loads.carrier=="H2_hgv_load"].index
+            )
+
         # Fix starting capacity of foreign DC-lines
         etrago.network.links.loc[
             (etrago.network.links.carrier == "DC"), "p_nom_min"
