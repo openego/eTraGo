@@ -184,7 +184,7 @@ def optimize_with_rolling_horizon(
             # Select seasonal stores
             seasonal_stores = n.stores.index[
                 n.stores.carrier.isin(
-                    ["central_heat_store", "H2_overground", "CH4"]
+                    ["central_heat_store", "H2_overground", "CH4", "H2_underground"]
                 )
             ]
 
