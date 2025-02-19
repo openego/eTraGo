@@ -3521,3 +3521,48 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
     
                 
     return network
+
+def adjust_chp_model(self, apply_on='pre_market_model'):
+    """
+    Adjust the modelling of chp plants in foreign countries for eGon100RE
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+
+    apply_on: str
+
+    Returns
+    -------
+    network : PyPSA network
+
+    """
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+
+    efficiency_heat = 0.42500
+
+    chp_links = network.links[
+        (network.links.carrier == "central_gas_CHP")
+        &(network.links.bus1.isin(network.buses[
+            network.buses.country!="DE"].index))
+    ].index
+
+    for i in chp_links:
+        # find central_heat bus
+        country = network.buses.loc[network.links.loc[i, "bus1"],
+                                    "country"]
+        central_heat_bus = network.buses[
+            (network.buses.carrier=="central_heat")
+            &(network.buses.country==country)].index[0]
+
+        network.links.loc[i, "bus2"] = central_heat_bus
+        network.links.loc[i, "efficiency2"] = efficiency_heat
+
+    return network

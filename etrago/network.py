@@ -110,6 +110,7 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    adjust_chp_model,
     adjust_PtH2_model,
 )
 
@@ -374,6 +375,8 @@ class Etrago:
     sclopf = iterate_sclopf
 
     adjust_PtH2_model = adjust_PtH2_model
+
+    adjust_chp_model = adjust_chp_model
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)

@@ -43,7 +43,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
-from etrago.tools.utilities import adjust_PtH2_model
+from etrago.tools.utilities import adjust_PtH2_model, adjust_chp_model
 
 def market_optimization(self):
     logger.info("Start building pre market model")
@@ -365,10 +365,13 @@ def build_market_model(self, unit_commitment=False):
 
     self.pre_market_model.links.loc[
         self.pre_market_model.links.carrier.isin(
-            ["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
+            ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
 
     self.pre_market_model = adjust_PtH2_model(self)
     logger.info("PtH2-Model adjusted in pre_market_network")
+
+    self.pre_market_model = adjust_chp_model(self)
+    logger.info("CHP model in foreign countries adjusted in pre_market_network")
 
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")

@@ -434,6 +434,8 @@ def optimize(self):
         self.network = self.adjust_PtH2_model(apply_on='grid_model')
         logger.info("PtH2-Model adjusted in network")
 
+        self.network = self.adjust_chp_model(apply_on='grid_model')
+        logger.info("CHP model in foreign countries adjusted in network")
         # self.market_results_to_grid()
 
         self.grid_optimization()
@@ -442,6 +444,9 @@ def optimize(self):
         
         self.network = self.adjust_PtH2_model(apply_on='grid_model')
         logger.info("PtH2-Model adjusted in network")
+
+        self.network = self.adjust_chp_model(apply_on='grid_model')
+        logger.info("CHP model in foreign countries adjusted in network")
 
         self.lopf()
 
