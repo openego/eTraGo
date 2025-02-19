@@ -394,12 +394,13 @@ def build_shortterm_market_model(self, unit_commitment=False):
     m.stores.e_cyclic = False
     m.storage_units.cyclic_state_of_charge = False
 
-    m.links.loc[m.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
-
     self.market_model = m
 
     if unit_commitment:
         set_unit_commitment(self, apply_on="market_model")
+
+    self.market_model.links.loc[self.market_model.links.carrier.isin(
+        ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
 
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
