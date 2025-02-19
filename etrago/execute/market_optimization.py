@@ -30,6 +30,9 @@ if "READTHEDOCS" not in os.environ:
     from shapely.geometry import Point
     import pandas as pd
     import geopandas as gpd
+    import requests
+    import os
+    
     
     from etrago.cluster.electrical import postprocessing, preprocessing
     from etrago.tools.constraints import Constraints
@@ -236,9 +239,7 @@ def optimize_with_rolling_horizon(
                 and condition {condition}"""
             )
             n.model.print_infeasibilities()
-            import pdb
-
-            pdb.set_trace()
+            
     return n
 
 
@@ -257,12 +258,14 @@ def build_market_model(self):
     None.
 
     """
-
+     
+    
     # use existing preprocessing to get only the electricity system
     net, weight, n_clusters, busmap_foreign = preprocessing(
         self, apply_on="market_model"
     )
-
+    
+    import pdb; pdb.set_trace()
     # Define market regions based on settings.
     # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
@@ -298,12 +301,37 @@ def build_market_model(self):
       
     elif (
         self.args["method"]["market_optimization"]["market_zones"]
-        == "2_zones"
+        == "DE2"
     ):
         
+        # Zenodo-URLs of required data (shape-files)
+        zenodo_urls = {
+            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.shp',
+            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.shx',
+            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.dbf',
+            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_2_DE2.prj'
+        }
+
+        # saving path
+        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
+        os.makedirs(extract_path, exist_ok=True)
+
+        # download shape files 
+        for filetype, url in zenodo_urls.items():
+            file_path = os.path.join(extract_path, f'BZR_config_2_DE2.{filetype}')
+            if not os.path.exists(file_path):  # only downloading if not existing
+                print(f"downloading shape-files {filetype}... ")
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    print(f"downloading failed for {filetype}: {response.status_code}")
+                    
         
         # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
-        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/2_Zonen.shp").to_crs(epsg=4326)
+        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_2_DE2.shp").to_crs(epsg=4326)
+        
 
         # Explode multi-polygons
         zones = zones.explode(index_parts=False).reset_index(drop=True)
@@ -347,9 +375,40 @@ def build_market_model(self):
     ):
         
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
-        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/3_Zonen.shp").to_crs(epsg=4326)
+        import geopandas as gpd
+        import requests
+        import os
+        from shapely.geometry import Point
 
+        # Zenodo-URLs of required data (shape-files)
+        zenodo_urls = {
+            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.shp',
+            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.shx',
+            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.dbf',
+            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_12_DE3.prj'
+        }
+
+        # saving path
+        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
+        os.makedirs(extract_path, exist_ok=True)
+
+        # download shape files 
+        for filetype, url in zenodo_urls.items():
+            file_path = os.path.join(extract_path, f'BZR_config_12_DE3.{filetype}')
+            if not os.path.exists(file_path):  # only downloading if not existing
+                print(f"downloading shape-files {filetype}... ")
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    print(f"downloading failed for {filetype}: {response.status_code}")
+                    
+        
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_12_DE3.shp").to_crs(epsg=4326)
+        
+       
         # Explode multi-polygons
         zones = zones.explode(index_parts=False).reset_index(drop=True)
 
@@ -386,13 +445,39 @@ def build_market_model(self):
         medoid_idx = pd.Series(dtype=str)
         
         
+        
     elif (
         self.args["method"]["market_optimization"]["market_zones"]
-        == "4_zones"
+        == "DE4"
     ):
+        # Zenodo-URLs of required data (shape-files)
+        zenodo_urls = {
+            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.shp',
+            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.shx',
+            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.dbf',
+            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_13_DE4.prj'
+        }
+
+        # saving path
+        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
+        os.makedirs(extract_path, exist_ok=True)
+
+        # download shape files 
+        for filetype, url in zenodo_urls.items():
+            file_path = os.path.join(extract_path, f'BZR_config_13_DE4.{filetype}')
+            if not os.path.exists(file_path):  # only downloading if not existing
+                print(f"downloading shape-files {filetype}... ")
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    print(f"downloading failed for {filetype}: {response.status_code}")
+                    
         
         # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
-        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/4_Zonen.shp").to_crs(epsg=4326)
+        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_13_DE4.shp").to_crs(epsg=4326)
+       
 
         # Explode multi-polygons
         zones = zones.explode(index_parts=False).reset_index(drop=True)
@@ -435,12 +520,37 @@ def build_market_model(self):
         
     elif (
         self.args["method"]["market_optimization"]["market_zones"]
-        == "5_zones"
+        == "DE5"
     ):
         
+        # Zenodo-URLs of required data (shape-files)
+        zenodo_urls = {
+            'shp': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.shp',
+            'shx': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.shx',
+            'dbf': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.dbf',
+            'prj': 'https://zenodo.org/record/14833526/files/BZR_config_14_DE5.prj'
+        }
+
+        # saving path
+        extract_path = "/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones"
+        os.makedirs(extract_path, exist_ok=True)
+
+        # download shape files 
+        for filetype, url in zenodo_urls.items():
+            file_path = os.path.join(extract_path, f'BZR_config_14_DE5.{filetype}')
+            if not os.path.exists(file_path):  # only downloading if not existing
+                print(f"downloading shape-files {filetype}... ")
+                response = requests.get(url)
+                if response.status_code == 200:
+                    with open(file_path, 'wb') as f:
+                        f.write(response.content)
+                else:
+                    print(f"downloading failed for {filetype}: {response.status_code}")
+                    
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
-        zones = gpd.read_file("/home/dozeumcui/Masterarbeit/Shape_Dateien/5_Zonen.shp").to_crs(epsg=4326)
+        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3, Zone_4, Zone_5)
+        zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_14_DE5.shp").to_crs(epsg=4326)
+        
 
         # Explode multi-polygons if necessary
         zones = zones.explode(index_parts=False).reset_index(drop=True)

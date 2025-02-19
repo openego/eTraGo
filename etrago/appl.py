@@ -58,7 +58,7 @@ args = {
         "market_optimization":
             {
                 "active": True,
-                "market_zones": "5_zones", # only used if type='market_grid'
+                "market_zones": "3_zones", # only used if type='market_grid'
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
                     "overlap": 120, # number of overlapping hours
@@ -84,7 +84,7 @@ args = {
     },
     
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
