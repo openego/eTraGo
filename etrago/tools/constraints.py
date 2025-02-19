@@ -3767,57 +3767,59 @@ def add_chp_constraints_linopy(network, snapshots):
     electric_bool = network.links.carrier == "central_gas_CHP"
     heat_bool = network.links.carrier == "central_gas_CHP_heat"
 
-    electric = network.links.index[electric_bool]
-    heat = network.links.index[heat_bool]
+    if (network.links.carrier == "central_gas_CHP_heat").any():
+        electric = network.links.index[electric_bool]
+        heat = network.links.index[heat_bool]
 
-    network.links.loc[heat, "efficiency"] = (
-        network.links.loc[electric, "efficiency"] / c_v
-    ).values.mean()
+        network.links.loc[heat, "efficiency"] = (
+            network.links.loc[electric, "efficiency"] / c_v
+        ).values.mean()
 
-    ch4_nodes_with_chp = network.buses.loc[
-        network.links.loc[electric, "bus0"].values
-    ].index.unique()
+        ch4_nodes_with_chp = network.buses.loc[
+            network.links.loc[electric, "bus0"].values
+        ].index.unique()
 
-    for i in ch4_nodes_with_chp:
-        elec_chp = network.links[
-            (network.links.carrier == "central_gas_CHP")
-            & (network.links.bus0 == i)
-        ].index
+        for i in ch4_nodes_with_chp:
+            elec_chp = network.links[
+                (network.links.carrier == "central_gas_CHP")
+                & (network.links.bus0 == i)
+            ].index
 
-        heat_chp = network.links[
-            (network.links.carrier == "central_gas_CHP_heat")
-            & (network.links.bus0 == i)
-        ].index
+            heat_chp = network.links[
+                (network.links.carrier == "central_gas_CHP_heat")
+                & (network.links.bus0 == i)
+            ].index
 
-        for snapshot in snapshots:
-            dispatch_heat = (
-                c_m
-                * get_var(network, "Link", "p").loc[snapshot, heat_chp]
-                * network.links.loc[heat_chp, "efficiency"]
-            ).sum()
-            dispatch_elec = (
-                get_var(network, "Link", "p").loc[snapshot, elec_chp]
-                * network.links.loc[elec_chp, "efficiency"]
-            ).sum()
+            for snapshot in snapshots:
+                dispatch_heat = (
+                    c_m
+                    * get_var(network, "Link", "p").loc[snapshot, heat_chp]
+                    * network.links.loc[heat_chp, "efficiency"]
+                ).sum()
+                dispatch_elec = (
+                    get_var(network, "Link", "p").loc[snapshot, elec_chp]
+                    * network.links.loc[elec_chp, "efficiency"]
+                ).sum()
 
-            define_constraints(
-                network,
-                (dispatch_heat - dispatch_elec),
-                "<=",
-                0,
-                "Link",
-                "backpressure_" + i + "_" + str(snapshot),
-            )
+                define_constraints(
+                    network,
+                    (dispatch_heat - dispatch_elec),
+                    "<=",
+                    0,
+                    "Link",
+                    "backpressure_" + i + "_" + str(snapshot),
+                )
 
-            define_constraints(
-                network,
-                get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
-                + get_var(network, "Link", "p").loc[snapshot, elec_chp].sum(),
-                "<=",
-                network.links[
-                    (network.links.carrier == "central_gas_CHP")
-                    & (network.links.bus0 == i)
-                ].p_nom.sum(),
-                "Link",
-                "top_iso_fuel_line_" + i + "_" + str(snapshot),
-            )
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
+                    + get_var(network, "Link",
+                              "p").loc[snapshot, elec_chp].sum(),
+                    "<=",
+                    network.links[
+                        (network.links.carrier == "central_gas_CHP")
+                        & (network.links.bus0 == i)
+                    ].p_nom.sum(),
+                    "Link",
+                    "top_iso_fuel_line_" + i + "_" + str(snapshot),
+                )
