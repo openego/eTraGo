@@ -3072,6 +3072,14 @@ def manual_fixes_datamodel(etrago):
         )
 
     if etrago.args["scn_name"] == "eGon100RE":
+
+        # Drop H2 load for transport
+        etrago.network.mremove(
+            "Load",
+            etrago.network.loads[
+                etrago.network.loads.carrier=="H2_hgv_load"].index
+            )
+
         # Fix starting capacity of foreign DC-lines
         etrago.network.links.loc[
             (etrago.network.links.carrier == "DC"), "p_nom_min"
@@ -3114,6 +3122,7 @@ def manual_fixes_datamodel(etrago):
                     carrier=carrier,
                     p_nom_min=0,
                     p_nom_extendable=True,
+                    cyclic_state_of_charge=True,
                 )
                 etrago.network.remove("Bus", row.bus)
                 etrago.network.remove("Link", charger.index[0])
@@ -3172,6 +3181,28 @@ def manual_fixes_datamodel(etrago):
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
 
+        # Drop CH4_for_industry bus and link and add the load to the 
+        # corresponding CH4 bus
+        ch4_ind_buses = etrago.network.buses.loc[
+            etrago.network.buses.carrier == "CH4_for_industry"
+        ].copy()
+        for i, row in ch4_ind_buses.iterrows():
+            link = etrago.network.links[
+                (etrago.network.links.bus1 == i)
+                & (
+                    etrago.network.links.carrier
+                    == "CH4_for_industry"
+                )
+            ].copy()
+            new_bus = link.bus0.unique()[0]
+            for comp in etrago.network.iterate_components():
+                if "bus" in comp.df.columns:
+                    comp.df.loc[comp.df.bus == i, "bus"] = new_bus
+                elif "bus0" in comp.df.columns:
+                    comp.df.loc[comp.df.bus0 == i, "bus0"] = new_bus
+                    comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
+            etrago.network.remove("Bus", i)
+            etrago.network.mremove("Link", link.index)
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier == "AC")
@@ -3354,7 +3385,7 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     return components_dict
 
 
-def adjust_PtH2_model(self):
+def adjust_PtH2_model(self, apply_on='pre_market_model'):
     """
     Adjust the modelling of electrolyzer with waste-heat and
     O2-utilisation. The method creates a multiple-link-model
@@ -3363,46 +3394,57 @@ def adjust_PtH2_model(self):
     coupling-product usage is possible. The resulting model
     consists of a multiple link, additional buses and stores for
     waste_heat and O2-utilisation, and the connection link to the
-    final Heat- and O2-Bus.
+    final heat- and O2-Bus.
 
     Parameters
     ----------
     etrago : :class:`Etrago
         Overall container of Etrago
+    
+    apply_on: str
 
-    Returns
+    Returns 
     -------
-    None.
+    network : PyPSA network
 
     """
-    PtH2_links = self.network.links[
-        self.network.links.carrier == "power_to_H2"
+    
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+        
+
+    PtH2_links = network.links[
+        network.links.carrier == "power_to_H2"
     ].index
-    PtH2_AC_buses = self.network.buses.loc[
-        self.network.links.loc[PtH2_links, "bus0"]
+    PtH2_AC_buses = network.buses.loc[
+        network.links.loc[PtH2_links, "bus0"]
     ].index.unique()
 
     from itertools import count
 
-    store_ids = self.network.stores.index
+    store_ids = network.stores.index
     numeric_parts = [int(idx.split()[0]) for idx in store_ids]
-    next_bus_id = max(self.network.buses.index.astype(int)) + 1
+    next_bus_id = max(network.buses.index.astype(int)) + 1
     next_store_id = max(numeric_parts) + 1
     bus_id_counter = count(start=next_bus_id)
     store_id_counter = count(start=next_store_id)
 
     for bus in PtH2_AC_buses:
-        power_to_h2_links = self.network.links[
-            (self.network.links.carrier == "power_to_H2")
-            & (self.network.links.bus0 == bus)
+        power_to_h2_links = network.links[
+            (network.links.carrier == "power_to_H2")
+            & (network.links.bus0 == bus)
         ].index
-        power_to_heat_links = self.network.links[
-            (self.network.links.carrier == "PtH2_waste_heat")
-            & (self.network.links.bus0 == bus)
+        power_to_heat_links = network.links[
+            (network.links.carrier == "PtH2_waste_heat")
+            & (network.links.bus0 == bus)
         ].index
-        power_to_o2_links = self.network.links[
-            (self.network.links.carrier == "PtH2_O2")
-            & (self.network.links.bus0 == bus)
+        power_to_o2_links = network.links[
+            (network.links.carrier == "PtH2_O2")
+            & (network.links.bus0 == bus)
         ].index
 
         link_data = []
@@ -3432,10 +3474,10 @@ def adjust_PtH2_model(self):
             store_name = f"{new_store_id} PtH2_{carrier}"
 
             # Add new heat/o2-bus and -store
-            self.network.add(
+            network.add(
                 "Bus", name=new_bus_id, carrier=f"PtH2_extra_bus_{carrier}"
             )
-            self.network.add(
+            network.add(
                 "Store",
                 name=store_name,
                 bus=new_bus_id,
@@ -3448,31 +3490,79 @@ def adjust_PtH2_model(self):
                 standing_loss=1,
             )
 
-            self.network.stores.loc[store_name, "scn_name"] = self.args[
+            network.stores.loc[store_name, "scn_name"] = self.args[
                 "scn_name"
             ]
-            self.network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
+            network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
                 "scn_name"
             ]
-            self.network.buses.loc[str(new_bus_id), "country"] = "DE"
+            network.buses.loc[str(new_bus_id), "country"] = "DE"
 
             # set coordinates for new bus for the clustering method
-            bus0_index = self.network.links.loc[power_to_h2_links, "bus0"]
-            self.network.buses.loc[str(new_bus_id), "x"] = (
-                self.network.buses.loc[bus0_index, "x"].values[0]
+            bus0_index = network.links.loc[power_to_h2_links, "bus0"]
+            network.buses.loc[str(new_bus_id), "x"] = (
+                network.buses.loc[bus0_index, "x"].values[0]
             )
-            self.network.buses.loc[str(new_bus_id), "y"] = (
-                self.network.buses.loc[bus0_index, "y"].values[0]
+            network.buses.loc[str(new_bus_id), "y"] = (
+                network.buses.loc[bus0_index, "y"].values[0]
             )
 
             # Connect multiple link with new heat/o2-bus
-            self.network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
                 new_bus_id
             )
-            self.network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
                 efficiency
             )
 
             # Adjust originals waste_heat- and oxygen-links with new bus0
             for link in links:
-                self.network.links.loc[link, "bus0"] = str(new_bus_id)
+                network.links.loc[link, "bus0"] = str(new_bus_id)
+    
+                
+    return network
+
+def adjust_chp_model(self, apply_on='pre_market_model'):
+    """
+    Adjust the modelling of chp plants in foreign countries for eGon100RE
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+
+    apply_on: str
+
+    Returns
+    -------
+    network : PyPSA network
+
+    """
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+
+    efficiency_heat = 0.42500
+
+    chp_links = network.links[
+        (network.links.carrier == "central_gas_CHP")
+        &(network.links.bus1.isin(network.buses[
+            network.buses.country!="DE"].index))
+    ].index
+
+    for i in chp_links:
+        # find central_heat bus
+        country = network.buses.loc[network.links.loc[i, "bus1"],
+                                    "country"]
+        central_heat_bus = network.buses[
+            (network.buses.carrier=="central_heat")
+            &(network.buses.country==country)].index[0]
+
+        network.links.loc[i, "bus2"] = central_heat_bus
+        network.links.loc[i, "efficiency2"] = efficiency_heat
+
+    return network

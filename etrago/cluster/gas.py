@@ -41,7 +41,10 @@ if "READTHEDOCS" not in os.environ:
         drop_nan_values,
         group_links,
         kmedoids_dijkstra_clustering,
-        sum_with_inf,
+        strategies_buses,
+        strategies_generators,
+        strategies_lines,
+        strategies_one_ports,
     )
     from etrago.tools.utilities import set_control_strategies
 
@@ -61,7 +64,7 @@ __author__ = (
 )
 
 
-def preprocessing(etrago, carrier):
+def preprocessing(etrago, carrier, apply_on="grid_model"):
     """
     Preprocesses the gas network data from the given Etrago object for the
     spatial clustering process of the CH4 o H2 grid.
@@ -87,8 +90,18 @@ def preprocessing(etrago, carrier):
     # Create network_gas (grid nodes in order to create the busmap basis)
     network_gas = Network()
 
-    buses_gas = etrago.network.buses.copy()
-    links_gas = etrago.network.links.copy()
+    if apply_on == "grid_model":
+        network = etrago.network
+    elif apply_on == "market_model":
+        network = etrago.network_tsa
+    else:
+        logger.warning(
+            """Parameter apply_on must be either 'grid_model' or 'market_model'
+            """
+        )
+
+    buses_gas = network.buses.copy()
+    links_gas = network.links.copy()
 
     io.import_components_from_dataframe(network_gas, buses_gas, "Bus")
     network_gas.madd(
@@ -100,10 +113,16 @@ def preprocessing(etrago, carrier):
     # Cluster buses
     settings = etrago.args["network_clustering"]
 
-    if carrier == "CH4":
-        total_clusters = settings["n_clusters_gas"]
+    if apply_on == "grid_model":
+        if carrier == "CH4":
+            total_clusters = settings["n_clusters_gas"]
+        else:
+            total_clusters = settings["n_clusters_h2"]
     else:
-        total_clusters = settings["n_clusters_h2"]
+        total_clusters = len(buses_gas[
+            (buses_gas.carrier==carrier)
+            & (buses_gas.country != "DE")]) + 1
+
 
     gas_filter = network_gas.buses["carrier"].values == carrier
 
@@ -311,7 +330,7 @@ def get_h2_clusters(etrago, busmap_ch4):
     return busmap
 
 
-def gas_postprocessing(etrago, busmap, medoid_idx=None):
+def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     """
     Performs the postprocessing for the gas grid clustering based on the
     provided busmap
@@ -337,45 +356,49 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     settings = etrago.args["network_clustering"]
     scn = etrago.args["scn_name"]
 
-    if settings["k_gas_busmap"] is False:
-        if settings["method_gas"] == "kmeans":
-            busmap.index.name = "bus_id"
-            busmap.name = "cluster"
-            busmap.to_csv(
-                "kmeans_gasgrid_busmap_"
-                + str(settings["n_clusters_gas"])
-                + "_result.csv"
-            )
+    if apply_on == "grid_model":
+        if settings["k_gas_busmap"] is False:
+            if settings["method_gas"] == "kmeans":
+                busmap.index.name = "bus_id"
+                busmap.name = "cluster"
+                busmap.to_csv(
+                    "kmeans_gasgrid_busmap_"
+                    + str(settings["n_clusters_gas"])
+                    + "_result.csv"
+                )
+    
+            else:
+                busmap.name = "cluster"
+                busmap_ind = pd.Series(
+                    medoid_idx[busmap.values.astype(int)].values,
+                    index=busmap.index,
+                    dtype=pd.StringDtype(),
+                )
+                busmap_ind.name = "medoid_idx"
+    
+                export = pd.concat([busmap, busmap_ind], axis=1)
+                export.index.name = "bus_id"
+                export.to_csv(
+                    "kmedoids-dijkstra_gasgrid_busmap_"
+                    + str(settings["n_clusters_gas"])
+                    + "_result.csv"
+                )
+        network = etrago.network
+    else:
+        network = etrago.pre_market_model
 
-        else:
-            busmap.name = "cluster"
-            busmap_ind = pd.Series(
-                medoid_idx[busmap.values.astype(int)].values,
-                index=busmap.index,
-                dtype=pd.StringDtype(),
-            )
-            busmap_ind.name = "medoid_idx"
-
-            export = pd.concat([busmap, busmap_ind], axis=1)
-            export.index.name = "bus_id"
-            export.to_csv(
-                "kmedoids-dijkstra_gasgrid_busmap_"
-                + str(settings["n_clusters_gas"])
-                + "_result.csv"
-            )
-
-    if ("H2_grid" in etrago.network.buses.carrier.unique()) & (
+    if ("H2_grid" in network.buses.carrier.unique()) & (
         scn in ["eGon2035"]
     ):
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
-        etrago.network.buses[
-            (~etrago.network.buses.index.isin(busmap.index))
+        network.buses[
+            (~network.buses.index.isin(busmap.index))
         ].index
     )
-    next_bus_id = highestInteger(etrago.network.buses.index) + 1
+    next_bus_id = highestInteger(network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
 
     busmap_idx = list(busmap.index) + missing_idx
@@ -389,7 +412,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
             strategy = data["strategy"]
             if strategy == "consecutive":
                 busmap_sector_coupling = consecutive_sector_coupling(
-                    etrago.network,
+                    network,
                     busmap,
                     data["base"],
                     name,
@@ -403,7 +426,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                     )
                     raise ValueError(msg)
                 busmap_sector_coupling = simultaneous_sector_coupling(
-                    etrago.network,
+                    network,
                     busmap,
                     data["base"],
                     name,
@@ -419,36 +442,25 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     busmap = busmap.astype(str)
     busmap.index = busmap.index.astype(str)
 
+    if apply_on == "market_model":
+        aggregate_generators_carriers = []
+    else:
+        aggregate_generators_carriers = None
+
     network_gasgrid_c = get_clustering_from_busmap(
-        etrago.network,
+        network,
         busmap,
-        bus_strategies={
-            "country": "first",
-        },
-        one_port_strategies={
-            "Generator": {
-                "marginal_cost": "mean",
-                "capital_cost": "mean",
-                "p_nom_max": "sum",
-                "p_nom_min": "sum",
-                "e_nom_max": "sum",
-            },
-            "Store": {
-                "marginal_cost": "mean",
-                "capital_cost": "mean",
-                "e_nom": "sum",
-                "e_nom_max": sum_with_inf,
-            },
-            "Load": {
-                "p_set": "sum",
-            },
-        },
+        aggregate_generators_carriers=aggregate_generators_carriers,
+        one_port_strategies=strategies_one_ports(),
+        generator_strategies=strategies_generators(),
+        bus_strategies=strategies_buses(),
     )
 
-    # aggregation of the links and links time series
-    network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(
-        network_gasgrid_c
-    )
+    if apply_on != "market_model":
+        # aggregation of the links and links time series
+        network_gasgrid_c.links, network_gasgrid_c.links_t = group_links(
+            network_gasgrid_c
+        )
 
     # Overwrite p_nom of links with carrier "H2_feedin" (eGon2035 only)
     if etrago.args["scn_name"] == "eGon2035":
@@ -480,7 +492,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     # Insert components not related to the gas clustering
     other_components = ["Line", "StorageUnit", "ShuntImpedance", "Transformer"]
 
-    for c in etrago.network.iterate_components(other_components):
+    for c in network.iterate_components(other_components):
         io.import_components_from_dataframe(
             network_gasgrid_c,
             c.df,
@@ -495,7 +507,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
                     attr,
                 )
     io.import_components_from_dataframe(
-        network_gasgrid_c, etrago.network.carriers, "Carrier"
+        network_gasgrid_c, network.carriers, "Carrier"
     )
 
     network_gasgrid_c.consistency_check()
@@ -504,11 +516,11 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None):
     # Adjust x and y coordinates of 'CH4' and 'H2_grid' medoids
     if settings["method_gas"] == "kmedoids-dijkstra" and len(medoid_idx) > 0:
         for cluster in medoid_idx:
-            network_gasgrid_c.buses.loc[cluster, "x"] = (
-                etrago.network.buses.loc[cluster, "x"]
+            network_gasgrid_c.buses.loc[busmap[cluster], "x"] = (
+                network.buses.loc[cluster, "x"]
             )
-            network_gasgrid_c.buses.loc[cluster, "y"] = (
-                etrago.network.buses.loc[cluster, "y"]
+            network_gasgrid_c.buses.loc[busmap[cluster], "y"] = (
+                network.buses.loc[cluster, "y"]
             )
 
     drop_nan_values(network_gasgrid_c)
@@ -819,10 +831,12 @@ def sc_single_carrier_based(connected_links):
 def get_clustering_from_busmap(
     network,
     busmap,
+    aggregate_generators_carriers=None,
     line_length_factor=1.0,
     with_time=True,
     bus_strategies=dict(),
     one_port_strategies=dict(),
+    generator_strategies=dict(),
 ):
     """
     Aggregates components of the given network based on a bus mapping and
@@ -875,13 +889,23 @@ def get_clustering_from_busmap(
     one_port_components = ["Generator", "Load", "Store"]
 
     for one_port in one_port_components:
-        new_df, new_pnl = aggregateoneport(
-            network,
-            busmap,
-            component=one_port,
-            with_time=with_time,
-            custom_strategies=one_port_strategies.get(one_port, {}),
-        )
+        if one_port != "Generator":
+            new_df, new_pnl = aggregateoneport(
+                network,
+                busmap,
+                component=one_port,
+                with_time=with_time,
+                custom_strategies=one_port_strategies.get(one_port, {}),
+            )
+        else:
+            new_df, new_pnl = aggregateoneport(
+                network,
+                busmap,
+                carriers=aggregate_generators_carriers,
+                component=one_port,
+                with_time=with_time,
+                custom_strategies=generator_strategies,
+            )
         io.import_components_from_dataframe(
             network_gasgrid_c, new_df, one_port
         )

@@ -81,9 +81,10 @@ args = {
         "crossover": 0,
         "logFile": "solver_etrago.log",
         "threads": 4,
+        "BarHomogeneous": 1,
     },
     "model_formulation": "kirchhoff",  # angles or kirchhoff
-    "scn_name": "eGon2035",  # scenario: eGon2035, eGon100RE or status2019
+    "scn_name": "eGon100RE",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
     "scn_extension": None,  # None or array of extension scenarios
     "scn_decommissioning": None,  # None or decommissioning scenario
@@ -147,6 +148,22 @@ args = {
             "central_heat": {
                 "base": ["CH4", "AC"],
                 "strategy": "simultaneous",  # select strategy to cluster other sectors
+            },
+            "rural_heat": {
+                "base": ["CH4", "AC"],
+                "strategy": "simultaneous",  # select strategy to cluster other sectors
+            },
+            "H2": {
+                "base": ["CH4"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
+            },
+            "H2_saltcavern": {
+                "base": ["H2_grid"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
+            },
+            "Li_ion": {
+                "base": ["AC"],
+                "strategy": "consecutive",  # select strategy to cluster other sectors
             },
         },
     },
@@ -703,6 +720,31 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    for comp in etrago.network.iterate_components():
+        for key in comp.pnl:
+            comp.pnl[key].where(
+                comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+    for comp in etrago.network_tsa.iterate_components():
+        for col in comp.df.columns:
+            if comp.df[col].dtype == "float64":
+                comp.df[col].where(
+                    comp.df[col].abs()>1e-5, other=0., inplace=True)
+        for key in comp.pnl:
+            comp.pnl[key].where(
+                comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+    for n in [etrago.network, etrago.network_tsa]:
+        n.mremove("Generator", n.generators[
+            (n.generators.p_nom_extendable == False) &
+            (n.generators.p_nom < 100)].index)
+        import numpy as np
+        n.stores.e_nom_max = np.inf
+        n.links.loc[n.links.carrier == "central_gas_boiler", "p_nom"] = 1e7
+
+        n.links.ramp_limit_up = np.nan
+        n.links.ramp_limit_down = np.nan
+        n.generators.ramp_limit_up = np.nan
+        n.generators.ramp_limit_down = np.nan
 
     # start linear optimal powerflow calculations
     etrago.optimize()
