@@ -745,7 +745,10 @@ def run_etrago(args, json_path):
         n.links.ramp_limit_down = np.nan
         n.generators.ramp_limit_up = np.nan
         n.generators.ramp_limit_down = np.nan
-
+        n.stores.e_cyclic_per_period = False
+        battery_cost = n.storage_units[
+            n.storage_units.carrier=="battery"].capital_cost.max()
+        n.storage_units.loc[n.storage_units.carrier.str.contains("battery"), "capital_cost"] = battery_cost
     # start linear optimal powerflow calculations
     etrago.optimize()
 
