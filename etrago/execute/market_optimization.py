@@ -506,6 +506,7 @@ def set_unit_commitment(self, apply_on):
         network.generators.loc[
             network.generators.committable, "shut_down_cost"] = 0.0
 
+    logger.info(f"Unit commitment set for {apply_on}")
 
 def gas_clustering_market_model(self):
     from etrago.cluster.gas import (
