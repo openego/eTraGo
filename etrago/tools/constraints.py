@@ -3395,6 +3395,41 @@ def fixed_storage_unit_soc_at_the_end(n, sns):
     m.add_constraints(lhs, "=", rhs, name=f"{c}-energy_balance_end")
 
 
+def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
+    """
+    Sets soc of seasonal storage units (reservoir) at the end of each horizon
+    to the one from the pre market model allowing a small flexibility
+
+    1.01 * soc_pre_market >= soc_market >= 0.99 * soc_pre_market
+    """
+    from xarray import DataArray
+
+    sns = n.snapshots[-1]
+    m = n.model
+    c = "StorageUnit"
+    assets = n.df(c)
+    assets = assets[assets.carrier=="reservoir"]
+
+    if assets.empty:
+        return
+
+    # SOC last hour of the horizon
+    soc_market = m[f"{c}-state_of_charge"].loc[sns].loc[assets.index]
+
+    # SOC last hour of the year
+    soc_pre_market = self.args["pre_market_seasonal_soc"]
+
+    lhs = [
+        (1, soc_market),
+    ]
+
+    rhs_upper = DataArray(1.01 * soc_pre_market)
+    rhs_lower = DataArray(0.99 * soc_pre_market)
+
+    m.add_constraints(lhs, "<", rhs_upper, name=f"{c}-soc_horizon_end_upper")
+    m.add_constraints(lhs, ">", rhs_lower, name=f"{c}-soc_horizon_end_lower")
+
+
 class Constraints:
     def __init__(
         self, args, conduct_dispatch_disaggregation, apply_on="grid_model"
@@ -3431,6 +3466,9 @@ class Constraints:
 
                 if self.apply_on == "last_market_model":
                     fixed_storage_unit_soc_at_the_end(network, snapshots)
+                elif self.apply_on == "market_model":
+                    fixed_storage_unit_soc_at_horizon_end(
+                        self, network, snapshots)
                 add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
