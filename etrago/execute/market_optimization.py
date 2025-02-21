@@ -225,10 +225,34 @@ def optimize_with_rolling_horizon(
                 n.storage_units.state_of_charge_initial = (
                     pre_market.storage_units_t.state_of_charge.iloc[-1]
                 )
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier=="reservoir"].index
+
+                args_addition = {
+                    "pre_market_seasonal_soc":
+                        pre_market.storage_units_t.state_of_charge.loc[
+                            snapshots[end-1], seasonal_storage]}
+
+                extra_functionality = Constraints(
+                    {**args, **args_addition}, False, apply_on="market_model"
+                ).functionality
 
             elif i == len(starting_points) - 1:
+                if len(snapshots) > 1000:
+                    extra_functionality = Constraints(
+                        args, False, apply_on="last_market_model"
+                    ).functionality
+            else:
+                seasonal_storage = pre_market.storage_units[
+                    pre_market.storage_units.carrier=="reservoir"].index
+
+                args_addition = {
+                    "pre_market_seasonal_soc":
+                        pre_market.storage_units_t.state_of_charge.loc[
+                            snapshots[end-1], seasonal_storage]}
+
                 extra_functionality = Constraints(
-                    args, False, apply_on="last_market_model"
+                    {**args, **args_addition}, False, apply_on="market_model"
                 ).functionality
 
         status, condition = n.optimize(
