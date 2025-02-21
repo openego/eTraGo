@@ -175,8 +175,12 @@ def optimize_with_rolling_horizon(
 
         if not n.stores.empty:
             stores_no_dsm = n.stores[
-                ~n.stores.carrier.isin(["dsm", "battery_storage"])
+                ~n.stores.carrier.isin([
+                    "PtH2_waste_heat", "PtH2_O2", "dsm", "battery_storage",
+                    "central_heat_store", "H2_overground", "CH4",
+                    "H2_underground"])
             ].index
+
             n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
                 snapshots[start - 1], stores_no_dsm
             ]
