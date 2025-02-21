@@ -918,7 +918,9 @@ def postprocessing(
     network.generators["weight"] = network.generators["p_nom"]
     aggregate_one_ports = network.one_port_components.copy()
     aggregate_one_ports.discard("Generator")
-
+    
+    import time
+    start = time.time()
     clustering = get_clustering_from_busmap(
         network,
         busmap,
@@ -931,7 +933,8 @@ def postprocessing(
         bus_strategies=strategies_buses(),
         line_strategies=strategies_lines(),
     )
-
+    end = time.time()
+    logger.info(f"Time for get_clustering_from_busmap: {(end-start)/60} min")
     # Drop nan values after clustering
     drop_nan_values(clustering.network)
 
@@ -957,6 +960,95 @@ def postprocessing(
 
     return (clustering, busmap)
 
+def postprocessing_busmap_only(
+        etrago,
+        busmap,
+        busmap_foreign,
+        medoid_idx=None,
+        aggregate_generators_carriers=None,
+        aggregate_links=True,
+        apply_on="grid_model",):
+
+    """
+    Postprocessing function for network clustering, returns only the busmap
+
+    Parameters
+    ----------
+    etrago : Etrago
+        An instance of the Etrago class
+    busmap : pandas.Series
+        mapping between buses and clusters
+    busmap_foreign : pandas.DataFrame
+        mapping between foreign buses and clusters
+    medoid_idx : pandas.DataFrame
+        mapping between cluster indices and medoids
+
+    Returns
+    -------
+    Tuple containing:
+        clustering : pypsa.network
+            Network object containing the clustered network
+        busmap : pandas.Series
+            Updated mapping between buses and clusters
+    """
+    settings = etrago.args["network_clustering"]
+    method = settings["method"]
+    num_clusters = settings["n_clusters_AC"]
+
+    if not settings["k_elec_busmap"]:
+        busmap.name = "cluster"
+        busmap_elec = pd.DataFrame(busmap.copy(), dtype="string")
+        busmap_elec.index.name = "bus"
+        busmap_elec = busmap_elec.join(busmap_foreign, how="outer")
+        busmap_elec = busmap_elec.join(
+            pd.Series(
+                medoid_idx.index.values.astype(str),
+                medoid_idx,
+                name="medoid_idx",
+            )
+        )
+
+        busmap_elec.to_csv(
+            f"{method}_elecgrid_busmap_{num_clusters}_result.csv"
+        )
+
+    else:
+        logger.info("Import Busmap for spatial clustering")
+        busmap_foreign = pd.read_csv(
+            settings["k_elec_busmap"],
+            dtype={"bus": str, "foreign": str},
+            usecols=["bus", "foreign"],
+            index_col="bus",
+        ).dropna()["foreign"]
+        busmap = pd.read_csv(
+            settings["k_elec_busmap"],
+            usecols=["bus", "cluster"],
+            dtype={"bus": str, "cluster": str},
+            index_col="bus",
+        ).dropna()["cluster"]
+        medoid_idx = pd.read_csv(
+            settings["k_elec_busmap"],
+            usecols=["bus", "medoid_idx"],
+            index_col="bus",
+        ).dropna()["medoid_idx"]
+
+        medoid_idx = pd.Series(
+            medoid_idx.index.values.astype(str), medoid_idx.values.astype(int)
+        )
+
+    network, busmap = adjust_no_electric_network(
+        etrago, busmap, cluster_met=method, apply_on=apply_on
+    )
+
+    # merge busmap for foreign buses with the German buses
+    if not settings["cluster_foreign_AC"] and (apply_on == "grid_model"):
+        for bus in busmap_foreign.index:
+            busmap[bus] = busmap_foreign[bus]
+            if bus == busmap_foreign[bus]:
+                medoid_idx[bus] = bus
+            medoid_idx.index = medoid_idx.index.astype("int")
+
+    return busmap
 
 def weighting_for_scenario(network, save=None):
     """
@@ -1119,6 +1211,69 @@ def run_spatial_clustering(self):
 
         logger.info(
             "Network clustered to {} buses with ".format(
+                self.args["network_clustering"]["n_clusters_AC"]
+            )
+            + self.args["network_clustering"]["method"]
+        )
+
+def busmap_electrical_clustering(self):
+    """
+    Main method for running spatial clustering on the electrical network.
+    Allows for clustering based on k-means and k-medoids dijkstra.
+
+    Parameters
+    -----------
+    self
+        The object pointer for an Etrago object containing all relevant
+        parameters and data
+
+    Returns
+    -------
+    None
+    """
+    if self.args["network_clustering"]["active"]:
+        if self.args["spatial_disaggregation"] is not None:
+            self.disaggregated_network = self.network.copy()
+        else:
+            self.disaggregated_network = self.network.copy(with_time=False)
+
+        elec_network, weight, n_clusters, busmap_foreign = preprocessing(self)
+
+        if self.args["network_clustering"]["method"] == "kmeans":
+            if not self.args["network_clustering"]["k_elec_busmap"]:
+                logger.info("Start k-means Clustering")
+
+                busmap = kmean_clustering(
+                    self, elec_network, weight, n_clusters
+                )
+                medoid_idx = pd.Series(dtype=str)
+            else:
+                busmap = pd.Series(dtype=str)
+                medoid_idx = pd.Series(dtype=str)
+
+        elif self.args["network_clustering"]["method"] == "kmedoids-dijkstra":
+            if not self.args["network_clustering"]["k_elec_busmap"]:
+                logger.info("Start k-medoids Dijkstra Clustering")
+
+                busmap, medoid_idx = kmedoids_dijkstra_clustering(
+                    self,
+                    elec_network.buses,
+                    elec_network.lines,
+                    weight,
+                    n_clusters,
+                )
+
+            else:
+                busmap = pd.Series(dtype=str)
+                medoid_idx = pd.Series(dtype=str)
+
+        busmap = postprocessing_busmap_only(
+            self, busmap, busmap_foreign, medoid_idx
+        )
+        self.update_busmap(busmap)
+
+        logger.info(
+            "Busmap for AC created for {} buses with ".format(
                 self.args["network_clustering"]["n_clusters_AC"]
             )
             + self.args["network_clustering"]["method"]
