@@ -11,6 +11,8 @@ name,scn_name,bus,carrier,p_set
 12 land_transport_EV,eGon2035_lowflex,12,land_transport_EV,0.0
 13 AC,eGon2035_lowflex,13,AC,0.0
 13 land_transport_EV,eGon2035_lowflex,13,land_transport_EV,0.0
+14 AC,eGon2035_lowflex,14,AC,0.0
+14 land_transport_EV,eGon2035_lowflex,14,land_transport_EV,0.0
 2 AC,eGon2035_lowflex,2,AC,0.0
 3 AC,eGon2035_lowflex,3,AC,0.0
 3 H2_for_industry,eGon2035_lowflex,3,H2_for_industry,517.5741359166666
@@ -33,7 +35,8 @@ name,scn_name,bus,carrier,p_set
 50834 central_heat,eGon2035_lowflex,50834,central_heat,0.0
 52040 rural_heat,eGon2035_lowflex,52040,rural_heat,0.0
 52043 rural_heat,eGon2035_lowflex,52043,rural_heat,0.0
-52053 rural_heat,eGon2035_lowflex,52053,rural_heat,0.0
+52044 rural_heat,eGon2035_lowflex,52044,rural_heat,0.0
+52046 rural_heat,eGon2035_lowflex,52046,rural_heat,0.0
 52087 CH4_for_industry,eGon2035_lowflex,52087,CH4_for_industry,0.0
 52087 rural_gas_boiler,eGon2035_lowflex,52087,rural_gas_boiler,0.0
 52101 H2_for_industry,eGon2035_lowflex,52101,H2_for_industry,0.0

@@ -259,13 +259,16 @@ def build_market_model(self):
 
     """
      
+    import geopandas as gpd
+    import requests
+    import os
+    from shapely.geometry import Point
     
     # use existing preprocessing to get only the electricity system
     net, weight, n_clusters, busmap_foreign = preprocessing(
         self, apply_on="market_model"
     )
     
-    import pdb; pdb.set_trace()
     # Define market regions based on settings.
     # Currently the only option is 'status_quo' which means that the current
     # regions are used. When other market zone options are introduced, they
@@ -371,7 +374,7 @@ def build_market_model(self):
         
     elif (
         self.args["method"]["market_optimization"]["market_zones"]
-        == "3_zones"
+        == "DE3"
     ):
         
         

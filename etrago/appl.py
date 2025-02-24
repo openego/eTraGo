@@ -58,7 +58,7 @@ args = {
         "market_optimization":
             {
                 "active": True,
-                "market_zones": "3_zones", # only used if type='market_grid'
+                "market_zones": "DE4", # only used if type='market_grid'; "status_quo", "DE2", "DE3", "DE4" or "DE5"
                 "rolling_horizon": {# Define parameter of market optimization
                     "planning_horizon": 168, # number of snapshots in each optimization
                     "overlap": 120, # number of overlapping hours

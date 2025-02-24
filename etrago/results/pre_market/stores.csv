@@ -9,4 +9,4 @@ name,scn_name,bus,carrier,e_nom,e_nom_extendable,e_cyclic,capital_cost,e_nom_opt
 48649 CH4,eGon2035_lowflex,48649,CH4,40085545.400267825,False,True,0.0,40085545.400267825
 48650 CH4,eGon2035_lowflex,48650,CH4,3268835.936014453,False,True,0.0,3268835.936014453
 52087 CH4,eGon2035_lowflex,52087,CH4,264722068.94267517,False,True,0.0,264722068.94267517
-52101 H2_overground,eGon2035_lowflex,52101,H2_overground,0.0,True,True,44.88727243648892,269969.4465285905
+52101 H2_overground,eGon2035_lowflex,52101,H2_overground,0.0,True,True,44.88727243648892,270130.597920696

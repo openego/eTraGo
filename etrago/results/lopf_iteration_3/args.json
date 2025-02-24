@@ -7,7 +7,7 @@
         "formulation": "linopy",
         "market_optimization": {
             "active": true,
-            "market_zones": "3_zones",
+            "market_zones": "DE4",
             "rolling_horizon": {
                 "planning_horizon": 168,
                 "overlap": 120
