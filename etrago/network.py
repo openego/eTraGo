@@ -112,6 +112,7 @@ from etrago.tools.utilities import (
     update_busmap,
     adjust_chp_model,
     adjust_PtH2_model,
+    levelize_abroad_inland_parameters
 )
 
 logger = logging.getLogger(__name__)
@@ -377,6 +378,8 @@ class Etrago:
     adjust_PtH2_model = adjust_PtH2_model
 
     adjust_chp_model = adjust_chp_model
+    
+    levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -423,6 +426,8 @@ class Etrago:
         """
 
         self.manual_fixes_datamodel()
+        
+        self.levelize_abroad_inland_parameters()
 
         self.geolocation_buses()
 
