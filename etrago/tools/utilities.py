@@ -3658,7 +3658,7 @@ def levelize_abroad_inland_parameters(self):
                             parameter
                         ] = german_carrier_components[parameter].mean()
                 else:
-                    logger.warning(f"⚠️ {parameter} existiert NICHT für Carrier '{carrier}' in {component_type}.")
+                    logger.warning(f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}.")
                     
         logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
      
