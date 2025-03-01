@@ -385,7 +385,10 @@ def build_market_model(self, unit_commitment=False):
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
     # Set stores and storage_units to cyclic
-    net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
+    if len(self.network_tsa.snapshots) > 1000:
+        net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
+        net.storage_units.cyclic_state_of_charge = True
+    net.stores.loc[net.stores.carrier == "dsm", "e_cyclic"] = False
     net.storage_units.cyclic_state_of_charge = True
 
     self.pre_market_model = net
