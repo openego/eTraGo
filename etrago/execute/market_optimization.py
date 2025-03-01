@@ -180,10 +180,14 @@ def optimize_with_rolling_horizon(
                     "central_heat_store", "H2_overground", "CH4",
                     "H2_underground"])
             ].index
-
-            n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
-                snapshots[start - 1], stores_no_dsm
-            ]
+            if start != 0:
+                n.stores.loc[stores_no_dsm, "e_initial"] = n.stores_t.e.loc[
+                    snapshots[start - 1], stores_no_dsm
+                ]
+            else:
+                n.stores.loc[stores_no_dsm, "e_initial"] = pre_market.stores_t.e.loc[
+                    snapshots[start - 1], stores_no_dsm
+                ]
 
             # Select seasonal stores
             seasonal_stores = n.stores.index[
