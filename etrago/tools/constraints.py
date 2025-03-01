@@ -3404,7 +3404,7 @@ def fixed_storage_unit_soc_at_horizon_end(self, n, sns):
     """
     from xarray import DataArray
 
-    sns = n.snapshots[-1]
+    sns = sns[-1]
     m = n.model
     c = "StorageUnit"
     assets = n.df(c)
