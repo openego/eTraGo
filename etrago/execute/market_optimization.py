@@ -446,7 +446,7 @@ def build_market_model(self, unit_commitment=False):
 
     self.pre_market_model.links.loc[
         self.pre_market_model.links.carrier.isin(
-            ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+            ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]), "p_min_pu"] = -1.0
 
     self.pre_market_model = adjust_PtH2_model(self)
     logger.info("PtH2-Model adjusted in pre_market_network")
@@ -490,7 +490,7 @@ def build_shortterm_market_model(self, unit_commitment=False):
         set_unit_commitment(self, apply_on="market_model")
 
     self.market_model.links.loc[self.market_model.links.carrier.isin(
-        ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+        ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]), "p_min_pu"] = -1.0
 
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
