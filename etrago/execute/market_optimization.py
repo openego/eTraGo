@@ -80,6 +80,7 @@ def market_optimization(self):
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
+    temp_disagg_soc(self)
     # Export results of pre-market model
     if self.args["csv_export"]:
         path = self.args["csv_export"]
@@ -125,6 +126,50 @@ def market_optimization(self):
             os.makedirs(path, exist_ok=True)
         self.market_model.export_to_csv_folder(path + "/market")
 
+def temp_disagg_soc(self):
+
+    from datetime import timedelta
+    pre_market = self.pre_market_model
+
+    stores_e_full_ts = pd.DataFrame(
+        index = self.network_tsa.snapshots,
+        columns = pre_market.stores.index
+        )
+    stores_e_full_ts.loc[
+        pre_market.snapshots] = pre_market.stores_t.e
+
+    su_soc_full_ts = pd.DataFrame(
+        index = self.network_tsa.snapshots,
+        columns = pre_market.storage_units.index
+        )
+    su_soc_full_ts.loc[
+        pre_market.snapshots] = pre_market.storage_units_t.state_of_charge
+
+    n_skip = pre_market.snapshot_weightings.iloc[0, 0]
+    for calc_sns in pre_market.snapshots:
+        next_calc = calc_sns + timedelta(hours = int(n_skip))
+
+        if next_calc in pre_market.snapshots:
+            next_calc = next_calc
+        else:
+            next_calc = pre_market.snapshots[0]
+        e_now = stores_e_full_ts.loc[calc_sns]
+        e_next = stores_e_full_ts.loc[next_calc]
+
+        soc_now = su_soc_full_ts.loc[calc_sns]
+        soc_next = su_soc_full_ts.loc[next_calc]
+
+        diff_e = (e_next - e_now)/n_skip
+        diff_soc = (soc_next - soc_now)/n_skip
+
+        for i in range(n_skip-1):
+            hour = calc_sns + timedelta(hours = 1+i)
+            if hour in stores_e_full_ts.index:
+                stores_e_full_ts.loc[hour] = stores_e_full_ts.loc[hour-timedelta(hours=1)] + diff_e
+                su_soc_full_ts.loc[hour] = su_soc_full_ts.loc[hour-timedelta(hours=1)] + diff_soc
+
+    self.pre_market_model.stores_t.e = stores_e_full_ts
+    self.pre_market_model.storage_units_t.state_of_charge = su_soc_full_ts
 
 def optimize_with_rolling_horizon(
     n,
@@ -200,6 +245,7 @@ def optimize_with_rolling_horizon(
             n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
                 snapshots[start - 1], seasonal_stores
             ]
+
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
@@ -411,25 +457,34 @@ def build_market_model(self, unit_commitment=False):
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
+    
+    self.market_model = self.pre_market_model.copy()
+    n_skip = 5
+
+    self.pre_market_model.snapshots = self.pre_market_model.snapshots[::n_skip]
+
+    self.pre_market_model.snapshot_weightings["objective"] = n_skip
+    self.pre_market_model.snapshot_weightings["stores"] = n_skip
+    self.pre_market_model.snapshot_weightings["generators"] = n_skip
+
+    
 
 
 def build_shortterm_market_model(self, unit_commitment=False):
-    m = self.pre_market_model.copy()
 
-    m.storage_units.p_nom_extendable = False
-    m.stores.e_nom_extendable = False
-    m.links.p_nom_extendable = False
-    m.lines.s_nom_extendable = False
+    self.market_model.storage_units.p_nom_extendable = False
+    self.market_model.stores.e_nom_extendable = False
+    self.market_model.links.p_nom_extendable = False
+    self.market_model.lines.s_nom_extendable = False
 
-    m.storage_units.p_nom = m.storage_units.p_nom_opt.clip(lower=0)
-    m.stores.e_nom = m.stores.e_nom_opt.clip(lower=0)
-    m.links.p_nom = m.links.p_nom_opt.clip(lower=0)
-    m.lines.s_nom = m.lines.s_nom_opt.clip(lower=0)
+    self.market_model.storage_units.p_nom = self.pre_market_model.storage_units.p_nom_opt.clip(lower=0)
+    self.market_model.stores.e_nom = self.pre_market_model.stores.e_nom_opt.clip(lower=0)
+    self.market_model.links.p_nom = self.pre_market_model.links.p_nom_opt.clip(lower=0)
+    self.market_model.lines.s_nom = self.pre_market_model.lines.s_nom_opt.clip(lower=0)
 
-    m.stores.e_cyclic = False
-    m.storage_units.cyclic_state_of_charge = False
-
-    self.market_model = m
+    self.market_model.mremove("Store", self.market_model.stores[self.market_model.stores.e_nom==0].index)
+    self.market_model.stores.e_cyclic = False
+    self.market_model.storage_units.cyclic_state_of_charge = False
 
     if unit_commitment:
         set_unit_commitment(self, apply_on="market_model")
