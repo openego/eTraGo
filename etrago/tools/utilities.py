@@ -3203,6 +3203,35 @@ def manual_fixes_datamodel(etrago):
                     comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
+
+        # Drop very small generators
+        etrago.network.mremove("Generator", etrago.network.generators[
+            (etrago.network.generators.p_nom_extendable == False) &
+            (etrago.network.generators.p_nom < 100)].index)
+
+
+
+        # Set ramps to nan
+        etrago.network.links.ramp_limit_up = np.nan
+        etrago.network.links.ramp_limit_down = np.nan
+        etrago.network.generators.ramp_limit_up = np.nan
+        etrago.network.generators.ramp_limit_down = np.nan
+
+        # Fix cyclic conditions of stores
+        etrago.network.stores.e_cyclic_per_period = False
+        etrago.network.stores.loc[
+            etrago.network.stores.carrier=="battery_storage",
+            "e_cyclic"] = False
+
+        # Avoid nurical problems with large values in gas stores
+        # etrago.network.stores.e_nom_max = np.inf
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "capital_cost"] = 0.0
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "e_nom_min"] = 0.0
+        # etrago.network.stores.loc[
+        #     etrago.network.stores.carrier=="CH4", "e_nom_extendable"] = True
+
     # Add static p-set to other AC load in foreign countries
     static_ac_loads = etrago.network.loads[
         (etrago.network.loads.carrier == "AC")
@@ -3214,7 +3243,7 @@ def manual_fixes_datamodel(etrago):
                 etrago.network.loads[
                     (etrago.network.loads.bus == row.bus)
                     & (etrago.network.loads.p_set == 0)
-                ].index
+                ].index[0]
             ] += row.p_set
             etrago.network.remove("Load", i)
 
