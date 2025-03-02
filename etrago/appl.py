@@ -713,13 +713,69 @@ def run_etrago(args, json_path):
 
     # spatial clustering
     etrago.spatial_clustering()
-    etrago.spatial_clustering_gas()    
+    etrago.spatial_clustering_gas()
 
-    # snapshot clustering
-    etrago.snapshot_clustering()
+    import pypsa
+    pre_network = pypsa.Network(
+        "/home/clara/powerd-data-36/data_bundle_powerd_data/pypsa_eur/21122024_3h_clean_run/results/prenetworks/prenetwork_post-manipulate_pre-solve/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
 
-    # skip snapshots
-    etrago.skip_snapshots()
+    # heat pump efficiency timeseries
+    for link in etrago.network.links.loc[(etrago.network.links.carrier.str.contains("rural_heat_pump"))&
+                                        (etrago.network.links.bus0.isin(
+                                            etrago.network.buses[etrago.network.buses.country!="DE"].index
+                                            ))].index:
+        bus = etrago.network.links.loc[link, "bus0"]
+        carrier = etrago.network.links.loc[link, "carrier"]
+        country = etrago.network.buses.loc[bus, "country"]
+
+        if carrier == "rural_heat_pump":
+            pypsa_carrier = "rural ground heat pump"
+
+        link_pypsa = pre_network.links[
+            (pre_network.links.index.str.contains(country))
+             & (pre_network.links.index.str.contains(pypsa_carrier))
+            ]
+
+        ts_p_set = pre_network.links_t.efficiency[link_pypsa.index].loc[etrago.network.snapshots].mean(axis=1).values
+
+        df = pd.DataFrame(index = etrago.network.snapshots, data = {link:ts_p_set})
+
+        etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
+
+    post_network = pypsa.Network(
+        "/home/clara/powerd-data-36/data_bundle_powerd_data/pypsa_eur/"
+        "21122024_3h_clean_run/results/postnetworks/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
+
+    for bus in etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "rural_heat")&
+                                        (etrago.network.buses.country!="DE")].index:
+        x = etrago.network.buses.loc[bus, "x"]
+        bus_pe = post_network.buses[(post_network.buses.x==x)
+                                    & (post_network.buses.carrier.isin(["rural heat", "urban decentral heat"]))]
+        country = etrago.network.buses.loc[bus, "country"]
+        carrier = "rural_heat"
+
+        links_pe = post_network.links[post_network.links.bus1.isin(bus_pe.index)]
+        
+        heat_pump_capacity = links_pe[links_pe.carrier.str.contains("heat pump")].p_nom_opt.sum()
+        resistive_heat_capacity = links_pe[links_pe.carrier.str.contains("resistive heater")].p_nom_opt.sum()    
+        gas_boiler_capacity = 1e7
+
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_heat_pump")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = heat_pump_capacity
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_resistive_heater")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = resistive_heat_capacity
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_gas_boiler")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = gas_boiler_capacity
 
     for comp in etrago.network.iterate_components():
         for key in comp.pnl:
@@ -749,6 +805,23 @@ def run_etrago(args, json_path):
         battery_cost = n.storage_units[
             n.storage_units.carrier=="battery"].capital_cost.max()
         n.storage_units.loc[n.storage_units.carrier.str.contains("battery"), "capital_cost"] = battery_cost
+        n.stores.loc[n.stores.carrier=="battery_storage", "e_cyclic"] = False
+
+        n.stores.loc[n.stores.carrier=="CH4", "capital_cost"] = 0.0
+        n.stores.loc[n.stores.carrier=="CH4", "e_nom_min"] = 0.0
+        n.stores.loc[n.stores.carrier=="CH4", "e_nom_extendable"] = True
+
+    etrago.network.links.loc[
+        etrago.network.links.carrier == "central_gas_boiler",
+        "p_nom"] = 1e7
+    etrago.network.links.loc[
+        etrago.network.links.carrier == "rural_gas_boiler",
+        "p_nom"] = 1e7
+    etrago.snapshot_clustering()
+
+    # skip snapshots
+    etrago.skip_snapshots()
+
     # start linear optimal powerflow calculations
     etrago.optimize()
 
