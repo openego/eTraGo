@@ -324,7 +324,7 @@ def add_redispatch_generators(
 
     # Calculate costs for redispatch
     # Extract prices per market zone from market model results
-    market_price_per_bus = self.market_model.buses_t.marginal_price.copy()
+    market_price_per_bus = self.pre_market_model.buses_t.marginal_price.copy()
 
     # Set market price for each disaggregated generator according to the bus
     # can be reduced liner by setting a factor_redispatch_cost
