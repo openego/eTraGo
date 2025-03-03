@@ -80,13 +80,14 @@ def market_optimization(self):
     else:
         logger.warning("Method type must be either 'pyomo' or 'linopy'")
 
-    temp_disagg_soc(self)
     # Export results of pre-market model
     if self.args["csv_export"]:
         path = self.args["csv_export"]
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.pre_market_model.export_to_csv_folder(path + "/pre_market")
+
+    temp_disagg_soc(self)
 
     logger.info("Preparing short-term UC market model")
 
