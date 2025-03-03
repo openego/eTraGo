@@ -3266,6 +3266,17 @@ def manual_fixes_datamodel(etrago):
         o2_buses = etrago.network.buses[etrago.network.buses.carrier == "O2"]
         etrago.network.buses.loc[o2_buses.index, "type"] = 1
 
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            ["DC", "CH4", "H2_grid", "H2_saltcavern"]),
+        "p_min_pu"
+        ] = -1.0
+
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(["H2_to_CH4"]),
+        "p_min_pu"
+        ] = 0.0
+
 
 def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
     """
