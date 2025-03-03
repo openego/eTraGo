@@ -817,10 +817,16 @@ def run_etrago(args, json_path):
     etrago.network.links.loc[
         etrago.network.links.carrier == "rural_gas_boiler",
         "p_nom"] = 1e7
+
     etrago.snapshot_clustering()
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    if not os.path.exists(etrago.args["csv_export"]):
+        os.makedirs(etrago.args["csv_export"])
+    etrago.network.export_to_csv_folder(etrago.args["csv_export"]+"/network_before_opt")
+    etrago.network_tsa.export_to_csv_folder(etrago.args["csv_export"]+"/network_tsa_before_opt")
 
     # start linear optimal powerflow calculations
     etrago.optimize()
