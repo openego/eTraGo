@@ -719,7 +719,7 @@ def run_etrago(args, json_path):
 
     import pypsa
     pre_network = pypsa.Network(
-        "/home/clara/powerd-data-36/data_bundle_powerd_data/pypsa_eur/21122024_3h_clean_run/results/prenetworks/prenetwork_post-manipulate_pre-solve/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
+        "etrago/pypsa_eur/21122024_3h_clean_run/results/prenetworks/prenetwork_post-manipulate_pre-solve/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
 
     # Scale rural heat demand in Germany
     rural_heat_pe = pre_network.loads_t.p_set["DE0 0 rural heat"] + pre_network.loads_t.p_set["DE0 0 urban decentral heat"]
@@ -760,7 +760,7 @@ def run_etrago(args, json_path):
         etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
 
     post_network = pypsa.Network(
-        "/home/clara/powerd-data-36/data_bundle_powerd_data/pypsa_eur/"
+        "etrago/pypsa_eur/"
         "21122024_3h_clean_run/results/postnetworks/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
 
     for bus in etrago.network.buses.loc[
