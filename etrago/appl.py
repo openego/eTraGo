@@ -721,6 +721,21 @@ def run_etrago(args, json_path):
     pre_network = pypsa.Network(
         "/home/clara/powerd-data-36/data_bundle_powerd_data/pypsa_eur/21122024_3h_clean_run/results/prenetworks/prenetwork_post-manipulate_pre-solve/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
 
+    # Scale rural heat demand in Germany
+    rural_heat_pe = pre_network.loads_t.p_set["DE0 0 rural heat"] + pre_network.loads_t.p_set["DE0 0 urban decentral heat"]
+    rural_heat = etrago.network.loads[
+        (etrago.network.loads.bus.isin(
+            etrago.network.buses[
+                (etrago.network.buses.country=="DE")
+                &(etrago.network.buses.carrier=="rural_heat")
+                ].index))]
+    for sn in etrago.network.snapshots:
+        etrago.network.loads_t.p_set.loc[sn,
+            rural_heat.index] = etrago.network.loads_t.p_set[
+                rural_heat.index].loc[sn].mul(
+                    1/etrago.network.loads_t.p_set[
+                        rural_heat.index].loc[sn].sum()) * rural_heat_pe[sn]
+
     # heat pump efficiency timeseries
     for link in etrago.network.links.loc[(etrago.network.links.carrier.str.contains("rural_heat_pump"))&
                                         (etrago.network.links.bus0.isin(
