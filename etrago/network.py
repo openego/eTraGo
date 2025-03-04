@@ -41,6 +41,7 @@ from etrago.analyze.calc_results import (
     dc_export_per_country,
     german_network,
     system_costs_germany,
+    calc_atlas_results,
 )
 from etrago.analyze.plot import (
     bev_flexibility_potential,
@@ -303,6 +304,8 @@ class Etrago:
     spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
+    
+    calc_atlas_results = calc_atlas_results
 
     calc_ac_export = ac_export
 
