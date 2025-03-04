@@ -700,14 +700,14 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
-
+    
     # ehv network clustering
     etrago.ehv_clustering()
 
@@ -760,6 +760,9 @@ def run_etrago(args, json_path):
 
     # calculate central etrago results
     etrago.calc_results()
+
+    #calculate final PtH2 results
+    etrago.calc_atlas_results()
 
     return etrago
 

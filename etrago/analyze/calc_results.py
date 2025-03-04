@@ -28,6 +28,7 @@ if "READTHEDOCS" not in os.environ:
 
     from matplotlib import pyplot as plt
     import pandas as pd
+    import geopandas as gpd
     import pypsa
 
     logger = logging.getLogger(__name__)
@@ -993,3 +994,409 @@ def total_redispatch(network, only_de=True, plot=False):
             "potential": total_ramp_down_potential,
         },
     }
+
+def regions_per_bus(self):
+    """
+    Create matching dataframe of clustered AC-buses
+    and corresponding MV-grids
+
+    Returns
+    -------
+    geoms : pd.DataFrame
+    """
+    from shapely.geometry import Point
+
+    bus_series = pd.Series(
+    index=self.network.buses[
+        (self.network.buses.carrier=="AC")
+        & (self.network.buses.country == "DE")
+        ].index, 
+    data=0.0,)
+
+    map_buses = self.busmap["orig_network"].buses[
+        [
+            "carrier",
+            "x",
+            "y",
+            "country",
+        ]
+    ]
+    map_buses = map_buses[
+        (map_buses["carrier"] == "AC") & (map_buses["country"] == "DE")
+    ]
+    map_buses["geom"] = map_buses.apply(
+        lambda x: Point(x["x"], x["y"]), axis=1)
+    
+    map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
+    
+    map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
+
+    try:
+        mv_grids = gpd.read_postgis(
+            "SELECT bus_id, geom FROM grid.egon_mv_grid_district",
+            self.engine,
+        ).to_crs(4326)
+        
+        join = gpd.sjoin(mv_grids, map_buses)
+
+        join = join.to_crs(3035)
+
+        geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
+
+        for i in join.cluster.unique():
+            geoms[i] = join[join.cluster == i].geom.union_all()
+        
+        return geoms
+    
+    except Exception as e:
+        logger.warning(
+            "No egon_mv_grid_district table inside the database. To create a matching table for atlas results "
+            "please add this table to your database."
+        )
+        logger.warning(f"Error-Message: {e}")
+        
+        return gpd.GeoSeries(dtype="geometry", crs=4326)
+
+
+def merit_order_ely_redispatch(self):
+    """
+    Each hour, the electrolysers with the highest nodal prices in the grid 
+    optimization are designated as dispatch until the electrolysis injection 
+    from the market optimization has been met.
+
+    Returns
+    -------
+    redispatch_electrolysis : pd.DataFrame
+    redispatch_electrolysis_per_bus : pd.DataFrame
+    df_mv_grids : gpd.GeoDataFrame
+    """
+    
+    # Electrolysis in market optimization
+    market_buses = self.market_model.buses[
+        (self.market_model.buses.carrier == "AC")
+    ].index
+    
+    ely_market = self.market_model.links[
+        (self.market_model.links.carrier == "power_to_H2")
+        & (self.market_model.links.bus0.isin(market_buses))
+    ]
+    
+    # Store x, y coordinates for market electrolysis
+    ely_market["x"] = self.market_model.buses.loc[ely_market.bus1.values, "x"].values
+    ely_market["y"] = self.market_model.buses.loc[ely_market.bus1.values, "y"].values
+    
+    # Initialize market time series for each bus, grouped by country
+    ely_market_t = {}
+    for country in self.market_model.buses["country"].unique():
+        buses_in_country = self.market_model.buses[self.market_model.buses["country"] == country].index
+        ely_market_t[country] = self.market_model.links_t.p0[ely_market.index[ely_market.bus0.isin(buses_in_country)]]
+    
+    # Electrolysis in grid optimization
+    grid_buses = self.network.buses[
+        (self.network.buses.carrier == "AC")
+    ].index
+    
+    ely_grid = self.network.links[
+        (self.network.links.carrier == "power_to_H2")
+        & (self.network.links.bus0.isin(grid_buses.values))
+    ]
+    
+    # Store x, y coordinates for grid electrolysis
+    ely_grid["x"] = self.network.buses.loc[ely_grid.bus0.values, "x"].values
+    ely_grid["y"] = self.network.buses.loc[ely_grid.bus0.values, "y"].values
+    
+    # Initialize grid time series, grouped by country
+    ely_grid_t = {}
+    for country in self.network.buses["country"].unique():
+        buses_in_country = self.network.buses[self.network.buses["country"] == country].index
+        ely_grid_t[country] = self.network.links_t.p0[ely_grid.index[ely_grid.bus0.isin(buses_in_country)]]
+    
+    # DataFrames for dispatch and redispatch results
+    highest_redispatch_price = pd.Series(index=self.network.snapshots)
+    redispatch_electrolysis = pd.DataFrame(index=self.network.snapshots, 
+                                           columns=ely_grid.index, 
+                                           data=0.)
+    dispatch_electrolysis = pd.DataFrame(index=self.network.snapshots, 
+                                         columns=ely_grid.index, 
+                                         data=0.)
+    redispatch_electrolysis_per_bus = pd.DataFrame(
+        index=self.network.snapshots,
+        columns=self.network.buses[
+            (self.network.buses.carrier == "AC")
+        ].index, 
+        data=0.0
+    )
+    
+    # Main loop: for each snapshot
+    for sn in self.network.snapshots: 
+        
+        for country in self.market_model.buses["country"].unique():
+            market_oriented_dispatch = 0
+            
+            market_at_sn = ely_market_t[country].sum(axis=1)[sn]  # Get market dispatch for this country
+            
+            # Grid dispatch for this country
+            grid_at_sn = pd.DataFrame(ely_grid_t[country].loc[sn])
+            
+            # Filter bus0 values for the current country
+            buses_in_country = self.network.buses[self.network.buses["country"] == country].index
+            relevant_buses_in_links = ely_grid.loc[ely_grid["bus0"].isin(buses_in_country)]
+            
+            # Now we need the marginal prices only for the buses that are in the relevant links for this country
+            bus_ids_in_relevant_links = relevant_buses_in_links["bus0"].values
+            
+            # Extract the corresponding nodal prices
+            nodal_prices = self.network.buses_t["marginal_price"].loc[sn, bus_ids_in_relevant_links].values
+            
+            # Assign the filtered nodal prices to the grid dispatch DataFrame
+            grid_at_sn["nodal_price"] = nodal_prices
+            
+            # Sort grid dispatch by price
+            ely_dispatch_sorted_by_price = grid_at_sn.sort_values("nodal_price", ascending=False)
+            
+            for ely in ely_dispatch_sorted_by_price.index:        
+                if market_at_sn == 0:
+                    highest_redispatch_price[sn] = ely_dispatch_sorted_by_price.iloc[0]["nodal_price"]
+                    redispatch_electrolysis_per_bus.loc[
+                            sn, self.network.links.loc[ely, "bus0"]
+                        ] += ely_dispatch_sorted_by_price.loc[ely, sn]
+                else:              
+                    if market_at_sn > market_oriented_dispatch:
+                        if market_at_sn >= (market_oriented_dispatch + ely_dispatch_sorted_by_price.loc[ely, sn]):
+                            market_oriented_dispatch += ely_dispatch_sorted_by_price.loc[ely, sn]                    
+                            dispatch_electrolysis.loc[sn, ely] = ely_dispatch_sorted_by_price.loc[ely, sn]
+                        else:
+                            dispatch_electrolysis.loc[sn, ely] = market_at_sn - market_oriented_dispatch
+                            market_oriented_dispatch += dispatch_electrolysis.loc[sn, ely]
+                            redispatch_electrolysis.loc[sn, ely] = (ely_dispatch_sorted_by_price.loc[ely, sn]
+                                                                    - dispatch_electrolysis.loc[sn, ely])
+                            redispatch_electrolysis_per_bus.loc[
+                                sn, self.network.links.loc[ely, "bus0"]
+                            ] += (ely_dispatch_sorted_by_price.loc[ely, sn]
+                                                                      - dispatch_electrolysis.loc[sn, ely])
+                    else:
+                        redispatch_electrolysis.loc[sn, ely] = ely_dispatch_sorted_by_price.loc[ely, sn]
+                        redispatch_electrolysis_per_bus.loc[
+                            sn, self.network.links.loc[ely, "bus0"]
+                        ] += ely_dispatch_sorted_by_price.loc[ely, sn]
+                        highest_redispatch_price[sn] = ely_dispatch_sorted_by_price.loc[ely, "nodal_price"] 
+    
+    # matching table bus_id | corresponding mv grids
+    mv_grid_geom = regions_per_bus(self)
+    if mv_grid_geom.empty: 
+        df_mv_grids = gpd.GeoDataFrame(
+            geometry = mv_grid_geom,
+            crs=4326
+            )
+    else: df_mv_grids = gpd.GeoDataFrame(geometry=[], crs=4326)
+             
+    return redispatch_electrolysis, redispatch_electrolysis_per_bus, df_mv_grids
+
+
+def remaining_redispatch(self, min_flh = 3000):
+    """
+    Calculating the remaining redispatch per bus. Furthermore
+    the method shows an electrolyzer potential based on the 
+    remaining redispatch and an assumption of 3000 full-load-hours.
+
+    Parameters
+    ----------
+    min_flh: int
+        Assumption of minimum amount of full-load-hours
+
+    Returns
+    -------
+    max_ely : pd.DataFrame
+    ramp_down_per_bus : pd.DataFrame
+    """
+    
+    ramp_down_per_bus = pd.DataFrame(
+        index=self.network.snapshots,
+        columns=self.network.buses[
+            (self.network.buses.carrier=="AC")
+            ].index, data = 0.0)
+    
+    for bus in ramp_down_per_bus.columns:
+        
+        ramp_down_per_bus[bus] += self.network.generators_t.p[self.network.generators[
+            (self.network.generators.bus==bus)
+            & (self.network.generators.index.str.contains("ramp_down"))
+            ].index].sum(axis=1).abs()
+        
+        ramp_down_per_bus[bus] += self.network.links_t.p1[self.network.links[
+            (self.network.links.bus1==bus)
+            & (self.network.links.index.str.contains("ramp_down"))
+            ].index].sum(axis=1).abs()
+        
+    
+    
+    max_ely = pd.DataFrame(
+        index=self.network.buses[
+            (self.network.buses.carrier=="AC")
+            ].index,
+        columns=["max_capacity", "x", "y"],
+        data={
+            "max_capacity" : 0.0,
+            "x" : self.network.buses[
+                (self.network.buses.carrier=="AC")
+                ].x,
+            "y" : self.network.buses[
+                (self.network.buses.carrier=="AC")
+                ].y,
+            
+            }
+        )
+
+    for size in range(1,200):
+        for bus in max_ely.index:
+            if (((ramp_down_per_bus.loc[:, bus].clip(upper=size)).sum()*(5)) >= (min_flh*size)):             
+                max_ely.loc[bus, "max_capacity"] = size                              
+
+    return max_ely, ramp_down_per_bus
+
+
+
+def calc_atlas_results(self):
+    """
+    Calculating the final results for the potential_atlas as 
+    one of the main outcomes of the project. The results will
+    be stored in a csv file for providing it to the project
+    partners. Additonally the method creates a matching table
+    for assign each clustered bus to the corresponding mv-grids.
+
+    Parameters
+    ----------
+    
+    Returns
+    -------
+    results : pd.DataFrame
+    matching_mv_grids : gpd.GeoDataFrame
+    """
+    import numpy as np
+    
+    results = pd.DataFrame()
+    
+    heating_value_H2 = 33.33  # [kWh/kg]
+    O2_calc_factor = 9.030816  # [t_O2/MWh_el] average value produced O2 per electricity, own calculation
+    
+    max_ely, ramp_down_per_bus = remaining_redispatch(self)
+    redispatch_electrolysis, redispatch_electrolysis_per_bus, matching_mv_grids = merit_order_ely_redispatch(self)
+    
+    PtH2_links = self.network.links[self.network.links.carrier == "power_to_H2"]
+    AC_buses_PtH2 = self.network.buses[self.network.buses.index.isin(PtH2_links.bus0.unique())]
+    
+    for index, row in AC_buses_PtH2.iterrows():
+
+        links_PtH2 = PtH2_links[PtH2_links.bus0 == index]
+        
+        # Check if elctrolyzer has coupling product usage
+        links_PtH2_bus2 = links_PtH2['bus2'].replace(['', 'nan', None], np.nan).dropna()
+        links_PtH2_bus3 = links_PtH2['bus3'].replace(['', 'nan', None], np.nan).dropna()
+        
+        buses_heat = links_PtH2_bus2.astype(float).astype(int).astype(str).tolist() 
+        buses_o2 = links_PtH2_bus3.astype(float).astype(int).astype(str).tolist() 
+        
+        if buses_heat:
+            links_waste_heat = self.network.links[self.network.links.bus0.isin(buses_heat)]
+        else:
+            links_waste_heat = []
+    
+        if buses_o2:
+            links_o2 = self.network.links[self.network.links.bus0.isin(buses_o2)]
+        else:
+            links_o2 = []
+        
+        
+        # Calculate Dispatch
+        AC_dispatch = self.network.links_t.p0[links_PtH2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum() 
+        H2_dispatch = -self.network.links_t.p1[links_PtH2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()      
+        waste_heat_dispatch = -self.network.links_t.p1.get(links_waste_heat.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
+        o2_dispatch = -self.network.links_t.p1.get(links_o2.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
+        
+        # LCOE+LCOH
+        lcoe = self.network.buses_t.marginal_price.loc[:, row.name].mean()   #[€/MWh_e]
+        lcoh = self.network.buses_t.marginal_price.loc[:, links_PtH2.bus1.astype(int).astype(str).tolist()].mean().mean()*33.33*1e-3 #[€/kg_H2]
+        
+        # H2-demand
+        loads_h2 = self.network.loads[self.network.loads.carrier.str.contains('H2') 
+                                 & self.network.loads.bus.isin(links_PtH2.bus1.astype(int).astype(str).tolist())]
+        try: 
+            H2_demand = self.network.loads_t.p_set[loads_h2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
+        except: 
+            H2_demand = self.network.loads.p_set[loads_h2.index].sum()
+        
+        #store_capacity
+        stores_h2 = self.network.stores[self.network.stores.bus.isin(links_PtH2.bus1.astype(int).astype(str).tolist())]
+        store_cap = stores_h2.e_nom_opt.sum()
+        
+        #redispatch
+        ramp_down = ramp_down_per_bus.mul(self.network.snapshot_weightings.objective, axis=0).sum(axis=0)[index]
+        redispatch_ely = redispatch_electrolysis_per_bus.mul(self.network.snapshot_weightings.objective, axis=0).sum(axis=0)[index]
+        
+        #market_driven/grid_driven
+        market_dispatch = AC_dispatch - redispatch_ely
+        if market_dispatch > redispatch_ely:
+            dispatch_type = 'market_driven'
+        else: 
+            dispatch_type = 'grid_driven'
+        
+        new_row = {
+            'region': row.name,
+            'Placement': "System optimization",
+            'E': row.x,
+            'N': row.y,
+            'Type': dispatch_type,
+            'Max. electrolyzer capacity [MW]': links_PtH2.p_nom_opt.sum(),
+            'Max. electricity consumption [MWh]': AC_dispatch,
+            'ELY investment cost [€/MW/a]': links_PtH2.capital_cost.mean(),
+            'CAPEX for max. capacity [€/a]': (links_PtH2.capital_cost* links_PtH2.p_nom_opt).sum(),
+            'Max. H2-Production [ton/a]': H2_dispatch / heating_value_H2,
+            'Max. heat supply [MWh/a]': waste_heat_dispatch,
+            'Max. O2 supply [ton/a]': o2_dispatch * O2_calc_factor,
+            'LCOH [€/kg_H2]': lcoh,
+            'LCOE [€/MWh_el]': lcoe,
+            'Max. redispatch by electrolysis [MWh/a]':redispatch_ely,
+            'Remaining redispatch [MWh/a]': ramp_down,
+            'Max. redispatch potential': ramp_down+redispatch_ely, 
+            'H2 demand [ton/a]':  H2_demand,
+            'Max. hydrogen storage capacity': store_cap,
+        }
+        new_row_df = pd.DataFrame([new_row])
+        results = pd.concat([results, new_row_df], ignore_index=True)
+    
+    # additional ely potential calculated out of remaining redispacth
+    for bus, row in max_ely[max_ely['max_capacity'] > 0].iterrows():
+        new_row = {
+            'region': bus,
+            'Placement': "Additional redispatch potential",
+            'E': row.x,
+            'N': row.y,
+            'Type': "grid_driven",
+            'Max. electrolyzer capacity [MW]': row.max_capacity,
+            'Max. electricity consumption [MWh]': None,
+            'ELY investment cost [€/MW/a]': None,
+            'CAPEX for max. capacity [€/a]': None,
+            'Max. H2-Production [ton/a]': None,
+            'Max. heat supply [MWh/a]': None,
+            'Max. O2 supply [ton/a]': None,
+            'LCOH [€/kg_H2]': None,
+            'LCOE [€/MWh_el]': None,
+            'Max. redispatch by electrolysis [MWh/a]': None,
+            'Remaining redispatch [MWh/a]': None,
+            'Max. redispatch potential': None, 
+            'H2 demand [ton/a]': None,
+            'Max. hydrogen storage capacity': None,
+        }
+        results = pd.concat([results, pd.DataFrame([new_row])], ignore_index=True)
+     
+    if self.args["csv_export"] != False:
+        path = self.args["csv_export"]
+    else:
+        path = './atlas_results'
+        os.makedirs(path, exist_ok=True)
+
+    results.to_csv(os.path.join(path, "atlas_results.csv"))
+    matching_mv_grids.to_csv(os.path.join(path, "matching_bus_id_mv_grids.csv"))
+        
+    return results
+
