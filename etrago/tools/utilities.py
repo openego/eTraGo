@@ -2984,6 +2984,17 @@ def manual_fixes_datamodel(etrago):
         ),
         "p_nom_extendable",
     ] = False
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            [
+                "DC",
+                "power_to_H2",
+                "H2_to_CH4",
+                "CH4_to_H2",
+                ]
+        ),
+        "p_nom_extendable",
+    ] = True
 
     # Set efficiences of CHP
     etrago.network.links.loc[
