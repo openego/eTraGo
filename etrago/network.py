@@ -426,8 +426,6 @@ class Etrago:
         """
 
         self.manual_fixes_datamodel()
-        
-        self.levelize_abroad_inland_parameters()
 
         self.geolocation_buses()
 
@@ -469,6 +467,8 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
+        
+        self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
