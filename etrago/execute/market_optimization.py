@@ -288,11 +288,11 @@ def optimize_with_rolling_horizon(
                     {**args, **args_addition}, False, apply_on="market_model"
                 ).functionality
 
-            elif i == len(starting_points) - 1:
-                if len(snapshots) > 1000:
-                    extra_functionality = Constraints(
-                        args, False, apply_on="last_market_model"
-                    ).functionality
+            # elif i == len(starting_points) - 1:
+            #     if len(snapshots) > 1000:
+            #         extra_functionality = Constraints(
+            #             args, False, apply_on="last_market_model"
+            #         ).functionality
             else:
                 seasonal_storage = pre_market.storage_units[
                     pre_market.storage_units.carrier=="reservoir"].index
