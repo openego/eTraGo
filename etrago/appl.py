@@ -780,6 +780,29 @@ def run_etrago(args, json_path):
 
         etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
 
+    # heat pump efficiency timeseries
+    for link in etrago.network.links.loc[(etrago.network.links.carrier.str.contains("central_heat_pump"))&
+                                        (etrago.network.links.bus0.isin(
+                                            etrago.network.buses[etrago.network.buses.country!="DE"].index
+                                            ))].index:
+        bus = etrago.network.links.loc[link, "bus0"]
+        carrier = etrago.network.links.loc[link, "carrier"]
+        country = etrago.network.buses.loc[bus, "country"]
+
+        if carrier == "central_heat_pump":
+            pypsa_carrier = "urban central air heat pump"
+
+        link_pypsa = pre_network.links[
+            (pre_network.links.index.str.contains(country))
+             & (pre_network.links.index.str.contains(pypsa_carrier))
+            ]
+
+        ts_p_set = pre_network.links_t.efficiency[link_pypsa.index].loc[etrago.network.snapshots].mean(axis=1).values
+
+        df = pd.DataFrame(index = etrago.network.snapshots, data = {link:ts_p_set})
+
+        etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
+
     post_network = pypsa.Network(
         "etrago/pypsa_eur/"
         "21122024_3h_clean_run/results/postnetworks/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
