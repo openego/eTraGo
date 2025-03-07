@@ -702,10 +702,31 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
+
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[etrago.network.links.carrier=="PtH2_O2"].index
+        )
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[etrago.network.links.carrier=="PtH2_waste_heat"].index
+        )
+    etrago.network.mremove(
+        "Load",
+        etrago.network.loads[etrago.network.loads.carrier=="O2"].index
+        )
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[etrago.network.generators.carrier=="O2"].index
+        )
+    etrago.network.mremove(
+        "Bus",
+        etrago.network.buses[etrago.network.buses.carrier=="O2"].index
+        )
 
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
