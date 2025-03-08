@@ -482,15 +482,31 @@ def build_market_model(self, unit_commitment=False):
 
 def build_shortterm_market_model(self, unit_commitment=False):
 
+    self.market_model.storage_units.loc[
+        self.market_model.storage_units.p_nom_extendable, "p_nom"
+        ] = self.pre_market_model.storage_units.loc[
+            self.pre_market_model.storage_units.p_nom_extendable, "p_nom_opt"
+            ].clip(lower=0)
+    self.market_model.stores.loc[
+        self.market_model.stores.e_nom_extendable, "e_nom"
+        ] = self.pre_market_model.stores.loc[
+            self.pre_market_model.stores.e_nom_extendable, "e_nom_opt"
+            ].clip(lower=0)
+    self.market_model.links.loc[
+        self.market_model.links.p_nom_extendable, "p_nom"
+        ] = self.pre_market_model.links.loc[
+            self.pre_market_model.links.p_nom_extendable, "p_nom_opt"
+            ].clip(lower=0)
+    self.market_model.lines.loc[
+        self.market_model.lines.s_nom_extendable, "s_nom"
+        ] = self.pre_market_model.lines.loc[
+            self.pre_market_model.lines.s_nom_extendable, "s_nom_opt"
+            ].clip(lower=0)
+
     self.market_model.storage_units.p_nom_extendable = False
     self.market_model.stores.e_nom_extendable = False
     self.market_model.links.p_nom_extendable = False
     self.market_model.lines.s_nom_extendable = False
-
-    self.market_model.storage_units.p_nom = self.pre_market_model.storage_units.p_nom_opt.clip(lower=0)
-    self.market_model.stores.e_nom = self.pre_market_model.stores.e_nom_opt.clip(lower=0)
-    self.market_model.links.p_nom = self.pre_market_model.links.p_nom_opt.clip(lower=0)
-    self.market_model.lines.s_nom = self.pre_market_model.lines.s_nom_opt.clip(lower=0)
 
     self.market_model.mremove("Store", self.market_model.stores[self.market_model.stores.e_nom==0].index)
     self.market_model.stores.e_cyclic = False
