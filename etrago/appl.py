@@ -936,20 +936,23 @@ def run_etrago(args, json_path):
             n.generators.ramp_limit_up = np.nan
             n.generators.ramp_limit_down = np.nan
             n.stores.e_cyclic_per_period = False
-            battery_cost = n.storage_units[
-                n.storage_units.carrier=="battery"].capital_cost.max()
-            n.storage_units.loc[n.storage_units.carrier.str.contains("battery"), "capital_cost"] = battery_cost
+
             n.stores.loc[n.stores.carrier=="battery_storage", "e_cyclic"] = False
-            
+
+            n.stores.loc[n.stores[
+                (n.stores.carrier=="battery_storage")
+                &(n.stores.bus.isin(
+                    n.buses[
+                        (n.buses.carrier=="Li_ion")
+                        &(n.buses.country!="DE")].index))].index, "e_cyclic"
+                ] = True
+
             n.stores.loc[n.stores.carrier.isin([
                 "CH4", "H2_overground", "H2_underground", "central_heat_store", "rural_heat_store"]), "e_cyclic"] = True
 
             n.links.loc[n.links.carrier.isin([
                 "dsm"]), "p_min_pu"] = -1.
 
-            n.stores.loc[n.stores.carrier=="CH4", "capital_cost"] = 0.0
-            n.stores.loc[n.stores.carrier=="CH4", "e_nom_min"] = 0.0
-            n.stores.loc[n.stores.carrier=="CH4", "e_nom_extendable"] = True
     if not os.path.exists(etrago.args["csv_export"]):
         os.makedirs(etrago.args["csv_export"])
     etrago.network.export_to_csv_folder(etrago.args["csv_export"]+"/network_before_opt")

@@ -360,9 +360,9 @@ def build_market_model(self, unit_commitment=False):
             columns=["country", "marketzone"],
         )
 
-        df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
-            "DE/LU"
-        )
+        # df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+        #     "DE/LU"
+        # )
 
         df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
@@ -434,6 +434,15 @@ def build_market_model(self, unit_commitment=False):
     # Set stores and storage_units to cyclic
     if len(self.network_tsa.snapshots) > 1000:
         net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
+        # Stores of e-Mob in foreign countries have to be cyclic
+        net.stores.loc[net.stores[
+            (net.stores.carrier=="battery_storage")
+            &(net.stores.bus.isin(
+                net.buses[
+                    (net.buses.carrier=="Li_ion")
+                    &(net.buses.country!="DE")].index))].index, "e_cyclic"
+            ] = True
+
         net.storage_units.cyclic_state_of_charge = True
     net.stores.loc[net.stores.carrier == "dsm", "e_cyclic"] = False
     net.storage_units.cyclic_state_of_charge = True
@@ -589,9 +598,9 @@ def gas_clustering_market_model(self):
         columns=["country", "marketzone"],
     )
 
-    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
-        "DE/LU"
-    )
+    # df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+    #     "DE/LU"
+    # )
 
     df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
 
