@@ -818,6 +818,85 @@ def run_etrago(args, json_path):
         "etrago/pypsa_eur/"
         "21122024_3h_clean_run/results/postnetworks/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
 
+    from datetime import timedelta
+    # Model EV as charging load in foreign countries
+    for bus in etrago.network.buses.loc[
+                (etrago.network.buses.carrier == "Li_ion")&
+                                            (etrago.network.buses.country!="DE")].index:
+        country = etrago.network.buses.loc[bus, "country"]
+        if country=="GB":
+            bus_pe = post_network.buses[(post_network.buses.index.str[:2]==country)
+                                        & (post_network.buses.x == etrago.network.buses.loc[bus, "x"])
+                                        & (post_network.buses.carrier.isin(["EV battery"]))]
+        else:
+            bus_pe = post_network.buses[(post_network.buses.index.str[:2]==country)
+                                        & (post_network.buses.carrier.isin(["EV battery"]))]
+        link_pe = post_network.links[(post_network.links.bus1.isin(bus_pe.index))
+                                    & (post_network.links.carrier.isin(["BEV charger"]))]
+        charging_load = pd.Series(index=etrago.network.snapshots)
+        for sns in charging_load.index:
+            if sns in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns, link_pe.index].sum()
+            elif sns - timedelta(hours=1) in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns - timedelta(hours=1), link_pe.index].sum()
+            elif sns - timedelta(hours=2) in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns - timedelta(hours=2), link_pe.index].sum()
+        
+        ac_bus_etrago = etrago.network.links.loc[
+            (etrago.network.links.bus1==bus) & (etrago.network.links.carrier=="BEV_charger"), "bus0"].values[0]
+        
+        etrago.network.add(
+            "Load",
+            name = ac_bus_etrago + " land_transport_EV",
+            carrier = "land_transport_EV",
+            bus = ac_bus_etrago,
+            p_set = charging_load
+            
+            )
+        etrago.network.loads.loc[ac_bus_etrago + " land_transport_EV", "scn_name"] = "eGon100RE"
+
+    etrago.network.mremove(
+        "Load",
+        etrago.network.loads[
+            (etrago.network.loads.carrier=="land_transport_EV")
+            &(etrago.network.loads.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.loads[
+            (etrago.network.loads.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[
+            (etrago.network.links.carrier=="BEV_charger")
+            &(etrago.network.links.bus1.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Store",
+        etrago.network.stores[
+            (etrago.network.stores.carrier=="battery_storage")
+            &(etrago.network.stores.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Bus",
+        etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index
+        )
+
     for bus in etrago.network.buses.loc[
             (etrago.network.buses.carrier == "rural_heat")&
                                         (etrago.network.buses.country!="DE")].index:
@@ -917,14 +996,6 @@ def run_etrago(args, json_path):
             n.stores.e_cyclic_per_period = False
 
             n.stores.loc[n.stores.carrier=="battery_storage", "e_cyclic"] = False
-
-            n.stores.loc[n.stores[
-                (n.stores.carrier=="battery_storage")
-                &(n.stores.bus.isin(
-                    n.buses[
-                        (n.buses.carrier=="Li_ion")
-                        &(n.buses.country!="DE")].index))].index, "e_cyclic"
-                ] = True
 
             n.stores.loc[n.stores.carrier.isin([
                 "CH4", "H2_overground", "H2_underground", "central_heat_store", "rural_heat_store"]), "e_cyclic"] = True
