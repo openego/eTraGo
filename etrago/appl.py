@@ -838,6 +838,30 @@ def run_etrago(args, json_path):
             "p_nom"
             ] = gas_boiler_capacity
 
+    # Set CH4 stores in foreign countries
+    for bus in etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "CH4")&
+                                        (etrago.network.buses.country!="DE")].index:
+        x = etrago.network.buses.loc[bus, "x"]
+        bus_pe = post_network.buses[(post_network.buses.x==x)
+                                    & (post_network.buses.carrier.isin(["gas"]))]
+        country = etrago.network.buses.loc[bus, "country"]
+        carrier = "CH4"
+        stores_pe = post_network.stores[post_network.stores.bus.isin(bus_pe.index)]
+        stores_capacity = stores_pe[stores_pe.carrier.str.contains("gas")].e_nom_opt.sum()
+
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier=="CH4")
+            &(etrago.network.stores.bus==bus),
+            "e_nom"
+            ] = stores_capacity
+
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier=="CH4")
+            &(etrago.network.stores.bus==bus),
+            "e_nom_extendable"
+            ] = False
+
     for comp in etrago.network.iterate_components():
         for key in comp.pnl:
             comp.pnl[key].where(
