@@ -3459,17 +3459,17 @@ class Constraints:
                 ):
                     add_ch4_constraints(self, network, snapshots)
             elif self.args["method"]["formulation"] == "linopy":
-                if (self.args["scn_name"] != "status2019") & (
-                    len(snapshots) > 1500
-                ):
-                    add_ch4_constraints_linopy(self, network, snapshots)
+                # if (self.args["scn_name"] != "status2019") & (
+                #     len(snapshots) > 1500
+                # ):
+                #     add_ch4_constraints_linopy(self, network, snapshots)
 
                 if self.apply_on == "last_market_model":
                     fixed_storage_unit_soc_at_the_end(network, snapshots)
                 elif self.apply_on == "market_model":
                     fixed_storage_unit_soc_at_horizon_end(
                         self, network, snapshots)
-                add_chp_constraints_linopy(network, snapshots)
+                #add_chp_constraints_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
                 if self.args["scn_name"] != "status2019":
