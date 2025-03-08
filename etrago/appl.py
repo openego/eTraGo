@@ -728,6 +728,17 @@ def run_etrago(args, json_path):
         etrago.network.buses[etrago.network.buses.carrier=="O2"].index
         )
 
+    # Drop loads that model the exchange with other countries
+    etrago.network.mremove(
+        "Load",
+        etrago.network.loads[
+            (etrago.network.loads.carrier=="AC")
+            &(etrago.network.loads.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="AC")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
