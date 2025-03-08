@@ -885,37 +885,6 @@ def run_etrago(args, json_path):
         for key in comp.pnl:
             comp.pnl[key].where(
                 comp.pnl[key].abs()>1e-5, other=0., inplace=True)
-    for n in [etrago.network, etrago.network_tsa]:
-        n.mremove("Generator", n.generators[
-            (n.generators.p_nom_extendable == False) &
-            (n.generators.p_nom < 100)].index)
-        import numpy as np
-        n.stores.e_nom_max = np.inf
-        n.links.loc[n.links.carrier == "central_gas_boiler", "p_nom"] = 1e7
-
-        n.links.ramp_limit_up = np.nan
-        n.links.ramp_limit_down = np.nan
-        n.generators.ramp_limit_up = np.nan
-        n.generators.ramp_limit_down = np.nan
-        n.stores.e_cyclic_per_period = False
-        battery_cost = n.storage_units[
-            n.storage_units.carrier=="battery"].capital_cost.max()
-        n.storage_units.loc[n.storage_units.carrier.str.contains("battery"), "capital_cost"] = battery_cost
-        n.stores.loc[n.stores.carrier=="battery_storage", "e_cyclic"] = False
-        
-        n.stores.loc[n.stores.carrier.isin([
-            "CH4", "H2_overground", "H2_underground", "central_heat_store", "rural_heat_store"]), "e_cyclic"] = True
-
-        n.stores.loc[n.stores.carrier=="CH4", "capital_cost"] = 0.0
-        n.stores.loc[n.stores.carrier=="CH4", "e_nom_min"] = 0.0
-        n.stores.loc[n.stores.carrier=="CH4", "e_nom_extendable"] = True
-
-    etrago.network.links.loc[
-        etrago.network.links.carrier == "central_gas_boiler",
-        "p_nom"] = 1e7
-    etrago.network.links.loc[
-        etrago.network.links.carrier == "rural_gas_boiler",
-        "p_nom"] = 1e7
 
     etrago.snapshot_clustering()
 
@@ -938,7 +907,6 @@ def run_etrago(args, json_path):
             n.mremove("Generator", n.generators[
                 (n.generators.p_nom_extendable == False) &
                 (n.generators.p_nom < 100)].index)
-            import numpy as np
             n.stores.e_nom_max = np.inf
             n.links.loc[n.links.carrier == "central_gas_boiler", "p_nom"] = 1e7
 
