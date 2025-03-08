@@ -3566,3 +3566,54 @@ def adjust_chp_model(self, apply_on='pre_market_model'):
         network.links.loc[i, "efficiency2"] = efficiency_heat
 
     return network
+
+def adjust_co2_costs(self, scenario):
+    """ 
+    Recalulcate marginal_costs based on adapted co2_costs 
+    for different scenarios
+    
+    Returns
+    -------
+    None.
+
+    """
+    
+    def define_co2_costs(scn_name):
+        co2_costs_dict = {
+            #"powerd2025": ...,
+            #"powerd2030": ...,
+            #"powerd2035": ...,
+            "eGon100RE": 199.5
+        }
+        
+        if scn_name not in co2_costs_dict:
+            print(f"Scenario name '{scn_name}' is not in co2_cost_list. Default value for eGon2035 will be used.")
+            return 76.5 #old default value
+        
+        return co2_costs_dict[scn_name]
+    
+    old_co2_cost = 76.5  # [EUR/t_CO2]
+    new_co2_cost = define_co2_costs(scenario)
+    
+    co2_emissions_dict = {  # Netzentwicklungsplan Strom 2035, Version 2021, 1. Entwurf, p. 40, table 8
+           "waste": 0.165,  # [t_CO2/MW_th]
+           "lignite": 0.393,  # [t_CO2/MW_th]
+           "CH4": 0.201,  # [t_CO2/MW_th]
+           "OCGT": 0.201,  # [t_CO2/MW_th]
+           "oil": 0.288,  # [t_CO2/MW_th]
+           "coal": 0.335,  # [t_CO2/MW_th]
+           "others": 0.268,  # [t_CO2/MW_th]
+       }
+    
+    for idx, row in self.network.generators.iterrows():
+        carrier = row["carrier"]
+        if any(keyword in carrier for keyword in co2_emissions_dict.keys()) and "heat" not in carrier:
+            old_marginal_cost = row["marginal_cost"]
+            
+            co2_emissions = next((value for key, value in co2_emissions_dict.items() if key in carrier), 0)
+            
+            old_co2 = co2_emissions * old_co2_cost
+            new_co2= co2_emissions * new_co2_cost
+            
+            new_marginal_cost = old_marginal_cost - (old_co2 / row["efficiency"]) + (new_co2 / row["efficiency"])
+            self.network.generators.at[idx, "marginal_cost"] = new_marginal_cost

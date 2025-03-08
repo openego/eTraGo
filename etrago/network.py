@@ -112,6 +112,7 @@ from etrago.tools.utilities import (
     update_busmap,
     adjust_chp_model,
     adjust_PtH2_model,
+    adjust_co2_costs,
 )
 
 logger = logging.getLogger(__name__)
@@ -377,6 +378,8 @@ class Etrago:
     adjust_PtH2_model = adjust_PtH2_model
 
     adjust_chp_model = adjust_chp_model
+    
+    adjust_co2_costs = adjust_co2_costs
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -464,6 +467,9 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
+        
+        if self.args['scn_name'] != 'status2019':           
+            self.adjust_co2_costs(scenario = self.args['scn_name'])
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
