@@ -1003,6 +1003,18 @@ def run_etrago(args, json_path):
             n.links.loc[n.links.carrier.isin([
                 "dsm"]), "p_min_pu"] = -1.
 
+    for n in [etrago.network, etrago.network_tsa]:
+        n.mremove("StorageUnit", n.storage_units[n.storage_units.carrier=="home_battery"].index)
+        # n.generators.loc[
+        #     n.generators.carrier.isin(["wind_onshore", "wind_offshore", "solar", "solar_rooftop"])
+        #     &n.generators.bus.isin(n.buses[n.buses.country!="DE"].index),
+        #     "p_nom"
+        #     ] *= 1.2
+        # n.generators.loc[
+        #     n.generators.carrier.isin(["load shedding"]),
+        #     "marginal_cost"
+        #     ] = 100
+
     if not os.path.exists(etrago.args["csv_export"]):
         os.makedirs(etrago.args["csv_export"])
     etrago.network.export_to_csv_folder(etrago.args["csv_export"]+"/network_before_opt")
