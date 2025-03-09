@@ -834,6 +834,8 @@ def run_etrago(args, json_path):
         link_pe = post_network.links[(post_network.links.bus1.isin(bus_pe.index))
                                     & (post_network.links.carrier.isin(["BEV charger"]))]
         charging_load = pd.Series(index=etrago.network.snapshots)
+        load_pe = post_network.loads[(post_network.loads.bus.isin(bus_pe.index))].index
+        driving_load = pre_network.loads_t.p_set[load_pe].sum(axis=1)
         for sns in charging_load.index:
             if sns in post_network.snapshots:
                 charging_load[sns] = post_network.links_t.p0.loc[sns, link_pe.index].sum()
@@ -850,7 +852,7 @@ def run_etrago(args, json_path):
             name = ac_bus_etrago + " land_transport_EV",
             carrier = "land_transport_EV",
             bus = ac_bus_etrago,
-            p_set = charging_load
+            p_set = driving_load
             
             )
         etrago.network.loads.loc[ac_bus_etrago + " land_transport_EV", "scn_name"] = "eGon100RE"
