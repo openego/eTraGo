@@ -3583,7 +3583,7 @@ def adjust_co2_costs(self, scenario):
             #"powerd2025": ...,
             #"powerd2030": ...,
             #"powerd2035": ...,
-            "eGon100RE": 199.5
+            "eGon100RE": 199.5     # Netzentwicklungsplan 2037-2045, V2023, Teil 1, table 7
         }
         
         if scn_name not in co2_costs_dict:
