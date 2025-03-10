@@ -312,14 +312,14 @@ def add_redispatch_generators(
     # Fix link dispatch (gas turbines) from market simulation
     # Set p_max_pu of links using results from (disaggregated) market model
     self.network.links_t.p_max_pu.loc[:, links_redispatch] = (
-        self.market_model.links_t.p0[links_redispatch].mul(
+        self.market_model.links_t.p0[links_redispatch].clip(lower=0.0).mul(
             1 / self.market_model.links.p_nom[links_redispatch]
         )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[:, links_redispatch] = (
-        self.market_model.links_t.p0[links_redispatch].mul(
+        self.market_model.links_t.p0[links_redispatch].clip(lower=0.0).mul(
             1 / self.market_model.links.p_nom[links_redispatch]
         )
     )
