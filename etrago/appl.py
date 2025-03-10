@@ -868,8 +868,8 @@ def run_etrago(args, json_path):
         )
     etrago.network.mremove(
         "Generator",
-        etrago.network.loads[
-            (etrago.network.loads.bus.isin(
+        etrago.network.generators[
+            (etrago.network.generators.bus.isin(
                 etrago.network.buses[
                     (etrago.network.buses.carrier=="Li_ion")
                     &(etrago.network.buses.country!="DE")].index))].index
