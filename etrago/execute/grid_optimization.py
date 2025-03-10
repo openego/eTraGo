@@ -107,8 +107,9 @@ def grid_optimization(
     self.network.links_t.p_max_pu.where(
         self.network.links_t.p_max_pu.abs() > 1e-7, other=0.0, inplace=True
     )
+
     self.network.links_t.p_min_pu.where(
-        self.network.links_t.p_min_pu > 1e-7, other=0.0, inplace=True
+        self.network.links_t.p_min_pu.abs() > 1e-7, other=0.0, inplace=True
     )
 
     self.network.links.loc[
