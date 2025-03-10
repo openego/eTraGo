@@ -3468,107 +3468,107 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
         network = self.pre_market_model
         
 
-    # PtH2_links = network.links[
-    #     network.links.carrier == "power_to_H2"
-    # ].index
-    # PtH2_AC_buses = network.buses.loc[
-    #     network.links.loc[PtH2_links, "bus0"]
-    # ].index.unique()
+    PtH2_links = network.links[
+        network.links.carrier == "power_to_H2"
+    ].index
+    PtH2_AC_buses = network.buses.loc[
+        network.links.loc[PtH2_links, "bus0"]
+    ].index.unique()
 
-    # from itertools import count
+    from itertools import count
 
-    # store_ids = network.stores.index
-    # numeric_parts = [int(idx.split()[0]) for idx in store_ids]
-    # next_bus_id = max(network.buses.index.astype(int)) + 1
-    # next_store_id = max(numeric_parts) + 1
-    # bus_id_counter = count(start=next_bus_id)
-    # store_id_counter = count(start=next_store_id)
+    store_ids = network.stores.index
+    numeric_parts = [int(idx.split()[0]) for idx in store_ids]
+    next_bus_id = max(network.buses.index.astype(int)) + 1
+    next_store_id = max(numeric_parts) + 1
+    bus_id_counter = count(start=next_bus_id)
+    store_id_counter = count(start=next_store_id)
 
-    # for bus in PtH2_AC_buses:
-    #     power_to_h2_links = network.links[
-    #         (network.links.carrier == "power_to_H2")
-    #         & (network.links.bus0 == bus)
-    #     ].index
-    #     power_to_heat_links = network.links[
-    #         (network.links.carrier == "PtH2_waste_heat")
-    #         & (network.links.bus0 == bus)
-    #     ].index
-    #     power_to_o2_links = network.links[
-    #         (network.links.carrier == "PtH2_O2")
-    #         & (network.links.bus0 == bus)
-    #     ].index
+    for bus in PtH2_AC_buses:
+        power_to_h2_links = network.links[
+            (network.links.carrier == "power_to_H2")
+            & (network.links.bus0 == bus)
+        ].index
+        power_to_heat_links = network.links[
+            (network.links.carrier == "PtH2_waste_heat")
+            & (network.links.bus0 == bus)
+        ].index
+        power_to_o2_links = network.links[
+            (network.links.carrier == "PtH2_O2")
+            & (network.links.bus0 == bus)
+        ].index
 
-    #     link_data = []
-    #     if len(power_to_heat_links) > 0:
-    #         link_data.append(
-    #             {
-    #                 "links": power_to_heat_links,
-    #                 "efficiency": 0.2,
-    #                 "carrier": "waste_heat",
-    #             }
-    #         )
-    #     if len(power_to_o2_links) > 0:
-    #         link_data.append(
-    #             {
-    #                 "links": power_to_o2_links,
-    #                 "efficiency": 0.015,
-    #                 "carrier": "O2",
-    #             }
-    #         )
+        link_data = []
+        if len(power_to_heat_links) > 0:
+            link_data.append(
+                {
+                    "links": power_to_heat_links,
+                    "efficiency": 0.2,
+                    "carrier": "waste_heat",
+                }
+            )
+        if len(power_to_o2_links) > 0:
+            link_data.append(
+                {
+                    "links": power_to_o2_links,
+                    "efficiency": 0.015,
+                    "carrier": "O2",
+                }
+            )
 
-    #     for idx, data in enumerate(link_data, start=2):
-    #         links = data["links"]
-    #         efficiency = data["efficiency"]
-    #         carrier = data["carrier"]
-    #         new_bus_id = next(bus_id_counter)
-    #         new_store_id = next(store_id_counter)
-    #         store_name = f"{new_store_id} PtH2_{carrier}"
+        for idx, data in enumerate(link_data, start=2):
+            links = data["links"]
+            efficiency = data["efficiency"]
+            carrier = data["carrier"]
+            new_bus_id = next(bus_id_counter)
+            new_store_id = next(store_id_counter)
+            store_name = f"{new_store_id} PtH2_{carrier}"
 
-    #         # Add new heat/o2-bus and -store
-    #         network.add(
-    #             "Bus", name=new_bus_id, carrier=f"PtH2_extra_bus_{carrier}"
-    #         )
-    #         network.add(
-    #             "Store",
-    #             name=store_name,
-    #             bus=new_bus_id,
-    #             carrier=f"PtH2_{carrier}",
-    #             e_nom_extendable=True,
-    #             e_nom=100000,
-    #             marginal_cost=0,
-    #             capital_cost=0,
-    #             e_cyclic=False,
-    #             standing_loss=1,
-    #         )
+            # Add new heat/o2-bus and -store
+            network.add(
+                "Bus", name=new_bus_id, carrier=f"PtH2_extra_bus_{carrier}"
+            )
+            network.add(
+                "Store",
+                name=store_name,
+                bus=new_bus_id,
+                carrier=f"PtH2_{carrier}",
+                #e_nom_extendable=True,
+                e_nom=20000,
+                marginal_cost=0,
+                #capital_cost=0,
+                e_cyclic=False,
+                standing_loss=1,
+            )
 
-    #         network.stores.loc[store_name, "scn_name"] = self.args[
-    #             "scn_name"
-    #         ]
-    #         network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
-    #             "scn_name"
-    #         ]
-    #         network.buses.loc[str(new_bus_id), "country"] = "DE"
+            network.stores.loc[store_name, "scn_name"] = self.args[
+                "scn_name"
+            ]
+            network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
+                "scn_name"
+            ]
+            network.buses.loc[str(new_bus_id), "country"] = "DE"
 
-    #         # set coordinates for new bus for the clustering method
-    #         bus0_index = network.links.loc[power_to_h2_links, "bus0"]
-    #         network.buses.loc[str(new_bus_id), "x"] = (
-    #             network.buses.loc[bus0_index, "x"].values[0]
-    #         )
-    #         network.buses.loc[str(new_bus_id), "y"] = (
-    #             network.buses.loc[bus0_index, "y"].values[0]
-    #         )
+            # set coordinates for new bus for the clustering method
+            bus0_index = network.links.loc[power_to_h2_links, "bus0"]
+            network.buses.loc[str(new_bus_id), "x"] = (
+                network.buses.loc[bus0_index, "x"].values[0]
+            )
+            network.buses.loc[str(new_bus_id), "y"] = (
+                network.buses.loc[bus0_index, "y"].values[0]
+            )
 
-    #         # Connect multiple link with new heat/o2-bus
-    #         network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
-    #             new_bus_id
-    #         )
-    #         network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
-    #             efficiency
-    #         )
+            # Connect multiple link with new heat/o2-bus
+            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+                new_bus_id
+            )
+            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+                efficiency
+            )
 
-    #         # Adjust originals waste_heat- and oxygen-links with new bus0
-    #         for link in links:
-    #             network.links.loc[link, "bus0"] = str(new_bus_id)
+            # Adjust originals waste_heat- and oxygen-links with new bus0
+            for link in links:
+                network.links.loc[link, "bus0"] = str(new_bus_id)
     
                 
     return network
