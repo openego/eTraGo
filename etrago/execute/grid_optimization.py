@@ -243,7 +243,7 @@ def add_redispatch_generators(
 
     links_redispatch = self.network.links[
         (
-            self.network.links.carrier.isin(["OCGT"])
+            self.network.links.carrier.isin(["OCGT", "CCGT"])
             & (~self.network.links.index.str.contains("ramp"))
         )
     ].index
@@ -253,6 +253,7 @@ def add_redispatch_generators(
         data=management_cost,
     )
     management_cost_carrier["OCGT"] = management_cost
+    management_cost_carrier["CCGT"] = management_cost
     if fre_mangement_fee:
         management_cost_carrier[
             ["wind_onshore", "wind_offshore", "solar", "solar_rooftop"]
