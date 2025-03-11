@@ -1848,6 +1848,18 @@ def read_max_gas_generation(self):
         "eGon100RE": {
             "biogas": 14450103
         },  # [MWh] Value from reference p-e-s run used in eGon-data
+        "powerd2025": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] TODO: define source and values
+        "powerd2030": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] TODO: define source and values
+        "powerd2035": {
+            "CH4": 36000000,
+            "biogas": 10000000,
+        },  # [MWh] TODO: define source and values
     }
     engine = db.connection(section=self.args["db"])
     try:
@@ -1895,6 +1907,9 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "CH4"},
+        "powerd2030": {"biogas": "CH4"},
+        "powerd2035": {"biogas": "CH4"},
     }
     for c in gas_carrier:
         gens = network.generators.index[
@@ -1979,6 +1994,9 @@ def add_ch4_constraints(self, network, snapshots):
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "CH4"},
+        "powerd2030": {"biogas": "CH4"},
+        "powerd2035": {"biogas": "CH4"},
     }
 
     for c in gas_carrier:
@@ -2068,6 +2086,9 @@ def add_ch4_constraints_nmp(self, network, snapshots):
     carrier_names = {
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "CH4"},
+        "powerd2030": {"biogas": "CH4"},
+        "powerd2035": {"biogas": "CH4"},
     }
 
     for c in gas_carrier:

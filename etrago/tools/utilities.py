@@ -2528,6 +2528,9 @@ def check_args(etrago):
         "eGon2035_lowflex",
         "eGon100RE_lowflex",
         "status2019",
+        "powerd2025",
+        "powerd2030",
+        "powerd2035",
     ]
 
     assert (
@@ -3082,7 +3085,12 @@ def manual_fixes_datamodel(etrago):
             index=etrago.network.snapshots,
         )
 
-    if etrago.args["scn_name"] == "eGon100RE":
+    if etrago.args["scn_name"] in [
+        "eGon100RE",
+        "powerd2025",
+        "powerd2030",
+        "powerd2035",
+    ]:
 
         # Drop H2 load for transport
         etrago.network.mremove(
