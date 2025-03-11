@@ -95,21 +95,21 @@ def grid_optimization(
 
     # Replacevery small values with zero to avoid numerical problems
     self.network.generators_t.p_max_pu.where(
-        self.network.generators_t.p_max_pu.abs() > 1e-7,
+        self.network.generators_t.p_max_pu.abs() > 1e-5,
         other=0.0,
         inplace=True,
     )
     self.network.generators_t.p_min_pu.where(
-        self.network.generators_t.p_min_pu.abs() > 1e-7,
+        self.network.generators_t.p_min_pu.abs() > 1e-5,
         other=0.0,
         inplace=True,
     )
     self.network.links_t.p_max_pu.where(
-        self.network.links_t.p_max_pu.abs() > 1e-7, other=0.0, inplace=True
+        self.network.links_t.p_max_pu.abs() > 1e-5, other=0.0, inplace=True
     )
 
     self.network.links_t.p_min_pu.where(
-        self.network.links_t.p_min_pu.abs() > 1e-7, other=0.0, inplace=True
+        self.network.links_t.p_min_pu.abs() > 1e-5, other=0.0, inplace=True
     )
 
     self.network.links.loc[
