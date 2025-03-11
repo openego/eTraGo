@@ -3453,7 +3453,7 @@ class Constraints:
         """
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
-                add_chp_constraints(network, snapshots)
+                add_chp_constraints_simplyfied(network, snapshots)
                 if (self.args["scn_name"] != "status2019") & (
                     len(snapshots) > 1500
                 ):
@@ -3683,6 +3683,42 @@ def add_chp_constraints_nmp(n):
             axes=ax,
         )
 
+def add_chp_constraints_simplyfied(network, snapshots):
+    efficiency_heat = 0.42500
+    electric_bool = network.links.carrier == "central_gas_CHP"
+
+    electric = network.links.index[electric_bool]
+
+    ch4_nodes_with_chp = network.buses.loc[
+        network.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+        elec_chp = network.links[
+            (network.links.carrier == "central_gas_CHP")
+            & (network.links.bus0 == i)
+        ].index
+
+        heat_chp = elec_chp + "_heat"
+
+        def fixed_chp(model, snapshot):
+            lhs = sum(
+                efficiency_heat
+                * model.generator_p[h_chp, snapshot]
+                for h_chp in heat_chp
+            )
+
+            rhs = sum(
+                model.link_p[e_chp, snapshot]
+                for e_chp in elec_chp
+            )
+
+            return lhs == rhs
+        setattr(
+            network.model,
+            "chp_constraint_" + str(i),
+            Constraint(list(snapshots), rule=fixed_chp),
+        )
 
 def add_chp_constraints(network, snapshots):
     """
