@@ -3605,16 +3605,35 @@ def adjust_chp_model(self, apply_on='pre_market_model'):
             network.buses.country!="DE"].index))
     ].index
 
-    for i in chp_links:
-        # find central_heat bus
-        country = network.buses.loc[network.links.loc[i, "bus1"],
-                                    "country"]
-        central_heat_bus = network.buses[
-            (network.buses.carrier=="central_heat")
-            &(network.buses.country==country)].index[0]
+    if self.args["method"]["formulation"] == "pyomo":
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[network.links.loc[i, "bus1"],
+                                        "country"]
+            central_heat_bus = network.buses[
+                (network.buses.carrier=="central_heat")
+                &(network.buses.country==country)].index[0]
+            network.add(
+                "Generator",
+                name = i + "_heat",
+                carrier = "central_gas_CHP_heat",
+                p_nom = network.links.loc[i, "p_nom"],
+                bus = central_heat_bus
+                )
+    else:
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[network.links.loc[i, "bus1"],
+                                        "country"]
+            central_heat_bus = network.buses[
+                (network.buses.carrier=="central_heat")
+                &(network.buses.country==country)].index[0]
 
-        network.links.loc[i, "bus2"] = central_heat_bus
-        network.links.loc[i, "efficiency2"] = efficiency_heat
+            network.links.loc[i, "bus2"] = central_heat_bus
+            network.links.loc[i, "efficiency2"] = efficiency_heat
+
 
     return network
 
