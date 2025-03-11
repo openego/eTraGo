@@ -3454,10 +3454,10 @@ class Constraints:
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
                 add_chp_constraints_simplyfied(network, snapshots)
-                if (self.args["scn_name"] != "status2019") & (
-                    len(snapshots) > 1500
-                ):
-                    add_ch4_constraints(self, network, snapshots)
+                # if (self.args["scn_name"] != "status2019") & (
+                #     len(snapshots) > 1500
+                # ):
+                #     add_ch4_constraints(self, network, snapshots)
             elif self.args["method"]["formulation"] == "linopy":
                 # if (self.args["scn_name"] != "status2019") & (
                 #     len(snapshots) > 1500
