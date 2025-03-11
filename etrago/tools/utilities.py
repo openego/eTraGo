@@ -2701,7 +2701,7 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    if self.scenario.scn_name == "eGon2035":
+    if self.args["scn_name"] == "eGon2035":
         if "CH4" in drop_carriers:
             # create gas generators from links
             # in order to not lose them when dropping non-electric carriers
