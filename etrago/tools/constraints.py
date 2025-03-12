@@ -3703,13 +3703,13 @@ def add_chp_constraints_simplyfied(network, snapshots):
 
         def fixed_chp(model, snapshot):
             lhs = sum(
-                efficiency_heat
-                * model.generator_p[h_chp, snapshot]
+                model.generator_p[h_chp, snapshot]
                 for h_chp in heat_chp
             )
 
             rhs = sum(
-                model.link_p[e_chp, snapshot]
+                efficiency_heat
+                * model.link_p[e_chp, snapshot]
                 for e_chp in elec_chp
             )
 
