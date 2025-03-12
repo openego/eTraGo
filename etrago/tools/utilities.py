@@ -3559,12 +3559,22 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
             )
 
             # Connect multiple link with new heat/o2-bus
-            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
-                new_bus_id
-            )
-            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
-                efficiency
-            )
+            if self.args["method"]["formulation"] == "linopy":
+                network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+                    new_bus_id
+                )
+                network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+                    efficiency
+                )
+            else:
+                network.madd(
+                    "Generator",
+                    names = power_to_h2_links + f"_{carrier}",
+                    carrier = f"PtH2_{carrier}",
+                    p_nom_extendable=True,
+                    bus = str(
+                        new_bus_id)
+                    )
 
             # Adjust originals waste_heat- and oxygen-links with new bus0
             for link in links:
