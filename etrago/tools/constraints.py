@@ -282,6 +282,70 @@ def _fixed_battery_expansion_germany(self, network, snapshots):
     network.model.min_battery_ext = Constraint(rule=_rule_min)
     network.model.max_battery_ext = Constraint(rule=_rule_max)
 
+def _min_ely_capacity_germany(self, network, snapshots):
+    """
+    Define the overall expanded capacity of batteries in Germany.
+    To avoid nummerical problems, a difference of 0.1% is allowed.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+    ely_de = network.links[
+        (network.links.carrier=="power_to_H2")
+        &(network.links.bus0.isin(
+            network.buses[network.buses.country=="DE"].index
+            ))        ]
+    def _rule_min(m):
+        ely_opt = sum(
+            m.link_p_nom[index] for index in ely_de.index
+        )
+        return (ely_opt) >= (
+            self.args["extra_functionality"]["min_ely_capacity_germany"]
+        )
+    network.model.min_ely_ext_germany = Constraint(rule=_rule_min)
+
+def _min_ely_capacity_germany_linopy(self, network, snapshots):
+    """
+    Define the overall expanded capacity of batteries in Germany.
+    To avoid nummerical problems, a difference of 0.1% is allowed.
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+    ely_de = list(network.links[
+        (network.links.carrier=="power_to_H2")
+        &(network.links.bus0.isin(
+            network.buses[network.buses.country=="DE"].index
+            ))        ].index)
+    
+
+    if len(ely_de) > 0:
+        define_constraints(
+            network,
+            get_var(network, "Link", "p_nom").loc[:, ely_de].sum(),
+            ">=",
+            (self.args["extra_functionality"]["min_ely_capacity_germany"]),
+            "Global",
+            "min_electrolysis_germany",
+        )
 
 def _min_renewable_share_nmp(self, network, snapshots):
     """
