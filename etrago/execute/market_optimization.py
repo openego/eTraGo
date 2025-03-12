@@ -469,7 +469,7 @@ def build_market_model(self, unit_commitment=False):
     self.geolocation_buses(apply_on="pre_market_model")
     
     self.market_model = self.pre_market_model.copy()
-    n_skip = 5
+    n_skip = self.args["skip_snapshots"]
 
     self.pre_market_model.snapshots = self.pre_market_model.snapshots[::n_skip]
 

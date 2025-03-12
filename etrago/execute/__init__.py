@@ -430,7 +430,7 @@ def optimize(self):
 
     if self.args["method"]["market_optimization"]["active"]:
         self.market_optimization()        
-        
+        self.args["method"]["formulation"] = "pyomo"
         self.network = self.adjust_PtH2_model(apply_on='grid_model')
         logger.info("PtH2-Model adjusted in network")
 
@@ -441,7 +441,7 @@ def optimize(self):
         self.grid_optimization()
 
     elif self.args["method"]["type"] == "lopf":
-        
+        self.args["method"]["formulation"] = "pyomo"
         self.network = self.adjust_PtH2_model(apply_on='grid_model')
         logger.info("PtH2-Model adjusted in network")
 

@@ -646,7 +646,7 @@ def connected_transformer(network, busids):
 def load_shedding(
     self,
     temporal_disaggregation=False,
-    negative_load_shedding=["AC", "Li_ion", "rural_heat", "central_heat", "CH4", "H2", "H2_grid"],
+    negative_load_shedding=False,
     **kwargs,
 ):
     """Implement load shedding in existing network to identify
@@ -2704,7 +2704,7 @@ def drop_sectors(self, drop_carriers):
 
     """
 
-    if self.scenario.scn_name == "eGon2035":
+    if self.args["scn_name"] == "eGon2035":
         if "CH4" in drop_carriers:
             # create gas generators from links
             # in order to not lose them when dropping non-electric carriers
@@ -3567,12 +3567,22 @@ def adjust_PtH2_model(self, apply_on='pre_market_model'):
             )
 
             # Connect multiple link with new heat/o2-bus
-            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
-                new_bus_id
-            )
-            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
-                efficiency
-            )
+            if self.args["method"]["formulation"] == "linopy":
+                network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+                    new_bus_id
+                )
+                network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+                    efficiency
+                )
+            else:
+                network.madd(
+                    "Generator",
+                    names = power_to_h2_links + f"_{carrier}",
+                    carrier = f"PtH2_{carrier}",
+                    p_nom_extendable=True,
+                    bus = str(
+                        new_bus_id)
+                    )
 
             # Adjust originals waste_heat- and oxygen-links with new bus0
             for link in links:
@@ -3613,16 +3623,35 @@ def adjust_chp_model(self, apply_on='pre_market_model'):
             network.buses.country!="DE"].index))
     ].index
 
-    for i in chp_links:
-        # find central_heat bus
-        country = network.buses.loc[network.links.loc[i, "bus1"],
-                                    "country"]
-        central_heat_bus = network.buses[
-            (network.buses.carrier=="central_heat")
-            &(network.buses.country==country)].index[0]
+    if self.args["method"]["formulation"] == "pyomo":
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[network.links.loc[i, "bus1"],
+                                        "country"]
+            central_heat_bus = network.buses[
+                (network.buses.carrier=="central_heat")
+                &(network.buses.country==country)].index[0]
+            network.add(
+                "Generator",
+                name = i + "_heat",
+                carrier = "central_gas_CHP_heat",
+                p_nom = network.links.loc[i, "p_nom"],
+                bus = central_heat_bus
+                )
+    else:
+        for i in chp_links:
+            print(i)
+            # find central_heat bus
+            country = network.buses.loc[network.links.loc[i, "bus1"],
+                                        "country"]
+            central_heat_bus = network.buses[
+                (network.buses.carrier=="central_heat")
+                &(network.buses.country==country)].index[0]
 
-        network.links.loc[i, "bus2"] = central_heat_bus
-        network.links.loc[i, "efficiency2"] = efficiency_heat
+            network.links.loc[i, "bus2"] = central_heat_bus
+            network.links.loc[i, "efficiency2"] = efficiency_heat
+
 
     return network
 

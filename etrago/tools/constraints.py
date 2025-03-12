@@ -3474,11 +3474,12 @@ class Constraints:
         """
         if "CH4" in network.buses.carrier.values:
             if self.args["method"]["formulation"] == "pyomo":
-                add_chp_constraints(network, snapshots)
-                if (self.args["scn_name"] != "status2019") & (
-                    len(snapshots) > 1500
-                ):
-                    add_ch4_constraints(self, network, snapshots)
+                add_electrolysis_coupling_constraints(network, snapshots)
+                add_chp_constraints_simplyfied(network, snapshots)
+                # if (self.args["scn_name"] != "status2019") & (
+                #     len(snapshots) > 1500
+                # ):
+                #     add_ch4_constraints(self, network, snapshots)
             elif self.args["method"]["formulation"] == "linopy":
                 # if (self.args["scn_name"] != "status2019") & (
                 #     len(snapshots) > 1500
@@ -3704,6 +3705,96 @@ def add_chp_constraints_nmp(n):
             axes=ax,
         )
 
+def add_electrolysis_coupling_constraints(network, snapshots):
+    efficiency_waste_heat = 0.2
+    efficiency_o2 = 0.015
+
+    ely = network.links[
+        (network.links.carrier == "power_to_H2")
+        &(network.links.bus0.isin(
+            network.buses[network.buses.country=="DE"].index))
+        ]
+
+    for e in ely.index:
+        if e + "_waste_heat" in network.generators.index:
+
+            def ely_waste_heat(model, snapshot):
+                lhs = sum(
+                    model.generator_p[ely_heat, snapshot]
+                    for ely_heat in [e + "_waste_heat"]
+                )
+
+                rhs = sum(
+                    efficiency_waste_heat
+                    * model.link_p[ely, snapshot]
+                    for ely in [e]
+                )
+
+                return lhs == rhs
+            setattr(
+                network.model,
+                "ely_waste_heat_" + str(e),
+                Constraint(list(snapshots), rule=ely_waste_heat),
+            )
+
+        if e + "_O2" in network.generators.index:
+
+            def ely_oxygen(model, snapshot):
+                lhs = sum(
+                    model.generator_p[ely_o2, snapshot]
+                    for ely_o2 in [e + "_O2"]
+                )
+
+                rhs = sum(
+                    efficiency_o2
+                    * model.link_p[ely, snapshot]
+                    for ely in [e]
+                )
+
+                return lhs == rhs
+            setattr(
+                network.model,
+                "ely_oxygen_" + str(e),
+                Constraint(list(snapshots), rule=ely_oxygen),
+            )
+
+
+def add_chp_constraints_simplyfied(network, snapshots):
+    efficiency_heat = 0.42500
+    electric_bool = network.links.carrier == "central_gas_CHP"
+
+    electric = network.links.index[electric_bool]
+
+    ch4_nodes_with_chp = network.buses.loc[
+        network.links.loc[electric, "bus0"].values
+    ].index.unique()
+
+    for i in ch4_nodes_with_chp:
+        elec_chp = network.links[
+            (network.links.carrier == "central_gas_CHP")
+            & (network.links.bus0 == i)
+        ].index
+
+        heat_chp = elec_chp + "_heat"
+
+        def fixed_chp(model, snapshot):
+            lhs = sum(
+                model.generator_p[h_chp, snapshot]
+                for h_chp in heat_chp
+            )
+
+            rhs = sum(
+                efficiency_heat
+                * model.link_p[e_chp, snapshot]
+                for e_chp in elec_chp
+            )
+
+            return lhs == rhs
+        setattr(
+            network.model,
+            "chp_constraint_" + str(i),
+            Constraint(list(snapshots), rule=fixed_chp),
+        )
 
 def add_chp_constraints(network, snapshots):
     """
