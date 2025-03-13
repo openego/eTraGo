@@ -707,27 +707,6 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
-    etrago.network.mremove(
-        "Link",
-        etrago.network.links[etrago.network.links.carrier=="PtH2_O2"].index
-        )
-    etrago.network.mremove(
-        "Link",
-        etrago.network.links[etrago.network.links.carrier=="PtH2_waste_heat"].index
-        )
-    etrago.network.mremove(
-        "Load",
-        etrago.network.loads[etrago.network.loads.carrier=="O2"].index
-        )
-    etrago.network.mremove(
-        "Generator",
-        etrago.network.generators[etrago.network.generators.carrier=="O2"].index
-        )
-    etrago.network.mremove(
-        "Bus",
-        etrago.network.buses[etrago.network.buses.carrier=="O2"].index
-        )
-
     # Drop loads that model the exchange with other countries
     etrago.network.mremove(
         "Load",
