@@ -1007,15 +1007,13 @@ def run_etrago(args, json_path):
 
     for n in [etrago.network, etrago.network_tsa]:
         n.mremove("StorageUnit", n.storage_units[n.storage_units.carrier=="home_battery"].index)
-        # n.generators.loc[
-        #     n.generators.carrier.isin(["wind_onshore", "wind_offshore", "solar", "solar_rooftop"])
-        #     &n.generators.bus.isin(n.buses[n.buses.country!="DE"].index),
-        #     "p_nom"
-        #     ] *= 1.2
-        # n.generators.loc[
-        #     n.generators.carrier.isin(["load shedding"]),
-        #     "marginal_cost"
-        #     ] = 100
+
+        # Make sure that e-Mobiliy store contraints can be met
+        e_mob_stores = n.stores[n.stores.carrier=="battery_storage"]
+        max_e_first_hour = n.stores_t.e_max_pu.iloc[0].loc[e_mob_stores.index].mul(e_mob_stores.e_nom)
+
+        index = e_mob_stores[e_mob_stores.e_initial > max_e_first_hour].index
+        n.stores.loc[index, "e_initial"] = max_e_first_hour.loc[index]
 
     if not os.path.exists(etrago.args["csv_export"]):
         os.makedirs(etrago.args["csv_export"])
