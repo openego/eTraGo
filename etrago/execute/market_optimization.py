@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.cluster.spatial import group_links
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -86,7 +87,6 @@ def market_optimization(self):
         if not os.path.exists(path):
             os.makedirs(path, exist_ok=True)
         self.pre_market_model.export_to_csv_folder(path + "/pre_market")
-
     logger.info("Preparing short-term UC market model")
 
     build_shortterm_market_model(self, unit_commitment)
@@ -200,6 +200,7 @@ def optimize_with_rolling_horizon(
             n.stores.e_initial[seasonal_stores] = pre_market.stores_t.e.loc[
                 snapshots[start - 1], seasonal_stores
             ]
+
 
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
@@ -411,6 +412,20 @@ def build_market_model(self, unit_commitment=False):
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
+    
+    self.pre_market_model.links, self.pre_market_model.links_t = group_links(
+        self.pre_market_model,
+        carriers=['central_heat_pump', 'central_resistive_heater',
+               'rural_heat_pump', 'rural_resistive_heater',
+               'BEV_charger', 'dsm',
+               'central_gas_boiler', 'rural_gas_boiler']
+    )
+    self.pre_market_model.links.min_up_time = self.pre_market_model.links.min_up_time.astype(int)
+    self.pre_market_model.links.down_up_time = self.pre_market_model.links.min_down_time.astype(int)
+    self.pre_market_model.links.down_time_before = self.pre_market_model.links.down_time_before.astype(int)
+    self.pre_market_model.links.up_time_before = self.pre_market_model.links.up_time_before.astype(int)
+    self.pre_market_model.links.min_down_time = self.pre_market_model.links.min_down_time.astype(int)
+    self.pre_market_model.links.min_up_time = self.pre_market_model.links.min_up_time.astype(int)
 
 
 def build_shortterm_market_model(self, unit_commitment=False):
