@@ -30,6 +30,7 @@ if "READTHEDOCS" not in os.environ:
     import pandas as pd
 
     from etrago.cluster.electrical import postprocessing, preprocessing
+    from etrago.cluster.spatial import group_links
     from etrago.tools.constraints import Constraints
 
     logger = logging.getLogger(__name__)
@@ -476,9 +477,20 @@ def build_market_model(self, unit_commitment=False):
     self.pre_market_model.snapshot_weightings["objective"] = n_skip
     self.pre_market_model.snapshot_weightings["stores"] = n_skip
     self.pre_market_model.snapshot_weightings["generators"] = n_skip
-
     
-
+    self.pre_market_model.links, self.pre_market_model.links_t = group_links(
+        self.pre_market_model,
+        carriers=['central_heat_pump', 'central_resistive_heater',
+               'rural_heat_pump', 'rural_resistive_heater',
+               'BEV_charger', 'dsm',
+               'central_gas_boiler', 'rural_gas_boiler']
+    )
+    self.pre_market_model.links.min_up_time = self.pre_market_model.links.min_up_time.astype(int)
+    self.pre_market_model.links.down_up_time = self.pre_market_model.links.min_down_time.astype(int)
+    self.pre_market_model.links.down_time_before = self.pre_market_model.links.down_time_before.astype(int)
+    self.pre_market_model.links.up_time_before = self.pre_market_model.links.up_time_before.astype(int)
+    self.pre_market_model.links.min_down_time = self.pre_market_model.links.min_down_time.astype(int)
+    self.pre_market_model.links.min_up_time = self.pre_market_model.links.min_up_time.astype(int)
 
 def build_shortterm_market_model(self, unit_commitment=False):
 
@@ -496,7 +508,7 @@ def build_shortterm_market_model(self, unit_commitment=False):
         self.market_model.links.p_nom_extendable, "p_nom"
         ] = self.pre_market_model.links.loc[
             self.pre_market_model.links.p_nom_extendable, "p_nom_opt"
-            ].clip(lower=0)
+            ].clip(lower=0).values
     self.market_model.lines.loc[
         self.market_model.lines.s_nom_extendable, "s_nom"
         ] = self.pre_market_model.lines.loc[
