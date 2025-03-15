@@ -446,6 +446,54 @@ def build_shortterm_market_model(self, unit_commitment=False):
 
     self.market_model = m
 
+    # Fix oder of bus0 and bus1 of DC links
+    dc_links = self.market_model.links[self.market_model.links.carrier=="DC"]
+    bus0 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus0
+    self.market_model.links.loc[bus0.index, "bus0"] = bus0.values
+    self.market_model.links.loc[bus1.index, "bus1"] = bus1.values
+
+    dc_links = self.pre_market_model.links[self.pre_market_model.links.carrier=="DC"]
+    bus0 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus0
+    self.pre_market_model.links.loc[bus0.index, "bus0"] = bus0.values
+    self.pre_market_model.links.loc[bus1.index, "bus1"] = bus1.values
+
+    grouped_links = self.market_model.links.loc[self.market_model.links.p_nom_extendable].groupby(
+            ["carrier", "bus0", "bus1"]).p_nom.sum().reset_index()
+    for link in grouped_links.index:
+        print(link)
+        bus0 =  grouped_links.loc[link, "bus0"]
+        bus1 = grouped_links.loc[link, "bus1"]
+        carrier = grouped_links.loc[link, "carrier"]
+
+        self.market_model.links.loc[
+            (self.market_model.links.bus0 == bus0)
+            &(self.market_model.links.bus1 == bus1)
+            &(self.market_model.links.carrier == carrier),
+            "p_nom"
+            ] = self.pre_market_model.links.loc[
+                (self.pre_market_model.links.bus0 == bus0)
+                &(self.pre_market_model.links.bus1 == bus1)
+                &(self.pre_market_model.links.carrier == carrier),
+                "p_nom_opt"
+                ].clip(lower=0).values
+
+    self.market_model.lines.loc[
+        self.market_model.lines.s_nom_extendable, "s_nom"
+        ] = self.pre_market_model.lines.loc[
+            self.pre_market_model.lines.s_nom_extendable, "s_nom_opt"
+            ].clip(lower=0)
+
+    self.market_model.storage_units.p_nom_extendable = False
+    self.market_model.stores.e_nom_extendable = False
+    self.market_model.links.p_nom_extendable = False
+    self.market_model.lines.s_nom_extendable = False
+
+    self.market_model.mremove("Store", self.market_model.stores[self.market_model.stores.e_nom==0].index)
+    self.market_model.stores.e_cyclic = False
+    self.market_model.storage_units.cyclic_state_of_charge = False
+
     if unit_commitment:
         set_unit_commitment(self, apply_on="market_model")
 
