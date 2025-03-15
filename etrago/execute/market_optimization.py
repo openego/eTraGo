@@ -472,6 +472,12 @@ def build_market_model(self, unit_commitment=False):
     self.market_model = self.pre_market_model.copy()
     n_skip = self.args["skip_snapshots"]
 
+    if len(self.network_tsa.snapshots) > 1000:
+        self.pre_market_model.mremove(
+            "Generator", self.pre_market_model.generators[
+                self.pre_market_model.generators.carrier=="load shedding"
+                ].index)
+
     self.pre_market_model.snapshots = self.pre_market_model.snapshots[::n_skip]
 
     self.pre_market_model.snapshot_weightings["objective"] = n_skip
