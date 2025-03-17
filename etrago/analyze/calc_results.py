@@ -1289,22 +1289,44 @@ def calc_atlas_results(self):
 
         links_PtH2 = PtH2_links[PtH2_links.bus0 == index]
         
-        # Check if elctrolyzer has coupling product usage
-        links_PtH2_bus2 = links_PtH2['bus2'].replace(['', 'nan', None], np.nan).dropna()
-        links_PtH2_bus3 = links_PtH2['bus3'].replace(['', 'nan', None], np.nan).dropna()
+        #calculation for multiple_link_model
+        if self.args["method"]["formulation"] == "linopy":
         
-        buses_heat = links_PtH2_bus2.astype(float).astype(int).astype(str).tolist() 
-        buses_o2 = links_PtH2_bus3.astype(float).astype(int).astype(str).tolist() 
+            # Check if elctrolyzer has coupling product usage
+            links_PtH2_bus2 = links_PtH2['bus2'].replace(['', 'nan', None], np.nan).dropna()
+            links_PtH2_bus3 = links_PtH2['bus3'].replace(['', 'nan', None], np.nan).dropna()
+            
+            buses_heat = links_PtH2_bus2.astype(float).astype(int).astype(str).tolist() 
+            buses_o2 = links_PtH2_bus3.astype(float).astype(int).astype(str).tolist() 
+            
+            if buses_heat:
+                links_waste_heat = self.network.links[self.network.links.bus0.isin(buses_heat)]
+            else:
+                links_waste_heat = []
         
-        if buses_heat:
-            links_waste_heat = self.network.links[self.network.links.bus0.isin(buses_heat)]
-        else:
-            links_waste_heat = []
-    
-        if buses_o2:
-            links_o2 = self.network.links[self.network.links.bus0.isin(buses_o2)]
-        else:
-            links_o2 = []
+            if buses_o2:
+                links_o2 = self.network.links[self.network.links.bus0.isin(buses_o2)]
+            else:
+                links_o2 = []
+                
+        else: # calculation for generator model
+            link_indices = links_PtH2.index.astype(str)       
+            
+            #Filter out corresponding o2 and heat generators
+            gen_o2 = self.network.generators[self.network.generators.index.isin([f"{link_index}_O2" for link_index in link_indices])]
+            gen_heat = self.network.generators[self.network.generators.index.isin([f"{link_index}_waste_heat" for link_index in link_indices])]
+            
+            if not gen_o2.empty:
+                bus_o2 = gen_o2.bus.iloc[0]  
+                links_o2 = self.network.links[self.network.links.bus0==bus_o2]
+            else:
+                links_o2 = []
+                
+            if not gen_heat.empty:
+                bus_heat = gen_heat.bus.iloc[0]
+                links_waste_heat = self.network.links[self.network.links.bus0==bus_heat]
+            else:
+                links_waste_heat = []
         
         
         # Calculate Dispatch
