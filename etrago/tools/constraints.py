@@ -3960,6 +3960,47 @@ def add_chp_constraints_simplyfied(network, snapshots):
             "chp_constraint_" + str(i),
             Constraint(list(snapshots), rule=fixed_chp),
         )
+        
+    # Constraints for biomass CHP
+    efficiency_central_biomass_chp_elec = 0.269
+    efficiency_central_biomass_chp_heat = 0.825
+    biomass_chp_elec = network.generators.index[
+        network.generators.carrier=="urban_central_biomass_CHP"]
+    biomass_chp_heat = network.generators.index[
+        network.generators.carrier=="urban_central_biomass_CHP"]
+
+    for cntr in network.buses[network.buses.index.isin(
+            biomass_chp_elec.bus.values
+            )].country.unique():
+        biomass_chp_elec_c = biomass_chp_elec[
+            biomass_chp_elec.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )           
+            ]
+        biomass_chp_heat_c = biomass_chp_heat[
+            biomass_chp_heat.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )           
+            ]
+        def fixed_chp_biomass(model, snapshot):
+            lhs = sum(
+                model.generator_p[h_chp, snapshot]
+                for h_chp in biomass_chp_heat_c
+            )
+    
+            rhs = sum(
+                efficiency_central_biomass_chp_heat 
+                / efficiency_central_biomass_chp_elec
+                * model.generator_p[e_chp, snapshot]
+                for e_chp in biomass_chp_elec_c
+            )
+    
+            return lhs == rhs
+        setattr(
+            network.model,
+            "biomass_chp_constraint_" + cntr,
+            Constraint(list(snapshots), rule=fixed_chp),
+        )
 
 def add_chp_constraints(network, snapshots):
     """
