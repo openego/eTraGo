@@ -2202,6 +2202,114 @@ def add_ch4_constraints_nmp(self, network, snapshots):
         )
 
 
+def add_biomass_constraint(self, network, snapshots):
+    
+    # Add limits (in MWh) from pypsa-eur run
+    limits_per_scenario = {
+        "powerd2025": 170006952, 
+        "powerd2030": 561448487,
+        "powerd2035": 656706909      
+        }
+
+    if self.args["scn_name"] in limits_per_scenario.keys:
+        effifiency_rural_biomass_boiler = 0.85
+        efficiency_central_biomass_chp_elec = 0.269
+        
+        to_limit_rural = network.generators[
+            (network.generators.carrier.isin(
+                ["rural_biomass_boiler"]
+                ))
+            &(network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index)
+                )            
+            ].index
+
+        to_limit_chp = network.generators[
+            (network.generators.carrier.isin(
+                ["urban_central_biomass_CHP"]
+                ))
+            &(network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index)
+                )            
+            ].index
+
+        def _rule_max(m):
+            dispatch_rural_boiler = sum(
+                m.generator_p[g, sn]
+                * network.snapshot_weightings.generators[sn]
+                for g in to_limit_rural
+                for sn in snapshots
+            )
+            dispatch_central_chp = sum(
+                m.generator_p[g, sn]
+                * network.snapshot_weightings.generators[sn]
+                for g in to_limit_chp
+                for sn in snapshots
+            )
+            return ((dispatch_rural_boiler*effifiency_rural_biomass_boiler 
+                    + dispatch_central_chp*efficiency_central_biomass_chp_elec)
+                    <= limits_per_scenario[self.args["scn_name"]])
+
+        setattr(
+            network.model,
+            "max_biomass_germany",
+            Constraint(rule=_rule_max),
+        )
+        
+def add_biomass_constraint_linopy(self, network, snapshots):
+    
+    # Add limits (in MWh) from pypsa-eur run
+    limits_per_scenario = {
+        "powerd2025": 170006952, 
+        "powerd2030": 561448487,
+        "powerd2035": 656706909      
+        }
+
+    if self.args["scn_name"] in limits_per_scenario.keys:
+        factor = limits_per_scenario[self.args["scn_name"]]
+        effifiency_rural_biomass_boiler = 0.85
+        efficiency_central_biomass_chp_elec = 0.269
+        
+        to_limit_rural = network.generators[
+            (network.generators.carrier.isin(
+                ["rural_biomass_boiler"]
+                ))
+            &(network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index)
+                )            
+            ].index
+
+        to_limit_chp = network.generators[
+            (network.generators.carrier.isin(
+                ["urban_central_biomass_CHP"]
+                ))
+            &(network.generators.bus.isin(
+                network.buses[network.buses.country=="DE"].index)
+                )            
+            ].index
+
+        generation_boiler = (
+            get_var(network, "Generator", "p")
+            .loc[snapshots, to_limit_rural]
+            .mul(network.snapshot_weightings.generators, axis=0)
+        )
+        generation_chp = (
+            get_var(network, "Generator", "p")
+            .loc[snapshots, to_limit_chp]
+            .mul(network.snapshot_weightings.generators, axis=0)
+        )
+
+        define_constraints(
+            network,
+            linexpr((effifiency_rural_biomass_boiler, generation_boiler),
+                    (efficiency_central_biomass_chp_elec, generation_chp)
+                    ).sum(),
+            "<=",
+            factor,
+            "Generator",
+            "max_biomass_dispatch_de",
+        )
+
 def snapshot_clustering_daily_bounds(self, network, snapshots):
     """
     Bound the storage level to 0.5 max_level every 24th hour.
@@ -3531,15 +3639,17 @@ class Constraints:
             if self.args["method"]["formulation"] == "pyomo":
                 add_electrolysis_coupling_constraints(network, snapshots)
                 add_chp_constraints_simplyfied(network, snapshots)
-                # if (self.args["scn_name"] != "status2019") & (
-                #     len(snapshots) > 1500
-                # ):
-                #     add_ch4_constraints(self, network, snapshots)
+                if (self.args["scn_name"] != "status2019") & (
+                    len(snapshots) > 1500
+                ):
+                    add_ch4_constraints(self, network, snapshots)
+                    add_biomass_constraint(self, network, snapshots)
             elif self.args["method"]["formulation"] == "linopy":
-                # if (self.args["scn_name"] != "status2019") & (
-                #     len(snapshots) > 1500
-                # ):
-                #     add_ch4_constraints_linopy(self, network, snapshots)
+                if (self.args["scn_name"] != "status2019") & (
+                    len(snapshots) > 1500
+                ):
+                    add_ch4_constraints_linopy(self, network, snapshots)
+                    add_biomass_constraint_linopy(self, network, snapshots)
 
                 if self.apply_on == "last_market_model":
                     fixed_storage_unit_soc_at_the_end(network, snapshots)
