@@ -1910,7 +1910,19 @@ def read_max_gas_generation(self):
             "biogas": 10000000,
         },  # [MWh] Netzentwicklungsplan Gas 2020–2030
         "eGon100RE": {
-            "biogas": 14450103
+            "biogas": 133465842
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
+        "powerd2025": {
+            "biogas": 58288115,
+            "CH4": 842433316,
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
+        "powerd2030": {
+            "biogas": 58288271,
+            "CH4": 213616374
+        },  # [MWh] Value from reference p-e-s run used in eGon-data
+        "powerd2035": {
+            "biogas": 191753884,
+            "CH4": 35
         },  # [MWh] Value from reference p-e-s run used in eGon-data
     }
     engine = db.connection(section=self.args["db"])
