@@ -50,6 +50,13 @@ def grid_optimization(
 ):
     logger.info("Start building grid optimization model")
 
+    # Drop load shedding in year calculation
+    if len(self.network_tsa.snapshots) > 1000:
+        self.network.mremove(
+            "Generator", self.network.generators[
+                self.network.generators.carrier=="load shedding"
+                ].index)
+
     # Drop existing ramping generators
     self.network.mremove(
         "Generator",

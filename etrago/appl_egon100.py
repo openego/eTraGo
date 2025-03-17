@@ -717,6 +717,211 @@ def run_etrago(args, json_path):
     etrago.spatial_clustering()
     etrago.spatial_clustering_gas()
 
+    import pypsa
+    pre_network = pypsa.Network(
+        "etrago/pypsa_eur/21122024_3h_clean_run/results/prenetworks/prenetwork_post-manipulate_pre-solve/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
+
+    # Scale rural heat demand in Germany
+    rural_heat_pe = pre_network.loads_t.p_set["DE0 0 rural heat"] + pre_network.loads_t.p_set["DE0 0 urban decentral heat"]
+    rural_heat = etrago.network.loads[
+        (etrago.network.loads.bus.isin(
+            etrago.network.buses[
+                (etrago.network.buses.country=="DE")
+                &(etrago.network.buses.carrier=="rural_heat")
+                ].index))]
+    for sn in etrago.network.snapshots:
+        etrago.network.loads_t.p_set.loc[sn,
+            rural_heat.index] = etrago.network.loads_t.p_set[
+                rural_heat.index].loc[sn].mul(
+                    1/etrago.network.loads_t.p_set[
+                        rural_heat.index].loc[sn].sum()) * rural_heat_pe[sn]
+
+    # heat pump efficiency timeseries
+    for link in etrago.network.links.loc[(etrago.network.links.carrier.str.contains("rural_heat_pump"))&
+                                        (etrago.network.links.bus0.isin(
+                                            etrago.network.buses[etrago.network.buses.country!="DE"].index
+                                            ))].index:
+        bus = etrago.network.links.loc[link, "bus0"]
+        carrier = etrago.network.links.loc[link, "carrier"]
+        country = etrago.network.buses.loc[bus, "country"]
+
+        if carrier == "rural_heat_pump":
+            pypsa_carrier = "rural ground heat pump"
+
+        link_pypsa = pre_network.links[
+            (pre_network.links.index.str.contains(country))
+             & (pre_network.links.index.str.contains(pypsa_carrier))
+            ]
+
+        ts_p_set = pre_network.links_t.efficiency[link_pypsa.index].loc[etrago.network.snapshots].mean(axis=1).values
+
+        df = pd.DataFrame(index = etrago.network.snapshots, data = {link:ts_p_set})
+
+        etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
+
+    # heat pump efficiency timeseries
+    for link in etrago.network.links.loc[(etrago.network.links.carrier.str.contains("central_heat_pump"))&
+                                        (etrago.network.links.bus0.isin(
+                                            etrago.network.buses[etrago.network.buses.country!="DE"].index
+                                            ))].index:
+        bus = etrago.network.links.loc[link, "bus0"]
+        carrier = etrago.network.links.loc[link, "carrier"]
+        country = etrago.network.buses.loc[bus, "country"]
+
+        if carrier == "central_heat_pump":
+            pypsa_carrier = "urban central air heat pump"
+
+        link_pypsa = pre_network.links[
+            (pre_network.links.index.str.contains(country))
+             & (pre_network.links.index.str.contains(pypsa_carrier))
+            ]
+
+        ts_p_set = pre_network.links_t.efficiency[link_pypsa.index].loc[etrago.network.snapshots].mean(axis=1).values
+
+        df = pd.DataFrame(index = etrago.network.snapshots, data = {link:ts_p_set})
+
+        etrago.network.links_t.efficiency = pd.concat([etrago.network.links_t.efficiency, df], axis = 1)
+
+    post_network = pypsa.Network(
+        "etrago/pypsa_eur/"
+        "21122024_3h_clean_run/results/postnetworks/base_s_39_lc1.25__cb40ex0-T-H-I-B-solar+p3-dist1_2045.nc")
+
+    from datetime import timedelta
+    # Model EV as charging load in foreign countries
+    for bus in etrago.network.buses.loc[
+                (etrago.network.buses.carrier == "Li_ion")&
+                                            (etrago.network.buses.country!="DE")].index:
+        country = etrago.network.buses.loc[bus, "country"]
+        if country=="GB":
+            bus_pe = post_network.buses[(post_network.buses.index.str[:2]==country)
+                                        & (post_network.buses.x == etrago.network.buses.loc[bus, "x"])
+                                        & (post_network.buses.carrier.isin(["EV battery"]))]
+        else:
+            bus_pe = post_network.buses[(post_network.buses.index.str[:2]==country)
+                                        & (post_network.buses.carrier.isin(["EV battery"]))]
+        link_pe = post_network.links[(post_network.links.bus1.isin(bus_pe.index))
+                                    & (post_network.links.carrier.isin(["BEV charger"]))]
+        charging_load = pd.Series(index=etrago.network.snapshots)
+        load_pe = post_network.loads[(post_network.loads.bus.isin(bus_pe.index))].index
+        driving_load = pre_network.loads_t.p_set[load_pe].sum(axis=1)
+        for sns in charging_load.index:
+            if sns in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns, link_pe.index].sum()
+            elif sns - timedelta(hours=1) in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns - timedelta(hours=1), link_pe.index].sum()
+            elif sns - timedelta(hours=2) in post_network.snapshots:
+                charging_load[sns] = post_network.links_t.p0.loc[sns - timedelta(hours=2), link_pe.index].sum()
+        
+        ac_bus_etrago = etrago.network.links.loc[
+            (etrago.network.links.bus1==bus) & (etrago.network.links.carrier=="BEV_charger"), "bus0"].values[0]
+        
+        etrago.network.add(
+            "Load",
+            name = ac_bus_etrago + " land_transport_EV",
+            carrier = "land_transport_EV",
+            bus = ac_bus_etrago,
+            p_set = driving_load
+            
+            )
+        etrago.network.loads.loc[ac_bus_etrago + " land_transport_EV", "scn_name"] = "eGon100RE"
+
+    etrago.network.mremove(
+        "Load",
+        etrago.network.loads[
+            (etrago.network.loads.carrier=="land_transport_EV")
+            &(etrago.network.loads.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            (etrago.network.generators.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[
+            (etrago.network.links.carrier=="BEV_charger")
+            &(etrago.network.links.bus1.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Store",
+        etrago.network.stores[
+            (etrago.network.stores.carrier=="battery_storage")
+            &(etrago.network.stores.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Bus",
+        etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index
+        )
+
+    for bus in etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "rural_heat")&
+                                        (etrago.network.buses.country!="DE")].index:
+        x = etrago.network.buses.loc[bus, "x"]
+        bus_pe = post_network.buses[(post_network.buses.x==x)
+                                    & (post_network.buses.carrier.isin(["rural heat", "urban decentral heat"]))]
+        country = etrago.network.buses.loc[bus, "country"]
+        carrier = "rural_heat"
+
+        links_pe = post_network.links[post_network.links.bus1.isin(bus_pe.index)]
+        
+        heat_pump_capacity = links_pe[links_pe.carrier.str.contains("heat pump")].p_nom_opt.sum()
+        resistive_heat_capacity = links_pe[links_pe.carrier.str.contains("resistive heater")].p_nom_opt.sum()    
+        gas_boiler_capacity = 1e7
+
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_heat_pump")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = heat_pump_capacity
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_resistive_heater")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = resistive_heat_capacity
+        etrago.network.links.loc[
+            (etrago.network.links.carrier=="rural_gas_boiler")
+            &(etrago.network.links.bus1==bus),
+            "p_nom"
+            ] = gas_boiler_capacity
+
+    # Set CH4 stores in foreign countries
+    for bus in etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "CH4")&
+                                        (etrago.network.buses.country!="DE")].index:
+        x = etrago.network.buses.loc[bus, "x"]
+        bus_pe = post_network.buses[(post_network.buses.x==x)
+                                    & (post_network.buses.carrier.isin(["gas"]))]
+        country = etrago.network.buses.loc[bus, "country"]
+        carrier = "CH4"
+        stores_pe = post_network.stores[post_network.stores.bus.isin(bus_pe.index)]
+        stores_capacity = stores_pe[stores_pe.carrier.str.contains("gas")].e_nom_opt.sum()
+
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier=="CH4")
+            &(etrago.network.stores.bus==bus),
+            "e_nom"
+            ] = stores_capacity
+
+        etrago.network.stores.loc[
+            (etrago.network.stores.carrier=="CH4")
+            &(etrago.network.stores.bus==bus),
+            "e_nom_extendable"
+            ] = False
+
     for comp in etrago.network.iterate_components():
         for key in comp.pnl:
             comp.pnl[key].where(
