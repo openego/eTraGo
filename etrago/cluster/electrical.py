@@ -157,7 +157,12 @@ def adjust_no_electric_network(
     # connected to via a link (carriers in map_carrier)
     network2 = network.copy(with_time=False)
     
-    if etrago.args["scn_name"] == "eGon100RE":
+    if etrago.args["scn_name"] in [
+        "eGon100RE",
+        "powerd2025",
+        "powerd2030",
+        "powerd2035",
+    ]:
         map_carrier = {
             "dsm": "dsm",
             "O2": "PtH2_O2",

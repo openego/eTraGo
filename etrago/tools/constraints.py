@@ -2292,6 +2292,7 @@ def add_biomass_constraint_linopy(self, network, snapshots):
                 network.buses[network.buses.country=="DE"].index)
                 )            
             ].index
+
         generation_boiler = (
             get_var(network, "Generator", "p")
             .loc[snapshots, to_limit_rural]
@@ -3962,6 +3963,7 @@ def add_chp_constraints_simplyfied(network, snapshots):
             "chp_constraint_" + str(i),
             Constraint(list(snapshots), rule=fixed_chp),
         )
+        
     # Constraints for biomass CHP
     efficiency_central_biomass_chp_elec = 0.269
     efficiency_central_biomass_chp_heat = 0.825
