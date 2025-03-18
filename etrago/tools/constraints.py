@@ -1971,6 +1971,9 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "biogas", "CH4": "CH4"},
+        "powerd2030": {"biogas": "biogas", "CH4": "CH4"},
+        "powerd2035": {"biogas": "biogas", "CH4": "CH4"},
     }
     for c in gas_carrier:
         gens = network.generators.index[
@@ -2055,6 +2058,9 @@ def add_ch4_constraints(self, network, snapshots):
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "CH4"},
+        "powerd2030": {"biogas": "biogas", "CH4": "CH4"},
+        "powerd2035": {"biogas": "biogas", "CH4": "CH4"},
     }
 
     for c in gas_carrier:
@@ -2210,8 +2216,7 @@ def add_biomass_constraint(self, network, snapshots):
         "powerd2030": 561448487,
         "powerd2035": 656706909      
         }
-
-    if self.args["scn_name"] in limits_per_scenario.keys:
+    if network.buses.scn_name.iloc[0] in limits_per_scenario.keys():
         effifiency_rural_biomass_boiler = 0.85
         efficiency_central_biomass_chp_elec = 0.269
         
@@ -2265,8 +2270,8 @@ def add_biomass_constraint_linopy(self, network, snapshots):
         "powerd2035": 656706909      
         }
 
-    if self.args["scn_name"] in limits_per_scenario.keys:
-        factor = limits_per_scenario[self.args["scn_name"]]
+    if network.buses.scn_name.iloc[0] in limits_per_scenario.keys():
+        factor = limits_per_scenario[network.buses.scn_name.iloc[0]]
         effifiency_rural_biomass_boiler = 0.85
         efficiency_central_biomass_chp_elec = 0.269
         
@@ -2281,28 +2286,25 @@ def add_biomass_constraint_linopy(self, network, snapshots):
 
         to_limit_chp = network.generators[
             (network.generators.carrier.isin(
-                ["urban_central_biomass_CHP"]
+                ["central_biomass_CHP"]
                 ))
             &(network.generators.bus.isin(
                 network.buses[network.buses.country=="DE"].index)
                 )            
             ].index
-
         generation_boiler = (
             get_var(network, "Generator", "p")
             .loc[snapshots, to_limit_rural]
-            .mul(network.snapshot_weightings.generators, axis=0)
         )
         generation_chp = (
             get_var(network, "Generator", "p")
             .loc[snapshots, to_limit_chp]
-            .mul(network.snapshot_weightings.generators, axis=0)
         )
 
         define_constraints(
             network,
-            linexpr((effifiency_rural_biomass_boiler, generation_boiler),
-                    (efficiency_central_biomass_chp_elec, generation_chp)
+            linexpr((effifiency_rural_biomass_boiler*network.snapshot_weightings.generators, generation_boiler),
+                    (efficiency_central_biomass_chp_elec*network.snapshot_weightings.generators, generation_chp)
                     ).sum(),
             "<=",
             factor,
@@ -3960,15 +3962,13 @@ def add_chp_constraints_simplyfied(network, snapshots):
             "chp_constraint_" + str(i),
             Constraint(list(snapshots), rule=fixed_chp),
         )
-        
     # Constraints for biomass CHP
     efficiency_central_biomass_chp_elec = 0.269
     efficiency_central_biomass_chp_heat = 0.825
-    biomass_chp_elec = network.generators.index[
-        network.generators.carrier=="urban_central_biomass_CHP"]
-    biomass_chp_heat = network.generators.index[
-        network.generators.carrier=="urban_central_biomass_CHP"]
-
+    biomass_chp_elec = network.generators[
+        network.generators.carrier=="central_biomass_CHP"]
+    biomass_chp_heat = network.generators[
+        network.generators.carrier=="central_biomass_CHP_heat"]
     for cntr in network.buses[network.buses.index.isin(
             biomass_chp_elec.bus.values
             )].country.unique():
@@ -3976,12 +3976,12 @@ def add_chp_constraints_simplyfied(network, snapshots):
             biomass_chp_elec.bus.isin(
                 network.buses[network.buses.country==cntr].index
                 )           
-            ]
+            ].index
         biomass_chp_heat_c = biomass_chp_heat[
             biomass_chp_heat.bus.isin(
                 network.buses[network.buses.country==cntr].index
                 )           
-            ]
+            ].index
         def fixed_chp_biomass(model, snapshot):
             lhs = sum(
                 model.generator_p[h_chp, snapshot]
@@ -3989,8 +3989,7 @@ def add_chp_constraints_simplyfied(network, snapshots):
             )
     
             rhs = sum(
-                efficiency_central_biomass_chp_heat 
-                / efficiency_central_biomass_chp_elec
+                (efficiency_central_biomass_chp_heat / efficiency_central_biomass_chp_elec)
                 * model.generator_p[e_chp, snapshot]
                 for e_chp in biomass_chp_elec_c
             )
@@ -3999,7 +3998,7 @@ def add_chp_constraints_simplyfied(network, snapshots):
         setattr(
             network.model,
             "biomass_chp_constraint_" + cntr,
-            Constraint(list(snapshots), rule=fixed_chp),
+            Constraint(list(snapshots), rule=fixed_chp_biomass),
         )
 
 def add_chp_constraints(network, snapshots):
