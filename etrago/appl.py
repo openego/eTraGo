@@ -769,17 +769,21 @@ def run_etrago(args, json_path):
                 "CH4", "H2_overground", "H2_underground", "central_heat_store", "rural_heat_store"]), "e_cyclic"] = True
 
             n.links.loc[n.links.carrier.isin([
-                "dsm"]), "p_min_pu"] = -1.
+                "dsm", "DC", "CH4"]), "p_min_pu"] = -1.
+
+            n.links.marginal_cost_quadratic = 0.0
 
     for n in [etrago.network, etrago.network_tsa]:
         n.mremove("StorageUnit", n.storage_units[n.storage_units.carrier=="home_battery"].index)
 
         # Make sure that e-Mobiliy store contraints can be met
-        e_mob_stores = n.stores[n.stores.carrier=="battery_storage"]
-        max_e_first_hour = n.stores_t.e_max_pu.iloc[0].loc[e_mob_stores.index].mul(e_mob_stores.e_nom)
+        # e_mob_stores = n.stores[n.stores.carrier=="battery_storage"]
+        # max_e_first_hour = n.stores_t.e_max_pu.iloc[0].loc[e_mob_stores.index].mul(e_mob_stores.e_nom)
 
-        index = e_mob_stores[e_mob_stores.e_initial > max_e_first_hour].index
-        n.stores.loc[index, "e_initial"] = max_e_first_hour.loc[index]
+        # index = e_mob_stores[e_mob_stores.e_initial > max_e_first_hour].index
+        # n.stores.loc[index, "e_initial"] = max_e_first_hour.loc[index]
+
+        n.mremove("Store", n.stores[n.stores.carrier=="battery_storage"].index)
 
     if not os.path.exists(etrago.args["csv_export"]):
         os.makedirs(etrago.args["csv_export"])
