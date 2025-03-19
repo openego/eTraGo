@@ -706,7 +706,7 @@ def run_etrago(args, json_path):
 
     # import network from database
     etrago.build_network_from_db()
-
+    etrago.network.remove("Bus", "33002")
     etrago.network.generators.loc[
         etrago.network.generators.carrier=="gas", "marginal_cost"] = etrago.network.generators.loc[
             etrago.network.generators.carrier=="CH4", "marginal_cost"]
