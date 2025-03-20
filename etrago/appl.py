@@ -50,7 +50,7 @@ if "READTHEDOCS" not in os.environ:
 
 args = {
     # Setup and Configuration:
-    "db": "egon-data",  # database session
+    "db": "eGon100_2025",  # database session
     "gridversion": None,  # None for model_draft or Version number
     "method": {  # Choose method and settings for optimization
         "type": "lopf",  # type of optimization, 'lopf' or 'sclopf'
@@ -73,7 +73,7 @@ args = {
         "q_allocation": "p_nom",  # allocate reactive power via 'p_nom' or 'p'
     },
     "start_snapshot": 1,
-    "end_snapshot": 168,
+    "end_snapshot": 10,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
         "BarConvTol": 1.0e-5,
@@ -702,7 +702,7 @@ def run_etrago(args, json_path):
         <https://www.pypsa.org/doc/components.html#network>`_
 
     """
-    etrago = Etrago(args, json_path=json_path)
+    etrago = Etrago(args, json_path=None)
 
     # import network from database
     etrago.build_network_from_db()
@@ -762,6 +762,67 @@ def run_etrago(args, json_path):
         for key in comp.pnl:
             comp.pnl[key].where(
                 comp.pnl[key].abs()>1e-5, other=0., inplace=True)
+            
+    # Model EV as charging load in foreign countries
+    for bus in etrago.network.buses.loc[
+                (etrago.network.buses.carrier == "Li_ion")&
+                                            (etrago.network.buses.country!="DE")].index:       
+        load_pe = etrago.network.loads[(etrago.network.loads.bus==bus)].index
+        driving_load = etrago.network.loads_t.p_set[load_pe].sum(axis=1) 
+        ac_bus_etrago = etrago.network.links.loc[
+            (etrago.network.links.bus1==bus) & (etrago.network.links.carrier=="BEV_charger"), "bus0"].values[0]
+           
+        etrago.network.add(
+            "Load",
+            name = ac_bus_etrago + " land_transport_EV",
+            carrier = "land_transport_EV",
+            bus = ac_bus_etrago,
+            p_set = driving_load         
+            )
+        etrago.network.loads.loc[ac_bus_etrago + " land_transport_EV", "scn_name"] = args["scn_name"]
+
+    etrago.network.mremove(
+        "Load",
+        etrago.network.loads[
+            (etrago.network.loads.carrier=="land_transport_EV")
+            &(etrago.network.loads.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Generator",
+        etrago.network.generators[
+            (etrago.network.generators.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Link",
+        etrago.network.links[
+            (etrago.network.links.carrier=="BEV_charger")
+            &(etrago.network.links.bus1.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Store",
+        etrago.network.stores[
+            (etrago.network.stores.carrier=="battery_storage")
+            &(etrago.network.stores.bus.isin(
+                etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index))].index
+        )
+    etrago.network.mremove(
+        "Bus",
+        etrago.network.buses[
+                    (etrago.network.buses.carrier=="Li_ion")
+                    &(etrago.network.buses.country!="DE")].index
+        )
+
 
     etrago.snapshot_clustering()
 
