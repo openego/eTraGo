@@ -1427,7 +1427,7 @@ def remaining_redispatch(self, min_flh = 3000):
 
 
 
-def calc_atlas_results(self):
+def calc_atlas_results(self, filename=None):
     """
     Calculating the final results for the potential_atlas as 
     one of the main outcomes of the project. The results will
@@ -1581,15 +1581,10 @@ def calc_atlas_results(self):
             'Max. hydrogen storage capacity': None,
         }
         results = pd.concat([results, pd.DataFrame([new_row])], ignore_index=True)
-     
-    if self.args["csv_export"] != False:
-        path = self.args["csv_export"]
-    else:
-        path = './atlas_results'
-        os.makedirs(path, exist_ok=True)
 
-    results.to_csv(os.path.join(path, "atlas_results.csv"))
-    matching_mv_grids.to_csv(os.path.join(path, "matching_bus_id_mv_grids.csv"))
-        
+    if filename:
+        results.to_csv(filename)
+        matching_mv_grids.to_file("regions.geojson")
+
     return results
 
