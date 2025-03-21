@@ -1454,6 +1454,7 @@ def calc_atlas_results(self, filename=None):
     redispatch_electrolysis, redispatch_electrolysis_per_bus, matching_mv_grids = merit_order_ely_redispatch(self)
     
     PtH2_links = self.network.links[self.network.links.carrier == "power_to_H2"]
+    PtH2_links = PtH2_links[PtH2_links.p_nom_opt>10]
     AC_buses_PtH2 = self.network.buses[self.network.buses.index.isin(PtH2_links.bus0.unique())]
     
     for index, row in AC_buses_PtH2.iterrows():
