@@ -1506,10 +1506,11 @@ def calc_atlas_results(self, filename=None):
         H2_dispatch = -self.network.links_t.p1[links_PtH2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()      
         waste_heat_dispatch = -self.network.links_t.p1.get(links_waste_heat.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
         o2_dispatch = -self.network.links_t.p1.get(links_o2.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
-        
         # LCOE+LCOH
-        lcoe = self.network.buses_t.marginal_price.loc[:, row.name].mean()   #[€/MWh_e]
-        lcoh = self.network.buses_t.marginal_price.loc[:, links_PtH2.bus1.astype(int).astype(str).tolist()].mean().mean()*33.33*1e-3 #[€/kg_H2]
+        mean_local_electricity_cost = self.network.buses_t.marginal_price.loc[:, row.name].mean() #[€/MWh_e]
+        lcoh = (lcoe_germany(self) * (1/self.network.links.efficiency[links_PtH2.index])
+                + (links_PtH2.capital_cost* links_PtH2.p_nom_opt).sum() / AC_dispatch
+                ).mean()*33.33*1e-3        #[€/kg_H2]
         
         # H2-demand
         loads_h2 = self.network.loads[self.network.loads.carrier.str.contains('H2') 
@@ -1528,12 +1529,11 @@ def calc_atlas_results(self, filename=None):
         redispatch_ely = redispatch_electrolysis_per_bus.mul(self.network.snapshot_weightings.objective, axis=0).sum(axis=0)[index]
         
         #market_driven/grid_driven
-        market_dispatch = AC_dispatch - redispatch_ely
-        if market_dispatch > redispatch_ely:
+        if redispatch_ely < 1e5:
             dispatch_type = 'market_driven'
         else: 
             dispatch_type = 'grid_driven'
-        
+
         new_row = {
             'region': row.name,
             'Placement': "System optimization",
@@ -1548,7 +1548,7 @@ def calc_atlas_results(self, filename=None):
             'Max. heat supply [MWh/a]': waste_heat_dispatch,
             'Max. O2 supply [ton/a]': o2_dispatch * O2_calc_factor,
             'LCOH [€/kg_H2]': lcoh,
-            'LCOE [€/MWh_el]': lcoe,
+            'Mean nodal electricity cost [€/MWh_el]': mean_local_electricity_cost,
             'Max. redispatch by electrolysis [MWh/a]':redispatch_ely,
             'Remaining redispatch [MWh/a]': ramp_down,
             'Max. redispatch potential': ramp_down+redispatch_ely, 
@@ -1557,7 +1557,7 @@ def calc_atlas_results(self, filename=None):
         }
         new_row_df = pd.DataFrame([new_row])
         results = pd.concat([results, new_row_df], ignore_index=True)
-    
+
     # additional ely potential calculated out of remaining redispacth
     for bus, row in max_ely[max_ely['max_capacity'] > 0].iterrows():
         new_row = {
