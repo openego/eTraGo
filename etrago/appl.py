@@ -898,7 +898,7 @@ def run_etrago(args, json_path):
     etrago.calc_results()
 
     #calculate final PtH2 results
-    etrago.calc_atlas_results()
+    etrago.calc_atlas_results(filename=etrago.args["csv_export"]+"/atlas_results.csv")
 
     return etrago
 
