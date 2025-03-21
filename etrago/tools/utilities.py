@@ -3695,7 +3695,9 @@ def levelize_abroad_inland_parameters(self):
             "solar": ["marginal_cost"],
             "solar_rooftop": ["marginal_cost"],
             "wind_offshore": ["marginal_cost"],
-            "wind_onshore": ["marginal_cost"],            
+            "wind_onshore": ["marginal_cost"],
+            "rural_oil_boilers": ["marginal_cost"],
+            "oil": ["marginal_cost"],
             }
         }                                   
     
