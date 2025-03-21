@@ -3659,7 +3659,7 @@ class Constraints:
                 elif self.apply_on == "market_model":
                     fixed_storage_unit_soc_at_horizon_end(
                         self, network, snapshots)
-                #add_chp_constraints_linopy(network, snapshots)
+                add_chp_constraints_simplyfied_linopy(network, snapshots)
             else:
                 add_chp_constraints_nmp(network)
                 if self.args["scn_name"] != "status2019":
@@ -3928,6 +3928,7 @@ def add_electrolysis_coupling_constraints(network, snapshots):
 
 
 def add_chp_constraints_simplyfied(network, snapshots):
+    print("Adding CHP constraints")
     efficiency_heat = 0.42500
     electric_bool = network.links.carrier == "central_gas_CHP"
 
@@ -3965,8 +3966,6 @@ def add_chp_constraints_simplyfied(network, snapshots):
         )
         
     # Constraints for biomass CHP
-    efficiency_central_biomass_chp_elec = 0.269
-    efficiency_central_biomass_chp_heat = 0.825
     biomass_chp_elec = network.generators[
         network.generators.carrier=="central_biomass_CHP"]
     biomass_chp_heat = network.generators[
@@ -3974,6 +3973,15 @@ def add_chp_constraints_simplyfied(network, snapshots):
     for cntr in network.buses[network.buses.index.isin(
             biomass_chp_elec.bus.values
             )].country.unique():
+        ratio_heat_elec = biomass_chp_heat[
+            biomass_chp_heat.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )
+            ].p_nom.sum()/biomass_chp_elec[
+                biomass_chp_elec.bus.isin(
+                    network.buses[network.buses.country==cntr].index
+                    )
+                ].p_nom.sum()
         biomass_chp_elec_c = biomass_chp_elec[
             biomass_chp_elec.bus.isin(
                 network.buses[network.buses.country==cntr].index
@@ -3991,7 +3999,7 @@ def add_chp_constraints_simplyfied(network, snapshots):
             )
     
             rhs = sum(
-                (efficiency_central_biomass_chp_heat / efficiency_central_biomass_chp_elec)
+                ratio_heat_elec
                 * model.generator_p[e_chp, snapshot]
                 for e_chp in biomass_chp_elec_c
             )
@@ -4180,3 +4188,43 @@ def add_chp_constraints_linopy(network, snapshots):
                     "Link",
                     "top_iso_fuel_line_" + i + "_" + str(snapshot),
                 )
+
+def add_chp_constraints_simplyfied_linopy(network, snapshots):
+    # Constraints for biomass CHP
+    biomass_chp_elec = network.generators[
+        network.generators.carrier=="central_biomass_CHP"]
+    biomass_chp_heat = network.generators[
+        network.generators.carrier=="central_biomass_CHP_heat"]
+    for cntr in network.buses[network.buses.index.isin(
+            biomass_chp_elec.bus.values
+            )].country.unique():
+        ratio_heat_elec = biomass_chp_heat[
+            biomass_chp_heat.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )
+            ].p_nom.sum()/biomass_chp_elec[
+                biomass_chp_elec.bus.isin(
+                    network.buses[network.buses.country==cntr].index
+                    )
+                ].p_nom.sum()
+        biomass_chp_elec_c = biomass_chp_elec[
+            biomass_chp_elec.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )
+            ].index
+        biomass_chp_heat_c = biomass_chp_heat[
+            biomass_chp_heat.bus.isin(
+                network.buses[network.buses.country==cntr].index
+                )
+            ].index
+        for snapshot in snapshots:
+            define_constraints(
+                network,
+                get_var(network, "Generator", "p").loc[snapshot, biomass_chp_heat_c].sum()
+                - ratio_heat_elec *
+                get_var(network, "Generator", "p").loc[snapshot, biomass_chp_elec_c].sum(),
+                "==",
+                0,
+                "Link",
+                "biomass_chp_constraint_" + cntr + str(snapshot),
+            )
