@@ -1199,6 +1199,7 @@ def regions_per_bus(self):
     map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
     
     map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
+    map_buses = map_buses.drop_duplicates(("geom"), keep = "first")
 
     try:
         mv_grids = gpd.read_postgis(
@@ -1213,7 +1214,7 @@ def regions_per_bus(self):
         geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
 
         for i in join.cluster.unique():
-            geoms[i] = join[join.cluster == i].geom.union_all()
+            geoms[i] = join[join.cluster == i].geom.unary_union
         
         return geoms
     
@@ -1352,7 +1353,8 @@ def merit_order_ely_redispatch(self):
     
     # matching table bus_id | corresponding mv grids
     mv_grid_geom = regions_per_bus(self)
-    if mv_grid_geom.empty: 
+
+    if not mv_grid_geom.empty:
         df_mv_grids = gpd.GeoDataFrame(
             geometry = mv_grid_geom,
             crs=4326
