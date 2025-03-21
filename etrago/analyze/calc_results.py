@@ -503,6 +503,175 @@ def system_costs_germany(self):
 
     return marginal_cost, invest_cost, import_costs
 
+def electricity_system_costs_germany(self):
+    """Calculte system costs for Germany
+
+    Returns
+    -------
+    marginal_cost : float
+        Marginal costs for dispatch in Germany
+    invest_cost : float
+        Annualized investment costs for components in Germany
+    import_costs : float
+        Costs for energy imported to Germany minus costs for exports
+
+    """
+
+    network_de = self.german_network()
+
+    marginal_cost = 0
+    invest_cost = 0
+
+    for c in network_de.iterate_components():
+        if c.name in ["Store"]:
+            value = "e"
+        elif c.name in ["Line", "Transformer"]:
+            value = "s"
+        else:
+            value = "p"
+        if c.name in network_de.one_port_components:
+            if "marginal_cost" in c.df.columns:
+                df = c.df[c.df.bus.isin(network_de.buses[network_de.buses.carrier=="AC"].index)]
+                marginal_cost += (
+                    c.pnl.p[df.index].mul(df.marginal_cost)
+                    .mul(network_de.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+
+        else:
+            if "marginal_cost" in c.df.columns:
+                df = c.df[c.df.bus0.isin(network_de.buses[network_de.buses.carrier=="AC"].index)]
+                marginal_cost += (
+                    c.pnl.p0[df.index].mul(df.marginal_cost)
+                    .mul(network_de.snapshot_weightings.generators, axis=0)
+                    .sum()
+                    .sum()
+                )
+        if c.name not in [
+            "Bus",
+            "Load",
+            "LineType",
+            "TransformerType",
+            "Carrier",
+        ]:
+            if c.name in network_de.one_port_components:
+                df = c.df[c.df.bus.isin(network_de.buses[network_de.buses.carrier=="AC"].index)]
+            else:
+                df = c.df[c.df.bus0.isin(network_de.buses[network_de.buses.carrier=="AC"].index)]
+            invest_cost += (
+                (
+                    df[df[f"{value}_nom_extendable"]][f"{value}_nom_opt"]
+                    - df[df[f"{value}_nom_extendable"]][f"{value}_nom_min"]
+                )
+                * df[df[f"{value}_nom_extendable"]]["capital_cost"]
+            ).sum()
+
+    # import and its costs
+    links_export = self.network.links[
+        (
+            self.network.links.bus0.isin(network_de.buses.index.values)
+            & ~(self.network.links.bus1.isin(network_de.buses.index.values))
+        )
+    ]
+
+    export_positive = (
+        self.network.links_t.p0[links_export.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    export_negative = (
+        self.network.links_t.p0[links_export.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_export.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    links_import = self.network.links[
+        (
+            self.network.links.bus1.isin(network_de.buses.index.values)
+            & ~(self.network.links.bus0.isin(network_de.buses.index.values))
+        )
+    ]
+
+    import_positive = (
+        self.network.links_t.p0[links_import.index]
+        .clip(lower=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .sum()
+        .sum()
+    )
+
+    import_negative = (
+        self.network.links_t.p0[links_import.index]
+        .clip(upper=0)
+        .mul(self.network.snapshot_weightings.generators, axis=0)
+        .mul(
+            self.network.buses_t.marginal_price[links_import.bus1].values,
+        )
+        .mul(-1)
+        .sum()
+        .sum()
+    )
+
+    import_costs = (
+        export_negative + import_positive - export_positive - import_negative
+    )
+
+    return marginal_cost, invest_cost, import_costs
+
+
+def lcoe_germany(self):
+
+    scenario = self.network.buses.scn_name.iloc[0]
+
+    generation_capacity_costs = {
+        "powerd2025": 27964778960.961948,
+        "powerd2030": 35294982563.391068,
+        "powerd2035": 40894242010.772293,
+        "eGon100RE": 45936486153.182617
+        }
+
+    marginal_cost, invest_cost, import_costs = self.system_costs_germany()
+
+    total_system_cost_de = marginal_cost + invest_cost + import_costs
+
+    if scenario in generation_capacity_costs.keys():
+        total_system_cost_de += generation_capacity_costs[scenario]
+
+    ac_load_de = self.network.loads_t.p_set[self.network.loads[
+        (self.network.loads.carrier=="AC")
+        &(self.network.loads.bus.isin(
+            self.network.buses[self.network.buses.country=="DE"].index
+            ))].index].sum(axis=1).mul(self.network.snapshot_weightings["generators"]).sum()
+
+    sector_coupling_load = self.network.links_t.p0[self.network.links[
+        (self.network.links.bus0.isin(
+            self.network.buses[(self.network.buses.country=="DE")
+                               &(self.network.buses.carrier=="AC")].index
+            ))
+        &(self.network.links.carrier!="DC")
+        ].index].sum(axis=1).mul(self.network.snapshot_weightings["generators"]).sum()
+
+    total_elec_demand_de = ac_load_de + sector_coupling_load
+
+    lcoe = total_system_cost_de / total_elec_demand_de
+
+    return lcoe
 
 def ac_export(self):
     """Calculate the balance of electricity exports and imports over AC lines
