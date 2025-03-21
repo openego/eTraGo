@@ -3218,7 +3218,7 @@ def manual_fixes_datamodel(etrago):
         # Drop very small generators
         etrago.network.mremove("Generator", etrago.network.generators[
             (etrago.network.generators.p_nom_extendable == False) &
-            (etrago.network.generators.p_nom < 100)].index)
+            (etrago.network.generators.p_nom < 50)].index)
 
 
 
