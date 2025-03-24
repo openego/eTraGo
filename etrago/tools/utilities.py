@@ -3745,4 +3745,21 @@ def levelize_abroad_inland_parameters(self):
                     logger.warning(f"⚠️ {parameter} existiert NICHT für Carrier '{carrier}' in {component_type}.")
                     
         logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
-     
+
+
+def  calculate_link_length_h2_grid(self):
+    buses = self.network.buses.copy()
+    buses['x'] = buses['x'].apply(float)
+    buses['y'] = buses['y'].apply(float)
+    buses['geom'] = buses.apply(lambda x: Point(x.x, x.y), axis= 1)
+    buses = gpd.GeoDataFrame(buses, geometry= "geom", crs= 4326)
+    buses.to_crs(crs= 3035, inplace= True)
+
+    links = self.network.links[self.network.links["carrier"] == "H2_grid"].copy()
+    links["geom0"] = links['bus0'].map(buses["geom"])
+    links["geom1"] = links['bus1'].map(buses["geom"])
+    links['geom'] = links.apply(lambda x: LineString([[x.geom0.x, x.geom0.y], [x.geom1.x, x.geom1.y]]), axis= 1)
+    links = gpd.GeoDataFrame(links, geometry= "geom", crs= 3035)
+    links["length"] = links.length
+
+    self.network.links.loc[links.index, "length"] = links["length"]

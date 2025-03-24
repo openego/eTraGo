@@ -1058,6 +1058,7 @@ def run_spatial_clustering_gas(self):
                         weight_ch4,
                         n_clusters_ch4,
                     )
+                    breakpoint()
                     if "H2_grid" in self.network.links.carrier.unique():
                         busmap_h2, medoid_idx_h2 = (
                             kmedoids_dijkstra_clustering(
