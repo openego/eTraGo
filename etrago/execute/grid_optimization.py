@@ -172,7 +172,7 @@ def fix_chp_generation(self):
     # model
     self.network.generators_t.p_max_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
-            1 / self.market_model.generators.p_nom[gens_fixed]
+            1.01 / self.market_model.generators.p_nom[gens_fixed]
         )
     )
 
@@ -180,7 +180,7 @@ def fix_chp_generation(self):
     # model
     self.network.generators_t.p_min_pu.loc[:, gens_fixed] = (
         self.market_model.generators_t.p[gens_fixed].mul(
-            1 / self.market_model.generators.p_nom[gens_fixed]
+            0.99 / self.market_model.generators.p_nom[gens_fixed]
         )
     )
 
@@ -188,14 +188,14 @@ def fix_chp_generation(self):
     # Set p_max_pu of links using results from (disaggregated) market model
     self.network.links_t.p_max_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
-            1 / self.market_model.links.p_nom[links_fixed]
+            1.01 / self.market_model.links.p_nom[links_fixed]
         )
     )
 
     # Set p_min_pu of links using results from (disaggregated) market model
     self.network.links_t.p_min_pu.loc[:, links_fixed] = (
         self.market_model.links_t.p0[links_fixed].mul(
-            1 / self.market_model.links.p_nom[links_fixed]
+            0.99 / self.market_model.links.p_nom[links_fixed]
         )
     )
 

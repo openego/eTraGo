@@ -3223,13 +3223,6 @@ def manual_fixes_datamodel(etrago):
             etrago.network.remove("Bus", i)
             etrago.network.mremove("Link", link.index)
 
-        # Drop very small generators
-        etrago.network.mremove("Generator", etrago.network.generators[
-            (etrago.network.generators.p_nom_extendable == False) &
-            (etrago.network.generators.p_nom < 100)].index)
-
-
-
         # Set ramps to nan
         etrago.network.links.ramp_limit_up = np.nan
         etrago.network.links.ramp_limit_down = np.nan
@@ -3703,7 +3696,10 @@ def levelize_abroad_inland_parameters(self):
             "solar": ["marginal_cost"],
             "solar_rooftop": ["marginal_cost"],
             "wind_offshore": ["marginal_cost"],
-            "wind_onshore": ["marginal_cost"],            
+            "wind_onshore": ["marginal_cost"],
+            "rural_oil_boiler": ["marginal_cost"],
+            "oil": ["marginal_cost"],
+            "rural_biomass_boiler": ["marginal_cost"],
             }
         }                                   
     
