@@ -2058,7 +2058,7 @@ def add_ch4_constraints(self, network, snapshots):
         "eGon2035": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon2035_lowflex": {"CH4": "CH4_NG", "biogas": "CH4_biogas"},
         "eGon100RE": {"biogas": "CH4"},
-        "powerd2025": {"biogas": "CH4"},
+        "powerd2025": {"biogas": "biogas", "CH4": "CH4"},
         "powerd2030": {"biogas": "biogas", "CH4": "CH4"},
         "powerd2035": {"biogas": "biogas", "CH4": "CH4"},
     }
