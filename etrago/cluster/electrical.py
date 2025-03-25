@@ -754,6 +754,7 @@ def preprocessing(etrago, apply_on="grid_model"):
                     "sub_network",
                     "s_max_pu",
                     "lifetime",
+                    "s_nom_extendable",
                 ],
             ]
             .assign(
