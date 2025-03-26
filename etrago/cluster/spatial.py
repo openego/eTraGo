@@ -113,10 +113,7 @@ def strategies_buses():
 
 
 def strategies_lines():
-    return {
-        "geom": nan_links,
-        "country": "first"
-    }
+    return {"geom": nan_links, "country": "first"}
 
 
 def strategies_one_ports():
@@ -130,7 +127,7 @@ def strategies_one_ports():
             "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
-            "scn_name": "first"
+            "scn_name": "first",
         },
         "Store": {
             "marginal_cost": "mean",
@@ -686,6 +683,27 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     df_dijkstra.drop_duplicates(inplace=True)
     df_dijkstra.index = df_dijkstra["source"]
 
+    # map isolated buses to themself
+    iso = df_dijkstra.index[df_dijkstra["path_length"] == np.inf]
+
+    if len(iso):
+        df_dijkstra.loc[iso, "target"] = iso
+        medoid_idx = pd.concat(
+            [
+                medoid_idx,
+                pd.Series(
+                    data=iso,
+                    index=range(len(medoid_idx), len(medoid_idx) + len(iso)),
+                ),
+            ]
+        )
+        logger.warning(
+            f"""
+                       The following buses are disconnected from the network:
+                           {iso}. They will be not clustered
+                           """
+        )
+
     # creation of new busmap with final assignment (format: medoids indices)
     busmap_ind = pd.Series(df_dijkstra["target"], dtype=object).rename(
         "final_assignment", inplace=True
@@ -698,7 +716,7 @@ def dijkstras_algorithm(buses, connections, medoid_idx, cpu_cores):
     busmap = busmap_ind.map(mapping).astype(str)
     busmap.index = list(busmap.index.astype(str))
 
-    return busmap
+    return busmap, medoid_idx
 
 
 def kmedoids_dijkstra_clustering(
@@ -780,7 +798,7 @@ def kmedoids_dijkstra_clustering(
 
         if len(busmap) > n_clusters:
             # dijkstra's algorithm
-            busmap = dijkstras_algorithm(
+            busmap, medoid_idx = dijkstras_algorithm(
                 buses,
                 connections,
                 medoid_idx,

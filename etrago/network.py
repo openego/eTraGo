@@ -113,7 +113,8 @@ from etrago.tools.utilities import (
     update_busmap,
     adjust_chp_model,
     adjust_PtH2_model,
-    levelize_abroad_inland_parameters
+    levelize_abroad_inland_parameters,
+    calculate_link_length_h2_grid,
 )
 
 logger = logging.getLogger(__name__)
@@ -472,6 +473,8 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
+
+        calculate_link_length_h2_grid(self)
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)

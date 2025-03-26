@@ -366,7 +366,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
                     + str(settings["n_clusters_gas"])
                     + "_result.csv"
                 )
-    
+
             else:
                 busmap.name = "cluster"
                 busmap_ind = pd.Series(
@@ -375,7 +375,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
                     dtype=pd.StringDtype(),
                 )
                 busmap_ind.name = "medoid_idx"
-    
+
                 export = pd.concat([busmap, busmap_ind], axis=1)
                 export.index.name = "bus_id"
                 export.to_csv(
@@ -387,16 +387,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     else:
         network = etrago.pre_market_model
 
-    if ("H2_grid" in network.buses.carrier.unique()) & (
-        scn in ["eGon2035"]
-    ):
+    if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
-        network.buses[
-            (~network.buses.index.isin(busmap.index))
-        ].index
+        network.buses[(~network.buses.index.isin(busmap.index))].index
     )
     next_bus_id = highestInteger(network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
@@ -1014,10 +1010,18 @@ def run_spatial_clustering_gas(self):
             ch4_network, weight_ch4, n_clusters_ch4 = preprocessing(
                 self, "CH4"
             )
-            if "H2_grid" in self.network.links.carrier.unique():
+            if ("H2_grid" in self.network.links.carrier.unique()) & (
+                "H2_grid" in self.network.buses.carrier.unique()
+            ):
                 h2_network, weight_h2, n_clusters_h2 = preprocessing(
                     self, "H2_grid"
                 )
+                if len(h2_network.buses) > 1:
+                    cluster_H2_grid = True
+                else:
+                    cluster_H2_grid = False
+            else:
+                cluster_H2_grid = False
 
             if method == "kmeans":
                 if settings["k_gas_busmap"]:
@@ -1031,7 +1035,7 @@ def run_spatial_clustering_gas(self):
                     busmap_ch4, medoid_idx_ch4 = kmean_clustering_gas(
                         self, ch4_network, weight_ch4, n_clusters_ch4
                     )
-                    if "H2_grid" in self.network.links.carrier.unique():
+                    if cluster_H2_grid:
                         busmap_h2, medoid_idx_h2 = kmean_clustering_gas(
                             self, h2_network, weight_h2, n_clusters_h2
                         )
@@ -1058,7 +1062,7 @@ def run_spatial_clustering_gas(self):
                         weight_ch4,
                         n_clusters_ch4,
                     )
-                    if "H2_grid" in self.network.links.carrier.unique():
+                    if cluster_H2_grid:
                         busmap_h2, medoid_idx_h2 = (
                             kmedoids_dijkstra_clustering(
                                 self,
@@ -1076,7 +1080,7 @@ def run_spatial_clustering_gas(self):
                 )
                 raise ValueError(msg)
 
-            if "H2_grid" in self.network.links.carrier.unique():
+            if cluster_H2_grid:
                 busmap, medoid_idx = join_busmap_medoids(
                     busmap_ch4, busmap_h2, medoid_idx_ch4, medoid_idx_h2
                 )
@@ -1112,7 +1116,7 @@ def run_spatial_clustering_gas(self):
                 )
             )
 
-            if "H2_grid" in self.network.links.carrier.unique():
+            if cluster_H2_grid:
                 logger.info(
                     """H2 Network clustered to {} DE-buses and {} foreign buses
                      with {} algorithm.""".format(

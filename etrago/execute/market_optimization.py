@@ -674,9 +674,14 @@ def gas_clustering_market_model(self):
 
     busmap = pd.Series(
         ch4_network.buses.cluster.astype(int).astype(str), ch4_network.buses.index
-    )    
-    
-    if "H2_grid" in self.network.links.carrier.unique():  
+    )
+
+    if ("H2_grid" in self.network.links.carrier.unique()) & (
+        "H2_grid"
+        in self.network.buses[
+            self.network.buses.country == "DE"
+        ].carrier.unique()
+    ):
         h2_network, weight_h2, n_clusters_h2 = gas_preprocessing(
             self, "H2_grid", apply_on="market_model"
         )        
