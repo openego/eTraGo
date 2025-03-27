@@ -153,6 +153,31 @@ def _calc_network_expansion_length(self):
     return lines.sum(), dc_links.sum()
 
 
+def annualize_capital_costs(overnight_costs, lifetime, p):
+    """
+
+    Parameters
+    ----------
+    overnight_costs : float
+        Overnight investment costs in EUR/MW or EUR/MW/km
+    lifetime : int
+        Number of years in which payments will be made
+    p : float
+        Interest rate in p.u.
+
+    Returns
+    -------
+    float
+        Annualized capital costs in EUR/MW/a or EUR/MW/km/a
+
+    """
+
+    # Calculate present value of an annuity (PVA)
+    PVA = (1 / p) - (1 / (p * (1 + p) ** lifetime))
+
+    return overnight_costs / PVA
+
+
 def calc_investment_cost(self):
     """Function that calulates overall annualized investment costs.
 
@@ -378,7 +403,7 @@ def german_network(self):
     return new_network
 
 
-def system_costs_germany(self):
+def system_costs_germany(self, electricity_only=False):
     """Calculte system costs for Germany
 
     Returns
@@ -640,19 +665,29 @@ def lcoe_germany(self):
     scenario = self.network.buses.scn_name.iloc[0]
 
     generation_capacity_costs = {
-        "powerd2025": 27964778960.961948,
-        "powerd2030": 35294982563.391068,
-        "powerd2035": 40894242010.772293,
-        "eGon100RE": 45936486153.182617
+        "powerd2025": 42753843903.92459,
+        "powerd2030": 43867007802.88958,
+        "powerd2035": 42780310000.0,
+        "eGon100RE": 39684763603.00243,
         }
 
-    marginal_cost, invest_cost, import_costs = self.system_costs_germany()
+    marginal_cost, invest_cost, import_costs = electricity_system_costs_germany(self)
 
-    total_system_cost_de = marginal_cost + invest_cost + import_costs
+    total_system_cost_de = marginal_cost + invest_cost #+ import_costs
 
     if scenario in generation_capacity_costs.keys():
         total_system_cost_de += generation_capacity_costs[scenario]
 
+    ac_gen_de = self.network.generators_t.p[self.network.generators[
+        (self.network.generators.bus.isin(
+            self.network.buses[(self.network.buses.country=="DE")&(self.network.buses.carrier=="AC")].index
+            ))].index].sum(axis=1).mul(self.network.snapshot_weightings["generators"]).sum()
+    
+    ac_link_de = self.network.links_t.p1[self.network.links[
+        (self.network.links.bus1.isin(
+            self.network.buses[(self.network.buses.country=="DE")&(self.network.buses.carrier=="AC")].index
+            ))].index].sum(axis=1).mul(self.network.snapshot_weightings["generators"]).sum()*(-1)
+    
     ac_load_de = self.network.loads_t.p_set[self.network.loads[
         (self.network.loads.carrier=="AC")
         &(self.network.loads.bus.isin(
@@ -669,7 +704,7 @@ def lcoe_germany(self):
 
     total_elec_demand_de = ac_load_de + sector_coupling_load
 
-    lcoe = total_system_cost_de / total_elec_demand_de
+    lcoe = total_system_cost_de / (ac_gen_de+ac_link_de)
 
     return lcoe
 
@@ -1444,26 +1479,49 @@ def calc_atlas_results(self, filename=None):
     matching_mv_grids : gpd.GeoDataFrame
     """
     import numpy as np
-    
+
     results = pd.DataFrame()
-    
+
     heating_value_H2 = 33.33  # [kWh/kg]
     O2_calc_factor = 9.030816  # [t_O2/MWh_el] average value produced O2 per electricity, own calculation
-    
+
     max_ely, ramp_down_per_bus = remaining_redispatch(self)
     redispatch_electrolysis, redispatch_electrolysis_per_bus, matching_mv_grids = merit_order_ely_redispatch(self)
-    
-    PtH2_links = self.network.links[self.network.links.carrier == "power_to_H2"]
+
+    PtH2_links = self.network.links[(self.network.links.carrier == "power_to_H2") & (self.network.links.bus0.isin(
+        self.network.buses[self.network.buses.country=="DE"].index
+        ))]
     PtH2_links = PtH2_links[PtH2_links.p_nom_opt>10]
     AC_buses_PtH2 = self.network.buses[self.network.buses.index.isin(PtH2_links.bus0.unique())]
+
+    # Calculate CAPEX
+    p = 0.05
+    scenario = self.network.buses.scn_name.iloc[0]
+    lt_system = {
+        "powerd2025": 20,
+        "powerd2030": 25,
+        "powerd2035": 25,
+        "eGon100RE": 30,
+        }
+    lt = lt_system[scenario]
+    #cost that are not included in clean CAPEX
+    OPEX_STACK = 0.03 * 0.21 * 357_000 
+    OPEX_SYSTEM = 0.03 * 357_000 
+    OPEX_PIPES = 0.03 * 236 
+    an_capex_stack = annualize_capital_costs(0.21*357_000, 20, 0.07) #interest rate for gas_sector 0.07
     
     for index, row in AC_buses_PtH2.iterrows():
 
         links_PtH2 = PtH2_links[PtH2_links.bus0 == index]
         
+        if "H2" in self.network.buses.loc[links_PtH2.bus1, "carrier"].unique():
+            at_h2_grid = False
+        elif "H2_grid" in self.network.buses.loc[links_PtH2.bus1, "carrier"].unique():
+            at_h2_grid = True
+
         #calculation for multiple_link_model
         if self.args["method"]["formulation"] == "linopy":
-        
+
             # Check if elctrolyzer has coupling product usage
             links_PtH2_bus2 = links_PtH2['bus2'].replace(['', 'nan', None], np.nan).dropna()
             links_PtH2_bus3 = links_PtH2['bus3'].replace(['', 'nan', None], np.nan).dropna()
@@ -1475,7 +1533,7 @@ def calc_atlas_results(self, filename=None):
                 links_waste_heat = self.network.links[self.network.links.bus0.isin(buses_heat)]
             else:
                 links_waste_heat = []
-        
+
             if buses_o2:
                 links_o2 = self.network.links[self.network.links.bus0.isin(buses_o2)]
             else:
@@ -1483,11 +1541,11 @@ def calc_atlas_results(self, filename=None):
                 
         else: # calculation for generator model
             link_indices = links_PtH2.index.astype(str)       
-            
+
             #Filter out corresponding o2 and heat generators
             gen_o2 = self.network.generators[self.network.generators.index.isin([f"{link_index}_O2" for link_index in link_indices])]
             gen_heat = self.network.generators[self.network.generators.index.isin([f"{link_index}_waste_heat" for link_index in link_indices])]
-            
+
             if not gen_o2.empty:
                 bus_o2 = gen_o2.bus.iloc[0]  
                 links_o2 = self.network.links[self.network.links.bus0==bus_o2]
@@ -1499,19 +1557,21 @@ def calc_atlas_results(self, filename=None):
                 links_waste_heat = self.network.links[self.network.links.bus0==bus_heat]
             else:
                 links_waste_heat = []
-        
-        
+
         # Calculate Dispatch
         AC_dispatch = self.network.links_t.p0[links_PtH2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum() 
         H2_dispatch = -self.network.links_t.p1[links_PtH2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()      
         waste_heat_dispatch = -self.network.links_t.p1.get(links_waste_heat.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
         o2_dispatch = -self.network.links_t.p1.get(links_o2.index, pd.Series(0)).mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
         # LCOE+LCOH
-        mean_local_electricity_cost = self.network.buses_t.marginal_price.loc[:, row.name].mean() #[€/MWh_e]
+        sn = self.network.snapshots[
+            (self.network.links_t.p0[links_PtH2.index].sum(axis=1) > 10)]
+        mean_local_electricity_cost = self.network.buses_t.marginal_price.loc[sn, row.name].mean() #[€/MWh_e]
+
         lcoh = (lcoe_germany(self) * (1/self.network.links.efficiency[links_PtH2.index])
-                + (links_PtH2.capital_cost* links_PtH2.p_nom_opt).sum() / AC_dispatch
+                + (links_PtH2.capital_cost* links_PtH2.p_nom_opt).sum() / H2_dispatch
                 ).mean()*33.33*1e-3        #[€/kg_H2]
-        
+
         # H2-demand
         loads_h2 = self.network.loads[self.network.loads.carrier.str.contains('H2') 
                                  & self.network.loads.bus.isin(links_PtH2.bus1.astype(int).astype(str).tolist())]
@@ -1519,15 +1579,20 @@ def calc_atlas_results(self, filename=None):
             H2_demand = self.network.loads_t.p_set[loads_h2.index].mul(self.network.snapshot_weightings.objective, axis=0).sum().sum()
         except: 
             H2_demand = self.network.loads.p_set[loads_h2.index].sum()
-        
+
         #store_capacity
         stores_h2 = self.network.stores[self.network.stores.bus.isin(links_PtH2.bus1.astype(int).astype(str).tolist())]
         store_cap = stores_h2.e_nom_opt.sum()
-        
+
         #redispatch
         ramp_down = ramp_down_per_bus.mul(self.network.snapshot_weightings.objective, axis=0).sum(axis=0)[index]
         redispatch_ely = redispatch_electrolysis_per_bus.mul(self.network.snapshot_weightings.objective, axis=0).sum(axis=0)[index]
-        
+
+        # specific costs for ELY
+        capex_ely = (links_PtH2.capital_cost.mean()  - 
+                     OPEX_PIPES - OPEX_STACK - OPEX_SYSTEM - an_capex_stack
+                     ) * ((1 / p) - (1 / (p * (1 + p) ** lt)))
+
         #market_driven/grid_driven
         if redispatch_ely < 1e5:
             dispatch_type = 'market_driven'
@@ -1542,8 +1607,7 @@ def calc_atlas_results(self, filename=None):
             'Type': dispatch_type,
             'Max. electrolyzer capacity [MW]': links_PtH2.p_nom_opt.sum(),
             'Max. electricity consumption [MWh]': AC_dispatch,
-            'ELY investment cost [€/MW/a]': links_PtH2.capital_cost.mean(),
-            'CAPEX for max. capacity [€/a]': (links_PtH2.capital_cost* links_PtH2.p_nom_opt).sum(),
+            'ELY investment cost [€/kW]': capex_ely/1000,
             'Max. H2-Production [ton/a]': H2_dispatch / heating_value_H2,
             'Max. heat supply [MWh/a]': waste_heat_dispatch,
             'Max. O2 supply [ton/a]': o2_dispatch * O2_calc_factor,
@@ -1554,6 +1618,8 @@ def calc_atlas_results(self, filename=None):
             'Max. redispatch potential': ramp_down+redispatch_ely, 
             'H2 demand [ton/a]':  H2_demand,
             'Max. hydrogen storage capacity': store_cap,
+            'At hydrogen grid': at_h2_grid,
+
         }
         new_row_df = pd.DataFrame([new_row])
         results = pd.concat([results, new_row_df], ignore_index=True)
@@ -1568,8 +1634,7 @@ def calc_atlas_results(self, filename=None):
             'Type': "grid_driven",
             'Max. electrolyzer capacity [MW]': row.max_capacity,
             'Max. electricity consumption [MWh]': None,
-            'ELY investment cost [€/MW/a]': None,
-            'CAPEX for max. capacity [€/a]': None,
+            'ELY investment cost [€/MW]': None,
             'Max. H2-Production [ton/a]': None,
             'Max. heat supply [MWh/a]': None,
             'Max. O2 supply [ton/a]': None,
@@ -1580,6 +1645,7 @@ def calc_atlas_results(self, filename=None):
             'Max. redispatch potential': None, 
             'H2 demand [ton/a]': None,
             'Max. hydrogen storage capacity': None,
+            'At hydrogen grid': at_h2_grid,
         }
         results = pd.concat([results, pd.DataFrame([new_row])], ignore_index=True)
 
