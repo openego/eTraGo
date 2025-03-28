@@ -707,6 +707,51 @@ def run_etrago(args, json_path):
     # import network from database
     etrago.build_network_from_db()
 
+    # Scale O2 demands
+    adapted_ac_buses = []
+    o2_buses = etrago.network.links[etrago.network.links.carrier == "PtH2_O2"].bus1.unique()
+
+    for o2_bus in o2_buses:
+        ac_bus = etrago.network.links[
+            (etrago.network.links.carrier == "PtH2_O2") & 
+            (etrago.network.links.bus1 == o2_bus)
+        ].bus0[0]  #just adapt one connected ac-load
+        
+        
+        if ac_bus in adapted_ac_buses:
+            #print(f'Skipped AC bus {ac_bus} (already adapted).')
+            continue
+        ac_load = etrago.network.loads[etrago.network.loads.bus == ac_bus].index
+        
+        if ac_load.empty:
+            ac_buses_with_load = etrago.network.buses[
+                etrago.network.buses.index.isin(
+                    etrago.network.loads[etrago.network.loads.carrier=="AC"].bus
+                    )]
+
+            closest_bus = ((ac_buses_with_load.x - etrago.network.buses.loc[ac_bus, "x"]).abs() + (
+                ac_buses_with_load.y - etrago.network.buses.loc[ac_bus, "y"]).abs()).idxmin()
+            
+            ac_load = etrago.network.loads[
+                (etrago.network.loads.bus==closest_bus)
+                &(etrago.network.loads.carrier=="AC")           
+                ].index
+            
+        ac_load_ts = etrago.network.loads_t.p_set[ac_load]
+        o2_loads = etrago.network.loads_t.p_set[etrago.network.loads[etrago.network.loads.bus.isin([o2_bus])].index]
+        
+        total_o2_load_time_series = o2_loads.sum(axis=1)
+        
+        #adjust ac_load
+        if not ac_load.empty:
+            adjusted_ac_load_ts = ac_load_ts - pd.DataFrame(total_o2_load_time_series * 8759).values
+            etrago.network.loads_t.p_set[ac_load] = adjusted_ac_load_ts
+            adapted_ac_buses.append(ac_bus)
+            
+        #adjust o2_load
+        etrago.network.loads_t.p_set[etrago.network.loads[
+            etrago.network.loads.bus.isin([o2_bus])].index] = o2_loads * 8760
+
     etrago.network.generators.loc[
         etrago.network.generators.carrier=="gas", "marginal_cost"] = etrago.network.generators.loc[
             etrago.network.generators.carrier=="CH4", "marginal_cost"].mean()
