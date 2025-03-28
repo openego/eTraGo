@@ -745,7 +745,7 @@ def run_etrago(args, json_path):
         #adjust ac_load
         if not ac_load.empty:
             adjusted_ac_load_ts = ac_load_ts - pd.DataFrame(total_o2_load_time_series * 8759).values
-            etrago.network.loads_t.p_set[ac_load] = adjusted_ac_load_ts
+            etrago.network.loads_t.p_set[ac_load] = adjusted_ac_load_ts.clip(lower=0.0)
             adapted_ac_buses.append(ac_bus)
             
         #adjust o2_load
