@@ -1514,7 +1514,7 @@ def calc_atlas_results(self, filename=None):
         
         if "H2" in self.network.buses.loc[links_PtH2.bus1, "carrier"].unique():
             at_h2_grid = False
-        elif "H2_grid" in self.network.buses.loc[links_PtH2.bus1, "carrier"].unique():
+        if "H2_grid" in self.network.buses.loc[links_PtH2.bus1, "carrier"].unique():
             at_h2_grid = True
 
         #calculation for multiple_link_model
