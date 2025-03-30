@@ -1489,7 +1489,7 @@ def calc_atlas_results(self, filename=None):
     PtH2_links = self.network.links[(self.network.links.carrier == "power_to_H2") & (self.network.links.bus0.isin(
         self.network.buses[self.network.buses.country=="DE"].index
         ))]
-    PtH2_links = PtH2_links[PtH2_links.p_nom_opt>10]
+    #PtH2_links = PtH2_links[PtH2_links.p_nom_opt>10]
     AC_buses_PtH2 = self.network.buses[self.network.buses.index.isin(PtH2_links.bus0.unique())]
 
     # Calculate CAPEX
