@@ -1649,7 +1649,8 @@ def calc_atlas_results(self, filename=None):
 
     if filename:
         results.to_csv(filename)
-        matching_mv_grids.to_file("regions.geojson")
+        #matching_mv_grids['Max. redispatch potential'] = results.set_index("region")['Max. redispatch potential'].loc[matching_mv_grids[matching_mv_grids.index.isin(results.region.values)].index]
+        matching_mv_grids.to_file(f"regions_{scenario}.geojson")
 
     return results
 
