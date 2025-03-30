@@ -1230,29 +1230,27 @@ def regions_per_bus(self):
     ]
     map_buses["geom"] = map_buses.apply(
         lambda x: Point(x["x"], x["y"]), axis=1)
-    
-    map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
-    
-    map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
-    map_buses = map_buses.drop_duplicates(("geom"), keep = "first")
 
+    map_buses["cluster"] = map_buses.index.map(self.busmap["busmap"])
+
+    map_buses = gpd.GeoDataFrame(map_buses, geometry="geom")
     try:
         mv_grids = gpd.read_postgis(
             "SELECT bus_id, geom FROM grid.egon_mv_grid_district",
             self.engine,
         ).to_crs(4326)
+        mv_grids = mv_grids.set_index("bus_id")
+        mv_grids.index = mv_grids.index.astype(str)
+        map_buses = map_buses[map_buses.index.isin(mv_grids.index)]
+        map_buses["geom_grid"] = mv_grids.loc[map_buses.index].buffer(0.0001)
         
-        join = gpd.sjoin(mv_grids, map_buses)
-
-        join = join.to_crs(3035)
-
         geoms = gpd.GeoSeries(index=map_buses.cluster.unique())
-
-        for i in join.cluster.unique():
-            geoms[i] = join[join.cluster == i].geom.unary_union
         
+        for i in map_buses.cluster.unique():
+            geoms[i] = map_buses[map_buses.cluster == i].geom_grid.unary_union.simplify(0.0001)
+
         return geoms
-    
+
     except Exception as e:
         logger.warning(
             "No egon_mv_grid_district table inside the database. To create a matching table for atlas results "
