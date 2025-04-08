@@ -761,9 +761,6 @@ def run_etrago(args, json_path):
     # calculate central etrago results
     etrago.calc_results()
 
-    #calculate final PtH2 results
-    etrago.calc_atlas_results()
-
     return etrago
 
 
