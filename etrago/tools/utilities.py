@@ -3566,3 +3566,99 @@ def adjust_chp_model(self, apply_on='pre_market_model'):
         network.links.loc[i, "efficiency2"] = efficiency_heat
 
     return network
+
+
+
+def levelize_abroad_inland_parameters(self):
+    """
+    The method levelize the techno-economic parameters of inland and 
+    abroad components of the same carrier. Thus, the favoring of one 
+    component is avoided just based on the parameters. The differences in the 
+    parameters of the input dataset are caused by a updated source used for the
+    pypsa_eur network and different assumed interest_rates. 
+    All necessary parameters of the foreign components are 
+    adjusted to the values of the inland components.
+      
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+         Overall container of Etrago
+     
+      
+    Returns 
+    -------
+    None
+    """
+    
+    #define carrier and regarding parameters for adjustment
+    carriers_to_adjust = {
+        "links": {
+            "power_to_H2": ["efficiency", "capital_cost", "marginal_cost"],
+            "H2_to_power": ["capital_cost", "marginal_cost"],
+            "CH4_to_H2": ["efficiency", "capital_cost", "marginal_cost"],
+            "H2_to_CH4": ["capital_cost", "marginal_cost"],
+            "OCGT": ["efficiency", "marginal_cost"],
+            "central_resistive_heater": ["efficiency", "marginal_cost"],
+                },
+        "stores": {
+            "central_heat_store": ["capital_cost", "marginal_cost"],
+            "H2_overground": ["capital_cost", "marginal_cost"],
+            "H2_underground": ["capital_cost", "marginal_cost"],
+            "rural_heat_store": ["capital_cost", "marginal_cost"]
+            },
+        "storage_units": {
+            "battery": ["capital_cost", "marginal_cost", "efficiency_dispatch", "efficiency_store"]
+            },
+        "generators": {
+            "run_of_river": ["efficiency", "marginal_cost"],
+            "rural_solar_thermal": ["marginal_cost"],
+            "solar": ["marginal_cost"],
+            "solar_rooftop": ["marginal_cost"],
+            "wind_offshore": ["marginal_cost"],
+            "wind_onshore": ["marginal_cost"],            
+            }
+        }                                   
+    
+    german_buses = self.network.buses[self.network.buses.country == 'DE'].index
+    
+    def filter_german_components(df, component, german_buses):
+        if component == "links":
+            return df[df.bus0.isin(german_buses) & df.bus1.isin(german_buses)]
+        else:
+            return df[df.bus.isin(german_buses)]
+
+    for component_type, carriers in carriers_to_adjust.items():
+
+        component_table = getattr(self.network, component_type)
+
+        german_components = filter_german_components(component_table, component_type, german_buses)
+        foreign_components = component_table[~component_table.index.isin(german_components.index)]
+
+        for carrier, parameters in carriers.items():
+            #test if carrier exists in both german and abroad components
+            carrier_in_germany = carrier in german_components.carrier.values
+            carrier_in_foreign = carrier in foreign_components.carrier.values
+    
+            if not carrier_in_germany:
+                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the German components ({component_type}).")
+            
+            if not carrier_in_foreign:
+                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the foreign components ({component_type}).")
+            
+            if not carrier_in_germany or not carrier_in_foreign:
+                logger.warning(f"⚠️ Skipping carrier '{carrier}' for {component_type}.")
+                continue 
+    
+            german_carrier_components = german_components[german_components.carrier == carrier]
+
+            for parameter in parameters:
+                if parameter in german_carrier_components.columns:
+                    component_table.loc[
+                            (component_table.index.isin(foreign_components.index)) & (component_table.carrier == carrier), 
+                            parameter
+                        ] = german_carrier_components[parameter].mean()
+                else:
+                    logger.warning(f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}.")
+                    
+        logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
+     
