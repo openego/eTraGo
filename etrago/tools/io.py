@@ -79,7 +79,7 @@ class ScenarioBase:
     """
 
     def __init__(self, engine, session, version=None):
-        global carr_ormclass
+        global carr_ormclass  # noqa: F824
 
         saio.register_schema("grid", engine)
         self.session = session
