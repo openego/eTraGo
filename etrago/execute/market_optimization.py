@@ -250,9 +250,9 @@ def optimize_with_rolling_horizon(
                 ].index
 
                 args_addition = {
-                    "pre_market_seasonal_soc": pre_market.storage_units_t.state_of_charge.loc[
-                        snapshots[end - 1], seasonal_storage
-                    ]
+                    "pre_market_seasonal_soc":
+                        pre_market.storage_units_t.state_of_charge.loc[
+                            snapshots[end - 1], seasonal_storage]
                 }
 
                 extra_functionality = Constraints(
@@ -270,9 +270,9 @@ def optimize_with_rolling_horizon(
                 ].index
 
                 args_addition = {
-                    "pre_market_seasonal_soc": pre_market.storage_units_t.state_of_charge.loc[
-                        snapshots[end - 1], seasonal_storage
-                    ]
+                    "pre_market_seasonal_soc":
+                        pre_market.storage_units_t.state_of_charge.loc[
+                            snapshots[end - 1], seasonal_storage]
                 }
 
                 extra_functionality = Constraints(

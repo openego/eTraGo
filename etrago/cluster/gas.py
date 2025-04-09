@@ -43,7 +43,6 @@ if "READTHEDOCS" not in os.environ:
         kmedoids_dijkstra_clustering,
         strategies_buses,
         strategies_generators,
-        strategies_lines,
         strategies_one_ports,
     )
     from etrago.tools.utilities import set_control_strategies

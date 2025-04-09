@@ -3722,12 +3722,14 @@ def levelize_abroad_inland_parameters(self):
 
             if not carrier_in_germany:
                 logger.warning(
-                    f"⚠️ Carrier '{carrier}' does NOT exist in the German components ({component_type})."
+                    f"⚠️ Carrier '{carrier}' does NOT exist in "
+                    f"the German components ({component_type})."
                 )
 
             if not carrier_in_foreign:
                 logger.warning(
-                    f"⚠️ Carrier '{carrier}' does NOT exist in the foreign components ({component_type})."
+                    f"⚠️ Carrier '{carrier}' does NOT exist in "
+                    f"the foreign components ({component_type})."
                 )
 
             if not carrier_in_germany or not carrier_in_foreign:
@@ -3749,9 +3751,11 @@ def levelize_abroad_inland_parameters(self):
                     ] = german_carrier_components[parameter].mean()
                 else:
                     logger.warning(
-                        f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}."
+                        f"⚠️ {parameter} doesn't exist for "
+                        f"Carrier '{carrier}' in {component_type}."
                     )
 
         logger.info(
-            f"✅ All required parameters for inland and abroad {component_type} are levelized."
+            "✅ All required parameters for inland and abroad "
+            f"{component_type} are levelized."
         )

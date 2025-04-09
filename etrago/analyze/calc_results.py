@@ -740,45 +740,6 @@ def lcoe_germany(self):
         -1
     )
 
-    ac_load_de = (
-        self.network.loads_t.p_set[
-            self.network.loads[
-                (self.network.loads.carrier == "AC")
-                & (
-                    self.network.loads.bus.isin(
-                        self.network.buses[
-                            self.network.buses.country == "DE"
-                        ].index
-                    )
-                )
-            ].index
-        ]
-        .sum(axis=1)
-        .mul(self.network.snapshot_weightings["generators"])
-        .sum()
-    )
-
-    sector_coupling_load = (
-        self.network.links_t.p0[
-            self.network.links[
-                (
-                    self.network.links.bus0.isin(
-                        self.network.buses[
-                            (self.network.buses.country == "DE")
-                            & (self.network.buses.carrier == "AC")
-                        ].index
-                    )
-                )
-                & (self.network.links.carrier != "DC")
-            ].index
-        ]
-        .sum(axis=1)
-        .mul(self.network.snapshot_weightings["generators"])
-        .sum()
-    )
-
-    total_elec_demand_de = ac_load_de + sector_coupling_load
-
     lcoe = total_system_cost_de / (ac_gen_de + ac_link_de)
 
     return lcoe
@@ -1287,14 +1248,6 @@ def regions_per_bus(self):
     """
     from shapely.geometry import Point
 
-    bus_series = pd.Series(
-        index=self.network.buses[
-            (self.network.buses.carrier == "AC")
-            & (self.network.buses.country == "DE")
-        ].index,
-        data=0.0,
-    )
-
     map_buses = self.busmap["orig_network"].buses[
         [
             "carrier",
@@ -1334,7 +1287,8 @@ def regions_per_bus(self):
 
     except Exception as e:
         logger.warning(
-            "No egon_mv_grid_district table inside the database. To create a matching table for atlas results "
+            "No egon_mv_grid_district table inside the database. "
+            "To create a matching table for atlas results "
             "please add this table to your database."
         )
         logger.warning(f"Error-Message: {e}")
@@ -1440,7 +1394,8 @@ def merit_order_ely_redispatch(self):
                 ely_grid["bus0"].isin(buses_in_country)
             ]
 
-            # Now we need the marginal prices only for the buses that are in the relevant links for this country
+            # Now we need the marginal prices only for the buses that are in
+            # the relevant links for this country
             bus_ids_in_relevant_links = relevant_buses_in_links["bus0"].values
 
             # Extract the corresponding nodal prices
@@ -1611,7 +1566,8 @@ def calc_atlas_results(self, filename=None):
     results = pd.DataFrame()
 
     heating_value_H2 = 33.33  # [kWh/kg]
-    O2_calc_factor = 9.030816  # [t_O2/MWh_el] average value produced O2 per electricity, own calculation
+    # average value produced O2 per electricity, own calculation
+    O2_calc_factor = 9.030816  # [t_O2/MWh_el]
 
     max_ely, ramp_down_per_bus = remaining_redispatch(self)
     (
@@ -1755,7 +1711,7 @@ def calc_atlas_results(self, filename=None):
         sn = self.network.snapshots[
             (self.network.links_t.p0[links_PtH2.index].sum(axis=1) > 10)
         ]
-        mean_local_electricity_cost = self.network.buses_t.marginal_price.loc[
+        mean_local_cost = self.network.buses_t.marginal_price.loc[
             sn, row.name
         ].mean()  # [€/MWh_e]
 
@@ -1831,7 +1787,7 @@ def calc_atlas_results(self, filename=None):
             "Max. heat supply [MWh/a]": waste_heat_dispatch,
             "Max. O2 supply [ton/a]": o2_dispatch * O2_calc_factor,
             "LCOH [€/kg_H2]": lcoh,
-            "Mean nodal electricity cost [€/MWh_el]": mean_local_electricity_cost,
+            "Mean nodal electricity cost [€/MWh_el]": mean_local_cost,
             "Max. redispatch by electrolysis [MWh/a]": redispatch_ely,
             "Remaining redispatch [MWh/a]": ramp_down,
             "Max. redispatch potential": ramp_down + redispatch_ely,
@@ -1871,7 +1827,6 @@ def calc_atlas_results(self, filename=None):
 
     if filename:
         results.to_csv(filename)
-        # matching_mv_grids['Max. redispatch potential'] = results.set_index("region")['Max. redispatch potential'].loc[matching_mv_grids[matching_mv_grids.index.isin(results.region.values)].index]
         matching_mv_grids.to_file(f"regions_{scenario}.geojson")
 
     return results

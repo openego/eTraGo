@@ -239,8 +239,8 @@ def adjust_no_electric_network(
 
     busmap4 = {}
     if "rural_heat" in map_carrier.keys():
-        # rural_heat_store buses are clustered based on the AC buses connected to
-        # their corresponding rural_heat buses. Results saved in busmap4
+        # rural_heat_store buses are clustered based on the AC buses connected
+        # to their corresponding rural_heat buses. Results saved in busmap4
         links_rural_store = etrago.network.links[
             etrago.network.links.carrier == "rural_heat_store_charger"
         ].copy()
