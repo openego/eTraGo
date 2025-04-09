@@ -44,7 +44,7 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
-from etrago.tools.utilities import adjust_PtH2_model, adjust_chp_model
+from etrago.tools.utilities import adjust_chp_model, adjust_PtH2_model
 
 
 def market_optimization(self):
@@ -652,8 +652,8 @@ def set_unit_commitment(self, apply_on):
 
 def gas_clustering_market_model(self):
     from etrago.cluster.gas import (
-        preprocessing as gas_preprocessing,
         gas_postprocessing,
+        preprocessing as gas_preprocessing,
     )
 
     ch4_network, weight_ch4, n_clusters_ch4 = gas_preprocessing(

@@ -27,8 +27,8 @@ if "READTHEDOCS" not in os.environ:
     import logging
 
     from matplotlib import pyplot as plt
-    import pandas as pd
     import geopandas as gpd
+    import pandas as pd
     import pypsa
 
     logger = logging.getLogger(__name__)
