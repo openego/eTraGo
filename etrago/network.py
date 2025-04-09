@@ -113,7 +113,7 @@ from etrago.tools.utilities import (
     update_busmap,
     adjust_chp_model,
     adjust_PtH2_model,
-    levelize_abroad_inland_parameters
+    levelize_abroad_inland_parameters,
 )
 
 logger = logging.getLogger(__name__)
@@ -305,7 +305,7 @@ class Etrago:
     spatial_disaggregation = run_disaggregation
 
     calc_results = calc_etrago_results
-    
+
     calc_atlas_results = calc_atlas_results
 
     calc_ac_export = ac_export
@@ -381,7 +381,7 @@ class Etrago:
     adjust_PtH2_model = adjust_PtH2_model
 
     adjust_chp_model = adjust_chp_model
-    
+
     levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
 
     def dc_lines(self):
@@ -470,7 +470,7 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
-        
+
         self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):

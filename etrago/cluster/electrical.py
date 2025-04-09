@@ -156,7 +156,7 @@ def adjust_no_electric_network(
     # resp: Buses that are aggregated only based on the AC bus they are
     # connected to via a link (carriers in map_carrier)
     network2 = network.copy(with_time=False)
-    
+
     if etrago.args["scn_name"] == "eGon100RE":
         map_carrier = {
             "dsm": "dsm",
@@ -171,8 +171,8 @@ def adjust_no_electric_network(
             "O2": "PtH2_O2",
             "rural_heat": "rural_heat_pump",
         }
-    
-    # network2 contains all busses that will be clustered only based on AC 
+
+    # network2 contains all busses that will be clustered only based on AC
     # connection
     network2.buses = network2.buses[
         network2.buses["carrier"].isin(map_carrier.keys())
@@ -236,7 +236,7 @@ def adjust_no_electric_network(
             f"""There are {len(no_elec_conex)} buses that have no direct
             connection to the electric network: {no_elec_conex}"""
         )
-        
+
     busmap4 = {}
     if "rural_heat" in map_carrier.keys():
         # rural_heat_store buses are clustered based on the AC buses connected to
@@ -253,7 +253,8 @@ def adjust_no_electric_network(
     # Add the buses not related to AC to the busmap and map them to themself
     for no_ac_bus in network.buses[
         ~network.buses["carrier"].isin(
-            np.append(network2.buses.carrier.unique(), "AC"))
+            np.append(network2.buses.carrier.unique(), "AC")
+        )
     ].index:
         busmap2[no_ac_bus] = no_ac_bus
 

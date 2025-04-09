@@ -119,10 +119,15 @@ def preprocessing(etrago, carrier, apply_on="grid_model"):
         else:
             total_clusters = settings["n_clusters_h2"]
     else:
-        total_clusters = len(buses_gas[
-            (buses_gas.carrier==carrier)
-            & (buses_gas.country != "DE")]) + 1
-
+        total_clusters = (
+            len(
+                buses_gas[
+                    (buses_gas.carrier == carrier)
+                    & (buses_gas.country != "DE")
+                ]
+            )
+            + 1
+        )
 
     gas_filter = network_gas.buses["carrier"].values == carrier
 
@@ -366,7 +371,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
                     + str(settings["n_clusters_gas"])
                     + "_result.csv"
                 )
-    
+
             else:
                 busmap.name = "cluster"
                 busmap_ind = pd.Series(
@@ -375,7 +380,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
                     dtype=pd.StringDtype(),
                 )
                 busmap_ind.name = "medoid_idx"
-    
+
                 export = pd.concat([busmap, busmap_ind], axis=1)
                 export.index.name = "bus_id"
                 export.to_csv(
@@ -387,16 +392,12 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     else:
         network = etrago.pre_market_model
 
-    if ("H2_grid" in network.buses.carrier.unique()) & (
-        scn in ["eGon2035"]
-    ):
+    if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
     missing_idx = list(
-        network.buses[
-            (~network.buses.index.isin(busmap.index))
-        ].index
+        network.buses[(~network.buses.index.isin(busmap.index))].index
     )
     next_bus_id = highestInteger(network.buses.index) + 1
     new_gas_buses = [str(int(x) + next_bus_id) for x in busmap]
