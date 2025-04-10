@@ -18,7 +18,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # File description for read-the-docs
-""" spatial.py defines the methods to run spatial clustering on networks."""
+"""spatial.py defines the methods to run spatial clustering on networks."""
 
 import os
 
@@ -139,6 +139,7 @@ def strategies_one_ports():
             "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
+            "scn_name": "first"
         },
         "Store": {
             "marginal_cost": "mean",
@@ -164,17 +165,18 @@ def strategies_generators():
         "marginal_cost": "mean",
         "capital_cost": "mean",
         "e_nom_max": sum_with_inf,
+        "up_time_before": "mean",
     }
 
 
 def strategies_links():
     return {
-        "scn_name": _make_consense_links,
+        "scn_name": "first",
         "bus0": _make_consense_links,
         "bus1": _make_consense_links,
         "carrier": _make_consense_links,
         "p_nom": "sum",
-        "p_nom_extendable": _make_consense_links,
+        "p_nom_extendable": "any",
         "p_nom_max": sum_with_inf,
         "capital_cost": "mean",
         "length": "mean",

@@ -43,10 +43,14 @@ __copyright__ = (
 __license__ = "GNU Affero General Public License Version 3 (AGPL-3.0)"
 __author__ = "ulfmueller, ClaraBuettner, CarlosEpia"
 
+from etrago.tools.utilities import adjust_PtH2_model, adjust_chp_model
 
 def market_optimization(self):
     logger.info("Start building pre market model")
-    build_market_model(self)
+
+    unit_commitment = True
+
+    build_market_model(self, unit_commitment)
     self.pre_market_model.determine_network_topology()
 
     logger.info("Start solving pre market model")
@@ -85,7 +89,8 @@ def market_optimization(self):
 
     logger.info("Preparing short-term UC market model")
 
-    build_shortterm_market_model(self)
+    build_shortterm_market_model(self, unit_commitment)
+
     self.market_model.determine_network_topology()
     logger.info("Start solving short-term UC market model")
 
@@ -179,7 +184,7 @@ def optimize_with_rolling_horizon(
             # Select seasonal stores
             seasonal_stores = n.stores.index[
                 n.stores.carrier.isin(
-                    ["central_heat_store", "H2_overground", "CH4"]
+                    ["central_heat_store", "H2_overground", "CH4", "H2_underground"]
                 )
             ]
 
@@ -240,7 +245,7 @@ def optimize_with_rolling_horizon(
     return n
 
 
-def build_market_model(self):
+def build_market_model(self, unit_commitment=False):
     """Builds market model based on imported network from eTraGo
 
 
@@ -312,6 +317,18 @@ def build_market_model(self):
     )
 
     net = clustering.network
+
+    # Adjust positions foreign buses
+    foreign = self.network.buses[self.network.buses.country != "DE"].copy()
+    foreign = foreign[foreign.index.isin(self.network.loads.bus)]
+    foreign = foreign.drop_duplicates(subset="country")
+    foreign = foreign.set_index("country")
+
+    for country in foreign.index:
+        bus_for = net.buses.index[net.buses.country == country]
+        net.buses.loc[bus_for, "x"] = foreign.at[country, "x"]
+        net.buses.loc[bus_for, "y"] = foreign.at[country, "y"]
+
     # links_col = net.links.columns
     ac = net.lines[net.lines.carrier == "AC"]
     str1 = "transshipment_"
@@ -335,79 +352,33 @@ def build_market_model(self):
 
     net.generators_t.p_max_pu = self.network_tsa.generators_t.p_max_pu
 
-    # set UC constraints
-    unit_commitment_fpath = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "data",
-        "unit_commitment.csv",
-    )
-    unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
-    unit_commitment.fillna(0, inplace=True)
-    committable_attrs = net.generators.carrier.isin(unit_commitment).to_frame(
-        "committable"
-    )
-
-    for attr in unit_commitment.index:
-
-        default = component_attrs["Generator"].default[attr]
-        committable_attrs[attr] = net.generators.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_attrs[attr] = committable_attrs[attr].astype(
-            net.generators.carrier.map(unit_commitment.loc[attr]).dtype
-        )
-
-    net.generators[committable_attrs.columns] = committable_attrs
-    net.generators.min_up_time = net.generators.min_up_time.astype(int)
-    net.generators.min_down_time = net.generators.min_down_time.astype(int)
-
-    net.generators.loc[net.generators.committable, "ramp_limit_down"].fillna(
-        1.0, inplace=True
-    )
-
-    # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.generators.loc[net.generators.committable, "start_up_cost"] = 0.0
-    net.generators.loc[net.generators.committable, "shut_down_cost"] = 0.0
-
-    # Tadress link carriers i.e. OCGT
-    committable_links = net.links.carrier.isin(unit_commitment).to_frame(
-        "committable"
-    )
-
-    for attr in unit_commitment.index:
-
-        default = component_attrs["Link"].default[attr]
-        committable_links[attr] = net.links.carrier.map(
-            unit_commitment.loc[attr]
-        ).fillna(default)
-        committable_links[attr] = committable_links[attr].astype(
-            net.links.carrier.map(unit_commitment.loc[attr]).dtype
-        )
-
-    net.links[committable_links.columns] = committable_links
-    net.links.min_up_time = net.links.min_up_time.astype(int)
-    net.links.min_down_time = net.links.min_down_time.astype(int)
-    net.links[committable_links.columns].loc["ramp_limit_down"] = 1.0
-    net.links.loc[net.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = (
-        -1.0
-    )
-
-    # Set all start_up and shut_down cost to 0 to simpify unit committment
-    net.links.loc[net.links.committable, "start_up_cost"] = 0.0
-    net.links.loc[net.links.committable, "shut_down_cost"] = 0.0
-
     # Set stores and storage_units to cyclic
     net.stores.loc[net.stores.carrier != "battery_storage", "e_cyclic"] = True
     net.storage_units.cyclic_state_of_charge = True
 
     self.pre_market_model = net
 
+    gas_clustering_market_model(self)
+
+    if unit_commitment:
+        set_unit_commitment(self, apply_on="pre_market_model")
+
+    self.pre_market_model.links.loc[
+        self.pre_market_model.links.carrier.isin(
+            ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+
+    self.pre_market_model = adjust_PtH2_model(self)
+    logger.info("PtH2-Model adjusted in pre_market_network")
+
+    self.pre_market_model = adjust_chp_model(self)
+    logger.info("CHP model in foreign countries adjusted in pre_market_network")
+
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
 
 
-def build_shortterm_market_model(self):
+def build_shortterm_market_model(self, unit_commitment=False):
     m = self.pre_market_model.copy()
 
     m.storage_units.p_nom_extendable = False
@@ -415,13 +386,35 @@ def build_shortterm_market_model(self):
     m.links.p_nom_extendable = False
     m.lines.s_nom_extendable = False
 
-    m.storage_units.p_nom = m.storage_units.p_nom_opt
-    m.stores.e_nom = m.stores.e_nom_opt
-    m.links.p_nom = m.links.p_nom_opt
-    m.lines.s_nom = m.lines.s_nom_opt
+    m.storage_units.p_nom = m.storage_units.p_nom_opt.clip(lower=0)
+    m.stores.e_nom = m.stores.e_nom_opt.clip(lower=0)
+    m.links.p_nom = m.links.p_nom_opt.clip(lower=0)
+    m.lines.s_nom = m.lines.s_nom_opt.clip(lower=0)
 
     m.stores.e_cyclic = False
     m.storage_units.cyclic_state_of_charge = False
+
+    self.market_model = m
+
+    if unit_commitment:
+        set_unit_commitment(self, apply_on="market_model")
+
+    self.market_model.links.loc[self.market_model.links.carrier.isin(
+        ["CH4", "DC", "AC", "H2_grid"]), "p_min_pu"] = -1.0
+
+    # Set country tags for market model
+    self.buses_by_country(apply_on="market_model")
+    self.geolocation_buses(apply_on="market_model")
+
+def set_unit_commitment(self, apply_on):
+
+    if apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+    else:
+        print(f"Can not be applied on {apply_on} yet.")
+        return
 
     # set UC constraints
     unit_commitment_fpath = os.path.join(
@@ -431,51 +424,127 @@ def build_shortterm_market_model(self):
     )
     unit_commitment = pd.read_csv(unit_commitment_fpath, index_col=0)
     unit_commitment.fillna(0, inplace=True)
-    committable_attrs = m.generators.carrier.isin(unit_commitment).to_frame(
+    committable_attrs = network.generators.carrier.isin(unit_commitment).to_frame(
         "committable"
     )
 
     for attr in unit_commitment.index:
         default = component_attrs["Generator"].default[attr]
-        committable_attrs[attr] = m.generators.carrier.map(
+        committable_attrs[attr] = network.generators.carrier.map(
             unit_commitment.loc[attr]
         ).fillna(default)
         committable_attrs[attr] = committable_attrs[attr].astype(
-            m.generators.carrier.map(unit_commitment.loc[attr]).dtype
+            network.generators.carrier.map(unit_commitment.loc[attr]).dtype
         )
 
-    m.generators[committable_attrs.columns] = committable_attrs
-    m.generators.min_up_time = m.generators.min_up_time.astype(int)
-    m.generators.min_down_time = m.generators.min_down_time.astype(int)
+    network.generators[committable_attrs.columns] = committable_attrs
+    network.generators.min_up_time = network.generators.min_up_time.astype(int)
+    network.generators.min_down_time = network.generators.min_down_time.astype(int)
 
     # Tadress link carriers i.e. OCGT
-    committable_links = m.links.carrier.isin(unit_commitment).to_frame(
+    committable_links = network.links.carrier.isin(unit_commitment).to_frame(
         "committable"
     )
 
     for attr in unit_commitment.index:
         default = component_attrs["Link"].default[attr]
-        committable_links[attr] = m.links.carrier.map(
+        committable_links[attr] = network.links.carrier.map(
             unit_commitment.loc[attr]
         ).fillna(default)
         committable_links[attr] = committable_links[attr].astype(
-            m.links.carrier.map(unit_commitment.loc[attr]).dtype
+            network.links.carrier.map(unit_commitment.loc[attr]).dtype
         )
 
-    m.links[committable_links.columns] = committable_links
-    m.links.min_up_time = m.links.min_up_time.astype(int)
-    m.links.min_down_time = m.links.min_down_time.astype(int)
-    m.links.loc[m.links.carrier.isin(["CH4", "DC", "AC"]), "p_min_pu"] = -1.0
+    network.links[committable_links.columns] = committable_links
+    network.links.min_up_time = network.links.min_up_time.astype(int)
+    network.links.min_down_time = network.links.min_down_time.astype(int)
 
-    m.generators.loc[m.generators.committable, "ramp_limit_down"].fillna(
+
+    network.generators.loc[network.generators.committable, "ramp_limit_down"].fillna(
         1.0, inplace=True
     )
-    m.links.loc[m.links.committable, "ramp_limit_down"].fillna(
+    network.links.loc[network.links.committable, "ramp_limit_down"].fillna(
         1.0, inplace=True
     )
 
-    self.market_model = m
+    if apply_on == "pre_market_model":
+        # Set all start_up and shut_down cost to 0 to simpify unit committment
+        network.links.loc[network.links.committable, "start_up_cost"] = 0.0
+        network.links.loc[network.links.committable, "shut_down_cost"] = 0.0
 
+        # Set all start_up and shut_down cost to 0 to simpify unit committment
+        network.generators.loc[
+            network.generators.committable, "start_up_cost"] = 0.0
+        network.generators.loc[
+            network.generators.committable, "shut_down_cost"] = 0.0
+
+
+def gas_clustering_market_model(self):
+    from etrago.cluster.gas import (
+        preprocessing as gas_preprocessing,
+        gas_postprocessing
+        
+        )
+    ch4_network, weight_ch4, n_clusters_ch4 = gas_preprocessing(
+        self, "CH4", apply_on="market_model"
+    )
+    
+    df = pd.DataFrame(
+        {
+            "country": ch4_network.buses.country.unique(),
+            "marketzone": ch4_network.buses.country.unique(),
+        },
+        columns=["country", "marketzone"],
+    )
+
+    df.loc[(df.country == "DE") | (df.country == "LU"), "marketzone"] = (
+        "DE/LU"
+    )
+
+    df["cluster"] = df.groupby(df.marketzone).grouper.group_info[0]
+
+    for i in ch4_network.buses.country.unique():
+        ch4_network.buses.loc[ch4_network.buses.country == i, "cluster"] = df.loc[
+            df.country == i, "cluster"
+        ].values[0]
+
+    busmap = pd.Series(
+        ch4_network.buses.cluster.astype(int).astype(str), ch4_network.buses.index
+    )    
+    
+    if "H2_grid" in self.network.links.carrier.unique():  
+        h2_network, weight_h2, n_clusters_h2 = gas_preprocessing(
+            self, "H2_grid", apply_on="market_model"
+        )        
+
+        df_h2 = pd.DataFrame(
+            {
+                "country": h2_network.buses.country.unique(),
+                "marketzone": h2_network.buses.country.unique(),
+            },
+            columns=["country", "marketzone"],
+        )
+
+        df_h2.loc[(df.country == "DE") | (df_h2.country == "LU"), "marketzone"] = (
+            "DE/LU"
+        )
+
+        df_h2["cluster"] = df_h2.groupby(df_h2.marketzone).grouper.group_info[0] + len(df)
+
+        for i in h2_network.buses.country.unique():
+            h2_network.buses.loc[h2_network.buses.country == i, "cluster"] = df_h2.loc[
+                df_h2.country == i, "cluster"
+            ].values[0]
+
+        busmap = pd.concat(
+            [busmap,  pd.Series(
+                h2_network.buses.cluster.astype(int).astype(str), h2_network.buses.index
+            )])
+
+    medoid_idx = pd.Series()
     # Set country tags for market model
-    self.buses_by_country(apply_on="market_model")
-    self.geolocation_buses(apply_on="market_model")
+    self.buses_by_country(apply_on="pre_market_model")
+    self.geolocation_buses(apply_on="pre_market_model")
+
+    self.pre_market_model, busmap_new = gas_postprocessing(
+        self, busmap, medoid_idx = medoid_idx, apply_on="market_model")

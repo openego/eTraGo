@@ -2974,6 +2974,25 @@ def manual_fixes_datamodel(etrago):
     etrago.network.transformers.lifetime = 40
     etrago.network.lines.lifetime = 40
 
+    # Set build years to 0 to avoid problems in the clustering
+    etrago.network.lines.build_year = 0
+    etrago.network.links.build_year = 0
+
+    # Set foreign links not-extendable
+    etrago.network.links.loc[
+        etrago.network.links.carrier.isin(
+            [
+                "electricity_distribution_grid",
+                "rural_ground_heat_pump",
+                "rural_resistive_heater",
+                "urban_central_air_heat_pump",
+                "urban_central_resistive_heater",
+                "urban_decentral_resistive_heater",
+            ]
+        ),
+        "p_nom_extendable",
+    ] = False
+
     # Set efficiences of CHP
     etrago.network.links.loc[
         etrago.network.links[
@@ -3059,6 +3078,172 @@ def manual_fixes_datamodel(etrago):
         etrago.network.lines_t.s_max_pu = pd.DataFrame(
             index=etrago.network.snapshots,
         )
+
+    if etrago.args["scn_name"] == "eGon100RE":
+
+        # Drop H2 load for transport
+        etrago.network.mremove(
+            "Load",
+            etrago.network.loads[
+                etrago.network.loads.carrier=="H2_hgv_load"].index
+            )
+
+        # Fix starting capacity of foreign DC-lines
+        etrago.network.links.loc[
+            (etrago.network.links.carrier == "DC"), "p_nom_min"
+        ] = etrago.network.links.loc[
+            (etrago.network.links.carrier == "DC"), "p_nom"
+        ]
+
+        # Model foreign batteries as StorageUnits
+        for carrier in ["battery", "home_battery"]:
+            foreign_stores = etrago.network.stores[
+                (etrago.network.stores.carrier == carrier)
+                & (
+                    etrago.network.stores.bus.isin(
+                        etrago.network.buses[
+                            etrago.network.buses.country != "DE"
+                        ].index
+                    )
+                )
+            ].copy()
+            foreign_stores_grouped = (
+                foreign_stores.groupby("bus").e_nom.sum().reset_index()
+            )
+            for i, row in foreign_stores_grouped.iterrows():
+                charger = etrago.network.links[
+                    etrago.network.links.bus1 == row.bus
+                ]
+                discharger = etrago.network.links[
+                    etrago.network.links.bus0 == row.bus
+                ]
+                max_hours = 6
+                etrago.network.add(
+                    "StorageUnit",
+                    name=str(
+                        etrago.network.storage_units.index.astype(int).max()
+                        + 1
+                    ),
+                    bus=charger.bus0.values[0],
+                    p_nom=row.e_nom / max_hours,
+                    max_hours=max_hours,
+                    carrier=carrier,
+                    p_nom_min=0,
+                    p_nom_extendable=True,
+                    cyclic_state_of_charge=True,
+                )
+                etrago.network.remove("Bus", row.bus)
+                etrago.network.remove("Link", charger.index[0])
+                etrago.network.remove("Link", discharger.index[0])
+            etrago.network.mremove("Store", foreign_stores.index)
+
+        # Set foreign store components extendable
+        etrago.network.stores.carrier.unique()
+        ext_foreign_stores = etrago.network.stores[
+            (
+                etrago.network.stores.carrier.isin(
+                    [
+                        "urban_central_water_tanks",
+                        "rural_water_tanks",
+                        "urban_decentral_water_tanks",
+                        "H2_overground",
+                        "H2_underground",
+                        "H2_Store",
+                        "central_heat_store",
+                        "rural_heat_store",
+                    ]
+                )
+            )
+            & (
+                etrago.network.stores.bus.isin(
+                    etrago.network.buses[
+                        etrago.network.buses.country != "DE"
+                    ].index
+                )
+            )
+        ].copy()
+        etrago.network.stores.loc[
+            ext_foreign_stores.index, "e_nom_extendable"
+        ] = True
+
+        # Temporary drop low_voltage buses in foreign countries and combine
+        # them with AC
+        low_voltage_buses = etrago.network.buses.loc[
+            etrago.network.buses.carrier == "low_voltage"
+        ].copy()
+        for i, row in low_voltage_buses.iterrows():
+            link = etrago.network.links[
+                (etrago.network.links.bus1 == i)
+                & (
+                    etrago.network.links.carrier
+                    == "electricity_distribution_grid"
+                )
+            ].copy()
+            new_bus = link.bus0.unique()[0]
+            for comp in etrago.network.iterate_components():
+                if "bus" in comp.df.columns:
+                    comp.df.loc[comp.df.bus == i, "bus"] = new_bus
+                elif "bus0" in comp.df.columns:
+                    comp.df.loc[comp.df.bus0 == i, "bus0"] = new_bus
+                    comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
+            etrago.network.remove("Bus", i)
+            etrago.network.mremove("Link", link.index)
+
+        # Drop CH4_for_industry bus and link and add the load to the 
+        # corresponding CH4 bus
+        ch4_ind_buses = etrago.network.buses.loc[
+            etrago.network.buses.carrier == "CH4_for_industry"
+        ].copy()
+        for i, row in ch4_ind_buses.iterrows():
+            link = etrago.network.links[
+                (etrago.network.links.bus1 == i)
+                & (
+                    etrago.network.links.carrier
+                    == "CH4_for_industry"
+                )
+            ].copy()
+            new_bus = link.bus0.unique()[0]
+            for comp in etrago.network.iterate_components():
+                if "bus" in comp.df.columns:
+                    comp.df.loc[comp.df.bus == i, "bus"] = new_bus
+                elif "bus0" in comp.df.columns:
+                    comp.df.loc[comp.df.bus0 == i, "bus0"] = new_bus
+                    comp.df.loc[comp.df.bus1 == i, "bus1"] = new_bus
+            etrago.network.remove("Bus", i)
+            etrago.network.mremove("Link", link.index)
+    # Add static p-set to other AC load in foreign countries
+    static_ac_loads = etrago.network.loads[
+        (etrago.network.loads.carrier == "AC")
+        & (etrago.network.loads.p_set > 0)
+    ]
+    if not static_ac_loads.empty:
+        for i, row in static_ac_loads.iterrows():
+            etrago.network.loads_t.p_set[
+                etrago.network.loads[
+                    (etrago.network.loads.bus == row.bus)
+                    & (etrago.network.loads.p_set == 0)
+                ].index
+            ] += row.p_set
+            etrago.network.remove("Load", i)
+
+    # Standardize naming of H2 infrastructure
+    if "H2_pipeline" in etrago.network.links.carrier.unique():
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "H2_pipeline", "carrier"
+        ] = "H2_grid"
+        etrago.network.links.loc[
+            etrago.network.links.carrier == "H2_retrofit", "carrier"
+        ] = "H2_grid"
+        etrago.network.buses.loc[
+            (etrago.network.buses.carrier == "H2")
+            & (etrago.network.buses.country != "DE"),
+            "carrier",
+        ] = "H2_grid"
+
+    # Standardize "type" attribute in O2 buses
+    if "O2" in etrago.network.buses.carrier.unique():
+        o2_buses = etrago.network.buses[etrago.network.buses.carrier == "O2"]
+        etrago.network.buses.loc[o2_buses.index, "type"] = 1
 
 
 def select_elec_network(etrago, apply_on="grid_model"):
@@ -3432,3 +3617,282 @@ def export_to_shapefile(pypsa_network, shape_files_path=None, srid=4326):
             v.loc[:, save_cols[k]].to_file(shp_filename)
 
     return components_dict
+
+
+def adjust_PtH2_model(self, apply_on='pre_market_model'):
+    """
+    Adjust the modelling of electrolyzer with waste-heat and
+    O2-utilisation. The method creates a multiple-link-model
+    out of the single links from the dataset (power_to_H2-,
+    PtH2_waste_heat-, PtH2_O2-links) for each location where
+    coupling-product usage is possible. The resulting model
+    consists of a multiple link, additional buses and stores for
+    waste_heat and O2-utilisation, and the connection link to the
+    final heat- and O2-Bus.
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+    
+    apply_on: str
+
+    Returns 
+    -------
+    network : PyPSA network
+
+    """
+    
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+        
+
+    PtH2_links = network.links[
+        network.links.carrier == "power_to_H2"
+    ].index
+    PtH2_AC_buses = network.buses.loc[
+        network.links.loc[PtH2_links, "bus0"]
+    ].index.unique()
+
+    from itertools import count
+
+    store_ids = network.stores.index
+    numeric_parts = [int(idx.split()[0]) for idx in store_ids]
+    next_bus_id = max(network.buses.index.astype(int)) + 1
+    next_store_id = max(numeric_parts) + 1
+    bus_id_counter = count(start=next_bus_id)
+    store_id_counter = count(start=next_store_id)
+
+    for bus in PtH2_AC_buses:
+        power_to_h2_links = network.links[
+            (network.links.carrier == "power_to_H2")
+            & (network.links.bus0 == bus)
+        ].index
+        power_to_heat_links = network.links[
+            (network.links.carrier == "PtH2_waste_heat")
+            & (network.links.bus0 == bus)
+        ].index
+        power_to_o2_links = network.links[
+            (network.links.carrier == "PtH2_O2")
+            & (network.links.bus0 == bus)
+        ].index
+
+        link_data = []
+        if len(power_to_heat_links) > 0:
+            link_data.append(
+                {
+                    "links": power_to_heat_links,
+                    "efficiency": 0.2,
+                    "carrier": "waste_heat",
+                }
+            )
+        if len(power_to_o2_links) > 0:
+            link_data.append(
+                {
+                    "links": power_to_o2_links,
+                    "efficiency": 0.015,
+                    "carrier": "O2",
+                }
+            )
+
+        for idx, data in enumerate(link_data, start=2):
+            links = data["links"]
+            efficiency = data["efficiency"]
+            carrier = data["carrier"]
+            new_bus_id = next(bus_id_counter)
+            new_store_id = next(store_id_counter)
+            store_name = f"{new_store_id} PtH2_{carrier}"
+
+            # Add new heat/o2-bus and -store
+            network.add(
+                "Bus", name=new_bus_id, carrier=f"PtH2_extra_bus_{carrier}"
+            )
+            network.add(
+                "Store",
+                name=store_name,
+                bus=new_bus_id,
+                carrier=f"PtH2_{carrier}",
+                e_nom_extendable=True,
+                e_nom=100000,
+                marginal_cost=0,
+                capital_cost=0,
+                e_cyclic=False,
+                standing_loss=1,
+            )
+
+            network.stores.loc[store_name, "scn_name"] = self.args[
+                "scn_name"
+            ]
+            network.buses.loc[str(new_bus_id), "scn_name"] = self.args[
+                "scn_name"
+            ]
+            network.buses.loc[str(new_bus_id), "country"] = "DE"
+
+            # set coordinates for new bus for the clustering method
+            bus0_index = network.links.loc[power_to_h2_links, "bus0"]
+            network.buses.loc[str(new_bus_id), "x"] = (
+                network.buses.loc[bus0_index, "x"].values[0]
+            )
+            network.buses.loc[str(new_bus_id), "y"] = (
+                network.buses.loc[bus0_index, "y"].values[0]
+            )
+
+            # Connect multiple link with new heat/o2-bus
+            network.links.loc[power_to_h2_links, f"bus{idx}"] = str(
+                new_bus_id
+            )
+            network.links.loc[power_to_h2_links, f"efficiency{idx}"] = (
+                efficiency
+            )
+
+            # Adjust originals waste_heat- and oxygen-links with new bus0
+            for link in links:
+                network.links.loc[link, "bus0"] = str(new_bus_id)
+    
+                
+    return network
+
+def adjust_chp_model(self, apply_on='pre_market_model'):
+    """
+    Adjust the modelling of chp plants in foreign countries for eGon100RE
+
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+        Overall container of Etrago
+
+    apply_on: str
+
+    Returns
+    -------
+    network : PyPSA network
+
+    """
+
+    if apply_on == "grid_model":
+        network = self.network
+    elif apply_on == "market_model":
+        network = self.market_model
+    elif apply_on == "pre_market_model":
+        network = self.pre_market_model
+
+    efficiency_heat = 0.42500
+
+    chp_links = network.links[
+        (network.links.carrier == "central_gas_CHP")
+        &(network.links.bus1.isin(network.buses[
+            network.buses.country!="DE"].index))
+    ].index
+
+    for i in chp_links:
+        # find central_heat bus
+        country = network.buses.loc[network.links.loc[i, "bus1"],
+                                    "country"]
+        central_heat_bus = network.buses[
+            (network.buses.carrier=="central_heat")
+            &(network.buses.country==country)].index[0]
+
+        network.links.loc[i, "bus2"] = central_heat_bus
+        network.links.loc[i, "efficiency2"] = efficiency_heat
+
+    return network
+
+
+
+def levelize_abroad_inland_parameters(self):
+    """
+    The method levelize the techno-economic parameters of inland and 
+    abroad components of the same carrier. Thus, the favoring of one 
+    component is avoided just based on the parameters. The differences in the 
+    parameters of the input dataset are caused by a updated source used for the
+    pypsa_eur network and different assumed interest_rates. 
+    All necessary parameters of the foreign components are 
+    adjusted to the values of the inland components.
+      
+    Parameters
+    ----------
+    etrago : :class:`Etrago
+         Overall container of Etrago
+     
+      
+    Returns 
+    -------
+    None
+    """
+    
+    #define carrier and regarding parameters for adjustment
+    carriers_to_adjust = {
+        "links": {
+            "power_to_H2": ["efficiency", "capital_cost", "marginal_cost"],
+            "H2_to_power": ["capital_cost", "marginal_cost"],
+            "CH4_to_H2": ["efficiency", "capital_cost", "marginal_cost"],
+            "H2_to_CH4": ["capital_cost", "marginal_cost"],
+            "OCGT": ["efficiency", "marginal_cost"],
+            "central_resistive_heater": ["efficiency", "marginal_cost"],
+                },
+        "stores": {
+            "central_heat_store": ["capital_cost", "marginal_cost"],
+            "H2_overground": ["capital_cost", "marginal_cost"],
+            "H2_underground": ["capital_cost", "marginal_cost"],
+            "rural_heat_store": ["capital_cost", "marginal_cost"]
+            },
+        "storage_units": {
+            "battery": ["capital_cost", "marginal_cost", "efficiency_dispatch", "efficiency_store"]
+            },
+        "generators": {
+            "run_of_river": ["efficiency", "marginal_cost"],
+            "rural_solar_thermal": ["marginal_cost"],
+            "solar": ["marginal_cost"],
+            "solar_rooftop": ["marginal_cost"],
+            "wind_offshore": ["marginal_cost"],
+            "wind_onshore": ["marginal_cost"],            
+            }
+        }                                   
+    
+    german_buses = self.network.buses[self.network.buses.country == 'DE'].index
+    
+    def filter_german_components(df, component, german_buses):
+        if component == "links":
+            return df[df.bus0.isin(german_buses) & df.bus1.isin(german_buses)]
+        else:
+            return df[df.bus.isin(german_buses)]
+
+    for component_type, carriers in carriers_to_adjust.items():
+
+        component_table = getattr(self.network, component_type)
+
+        german_components = filter_german_components(component_table, component_type, german_buses)
+        foreign_components = component_table[~component_table.index.isin(german_components.index)]
+
+        for carrier, parameters in carriers.items():
+            #test if carrier exists in both german and abroad components
+            carrier_in_germany = carrier in german_components.carrier.values
+            carrier_in_foreign = carrier in foreign_components.carrier.values
+    
+            if not carrier_in_germany:
+                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the German components ({component_type}).")
+            
+            if not carrier_in_foreign:
+                logger.warning(f"⚠️ Carrier '{carrier}' does NOT exist in the foreign components ({component_type}).")
+            
+            if not carrier_in_germany or not carrier_in_foreign:
+                logger.warning(f"⚠️ Skipping carrier '{carrier}' for {component_type}.")
+                continue 
+    
+            german_carrier_components = german_components[german_components.carrier == carrier]
+
+            for parameter in parameters:
+                if parameter in german_carrier_components.columns:
+                    component_table.loc[
+                            (component_table.index.isin(foreign_components.index)) & (component_table.carrier == carrier), 
+                            parameter
+                        ] = german_carrier_components[parameter].mean()
+                else:
+                    logger.warning(f"⚠️ {parameter} doesn't exist for Carrier '{carrier}' in {component_type}.")
+                    
+        logger.info(f"✅ All required parameters for inland and abroad {component_type} are levelized.")
+     

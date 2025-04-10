@@ -841,6 +841,84 @@ def _cross_border_flow_nmp(self, network, snapshots):
     define_constraints(network, expr, "<=", export[1], "Line", "max_cb_flow")
 
 
+def _cross_border_flow_linopy(self, network, snapshots):
+    """
+    Extra_functionality that limits overall crossborder flows from/to Germany.
+    Add key 'cross_border_flow' and array with minimal and maximal
+    import/export
+    Example: {'cross_border_flow': [-x, y]} (with x Import, y Export)
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+    (
+        buses_de,
+        buses_for,
+        cb0,
+        cb1,
+        cb0_link,
+        cb1_link,
+    ) = _get_crossborder_components(network)
+
+    export = pd.Series(
+        data=self.args["extra_functionality"]["cross_border_flow"]
+    )
+
+    if not network.lines.empty:
+        define_constraints(
+            network,
+            get_var(network, "Line", "s").loc[:, cb1].sum()
+            - get_var(network, "Line", "s").loc[:, cb0].sum()
+            + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            ">=",
+            (export[0]),
+            "Global",
+            "min_cross_border",
+        )
+
+        define_constraints(
+            network,
+            get_var(network, "Line", "s").loc[:, cb1].sum()
+            - get_var(network, "Line", "s").loc[:, cb0].sum()
+            + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            "<=",
+            (export[1]),
+            "Global",
+            "max_cross_border",
+        )
+    else:
+        define_constraints(
+            network,
+            get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            ">=",
+            (export[0]),
+            "Global",
+            "min_cross_border",
+        )
+
+        define_constraints(
+            network,
+            get_var(network, "Link", "p").loc[:, cb1_link].sum()
+            - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+            "<=",
+            (export[1]),
+            "Global",
+            "max_cross_border",
+        )
+
+
 def _cross_border_flow_per_country_nmp(self, network, snapshots):
     """
     Extra_functionality that limits AC crossborder flows for each given
@@ -1042,6 +1120,92 @@ def _cross_border_flow_per_country(self, network, snapshots):
                 Constraint(rule=_rule_max),
             )
 
+
+def _cross_border_flow_per_country_linopy(self, network, snapshots):
+    """
+    Extra_functionality that limits AC crossborder flows for each given
+    foreign country from/to Germany.
+    Add key 'cross_border_flow_per_country' to args.extra_functionality and
+    define dictionary of country keys and desired limitations of im/exports
+    in MWh
+    Example: {'cross_border_flow_per_country': {'DK':[-X, Y], 'FR':[0,0]}}
+
+    Parameters
+    ----------
+    network : :class:`pypsa.Network
+        Overall container of PyPSA
+    snapshots : pandas.DatetimeIndex
+        List of timesteps considered in the optimization
+
+    Returns
+    -------
+    None.
+
+    """
+
+    buses_de = network.buses.index[network.buses.country == "DE"]
+
+    countries = network.buses.country.unique()
+
+    export_per_country = pd.DataFrame(
+        data=self.args["extra_functionality"]["cross_border_flow_per_country"]
+    ).transpose()
+
+    for cntr in export_per_country.index:
+        if cntr in countries:
+            (
+                buses_de,
+                buses_for,
+                cb0,
+                cb1,
+                cb0_link,
+                cb1_link,
+            ) = _get_crossborder_components(network, cntr)
+
+            if not network.lines.empty:
+                define_constraints(
+                    network,
+                    get_var(network, "Line", "s").loc[:, cb1].sum()
+                    - get_var(network, "Line", "s").loc[:, cb0].sum()
+                    + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    ">=",
+                    (export_per_country[0][cntr]),
+                    "Global",
+                    "min_cross_border-" + cntr,
+                )
+
+                define_constraints(
+                    network,
+                    get_var(network, "Line", "s").loc[:, cb1].sum()
+                    - get_var(network, "Line", "s").loc[:, cb0].sum()
+                    + get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    "<=",
+                    (export_per_country[1][cntr]),
+                    "Global",
+                    "max_cross_border-" + cntr,
+                )
+            else:
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    ">=",
+                    (export_per_country[0][cntr]),
+                    "Global",
+                    "min_cross_border-" + cntr,
+                )
+
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[:, cb1_link].sum()
+                    - get_var(network, "Link", "p").loc[:, cb0_link].sum(),
+                    "<=",
+                    (export_per_country[1][cntr]),
+                    "Global",
+                    "max_cross_border-" + cntr,
+                )
 
 def _generation_potential(network, carrier, cntr="all"):
     """
@@ -3603,57 +3767,59 @@ def add_chp_constraints_linopy(network, snapshots):
     electric_bool = network.links.carrier == "central_gas_CHP"
     heat_bool = network.links.carrier == "central_gas_CHP_heat"
 
-    electric = network.links.index[electric_bool]
-    heat = network.links.index[heat_bool]
+    if (network.links.carrier == "central_gas_CHP_heat").any():
+        electric = network.links.index[electric_bool]
+        heat = network.links.index[heat_bool]
 
-    network.links.loc[heat, "efficiency"] = (
-        network.links.loc[electric, "efficiency"] / c_v
-    ).values.mean()
+        network.links.loc[heat, "efficiency"] = (
+            network.links.loc[electric, "efficiency"] / c_v
+        ).values.mean()
 
-    ch4_nodes_with_chp = network.buses.loc[
-        network.links.loc[electric, "bus0"].values
-    ].index.unique()
+        ch4_nodes_with_chp = network.buses.loc[
+            network.links.loc[electric, "bus0"].values
+        ].index.unique()
 
-    for i in ch4_nodes_with_chp:
-        elec_chp = network.links[
-            (network.links.carrier == "central_gas_CHP")
-            & (network.links.bus0 == i)
-        ].index
+        for i in ch4_nodes_with_chp:
+            elec_chp = network.links[
+                (network.links.carrier == "central_gas_CHP")
+                & (network.links.bus0 == i)
+            ].index
 
-        heat_chp = network.links[
-            (network.links.carrier == "central_gas_CHP_heat")
-            & (network.links.bus0 == i)
-        ].index
+            heat_chp = network.links[
+                (network.links.carrier == "central_gas_CHP_heat")
+                & (network.links.bus0 == i)
+            ].index
 
-        for snapshot in snapshots:
-            dispatch_heat = (
-                c_m
-                * get_var(network, "Link", "p").loc[snapshot, heat_chp]
-                * network.links.loc[heat_chp, "efficiency"]
-            ).sum()
-            dispatch_elec = (
-                get_var(network, "Link", "p").loc[snapshot, elec_chp]
-                * network.links.loc[elec_chp, "efficiency"]
-            ).sum()
+            for snapshot in snapshots:
+                dispatch_heat = (
+                    c_m
+                    * get_var(network, "Link", "p").loc[snapshot, heat_chp]
+                    * network.links.loc[heat_chp, "efficiency"]
+                ).sum()
+                dispatch_elec = (
+                    get_var(network, "Link", "p").loc[snapshot, elec_chp]
+                    * network.links.loc[elec_chp, "efficiency"]
+                ).sum()
 
-            define_constraints(
-                network,
-                (dispatch_heat - dispatch_elec),
-                "<=",
-                0,
-                "Link",
-                "backpressure_" + i + "_" + str(snapshot),
-            )
+                define_constraints(
+                    network,
+                    (dispatch_heat - dispatch_elec),
+                    "<=",
+                    0,
+                    "Link",
+                    "backpressure_" + i + "_" + str(snapshot),
+                )
 
-            define_constraints(
-                network,
-                get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
-                + get_var(network, "Link", "p").loc[snapshot, elec_chp].sum(),
-                "<=",
-                network.links[
-                    (network.links.carrier == "central_gas_CHP")
-                    & (network.links.bus0 == i)
-                ].p_nom.sum(),
-                "Link",
-                "top_iso_fuel_line_" + i + "_" + str(snapshot),
-            )
+                define_constraints(
+                    network,
+                    get_var(network, "Link", "p").loc[snapshot, heat_chp].sum()
+                    + get_var(network, "Link",
+                              "p").loc[snapshot, elec_chp].sum(),
+                    "<=",
+                    network.links[
+                        (network.links.carrier == "central_gas_CHP")
+                        & (network.links.bus0 == i)
+                    ].p_nom.sum(),
+                    "Link",
+                    "top_iso_fuel_line_" + i + "_" + str(snapshot),
+                )

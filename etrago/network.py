@@ -86,7 +86,6 @@ from etrago.tools.io import (
 )
 from etrago.tools.utilities import (
     add_missing_components,
-    adjust_before_optimization,
     adjust_CH4_gen_carriers,
     buses_by_country,
     check_args,
@@ -111,6 +110,9 @@ from etrago.tools.utilities import (
     set_random_noise,
     set_trafo_costs,
     update_busmap,
+    adjust_chp_model,
+    adjust_PtH2_model,
+    levelize_abroad_inland_parameters
 )
 
 logger = logging.getLogger(__name__)
@@ -379,7 +381,12 @@ class Etrago:
 
     sclopf = iterate_sclopf
 
-    adjust_before_optimization = adjust_before_optimization
+    adjust_PtH2_model = adjust_PtH2_model
+
+    adjust_chp_model = adjust_chp_model
+    
+    levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
+
 
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
@@ -407,7 +414,9 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2_grid" in self.network.buses.carrier.unique():
+        if ("H2_grid" in self.network.buses.carrier.unique()) & (
+            "H2_grid" not in self.network.links.carrier.unique()
+        ):
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
@@ -465,6 +474,8 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
+        
+        self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
