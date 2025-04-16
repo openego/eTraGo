@@ -3217,7 +3217,7 @@ def manual_fixes_datamodel(etrago):
         etrago.network.mremove(
             "Generator",
             etrago.network.generators[
-                (etrago.network.generators.p_nom_extendable == False)
+                (etrago.network.generators.p_nom_extendable is False)
                 & (etrago.network.generators.p_nom < 10)
             ].index,
         )
