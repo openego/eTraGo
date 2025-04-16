@@ -220,16 +220,16 @@ def optimize_with_rolling_horizon(
             # Set e at the end of the horizon
             # by setting e_max_pu and e_min_pu
             n.stores_t.e_max_pu.loc[snapshots[end - 1], seasonal_stores] = (
-                pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(pre_market.stores.e_nom_opt[seasonal_stores]).clip(
-                    lower=0.0) * 1.01
+                pre_market.stores_t.e.loc[snapshots[end - 1], seasonal_stores]
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
+                .clip(lower=0.0)
+                * 1.01
             )
             n.stores_t.e_min_pu.loc[snapshots[end - 1], seasonal_stores] = (
-                pre_market.stores_t.e.loc[
-                    snapshots[end - 1], seasonal_stores
-                ].div(pre_market.stores.e_nom_opt[seasonal_stores]).clip(
-                    lower=0.0) * 0.99
+                pre_market.stores_t.e.loc[snapshots[end - 1], seasonal_stores]
+                .div(pre_market.stores.e_nom_opt[seasonal_stores])
+                .clip(lower=0.0)
+                * 0.99
             )
             n.stores_t.e_min_pu.fillna(0.0, inplace=True)
             n.stores_t.e_max_pu.fillna(1.0, inplace=True)

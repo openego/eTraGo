@@ -3214,9 +3214,13 @@ def manual_fixes_datamodel(etrago):
             etrago.network.mremove("Link", link.index)
 
         # Drop very small generators
-        etrago.network.mremove("Generator", etrago.network.generators[
-            (etrago.network.generators.p_nom_extendable == False) &
-            (etrago.network.generators.p_nom < 10)].index)
+        etrago.network.mremove(
+            "Generator",
+            etrago.network.generators[
+                (etrago.network.generators.p_nom_extendable == False)
+                & (etrago.network.generators.p_nom < 10)
+            ].index,
+        )
 
         # Set ramps to nan
         etrago.network.links.ramp_limit_up = np.nan
