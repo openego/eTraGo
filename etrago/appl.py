@@ -80,9 +80,9 @@ args = {
         "method": 2,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 7,
+        "threads": 4,
+        "BarHomogeneous": 1,
     },
-    
     "model_formulation": "kirchhoff",  # angles or kirchhoff
     "scn_name": "eGon2035_lowflex",  # scenario: eGon2035, eGon100RE or status2019
     # Scenario variations:
@@ -125,6 +125,7 @@ args = {
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 14,  # total number of resulting CH4 nodes (DE+foreign)
+        "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
         "cluster_foreign_gas": False,  # take foreign CH4 buses into account, True or False
         "k_elec_busmap": False,  # False or path/to/busmap.csv
         "k_gas_busmap": False,  # False or path/to/ch4_busmap.csv
@@ -139,7 +140,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 7,  # number of cores used during clustering, "max" for all cores available.
+        "CPU_cores": 4,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
@@ -462,7 +463,12 @@ def run_etrago(args, json_path):
             Defines total number of resulting CH4 nodes including DE and
             foreign nodes if `cluster_foreign_gas` is set to True, otherwise
             only DE nodes.
-            Default: 17.
+            Default: 14.
+        * "n_clusters_h2" : int
+            Defines total number of resulting H2 nodes including DE and
+            foreign nodes if `cluster_foreign_gas` is set to True, otherwise
+            only DE nodes.
+            Default: 14.
         * "cluster_foreign_gas" : bool
             If set to False, the gas buses outside Germany are not clustered
             and the buses inside Germany are clustered to complete

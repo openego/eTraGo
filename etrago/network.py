@@ -36,6 +36,7 @@ from etrago import __version__
 from etrago.analyze.calc_results import (
     ac_export,
     ac_export_per_country,
+    calc_atlas_results,
     calc_etrago_results,
     dc_export,
     dc_export_per_country,
@@ -87,6 +88,8 @@ from etrago.tools.io import (
 from etrago.tools.utilities import (
     add_missing_components,
     adjust_CH4_gen_carriers,
+    adjust_chp_model,
+    adjust_PtH2_model,
     buses_by_country,
     check_args,
     convert_capital_costs,
@@ -100,6 +103,7 @@ from etrago.tools.utilities import (
     geolocation_buses,
     get_args_setting,
     get_clustering_data,
+    levelize_abroad_inland_parameters,
     load_shedding,
     manual_fixes_datamodel,
     set_branch_capacity,
@@ -302,6 +306,8 @@ class Etrago:
 
     calc_results = calc_etrago_results
 
+    calc_atlas_results = calc_atlas_results
+
     calc_ac_export = ac_export
 
     calc_ac_export_per_country = ac_export_per_country
@@ -372,6 +378,12 @@ class Etrago:
 
     sclopf = iterate_sclopf
 
+    adjust_PtH2_model = adjust_PtH2_model
+
+    adjust_chp_model = adjust_chp_model
+
+    levelize_abroad_inland_parameters = levelize_abroad_inland_parameters
+
     def dc_lines(self):
         return self.filter_links_by_carrier("DC", like=False)
 
@@ -398,7 +410,9 @@ class Etrago:
 
         self.decommissioning()
 
-        if "H2_grid" in self.network.buses.carrier.unique():
+        if ("H2_grid" in self.network.buses.carrier.unique()) & (
+            "H2_grid" not in self.network.links.carrier.unique()
+        ):
             self.add_ch4_h2_correspondence()
 
         logger.info("Imported network from db")
@@ -456,6 +470,8 @@ class Etrago:
         self.delete_irrelevant_oneports()
 
         set_control_strategies(self.network)
+
+        self.levelize_abroad_inland_parameters()
 
     def _ts_weighted(self, timeseries):
         return timeseries.mul(self.network.snapshot_weightings, axis=0)
