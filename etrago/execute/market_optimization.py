@@ -258,7 +258,7 @@ def build_market_model(self):
     None.
 
     """
-     
+    
     import geopandas as gpd
     import requests
     import os
@@ -332,7 +332,7 @@ def build_market_model(self):
                     print(f"downloading failed for {filetype}: {response.status_code}")
                     
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        # Load shapefile for two zones (Zone_1, Zone_2)
         zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_2_DE2.shp").to_crs(epsg=4326)
         
 
@@ -408,7 +408,7 @@ def build_market_model(self):
                     print(f"downloading failed for {filetype}: {response.status_code}")
                     
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        # Load shapefile for three zones (Zone_1, Zone_2, Zone_3)
         zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_12_DE3.shp").to_crs(epsg=4326)
         
        
@@ -478,7 +478,7 @@ def build_market_model(self):
                     print(f"downloading failed for {filetype}: {response.status_code}")
                     
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3)
+        # Load shapefile for four zones (Zone_1, Zone_2, Zone_3, Zone_4)
         zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_13_DE4.shp").to_crs(epsg=4326)
        
 
@@ -518,7 +518,7 @@ def build_market_model(self):
             net.buses.cluster.astype(int).astype(str), net.buses.index
         )
         medoid_idx = pd.Series(dtype=str)
-        
+        import pdb; pdb.set_trace() 
         
         
     elif (
@@ -551,7 +551,7 @@ def build_market_model(self):
                     print(f"downloading failed for {filetype}: {response.status_code}")
                     
         
-        # Load shapefile for all three zones (Zone_1, Zone_2, Zone_3, Zone_4, Zone_5)
+        # Load shapefile for five zones (Zone_1, Zone_2, Zone_3, Zone_4, Zone_5)
         zones = gpd.read_file("/home/student/Market_Splitting/eTraGo/etrago/data/shapes_biddingzones/BZR_config_14_DE5.shp").to_crs(epsg=4326)
         
 
@@ -594,11 +594,13 @@ def build_market_model(self):
         )
         medoid_idx = pd.Series(dtype=str)
         
+        import pdb; pdb.set_trace()
+        
     else:
         logger.warning(
             f"""
             Market zone setting {self.args['method']['market_zones']}
-            is not available. Please use one of ['status_quo']."""
+            is not available. Please use one of ['status_quo', 'DE2', 'DE3', 'DE4', 'DE5']."""
         )
 
     logger.info("Start market zone specifc clustering")
@@ -708,6 +710,8 @@ def build_market_model(self):
     # Set country tags for market model
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
+    import pdb; pdb.set_trace()
+    
 
 
 def build_shortterm_market_model(self):

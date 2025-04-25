@@ -80,7 +80,7 @@ args = {
         "method": 2,
         "crossover": 0,
         "logFile": "solver_etrago.log",
-        "threads": 7,
+        "threads": 5,
     },
     
     "model_formulation": "kirchhoff",  # angles or kirchhoff
@@ -139,7 +139,7 @@ args = {
         "n_init": 10,  # affects clustering algorithm, only change when neccesary
         "max_iter": 100,  # affects clustering algorithm, only change when neccesary
         "tol": 1e-6,  # affects clustering algorithm, only change when neccesary
-        "CPU_cores": 7,  # number of cores used during clustering, "max" for all cores available.
+        "CPU_cores": 5,  # number of cores used during clustering, "max" for all cores available.
     },
     "sector_coupled_clustering": {
         "active": True,  # choose if clustering is activated
