@@ -707,6 +707,13 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
+    # sensitivity test
+    # change capital_cost of Electrolyser
+    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] *= 2
+
+    import pdb
+    pdb.set_trace()
+
     # ehv network clustering
     etrago.ehv_clustering()
 

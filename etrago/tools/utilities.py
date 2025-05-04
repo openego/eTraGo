@@ -2827,7 +2827,7 @@ def adjust_CH4_gen_carriers(self):
 
     if "eGon2035" in self.args["scn_name"]:
         # Define marginal cost
-        marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}
+        marginal_cost_def = {"CH4": 40.9765, "biogas": 25.6}  # Standard_ CH4 = 40.9765
 
         engine = db.connection(section=self.args["db"])
         try:
