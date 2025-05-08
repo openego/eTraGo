@@ -391,7 +391,7 @@ def gas_postprocessing(etrago, busmap, medoid_idx=None, apply_on="grid_model"):
     else:
         network = etrago.pre_market_model
 
-    if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035"]):
+    if ("H2_grid" in network.buses.carrier.unique()) & (scn in ["eGon2035", "eGon2035_lowflex"]):
         busmap = get_h2_clusters(etrago, busmap)
 
     # Add all other buses to busmap
