@@ -1989,7 +1989,7 @@ def add_ch4_constraints_linopy(self, network, snapshots):
             generation = (
                 get_var(network, "Generator", "p").loc[snapshots, gens]
                 * network.snapshot_weightings.generators
-            )
+            ).sum()
             define_constraints(
                 network,
                 generation,
@@ -2015,7 +2015,7 @@ def add_ch4_constraints_linopy(self, network, snapshots):
         generation = (
             get_var(network, "Generator", "p").loc[snapshots, g]
             * network.snapshot_weightings.generators
-        )
+        ).sum()
         define_constraints(
             network,
             generation,
