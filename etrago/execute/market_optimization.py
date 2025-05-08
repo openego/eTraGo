@@ -293,6 +293,8 @@ def optimize_with_rolling_horizon(
             sns,
             solver_name=solver_name,
             extra_functionality=extra_functionality,
+            assign_all_duals=True,
+            linearized_unit_commitment=True,
         )
 
         if status != "ok":
@@ -748,6 +750,8 @@ def build_market_model(self, unit_commitment=False):
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
 
+    self.market_model = self.pre_market_model.copy()
+
     self.pre_market_model.links, self.pre_market_model.links_t = group_links(
         self.pre_market_model,
         carriers=[
@@ -782,22 +786,21 @@ def build_market_model(self, unit_commitment=False):
 
 
 def build_shortterm_market_model(self, unit_commitment=False):
-    m = self.pre_market_model.copy()
 
-    m.storage_units.p_nom_extendable = False
-    m.stores.e_nom_extendable = False
-    m.links.p_nom_extendable = False
-    m.lines.s_nom_extendable = False
-
-    m.storage_units.p_nom = m.storage_units.p_nom_opt.clip(lower=0)
-    m.stores.e_nom = m.stores.e_nom_opt.clip(lower=0)
-    m.links.p_nom = m.links.p_nom_opt.clip(lower=0)
-    m.lines.s_nom = m.lines.s_nom_opt.clip(lower=0)
-
-    m.stores.e_cyclic = False
-    m.storage_units.cyclic_state_of_charge = False
-
-    self.market_model = m
+    self.market_model.storage_units.loc[
+        self.market_model.storage_units.p_nom_extendable, "p_nom"
+    ] = self.pre_market_model.storage_units.loc[
+        self.pre_market_model.storage_units.p_nom_extendable, "p_nom_opt"
+    ].clip(
+        lower=0
+    )
+    self.market_model.stores.loc[
+        self.market_model.stores.e_nom_extendable, "e_nom"
+    ] = self.pre_market_model.stores.loc[
+        self.pre_market_model.stores.e_nom_extendable, "e_nom_opt"
+    ].clip(
+        lower=0
+    )
 
     # Fix oder of bus0 and bus1 of DC links
     dc_links = self.market_model.links[self.market_model.links.carrier == "DC"]
