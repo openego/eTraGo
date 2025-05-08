@@ -964,6 +964,10 @@ def gas_clustering_market_model(self):
         preprocessing as gas_preprocessing,
     )
 
+    if self.network.links[self.network.links.carrier=="H2_grid"].empty:
+        logger.warning("H2 grid not clustered for market in this scenario")
+        return
+
     ch4_network, weight_ch4, n_clusters_ch4 = gas_preprocessing(
         self, "CH4", apply_on="market_model"
     )
