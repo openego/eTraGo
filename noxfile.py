@@ -79,9 +79,9 @@ def build(session):
         session.skip("Skipping tests for Python 3.9 on macOS")
 
     setdefaults(session)
-    session.install("twine")
-    session.run("python", "setup.py", "bdist", "bdist_wheel")
-    session.run("twine", "check", "dist/eTraGo*")
+    session.install("build", "twine")
+    session.run("python", "-m", "build")
+    session.run("twine", "check", "dist/*")
 
 
 @nox.session(python=["3", "3.9", "3.10", "3.11"])

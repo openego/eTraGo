@@ -113,10 +113,7 @@ def strategies_buses():
 
 
 def strategies_lines():
-    return {
-        "geom": nan_links,
-        "country": "first"
-    }
+    return {"geom": nan_links, "country": "first"}
 
 
 def strategies_one_ports():
@@ -130,7 +127,7 @@ def strategies_one_ports():
             "p_min_pu": "min",
             "p_nom_extendable": ext_storage,
             "p_nom_max": sum_with_inf,
-            "scn_name": "first"
+            "scn_name": "first",
         },
         "Store": {
             "marginal_cost": "mean",
@@ -177,8 +174,8 @@ def strategies_links():
         "efficiency": "mean",
         "p_nom_min": "sum",
         "p_set": "mean",
-        "p_min_pu": "min",
-        "p_max_pu": "max",
+        "p_min_pu": "mean",
+        "p_max_pu": "mean",
         "marginal_cost": "mean",
         "terrain_factor": _make_consense_links,
         "p_nom_opt": "mean",
