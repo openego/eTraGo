@@ -218,7 +218,6 @@ def run_lopf(etrago, extra_functionality, method):
                 solver_name=etrago.args["solver"],
                 solver_options=etrago.args["solver_options"],
                 extra_functionality=extra_functionality,
-                formulation=etrago.args["model_formulation"],
             )
             if status != "ok":
                 logger.warning(
