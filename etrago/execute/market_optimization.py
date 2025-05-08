@@ -287,6 +287,8 @@ def optimize_with_rolling_horizon(
             sns,
             solver_name=solver_name,
             extra_functionality=extra_functionality,
+            assign_all_duals=True,
+            linearized_unit_commitment=True,
         )
 
         if status != "ok":
@@ -443,6 +445,8 @@ def build_market_model(self, unit_commitment=False):
     self.buses_by_country(apply_on="pre_market_model")
     self.geolocation_buses(apply_on="pre_market_model")
 
+    self.market_model = self.pre_market_model.copy()
+
     self.pre_market_model.links, self.pre_market_model.links_t = group_links(
         self.pre_market_model,
         carriers=[
@@ -477,95 +481,71 @@ def build_market_model(self, unit_commitment=False):
 
 
 def build_shortterm_market_model(self, unit_commitment=False):
-    m = self.pre_market_model.copy()
 
-    m.storage_units.p_nom_extendable = False
-    m.stores.e_nom_extendable = False
-    m.links.p_nom_extendable = False
-    m.lines.s_nom_extendable = False
-
-    m.storage_units.p_nom = m.storage_units.p_nom_opt.clip(lower=0)
-    m.stores.e_nom = m.stores.e_nom_opt.clip(lower=0)
-    m.links.p_nom = m.links.p_nom_opt.clip(lower=0)
-    m.lines.s_nom = m.lines.s_nom_opt.clip(lower=0)
-
-    m.stores.e_cyclic = False
-    m.storage_units.cyclic_state_of_charge = False
-
-    self.market_model = m
+    self.market_model.storage_units.loc[
+        self.market_model.storage_units.p_nom_extendable, "p_nom"
+        ] = self.pre_market_model.storage_units.loc[
+            self.pre_market_model.storage_units.p_nom_extendable, "p_nom_opt"
+            ].clip(lower=0)
+    self.market_model.stores.loc[
+        self.market_model.stores.e_nom_extendable, "e_nom"
+        ] = self.pre_market_model.stores.loc[
+            self.pre_market_model.stores.e_nom_extendable, "e_nom_opt"
+            ].clip(lower=0)
 
     # Fix oder of bus0 and bus1 of DC links
-    dc_links = self.market_model.links[self.market_model.links.carrier == "DC"]
-    bus0 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus1
-    bus1 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus0
+    dc_links = self.market_model.links[self.market_model.links.carrier=="DC"]
+    bus0 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus0
     self.market_model.links.loc[bus0.index, "bus0"] = bus0.values
     self.market_model.links.loc[bus1.index, "bus1"] = bus1.values
 
-    dc_links = self.pre_market_model.links[
-        self.pre_market_model.links.carrier == "DC"
-    ]
-    bus0 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus1
-    bus1 = dc_links[dc_links.bus0.astype(int) < dc_links.bus1.astype(int)].bus0
+    dc_links = self.pre_market_model.links[self.pre_market_model.links.carrier=="DC"]
+    bus0 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus1
+    bus1 = dc_links[dc_links.bus0.astype(int)<dc_links.bus1.astype(int)].bus0
     self.pre_market_model.links.loc[bus0.index, "bus0"] = bus0.values
     self.pre_market_model.links.loc[bus1.index, "bus1"] = bus1.values
 
-    grouped_links = (
-        self.market_model.links.loc[self.market_model.links.p_nom_extendable]
-        .groupby(["carrier", "bus0", "bus1"])
-        .p_nom.sum()
-        .reset_index()
-    )
+    grouped_links = self.market_model.links.loc[self.market_model.links.p_nom_extendable].groupby(
+            ["carrier", "bus0", "bus1"]).p_nom.sum().reset_index()
     for link in grouped_links.index:
         print(link)
-        bus0 = grouped_links.loc[link, "bus0"]
+        bus0 =  grouped_links.loc[link, "bus0"]
         bus1 = grouped_links.loc[link, "bus1"]
         carrier = grouped_links.loc[link, "carrier"]
 
         self.market_model.links.loc[
             (self.market_model.links.bus0 == bus0)
-            & (self.market_model.links.bus1 == bus1)
-            & (self.market_model.links.carrier == carrier),
-            "p_nom",
-        ] = (
-            self.pre_market_model.links.loc[
+            &(self.market_model.links.bus1 == bus1)
+            &(self.market_model.links.carrier == carrier),
+            "p_nom"
+            ] = self.pre_market_model.links.loc[
                 (self.pre_market_model.links.bus0 == bus0)
-                & (self.pre_market_model.links.bus1 == bus1)
-                & (self.pre_market_model.links.carrier == carrier),
-                "p_nom_opt",
-            ]
-            .clip(lower=0)
-            .values
-        )
+                &(self.pre_market_model.links.bus1 == bus1)
+                &(self.pre_market_model.links.carrier == carrier),
+                "p_nom_opt"
+                ].clip(lower=0).values
 
     self.market_model.lines.loc[
         self.market_model.lines.s_nom_extendable, "s_nom"
-    ] = self.pre_market_model.lines.loc[
-        self.pre_market_model.lines.s_nom_extendable, "s_nom_opt"
-    ].clip(
-        lower=0
-    )
+        ] = self.pre_market_model.lines.loc[
+            self.pre_market_model.lines.s_nom_extendable, "s_nom_opt"
+            ].clip(lower=0)
 
     self.market_model.storage_units.p_nom_extendable = False
     self.market_model.stores.e_nom_extendable = False
     self.market_model.links.p_nom_extendable = False
     self.market_model.lines.s_nom_extendable = False
 
-    self.market_model.mremove(
-        "Store",
-        self.market_model.stores[self.market_model.stores.e_nom == 0].index,
-    )
+    self.market_model.mremove("Store", self.market_model.stores[self.market_model.stores.e_nom==0].index)
     self.market_model.stores.e_cyclic = False
     self.market_model.storage_units.cyclic_state_of_charge = False
 
     if unit_commitment:
         set_unit_commitment(self, apply_on="market_model")
 
-    self.market_model.links.loc[
-        self.market_model.links.carrier.isin(
-            ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]
-        ),
-        "p_min_pu",
-    ] = -1.0
+    self.market_model.links.loc[self.market_model.links.carrier.isin(
+        ["CH4", "DC", "AC", "H2_grid", "H2_saltcavern"]), "p_min_pu"] = -1.0
 
     # Set country tags for market model
     self.buses_by_country(apply_on="market_model")
