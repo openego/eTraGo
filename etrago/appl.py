@@ -75,8 +75,8 @@ args = {
     "end_snapshot": 8760,
     "solver": "gurobi",  # glpk, cplex or gurobi
     "solver_options": {
-        "BarConvTol": 1.0e-5,
-        "FeasibilityTol": 1.0e-5,
+        "BarConvTol": 1.0e-9,
+        "FeasibilityTol": 1.0e-9,
         "method": 2,
         "crossover": 1,
         "logFile": "solver_etrago.log",
@@ -124,7 +124,7 @@ args = {
         "method": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_AC": 30,  # total number of resulting AC nodes (DE+foreign-interest_area)
         "cluster_foreign_AC": False,  # take foreign AC buses into account, True or False
-        "n_cluster_interest_area": False, # False or number of buses.
+        "n_cluster_interest_area": 1, # False or number of buses.
         "method_gas": "kmedoids-dijkstra",  # choose clustering method: kmeans or kmedoids-dijkstra
         "n_clusters_gas": 15,  # total number of resulting CH4 nodes (DE+foreign)
         "n_clusters_h2": 15,  # total number of resulting H2 nodes (DE+foreign)
@@ -707,12 +707,18 @@ def run_etrago(args, json_path):
     # adjust network regarding eTraGo setting
     etrago.adjust_network()
 
+    #import pdb
+    #pdb.set_trace()
+
+    # set interest components to extendable
+
+
     # sensitivity test
     # change capital_cost of Electrolyser
-    etrago.network.links.loc[etrago.network.links.carrier == "power_to_H2", "capital_cost"] *= 2
+    # etrago.network.links.loc[etrago.network.links.carrier == "CH4_to_H2", "capital_cost"] *= 2
 
-    import pdb
-    pdb.set_trace()
+    # change capital_cost of Battery
+    #etrago.network.storage_units.loc[etrago.network.storage_units.carrier == "battery", "capital_cost"] *= 0.5
 
     # ehv network clustering
     etrago.ehv_clustering()
@@ -726,6 +732,8 @@ def run_etrago(args, json_path):
 
     # skip snapshots
     etrago.skip_snapshots()
+
+    print(datetime.datetime.now())
 
     for comp in etrago.network.iterate_components():
         for key in comp.pnl:

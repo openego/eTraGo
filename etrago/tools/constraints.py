@@ -182,7 +182,6 @@ def _max_line_ext_nmp(self, network, snapshots):
         )
 
         links_opt = sum(m.link_p_nom[index] for index in links_index)
-
         return (lines_opt + links_opt) <= (
             lines_snom + links_pnom
         ) * self.args["extra_functionality"]["max_line_ext"]
